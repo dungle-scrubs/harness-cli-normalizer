@@ -31,6 +31,7 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     flag: "resume",
     aliases: [],
     idShape: UUID_SHAPE,
+    extraFlags: ["--json"],
   },
   sessionMode: null,
   output: {

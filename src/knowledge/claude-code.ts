@@ -28,6 +28,7 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     flag: "--resume",
     aliases: ["-r"],
     idShape: UUID_SHAPE,
+    extraFlags: ["-p"],
   },
   sessionMode: {
     // A-001: one process, many turns; `result` delimits turns; mid-turn sends

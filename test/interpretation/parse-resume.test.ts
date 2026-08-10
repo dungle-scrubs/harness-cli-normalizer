@@ -56,6 +56,7 @@ describe("parseResumeCommand (claude)", () => {
         flag: "resume",
         aliases: [],
         idShape: /^[a-z0-9-]{8,}$/,
+        extraFlags: [],
       },
     };
     expect(parseResumeCommand([museShaped], "muse resume abcd1234-session")).toMatchObject({

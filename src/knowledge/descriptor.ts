@@ -69,6 +69,10 @@ export interface HarnessDescriptor {
     readonly flag: string;
     readonly aliases: readonly string[];
     readonly idShape: RegExp;
+    /** Flags valid in the RESUME grammar - resume argv never inherits
+     * launch flags, because subcommand grammars differ (codex exec resume
+     * rejects --sandbox). */
+    readonly extraFlags: readonly string[];
     /** A parse-only positional spelling (muse's interactive `muse resume
      * <id>`) recognized when pasted, but never built - the builder uses
      * `style`/`flag`. */

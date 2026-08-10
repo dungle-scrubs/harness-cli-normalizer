@@ -41,14 +41,26 @@ const idTokenOf = (h: HarnessDescriptor, words: readonly string[]): string | nul
   if (h.resume.positionalParseWord !== undefined) {
     positionalWords.push(h.resume.positionalParseWord);
   }
-  for (const word of positionalWords) {
-    // Any bare occurrence of the resume word whose successor is id-shaped:
-    // root options may sit on either side of a subcommand, so position is
-    // not the anchor - the bare word plus the id shape is.
-    const at = words.indexOf(word, 1);
-    if (at !== -1) {
-      const candidate = words[at + 1];
-      if (candidate !== undefined && h.resume.idShape.test(candidate)) return candidate;
+  if (positionalWords.length > 0) {
+    // Walk consuming `--flag value` pairs so an option VALUE spelled
+    // "resume" (muse exec --workspace resume <uuid>) is never mistaken for
+    // the resume word. Root options may sit on either side of a subcommand,
+    // so position alone is not the anchor - a bare, unconsumed resume word
+    // followed by an id-shaped token is. Conservative direction: a boolean
+    // flag directly before the resume word reads as a pair and yields null
+    // (display-only false negative), never a stranger's session.
+    for (let i = 1; i < words.length; i++) {
+      const word = words[i];
+      if (word === undefined) break;
+      if (word.startsWith("-")) {
+        const next = words[i + 1];
+        if (!word.includes("=") && next !== undefined && !next.startsWith("-")) i++;
+        continue;
+      }
+      if (positionalWords.includes(word)) {
+        const candidate = words[i + 1];
+        if (candidate !== undefined && h.resume.idShape.test(candidate)) return candidate;
+      }
     }
   }
   if (h.resume.style === "flag" || h.resume.positionalParseWord === undefined) {

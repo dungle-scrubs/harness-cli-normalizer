@@ -111,7 +111,20 @@ const mergeValue = (
     }
     if (!Array.isArray(override)) refuse(`${at} must be an array`);
     const element = base[0];
-    if (element !== undefined && override.some((v) => typeof v !== typeof element)) {
+    if (element === undefined) {
+      // Every empty-default array in the descriptor is a string list.
+      if (override.some((v) => typeof v !== "string")) {
+        refuse(`${at} must be an array of strings`);
+      }
+      return override;
+    }
+    if (isPlain(element)) {
+      // Object elements (output.pins) validate recursively against the
+      // default element's shape - null or wrong-shaped entries must refuse
+      // here, not crash a consumer later.
+      return override.map((v, i) => mergeValue(element, v, [...keyPath, String(i)], refuse));
+    }
+    if (override.some((v) => typeof v !== typeof element || v === null)) {
       refuse(`${at} must be an array of ${typeof element}s`);
     }
     return override;

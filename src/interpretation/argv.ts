@@ -81,17 +81,17 @@ export const buildLaunchArgv = (h: HarnessDescriptor, opts: LaunchOptions): stri
 
 export const buildResumeArgv = (h: HarnessDescriptor, opts: ResumeOptions): string[] => {
   assertUsableSessionId(opts.sessionId);
-  // Subcommands lead, then the resume token and id, then the remaining base
-  // flags - one shape serves both styles: `claude --resume <id> -p <prompt>`,
-  // `codex exec resume <id> --json ... <prompt>` (verified grammar), and
-  // `muse exec --session-id <id> <prompt>` (v1's proven form).
-  const flags = h.launch.baseFlags.filter((f) => !h.launch.subcommands.includes(f));
+  // Subcommands lead, then the resume token and id, then the flags the
+  // RESUME grammar accepts (never inherited launch flags - codex exec
+  // resume rejects --sandbox). One shape serves both styles:
+  // `claude --resume <id> -p <prompt>`, `codex exec resume <id> --json
+  // <prompt>`, `muse exec --session-id <id> <prompt>`.
   return [
     h.bin,
     ...h.launch.subcommands,
     h.resume.flag,
     opts.sessionId,
-    ...flags,
+    ...h.resume.extraFlags,
     ...turnTail(h, opts),
   ];
 };
