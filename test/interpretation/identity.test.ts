@@ -5,10 +5,12 @@ import { decodeIdentity } from "../../src/interpretation/identity.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 
 const fixtureLines = (): unknown[] =>
-  readFileSync(join(__dirname, "../fixtures/a001-raw.ndjson"), "utf8")
+  readFileSync(join(import.meta.dirname, "../fixtures/a001-raw.ndjson"), "utf8")
     .split("\n")
-    .filter((l) => l.trim() !== "")
-    .map((l) => JSON.parse(l) as unknown);
+    .filter((l: string) => l.trim() !== "")
+    .map((l: string) => JSON.parse(l) as unknown);
+
+const init = (id: string) => ({ type: "system", subtype: "init", session_id: id });
 
 describe("decodeIdentity (claude, A-001 fixture)", () => {
   test("emits identity exactly once across a 3-turn session that re-emits init per turn (D-022)", () => {
@@ -28,24 +30,28 @@ describe("decodeIdentity (claude, A-001 fixture)", () => {
     expect(identities).toEqual(["eb04301d-8756-4a8b-ae3e-aac0e71f7265"]);
   });
 
-  test("emits identity again when the announced id actually changes", () => {
-    const first = decodeIdentity(
-      claudeCode,
-      { type: "system", subtype: "init", session_id: "a" },
-      null,
+  test("classifies duplicate re-announcements as turn-start metadata, not news", () => {
+    expect(decodeIdentity(claudeCode, init("a1"), null)).toMatchObject({
+      identity: "a1",
+      outcome: "announced",
+    });
+    expect(decodeIdentity(claudeCode, init("a1"), "a1")).toMatchObject({
+      identity: null,
+      outcome: "duplicate",
+    });
+  });
+
+  test("a changed id under caller-assigned authority is a rotation anomaly, never silently bound", () => {
+    const rotated = decodeIdentity(claudeCode, init("b2"), "a1", "a1");
+    expect(rotated.outcome).toBe("rotated");
+    expect(rotated.identity).toBeNull();
+    expect(rotated.sessionId).toBe("b2");
+  });
+
+  test("an announced id failing the shape rule is not believed (least-trusted input)", () => {
+    expect(decodeIdentity(claudeCode, init("--dangerously-skip-permissions"), null).outcome).toBe(
+      "malformed",
     );
-    expect(first.identity).toBe("a");
-    const dup = decodeIdentity(
-      claudeCode,
-      { type: "system", subtype: "init", session_id: "a" },
-      "a",
-    );
-    expect(dup.identity).toBeNull();
-    const changed = decodeIdentity(
-      claudeCode,
-      { type: "system", subtype: "init", session_id: "b" },
-      "a",
-    );
-    expect(changed.identity).toBe("b");
+    expect(decodeIdentity(claudeCode, init("../../../etc/passwd"), null).outcome).toBe("malformed");
   });
 });

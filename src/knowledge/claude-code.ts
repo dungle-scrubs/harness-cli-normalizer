@@ -5,6 +5,8 @@
  */
 import type { HarnessDescriptor } from "./descriptor.js";
 
+const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export const claudeCode: HarnessDescriptor = {
   name: "claude",
   bin: "claude",
@@ -12,6 +14,10 @@ export const claudeCode: HarnessDescriptor = {
     baseFlags: ["-p"],
     promptStyle: "positional",
     toolsFlag: "--allowedTools",
+    // A headless turn launches with the full stream-json output set so the
+    // runner can decode identity/limits and stream token deltas; bare -p
+    // (granularity none) is a degraded invocation this builder never emits.
+    streamFlags: ["--output-format", "stream-json", "--verbose", "--include-partial-messages"],
   },
   resume: {
     // A-005: claude resumes are id-stable - the caller-assigned id survives
@@ -19,6 +25,8 @@ export const claudeCode: HarnessDescriptor = {
     // explicit --fork-session flag (deliberate branching, never a default).
     style: "flag",
     flag: "--resume",
+    aliases: ["-r"],
+    idShape: UUID_SHAPE,
   },
   sessionMode: {
     // A-001: one process, many turns; `result` delimits turns; mid-turn sends
@@ -37,12 +45,21 @@ export const claudeCode: HarnessDescriptor = {
     idFlag: "--session-id",
   },
   output: {
-    tokenFlagSet: ["--output-format", "stream-json", "--verbose", "--include-partial-messages"],
+    // --output-format/--include-partial-messages only work with --print, so
+    // -p is part of the pin, not an accident of the builders.
+    tokenFlagSet: [
+      "-p",
+      "--output-format",
+      "stream-json",
+      "--verbose",
+      "--include-partial-messages",
+    ],
     fallback: "none",
+    flagAliases: { "--print": "-p" },
   },
   identity: {
     authority: "caller-assigned",
-    announce: { type: "system", subtype: "init", idField: "session_id" },
+    announce: { match: { type: "system", subtype: "init" }, idField: "session_id" },
   },
   limitMatchers: [
     // Observed phrasings from the live CLI (ported from lucid v1's limits.ts):
@@ -52,6 +69,15 @@ export const claudeCode: HarnessDescriptor = {
     [/you'?ve hit your weekly limit/i, "weekly-limit"],
     [/you'?ve hit your usage limit/i, "usage-limit"],
     [/usage limit (?:reached|exceeded)/i, "usage-limit"],
+  ],
+  authMatchers: [
+    // Ported from lucid v1: a detached process cannot read Keychain creds,
+    // and misreading that as "not logged in" sends the human to redo a login
+    // that was never broken.
+    [/oauth session expired|could not be refreshed/i, "expired"],
+    [/failed to authenticate/i, "expired"],
+    [/not logged in|please run \/login/i, "not-logged-in"],
+    [/invalid api key/i, "invalid-key"],
   ],
   autonomy: { flag: "--dangerously-skip-permissions" },
   vocabulary: {
@@ -64,15 +90,19 @@ export const claudeCode: HarnessDescriptor = {
       haiku: "claude-haiku-4-5-20251001",
     },
     efforts: ["low", "medium", "high", "xhigh", "max"],
+    // Effort is an in-session command for claude, not a launch flag.
+    effortFlag: null,
   },
   store: {
-    // Verified against the A-001 fixture's memory_paths slug:
-    // /Users/kevin/dev/lucid-v2/spikes -> -Users-kevin-dev-lucid-v2-spikes
+    // Verified against the A-001 fixture's memory_paths slug and real
+    // ~/.claude/projects entries: '/', '.' -> '-'; '_' preserved.
     template: "{home}/.claude/projects/{cwdSlug}/{sessionId}.jsonl",
     cwdSlug: "dash-separators",
   },
   contextHook: {
-    // claude statusline payload: { context_window: { used_percentage } }
+    // claude statusline payload: { context_window: { used_percentage } }.
+    // This arrives on the statusline channel, never on stream-json stdout -
+    // route accordingly, do not call per stdout line.
     object: "context_window",
     usedPctField: "used_percentage",
   },

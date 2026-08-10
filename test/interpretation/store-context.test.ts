@@ -32,3 +32,34 @@ describe("contextEventFrom (claude)", () => {
     expect(contextEventFrom(claudeCode, "not json shaped")).toBeNull();
   });
 });
+
+describe("storePath hardening", () => {
+  test("a traversal-shaped session id never becomes a path segment", () => {
+    expect(() =>
+      storePath(claudeCode, { home: "/H", cwd: "/a/b", sessionId: "../../../etc/passwd" }),
+    ).toThrow(/session id/i);
+  });
+
+  test("dots and trailing slashes in cwd slug correctly (real ~/.claude/projects shapes)", () => {
+    expect(
+      storePath(claudeCode, { home: "/H", cwd: "/Users/kevin/.cache/x/", sessionId: "id-1" }),
+    ).toBe("/H/.claude/projects/-Users-kevin--cache-x/id-1.jsonl");
+  });
+});
+
+describe("contextEventFrom sanitation", () => {
+  test("non-finite gauges are rejected, out-of-range gauges are clamped", () => {
+    expect(contextEventFrom(claudeCode, { context_window: { used_percentage: NaN } })).toBeNull();
+    expect(
+      contextEventFrom(claudeCode, { context_window: { used_percentage: Infinity } }),
+    ).toBeNull();
+    expect(contextEventFrom(claudeCode, { context_window: { used_percentage: 999 } })).toEqual({
+      kind: "context",
+      usedPct: 100,
+    });
+    expect(contextEventFrom(claudeCode, { context_window: { used_percentage: -5 } })).toEqual({
+      kind: "context",
+      usedPct: 0,
+    });
+  });
+});

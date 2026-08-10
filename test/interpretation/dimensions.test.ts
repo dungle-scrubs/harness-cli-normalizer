@@ -64,3 +64,17 @@ describe("stdin close-required policy (pi-shaped descriptors)", () => {
     expect(stdinPolicyOf(piShaped)).toBe("close-required");
   });
 });
+
+describe("presence hardening (review regressions)", () => {
+  const sid = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
+
+  test("ps reports resolved paths - basename matching still sees presence", () => {
+    expect(
+      isInteractive(claudeCode, sid, [{ argv: `/Users/kevin/.local/bin/claude --resume ${sid}` }]),
+    ).toBe(true);
+  });
+
+  test("an id-shaped word in prompt text is not presence - the id must follow an id-bearing flag", () => {
+    expect(isInteractive(claudeCode, sid, [{ argv: `claude --model opus ${sid}` }])).toBe(false);
+  });
+});
