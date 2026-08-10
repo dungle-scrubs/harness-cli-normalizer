@@ -62,13 +62,13 @@ const enumAt = (keyPath: readonly string[]): readonly string[] | null => {
     case "stdin":
       return ["inherit", "close-required"];
     case "store.cwdSlug":
-      return ["dash-separators", "verbatim"];
+      return ["dash-separators", "pi-dash-wrapped", "verbatim"];
     case "resume.style":
       return ["flag", "positional"];
     case "identity.authority":
       return ["caller-assigned", "harness-minted"];
-    case "output.fallback":
-      return ["message", "none"];
+    case "output.floor":
+      return ["token", "message", "none"];
     case "launch.promptStyle":
       return ["positional"];
     default:

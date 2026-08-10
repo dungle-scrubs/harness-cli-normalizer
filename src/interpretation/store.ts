@@ -20,6 +20,10 @@ const slugFor = (h: HarnessDescriptor, cwd: string): string => {
   switch (h.store.cwdSlug) {
     case "dash-separators":
       return normalized.replace(/[/.]/g, "-");
+    case "pi-dash-wrapped":
+      // pi 0.84.1: '/' -> '-', dots preserved, wrapped in dashes:
+      // /Users/kevin/dev/x -> --Users-kevin-dev-x--
+      return `-${normalized.replace(/\//g, "-")}-`;
     case "verbatim":
       return normalized;
     default: {

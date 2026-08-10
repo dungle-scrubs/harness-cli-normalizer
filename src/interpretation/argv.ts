@@ -81,9 +81,19 @@ export const buildLaunchArgv = (h: HarnessDescriptor, opts: LaunchOptions): stri
 
 export const buildResumeArgv = (h: HarnessDescriptor, opts: ResumeOptions): string[] => {
   assertUsableSessionId(opts.sessionId);
-  // Both styles reduce to `<token> <id>`: a flag (`--resume <id>`) or a
-  // subcommand word (`resume <id>`); the style field documents which.
-  return [h.bin, h.resume.flag, opts.sessionId, ...h.launch.baseFlags, ...turnTail(h, opts)];
+  // Subcommands lead, then the resume token and id, then the remaining base
+  // flags - one shape serves both styles: `claude --resume <id> -p <prompt>`,
+  // `codex exec resume <id> --json ... <prompt>` (verified grammar), and
+  // `muse exec --session-id <id> <prompt>` (v1's proven form).
+  const flags = h.launch.baseFlags.filter((f) => !h.launch.subcommands.includes(f));
+  return [
+    h.bin,
+    ...h.launch.subcommands,
+    h.resume.flag,
+    opts.sessionId,
+    ...flags,
+    ...turnTail(h, opts),
+  ];
 };
 
 export interface SessionOptions {
@@ -137,27 +147,35 @@ const flagMapOf = (h: HarnessDescriptor, argv: readonly string[]): Map<string, s
   return map;
 };
 
-/** The granularity an invocation will actually emit: token only when every
- * pin member is present with the pinned value (last occurrence wins, like
- * the CLIs themselves). */
-export const streamingGranularityOf = (
-  h: HarnessDescriptor,
-  argv: readonly string[],
-): StreamingGranularity => {
-  const pin = h.output.tokenFlagSet;
-  // An empty pin means the harness has no token mode at all - the fallback
-  // IS the ceiling, not a degraded case.
-  if (pin.length === 0) return h.output.fallback;
-  const flags = flagMapOf(h, argv);
+const pinSatisfied = (
+  pin: readonly string[],
+  flags: ReadonlyMap<string, string | true>,
+): boolean => {
   for (let i = 0; i < pin.length; i++) {
     const member = pin[i];
     if (member === undefined || !member.startsWith("-")) continue;
     const expected = pin[i + 1];
     const actual = flags.get(member);
-    if (actual === undefined) return h.output.fallback;
+    if (actual === undefined) return false;
     if (expected !== undefined && !expected.startsWith("-") && actual !== expected) {
-      return h.output.fallback;
+      return false;
     }
   }
-  return "token";
+  return true;
+};
+
+/** The granularity an invocation will actually emit: pins are checked in
+ * order, first fully-satisfied pin wins (every member present with its
+ * pinned value, last occurrence winning like the CLIs themselves); an argv
+ * satisfying no pin gets the floor. */
+export const streamingGranularityOf = (
+  h: HarnessDescriptor,
+  argv: readonly string[],
+): StreamingGranularity => {
+  if (h.output.pins.length === 0) return h.output.floor;
+  const flags = flagMapOf(h, argv);
+  for (const pin of h.output.pins) {
+    if (pinSatisfied(pin.flags, flags)) return pin.granularity;
+  }
+  return h.output.floor;
 };

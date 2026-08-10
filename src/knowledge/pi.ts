@@ -1,23 +1,24 @@
 /**
- * The pi descriptor: facts about the `pi` CLI as data. Descriptor
- * groundwork only (D-003). The load-bearing scars: pi reads stdin even in
- * -p mode (a backgrounded call without `< /dev/null` hangs forever), it
- * auto-discovers instruction files/skills/extensions unless disabled, and
- * its model registry is runtime-extensible (D-008) - the curated list here
- * is a baseline, never a refusal authority.
+ * The pi descriptor: facts about the `pi` CLI as data, verified against
+ * pi 0.84.1. Descriptor groundwork only (D-003). The load-bearing scars:
+ * pi reads stdin even in -p mode (a backgrounded call without `< /dev/null`
+ * hangs forever), it auto-discovers instruction files/skills/extensions
+ * unless disabled, and its model registry is runtime-extensible (D-008) -
+ * the curated list here is a baseline, never a refusal authority.
  */
-import type { HarnessDescriptor } from "./descriptor.js";
+import { deepFreeze, type HarnessDescriptor, UUID_SHAPE } from "./descriptor.js";
+import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
 
-const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-export const piCli: HarnessDescriptor = {
+export const piCli: HarnessDescriptor = deepFreeze({
   name: "pi",
   bin: "pi",
   launch: {
     baseFlags: ["-p"],
+    subcommands: [],
     promptStyle: "positional",
     toolsFlag: null,
     streamFlags: [],
+    idFlag: "--session-id",
   },
   resume: {
     // Caller-assigned: the same --session-id re-enters the session.
@@ -26,25 +27,26 @@ export const piCli: HarnessDescriptor = {
     aliases: [],
     idShape: UUID_SHAPE,
   },
-  // An RPC session mode reportedly exists but is unverified against a live
-  // pi; per the truthfulness rule it stays null until a spike proves the
-  // flag set (the claude slice is the proven vertical anyway - D-003).
+  // --mode rpc exists on 0.84.1 but its session semantics are unverified
+  // against a live run; per the truthfulness rule it stays null until a
+  // spike proves the contract (the claude slice is the proven vertical -
+  // D-003).
   sessionMode: null,
   output: {
-    tokenFlagSet: [],
-    fallback: "none",
+    // pi -p prints plain text; --mode json emits the structured v3 session
+    // records (message granularity).
+    pins: [{ flags: ["--mode", "json"], granularity: "message" }],
+    floor: "none",
     flagAliases: {},
   },
   identity: {
     authority: "caller-assigned",
-    announce: { match: { type: "session" }, idField: "session_id" },
+    // The v3 session record header: {"type":"session","version":3,"id":...}
+    // - the field is `id`, observed in real transcripts under ~/.pi/sessions.
+    announce: { match: { type: "session" }, idField: "id" },
   },
-  limitMatchers: [
-    // google-family (pi's default provider) quota errors
-    [/resource_exhausted|quota exceeded|exceeded your current quota/i, "quota"],
-    [/usage limit (?:reached|exceeded)/i, "usage-limit"],
-  ],
-  authMatchers: [],
+  limitMatchers: [...SHARED_LIMIT_MATCHERS],
+  authMatchers: [...SHARED_AUTH_MATCHERS],
   autonomy: null,
   vocabulary: {
     modelFlag: "--model",
@@ -58,8 +60,12 @@ export const piCli: HarnessDescriptor = {
     extensible: true,
   },
   store: {
-    template: "{home}/.pi/agent/sessions",
-    cwdSlug: "verbatim",
+    // Verified on pi 0.84.1: ~/.pi/sessions/<slug>/<ISO-stamp>_<uuid>.jsonl
+    // where the slug is the cwd dash-flattened and dash-wrapped, dots
+    // preserved (--Users-kevin-dev-x--). The stamp needs a store scan, so
+    // the template names the per-cwd directory.
+    template: "{home}/.pi/sessions/{cwdSlug}",
+    cwdSlug: "pi-dash-wrapped",
   },
   contextHook: null,
   resumeLast: null,
@@ -67,7 +73,7 @@ export const piCli: HarnessDescriptor = {
   stdin: "close-required",
   discoveryDisableFlags: ["-nt", "-nc", "-ne", "-ns"],
   presence: {
-    headlessMarkers: ["-p"],
+    headlessMarkers: ["-p", "--print"],
   },
   capabilities: {
     vision: false,
@@ -79,4 +85,4 @@ export const piCli: HarnessDescriptor = {
     },
     session: false,
   },
-};
+});

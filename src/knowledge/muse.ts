@@ -1,42 +1,52 @@
 /**
- * The muse descriptor: facts about the `muse` CLI as data, ported from
- * lucid v1's registry and harness-store knowledge. Descriptor groundwork
- * only (D-003). The v1 scar this encodes: muse resumes POSITIONALLY -
- * `muse resume <id>` - with no flag, so resume parsing anchors on the bare
- * subcommand word, and `muse exec` also exits 0 when the work inside
- * failed (verification always reruns the project's own checks).
+ * The muse descriptor: facts about the `muse` CLI as data, verified against
+ * Muse Code 0.1.0 and lucid v1's registry. Descriptor groundwork only
+ * (D-003). The v1 scars this encodes: headless re-entry is `muse exec
+ * --session-id <id>` (the positional `muse resume <id>` is the INTERACTIVE
+ * picker - recognized when pasted, never built), and `muse exec` exits 0
+ * even when the work inside failed (verification always reruns the
+ * project's own checks).
  */
-import type { HarnessDescriptor } from "./descriptor.js";
+import { deepFreeze, type HarnessDescriptor, UUID_SHAPE } from "./descriptor.js";
+import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
 
-const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-export const museCode: HarnessDescriptor = {
+export const museCode: HarnessDescriptor = deepFreeze({
   name: "muse",
   bin: "muse",
   launch: {
     baseFlags: ["exec"],
+    subcommands: ["exec"],
     promptStyle: "positional",
     toolsFlag: null,
     streamFlags: [],
+    idFlag: "--session-id",
   },
   resume: {
-    style: "positional",
-    flag: "resume",
+    // Headless re-entry: the same --session-id on exec (v1 registry). The
+    // interactive `muse resume <id>` spelling is parse-only.
+    style: "flag",
+    flag: "--session-id",
     aliases: [],
     idShape: UUID_SHAPE,
+    positionalParseWord: "resume",
   },
   sessionMode: null,
   output: {
-    tokenFlagSet: [],
-    fallback: "none",
+    // muse exec --json emits payload_type-discriminated records including
+    // run.output.delta; claimed conservatively as message granularity.
+    pins: [{ flags: ["--json"], granularity: "message" }],
+    floor: "none",
     flagAliases: {},
   },
   identity: {
     authority: "caller-assigned",
-    announce: { match: { type: "session.started" }, idField: "session_id" },
+    // Verified on 0.1.0 (--provider echo --json): records carry
+    // payload_type discriminators, no top-level type; the session id lives
+    // nested at stream.id - so match any record and read the path.
+    announce: { match: {}, idField: "stream.id" },
   },
-  limitMatchers: [[/usage limit (?:reached|exceeded)/i, "usage-limit"]],
-  authMatchers: [],
+  limitMatchers: [...SHARED_LIMIT_MATCHERS],
+  authMatchers: [...SHARED_AUTH_MATCHERS],
   autonomy: { flag: "--yolo" },
   vocabulary: {
     modelFlag: "--model",
@@ -54,7 +64,8 @@ export const museCode: HarnessDescriptor = {
     cwdSlug: "verbatim",
   },
   contextHook: null,
-  resumeLast: null,
+  // `muse resume --last` exists (muse resume --help).
+  resumeLast: { flag: "--last" },
   provider: null,
   stdin: "inherit",
   discoveryDisableFlags: [],
@@ -62,6 +73,8 @@ export const museCode: HarnessDescriptor = {
     headlessMarkers: ["exec"],
   },
   capabilities: {
+    // images: muse exec exposes --image <PATH>; kept false pending runtime
+    // verification (curated claims stay conservative).
     vision: false,
     images: false,
     streamingByMode: {
@@ -71,4 +84,4 @@ export const museCode: HarnessDescriptor = {
     },
     session: false,
   },
-};
+});

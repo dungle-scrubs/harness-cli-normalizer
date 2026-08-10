@@ -3,21 +3,22 @@
  * against claude 2.1.226 and the 00-chat-substrate spike evidence (A-001,
  * A-002, A-005). No process logic lives here.
  */
-import { deepFreeze, type HarnessDescriptor } from "./descriptor.js";
-
-const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { deepFreeze, type HarnessDescriptor, UUID_SHAPE } from "./descriptor.js";
+import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
 
 export const claudeCode: HarnessDescriptor = deepFreeze({
   name: "claude",
   bin: "claude",
   launch: {
     baseFlags: ["-p"],
+    subcommands: [],
     promptStyle: "positional",
     toolsFlag: "--allowedTools",
     // A headless turn launches with the full stream-json output set so the
     // runner can decode identity/limits and stream token deltas; bare -p
     // (granularity none) is a degraded invocation this builder never emits.
     streamFlags: ["--output-format", "stream-json", "--verbose", "--include-partial-messages"],
+    idFlag: "--session-id",
   },
   resume: {
     // A-005: claude resumes are id-stable - the caller-assigned id survives
@@ -47,14 +48,13 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
   output: {
     // --output-format/--include-partial-messages only work with --print, so
     // -p is part of the pin, not an accident of the builders.
-    tokenFlagSet: [
-      "-p",
-      "--output-format",
-      "stream-json",
-      "--verbose",
-      "--include-partial-messages",
+    pins: [
+      {
+        flags: ["-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages"],
+        granularity: "token",
+      },
     ],
-    fallback: "none",
+    floor: "none",
     flagAliases: { "--print": "-p" },
   },
   identity: {
@@ -67,17 +67,15 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     [/you'?ve hit your session limit/i, "session-limit"],
     // "You've hit your weekly limit · resets 2am (Asia/Bangkok)"
     [/you'?ve hit your weekly limit/i, "weekly-limit"],
-    [/you'?ve hit your usage limit/i, "usage-limit"],
-    [/usage limit (?:reached|exceeded)/i, "usage-limit"],
+    ...SHARED_LIMIT_MATCHERS,
   ],
   authMatchers: [
-    // Ported from lucid v1: a detached process cannot read Keychain creds,
-    // and misreading that as "not logged in" sends the human to redo a login
-    // that was never broken.
+    // A detached process cannot read Keychain creds, and misreading that as
+    // "not logged in" sends the human to redo a login that was never broken.
     [/oauth session expired|could not be refreshed/i, "expired"],
     [/failed to authenticate/i, "expired"],
     [/not logged in|please run \/login/i, "not-logged-in"],
-    [/invalid api key/i, "invalid-key"],
+    ...SHARED_AUTH_MATCHERS,
   ],
   autonomy: { flag: "--dangerously-skip-permissions" },
   vocabulary: {

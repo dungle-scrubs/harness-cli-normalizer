@@ -1,5 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { buildLaunchArgv, streamingGranularityOf } from "../../src/interpretation/argv.js";
+import {
+  buildLaunchArgv,
+  buildResumeArgv,
+  streamingGranularityOf,
+} from "../../src/interpretation/argv.js";
 import { capabilitiesOf } from "../../src/interpretation/capabilities.js";
 import {
   discoveryDisableFlagsOf,
@@ -8,7 +12,8 @@ import {
 } from "../../src/interpretation/dimensions.js";
 import { decodeIdentity } from "../../src/interpretation/identity.js";
 import { parseResumeCommand } from "../../src/interpretation/parse-resume.js";
-import { validateModel } from "../../src/interpretation/vocabulary.js";
+import { validateEffort, validateModel } from "../../src/interpretation/vocabulary.js";
+import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
 import { museCode } from "../../src/knowledge/muse.js";
 import { defaultDescriptors } from "../../src/knowledge/overrides.js";
@@ -94,5 +99,88 @@ describe("registry", () => {
   test("all four harnesses have code defaults", () => {
     const all = defaultDescriptors();
     expect(Object.keys(all).sort()).toEqual(["claude", "codex", "muse", "pi"]);
+  });
+});
+
+describe("M2.3 boundary-review regression pins", () => {
+  test("positional resume BUILDS runnable argv: codex exec resume <id> ...", () => {
+    const argv = buildResumeArgv(codexCli, { sessionId: uuid, prompt: "go" });
+    expect(argv.slice(0, 4)).toEqual(["codex", "exec", "resume", uuid]);
+    expect(argv).toContain("--json");
+  });
+
+  test("muse resumes headlessly via exec --session-id; the positional spelling is parse-only", () => {
+    const argv = buildResumeArgv(museCode, { sessionId: uuid, prompt: "go" });
+    expect(argv.slice(0, 4)).toEqual(["muse", "exec", "--session-id", uuid]);
+    // The pasted interactive spelling still parses.
+    expect(parseResumeCommand([museCode], `muse resume ${uuid}`)).toMatchObject({
+      sessionId: uuid,
+    });
+  });
+
+  test("root options before the subcommand do not kill resume recognition", () => {
+    expect(parseResumeCommand([museCode], `muse --provider meta resume ${uuid}`)).toMatchObject({
+      sessionId: uuid,
+    });
+    expect(parseResumeCommand([codexCli], `codex --cd /x exec resume ${uuid}`)).toMatchObject({
+      sessionId: uuid,
+    });
+  });
+
+  test("a recorded --last resume parses as a distinguishable resume-last verdict", () => {
+    expect(parseResumeCommand([codexCli], 'codex exec resume --last "go"')).toEqual({
+      harness: "codex",
+      resumeLast: true,
+      autonomy: false,
+    });
+    expect(parseResumeCommand([museCode], "muse resume --last")).toMatchObject({
+      resumeLast: true,
+    });
+  });
+
+  test("muse identity decodes the real nested stream.id shape", () => {
+    const decoded = decodeIdentity(
+      museCode,
+      { payload_type: "session.run.linked", stream: { id: uuid } },
+      null,
+    );
+    expect(decoded).toMatchObject({ sessionId: uuid, outcome: "announced" });
+  });
+
+  test("pi identity reads the v3 session header field `id`", () => {
+    expect(decodeIdentity(piCli, { type: "session", version: 3, id: uuid }, null)).toMatchObject({
+      sessionId: uuid,
+      outcome: "announced",
+    });
+  });
+
+  test("granularity: bare codex exec (no --json) emits nothing structured", () => {
+    expect(streamingGranularityOf(codexCli, ["codex", "exec", "hi"])).toBe("none");
+  });
+
+  test("validateModel survives __proto__ and constructor selectors", () => {
+    // The original bug was a TypeError crash via the alias prototype chain;
+    // a clean refusal (leading underscore fails the selector grammar) is
+    // the correct outcome.
+    expect(() => validateModel(piCli, "__proto__")).not.toThrow();
+    expect(validateModel(piCli, "__proto__").ok).toBe(false);
+    expect(validateModel(claudeCode, "constructor").ok).toBe(false);
+    expect(validateModel(piCli, "a b; rm -rf /").ok).toBe(false);
+    expect(validateModel(piCli, "x".repeat(200)).ok).toBe(false);
+  });
+
+  test("codex effort ladders are per-model", () => {
+    expect(validateEffort(codexCli, "ultra", "gpt-5.5").ok).toBe(false);
+    expect(validateEffort(codexCli, "minimal", "gpt-5.6-sol").ok).toBe(false);
+    expect(validateEffort(codexCli, "high", "gpt-5.5").ok).toBe(true);
+    expect(validateEffort(codexCli, "ultra", "gpt-5.6-sol").ok).toBe(true);
+  });
+
+  test("every registered descriptor is deeply frozen", () => {
+    for (const d of Object.values(defaultDescriptors())) {
+      expect(Object.isFrozen(d)).toBe(true);
+      expect(Object.isFrozen(d.vocabulary)).toBe(true);
+      expect(Object.isFrozen(d.capabilities.streamingByMode)).toBe(true);
+    }
   });
 });
