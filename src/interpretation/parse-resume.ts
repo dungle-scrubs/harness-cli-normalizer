@@ -25,9 +25,17 @@ const resumeTokens = (h: HarnessDescriptor): readonly string[] => [
 /** The id token per the descriptor's resume grammar, or null. */
 const idTokenOf = (h: HarnessDescriptor, words: readonly string[]): string | null => {
   if (h.resume.style === "positional") {
-    // `<bin> resume <id>`: the resume word must be argv position 1 exactly.
-    if (words[1] !== h.resume.flag) return null;
-    return words[2] ?? null;
+    // `<bin> resume <id>` (muse), or `<bin> <subcommand> resume <id>`
+    // (codex exec resume <id>) - the resume word sits at position 1, or at
+    // position 2 when position 1 is one of the harness's own subcommand
+    // words. Anywhere else (quoted prompt text) is not a resume.
+    if (words[1] === h.resume.flag) return words[2] ?? null;
+    const subcommands = h.launch.baseFlags.filter((f) => !f.startsWith("-"));
+    const w1 = words[1];
+    if (w1 !== undefined && subcommands.includes(w1) && words[2] === h.resume.flag) {
+      return words[3] ?? null;
+    }
+    return null;
   }
   for (const token of resumeTokens(h)) {
     const at = words.indexOf(token, 1);

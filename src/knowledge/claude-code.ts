@@ -3,20 +3,9 @@
  * against claude 2.1.226 and the 00-chat-substrate spike evidence (A-001,
  * A-002, A-005). No process logic lives here.
  */
-import type { HarnessDescriptor } from "./descriptor.js";
+import { deepFreeze, type HarnessDescriptor } from "./descriptor.js";
 
 const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/** Descriptors are process-wide defaults shared by reference into merged
- * override sets - freezing makes an accidental in-place edit throw instead
- * of corrupting every consumer. */
-const deepFreeze = <T>(value: T): T => {
-  if (typeof value === "object" && value !== null) {
-    for (const inner of Object.values(value)) deepFreeze(inner);
-    Object.freeze(value);
-  }
-  return value;
-};
 
 export const claudeCode: HarnessDescriptor = deepFreeze({
   name: "claude",
@@ -103,6 +92,7 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     efforts: ["low", "medium", "high", "xhigh", "max"],
     // Effort is an in-session command for claude, not a launch flag.
     effortFlag: null,
+    extensible: false,
   },
   store: {
     // Verified against the A-001 fixture's memory_paths slug and real

@@ -6,6 +6,17 @@
 export const HARNESS_NAMES = ["claude", "codex", "pi", "muse"] as const;
 export type HarnessName = (typeof HARNESS_NAMES)[number];
 
+/** Descriptors are process-wide defaults shared by reference into merged
+ * override sets - freezing makes an accidental in-place edit throw instead
+ * of corrupting every consumer. */
+export const deepFreeze = <T>(value: T): T => {
+  if (typeof value === "object" && value !== null) {
+    for (const inner of Object.values(value)) deepFreeze(inner);
+    Object.freeze(value);
+  }
+  return value;
+};
+
 export type StreamingGranularity = "token" | "message" | "none";
 
 export type HarnessMode = "headless-turn" | "headless-session" | "interactive";
@@ -93,6 +104,10 @@ export interface HarnessDescriptor {
     readonly aliases: Readonly<Record<string, string>>;
     readonly efforts: readonly string[];
     readonly effortFlag: string | null;
+    /** D-008: an extensible vocabulary (pi) accepts clean unknown model
+     * selectors at argv time; capability claims for them degrade to
+     * unknown until runtime verification. */
+    readonly extensible: boolean;
   };
   /** Where the harness files sessions/transcripts, as a template over
    * {home}, {cwdSlug} and {sessionId}. Slugging rule is per-harness. */
