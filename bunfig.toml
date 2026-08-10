@@ -1,0 +1,3 @@
+# Scope the Bun test lane to test/ (mirror of vitest.config.ts include).
+[test]
+root = "test"

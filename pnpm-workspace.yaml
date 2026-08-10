@@ -1,2 +1,2 @@
 allowBuilds:
-  lefthook: true
+  lefthook: set this to true or false

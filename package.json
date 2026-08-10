@@ -8,10 +8,12 @@
     "node": ">=24"
   },
   "scripts": {
-    "check": "biome check . && tsc --noEmit && vitest run",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:bun",
+    "lint": "biome check .",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:bun": "bun test",
-    "prepare": "lefthook install"
+    "prepare": "git config --local core.hooksPath .git/hooks && lefthook install --force"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.7",

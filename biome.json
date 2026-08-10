@@ -6,7 +6,8 @@
     "useIgnoreFile": true
   },
   "files": {
-    "ignoreUnknown": true
+    "ignoreUnknown": true,
+    "includes": ["**", "!spikes", "!docs", "!.plans"]
   },
   "formatter": {
     "enabled": true,
@@ -15,10 +16,7 @@
     "lineWidth": 100
   },
   "linter": {
-    "enabled": true,
-    "rules": {
-      "preset": "recommended"
-    }
+    "enabled": true
   },
   "javascript": {
     "formatter": {
