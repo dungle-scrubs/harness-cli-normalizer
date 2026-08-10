@@ -28,6 +28,7 @@ export const museCode: HarnessDescriptor = deepFreeze({
     flag: "--session-id",
     aliases: [],
     idShape: UUID_SHAPE,
+    extraFlags: [],
     positionalParseWord: "resume",
   },
   sessionMode: null,

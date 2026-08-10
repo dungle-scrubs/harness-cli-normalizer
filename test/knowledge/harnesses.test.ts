@@ -12,11 +12,13 @@ import {
 } from "../../src/interpretation/dimensions.js";
 import { decodeIdentity } from "../../src/interpretation/identity.js";
 import { parseResumeCommand } from "../../src/interpretation/parse-resume.js";
+import { isInteractive } from "../../src/interpretation/presence.js";
+import { storePath } from "../../src/interpretation/store.js";
 import { validateEffort, validateModel } from "../../src/interpretation/vocabulary.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
 import { museCode } from "../../src/knowledge/muse.js";
-import { defaultDescriptors } from "../../src/knowledge/overrides.js";
+import { defaultDescriptors, parseOverrides } from "../../src/knowledge/overrides.js";
 import { piCli } from "../../src/knowledge/pi.js";
 
 const uuid = "0199a4c5-1111-2222-3333-444455556666";
@@ -182,5 +184,46 @@ describe("M2.3 boundary-review regression pins", () => {
       expect(Object.isFrozen(d.vocabulary)).toBe(true);
       expect(Object.isFrozen(d.capabilities.streamingByMode)).toBe(true);
     }
+  });
+});
+
+describe("phase-2 codex-review regression pins", () => {
+  test("codex resume argv never inherits exec-only launch flags", () => {
+    const argv = buildResumeArgv(codexCli, { sessionId: uuid, prompt: "go" });
+    expect(argv).not.toContain("--sandbox");
+    expect(argv).not.toContain("workspace-write");
+    expect(argv.slice(0, 5)).toEqual(["codex", "exec", "resume", uuid, "--json"]);
+  });
+
+  test("an option value spelled 'resume' is not a resume command", () => {
+    expect(parseResumeCommand([museCode], `muse exec --workspace resume ${uuid}`)).toBeNull();
+  });
+
+  test("muse interactive presence recognizes the positional resume argv", () => {
+    expect(isInteractive(museCode, uuid, [{ argv: `muse resume ${uuid}` }])).toBe(true);
+  });
+
+  test("a discriminated announcement with a null id is malformed, not unrelated output", () => {
+    expect(
+      decodeIdentity(claudeCode, { type: "system", subtype: "init", session_id: null }, null)
+        .outcome,
+    ).toBe("malformed");
+    // Undiscriminated descriptors (muse matches any record) keep 'none'.
+    expect(decodeIdentity(museCode, { payload_type: "run.output.delta" }, null).outcome).toBe(
+      "none",
+    );
+  });
+
+  test("pi store slug matches the on-disk double-dash-wrapped form", () => {
+    expect(
+      storePath(piCli, { home: "/Users/kevin", cwd: "/Users/kevin/dev/ideas", sessionId: uuid }),
+    ).toBe("/Users/kevin/.pi/sessions/--Users-kevin-dev-ideas--");
+  });
+
+  test("override pins arrays refuse null or wrong-shaped elements", () => {
+    expect(() => parseOverrides('{"codex":{"output":{"pins":[null]}}}', "/tmp/o.json")).toThrow();
+    expect(() => parseOverrides('{"codex":{"discoveryDisableFlags":[42]}}', "/tmp/o.json")).toThrow(
+      /strings/,
+    );
   });
 });

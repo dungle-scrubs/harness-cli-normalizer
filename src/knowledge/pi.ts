@@ -26,6 +26,7 @@ export const piCli: HarnessDescriptor = deepFreeze({
     flag: "--session-id",
     aliases: [],
     idShape: UUID_SHAPE,
+    extraFlags: ["-p"],
   },
   // --mode rpc exists on 0.84.1 but its session semantics are unverified
   // against a live run; per the truthfulness rule it stays null until a

@@ -56,7 +56,14 @@ export const decodeIdentity = (
   }
   const announced = cursor;
   if (typeof announced !== "string" || !isUsableSessionId(announced)) {
-    return typeof announced === "string" && announced !== ""
+    // A record that matched a real discriminator (claude system/init) but
+    // carries a null/missing/garbage id is a MALFORMED announcement the
+    // runner must see - treating it as unrelated output leaves the runner
+    // waiting for an identity that already failed to arrive. Descriptors
+    // with an empty match (muse: any record) have no discriminator, so a
+    // record without the id path is ordinary output, not malformed.
+    const discriminated = Object.keys(spec.match).length > 0;
+    return discriminated
       ? { sessionId: null, identity: null, outcome: "malformed" }
       : NOT_ANNOUNCED;
   }

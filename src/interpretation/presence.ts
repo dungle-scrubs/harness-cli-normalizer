@@ -19,6 +19,9 @@ const idBearingFlags = (h: HarnessDescriptor): readonly string[] => [
   h.resume.flag,
   ...h.resume.aliases,
   ...(h.sessionMode === null ? [] : [h.sessionMode.idFlag]),
+  // muse's interactive process IS `muse resume <id>` - the parse-only
+  // spelling is exactly what a live interactive argv looks like.
+  ...(h.resume.positionalParseWord === undefined ? [] : [h.resume.positionalParseWord]),
 ];
 
 export const isInteractive = (
