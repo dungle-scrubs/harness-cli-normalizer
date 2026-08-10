@@ -3,7 +3,8 @@
  * data. Interpretation functions consume these; nothing here executes.
  */
 
-export type HarnessName = "claude" | "codex" | "pi" | "muse";
+export const HARNESS_NAMES = ["claude", "codex", "pi", "muse"] as const;
+export type HarnessName = (typeof HARNESS_NAMES)[number];
 
 export type StreamingGranularity = "token" | "message" | "none";
 

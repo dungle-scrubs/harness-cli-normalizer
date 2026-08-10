@@ -7,7 +7,18 @@ import type { HarnessDescriptor } from "./descriptor.js";
 
 const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export const claudeCode: HarnessDescriptor = {
+/** Descriptors are process-wide defaults shared by reference into merged
+ * override sets - freezing makes an accidental in-place edit throw instead
+ * of corrupting every consumer. */
+const deepFreeze = <T>(value: T): T => {
+  if (typeof value === "object" && value !== null) {
+    for (const inner of Object.values(value)) deepFreeze(inner);
+    Object.freeze(value);
+  }
+  return value;
+};
+
+export const claudeCode: HarnessDescriptor = deepFreeze({
   name: "claude",
   bin: "claude",
   launch: {
@@ -125,4 +136,4 @@ export const claudeCode: HarnessDescriptor = {
     },
     session: true,
   },
-};
+});
