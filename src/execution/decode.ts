@@ -13,9 +13,16 @@ import type { HarnessEvent } from "./events.js";
 export interface DecodeState {
   lastSeenId: string | null;
   limitSeen: boolean;
+  /** The id this turn expects (resume paths); rotation is classified
+   * against it. Null for fresh launches. */
+  requestedId: string | null;
 }
 
-export const freshDecodeState = (): DecodeState => ({ lastSeenId: null, limitSeen: false });
+export const freshDecodeState = (requestedId: string | null = null): DecodeState => ({
+  lastSeenId: null,
+  limitSeen: false,
+  requestedId,
+});
 
 const textOfContent = (content: unknown): string =>
   Array.isArray(content)
@@ -64,7 +71,7 @@ export const decodeLine = (
   }
 
   const events: HarnessEvent[] = [];
-  const decoded = decodeIdentity(h, raw, state.lastSeenId);
+  const decoded = decodeIdentity(h, raw, state.lastSeenId, state.requestedId);
   if (decoded.sessionId !== null) state.lastSeenId = decoded.sessionId;
   if (decoded.identity !== null) {
     events.push({
@@ -73,6 +80,11 @@ export const decodeLine = (
       authority: h.identity.authority,
       capabilities: capabilitiesOf(h, model, "headless-turn"),
     });
+  } else if (decoded.outcome === "malformed" || decoded.outcome === "rotated") {
+    // The interpretation layer classified an identity anomaly; swallowing
+    // it would leave the runner waiting for an identity that already
+    // failed to arrive (or bind a rotated one).
+    events.push({ kind: "error", message: `identity ${decoded.outcome}` });
   }
 
   const record = raw as Record<string, unknown>;

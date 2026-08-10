@@ -40,4 +40,7 @@ export interface RunnerDeps {
   /** Stall watchdog budget; armed ONLY for none-granularity invocations. */
   readonly stallMs?: number;
   readonly log?: BoundaryLog;
+  /** Host-minted correlation id; without it the runner falls back to a
+   * per-process monotonic counter (collides across processes). */
+  readonly turnId?: string;
 }
