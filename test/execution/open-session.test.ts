@@ -167,13 +167,13 @@ describe("session lifecycle events (observability)", () => {
     proc.emitLine(result);
     await drainTurn(turn1);
     await session.close();
-    const kinds = logged.map((e) => e["event"]);
+    const kinds = logged.map((e) => e.event);
     for (const expected of ["session_open", "send", "turn_start", "turn_end", "session_close"]) {
       expect(kinds).toContain(expected);
     }
-    const turnStart = logged.find((e) => e["event"] === "turn_start");
-    const turnEnd = logged.find((e) => e["event"] === "turn_end");
-    expect(turnStart?.["turnId"]).toBe(turnEnd?.["turnId"]);
-    expect(turnStart?.["sessionId"]).toBe(sid);
+    const turnStart = logged.find((e) => e.event === "turn_start");
+    const turnEnd = logged.find((e) => e.event === "turn_end");
+    expect(turnStart?.turnId).toBe(turnEnd?.turnId);
+    expect(turnStart?.sessionId).toBe(sid);
   });
 });

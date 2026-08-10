@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:bun": "bun test",
-    "prepare": "git config --local core.hooksPath .git/hooks && lefthook install --force"
+    "prepare": "git config --local core.hooksPath .git/hooks && lefthook install --force",
+    "smoke:claude": "bun scripts/smoke-claude.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.7",

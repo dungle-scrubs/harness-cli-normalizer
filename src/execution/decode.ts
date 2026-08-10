@@ -99,27 +99,27 @@ export const decodeParsed = (
   }
 
   const record = raw as Record<string, unknown>;
-  const type = record["type"];
+  const type = record.type;
   if (type === "assistant") {
-    const message = record["message"] as Record<string, unknown> | undefined;
-    const content = message?.["content"];
+    const message = record.message as Record<string, unknown> | undefined;
+    const content = message?.content;
     const text = textOfContent(content);
     events.push(...toolsOfContent(content));
     if (text !== "") {
       events.push({
         kind: "message",
-        role: typeof message?.["role"] === "string" ? (message["role"] as string) : "assistant",
+        role: typeof message?.role === "string" ? (message.role as string) : "assistant",
         text,
       });
     }
   } else if (type === "stream_event") {
-    const event = record["event"] as Record<string, unknown> | undefined;
-    const delta = event?.["delta"] as Record<string, unknown> | undefined;
-    if (delta?.["type"] === "text_delta" && typeof delta["text"] === "string") {
-      events.push({ kind: "token", text: delta["text"] });
+    const event = record.event as Record<string, unknown> | undefined;
+    const delta = event?.delta as Record<string, unknown> | undefined;
+    if (delta?.type === "text_delta" && typeof delta.text === "string") {
+      events.push({ kind: "token", text: delta.text });
     }
   } else if (type === "system" && decoded.identity === null && decoded.outcome === "none") {
-    const subtype = record["subtype"];
+    const subtype = record.subtype;
     if (typeof subtype === "string") events.push({ kind: "progress", label: subtype });
   }
   return events;

@@ -11,7 +11,7 @@ import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
 
 const sid = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
 const init = JSON.stringify({ type: "system", subtype: "init", session_id: sid });
-const result = JSON.stringify({ type: "result", subtype: "success" });
+const _result = JSON.stringify({ type: "result", subtype: "success" });
 const tick = () => new Promise<void>((r) => setTimeout(r, 0));
 
 const drainTurn = async (turn: AsyncIterable<HarnessEvent>): Promise<HarnessEvent[]> => {
@@ -76,8 +76,8 @@ describe("M3.2 boundary-review regression pins", () => {
         resolve();
       })();
     });
-    const close = logged.find((e) => e["event"] === "session_close");
-    expect(close?.["stderrTail"]).toEqual(["Segmentation fault (core dumped)"]);
+    const close = logged.find((e) => e.event === "session_close");
+    expect(close?.stderrTail).toEqual(["Segmentation fault (core dumped)"]);
   });
 
   test("close() escalates SIGTERM->SIGKILL when the child ignores stdin EOF - close is bounded", async () => {
@@ -113,7 +113,7 @@ describe("M3.2 boundary-review regression pins", () => {
     expect(events.find((e) => e.kind === "error")).toMatchObject({
       message: expect.stringContaining("queued send"),
     });
-    expect(logged.find((e) => e["event"] === "sends_dropped")).toMatchObject({ count: 1 });
+    expect(logged.find((e) => e.event === "sends_dropped")).toMatchObject({ count: 1 });
   });
 
   test("a result carrying is_error ends the turn as crash, not clean", async () => {
@@ -172,7 +172,7 @@ describe("M3.2 boundary-review regression pins", () => {
         },
       ),
     ).toThrow(SessionSpawnError);
-    expect(logged.find((e) => e["event"] === "session_spawn_failed")).toBeDefined();
+    expect(logged.find((e) => e.event === "session_spawn_failed")).toBeDefined();
   });
 
   test("abandoning the turns iterable closes the session - no leaked child", async () => {
