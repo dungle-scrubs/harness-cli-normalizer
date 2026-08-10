@@ -47,22 +47,31 @@ export class FakeProcess implements SpawnedProcess {
   readonly signals: SignalName[] = [];
   readonly stdinLines: string[] = [];
   stdinEnded = false;
-  readonly stdin = {
+  /** Set by the spawner from opts.stdin - only "pipe" opens a writable. */
+  stdinPiped = true;
+  private readonly exitOnStdinEnd: boolean;
+  private readonly stdinPipe = {
     write: (data: string): void => {
+      if (this.stdinEnded) throw new Error("write after end");
       for (const line of data.split("\n")) {
         if (line.trim() !== "") this.stdinLines.push(line);
       }
     },
     end: (): void => {
       this.stdinEnded = true;
-      // Model the real harness: a stream-json session exits cleanly when
-      // its input stream closes (A-001).
-      this.exit(0);
+      // Opt-in: a cooperative harness exits cleanly on stdin EOF (A-001);
+      // the default models a child that keeps running, so close-grace
+      // escalation paths stay expressible.
+      if (this.exitOnStdinEnd) this.exit(0);
     },
   };
+  get stdin(): SpawnedProcess["stdin"] {
+    return this.stdinPiped ? this.stdinPipe : undefined;
+  }
   private exitResolve!: (code: number | null) => void;
 
-  constructor() {
+  constructor(options: { exitOnStdinEnd?: boolean } = {}) {
+    this.exitOnStdinEnd = options.exitOnStdinEnd ?? true;
     this.exited = new Promise((resolve) => {
       this.exitResolve = resolve;
     });
@@ -128,6 +137,9 @@ export const fakeSpawner = (procs: FakeProcess[]) => {
   const spawn = (argv: readonly string[], opts: SpawnOptions): SpawnedProcess => {
     const proc = procs.shift();
     if (proc === undefined) throw new Error("fakeSpawner: no process scripted for this spawn");
+    // The fake honors the requested stdin mode - it must not hand a
+    // writable to a spawn that never asked for a pipe.
+    proc.stdinPiped = opts.stdin === "pipe";
     calls.push({ argv, opts, proc });
     return proc;
   };

@@ -21,7 +21,9 @@ export interface SpawnedProcess {
 
 export interface SpawnOptions {
   readonly cwd?: string;
-  readonly stdin: "inherit" | "close";
+  /** `pipe` opens a writable stdin (sessions require it); `inherit` hands
+   * the child the parent's fd 0; `close` gives it nothing (pi's rule). */
+  readonly stdin: "inherit" | "close" | "pipe";
 }
 
 export type TimerHandle = number;

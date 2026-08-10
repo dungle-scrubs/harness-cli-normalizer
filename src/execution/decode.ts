@@ -69,7 +69,18 @@ export const decodeLine = (
     }
     return [];
   }
+  return decodeParsed(h, raw, state, model);
+};
 
+/** The parsed-record half of decodeLine, for pumps that already parsed the
+ * line once (a session pump inspects `type` before routing) - the hottest
+ * path must not JSON.parse every token delta twice. */
+export const decodeParsed = (
+  h: HarnessDescriptor,
+  raw: unknown,
+  state: DecodeState,
+  model: string,
+): HarnessEvent[] => {
   const events: HarnessEvent[] = [];
   const decoded = decodeIdentity(h, raw, state.lastSeenId, state.requestedId);
   if (decoded.sessionId !== null) state.lastSeenId = decoded.sessionId;

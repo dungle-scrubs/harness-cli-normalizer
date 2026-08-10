@@ -107,8 +107,9 @@ class EventQueue {
 }
 
 /** Bounded tail of unmatched stderr - the crash context a nonzero exit is
- * explained by (v1 kept the turn's output slice for exactly this). */
-class StderrTail {
+ * explained by (v1 kept the turn's output slice for exactly this). Shared
+ * with the session runner. */
+export class StderrTail {
   private readonly lines: string[] = [];
   private bytes = 0;
   push(line: string): void {
