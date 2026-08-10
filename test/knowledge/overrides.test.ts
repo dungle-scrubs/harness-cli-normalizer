@@ -54,3 +54,92 @@ describe("override refusals name the file and the offending harness", () => {
     expect(() => parseOverrides(JSON.stringify({ claude: 7 }), PATH)).toThrow(/"claude"/);
   });
 });
+
+describe("boundary-review regression pins", () => {
+  test("prototype-chain keys never pass as known sections", () => {
+    expect(() => parseOverrides(JSON.stringify({ claude: { toString: "pwned" } }), PATH)).toThrow(
+      /toString/,
+    );
+    // Raw text: an object literal with __proto__ would set the literal's
+    // prototype and stringify to {} - the attack only exists as raw JSON.
+    expect(() => parseOverrides('{"claude":{"__proto__":{"evil":true}}}', PATH)).toThrow(
+      /__proto__/,
+    );
+    expect(() =>
+      parseOverrides('{"claude":{"vocabulary":{"aliases":{"__proto__":{"evil":true}}}}}', PATH),
+    ).toThrow(/__proto__/);
+  });
+
+  test("wrong-typed values are refused with the path, never merged", () => {
+    expect(() => parseOverrides(JSON.stringify({ claude: { stdin: 42 } }), PATH)).toThrow(PATH);
+    expect(() =>
+      parseOverrides(JSON.stringify({ claude: { vocabulary: { models: "claude-opus-5" } } }), PATH),
+    ).toThrow(/models/);
+    expect(() =>
+      parseOverrides(JSON.stringify({ claude: { launch: { baseFlags: "-p" } } }), PATH),
+    ).toThrow(/baseFlags/);
+    expect(() =>
+      parseOverrides(JSON.stringify({ claude: { vocabulary: { turbo: 1 } } }), PATH),
+    ).toThrow(/turbo/);
+  });
+
+  test("closed vocabularies are enforced - a typo'd literal refuses loudly", () => {
+    expect(() =>
+      parseOverrides(JSON.stringify({ claude: { store: { cwdSlug: "Verbatim" } } }), PATH),
+    ).toThrow(/dash-separators/);
+    expect(() => parseOverrides(JSON.stringify({ claude: { stdin: "sometimes" } }), PATH)).toThrow(
+      /inherit/,
+    );
+  });
+
+  test("a partial depth-3 override keeps its sibling keys (recursive merge)", () => {
+    const merged = parseOverrides(
+      JSON.stringify({ claude: { capabilities: { streamingByMode: { interactive: "none" } } } }),
+      PATH,
+    );
+    expect(merged.claude?.capabilities.streamingByMode).toEqual({
+      "headless-turn": "token",
+      "headless-session": "token",
+      interactive: "none",
+    });
+  });
+
+  test("the registry key cannot be renamed from an override", () => {
+    expect(() => parseOverrides(JSON.stringify({ claude: { name: "codex" } }), PATH)).toThrow(
+      /name/,
+    );
+  });
+
+  test("null sections have no shape to validate and refuse overrides", () => {
+    expect(() =>
+      parseOverrides(JSON.stringify({ claude: { provider: { flag: "-x" } } }), PATH),
+    ).toThrow(/null/);
+  });
+
+  test("regex refusal is value-derived: resume.style merges, resume.idShape refuses", () => {
+    const merged = parseOverrides(
+      JSON.stringify({ claude: { resume: { flag: "--continue" } } }),
+      PATH,
+    );
+    expect(merged.claude?.resume.flag).toBe("--continue");
+    expect(merged.claude?.resume.idShape).toBe(claudeCode.resume.idShape);
+    expect(() =>
+      parseOverrides(JSON.stringify({ claude: { resume: { idShape: ".*" } } }), PATH),
+    ).toThrow(/regular expression/);
+  });
+
+  test("a store template containing '..' is refused - it reaches the filesystem", () => {
+    expect(() =>
+      parseOverrides(
+        JSON.stringify({ claude: { store: { template: "{home}/../../etc/{sessionId}" } } }),
+        PATH,
+      ),
+    ).toThrow(/\.\./);
+  });
+
+  test("code defaults are frozen - an in-place edit throws instead of corrupting", () => {
+    expect(() => {
+      (claudeCode.vocabulary.models as string[]).push("evil");
+    }).toThrow();
+  });
+});
