@@ -68,6 +68,10 @@ export class FakeProcess implements SpawnedProcess {
     this.stderr.close();
     this.exitResolve(code);
   }
+  /** Exit while a grandchild keeps the pipes open (the pipes-open case). */
+  exitWithoutClosing(code: number | null): void {
+    this.exitResolve(code);
+  }
 }
 
 export class FakeClock implements Clock {
@@ -115,12 +119,16 @@ export const fakeSpawner = (procs: FakeProcess[]) => {
   return { spawn, calls };
 };
 
-export const fakeSignal = () => {
+/** Records signals; by default a SIGTERM makes the fake process die (the
+ * cooperative child). Pass {autoExit: false} to model a wedged child that
+ * ignores SIGTERM, so escalation paths are expressible. */
+export const fakeSignal = (options: { autoExit?: boolean } = {}) => {
+  const autoExit = options.autoExit ?? true;
   const sent: Array<{ proc: SpawnedProcess; sig: SignalName }> = [];
   return {
     signal: (proc: SpawnedProcess, sig: SignalName): void => {
       sent.push({ proc, sig });
-      (proc as FakeProcess).exit(null);
+      if (autoExit || sig === "SIGKILL") (proc as FakeProcess).exit(null);
     },
     sent,
   };

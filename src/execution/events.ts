@@ -3,7 +3,12 @@
  * normalizer owns these events and the parsing that produces them; it does
  * NOT own the chat protocol - lucid maps events into frames downstream.
  * Event classes are load-bearing for backpressure: token/progress/context
- * are droppable (coalescible, latest-wins); the rest are lossless.
+ * are droppable (coalescible, latest-wins); the rest are lossless. The
+ * split is DECLARED here because the normalizer emits the events; the
+ * coalescing policy that consumes it lives in the chat layer (lucid-v2).
+ * Under token granularity a turn's text arrives twice by design: as token
+ * deltas AND as the whole trailing message event - render one, never
+ * concatenate both.
  */
 import type { CapabilityResult } from "../interpretation/capabilities.js";
 
