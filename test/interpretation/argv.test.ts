@@ -72,3 +72,42 @@ describe("buildSessionArgv (claude)", () => {
     expect(argv[argv.indexOf("--session-id") + 1]).toBe("eb04301d-8756-4a8b-ae3e-aac0e71f7265");
   });
 });
+
+describe("shared spawn-boundary guards", () => {
+  test("buildResumeArgv refuses a flag-shaped prompt exactly like buildLaunchArgv", () => {
+    expect(() =>
+      buildResumeArgv(claudeCode, {
+        sessionId: "eb04301d-8756-4a8b-ae3e-aac0e71f7265",
+        prompt: "--dangerously-skip-permissions",
+      }),
+    ).toThrow(/prompt/i);
+  });
+
+  test("a comma inside one tool name is refused - it would silently split the grant", () => {
+    expect(() =>
+      buildLaunchArgv(claudeCode, { prompt: "hi", tools: ["Read,Write", "Grep"] }),
+    ).toThrow(/tool/i);
+  });
+
+  test("a traversal-shaped session id never reaches argv", () => {
+    expect(() =>
+      buildResumeArgv(claudeCode, { sessionId: "../../../etc/passwd", prompt: "hi" }),
+    ).toThrow(/session id/i);
+  });
+
+  test("validated model and autonomy selections are inserted by the builder, never appended by callers", () => {
+    const argv = buildLaunchArgv(claudeCode, {
+      prompt: "hi",
+      model: "opus",
+      autonomy: true,
+      tools: ["Read"],
+    });
+    expect(argv[argv.indexOf("--model") + 1]).toBe("claude-opus-5");
+    expect(argv).toContain("--dangerously-skip-permissions");
+    // The variadic tools flag stays LAST so nothing after it can be swallowed.
+    expect(argv.indexOf("--allowedTools")).toBe(argv.length - 2);
+    expect(() => buildLaunchArgv(claudeCode, { prompt: "hi", model: "gpt-5.6-sol" })).toThrow(
+      /model/i,
+    );
+  });
+});
