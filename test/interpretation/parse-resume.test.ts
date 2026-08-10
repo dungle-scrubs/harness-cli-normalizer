@@ -17,12 +17,18 @@ describe("parseResumeCommand (claude)", () => {
   });
 
   test("tolerates what shell history actually carries", () => {
-    expect(parseResumeCommand([claudeCode], `claude --resume "${uuid}"`)?.sessionId).toBe(uuid);
+    expect(parseResumeCommand([claudeCode], `claude --resume "${uuid}"`)).toMatchObject({
+      sessionId: uuid,
+    });
     expect(
-      parseResumeCommand([claudeCode], `/usr/local/bin/claude --resume ${uuid}`)?.harness,
-    ).toBe("claude");
-    expect(parseResumeCommand([claudeCode], `claude -r ${uuid}`)?.sessionId).toBe(uuid);
-    expect(parseResumeCommand([claudeCode], `claude --resume=${uuid}`)?.sessionId).toBe(uuid);
+      parseResumeCommand([claudeCode], `/usr/local/bin/claude --resume ${uuid}`),
+    ).toMatchObject({ harness: "claude" });
+    expect(parseResumeCommand([claudeCode], `claude -r ${uuid}`)).toMatchObject({
+      sessionId: uuid,
+    });
+    expect(parseResumeCommand([claudeCode], `claude --resume=${uuid}`)).toMatchObject({
+      sessionId: uuid,
+    });
   });
 
   test("an id-shaped token in prompt text is never returned as the session id (D-011)", () => {

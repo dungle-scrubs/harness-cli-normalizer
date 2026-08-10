@@ -1,11 +1,15 @@
 /**
  * Resume-command parsing: recognizes a pasted "resume this session" shell
- * command and recovers {harness, sessionId, autonomy}. The inverse of
- * buildResumeArgv, tolerant of what shell history actually carries (quoted
- * ids, resolved bin paths, --flag=value, flag aliases). Anchoring rules
- * ported from v1 (D-011): the id must sit where the resume grammar puts it,
- * match the harness's id shape, and be the ONLY id-shaped token - a UUID
- * inside quoted prompt text must never be returned as the session id.
+ * command and recovers {harness, sessionId, autonomy} - or a resume-last
+ * request where the harness supports one. The inverse of buildResumeArgv,
+ * tolerant of what shell history actually carries (quoted ids, resolved
+ * bin paths, --flag=value, flag aliases, root options on either side of a
+ * subcommand). Anchoring rules ported from v1 (D-011): the id must follow
+ * the harness's own resume grammar, match its id shape, and be the ONLY
+ * id-shaped token - a UUID inside quoted prompt text must never be
+ * returned as the session id. Position independence is safe because
+ * tokenize collapses quoted text into single words: a bare resume word can
+ * only come from a real argv slot.
  */
 import type { HarnessDescriptor, HarnessName } from "../knowledge/descriptor.js";
 import { isUsableSessionId } from "./session-id.js";
@@ -17,53 +21,85 @@ export interface ParsedResume {
   readonly autonomy: boolean;
 }
 
-const resumeTokens = (h: HarnessDescriptor): readonly string[] => [
+/** A recorded `--last` resume: no id to anchor - corroboration ranking
+ * (rankResumeLast) decides what it names. */
+export interface ParsedResumeLast {
+  readonly harness: HarnessName;
+  readonly resumeLast: true;
+  readonly autonomy: boolean;
+}
+
+const flagTokens = (h: HarnessDescriptor): readonly string[] => [
   h.resume.flag,
   ...h.resume.aliases,
 ];
 
 /** The id token per the descriptor's resume grammar, or null. */
 const idTokenOf = (h: HarnessDescriptor, words: readonly string[]): string | null => {
-  if (h.resume.style === "positional") {
-    // `<bin> resume <id>` (muse), or `<bin> <subcommand> resume <id>`
-    // (codex exec resume <id>) - the resume word sits at position 1, or at
-    // position 2 when position 1 is one of the harness's own subcommand
-    // words. Anywhere else (quoted prompt text) is not a resume.
-    if (words[1] === h.resume.flag) return words[2] ?? null;
-    const subcommands = h.launch.baseFlags.filter((f) => !f.startsWith("-"));
-    const w1 = words[1];
-    if (w1 !== undefined && subcommands.includes(w1) && words[2] === h.resume.flag) {
-      return words[3] ?? null;
-    }
-    return null;
+  const positionalWords: string[] = [];
+  if (h.resume.style === "positional") positionalWords.push(h.resume.flag);
+  if (h.resume.positionalParseWord !== undefined) {
+    positionalWords.push(h.resume.positionalParseWord);
   }
-  for (const token of resumeTokens(h)) {
-    const at = words.indexOf(token, 1);
-    if (at !== -1) return words[at + 1] ?? null;
-    const eqForm = words.find((w) => w.startsWith(`${token}=`));
-    if (eqForm !== undefined) return eqForm.slice(token.length + 1);
+  for (const word of positionalWords) {
+    // Any bare occurrence of the resume word whose successor is id-shaped:
+    // root options may sit on either side of a subcommand, so position is
+    // not the anchor - the bare word plus the id shape is.
+    const at = words.indexOf(word, 1);
+    if (at !== -1) {
+      const candidate = words[at + 1];
+      if (candidate !== undefined && h.resume.idShape.test(candidate)) return candidate;
+    }
+  }
+  if (h.resume.style === "flag" || h.resume.positionalParseWord === undefined) {
+    for (const token of flagTokens(h)) {
+      if (h.resume.style === "positional") break;
+      const at = words.indexOf(token, 1);
+      if (at !== -1) return words[at + 1] ?? null;
+      const eqForm = words.find((w) => w.startsWith(`${token}=`));
+      if (eqForm !== undefined) return eqForm.slice(token.length + 1);
+    }
   }
   return null;
+};
+
+/** True when the command asks for the harness's resume-most-recent form. */
+const isResumeLast = (h: HarnessDescriptor, words: readonly string[]): boolean => {
+  if (h.resumeLast === null) return false;
+  if (!words.includes(h.resumeLast.flag)) return false;
+  // --last only means "resume last" in the resume grammar's context: after
+  // the positional resume word, or anywhere for flag-style harnesses.
+  const anchor =
+    h.resume.style === "positional" ? h.resume.flag : (h.resume.positionalParseWord ?? null);
+  if (anchor !== null) {
+    const at = words.indexOf(anchor, 1);
+    return at !== -1 && words.indexOf(h.resumeLast.flag) > at;
+  }
+  return true;
 };
 
 export const parseResumeCommand = (
   known: readonly HarnessDescriptor[],
   command: string,
-): ParsedResume | null => {
+): ParsedResume | ParsedResumeLast | null => {
   const words = tokenize(command);
   const bin = words[0];
   if (bin === undefined) return null;
   const h = known.find((d) => basenameOf(bin) === d.bin);
   if (h === undefined) return null;
 
+  const autonomy = h.autonomy !== null && words.includes(h.autonomy.flag);
+
   const id = idTokenOf(h, words);
-  if (id === null || !h.resume.idShape.test(id) || !isUsableSessionId(id)) return null;
+  if (id === null) {
+    return isResumeLast(h, words) ? { harness: h.name, resumeLast: true, autonomy } : null;
+  }
+  if (!h.resume.idShape.test(id) || !isUsableSessionId(id)) return null;
 
   // D-011: any OTHER id-shaped token means the command is ambiguous -
   // refuse rather than resume a stranger.
   const idShaped = words.filter((w) => w !== id && h.resume.idShape.test(w));
   if (idShaped.length > 0) return null;
 
-  const autonomy = h.autonomy !== null && words.includes(h.autonomy.flag);
   return { harness: h.name, sessionId: id, autonomy };
 };

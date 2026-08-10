@@ -47,7 +47,14 @@ export const decodeIdentity = (
   for (const [key, expected] of Object.entries(spec.match)) {
     if (record[key] !== expected) return NOT_ANNOUNCED;
   }
-  const announced = record[spec.idField];
+  // idField is a dot-path: muse nests its id at stream.id.
+  let cursor: unknown = record;
+  for (const segment of spec.idField.split(".")) {
+    const inner = asRecord(cursor);
+    if (inner === null) return NOT_ANNOUNCED;
+    cursor = inner[segment];
+  }
+  const announced = cursor;
   if (typeof announced !== "string" || !isUsableSessionId(announced)) {
     return typeof announced === "string" && announced !== ""
       ? { sessionId: null, identity: null, outcome: "malformed" }

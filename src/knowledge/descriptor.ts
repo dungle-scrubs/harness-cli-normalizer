@@ -9,6 +9,9 @@ export type HarnessName = (typeof HARNESS_NAMES)[number];
 /** Descriptors are process-wide defaults shared by reference into merged
  * override sets - freezing makes an accidental in-place edit throw instead
  * of corrupting every consumer. */
+/** A 36-char UUID - how every supported harness names its sessions. */
+export const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export const deepFreeze = <T>(value: T): T => {
   if (typeof value === "object" && value !== null) {
     for (const inner of Object.values(value)) deepFreeze(inner);
@@ -42,9 +45,18 @@ export interface HarnessDescriptor {
    * deltas the invocation could not emit. */
   readonly launch: {
     readonly baseFlags: readonly string[];
+    /** The subcommand words among baseFlags (codex/muse `exec`), declared
+     * explicitly - resume parsing anchors on them, and deriving them by
+     * filtering non-dash tokens would silently promote flag VALUES like
+     * `workspace-write` into subcommands. */
+    readonly subcommands: readonly string[];
     readonly promptStyle: "positional";
     readonly toolsFlag: string | null;
     readonly streamFlags: readonly string[];
+    /** The flag that pins a caller-assigned id at LAUNCH (spawn-time
+     * assignment; the execution layer consumes it), or null when the
+     * harness mints its own. */
+    readonly idFlag: string | null;
   };
   /** How a named session id is resumed. `flag` style: `<bin> <flag> <id>`;
    * `positional` style: `<bin> resume <id>` (muse) - the resume token must
@@ -57,6 +69,10 @@ export interface HarnessDescriptor {
     readonly flag: string;
     readonly aliases: readonly string[];
     readonly idShape: RegExp;
+    /** A parse-only positional spelling (muse's interactive `muse resume
+     * <id>`) recognized when pasted, but never built - the builder uses
+     * `style`/`flag`. */
+    readonly positionalParseWord?: string;
   };
   /** Persistent headless session support: the exact flag set that opens one
    * lucid-owned process serving many turns, or null when the harness has no
@@ -65,13 +81,18 @@ export interface HarnessDescriptor {
     readonly flags: readonly string[];
     readonly idFlag: string;
   } | null;
-  /** Streaming is a property of the INVOCATION, not the harness: `token`
-   * granularity exists only under the exact pinned flag set; anything else
-   * falls back to `fallback`. `flagAliases` maps alternate spellings onto
-   * the canonical pin members (--print -> -p). */
+  /** Streaming is a property of the INVOCATION, not the harness: each pin
+   * names the flag set that unlocks a granularity, checked in order, first
+   * fully-satisfied pin wins; an argv satisfying none gets `floor`. This
+   * carries claude (token under stream-json), codex (message under --json,
+   * none bare), and muse/pi in one shape - a single conditional tier could
+   * not. `flagAliases` maps alternate spellings onto pin members. */
   readonly output: {
-    readonly tokenFlagSet: readonly string[];
-    readonly fallback: "message" | "none";
+    readonly pins: ReadonlyArray<{
+      readonly flags: readonly string[];
+      readonly granularity: StreamingGranularity;
+    }>;
+    readonly floor: StreamingGranularity;
     readonly flagAliases: Readonly<Record<string, string>>;
   };
   /** Where native identity appears in the stream, and who mints it. Every
@@ -80,6 +101,8 @@ export interface HarnessDescriptor {
    * the same value (A-001) - consumers dedupe via decodeIdentity. */
   readonly identity: {
     readonly authority: "caller-assigned" | "harness-minted";
+    /** `idField` is a dot-path (muse nests its id at `stream.id`); an empty
+     * `match` means "any record carrying the id path". */
     readonly announce: {
       readonly match: Readonly<Record<string, string>>;
       readonly idField: string;
@@ -103,6 +126,10 @@ export interface HarnessDescriptor {
     readonly models: readonly string[];
     readonly aliases: Readonly<Record<string, string>>;
     readonly efforts: readonly string[];
+    /** Per-model effort ladders where the harness constrains them (codex:
+     * gpt-5.5 tops out at high; gpt-5.6-* starts at medium). Falls back to
+     * the harness-wide `efforts`. */
+    readonly effortsByModel?: Readonly<Record<string, readonly string[]>>;
     readonly effortFlag: string | null;
     /** D-008: an extensible vocabulary (pi) accepts clean unknown model
      * selectors at argv time; capability claims for them degrade to
@@ -113,7 +140,9 @@ export interface HarnessDescriptor {
    * {home}, {cwdSlug} and {sessionId}. Slugging rule is per-harness. */
   readonly store: {
     readonly template: string;
-    readonly cwdSlug: "dash-separators" | "verbatim";
+    /** claude: '/', '.' -> '-'; pi: '/' -> '-' wrapped in leading/trailing
+     * dashes, dots preserved. */
+    readonly cwdSlug: "dash-separators" | "pi-dash-wrapped" | "verbatim";
   };
   /** How the harness exposes context-window usage; the interpretation layer
    * surfaces it as a `context` HarnessEvent. */
