@@ -11,6 +11,7 @@
  */
 import {
   buildLaunchArgv,
+  buildResumeArgv,
   type LaunchOptions,
   streamingGranularityOf,
 } from "../interpretation/argv.js";
@@ -125,14 +126,23 @@ export class StderrTail {
   }
 }
 
+export interface TurnRunOptions extends LaunchOptions {
+  /** Resume this session id instead of launching fresh - the turn spawns
+   * with the descriptor's resume grammar. */
+  readonly resume?: string;
+}
+
 export async function* streamTurn(
   h: HarnessDescriptor,
-  opts: LaunchOptions,
+  opts: TurnRunOptions,
   deps: RunnerDeps,
 ): AsyncIterable<HarnessEvent> {
   const turnId = deps.turnId ?? `turn-${++turnCounter}`;
   const log = deps.log ?? (() => {});
-  const argv = buildLaunchArgv(h, opts);
+  const argv =
+    opts.resume === undefined
+      ? buildLaunchArgv(h, opts)
+      : buildResumeArgv(h, { ...opts, sessionId: opts.resume });
   const granularity = streamingGranularityOf(h, argv);
 
   log({

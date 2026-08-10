@@ -169,12 +169,12 @@ describe("structured boundary events (observability)", () => {
     proc.emitLine(init);
     proc.exit(0);
     await collect(turn);
-    const spawn = logged.find((e) => e["event"] === "spawn");
-    const exit = logged.find((e) => e["event"] === "exit");
+    const spawn = logged.find((e) => e.event === "spawn");
+    const exit = logged.find((e) => e.event === "exit");
     expect(spawn).toBeDefined();
     expect(exit).toMatchObject({ cause: "clean", exitCode: 0 });
-    expect(spawn?.["turnId"]).toBe(exit?.["turnId"]); // correlation survives
-    expect(JSON.stringify(spawn?.["argv"])).not.toContain("sk-abcdefghij");
+    expect(spawn?.turnId).toBe(exit?.turnId); // correlation survives
+    expect(JSON.stringify(spawn?.argv)).not.toContain("sk-abcdefghij");
   });
 });
 

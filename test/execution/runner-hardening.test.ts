@@ -134,8 +134,8 @@ describe("M3.1 boundary-review regression pins", () => {
     proc.emitStderr("    at main.ts:12");
     proc.exit(1);
     await collect(turn);
-    const exit = logged.find((e) => e["event"] === "exit");
-    expect(exit?.["stderrTail"]).toEqual(["TypeError: boom", "    at main.ts:12"]);
+    const exit = logged.find((e) => e.event === "exit");
+    expect(exit?.stderrTail).toEqual(["TypeError: boom", "    at main.ts:12"]);
   });
 
   test("a child that ignores SIGTERM gets SIGKILL after the grace budget", async () => {
@@ -179,7 +179,7 @@ describe("M3.1 boundary-review regression pins", () => {
     clock.advance(PIPE_GRACE_MS + 1);
     const events = await pending;
     expect(events.at(-1)).toMatchObject({ kind: "done", exitCode: 0, cause: "clean" });
-    expect(logged.find((e) => e["event"] === "exit")?.["pipesOpenAtExit"]).toBe(true);
+    expect(logged.find((e) => e.event === "exit")?.pipesOpenAtExit).toBe(true);
   });
 
   test("a malformed identity announcement surfaces as an error event", async () => {

@@ -194,13 +194,13 @@ export const openSession = (
       // The result line still feeds identity dedupe (claude includes
       // session_id on it - a rotation announced there must not be missed).
       const events = decodeParsed(h, parsed, state, opts.model ?? "");
-      if (parsed["type"] === "result") {
+      if (parsed.type === "result") {
         for (const event of events) routeEvent(event);
-        if (parsed["is_error"] === true) {
+        if (parsed.is_error === true) {
           resultError = true;
           routeEvent({
             kind: "error",
-            message: `turn failed: ${typeof parsed["subtype"] === "string" ? parsed["subtype"] : "result error"}`,
+            message: `turn failed: ${typeof parsed.subtype === "string" ? parsed.subtype : "result error"}`,
           });
         }
         endTurn({ kind: "done", exitCode: null, cause: resultError ? "crash" : "clean" });
