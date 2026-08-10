@@ -128,8 +128,11 @@ export class StderrTail {
 
 export interface TurnRunOptions extends LaunchOptions {
   /** Resume this session id instead of launching fresh - the turn spawns
-   * with the descriptor's resume grammar. */
+   * with the descriptor's resume grammar, and identity decoding treats a
+   * DIFFERENT announced id as a rotation anomaly. */
   readonly resume?: string;
+  /** Working directory for the spawned harness. */
+  readonly cwd?: string;
 }
 
 export async function* streamTurn(
@@ -157,6 +160,7 @@ export async function* streamTurn(
   try {
     proc = deps.spawn(argv, {
       stdin: stdinPolicyOf(h) === "close-required" ? "close" : "inherit",
+      ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
     });
   } catch (cause) {
     // A spawn that cannot start still honors the contract: error, done,
@@ -176,7 +180,7 @@ export async function* streamTurn(
   }
 
   const queue = new EventQueue();
-  const state = freshDecodeState();
+  const state = freshDecodeState(opts.resume ?? null);
   const stderrTail = new StderrTail();
   let killedByWatchdog = false;
   let exited = false;
@@ -302,9 +306,11 @@ export async function* streamTurn(
     if (pipeGrace !== null) deps.clock.clearTimeout(pipeGrace);
     if (!exited) {
       // Abandoned mid-turn: never leave the child running with nobody
-      // draining its stdout.
+      // draining its stdout - and never RETURN until it is actually gone,
+      // or an immediate resume of the same session races a live writer.
       log({ event: "abandoned", turnId, harness: h.name });
       escalate();
+      await proc.exited; // bounded: SIGKILL after KILL_GRACE_MS cannot be ignored
     }
   }
 }

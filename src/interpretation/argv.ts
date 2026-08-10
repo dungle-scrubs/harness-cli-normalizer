@@ -98,6 +98,7 @@ export const buildResumeArgv = (h: HarnessDescriptor, opts: ResumeOptions): stri
 
 export interface SessionOptions {
   readonly sessionId: string;
+  readonly model?: string;
 }
 
 export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): string[] => {
@@ -108,13 +109,19 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
     );
   }
   assertUsableSessionId(opts.sessionId);
-  return [
+  const argv = [
     h.bin,
     ...h.launch.baseFlags,
     ...h.sessionMode.flags,
     h.sessionMode.idFlag,
     opts.sessionId,
   ];
+  if (opts.model !== undefined) {
+    const validated = validateModel(h, opts.model);
+    if (!validated.ok) throw new ArgvRefusalError("unknown-model", validated.reason);
+    argv.push(h.vocabulary.modelFlag, validated.id);
+  }
+  return argv;
 };
 
 /** Canonicalize an argv into a last-wins flag map: `--flag=value` splits,

@@ -45,6 +45,8 @@ export interface SessionHandle {
 export interface OpenSessionOptions {
   readonly sessionId: string;
   readonly model?: string;
+  /** Working directory for the spawned harness. */
+  readonly cwd?: string;
 }
 
 export class SessionClosedError extends Error {
@@ -69,13 +71,19 @@ export const openSession = (
   deps: RunnerDeps,
 ): SessionHandle => {
   const log = deps.log ?? (() => {});
-  const argv = buildSessionArgv(h, { sessionId: opts.sessionId });
+  const argv = buildSessionArgv(h, {
+    sessionId: opts.sessionId,
+    ...(opts.model !== undefined ? { model: opts.model } : {}),
+  });
 
   let proc: SpawnedProcess;
   try {
     // A session needs a writable stdin regardless of the descriptor's
     // one-shot stdin policy - that policy governs turns, not sessions.
-    proc = deps.spawn(argv, { stdin: "pipe" });
+    proc = deps.spawn(argv, {
+      stdin: "pipe",
+      ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
+    });
   } catch (cause) {
     log({ event: "session_spawn_failed", sessionId: opts.sessionId, harness: h.name });
     throw new SessionSpawnError(h.name, cause);
@@ -109,6 +117,7 @@ export const openSession = (
   let finalized = false;
   let exitCode: number | null = null;
   let resultError = false;
+  let turnLimitSeen = false;
   let pumpError: unknown = null;
 
   const safeSignal = (sig: "SIGTERM" | "SIGKILL"): void => {
@@ -135,6 +144,7 @@ export const openSession = (
   };
 
   const startTurn = (): void => {
+    turnLimitSeen = false;
     activeTurn = new AsyncChannel<HarnessEvent>();
     activeTurnId = `${opts.sessionId}:turn-${++turnCounter}`;
     log({ event: "turn_start", sessionId: opts.sessionId, turnId: activeTurnId });
@@ -160,11 +170,15 @@ export const openSession = (
     if (next !== undefined && writeUser(next)) startTurn();
   };
 
-  const routeEvent = (event: HarnessEvent): void => {
-    if (event.kind === "limit") state.limitSeen = true;
+  const routeEvent = (event: HarnessEvent): Promise<void> => {
+    if (event.kind === "limit") {
+      state.limitSeen = true;
+      turnLimitSeen = true;
+    }
     if (activeTurn !== null) {
-      activeTurn.push(event);
-      return;
+      // Awaited by the pumps: past the channel's high water mark this
+      // blocks the pump, so OS pipe backpressure reaches the child.
+      return activeTurn.push(event);
     }
     // Between-turn events wait for the next turn, bounded: past the cap
     // droppable events go first, then oldest.
@@ -175,19 +189,19 @@ export const openSession = (
       );
       preTurnEvents.splice(droppableAt === -1 ? 0 : droppableAt, 1);
     }
+    return Promise.resolve();
   };
 
   const pumpStdout = async (): Promise<void> => {
     const lines = new LineBuffer();
-    const handleLine = (line: string): void => {
+    const handleLine = async (line: string): Promise<void> => {
       let parsed: Record<string, unknown> | null = null;
       try {
         parsed = JSON.parse(line) as Record<string, unknown>;
       } catch {
         const code = detectLimitInLine(h, line);
         if (code !== null) {
-          state.limitSeen = true;
-          routeEvent({ kind: "limit", code, message: `limit wall detected (${code})` });
+          await routeEvent({ kind: "limit", code, message: `limit wall detected (${code})` });
         }
         return;
       }
@@ -195,24 +209,28 @@ export const openSession = (
       // session_id on it - a rotation announced there must not be missed).
       const events = decodeParsed(h, parsed, state, opts.model ?? "");
       if (parsed.type === "result") {
-        for (const event of events) routeEvent(event);
+        for (const event of events) await routeEvent(event);
         if (parsed.is_error === true) {
           resultError = true;
-          routeEvent({
+          await routeEvent({
             kind: "error",
             message: `turn failed: ${typeof parsed.subtype === "string" ? parsed.subtype : "result error"}`,
           });
         }
-        endTurn({ kind: "done", exitCode: null, cause: resultError ? "crash" : "clean" });
+        endTurn({
+          kind: "done",
+          exitCode: null,
+          cause: turnLimitSeen ? "limit" : resultError ? "crash" : "clean",
+        });
         return;
       }
-      for (const event of events) routeEvent(event);
+      for (const event of events) await routeEvent(event);
     };
     for await (const chunk of proc.stdout) {
-      for (const line of lines.push(chunk)) handleLine(line);
+      for (const line of lines.push(chunk)) await handleLine(line);
     }
     const rest = lines.flush();
-    if (rest !== null) handleLine(rest);
+    if (rest !== null) await handleLine(rest);
   };
 
   const pumpStderr = async (): Promise<void> => {
@@ -221,13 +239,16 @@ export const openSession = (
       for (const line of lines.push(chunk)) {
         const limit = detectLimitInLine(h, line);
         if (limit !== null) {
-          state.limitSeen = true;
-          routeEvent({ kind: "limit", code: limit, message: `limit wall detected (${limit})` });
+          await routeEvent({
+            kind: "limit",
+            code: limit,
+            message: `limit wall detected (${limit})`,
+          });
           continue;
         }
         const auth = detectAuthFailureInLine(h, line);
         if (auth !== null) {
-          routeEvent({ kind: "error", message: `auth wall: ${auth}` });
+          await routeEvent({ kind: "error", message: `auth wall: ${auth}` });
           continue;
         }
         stderrTail.push(line);
@@ -256,12 +277,12 @@ export const openSession = (
           ? "killed"
           : "crash";
     if (pumpError !== null) {
-      routeEvent({ kind: "error", message: `session pump failed: ${String(pumpError)}` });
+      void routeEvent({ kind: "error", message: `session pump failed: ${String(pumpError)}` });
     }
     if (pendingSends.length > 0) {
       // "queued" was an accepted disposition - the loss must be visible to
       // both the log and the consumer, never silent.
-      routeEvent({
+      void routeEvent({
         kind: "error",
         message: `${pendingSends.length} queued send(s) died with the session`,
       });

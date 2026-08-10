@@ -37,7 +37,9 @@ export class LineBuffer {
         this.discarding = false;
         continue;
       }
-      if (!isBlank(line)) lines.push(line);
+      // The bound applies to COMPLETE lines too - an oversized line whose
+      // newline arrived in the same chunk must not bypass it.
+      if (line.length <= LINE_MAX && !isBlank(line)) lines.push(line);
     }
     this.scanFrom = this.pending.length;
     if (this.pending.length > LINE_MAX) {
