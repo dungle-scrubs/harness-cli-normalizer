@@ -11,7 +11,6 @@ import type {
   HarnessMode,
   StreamingGranularity,
 } from "../knowledge/descriptor.js";
-import { validateModel } from "./vocabulary.js";
 
 export interface CapabilityResult {
   readonly vision: boolean;
@@ -27,7 +26,10 @@ export const capabilitiesOf = (
   model: string,
   mode: HarnessMode,
 ): CapabilityResult => {
-  if (!validateModel(h, model).ok) {
+  const resolved = h.vocabulary.aliases[model] ?? model;
+  if (!h.vocabulary.models.includes(resolved)) {
+    // Curated claims cover curated models only - an extensible registry's
+    // unknown model still degrades here until runtime verification.
     // Degrade: no raw-image claims, no streaming claims - transcribe/hold.
     return {
       vision: false,

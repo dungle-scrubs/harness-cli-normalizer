@@ -13,12 +13,18 @@
  * carries a RegExp cannot be overridden from JSON.
  */
 import { claudeCode } from "./claude-code.js";
+import { codexCli } from "./codex.js";
 import { HARNESS_NAMES, type HarnessDescriptor, type HarnessName } from "./descriptor.js";
+import { museCode } from "./muse.js";
+import { piCli } from "./pi.js";
 
 export type DescriptorSet = Partial<Record<HarnessName, HarnessDescriptor>>;
 
 export const defaultDescriptors = (): DescriptorSet => ({
   claude: claudeCode,
+  codex: codexCli,
+  pi: piCli,
+  muse: museCode,
 });
 
 export class OverrideRefusalError extends Error {

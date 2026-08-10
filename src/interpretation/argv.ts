@@ -144,8 +144,11 @@ export const streamingGranularityOf = (
   h: HarnessDescriptor,
   argv: readonly string[],
 ): StreamingGranularity => {
-  const flags = flagMapOf(h, argv);
   const pin = h.output.tokenFlagSet;
+  // An empty pin means the harness has no token mode at all - the fallback
+  // IS the ceiling, not a degraded case.
+  if (pin.length === 0) return h.output.fallback;
+  const flags = flagMapOf(h, argv);
   for (let i = 0; i < pin.length; i++) {
     const member = pin[i];
     if (member === undefined || !member.startsWith("-")) continue;
