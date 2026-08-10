@@ -29,7 +29,10 @@ const realSpawn = (argv: readonly string[], opts: SpawnOptions): SpawnedProcess 
     stderr: (child.stderr ?? emptyStream()) as AsyncIterable<Uint8Array>,
     exited: new Promise((resolve) => {
       child.on("close", (code) => resolve(code));
-      child.on("error", () => resolve(null));
+      // Node reports an unspawnable binary (ENOENT) as an async 'error'
+      // event, not a synchronous throw - map it to the spawn-failure exit
+      // code so the runner classifies crash, never "killed".
+      child.on("error", () => resolve(127));
     }),
     ...(opts.stdin === "pipe" && child.stdin !== null
       ? {
