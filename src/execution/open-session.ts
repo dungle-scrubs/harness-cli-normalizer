@@ -133,6 +133,11 @@ export const openSession = (
   };
   const pumping = pump();
 
+  let shutdownComplete: () => void = () => {};
+  const shutdown = new Promise<void>((resolve) => {
+    shutdownComplete = resolve;
+  });
+
   void proc.exited.then(async (exitCode) => {
     await pumping.catch(() => {});
     ended = true;
@@ -146,6 +151,7 @@ export const openSession = (
     endTurn({ kind: "done", exitCode, cause });
     turns.close();
     log({ event: "session_close", sessionId: opts.sessionId, exitCode, cause });
+    shutdownComplete();
   });
 
   return {
@@ -173,8 +179,10 @@ export const openSession = (
       return { disposition: "started" };
     },
     async close(): Promise<void> {
+      // Fully drained, not merely exited: the pump has finished routing and
+      // the session_close boundary event is written before close resolves.
       stdin.end();
-      await proc.exited;
+      await shutdown;
     },
   };
 };
