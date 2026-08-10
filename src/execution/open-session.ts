@@ -5,26 +5,38 @@
  * boundary (mid-turn stdin writes would interleave into the model's
  * context unpredictably - the harness itself queues, so we mirror its
  * disposition). `result` lines delimit turns; identity dedupe (D-022)
- * spans the whole session. Structured lifecycle events (session open/
- * close, turn start/end, send dispositions) are always-on evidence with
+ * spans the whole session. Lifecycle is bounded end to end: close() ends
+ * stdin, escalates SIGTERM->SIGKILL if the child ignores EOF, and pipes
+ * held open past exit close out after grace - a session can always be
+ * ended. Queued sends that die with the session are surfaced, never
+ * silently dropped. Structured lifecycle events (session open/close, turn
+ * start/end, send dispositions, drops) are always-on evidence with
  * sessionId + turnId correlation.
  */
 import { buildSessionArgv } from "../interpretation/argv.js";
-import { stdinPolicyOf } from "../interpretation/dimensions.js";
+import { detectAuthFailureInLine, detectLimitInLine } from "../interpretation/limits.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { AsyncChannel } from "./channel.js";
-import { decodeLine, freshDecodeState } from "./decode.js";
-import type { RunnerDeps } from "./deps.js";
+import { decodeParsed, freshDecodeState } from "./decode.js";
+import type { RunnerDeps, SpawnedProcess } from "./deps.js";
 import type { ExitCause, HarnessEvent } from "./events.js";
 import { LineBuffer } from "./lines.js";
-import { redactArgv } from "./stream-turn.js";
+import { KILL_GRACE_MS, PIPE_GRACE_MS, redactArgv, StderrTail } from "./stream-turn.js";
+
+/** Grace after stdin EOF before concluding the child will not exit on its
+ * own and escalating signals. */
+export const CLOSE_GRACE_MS = 5_000;
+
+const PRETURN_MAX = 256;
 
 export interface SessionSendResult {
   readonly disposition: "started" | "queued";
 }
 
 export interface SessionHandle {
-  /** One inner iterable per turn, each ending in a turn-scoped `done`. */
+  /** One inner iterable per turn, each ending in a turn-scoped `done`.
+   * Breaking out of THIS iterable closes the session; breaking out of a
+   * single turn's iterable only stops reading that turn. */
   readonly turns: AsyncIterable<AsyncIterable<HarnessEvent>>;
   send(text: string): SessionSendResult;
   close(): Promise<void>;
@@ -42,6 +54,15 @@ export class SessionClosedError extends Error {
   }
 }
 
+export class SessionSpawnError extends Error {
+  constructor(harness: string, cause: unknown) {
+    super(
+      `could not spawn a ${harness} session: ${cause instanceof Error ? cause.message : String(cause)}`,
+    );
+    this.name = "SessionSpawnError";
+  }
+}
+
 export const openSession = (
   h: HarnessDescriptor,
   opts: OpenSessionOptions,
@@ -49,13 +70,24 @@ export const openSession = (
 ): SessionHandle => {
   const log = deps.log ?? (() => {});
   const argv = buildSessionArgv(h, { sessionId: opts.sessionId });
-  const proc = deps.spawn(argv, {
-    stdin: stdinPolicyOf(h) === "close-required" ? "close" : "inherit",
-  });
-  if (proc.stdin === undefined) {
-    throw new Error(`spawner opened no stdin for ${h.bin}; a session cannot send`);
+
+  let proc: SpawnedProcess;
+  try {
+    // A session needs a writable stdin regardless of the descriptor's
+    // one-shot stdin policy - that policy governs turns, not sessions.
+    proc = deps.spawn(argv, { stdin: "pipe" });
+  } catch (cause) {
+    log({ event: "session_spawn_failed", sessionId: opts.sessionId, harness: h.name });
+    throw new SessionSpawnError(h.name, cause);
   }
   const stdin = proc.stdin;
+  if (stdin === undefined) {
+    // The child exists but there is no way to ever send to it - end it
+    // before throwing, or it runs orphaned forever.
+    deps.signal(proc, "SIGTERM");
+    log({ event: "session_spawn_failed", sessionId: opts.sessionId, harness: h.name });
+    throw new SessionSpawnError(h.name, new Error("spawner opened no stdin pipe"));
+  }
 
   log({
     event: "session_open",
@@ -64,22 +96,42 @@ export const openSession = (
     argv: redactArgv(argv),
   });
 
-  const turns = new AsyncChannel<AsyncIterable<HarnessEvent>>();
+  const turnsChannel = new AsyncChannel<AsyncIterable<HarnessEvent>>();
   const state = freshDecodeState(opts.sessionId);
+  const stderrTail = new StderrTail();
   let turnCounter = 0;
   let activeTurn: AsyncChannel<HarnessEvent> | null = null;
   let activeTurnId = "";
   const pendingSends: string[] = [];
   const preTurnEvents: HarnessEvent[] = [];
-  let ended = false;
+  let dead = false;
+  let closing = false;
+  let finalized = false;
+  let exitCode: number | null = null;
+  let resultError = false;
+  let pumpError: unknown = null;
 
-  const writeUser = (text: string): void => {
-    stdin.write(
-      `${JSON.stringify({
-        type: "user",
-        message: { role: "user", content: [{ type: "text", text }] },
-      })}\n`,
-    );
+  const safeSignal = (sig: "SIGTERM" | "SIGKILL"): void => {
+    if (!dead) deps.signal(proc, sig);
+  };
+  const escalate = (): void => {
+    safeSignal("SIGTERM");
+    deps.clock.setTimeout(() => safeSignal("SIGKILL"), KILL_GRACE_MS);
+  };
+
+  const writeUser = (text: string): boolean => {
+    try {
+      stdin.write(
+        `${JSON.stringify({
+          type: "user",
+          message: { role: "user", content: [{ type: "text", text }] },
+        })}\n`,
+      );
+      return true;
+    } catch {
+      activeTurn?.push({ kind: "error", message: "send failed: session stdin is gone" });
+      return false;
+    }
   };
 
   const startTurn = (): void => {
@@ -87,7 +139,7 @@ export const openSession = (
     activeTurnId = `${opts.sessionId}:turn-${++turnCounter}`;
     log({ event: "turn_start", sessionId: opts.sessionId, turnId: activeTurnId });
     for (const held of preTurnEvents.splice(0)) activeTurn.push(held);
-    turns.push(activeTurn);
+    turnsChannel.push(activeTurn);
   };
 
   const endTurn = (done: HarnessEvent & { kind: "done" }): void => {
@@ -101,46 +153,101 @@ export const openSession = (
       cause: done.cause,
     });
     activeTurn = null;
+    resultError = false;
     // The boundary is the only legal delivery point for queued input.
+    if (dead || closing) return;
     const next = pendingSends.shift();
-    if (next !== undefined && !ended) {
-      writeUser(next);
-      startTurn();
+    if (next !== undefined && writeUser(next)) startTurn();
+  };
+
+  const routeEvent = (event: HarnessEvent): void => {
+    if (event.kind === "limit") state.limitSeen = true;
+    if (activeTurn !== null) {
+      activeTurn.push(event);
+      return;
+    }
+    // Between-turn events wait for the next turn, bounded: past the cap
+    // droppable events go first, then oldest.
+    preTurnEvents.push(event);
+    if (preTurnEvents.length > PRETURN_MAX) {
+      const droppableAt = preTurnEvents.findIndex(
+        (e) => e.kind === "token" || e.kind === "progress" || e.kind === "context",
+      );
+      preTurnEvents.splice(droppableAt === -1 ? 0 : droppableAt, 1);
     }
   };
 
-  const pump = async (): Promise<void> => {
+  const pumpStdout = async (): Promise<void> => {
     const lines = new LineBuffer();
-    for await (const chunk of proc.stdout) {
-      for (const line of lines.push(chunk)) {
-        let parsed: Record<string, unknown> | null = null;
-        try {
-          parsed = JSON.parse(line) as Record<string, unknown>;
-        } catch {
-          parsed = null;
+    const handleLine = (line: string): void => {
+      let parsed: Record<string, unknown> | null = null;
+      try {
+        parsed = JSON.parse(line) as Record<string, unknown>;
+      } catch {
+        const code = detectLimitInLine(h, line);
+        if (code !== null) {
+          state.limitSeen = true;
+          routeEvent({ kind: "limit", code, message: `limit wall detected (${code})` });
         }
-        if (parsed?.["type"] === "result") {
-          endTurn({ kind: "done", exitCode: null, cause: "clean" });
+        return;
+      }
+      // The result line still feeds identity dedupe (claude includes
+      // session_id on it - a rotation announced there must not be missed).
+      const events = decodeParsed(h, parsed, state, opts.model ?? "");
+      if (parsed["type"] === "result") {
+        for (const event of events) routeEvent(event);
+        if (parsed["is_error"] === true) {
+          resultError = true;
+          routeEvent({
+            kind: "error",
+            message: `turn failed: ${typeof parsed["subtype"] === "string" ? parsed["subtype"] : "result error"}`,
+          });
+        }
+        endTurn({ kind: "done", exitCode: null, cause: resultError ? "crash" : "clean" });
+        return;
+      }
+      for (const event of events) routeEvent(event);
+    };
+    for await (const chunk of proc.stdout) {
+      for (const line of lines.push(chunk)) handleLine(line);
+    }
+    const rest = lines.flush();
+    if (rest !== null) handleLine(rest);
+  };
+
+  const pumpStderr = async (): Promise<void> => {
+    const lines = new LineBuffer();
+    for await (const chunk of proc.stderr) {
+      for (const line of lines.push(chunk)) {
+        const limit = detectLimitInLine(h, line);
+        if (limit !== null) {
+          state.limitSeen = true;
+          routeEvent({ kind: "limit", code: limit, message: `limit wall detected (${limit})` });
           continue;
         }
-        for (const event of decodeLine(h, line, state, opts.model ?? "")) {
-          if (event.kind === "limit") state.limitSeen = true;
-          if (activeTurn !== null) activeTurn.push(event);
-          else preTurnEvents.push(event);
+        const auth = detectAuthFailureInLine(h, line);
+        if (auth !== null) {
+          routeEvent({ kind: "error", message: `auth wall: ${auth}` });
+          continue;
         }
+        stderrTail.push(line);
       }
     }
   };
-  const pumping = pump();
+
+  const pumping = Promise.all([pumpStdout(), pumpStderr()]).catch((cause) => {
+    pumpError = cause;
+  });
 
   let shutdownComplete: () => void = () => {};
   const shutdown = new Promise<void>((resolve) => {
     shutdownComplete = resolve;
   });
 
-  void proc.exited.then(async (exitCode) => {
-    await pumping.catch(() => {});
-    ended = true;
+  let pipesOpenAtExit = false;
+  const finalize = (): void => {
+    if (finalized) return;
+    finalized = true;
     const cause: ExitCause = state.limitSeen
       ? "limit"
       : exitCode === 0
@@ -148,16 +255,85 @@ export const openSession = (
         : exitCode === null
           ? "killed"
           : "crash";
+    if (pumpError !== null) {
+      routeEvent({ kind: "error", message: `session pump failed: ${String(pumpError)}` });
+    }
+    if (pendingSends.length > 0) {
+      // "queued" was an accepted disposition - the loss must be visible to
+      // both the log and the consumer, never silent.
+      routeEvent({
+        kind: "error",
+        message: `${pendingSends.length} queued send(s) died with the session`,
+      });
+      log({
+        event: "sends_dropped",
+        sessionId: opts.sessionId,
+        count: pendingSends.length,
+        lengths: pendingSends.map((s) => s.length),
+      });
+      pendingSends.length = 0;
+    }
     endTurn({ kind: "done", exitCode, cause });
-    turns.close();
-    log({ event: "session_close", sessionId: opts.sessionId, exitCode, cause });
+    if (preTurnEvents.some((e) => e.kind !== "token" && e.kind !== "progress")) {
+      log({
+        event: "preturn_events_dropped",
+        sessionId: opts.sessionId,
+        kinds: preTurnEvents.map((e) => e.kind),
+      });
+    }
+    turnsChannel.close();
+    log({
+      event: "session_close",
+      sessionId: opts.sessionId,
+      exitCode,
+      cause,
+      ...(pipesOpenAtExit ? { pipesOpenAtExit } : {}),
+      ...(cause === "crash" || cause === "killed" ? { stderrTail: stderrTail.snapshot() } : {}),
+    });
     shutdownComplete();
+  };
+
+  void proc.exited.then((code) => {
+    dead = true;
+    exitCode = code;
+    // Pipes held open past exit (a grandchild) must not hang the session.
+    const pipeGrace = deps.clock.setTimeout(() => {
+      pipesOpenAtExit = true;
+      finalize();
+    }, PIPE_GRACE_MS);
+    void pumping.then(() => {
+      deps.clock.clearTimeout(pipeGrace);
+      finalize();
+    });
   });
 
+  const close = async (): Promise<void> => {
+    if (closing) return shutdown;
+    closing = true;
+    try {
+      stdin.end();
+    } catch {
+      // stdin may already be gone - escalation below still bounds close.
+    }
+    // A child that does not exit on stdin EOF gets signalled after grace.
+    const closeGrace = deps.clock.setTimeout(() => escalate(), CLOSE_GRACE_MS);
+    await shutdown;
+    deps.clock.clearTimeout(closeGrace);
+  };
+
   return {
-    turns,
+    // Breaking out of the turns iterable is abandonment - treat it as
+    // close() so the child is never left running undrained (the streamTurn
+    // C1 scar, adapted to a handle-shaped API).
+    turns: (async function* () {
+      try {
+        for await (const turn of turnsChannel) yield turn;
+      } finally {
+        if (!closing && !dead) void close();
+      }
+    })(),
     send(text: string): SessionSendResult {
-      if (ended) throw new SessionClosedError();
+      if (dead || closing) throw new SessionClosedError();
       if (activeTurn !== null) {
         pendingSends.push(text);
         log({
@@ -168,7 +344,7 @@ export const openSession = (
         });
         return { disposition: "queued" };
       }
-      writeUser(text);
+      if (!writeUser(text)) throw new SessionClosedError();
       startTurn();
       log({
         event: "send",
@@ -178,11 +354,6 @@ export const openSession = (
       });
       return { disposition: "started" };
     },
-    async close(): Promise<void> {
-      // Fully drained, not merely exited: the pump has finished routing and
-      // the session_close boundary event is written before close resolves.
-      stdin.end();
-      await shutdown;
-    },
+    close,
   };
 };
