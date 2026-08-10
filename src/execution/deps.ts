@@ -11,6 +11,12 @@ export interface SpawnedProcess {
   /** Resolves with the exit code, or null when the process died to a
    * signal without one. */
   readonly exited: Promise<number | null>;
+  /** Present when the spawner opened a writable stdin (session mode needs
+   * it; one-shot turns close or inherit stdin instead). */
+  readonly stdin?: {
+    write(data: string): void;
+    end(): void;
+  };
 }
 
 export interface SpawnOptions {

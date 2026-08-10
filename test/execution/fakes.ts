@@ -45,6 +45,21 @@ export class FakeProcess implements SpawnedProcess {
   readonly stderr = new Channel();
   readonly exited: Promise<number | null>;
   readonly signals: SignalName[] = [];
+  readonly stdinLines: string[] = [];
+  stdinEnded = false;
+  readonly stdin = {
+    write: (data: string): void => {
+      for (const line of data.split("\n")) {
+        if (line.trim() !== "") this.stdinLines.push(line);
+      }
+    },
+    end: (): void => {
+      this.stdinEnded = true;
+      // Model the real harness: a stream-json session exits cleanly when
+      // its input stream closes (A-001).
+      this.exit(0);
+    },
+  };
   private exitResolve!: (code: number | null) => void;
 
   constructor() {
