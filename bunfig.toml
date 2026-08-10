@@ -1,3 +1,7 @@
 # Scope the Bun test lane to test/ (mirror of vitest.config.ts include).
 [test]
 root = "test"
+
+# pnpm owns dependency installation; never let bun auto-install a parallel tree.
+[install]
+auto = "disable"
