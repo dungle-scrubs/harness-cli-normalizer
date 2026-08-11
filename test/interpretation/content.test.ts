@@ -116,3 +116,32 @@ describe("terminal-error detection (silent provider/auth failures)", () => {
     expect(content.some((e) => e.kind === "message" && e.text !== "")).toBe(false);
   });
 });
+
+describe("non-shell tool decoding (real fixtures)", () => {
+  test("codex file_change surfaces as a file_change tool with the changed paths", () => {
+    const tools = allContent("codex", fixture("codex-filetool")).filter((e) => e.kind === "tool");
+    expect(tools.some((t) => t.kind === "tool" && t.name === "file_change")).toBe(true);
+  });
+
+  test("muse read_file surfaces as a tool named by the real tool_name", () => {
+    const tools = allContent("muse", fixture("muse-readtool")).filter((e) => e.kind === "tool");
+    expect(tools.some((t) => t.kind === "tool" && t.name === "read_file")).toBe(true);
+  });
+
+  test("pi read/write tools decode generically (name from toolName)", () => {
+    expect(
+      contentEventsOf("pi", {
+        type: "tool_execution_start",
+        toolName: "read",
+        args: { path: "x.txt" },
+      }),
+    ).toEqual([{ kind: "tool", name: "read", input: { path: "x.txt" } }]);
+    expect(
+      contentEventsOf("pi", {
+        type: "tool_execution_start",
+        toolName: "write",
+        args: { path: "y" },
+      }),
+    ).toEqual([{ kind: "tool", name: "write", input: { path: "y" } }]);
+  });
+});
