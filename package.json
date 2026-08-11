@@ -15,7 +15,8 @@
     "test:bun": "bun test",
     "prepare": "git config --local core.hooksPath .git/hooks && lefthook install --force",
     "smoke:claude": "bun scripts/smoke-claude.ts",
-    "smoke:all": "bun scripts/smoke-all.ts"
+    "smoke:all": "bun scripts/smoke-all.ts",
+    "demo": "bun scripts/demo.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.7",
