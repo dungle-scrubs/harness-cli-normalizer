@@ -1,0 +1,53 @@
+# Harness-update detector (the free, no-inference, no-credential half of the
+# pipeline). Weekly, it compares each descriptor's verifiedAgainst to the
+# latest published version and, if any harness is behind, opens/updates a
+# single tracking issue. The credentialed capability tripwires (smoke:seven)
+# are NOT run here - they need inference and run locally.
+name: harness-version-check
+
+on:
+  schedule:
+    - cron: "0 9 * * 1" # Mondays 09:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  check:
+    # ubuntu-latest is fine for this sub-minute job; swap for a Blacksmith
+    # runner label if standardizing runners across repos.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      # check:versions imports only src/ (pure) + fetch; no dependency install
+      # is needed. muse (installed source) has no CLI here, so it reads
+      # "unknown" and never false-triggers.
+      - id: check
+        run: |
+          set +e
+          OUT="$(bun scripts/check-versions.ts 2>&1)"
+          CODE=$?
+          printf '%s\n' "$OUT"
+          echo "behind=$CODE" >> "$GITHUB_OUTPUT"
+          {
+            echo "report<<REPORT_EOF"
+            printf '%s\n' "$OUT"
+            echo "REPORT_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Open or update the tracking issue
+        if: steps.check.outputs.behind == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create harness-update --color FBCA04 --description "A harness CLI shipped a new version" --force
+          BODY="$(printf 'A newer harness version has shipped; the descriptor is unverified for it.\n\n```\n%s\n```\n\nNext (local, not CI): run `bun run smoke:seven` against the new version to re-run the capability tripwires; if a claim flipped, update the descriptor + capture the new fixtures, bump `verifiedAgainst`/`versionSource`, and open a PR.' "${{ steps.check.outputs.report }}")"
+          EXISTING="$(gh issue list --label harness-update --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+          else
+            gh issue create --title "Harness dependency update available" --label harness-update --body "$BODY"
+          fi
