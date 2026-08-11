@@ -10,6 +10,7 @@ import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
 export const codexCli: HarnessDescriptor = deepFreeze({
   name: "codex",
   bin: "codex",
+  verifiedAgainst: "0.147.0",
   launch: {
     // exec --json emits structured item events; without --json, identity
     // discovery is blind (v1: requiredArgument "--json"). The sandbox grant

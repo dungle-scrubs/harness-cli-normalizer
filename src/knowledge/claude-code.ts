@@ -9,6 +9,7 @@ import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
 export const claudeCode: HarnessDescriptor = deepFreeze({
   name: "claude",
   bin: "claude",
+  verifiedAgainst: "2.1.226",
   launch: {
     baseFlags: ["-p"],
     subcommands: [],
