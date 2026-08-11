@@ -12,6 +12,7 @@ import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
 export const piCli: HarnessDescriptor = deepFreeze({
   name: "pi",
   bin: "pi",
+  verifiedAgainst: "0.84.1",
   launch: {
     // -p --mode json: bare -p prints plain text; --mode json emits the
     // structured v3 records the runner decodes (verified 0.84.1).
