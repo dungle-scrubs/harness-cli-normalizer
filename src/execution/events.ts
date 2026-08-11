@@ -2,6 +2,10 @@
  * HarnessEvent: the runner's output vocabulary (PLAN.md Part 0). The
  * normalizer owns these events and the parsing that produces them; it does
  * NOT own the chat protocol - lucid maps events into frames downstream.
+ * Only `done` is terminal. A turn may emit MULTIPLE `error` events before
+ * it (a decoded mid-stream error, then a crash-exit stderr tail, etc.), so
+ * a consumer treats `error` as informational and waits for `done`.
+ *
  * Event classes are load-bearing for backpressure: token/progress/context
  * are droppable (coalescible, latest-wins); the rest are lossless. The
  * split is DECLARED here because the normalizer emits the events; the

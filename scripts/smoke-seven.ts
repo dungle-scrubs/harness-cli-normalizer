@@ -43,6 +43,22 @@ const record = (harness: string, scenario: string, cell: Cell): void => {
   (results[harness] as Record<string, Cell>)[scenario] = cell;
 };
 
+const SCENARIO_TIMEOUT_MS = 240_000;
+
+/** Fail a scenario rather than let a hung harness hang the whole matrix.
+ * (The underlying turn finishes on its own; full cancellation is not wired
+ * for an on-demand smoke.) */
+const withTimeout = <T>(work: Promise<T>): Promise<T> =>
+  Promise.race([
+    work,
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () => reject(new Error(`scenario exceeded ${SCENARIO_TIMEOUT_MS}ms`)),
+        SCENARIO_TIMEOUT_MS,
+      ),
+    ),
+  ]);
+
 const collect = async (turn: AsyncIterable<HarnessEvent>): Promise<HarnessEvent[]> => {
   const out: HarnessEvent[] = [];
   for await (const e of turn) out.push(e);
@@ -88,8 +104,22 @@ const streaming = async (h: HarnessDescriptor): Promise<Cell> => {
   const events = await collect(
     streamTurn(h, opts(h, { prompt: "Count: one two three" }), nodeRunnerDeps()),
   );
-  const tokens = events.filter((e) => e.kind === "token").length;
-  return { status: tokens > 0 ? "pass" : "fail", detail: `${tokens} token events` };
+  const tokenText = events
+    .filter((e): e is Extract<HarnessEvent, { kind: "token" }> => e.kind === "token")
+    .map((e) => e.text)
+    .join("");
+  const norm = (s: string) => s.replace(/\s+/g, "").toLowerCase();
+  const message = textOf(events);
+  // Fidelity: the streamed tokens must reconstruct the final message, not
+  // merely be present - one should contain the other once whitespace is
+  // normalized away.
+  const recon = norm(tokenText);
+  const msg = norm(message);
+  const ok = recon.length > 0 && msg.length > 0 && (recon.includes(msg) || msg.includes(recon));
+  return {
+    status: ok ? "pass" : "fail",
+    detail: `tokens="${tokenText.slice(0, 24)}" msg="${message.slice(0, 24)}"`,
+  };
 };
 
 // 3. tool-use: a shell tool invocation is decoded.
@@ -133,13 +163,12 @@ const resumeContinuity = async (h: HarnessDescriptor): Promise<Cell> => {
       nodeRunnerDeps(),
     ),
   );
-  // caller-assigned harnesses reuse the id we would pass; codex mints its
-  // own, so resume by the announced id.
   const sid = idOf(first);
   if (sid === null) return { status: "fail", detail: "no session id from turn 1" };
-  // For caller-assigned harnesses we must have launched WITH the id; a
-  // fresh launch mints a new one, so this scenario resumes the minted/first
-  // id which only codex guarantees to persist. Others: best-effort.
+  // A genuine end-to-end resume test: turn 1 launches fresh (no id passed),
+  // the harness self-assigns and announces its id and persists the session
+  // under it; turn 2 resumes THAT announced id. The model cannot guess the
+  // codeword, so recall proves the session context was actually carried.
   const second = await collect(
     streamTurn(
       h,
@@ -179,9 +208,12 @@ const killResume = async (h: HarnessDescriptor): Promise<Cell> => {
       nodeRunnerDeps(),
     ),
   );
-  const ok = textOf(resumed).toLowerCase().includes("otter");
+  const recalled = textOf(resumed).toLowerCase().includes("otter");
+  // The abandonment must actually have interrupted a streaming turn for
+  // this to be a kill-and-resume test, not just a resume test.
+  if (seen === 0) return { status: "fail", detail: "turn never streamed; abandonment untested" };
   return {
-    status: ok ? "pass" : "fail",
+    status: recalled ? "pass" : "fail",
     detail: `abandoned@${seen}tok recall="${textOf(resumed).slice(0, 20)}"`,
   };
 };
@@ -215,7 +247,7 @@ const SCENARIOS: Array<[string, (h: HarnessDescriptor) => Promise<Cell>]> = [
 for (const h of HARNESSES) {
   for (const [name, fn] of SCENARIOS) {
     try {
-      record(h.name, name, await fn(h));
+      record(h.name, name, await withTimeout(fn(h)));
     } catch (cause) {
       record(h.name, name, { status: "fail", detail: String(cause).slice(0, 60) });
     }
