@@ -33,6 +33,7 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     flag: "resume",
     aliases: [],
     idShape: UUID_SHAPE,
+    onMissing: "error",
     // `codex exec resume` accepts --json and --skip-git-repo-check but
     // REJECTS --sandbox (verified 0.147.0: "unexpected argument").
     extraFlags: ["--json", "--skip-git-repo-check"],

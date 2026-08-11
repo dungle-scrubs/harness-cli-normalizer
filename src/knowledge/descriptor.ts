@@ -77,6 +77,13 @@ export interface HarnessDescriptor {
      * <id>`) recognized when pasted, but never built - the builder uses
      * `style`/`flag`. */
     readonly positionalParseWord?: string;
+    /** What resuming a NONEXISTENT id does (verified live): "error" -
+     * claude/codex refuse an unknown session; "create" - pi/muse treat the
+     * id as create-if-missing and silently start a FRESH session under it.
+     * The protocol layer must know this: a consumer resuming a session it
+     * believes exists gets a blank session, not an error, on a "create"
+     * harness. */
+    readonly onMissing: "error" | "create";
   };
   /** Persistent headless session support: the exact flag set that opens one
    * lucid-owned process serving many turns, or null when the harness has no
