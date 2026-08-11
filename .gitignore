@@ -5,3 +5,5 @@ coverage/
 .DS_Store
 .lefthook-local/
 .smoke/
+
+# real-harness smoke fixtures are kept (evidence); .smoke run output is not
