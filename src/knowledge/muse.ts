@@ -14,7 +14,9 @@ export const museCode: HarnessDescriptor = deepFreeze({
   name: "muse",
   bin: "muse",
   launch: {
-    baseFlags: ["exec"],
+    // exec --json emits the payload_type/stream records the runner decodes
+    // (verified 0.1.0); bare exec streams human text.
+    baseFlags: ["exec", "--json"],
     subcommands: ["exec"],
     promptStyle: "positional",
     toolsFlag: null,
@@ -28,7 +30,8 @@ export const museCode: HarnessDescriptor = deepFreeze({
     flag: "--session-id",
     aliases: [],
     idShape: UUID_SHAPE,
-    extraFlags: [],
+    // Structured output on resume too (see launch baseFlags).
+    extraFlags: ["--json"],
     positionalParseWord: "resume",
   },
   sessionMode: null,
