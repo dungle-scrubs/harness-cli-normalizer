@@ -30,6 +30,7 @@ export const piCli: HarnessDescriptor = deepFreeze({
     flag: "--session-id",
     aliases: [],
     idShape: UUID_SHAPE,
+    onMissing: "create",
     extraFlags: ["-p", "--mode", "json"],
   },
   // --mode rpc exists on 0.84.1 but its session semantics are unverified

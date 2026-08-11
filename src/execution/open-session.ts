@@ -209,14 +209,11 @@ export const openSession = (
       // session_id on it - a rotation announced there must not be missed).
       const events = decodeParsed(h, parsed, state, opts.model ?? "");
       if (parsed.type === "result") {
+        // decodeParsed already surfaces the is_error case as an error event
+        // (content.ts claude reader); routing the events is enough - we only
+        // still track resultError here to classify the done cause.
         for (const event of events) await routeEvent(event);
-        if (parsed.is_error === true) {
-          resultError = true;
-          await routeEvent({
-            kind: "error",
-            message: `turn failed: ${typeof parsed.subtype === "string" ? parsed.subtype : "result error"}`,
-          });
-        }
+        if (parsed.is_error === true) resultError = true;
         endTurn({
           kind: "done",
           exitCode: null,

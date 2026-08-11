@@ -227,3 +227,12 @@ describe("phase-2 codex-review regression pins", () => {
     );
   });
 });
+
+describe("resume-of-missing behavior (verified live, #5)", () => {
+  test("claude and codex error on an unknown session; pi and muse create-if-missing", () => {
+    expect(claudeCode.resume.onMissing).toBe("error");
+    expect(codexCli.resume.onMissing).toBe("error");
+    expect(piCli.resume.onMissing).toBe("create");
+    expect(museCode.resume.onMissing).toBe("create");
+  });
+});

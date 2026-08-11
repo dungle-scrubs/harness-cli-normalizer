@@ -30,6 +30,7 @@ export const museCode: HarnessDescriptor = deepFreeze({
     flag: "--session-id",
     aliases: [],
     idShape: UUID_SHAPE,
+    onMissing: "create",
     // Structured output on resume too (see launch baseFlags).
     extraFlags: ["--json"],
     positionalParseWord: "resume",

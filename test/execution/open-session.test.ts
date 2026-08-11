@@ -177,3 +177,23 @@ describe("session lifecycle events (observability)", () => {
     expect(turnStart?.sessionId).toBe(sid);
   });
 });
+
+describe("result is_error is not double-emitted", () => {
+  test("a claude result is_error yields exactly one error event through openSession", async () => {
+    const proc = new FakeProcess();
+    const d = makeDeps(proc);
+    const session = openSession(claudeCode, { sessionId: sid }, d);
+    session.send("doomed");
+    const turnsIter = session.turns[Symbol.asyncIterator]();
+    const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
+    proc.emitLine(init);
+    proc.emitLine(JSON.stringify({ type: "result", subtype: "error_max_turns", is_error: true }));
+    const events = await drainTurn(turn1);
+    expect(events.filter((e) => e.kind === "error")).toHaveLength(1);
+    expect(events.find((e) => e.kind === "error")).toMatchObject({
+      message: expect.stringContaining("error_max_turns"),
+    });
+    expect(events.at(-1)).toMatchObject({ kind: "done", cause: "crash" });
+    await session.close();
+  });
+});
