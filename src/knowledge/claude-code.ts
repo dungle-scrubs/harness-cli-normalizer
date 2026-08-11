@@ -1,6 +1,6 @@
 /**
  * The claude-code descriptor: facts about the `claude` CLI as data, verified
- * against claude 2.1.226 and the 00-chat-substrate spike evidence (A-001,
+ * against claude 2.1.227 and the 00-chat-substrate spike evidence (A-001,
  * A-002, A-005). No process logic lives here.
  */
 import { deepFreeze, type HarnessDescriptor, UUID_SHAPE } from "./descriptor.js";
@@ -9,7 +9,7 @@ import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
 export const claudeCode: HarnessDescriptor = deepFreeze({
   name: "claude",
   bin: "claude",
-  verifiedAgainst: "2.1.226",
+  verifiedAgainst: "2.1.227",
   versionSource: { kind: "npm", package: "@anthropic-ai/claude-code" },
   launch: {
     baseFlags: ["-p"],
