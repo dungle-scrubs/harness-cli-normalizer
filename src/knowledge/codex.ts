@@ -14,9 +14,11 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     // exec --json emits structured item events; without --json, identity
     // discovery is blind (v1: requiredArgument "--json"). The sandbox grant
     // is v1's proven spawn shape - codex's built-in default is read-only,
-    // under which a non-autonomy turn cannot write files. cwd targeting
-    // (v1's `-C {cwd}`) is the spawner's job, not descriptor data.
-    baseFlags: ["exec", "--json", "--sandbox", "workspace-write"],
+    // under which a non-autonomy turn cannot write files.
+    // --skip-git-repo-check: codex exec refuses to run outside a trusted
+    // git dir without it (verified 0.147.0). cwd targeting is the spawner's
+    // job (spawn opts.cwd), not descriptor data.
+    baseFlags: ["exec", "--json", "--sandbox", "workspace-write", "--skip-git-repo-check"],
     subcommands: ["exec"],
     promptStyle: "positional",
     toolsFlag: null,
@@ -31,7 +33,9 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     flag: "resume",
     aliases: [],
     idShape: UUID_SHAPE,
-    extraFlags: ["--json"],
+    // `codex exec resume` accepts --json and --skip-git-repo-check but
+    // REJECTS --sandbox (verified 0.147.0: "unexpected argument").
+    extraFlags: ["--json", "--skip-git-repo-check"],
   },
   sessionMode: null,
   output: {
@@ -78,7 +82,10 @@ export const codexCli: HarnessDescriptor = deepFreeze({
   // Valid only in the `exec resume` context: `codex exec resume --last`.
   resumeLast: { flag: "--last" },
   provider: null,
-  stdin: "inherit",
+  // codex exec appends piped stdin as a <stdin> block and can block on an
+  // open stdin - close it (verified 0.147.0: "Reading additional input
+  // from stdin...").
+  stdin: "close-required",
   discoveryDisableFlags: [],
   presence: {
     headlessMarkers: ["exec"],

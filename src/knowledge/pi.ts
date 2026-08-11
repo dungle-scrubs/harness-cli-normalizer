@@ -13,7 +13,9 @@ export const piCli: HarnessDescriptor = deepFreeze({
   name: "pi",
   bin: "pi",
   launch: {
-    baseFlags: ["-p"],
+    // -p --mode json: bare -p prints plain text; --mode json emits the
+    // structured v3 records the runner decodes (verified 0.84.1).
+    baseFlags: ["-p", "--mode", "json"],
     subcommands: [],
     promptStyle: "positional",
     toolsFlag: null,
@@ -21,12 +23,14 @@ export const piCli: HarnessDescriptor = deepFreeze({
     idFlag: "--session-id",
   },
   resume: {
-    // Caller-assigned: the same --session-id re-enters the session.
+    // Caller-assigned: the same --session-id re-enters the session. Resume
+    // carries the same structured-output flags launch does, or a resumed
+    // turn would stream plain text the runner cannot decode.
     style: "flag",
     flag: "--session-id",
     aliases: [],
     idShape: UUID_SHAPE,
-    extraFlags: ["-p"],
+    extraFlags: ["-p", "--mode", "json"],
   },
   // --mode rpc exists on 0.84.1 but its session semantics are unverified
   // against a live run; per the truthfulness rule it stays null until a
@@ -34,9 +38,10 @@ export const piCli: HarnessDescriptor = deepFreeze({
   // D-003).
   sessionMode: null,
   output: {
-    // pi -p prints plain text; --mode json emits the structured v3 session
-    // records (message granularity).
-    pins: [{ flags: ["--mode", "json"], granularity: "message" }],
+    // pi -p prints plain text; --mode json emits structured v3 records
+    // INCLUDING assistantMessageEvent text_delta tokens (verified 0.84.1),
+    // so this invocation is token-granular, not merely message.
+    pins: [{ flags: ["--mode", "json"], granularity: "token" }],
     floor: "none",
     flagAliases: {},
   },
@@ -80,7 +85,7 @@ export const piCli: HarnessDescriptor = deepFreeze({
     vision: false,
     images: false,
     streamingByMode: {
-      "headless-turn": "none",
+      "headless-turn": "token",
       "headless-session": "none",
       interactive: "none",
     },

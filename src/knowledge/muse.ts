@@ -14,7 +14,9 @@ export const museCode: HarnessDescriptor = deepFreeze({
   name: "muse",
   bin: "muse",
   launch: {
-    baseFlags: ["exec"],
+    // exec --json emits the payload_type/stream records the runner decodes
+    // (verified 0.1.0); bare exec streams human text.
+    baseFlags: ["exec", "--json"],
     subcommands: ["exec"],
     promptStyle: "positional",
     toolsFlag: null,
@@ -28,14 +30,15 @@ export const museCode: HarnessDescriptor = deepFreeze({
     flag: "--session-id",
     aliases: [],
     idShape: UUID_SHAPE,
-    extraFlags: [],
+    // Structured output on resume too (see launch baseFlags).
+    extraFlags: ["--json"],
     positionalParseWord: "resume",
   },
   sessionMode: null,
   output: {
-    // muse exec --json emits payload_type-discriminated records including
-    // run.output.delta; claimed conservatively as message granularity.
-    pins: [{ flags: ["--json"], granularity: "message" }],
+    // muse exec --json emits payload.kind run_output_delta text chunks
+    // (verified 0.1.0), so this invocation is token-granular.
+    pins: [{ flags: ["--json"], granularity: "token" }],
     floor: "none",
     flagAliases: {},
   },
@@ -79,7 +82,7 @@ export const museCode: HarnessDescriptor = deepFreeze({
     vision: false,
     images: false,
     streamingByMode: {
-      "headless-turn": "none",
+      "headless-turn": "token",
       "headless-session": "none",
       interactive: "none",
     },

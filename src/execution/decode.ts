@@ -5,6 +5,7 @@
  * structured stream are tolerated - scanned for walls, never fatal.
  */
 import { capabilitiesOf } from "../interpretation/capabilities.js";
+import { contentEventsOf } from "../interpretation/content.js";
 import { decodeIdentity } from "../interpretation/identity.js";
 import { detectLimitInLine } from "../interpretation/limits.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
@@ -23,33 +24,6 @@ export const freshDecodeState = (requestedId: string | null = null): DecodeState
   limitSeen: false,
   requestedId,
 });
-
-const textOfContent = (content: unknown): string =>
-  Array.isArray(content)
-    ? content
-        .filter(
-          (b): b is { type: string; text: string } =>
-            typeof b === "object" &&
-            b !== null &&
-            (b as { type?: unknown }).type === "text" &&
-            typeof (b as { text?: unknown }).text === "string",
-        )
-        .map((b) => b.text)
-        .join("")
-    : "";
-
-const toolsOfContent = (content: unknown): HarnessEvent[] =>
-  Array.isArray(content)
-    ? content
-        .filter(
-          (b): b is { type: string; name: string; input?: unknown } =>
-            typeof b === "object" &&
-            b !== null &&
-            (b as { type?: unknown }).type === "tool_use" &&
-            typeof (b as { name?: unknown }).name === "string",
-        )
-        .map((b) => ({ kind: "tool", name: b.name, input: b.input }) as HarnessEvent)
-    : [];
 
 export const decodeLine = (
   h: HarnessDescriptor,
@@ -98,29 +72,8 @@ export const decodeParsed = (
     events.push({ kind: "error", message: `identity ${decoded.outcome}` });
   }
 
-  const record = raw as Record<string, unknown>;
-  const type = record.type;
-  if (type === "assistant") {
-    const message = record.message as Record<string, unknown> | undefined;
-    const content = message?.content;
-    const text = textOfContent(content);
-    events.push(...toolsOfContent(content));
-    if (text !== "") {
-      events.push({
-        kind: "message",
-        role: typeof message?.role === "string" ? (message.role as string) : "assistant",
-        text,
-      });
-    }
-  } else if (type === "stream_event") {
-    const event = record.event as Record<string, unknown> | undefined;
-    const delta = event?.delta as Record<string, unknown> | undefined;
-    if (delta?.type === "text_delta" && typeof delta.text === "string") {
-      events.push({ kind: "token", text: delta.text });
-    }
-  } else if (type === "system" && decoded.identity === null && decoded.outcome === "none") {
-    const subtype = record.subtype;
-    if (typeof subtype === "string") events.push({ kind: "progress", label: subtype });
-  }
+  // Content (message/token/tool/error) is per-harness; identity above is
+  // descriptor-driven. contentEventsOf dispatches by harness name.
+  for (const content of contentEventsOf(h.name, raw)) events.push(content);
   return events;
 };
