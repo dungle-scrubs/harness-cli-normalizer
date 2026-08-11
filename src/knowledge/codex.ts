@@ -11,6 +11,7 @@ export const codexCli: HarnessDescriptor = deepFreeze({
   name: "codex",
   bin: "codex",
   verifiedAgainst: "0.147.0",
+  versionSource: { kind: "npm", package: "@openai/codex" },
   launch: {
     // exec --json emits structured item events; without --json, identity
     // discovery is blind (v1: requiredArgument "--json"). The sandbox grant

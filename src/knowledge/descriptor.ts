@@ -46,6 +46,15 @@ export interface HarnessDescriptor {
    * absent may now exist). Bump it only when the facts have been re-verified
    * against that version (and the fixtures re-captured). */
   readonly verifiedAgainst: string;
+  /** Where the latest published version is found, so the update pipeline can
+   * detect a new release WITHOUT installing the CLI or running inference.
+   * `npm` is a pure registry query (credential-free, CI-friendly);
+   * `installed` harnesses (muse ships a shell script, not an npm package)
+   * have no registry to poll, so the check falls back to the locally
+   * installed `<bin> --version` and is skipped where the CLI is absent. */
+  readonly versionSource:
+    | { readonly kind: "npm"; readonly package: string }
+    | { readonly kind: "installed" };
   /** Headless one-turn launch shape. `promptStyle: "positional"` means the
    * prompt travels as a bare argv entry (ordering constraints apply).
    * `streamFlags` is the output flag set a headless turn launches with so

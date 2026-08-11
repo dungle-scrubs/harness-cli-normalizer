@@ -10,6 +10,7 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
   name: "claude",
   bin: "claude",
   verifiedAgainst: "2.1.226",
+  versionSource: { kind: "npm", package: "@anthropic-ai/claude-code" },
   launch: {
     baseFlags: ["-p"],
     subcommands: [],

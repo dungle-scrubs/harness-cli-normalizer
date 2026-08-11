@@ -14,6 +14,7 @@ export const museCode: HarnessDescriptor = deepFreeze({
   name: "muse",
   bin: "muse",
   verifiedAgainst: "0.1.0",
+  versionSource: { kind: "installed" },
   launch: {
     // exec --json emits the payload_type/stream records the runner decodes
     // (verified 0.1.0); bare exec streams human text.
