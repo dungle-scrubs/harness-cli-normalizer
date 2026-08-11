@@ -28,6 +28,7 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     flag: "--resume",
     aliases: ["-r"],
     idShape: UUID_SHAPE,
+    onMissing: "error",
     extraFlags: ["-p"],
   },
   sessionMode: {

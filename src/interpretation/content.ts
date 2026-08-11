@@ -65,17 +65,35 @@ const claude = (r: Record<string, unknown>): ContentEvent[] => {
     // progress, as the pre-refactor decoder did. The init line is the
     // identity announcement, handled upstream.
     events.push({ kind: "progress", label: r.subtype });
+  } else if (r.type === "result" && r.is_error === true) {
+    // A result line marked is_error is a failed turn (max-turns, execution
+    // error) - surface it so a streamTurn consumer sees the failure, not a
+    // clean turn. (openSession handles result boundaries itself.)
+    const sub = typeof r.subtype === "string" ? r.subtype : "result error";
+    events.push({ kind: "error", message: `turn failed: ${sub}` });
   }
   return events;
 };
 
+// codex item types that are NOT tool activity - everything else on
+// item.started is a tool of some kind (command_execution, file_change,
+// mcp_tool_call, web_search, ...), surfaced generically by item.type.
+const CODEX_NON_TOOL = new Set(["agent_message", "error", "reasoning", "todo_list"]);
+
 const codex = (r: Record<string, unknown>): ContentEvent[] => {
   const item = asRecord(r.item);
   if (item === null) return [];
-  // Tool activity: a command_execution invocation, emitted once on start so
-  // it is not double-counted against the completion record.
-  if (r.type === "item.started" && item.type === "command_execution") {
-    return [{ kind: "tool", name: "shell", input: item.command }];
+  // Tool activity is emitted once on start so it is not double-counted
+  // against the completion record. Any non-message/reasoning item is a tool;
+  // name it by its item.type, carry the most useful field as input.
+  if (
+    r.type === "item.started" &&
+    typeof item.type === "string" &&
+    !CODEX_NON_TOOL.has(item.type)
+  ) {
+    const name = item.type === "command_execution" ? "shell" : item.type;
+    const input = item.command ?? item.changes ?? item.query ?? item.invocation ?? undefined;
+    return [{ kind: "tool", name, input }];
   }
   if (r.type !== "item.completed") return [];
   if (item.type === "agent_message" && typeof item.text === "string") {
@@ -103,6 +121,15 @@ const pi = (r: Record<string, unknown>): ContentEvent[] => {
   if (r.type === "message_end") {
     const message = asRecord(r.message);
     if (message?.role === "assistant") {
+      // A turn that ends with stopReason "error" is a provider/auth/token
+      // failure pi does NOT print to stderr and exits 0 for (verified with
+      // an expired minimax token: empty content, stopReason error, clean
+      // exit). Without this the failure is invisible - a silent empty turn.
+      if (message.stopReason === "error") {
+        return [
+          { kind: "error", message: "pi turn ended with stopReason error (provider/auth failure)" },
+        ];
+      }
       const text = textOfBlocks(message.content);
       if (text !== "") return [{ kind: "message", role: "assistant", text }];
     }
@@ -118,6 +145,9 @@ const muse = (r: Record<string, unknown>): ContentEvent[] => {
   if (payload.kind === "tool_result") {
     const facts = asRecord(payload.correlation_facts);
     const name = typeof facts?.tool_name === "string" ? facts.tool_name : "tool";
+    // Shell tools carry a JSON result with a `command`; file tools carry
+    // plain prose. Surface the command when present, else leave input off
+    // (the tool name is the signal that matters).
     let command: unknown;
     if (typeof payload.text === "string") {
       try {
