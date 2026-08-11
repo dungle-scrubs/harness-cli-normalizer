@@ -77,3 +77,28 @@ describe("content-decode review regressions", () => {
     );
   });
 });
+
+describe("per-harness tool-call decoding (real CLI fixtures)", () => {
+  test("codex command_execution becomes a shell tool event, emitted once", () => {
+    const content = allContent("codex", fixture("codex-tool"));
+    const tools = content.filter((e) => e.kind === "tool");
+    expect(tools.length).toBe(1); // once on item.started, not double on completed
+    expect(tools[0]).toMatchObject({ kind: "tool", name: "shell" });
+    if (tools[0]?.kind === "tool") expect(String(tools[0].input)).toContain("echo");
+  });
+
+  test("pi tool_execution_start becomes a named tool event with args", () => {
+    const content = allContent("pi", fixture("pi-tool"));
+    const tools = content.filter((e) => e.kind === "tool");
+    expect(tools.length).toBe(1);
+    expect(tools[0]).toMatchObject({ kind: "tool", name: "bash" });
+  });
+
+  test("muse tool_result becomes a named tool event with the command", () => {
+    const content = allContent("muse", fixture("muse-tool"));
+    const tools = content.filter((e) => e.kind === "tool");
+    expect(tools.length).toBeGreaterThanOrEqual(1);
+    expect(tools[0]).toMatchObject({ kind: "tool", name: "bash" });
+    if (tools[0]?.kind === "tool") expect(String(tools[0].input)).toContain("echo");
+  });
+});
