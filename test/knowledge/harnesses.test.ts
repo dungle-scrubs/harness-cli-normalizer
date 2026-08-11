@@ -236,3 +236,11 @@ describe("resume-of-missing behavior (verified live, #5)", () => {
     expect(museCode.resume.onMissing).toBe("create");
   });
 });
+
+describe("version anchor (harness-update pipeline)", () => {
+  test("every descriptor records the CLI version its facts were verified against", () => {
+    for (const d of [claudeCode, codexCli, piCli, museCode]) {
+      expect(d.verifiedAgainst).toMatch(/^\d+\.\d+/); // a version string
+    }
+  });
+});
