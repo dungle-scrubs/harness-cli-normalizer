@@ -102,3 +102,17 @@ describe("per-harness tool-call decoding (real CLI fixtures)", () => {
     if (tools[0]?.kind === "tool") expect(String(tools[0].input)).toContain("echo");
   });
 });
+
+describe("terminal-error detection (silent provider/auth failures)", () => {
+  test("pi stopReason=error surfaces as an error event (real minimax auth fixture)", () => {
+    const content = allContent("pi", fixture("pi-autherror"));
+    const errors = content.filter((e) => e.kind === "error");
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0]).toMatchObject({
+      kind: "error",
+      message: expect.stringContaining("stopReason"),
+    });
+    // No spurious message from the empty assistant content.
+    expect(content.some((e) => e.kind === "message" && e.text !== "")).toBe(false);
+  });
+});

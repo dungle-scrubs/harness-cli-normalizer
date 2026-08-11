@@ -65,6 +65,12 @@ const claude = (r: Record<string, unknown>): ContentEvent[] => {
     // progress, as the pre-refactor decoder did. The init line is the
     // identity announcement, handled upstream.
     events.push({ kind: "progress", label: r.subtype });
+  } else if (r.type === "result" && r.is_error === true) {
+    // A result line marked is_error is a failed turn (max-turns, execution
+    // error) - surface it so a streamTurn consumer sees the failure, not a
+    // clean turn. (openSession handles result boundaries itself.)
+    const sub = typeof r.subtype === "string" ? r.subtype : "result error";
+    events.push({ kind: "error", message: `turn failed: ${sub}` });
   }
   return events;
 };
@@ -103,6 +109,15 @@ const pi = (r: Record<string, unknown>): ContentEvent[] => {
   if (r.type === "message_end") {
     const message = asRecord(r.message);
     if (message?.role === "assistant") {
+      // A turn that ends with stopReason "error" is a provider/auth/token
+      // failure pi does NOT print to stderr and exits 0 for (verified with
+      // an expired minimax token: empty content, stopReason error, clean
+      // exit). Without this the failure is invisible - a silent empty turn.
+      if (message.stopReason === "error") {
+        return [
+          { kind: "error", message: "pi turn ended with stopReason error (provider/auth failure)" },
+        ];
+      }
       const text = textOfBlocks(message.content);
       if (text !== "") return [{ kind: "message", role: "assistant", text }];
     }
