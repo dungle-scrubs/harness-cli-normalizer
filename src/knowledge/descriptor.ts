@@ -37,6 +37,15 @@ export type AuthFailureKind = "not-logged-in" | "expired" | "invalid-key";
 export interface HarnessDescriptor {
   readonly name: HarnessName;
   readonly bin: string;
+  /** The CLI version every fact in this descriptor - argv shapes, event
+   * vocabularies, capability claims, resume semantics - was verified
+   * against, as `<bin> --version` reports it. This is the anchor for the
+   * harness-update pipeline: CI compares the published/installed version to
+   * this, and a mismatch means the descriptor's facts are unverified for the
+   * new version (drift possible, or a capability the descriptor says is
+   * absent may now exist). Bump it only when the facts have been re-verified
+   * against that version (and the fixtures re-captured). */
+  readonly verifiedAgainst: string;
   /** Headless one-turn launch shape. `promptStyle: "positional"` means the
    * prompt travels as a bare argv entry (ordering constraints apply).
    * `streamFlags` is the output flag set a headless turn launches with so
