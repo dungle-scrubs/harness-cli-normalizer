@@ -75,13 +75,25 @@ const claude = (r: Record<string, unknown>): ContentEvent[] => {
   return events;
 };
 
+// codex item types that are NOT tool activity - everything else on
+// item.started is a tool of some kind (command_execution, file_change,
+// mcp_tool_call, web_search, ...), surfaced generically by item.type.
+const CODEX_NON_TOOL = new Set(["agent_message", "error", "reasoning", "todo_list"]);
+
 const codex = (r: Record<string, unknown>): ContentEvent[] => {
   const item = asRecord(r.item);
   if (item === null) return [];
-  // Tool activity: a command_execution invocation, emitted once on start so
-  // it is not double-counted against the completion record.
-  if (r.type === "item.started" && item.type === "command_execution") {
-    return [{ kind: "tool", name: "shell", input: item.command }];
+  // Tool activity is emitted once on start so it is not double-counted
+  // against the completion record. Any non-message/reasoning item is a tool;
+  // name it by its item.type, carry the most useful field as input.
+  if (
+    r.type === "item.started" &&
+    typeof item.type === "string" &&
+    !CODEX_NON_TOOL.has(item.type)
+  ) {
+    const name = item.type === "command_execution" ? "shell" : item.type;
+    const input = item.command ?? item.changes ?? item.query ?? item.invocation ?? undefined;
+    return [{ kind: "tool", name, input }];
   }
   if (r.type !== "item.completed") return [];
   if (item.type === "agent_message" && typeof item.text === "string") {
@@ -133,6 +145,9 @@ const muse = (r: Record<string, unknown>): ContentEvent[] => {
   if (payload.kind === "tool_result") {
     const facts = asRecord(payload.correlation_facts);
     const name = typeof facts?.tool_name === "string" ? facts.tool_name : "tool";
+    // Shell tools carry a JSON result with a `command`; file tools carry
+    // plain prose. Surface the command when present, else leave input off
+    // (the tool name is the signal that matters).
     let command: unknown;
     if (typeof payload.text === "string") {
       try {

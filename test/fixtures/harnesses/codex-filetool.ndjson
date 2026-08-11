@@ -1,0 +1,12 @@
+{"type":"thread.started","thread_id":"019fef35-728f-73d1-a25f-cf68185ce634"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"error","message":"Skill descriptions were shortened to fit the skills context budget. Codex can still see every skill, but some descriptions are shorter. Disable unused skills or plugins to leave more room for the rest."}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"I’ll create `made.txt` with exactly the requested text."}}
+{"type":"item.started","item":{"id":"item_2","type":"file_change","changes":[{"path":"/private/tmp/tool-probe5/made.txt","kind":"add"}],"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_2","type":"file_change","changes":[{"path":"/private/tmp/tool-probe5/made.txt","kind":"add"}],"status":"completed"}}
+{"type":"item.started","item":{"id":"item_3","type":"command_execution","command":"/bin/zsh -lc 'wc -c made.txt && od -An -tx1 made.txt'","aggregated_output":"","exit_code":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_3","type":"command_execution","command":"/bin/zsh -lc 'wc -c made.txt && od -An -tx1 made.txt'","aggregated_output":"       6 made.txt\n           68  65  6c  6c  6f  0a                                        \n\n","exit_code":0,"status":"completed"}}
+{"type":"item.started","item":{"id":"item_4","type":"command_execution","command":"/bin/zsh -lc 'truncate -s 5 made.txt && wc -c made.txt && od -An -tx1 made.txt'","aggregated_output":"","exit_code":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_4","type":"command_execution","command":"/bin/zsh -lc 'truncate -s 5 made.txt && wc -c made.txt && od -An -tx1 made.txt'","aggregated_output":"       5 made.txt\n           68  65  6c  6c  6f                                            \n\n","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_5","type":"agent_message","text":"Created [made.txt](/private/tmp/tool-probe5/made.txt) containing exactly `hello`."}}
+{"type":"turn.completed","usage":{"input_tokens":103412,"cached_input_tokens":87040,"cache_write_input_tokens":0,"output_tokens":576,"reasoning_output_tokens":345}}
