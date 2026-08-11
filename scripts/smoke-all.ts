@@ -10,6 +10,7 @@
  * "compatible"; the model's actual answer is secondary. A usage/limit wall
  * is a valid terminal outcome (over quota), never a smoke failure.
  */
+import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import type { HarnessEvent } from "../src/execution/events.js";
 import { nodeRunnerDeps } from "../src/execution/node-deps.js";
@@ -27,22 +28,32 @@ const TIMEOUT_MS = 180_000;
 const boundaryLog: Record<string, unknown>[] = [];
 const deps = () => nodeRunnerDeps({ log: (e) => boundaryLog.push(e) });
 
-const withTimeout = async <T>(name: string, work: Promise<T>): Promise<T> => {
-  let handle: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    handle = setTimeout(() => reject(new Error(`${name} exceeded ${TIMEOUT_MS}ms`)), TIMEOUT_MS);
-  });
-  try {
-    return await Promise.race([work, timeout]);
-  } finally {
-    clearTimeout(handle);
+/** Drain the turn, but on deadline BREAK the iteration - which triggers the
+ * runner's abandonment cleanup (SIGTERM->SIGKILL), so a hung harness is
+ * killed, not merely abandoned. */
+const collectWithDeadline = async (
+  name: string,
+  turn: AsyncIterable<HarnessEvent>,
+): Promise<HarnessEvent[]> => {
+  const out: HarnessEvent[] = [];
+  const deadline = Date.now() + TIMEOUT_MS;
+  for await (const e of turn) {
+    out.push(e);
+    if (Date.now() > deadline) {
+      out.push({ kind: "error", message: `${name} exceeded ${TIMEOUT_MS}ms; aborted` });
+      break; // the generator's finally kills the child
+    }
   }
+  return out;
 };
 
-const collect = async (turn: AsyncIterable<HarnessEvent>): Promise<HarnessEvent[]> => {
-  const out: HarnessEvent[] = [];
-  for await (const e of turn) out.push(e);
-  return out;
+const cliVersion = (bin: string): string => {
+  try {
+    const out = execFileSync(bin, ["--version"], { encoding: "utf8", timeout: 10_000 });
+    return (out.split("\n")[0] ?? "unknown").trim();
+  } catch {
+    return "unknown";
+  }
 };
 
 interface Report {
@@ -59,7 +70,7 @@ const results: Report[] = [];
 
 const smokeHeadlessTurn = async (h: HarnessDescriptor, opts: TurnRunOptions): Promise<void> => {
   try {
-    const events = await withTimeout(h.name, collect(streamTurn(h, opts, deps())));
+    const events = await collectWithDeadline(h.name, streamTurn(h, opts, deps()));
     const identity = events.find((e) => e.kind === "identity");
     const identityId = identity?.kind === "identity" ? identity.sessionId : null;
     const messageChars = events
@@ -71,14 +82,15 @@ const smokeHeadlessTurn = async (h: HarnessDescriptor, opts: TurnRunOptions): Pr
     const errored = events.some((e) => e.kind === "error");
     const limited = events.some((e) => e.kind === "limit");
 
-    // Compatibility = the runner decoded a session identity, decoded some
-    // content, and reached a terminal done. A benign error item (codex
-    // emits its skills-budget notice as item.type "error") does not fail
-    // the run when the assistant message still arrived and the exit was
-    // clean; a limit wall is an acceptable terminal outcome (over quota).
-    const contentOk = messageChars > 0 || tokenEvents > 0;
+    // Compatibility = the runner decoded a session identity, decoded a
+    // final assistant MESSAGE, and reached a clean done. Requiring the
+    // message (not just tokens) is what catches muse's exit-0-on-failure
+    // scar: a failed run streams tokens then a run_terminal:"failed" error
+    // with no completed message. A benign error item alongside a real
+    // message (codex's skills-budget notice) is fine; a limit wall is an
+    // acceptable terminal outcome (over quota).
     const cleanish = doneCause === "clean" || doneCause === "limit";
-    const pass = identityId !== null && (limited || (cleanish && contentOk));
+    const pass = identityId !== null && (limited || (cleanish && messageChars > 0));
 
     results.push({
       harness: h.name,
@@ -120,7 +132,12 @@ writeFileSync(
   JSON.stringify(
     {
       ranAt: new Date().toISOString(),
-      versions: { claude: "2.1.226", codex: "0.147.0", pi: "0.84.1", muse: "0.1.0" },
+      versions: {
+        claude: cliVersion("claude"),
+        codex: cliVersion("codex"),
+        pi: cliVersion("pi"),
+        muse: cliVersion("muse"),
+      },
       results,
       boundaryEvents: boundaryLog.length,
     },
