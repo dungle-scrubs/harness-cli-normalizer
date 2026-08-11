@@ -185,21 +185,28 @@ const resumeContinuity = async (h: HarnessDescriptor): Promise<Cell> => {
 
 // 6. kill-and-resume: abandon a turn mid-stream, resume, session survives.
 const killResume = async (h: HarnessDescriptor): Promise<Cell> => {
-  if (h.sessionMode === null)
-    return { status: "skip", detail: "resume-continuity covers non-session harnesses" };
+  // Needs resumability, NOT a persistent session mode - every harness here
+  // resumes, so every harness can be killed mid-turn and resumed.
   const first = await collect(
     streamTurn(h, opts(h, { prompt: "Remember: otter. Reply OK" }), nodeRunnerDeps()),
   );
   const sid = idOf(first);
   if (sid === null) return { status: "fail", detail: "no id" };
-  // abandon a long turn mid-stream
-  let seen = 0;
+  // Abandon an in-progress turn: break after the turn has started but
+  // before it reaches `done`. Streaming harnesses break mid-token-stream;
+  // codex (no token deltas) breaks after turn.started, mid-thinking.
+  let abandonedAt = 0;
+  let reachedDone = false;
   for await (const e of streamTurn(
     h,
-    opts(h, { prompt: "Count slowly 1 to 40.", resume: sid }),
+    opts(h, { prompt: "Count slowly from 1 to 40, one per line.", resume: sid }),
     nodeRunnerDeps(),
   )) {
-    if (e.kind === "token" && ++seen >= 3) break;
+    if (e.kind === "done") {
+      reachedDone = true;
+      break;
+    }
+    if (++abandonedAt >= 2) break; // in-progress: kill it here
   }
   const resumed = await collect(
     streamTurn(
@@ -209,12 +216,10 @@ const killResume = async (h: HarnessDescriptor): Promise<Cell> => {
     ),
   );
   const recalled = textOf(resumed).toLowerCase().includes("otter");
-  // The abandonment must actually have interrupted a streaming turn for
-  // this to be a kill-and-resume test, not just a resume test.
-  if (seen === 0) return { status: "fail", detail: "turn never streamed; abandonment untested" };
+  const abandoned = !reachedDone && abandonedAt >= 2;
   return {
-    status: recalled ? "pass" : "fail",
-    detail: `abandoned@${seen}tok recall="${textOf(resumed).slice(0, 20)}"`,
+    status: recalled && abandoned ? "pass" : "fail",
+    detail: `${abandoned ? `killed@${abandonedAt}ev` : "not abandoned"} recall="${textOf(resumed).slice(0, 20)}"`,
   };
 };
 
@@ -238,7 +243,11 @@ const SCENARIOS: Array<[string, (h: HarnessDescriptor) => Promise<Cell>]> = [
   ["single-turn", single],
   ["streaming", streaming],
   ["tool-use", toolUse],
-  ["session-continuity", sessionContinuity],
+  // "1proc" = one persistent process, many turns (openSession). Distinct
+  // from resume-continuity below (continuity across separate processes),
+  // which every harness supports. The n/a here means no persistent-session
+  // mode, NOT no continuity.
+  ["session-cont(1proc)", sessionContinuity],
   ["resume-continuity", resumeContinuity],
   ["kill-and-resume", killResume],
   ["error-prop", errorProp],
@@ -257,10 +266,10 @@ for (const h of HARNESSES) {
 // Render matrix.
 const scenarioNames = SCENARIOS.map(([n]) => n);
 const mark = (c: Cell): string => (c.status === "pass" ? "✓" : c.status === "skip" ? "–" : "✗");
-console.log(`\nscenario            ${HARNESSES.map((h) => h.name.padEnd(7)).join("")}`);
+console.log(`\n${"scenario".padEnd(22)}${HARNESSES.map((h) => h.name.padEnd(7)).join("")}`);
 for (const s of scenarioNames) {
   console.log(
-    `${s.padEnd(20)}${HARNESSES.map((h) => `${mark(results[h.name]?.[s] ?? { status: "fail", detail: "" })}      `).join("")}`,
+    `${s.padEnd(22)}${HARNESSES.map((h) => `${mark(results[h.name]?.[s] ?? { status: "fail", detail: "" })}      `).join("")}`,
   );
 }
 
