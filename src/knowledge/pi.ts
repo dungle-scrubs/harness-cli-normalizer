@@ -13,6 +13,7 @@ export const piCli: HarnessDescriptor = deepFreeze({
   name: "pi",
   bin: "pi",
   verifiedAgainst: "0.84.1",
+  versionSource: { kind: "npm", package: "@earendil-works/pi-coding-agent" },
   launch: {
     // -p --mode json: bare -p prints plain text; --mode json emits the
     // structured v3 records the runner decodes (verified 0.84.1).
