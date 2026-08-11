@@ -20,6 +20,12 @@ export type ContentEvent =
   | { readonly kind: "progress"; readonly label: string }
   | { readonly kind: "error"; readonly message: string };
 
+// NOTE: tool-call decoding is claude-only. codex, pi (tool_execution_start
+// with toolName/args), and muse emit tool records too, but their exact
+// shapes are not yet captured as fixtures, so decoding them here would be
+// unverified guesswork. A normal coding turn on those harnesses currently
+// loses tool activity - a known gap to close with real tool-call fixtures.
+
 /** Text of an array of `{type:"text", text}` content blocks. */
 const textOfBlocks = (content: unknown): string =>
   Array.isArray(content)
@@ -60,6 +66,11 @@ const claude = (r: Record<string, unknown>): ContentEvent[] => {
     if (d?.type === "text_delta" && typeof d.text === "string") {
       events.push({ kind: "token", text: d.text });
     }
+  } else if (r.type === "system" && r.subtype !== "init" && typeof r.subtype === "string") {
+    // Non-init system lines (hook_started etc.) surface as droppable
+    // progress, as the pre-refactor decoder did. The init line is the
+    // identity announcement, handled upstream.
+    events.push({ kind: "progress", label: r.subtype });
   }
   return events;
 };

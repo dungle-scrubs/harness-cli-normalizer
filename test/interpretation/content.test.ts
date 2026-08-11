@@ -55,3 +55,25 @@ describe("per-harness content decoding (real CLI fixtures)", () => {
     expect(contentEventsOf("claude", "not an object")).toEqual([]);
   });
 });
+
+describe("content-decode review regressions", () => {
+  test("claude non-init system lines surface as droppable progress", () => {
+    expect(contentEventsOf("claude", { type: "system", subtype: "hook_started" })).toEqual([
+      { kind: "progress", label: "hook_started" },
+    ]);
+    // The init line is identity (handled upstream), not progress.
+    expect(contentEventsOf("claude", { type: "system", subtype: "init" })).toEqual([]);
+  });
+
+  test("pi and muse are token-granular under their structured flags", async () => {
+    const { streamingGranularityOf, buildLaunchArgv } = await import(
+      "../../src/interpretation/argv.js"
+    );
+    const { piCli } = await import("../../src/knowledge/pi.js");
+    const { museCode } = await import("../../src/knowledge/muse.js");
+    expect(streamingGranularityOf(piCli, buildLaunchArgv(piCli, { prompt: "hi" }))).toBe("token");
+    expect(streamingGranularityOf(museCode, buildLaunchArgv(museCode, { prompt: "hi" }))).toBe(
+      "token",
+    );
+  });
+});

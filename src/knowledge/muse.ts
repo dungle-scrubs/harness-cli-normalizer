@@ -36,9 +36,9 @@ export const museCode: HarnessDescriptor = deepFreeze({
   },
   sessionMode: null,
   output: {
-    // muse exec --json emits payload_type-discriminated records including
-    // run.output.delta; claimed conservatively as message granularity.
-    pins: [{ flags: ["--json"], granularity: "message" }],
+    // muse exec --json emits payload.kind run_output_delta text chunks
+    // (verified 0.1.0), so this invocation is token-granular.
+    pins: [{ flags: ["--json"], granularity: "token" }],
     floor: "none",
     flagAliases: {},
   },
@@ -82,7 +82,7 @@ export const museCode: HarnessDescriptor = deepFreeze({
     vision: false,
     images: false,
     streamingByMode: {
-      "headless-turn": "none",
+      "headless-turn": "token",
       "headless-session": "none",
       interactive: "none",
     },

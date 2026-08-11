@@ -38,9 +38,10 @@ export const piCli: HarnessDescriptor = deepFreeze({
   // D-003).
   sessionMode: null,
   output: {
-    // pi -p prints plain text; --mode json emits the structured v3 session
-    // records (message granularity).
-    pins: [{ flags: ["--mode", "json"], granularity: "message" }],
+    // pi -p prints plain text; --mode json emits structured v3 records
+    // INCLUDING assistantMessageEvent text_delta tokens (verified 0.84.1),
+    // so this invocation is token-granular, not merely message.
+    pins: [{ flags: ["--mode", "json"], granularity: "token" }],
     floor: "none",
     flagAliases: {},
   },
@@ -84,7 +85,7 @@ export const piCli: HarnessDescriptor = deepFreeze({
     vision: false,
     images: false,
     streamingByMode: {
-      "headless-turn": "none",
+      "headless-turn": "token",
       "headless-session": "none",
       interactive: "none",
     },
