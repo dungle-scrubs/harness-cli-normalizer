@@ -288,6 +288,7 @@ export async function* streamTurn(
           : exitCode === null
             ? "killed"
             : "crash";
+    const tail = stderrTail.snapshot();
     log({
       event: "exit",
       turnId,
@@ -295,10 +296,14 @@ export async function* streamTurn(
       exitCode,
       cause,
       ...(pipesOpenAtExit ? { pipesOpenAtExit } : {}),
-      ...(cause === "crash" || cause === "stall" || cause === "killed"
-        ? { stderrTail: stderrTail.snapshot() }
-        : {}),
+      ...(cause === "crash" || cause === "stall" || cause === "killed" ? { stderrTail: tail } : {}),
     });
+    // A failure with captured stderr surfaces as a stream-level error, not
+    // only in the exit log - so a crash from the real adapter's async spawn
+    // failure carries the same error-event signal as the sync-throw path.
+    if ((cause === "crash" || cause === "killed") && tail.length > 0) {
+      yield { kind: "error", message: tail.join("\n").slice(0, 4096) };
+    }
     yield { kind: "done", exitCode, cause };
   } finally {
     cancelled = true;

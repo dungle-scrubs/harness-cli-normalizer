@@ -20,12 +20,6 @@ export type ContentEvent =
   | { readonly kind: "progress"; readonly label: string }
   | { readonly kind: "error"; readonly message: string };
 
-// NOTE: tool-call decoding is claude-only. codex, pi (tool_execution_start
-// with toolName/args), and muse emit tool records too, but their exact
-// shapes are not yet captured as fixtures, so decoding them here would be
-// unverified guesswork. A normal coding turn on those harnesses currently
-// loses tool activity - a known gap to close with real tool-call fixtures.
-
 /** Text of an array of `{type:"text", text}` content blocks. */
 const textOfBlocks = (content: unknown): string =>
   Array.isArray(content)
@@ -76,9 +70,14 @@ const claude = (r: Record<string, unknown>): ContentEvent[] => {
 };
 
 const codex = (r: Record<string, unknown>): ContentEvent[] => {
-  if (r.type !== "item.completed") return [];
   const item = asRecord(r.item);
   if (item === null) return [];
+  // Tool activity: a command_execution invocation, emitted once on start so
+  // it is not double-counted against the completion record.
+  if (r.type === "item.started" && item.type === "command_execution") {
+    return [{ kind: "tool", name: "shell", input: item.command }];
+  }
+  if (r.type !== "item.completed") return [];
   if (item.type === "agent_message" && typeof item.text === "string") {
     return [{ kind: "message", role: "assistant", text: item.text }];
   }
@@ -89,6 +88,11 @@ const codex = (r: Record<string, unknown>): ContentEvent[] => {
 };
 
 const pi = (r: Record<string, unknown>): ContentEvent[] => {
+  // One clean tool event per invocation (the toolcall_start/delta/end and
+  // tool_execution_update stream is noise; tool_execution_start fires once).
+  if (r.type === "tool_execution_start" && typeof r.toolName === "string") {
+    return [{ kind: "tool", name: r.toolName, input: r.args }];
+  }
   if (r.type === "message_update") {
     const ev = asRecord(r.assistantMessageEvent);
     if (ev?.type === "text_delta" && typeof ev.delta === "string") {
@@ -109,6 +113,21 @@ const pi = (r: Record<string, unknown>): ContentEvent[] => {
 const muse = (r: Record<string, unknown>): ContentEvent[] => {
   const payload = asRecord(r.payload);
   if (payload === null) return [];
+  // Tool activity: muse emits a tool_result naming the tool in
+  // correlation_facts.tool_name, with the command inside the result text.
+  if (payload.kind === "tool_result") {
+    const facts = asRecord(payload.correlation_facts);
+    const name = typeof facts?.tool_name === "string" ? facts.tool_name : "tool";
+    let command: unknown;
+    if (typeof payload.text === "string") {
+      try {
+        command = (JSON.parse(payload.text) as Record<string, unknown>).command;
+      } catch {
+        command = undefined;
+      }
+    }
+    return [{ kind: "tool", name, input: command }];
+  }
   if (payload.kind === "run_output_delta" && typeof payload.text === "string") {
     return [{ kind: "token", text: payload.text }];
   }
