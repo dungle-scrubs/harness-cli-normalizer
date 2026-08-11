@@ -43,10 +43,12 @@ const realSpawn = (argv: readonly string[], opts: SpawnOptions): SpawnedProcess 
   const stderrWithError = async function* (): AsyncIterable<string | Uint8Array> {
     try {
       if (child.stderr !== null) yield* child.stderr as AsyncIterable<Uint8Array>;
-    } catch {
+    } catch (cause) {
       // A failed spawn closes the stderr pipe prematurely
       // (ERR_STREAM_PREMATURE_CLOSE); that is not fatal - the spawn error
-      // below is the signal that matters.
+      // below is the signal that matters. Any OTHER read error is genuine
+      // and propagates (the tail captured so far is already preserved).
+      if ((cause as NodeJS.ErrnoException)?.code !== "ERR_STREAM_PREMATURE_CLOSE") throw cause;
     }
     await exited;
     if (spawnError !== null) yield `spawn failed: ${(spawnError as Error).message}\n`;
