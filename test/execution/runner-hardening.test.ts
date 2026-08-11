@@ -209,3 +209,43 @@ describe("M3.1 boundary-review regression pins", () => {
     ]);
   });
 });
+
+describe("crash context surfaces as a stream error", () => {
+  test("a crash with stderr yields an error event carrying the tail, then done", async () => {
+    const proc = new FakeProcess();
+    const spawner = fakeSpawner([proc]);
+    const sig = fakeSignal();
+    const clock = new FakeClock();
+    const turn = streamTurn(
+      claudeCode,
+      { prompt: "hi" },
+      { spawn: spawner.spawn, clock, signal: sig.signal },
+    );
+    proc.emitStderr("Fatal: kaboom");
+    proc.exit(1);
+    const events = await collect(turn);
+    const errorAt = events.findIndex((e) => e.kind === "error");
+    expect(errorAt).toBeGreaterThan(-1);
+    expect(events[errorAt]).toMatchObject({ message: expect.stringContaining("kaboom") });
+    expect(events.at(-1)).toMatchObject({ kind: "done", cause: "crash" });
+    // error precedes done
+    expect(errorAt).toBe(events.length - 2);
+  });
+
+  test("a clean exit with stray stderr emits no error event", async () => {
+    const proc = new FakeProcess();
+    const spawner = fakeSpawner([proc]);
+    const sig = fakeSignal();
+    const clock = new FakeClock();
+    const turn = streamTurn(
+      claudeCode,
+      { prompt: "hi" },
+      { spawn: spawner.spawn, clock, signal: sig.signal },
+    );
+    proc.emitStderr("just a warning");
+    proc.exit(0);
+    const events = await collect(turn);
+    expect(events.some((e) => e.kind === "error")).toBe(false);
+    expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+  });
+});
