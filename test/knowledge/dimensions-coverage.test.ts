@@ -33,7 +33,7 @@ const DIMENSION_TO_KEY = {
 describe("descriptor dimension coverage (PLAN.md 3.1)", () => {
   test("the descriptor's key set is exactly the owners of the table dimensions", () => {
     const owningKeys = new Set<string>(Object.values(DIMENSION_TO_KEY));
-    const metaKeys = new Set(["name", "bin", "verifiedAgainst"]);
+    const metaKeys = new Set(["name", "bin", "verifiedAgainst", "versionSource"]);
     const actual = Object.keys(claudeCode)
       .filter((k) => !metaKeys.has(k))
       .sort();
