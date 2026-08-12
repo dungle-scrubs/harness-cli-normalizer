@@ -8,6 +8,11 @@
 export interface SpawnedProcess {
   readonly stdout: AsyncIterable<string | Uint8Array>;
   readonly stderr: AsyncIterable<string | Uint8Array>;
+  /** Idempotently terminate stdout and stderr reads without signalling the
+   * child. An adapter MUST preserve chunks already buffered when disposal is
+   * requested, then settle the first read beyond that finite snapshot.
+   * Terminal cleanup owns process signalling separately. */
+  disposeOutput(): void;
   /** Resolves with the exit code, or null when the process died to a
    * signal without one. */
   readonly exited: Promise<number | null>;

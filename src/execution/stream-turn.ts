@@ -6,8 +6,8 @@
  * included). Runtime primitives are injected (D-005); structured boundary
  * events (spawn/exit/stall, argv redacted by POSITION) are always-on
  * evidence, not diagnostics. An abandoned turn (consumer breaks early)
- * cleans up after itself: pumps stop, SIGTERM, SIGKILL after grace - the
- * child is never left running with nobody draining its stdout.
+ * closes backpressure, disposes output, stops the child, and awaits both
+ * pumps before it returns.
  */
 import {
   buildLaunchArgv,
@@ -18,6 +18,7 @@ import {
 import { stdinPolicyOf } from "../interpretation/dimensions.js";
 import { detectAuthFailureInLine, detectLimitInLine } from "../interpretation/limits.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
+import { AsyncChannel } from "./channel.js";
 import { decodeLine, freshDecodeState } from "./decode.js";
 import type { RunnerDeps, SpawnedProcess } from "./deps.js";
 import type { ExitCause, HarnessEvent } from "./events.js";
@@ -33,6 +34,11 @@ let turnCounter = 0;
 export const KILL_GRACE_MS = 5_000;
 export const PIPE_GRACE_MS = 2_000;
 
+const OUTPUT_STREAMS = ["stdout", "stderr"] as const;
+
+const pumpFailureMessage = (stream: (typeof OUTPUT_STREAMS)[number], cause: unknown): string =>
+  `${stream} pump failed: ${cause instanceof Error ? cause.message : String(cause)}`;
+
 /** Stray secret-shaped tokens are masked; identifiers (session UUIDs, model
  * ids, paths) log verbatim - they are what the log exists to correlate. */
 const SECRETISH = /(sk-[A-Za-z0-9_-]{8,}|(?:token|key|secret|password)=\S+)/i;
@@ -46,66 +52,6 @@ export const redactArgv = (argv: readonly string[], prompt?: string): string[] =
     if (SECRETISH.test(token)) return "[redacted]";
     return token;
   });
-
-const QUEUE_HIGH_WATER = 1024;
-const QUEUE_LOW_WATER = 256;
-
-/** Single-consumer async queue with producer backpressure: past the high
- * water mark push() blocks the pump, the pump stops reading the pipe, and
- * OS pipe backpressure reaches the child. (One consumer by invariant - an
- * async generator body cannot re-enter; a second concurrent next() caller
- * would overwrite the consumer wake.) */
-class EventQueue {
-  private items: HarnessEvent[] = [];
-  private head = 0;
-  private closed = false;
-  private wakeConsumer: (() => void) | null = null;
-  private producerWaiters: Array<() => void> = [];
-
-  private get size(): number {
-    return this.items.length - this.head;
-  }
-
-  push(event: HarnessEvent): Promise<void> {
-    this.items.push(event);
-    this.wakeConsumer?.();
-    if (this.size > QUEUE_HIGH_WATER && !this.closed) {
-      return new Promise((resolve) => this.producerWaiters.push(resolve));
-    }
-    return Promise.resolve();
-  }
-
-  close(): void {
-    this.closed = true;
-    this.wakeConsumer?.();
-    this.releaseProducers();
-  }
-
-  private releaseProducers(): void {
-    const waiters = this.producerWaiters;
-    this.producerWaiters = [];
-    for (const release of waiters) release();
-  }
-
-  async next(): Promise<HarnessEvent | null> {
-    while (true) {
-      if (this.size > 0) {
-        const item = this.items[this.head++];
-        if (this.head === this.items.length) {
-          this.items = [];
-          this.head = 0;
-        }
-        if (this.size < QUEUE_LOW_WATER) this.releaseProducers();
-        return item ?? null;
-      }
-      if (this.closed) return null;
-      await new Promise<void>((resolve) => {
-        this.wakeConsumer = resolve;
-      });
-      this.wakeConsumer = null;
-    }
-  }
-}
 
 /** Bounded tail of unmatched stderr - the crash context a nonzero exit is
  * explained by (v1 kept the turn's output slice for exactly this). Shared
@@ -179,7 +125,7 @@ export async function* streamTurn(
     return;
   }
 
-  const queue = new EventQueue();
+  const queue = new AsyncChannel<HarnessEvent>();
   const state = freshDecodeState(opts.resume ?? null);
   const stderrTail = new StderrTail();
   let killedByWatchdog = false;
@@ -187,13 +133,19 @@ export async function* streamTurn(
   let exitCode: number | null = null;
   let pipesOpenAtExit = false;
   let cancelled = false;
+  let terminalEventReached = false;
 
   const safeSignal = (sig: "SIGTERM" | "SIGKILL"): void => {
     if (!exited) deps.signal(proc, sig);
   };
+  let escalationTimer: number | null = null;
   const escalate = (): void => {
+    if (exited || escalationTimer !== null) return;
     safeSignal("SIGTERM");
-    deps.clock.setTimeout(() => safeSignal("SIGKILL"), KILL_GRACE_MS);
+    escalationTimer = deps.clock.setTimeout(() => {
+      escalationTimer = null;
+      safeSignal("SIGKILL");
+    }, KILL_GRACE_MS);
   };
 
   let watchdog: number | null = null;
@@ -216,14 +168,17 @@ export async function* streamTurn(
   void proc.exited.then((code) => {
     exited = true;
     exitCode = code;
+    if (escalationTimer !== null) deps.clock.clearTimeout(escalationTimer);
+    escalationTimer = null;
     // The process is gone: the watchdog has nothing left to kill, and a
     // fire after this point would flip a completed turn to "stall".
     disarm();
     // Pipes held open past exit (a grandchild inherited the fd) must not
     // hang the turn forever - close out with the exit code in hand.
+    if (cancelled) return;
     pipeGrace = deps.clock.setTimeout(() => {
       pipesOpenAtExit = true;
-      queue.close();
+      proc.disposeOutput();
     }, PIPE_GRACE_MS);
   });
 
@@ -270,14 +225,34 @@ export async function* streamTurn(
     }
   };
 
-  void Promise.allSettled([proc.exited, pumpStdout(), pumpStderr()]).then(() => queue.close());
+  const observePump = async (
+    stream: (typeof OUTPUT_STREAMS)[number],
+    pump: Promise<void>,
+  ): Promise<void> => {
+    try {
+      await pump;
+    } catch (cause) {
+      log({
+        event: "output_pump_failed",
+        turnId,
+        harness: h.name,
+        stream,
+        issue: "read-failed",
+      });
+      await queue.push({ kind: "error", message: pumpFailureMessage(stream, cause) });
+      escalate();
+      await proc.exited;
+      proc.disposeOutput();
+    }
+  };
+  const pumpSettlements = Promise.all([
+    observePump("stdout", pumpStdout()),
+    observePump("stderr", pumpStderr()),
+  ]);
+  void Promise.all([proc.exited, pumpSettlements]).then(() => queue.close());
 
   try {
-    while (true) {
-      const event = await queue.next();
-      if (event === null) break;
-      yield event;
-    }
+    for await (const event of queue) yield event;
 
     const cause: ExitCause = state.limitSeen
       ? "limit"
@@ -304,18 +279,32 @@ export async function* streamTurn(
     if ((cause === "crash" || cause === "killed") && tail.length > 0) {
       yield { kind: "error", message: tail.join("\n").slice(0, 4096) };
     }
+    terminalEventReached = true;
     yield { kind: "done", exitCode, cause };
   } finally {
+    const abandoned = !terminalEventReached;
     cancelled = true;
+    queue.close();
     disarm();
-    if (pipeGrace !== null) deps.clock.clearTimeout(pipeGrace);
-    if (!exited) {
-      // Abandoned mid-turn: never leave the child running with nobody
-      // draining its stdout - and never RETURN until it is actually gone,
-      // or an immediate resume of the same session races a live writer.
+    if (abandoned) {
       log({ event: "abandoned", turnId, harness: h.name });
-      escalate();
-      await proc.exited; // bounded: SIGKILL after KILL_GRACE_MS cannot be ignored
+      if (!exited) escalate();
+    }
+    proc.disposeOutput();
+    const [settledExit] = await Promise.all([proc.exited, pumpSettlements]);
+    exitCode = settledExit;
+    if (pipeGrace !== null) deps.clock.clearTimeout(pipeGrace);
+    pipeGrace = null;
+    if (escalationTimer !== null) deps.clock.clearTimeout(escalationTimer);
+    escalationTimer = null;
+    if (abandoned) {
+      log({
+        event: "abandonment_settled",
+        turnId,
+        harness: h.name,
+        exitCode,
+        outputDisposed: true,
+      });
     }
   }
 }

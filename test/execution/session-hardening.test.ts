@@ -100,6 +100,112 @@ describe("M3.2 boundary-review regression pins", () => {
     expect(sig.sent.map((s) => s.sig)).toEqual(["SIGTERM", "SIGKILL"]);
   });
 
+  test("session pipe grace disposes descendant-held output and joins both pumps", async () => {
+    const proc = new FakeProcess({ exitOnStdinEnd: false });
+    const spawner = fakeSpawner([proc]);
+    const clock = new FakeClock();
+    const signals: string[] = [];
+    const session = openSession(
+      claudeCode,
+      { sessionId: sid },
+      {
+        spawn: spawner.spawn,
+        clock,
+        signal: (_proc, signal) => {
+          signals.push(signal);
+          if (signal === "SIGKILL") proc.exitWithoutClosing(null);
+        },
+      },
+    );
+
+    const closing = session.close();
+    await tick();
+    clock.advance(CLOSE_GRACE_MS + 1);
+    await tick();
+    clock.advance(KILL_GRACE_MS + 1);
+    await tick();
+    clock.advance(PIPE_GRACE_MS + 1);
+    await closing;
+
+    expect(signals).toEqual(["SIGTERM", "SIGKILL"]);
+    expect(proc.outputDisposed).toBe(true);
+    expect(proc.stdout.activeReaderCount).toBe(0);
+    expect(proc.stderr.activeReaderCount).toBe(0);
+  });
+
+  test("session pipe grace preserves a backpressured turn and close does not deadlock", async () => {
+    const proc = new FakeProcess({ exitOnStdinEnd: false });
+    const spawner = fakeSpawner([proc]);
+    const sig = fakeSignal();
+    const clock = new FakeClock();
+    const session = openSession(
+      claudeCode,
+      { sessionId: sid },
+      {
+        spawn: spawner.spawn,
+        clock,
+        signal: sig.signal,
+      },
+    );
+    session.send("hi");
+    const turns = session.turns[Symbol.asyncIterator]();
+    const turn = (await turns.next()).value as AsyncIterable<HarnessEvent>;
+    const content = Array.from({ length: 1_100 }, (_, index) => ({
+      type: "tool_use",
+      name: `tool-${index}`,
+      input: {},
+    }));
+    proc.emitChunk(
+      `${JSON.stringify({ type: "assistant", message: { content: content.slice(0, 1_026) } })}\n`,
+    );
+    proc.emitChunk(
+      `${JSON.stringify({ type: "assistant", message: { content: content.slice(1_026) } })}\n`,
+    );
+    proc.exitWithoutClosing(0);
+    await tick();
+    expect(proc.stdout.pullCount).toBe(1);
+    clock.advance(PIPE_GRACE_MS + 1);
+
+    await session.close();
+    const events = await drainTurn(turn);
+    expect(events.filter((event) => event.kind === "tool")).toHaveLength(1_100);
+    expect(events.filter((event) => event.kind === "done")).toEqual([
+      { kind: "done", exitCode: 0, cause: "clean" },
+    ]);
+    expect(proc.stdout.activeReaderCount).toBe(0);
+    expect(proc.stderr.activeReaderCount).toBe(0);
+  });
+
+  test("session pump failure still joins a descendant-held sibling pipe", async () => {
+    const proc = new FakeProcess({ exitOnStdinEnd: false });
+    const spawner = fakeSpawner([proc]);
+    const clock = new FakeClock();
+    const session = openSession(
+      claudeCode,
+      { sessionId: sid },
+      {
+        spawn: spawner.spawn,
+        clock,
+        signal: () => {},
+      },
+    );
+    session.send("hi");
+    const turns = session.turns[Symbol.asyncIterator]();
+    const turn = (await turns.next()).value as AsyncIterable<HarnessEvent>;
+    proc.failStdout(new Error("synthetic session read failure"));
+    proc.exitWithoutClosing(1);
+    await tick();
+    clock.advance(PIPE_GRACE_MS + 1);
+
+    await session.close();
+    const events = await drainTurn(turn);
+    expect(events.find((event) => event.kind === "error")).toMatchObject({
+      message: expect.stringContaining("synthetic session read failure"),
+    });
+    expect(proc.outputDisposed).toBe(true);
+    expect(proc.stderr.activeReaderCount).toBe(0);
+  });
+
   test("queued sends that die with the session are surfaced, never silently dropped", async () => {
     const logged: Record<string, unknown>[] = [];
     const proc = new FakeProcess();
