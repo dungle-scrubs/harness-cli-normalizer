@@ -45,7 +45,7 @@ export class FakeProcess implements SpawnedProcess {
   readonly stderr = new Channel();
   readonly exited: Promise<number | null>;
   readonly signals: SignalName[] = [];
-  readonly stdinLines: string[] = [];
+  readonly stdinWrites: string[] = [];
   stdinEnded = false;
   /** Set by the spawner from opts.stdin - only "pipe" opens a writable. */
   stdinPiped = true;
@@ -53,9 +53,7 @@ export class FakeProcess implements SpawnedProcess {
   private readonly stdinPipe = {
     write: (data: string): void => {
       if (this.stdinEnded) throw new Error("write after end");
-      for (const line of data.split("\n")) {
-        if (line.trim() !== "") this.stdinLines.push(line);
-      }
+      this.stdinWrites.push(data);
     },
     end: (): void => {
       this.stdinEnded = true;
@@ -67,6 +65,11 @@ export class FakeProcess implements SpawnedProcess {
   };
   get stdin(): SpawnedProcess["stdin"] {
     return this.stdinPiped ? this.stdinPipe : undefined;
+  }
+  get stdinLines(): string[] {
+    return this.stdinWrites.flatMap((write) =>
+      write.split("\n").filter((line) => line.trim() !== ""),
+    );
   }
   private exitResolve!: (code: number | null) => void;
 
