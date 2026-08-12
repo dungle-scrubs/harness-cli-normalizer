@@ -31,15 +31,15 @@ Source: `src/knowledge/descriptor.ts`, `src/knowledge/claude-code.ts`,
 Source: `src/execution/open-session.ts`, `test/execution/open-session.test.ts`,
 `test/execution/session-hardening.test.ts`
 
-- [ ] `openSession` validates the descriptor input contract before calling the injected spawner.
-- [ ] A refused contract logs the exact `session_input_refused` boundary record without prompt or
+- [x] `openSession` validates the descriptor input contract before calling the injected spawner.
+- [x] A refused contract logs the exact `session_input_refused` boundary record without prompt or
       encoded content.
-- [ ] A refused contract makes zero spawn calls and throws `SessionInputRefusalError`.
-- [ ] Idle and queued sends both write records through the pure session input encoder.
-- [ ] Session tests parse and compare the complete stdin envelope and newline framing.
-- [ ] `started` and `queued` dispositions plus all existing `SessionClosedError` cases remain
+- [x] A refused contract makes zero spawn calls and throws `SessionInputRefusalError`.
+- [x] Idle and queued sends both write records through the pure session input encoder.
+- [x] Session tests parse and compare the complete stdin envelope and newline framing.
+- [x] `started` and `queued` dispositions plus all existing `SessionClosedError` cases remain
       unchanged.
-- [ ] `open-session.ts` contains no Claude-specific input field names.
+- [x] `open-session.ts` contains no Claude-specific input field names.
 
 ## Phase 2: Full abandonment settlement
 
@@ -109,8 +109,8 @@ None.
 ## Summary
 
 - Total features: 43
-- Completed: 8
-- Remaining: 35
-- Current cutoff blockers: 35
+- Completed: 15
+- Remaining: 28
+- Current cutoff blockers: 28
 - Accepted/deferred follow-up: 0
 - Superseded/obsolete checklist debt: 0

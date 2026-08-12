@@ -6,7 +6,9 @@ import {
   SessionSpawnError,
 } from "../../src/execution/open-session.js";
 import { KILL_GRACE_MS, PIPE_GRACE_MS } from "../../src/execution/stream-turn.js";
+import { SessionInputRefusalError } from "../../src/interpretation/session-input.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
+import type { HarnessDescriptor } from "../../src/knowledge/descriptor.js";
 import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
 
 const sid = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
@@ -173,6 +175,43 @@ describe("M3.2 boundary-review regression pins", () => {
       ),
     ).toThrow(SessionSpawnError);
     expect(logged.find((e) => e.event === "session_spawn_failed")).toBeDefined();
+  });
+
+  test("a malformed session input contract is refused and logged before spawn", () => {
+    const logged: Record<string, unknown>[] = [];
+    const malformed = {
+      ...claudeCode,
+      sessionMode: {
+        flags: claudeCode.sessionMode?.flags ?? [],
+        idFlag: claudeCode.sessionMode?.idFlag ?? "--session-id",
+      },
+    } as unknown as HarnessDescriptor;
+    let spawnCalls = 0;
+
+    expect(() =>
+      openSession(
+        malformed,
+        { sessionId: sid },
+        {
+          clock: new FakeClock(),
+          log: (event) => logged.push(event),
+          signal: fakeSignal().signal,
+          spawn: () => {
+            spawnCalls++;
+            throw new Error("spawn must not be reached");
+          },
+        },
+      ),
+    ).toThrowError(SessionInputRefusalError);
+    expect(spawnCalls).toBe(0);
+    expect(logged).toEqual([
+      {
+        event: "session_input_refused",
+        harness: "claude",
+        issue: "missing-session-input-contract",
+        sessionId: sid,
+      },
+    ]);
   });
 
   test("abandoning the turns iterable closes the session - no leaked child", async () => {

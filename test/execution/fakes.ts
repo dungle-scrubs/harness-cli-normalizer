@@ -46,6 +46,7 @@ export class FakeProcess implements SpawnedProcess {
   readonly exited: Promise<number | null>;
   readonly signals: SignalName[] = [];
   readonly stdinLines: string[] = [];
+  readonly stdinWrites: string[] = [];
   stdinEnded = false;
   /** Set by the spawner from opts.stdin - only "pipe" opens a writable. */
   stdinPiped = true;
@@ -53,6 +54,7 @@ export class FakeProcess implements SpawnedProcess {
   private readonly stdinPipe = {
     write: (data: string): void => {
       if (this.stdinEnded) throw new Error("write after end");
+      this.stdinWrites.push(data);
       for (const line of data.split("\n")) {
         if (line.trim() !== "") this.stdinLines.push(line);
       }

@@ -1,6 +1,8 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import type { HarnessEvent } from "../../src/execution/events.js";
-import { openSession } from "../../src/execution/open-session.js";
+import { openSession, SessionClosedError } from "../../src/execution/open-session.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
 
@@ -27,6 +29,16 @@ const makeDeps = (proc: FakeProcess) => {
 };
 
 describe("openSession (claude, fake process)", () => {
+  test("execution owns no Claude-specific session input fields", () => {
+    const source = readFileSync(
+      join(import.meta.dirname, "../../src/execution/open-session.ts"),
+      "utf8",
+    );
+
+    expect(source).not.toContain('type: "user"');
+    expect(source).not.toContain('role: "user"');
+  });
+
   test("one process serves many turns; send during idle starts a turn; result delimits it (A-001)", async () => {
     const proc = new FakeProcess();
     const d = makeDeps(proc);
@@ -39,9 +51,15 @@ describe("openSession (claude, fake process)", () => {
 
     const first = session.send("turn one prompt");
     expect(first.disposition).toBe("started");
-    // The prompt travelled into stdin as a stream-json user line.
-    expect(proc.stdinLines).toHaveLength(1);
-    expect(proc.stdinLines[0]).toContain("turn one prompt");
+    const expectedInput = {
+      type: "user",
+      message: {
+        role: "user",
+        content: [{ type: "text", text: "turn one prompt" }],
+      },
+    };
+    expect(proc.stdinWrites).toEqual([`${JSON.stringify(expectedInput)}\n`]);
+    expect(JSON.parse(proc.stdinLines[0] ?? "null")).toEqual(expectedInput);
 
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
@@ -87,7 +105,15 @@ describe("openSession (claude, fake process)", () => {
     await drainTurn(turn1);
     // The boundary flushed the queue: the second prompt is on stdin now.
     expect(proc.stdinLines).toHaveLength(2);
-    expect(proc.stdinLines[1]).toContain("second while busy");
+    expect(proc.stdinWrites[1]).toBe(
+      `${JSON.stringify({
+        type: "user",
+        message: {
+          role: "user",
+          content: [{ type: "text", text: "second while busy" }],
+        },
+      })}\n`,
+    );
     const turn2 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
     proc.emitLine(result);
     await drainTurn(turn2);
@@ -105,6 +131,36 @@ describe("openSession (claude, fake process)", () => {
     const turns: unknown[] = [];
     for await (const t of session.turns) turns.push(t);
     expect(turns).toEqual([]);
+  });
+
+  test("send after close keeps the typed SessionClosedError contract", async () => {
+    const proc = new FakeProcess();
+    const d = makeDeps(proc);
+    const session = openSession(claudeCode, { sessionId: sid }, d);
+
+    await session.close();
+
+    expect(() => session.send("too late")).toThrowError(SessionClosedError);
+  });
+
+  test("send after process death keeps the typed SessionClosedError contract", async () => {
+    const proc = new FakeProcess();
+    const d = makeDeps(proc);
+    const session = openSession(claudeCode, { sessionId: sid }, d);
+
+    proc.exit(0);
+    await proc.exited;
+
+    expect(() => session.send("too late")).toThrowError(SessionClosedError);
+  });
+
+  test("an idle stdin write failure keeps the typed SessionClosedError contract", () => {
+    const proc = new FakeProcess({ exitOnStdinEnd: false });
+    const d = makeDeps(proc);
+    const session = openSession(claudeCode, { sessionId: sid }, d);
+    proc.stdin?.end();
+
+    expect(() => session.send("unwritable")).toThrowError(SessionClosedError);
   });
 
   test("a process that dies mid-turn ends the live turn with a crash done and completes the session", async () => {
