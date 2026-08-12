@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -22,9 +23,12 @@ jobs:
 
       - uses: pnpm/setup@v2
         with:
-          runtime: node@24
           cache: true
           install: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
 
       - uses: oven-sh/setup-bun@v2
 
@@ -40,11 +44,27 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: check
     runs-on: ubuntu-latest
+    concurrency:
+      group: release-please-main
+      cancel-in-progress: false
     permissions:
+      actions: write
       contents: write
+      issues: write
       pull-requests: write
     steps:
       # Manifest-driven: reads release-please-config.json and
       # .release-please-manifest.json. The package is source-public only,
       # so no publish command is wired.
-      - uses: googleapis/release-please-action@v5
+      - id: release
+        uses: googleapis/release-please-action@v5
+
+      # GITHUB_TOKEN-created pull requests do not start ordinary CI without
+      # approval. workflow_dispatch is the supported recursive-run exception,
+      # so the generated release branch receives the same required check.
+      - name: Check the release pull request
+        if: steps.release.outputs.prs_created == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_BRANCH: ${{ fromJSON(steps.release.outputs.pr || '{}').headBranchName }}
+        run: gh workflow run ci.yml --ref "$RELEASE_BRANCH"
