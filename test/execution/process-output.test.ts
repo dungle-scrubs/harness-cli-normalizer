@@ -1,6 +1,7 @@
+import { Readable } from "node:stream";
 import { describe, expect, test } from "vitest";
 import { AsyncChannel } from "../../src/execution/channel.js";
-import { nodeRunnerDeps } from "../../src/execution/node-deps.js";
+import { disposableOutputStream, nodeRunnerDeps } from "../../src/execution/node-deps.js";
 import { FakeProcess } from "./fakes.js";
 
 const settleWithin = async <T>(promise: Promise<T>, ms: number): Promise<T> => {
@@ -18,6 +19,55 @@ const settleWithin = async <T>(promise: Promise<T>, ms: number): Promise<T> => {
 };
 
 describe("injected process output disposal", () => {
+  test("adapter suppresses only its own disposal rejection", async () => {
+    const disposalCause = new Error("adapter output disposal");
+    const unrelatedCause = Object.assign(new Error("synthetic EIO"), { code: "EIO" });
+    const disposalSource = new Readable({ read: () => {} });
+    const disposed = disposableOutputStream(
+      disposalSource,
+      disposalCause,
+      Promise.resolve("spawned"),
+    );
+    const disposedRead = disposed.stream[Symbol.asyncIterator]().next();
+    disposed.dispose();
+    await expect(disposedRead).resolves.toMatchObject({ done: true });
+
+    const unrelatedSource = new Readable({ read: () => {} });
+    const unrelated = disposableOutputStream(
+      unrelatedSource,
+      disposalCause,
+      Promise.resolve("spawned"),
+    );
+    const unrelatedRead = unrelated.stream[Symbol.asyncIterator]().next();
+    unrelatedSource.destroy(unrelatedCause);
+    unrelated.dispose();
+    await expect(unrelatedRead).rejects.toBe(unrelatedCause);
+  });
+
+  test("adapter drains runtime-buffered chunks before settling output disposal", async () => {
+    const source = new Readable({ read: () => {} });
+    const output = disposableOutputStream(
+      source,
+      new Error("adapter output disposal"),
+      Promise.resolve("spawned"),
+    );
+    const iterator = output.stream[Symbol.asyncIterator]();
+    source.push(Buffer.from("one"));
+    expect(Buffer.from((await iterator.next()).value as Uint8Array).toString()).toBe("one");
+    source.push(Buffer.from("two"));
+    source.push(Buffer.from("three"));
+
+    output.dispose();
+
+    const remaining: string[] = [];
+    while (true) {
+      const next = await iterator.next();
+      if (next.done) break;
+      remaining.push(Buffer.from(next.value).toString());
+    }
+    expect(remaining.join("")).toBe("twothree");
+  });
+
   test("queue close alone leaves a held output read pending; fake disposal settles it idempotently", async () => {
     const proc = new FakeProcess();
     const queue = new AsyncChannel<unknown>();

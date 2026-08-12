@@ -155,9 +155,15 @@ describe("M3.2 boundary-review regression pins", () => {
       name: `tool-${index}`,
       input: {},
     }));
-    proc.emitChunk(`${JSON.stringify({ type: "assistant", message: { content } })}\n`);
+    proc.emitChunk(
+      `${JSON.stringify({ type: "assistant", message: { content: content.slice(0, 1_026) } })}\n`,
+    );
+    proc.emitChunk(
+      `${JSON.stringify({ type: "assistant", message: { content: content.slice(1_026) } })}\n`,
+    );
     proc.exitWithoutClosing(0);
     await tick();
+    expect(proc.stdout.pullCount).toBe(1);
     clock.advance(PIPE_GRACE_MS + 1);
 
     await session.close();
