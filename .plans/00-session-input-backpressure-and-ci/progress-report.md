@@ -93,7 +93,7 @@ Source: `.github/workflows/ci.yml`, `.github/workflows/harness-versions.yml`,
 - [x] The standalone `.github/workflows/release.yml` is removed.
 - [x] Release Please uses its manifest defaults and has no unsupported `command: manifest` input.
 - [x] Repository Actions may create pull requests with `GITHUB_TOKEN`, with no PAT or new secret.
-- [ ] The Phase 3 pull-request run succeeds and reports the release job as skipped.
+- [x] The Phase 3 pull-request run succeeds and reports the release job as skipped.
 - [ ] The merged SHA gets its own successful `push` run and no earlier main-push check is cancelled.
 - [ ] Release Please runs only after that check and creates or updates its pull request without the
       prior unsupported-input warning or permission failure.
@@ -109,8 +109,8 @@ None.
 ## Summary
 
 - Total features: 43
-- Completed: 40
-- Remaining: 3
-- Current cutoff blockers: 3
+- Completed: 41
+- Remaining: 2
+- Current cutoff blockers: 2
 - Accepted/deferred follow-up: 0
 - Superseded/obsolete checklist debt: 0

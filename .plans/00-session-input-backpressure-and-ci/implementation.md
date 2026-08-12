@@ -275,7 +275,7 @@ Please runs only after a successful check.
 
 #### Gate 3 to complete
 
-- [ ] Phase 3 pull-request `check` succeeds and release is skipped.
+- [x] Phase 3 pull-request `check` succeeds and release is skipped.
 - [ ] Phase 3 merge SHA gets a separate successful `push` run.
 - [ ] No earlier `main` push run is cancelled by the Phase 3 push concurrency group.
 - [ ] Release Please starts only after `check` and can create or update its pull request.
