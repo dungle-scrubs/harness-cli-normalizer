@@ -1,0 +1,49 @@
+name: Bug report
+description: Report something that is broken or behaves incorrectly
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the unexpected behavior. Include the command or API call that triggered it.
+      placeholder: "When I called streamTurn(...) with ..."
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Minimal reproduction. Code or a script is ideal.
+      placeholder: "1. ...\n2. ...\n3. ..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What you expected to happen instead.
+    validations:
+      required: true
+  - type: input
+    id: harness
+    attributes:
+      label: Harness
+      description: Which CLI were you driving? (claude, codex, pi, muse)
+      placeholder: claude
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Output of `node -v`, `pnpm -v`, and `<harness> --version`.
+      placeholder: "node 24, pnpm 11.5.2, claude 2.1.227"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / output
+      description: Relevant output or error messages. Paste as a code block.
+      render: shell

@@ -1,7 +1,14 @@
 {
-  "name": "@dungle-scrubs/harness-cli",
+  "name": "@dungle-scrubs/harness-cli-normalizer",
   "version": "0.1.0",
+  "description": "One stable interface to four coding-agent CLIs that survives their updates.",
+  "license": "MIT",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dungle-scrubs/harness-cli-normalizer.git"
+  },
+  "homepage": "https://github.com/dungle-scrubs/harness-cli-normalizer#readme",
   "type": "module",
   "packageManager": "pnpm@11.5.2",
   "engines": {

@@ -1,0 +1,28 @@
+name: Feature request
+description: Suggest a new descriptor, capability, or behavior
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do that the library does not support today?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: What you would like the library to do, and how you would use it.
+    validations:
+      required: true
+  - type: input
+    id: harness
+    attributes:
+      label: Harness (if relevant)
+      description: Which CLI does this relate to? (claude, codex, pi, muse)
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any workarounds or other approaches you tried.

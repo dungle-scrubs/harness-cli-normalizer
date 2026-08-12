@@ -7,3 +7,12 @@ pre-commit:
     - name: types
       glob: "*.{ts,tsx,json}"
       run: node_modules/.bin/tsc --noEmit
+
+pre-push:
+  jobs:
+    # Catch secrets before they reach the remote, not after. Scanning after a
+    # push is too late to be useful, so this stays a local hook - there is no
+    # TruffleHog GitHub Actions workflow by design.
+    - name: trufflehog
+      run: >-
+        trufflehog git file://. --only-verified --fail --no-update
