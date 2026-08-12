@@ -17,5 +17,6 @@ export * from "./parse-resume.js";
 export * from "./presence.js";
 export * from "./resume-last.js";
 export * from "./session-id.js";
+export * from "./session-input.js";
 export * from "./store.js";
 export * from "./vocabulary.js";

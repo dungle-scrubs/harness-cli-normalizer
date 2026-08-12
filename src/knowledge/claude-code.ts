@@ -48,6 +48,7 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
       "project",
     ],
     idFlag: "--session-id",
+    input: { kind: "claude-sdk-user-message" },
   },
   output: {
     // --output-format/--include-partial-messages only work with --print, so

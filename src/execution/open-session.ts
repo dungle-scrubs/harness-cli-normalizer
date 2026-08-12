@@ -1,6 +1,6 @@
 /**
  * openSession: the persistent headless session runner - ONE process, many
- * turns (A-001). `send` during idle writes a stream-json user line to
+ * turns (A-001). `send` during idle writes a descriptor-encoded user record to
  * stdin and starts a turn; `send` during a live turn is QUEUED to the next
  * boundary (mid-turn stdin writes would interleave into the model's
  * context unpredictably - the harness itself queues, so we mirror its
@@ -15,7 +15,12 @@
  */
 import { buildSessionArgv } from "../interpretation/argv.js";
 import { detectAuthFailureInLine, detectLimitInLine } from "../interpretation/limits.js";
-import type { HarnessDescriptor } from "../knowledge/descriptor.js";
+import {
+  encodeSessionInput,
+  resolveSessionInput,
+  SessionInputRefusalError,
+} from "../interpretation/session-input.js";
+import type { HarnessDescriptor, SessionInputContract } from "../knowledge/descriptor.js";
 import { AsyncChannel } from "./channel.js";
 import { decodeParsed, freshDecodeState } from "./decode.js";
 import type { RunnerDeps, SpawnedProcess } from "./deps.js";
@@ -75,6 +80,19 @@ export const openSession = (
     sessionId: opts.sessionId,
     ...(opts.model !== undefined ? { model: opts.model } : {}),
   });
+  let sessionInput: SessionInputContract;
+  try {
+    sessionInput = resolveSessionInput(h);
+  } catch (cause) {
+    if (!(cause instanceof SessionInputRefusalError)) throw cause;
+    log({
+      event: "session_input_refused",
+      harness: h.name,
+      issue: cause.issue,
+      sessionId: opts.sessionId,
+    });
+    throw cause;
+  }
 
   let proc: SpawnedProcess;
   try {
@@ -130,12 +148,7 @@ export const openSession = (
 
   const writeUser = (text: string): boolean => {
     try {
-      stdin.write(
-        `${JSON.stringify({
-          type: "user",
-          message: { role: "user", content: [{ type: "text", text }] },
-        })}\n`,
-      );
+      stdin.write(encodeSessionInput(sessionInput, text));
       return true;
     } catch {
       activeTurn?.push({ kind: "error", message: "send failed: session stdin is gone" });

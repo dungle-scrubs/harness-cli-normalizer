@@ -104,6 +104,24 @@ describe("boundary-review regression pins", () => {
     });
   });
 
+  test("a supported session input kind survives recursive override validation", () => {
+    const merged = parseOverrides(
+      JSON.stringify({ claude: { sessionMode: { input: { kind: "claude-sdk-user-message" } } } }),
+      PATH,
+    );
+
+    expect(merged.claude?.sessionMode?.input).toEqual({ kind: "claude-sdk-user-message" });
+  });
+
+  test("an unsupported session input kind is refused as a closed vocabulary", () => {
+    expect(() =>
+      parseOverrides(
+        JSON.stringify({ claude: { sessionMode: { input: { kind: "other-wire-shape" } } } }),
+        PATH,
+      ),
+    ).toThrow(/claude-sdk-user-message/);
+  });
+
   test("the registry key cannot be renamed from an override", () => {
     expect(() => parseOverrides(JSON.stringify({ claude: { name: "codex" } }), PATH)).toThrow(
       /name/,
