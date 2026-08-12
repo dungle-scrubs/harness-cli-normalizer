@@ -57,6 +57,10 @@ const realSpawn = (argv: readonly string[], opts: SpawnOptions): SpawnedProcess 
     stdout: (child.stdout ?? emptyStream()) as AsyncIterable<Uint8Array>,
     stderr: stderrWithError(),
     exited,
+    disposeOutput: (): void => {
+      child.stdout?.destroy();
+      child.stderr?.destroy();
+    },
     ...(opts.stdin === "pipe" && child.stdin !== null
       ? {
           stdin: {

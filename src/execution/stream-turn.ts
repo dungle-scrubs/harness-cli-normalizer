@@ -6,8 +6,8 @@
  * included). Runtime primitives are injected (D-005); structured boundary
  * events (spawn/exit/stall, argv redacted by POSITION) are always-on
  * evidence, not diagnostics. An abandoned turn (consumer breaks early)
- * cleans up after itself: pumps stop, SIGTERM, SIGKILL after grace - the
- * child is never left running with nobody draining its stdout.
+ * closes backpressure, disposes output, stops the child, and awaits both
+ * pumps before it returns.
  */
 import {
   buildLaunchArgv,
@@ -33,6 +33,14 @@ let turnCounter = 0;
  * after the process itself exited. */
 export const KILL_GRACE_MS = 5_000;
 export const PIPE_GRACE_MS = 2_000;
+
+const OUTPUT_STREAMS = ["stdout", "stderr"] as const;
+
+const isDisposalSettlement = (cause: unknown): boolean =>
+  (cause as NodeJS.ErrnoException | null)?.code === "ERR_STREAM_PREMATURE_CLOSE";
+
+const pumpFailureMessage = (stream: (typeof OUTPUT_STREAMS)[number], cause: unknown): string =>
+  `${stream} pump failed: ${cause instanceof Error ? cause.message : String(cause)}`;
 
 /** Stray secret-shaped tokens are masked; identifiers (session UUIDs, model
  * ids, paths) log verbatim - they are what the log exists to correlate. */
@@ -128,6 +136,8 @@ export async function* streamTurn(
   let exitCode: number | null = null;
   let pipesOpenAtExit = false;
   let cancelled = false;
+  let terminalEventReached = false;
+  let outputDisposed = false;
 
   const safeSignal = (sig: "SIGTERM" | "SIGKILL"): void => {
     if (!exited) deps.signal(proc, sig);
@@ -211,7 +221,34 @@ export async function* streamTurn(
     }
   };
 
-  void Promise.allSettled([proc.exited, pumpStdout(), pumpStderr()]).then(() => queue.close());
+  const pumpSettlements = Promise.allSettled([pumpStdout(), pumpStderr()]);
+  const outputSettlement = Promise.all([proc.exited, pumpSettlements]).then(
+    async ([, settlements]) => {
+      for (const [index, settlement] of settlements.entries()) {
+        if (
+          settlement.status !== "rejected" ||
+          (outputDisposed && isDisposalSettlement(settlement.reason))
+        ) {
+          continue;
+        }
+        const stream = OUTPUT_STREAMS[index];
+        if (stream === undefined) continue;
+        log({
+          event: "output_pump_failed",
+          turnId,
+          harness: h.name,
+          stream,
+          issue: "read-failed",
+        });
+        await queue.push({
+          kind: "error",
+          message: pumpFailureMessage(stream, settlement.reason),
+        });
+      }
+      queue.close();
+    },
+  );
+  void outputSettlement;
 
   try {
     for await (const event of queue) yield event;
@@ -241,19 +278,30 @@ export async function* streamTurn(
     if ((cause === "crash" || cause === "killed") && tail.length > 0) {
       yield { kind: "error", message: tail.join("\n").slice(0, 4096) };
     }
+    terminalEventReached = true;
     yield { kind: "done", exitCode, cause };
   } finally {
+    const abandoned = !terminalEventReached;
     cancelled = true;
     queue.close();
     disarm();
     if (pipeGrace !== null) deps.clock.clearTimeout(pipeGrace);
-    if (!exited) {
-      // Abandoned mid-turn: never leave the child running with nobody
-      // draining its stdout - and never RETURN until it is actually gone,
-      // or an immediate resume of the same session races a live writer.
+    if (abandoned) {
       log({ event: "abandoned", turnId, harness: h.name });
-      escalate();
-      await proc.exited; // bounded: SIGKILL after KILL_GRACE_MS cannot be ignored
+      if (!exited) escalate();
+    }
+    outputDisposed = true;
+    proc.disposeOutput();
+    const [settledExit] = await Promise.all([proc.exited, outputSettlement]);
+    exitCode = settledExit;
+    if (abandoned) {
+      log({
+        event: "abandonment_settled",
+        turnId,
+        harness: h.name,
+        exitCode,
+        outputDisposed: true,
+      });
     }
   }
 }

@@ -8,6 +8,9 @@
 export interface SpawnedProcess {
   readonly stdout: AsyncIterable<string | Uint8Array>;
   readonly stderr: AsyncIterable<string | Uint8Array>;
+  /** Idempotently cancel pending stdout and stderr reads without signalling
+   * the child. Terminal cleanup owns process signalling separately. */
+  disposeOutput(): void;
   /** Resolves with the exit code, or null when the process died to a
    * signal without one. */
   readonly exited: Promise<number | null>;

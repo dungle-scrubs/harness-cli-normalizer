@@ -14,9 +14,11 @@ import type {
 class Channel implements AsyncIterable<string> {
   private readonly chunks: string[] = [];
   private closed = false;
+  private failure: Error | null = null;
   private wake: (() => void) | null = null;
   private readonly pullWaiters: Array<{ count: number; resolve: () => void }> = [];
   pullCount = 0;
+  activeReaderCount = 0;
 
   push(chunk: string): void {
     this.chunks.push(chunk);
@@ -26,30 +28,40 @@ class Channel implements AsyncIterable<string> {
     this.closed = true;
     this.wake?.();
   }
+  fail(error: Error): void {
+    this.failure = error;
+    this.wake?.();
+  }
   waitForPullCount(count: number): Promise<void> {
     if (this.pullCount >= count) return Promise.resolve();
     return new Promise((resolve) => this.pullWaiters.push({ count, resolve }));
   }
   async *[Symbol.asyncIterator](): AsyncIterator<string> {
-    while (true) {
-      if (this.chunks.length > 0) {
-        this.pullCount += 1;
-        for (let index = this.pullWaiters.length - 1; index >= 0; index -= 1) {
-          const waiter = this.pullWaiters[index];
-          if (waiter !== undefined && this.pullCount >= waiter.count) {
-            this.pullWaiters.splice(index, 1);
-            waiter.resolve();
+    this.activeReaderCount += 1;
+    try {
+      while (true) {
+        if (this.failure !== null) throw this.failure;
+        if (this.chunks.length > 0) {
+          this.pullCount += 1;
+          for (let index = this.pullWaiters.length - 1; index >= 0; index -= 1) {
+            const waiter = this.pullWaiters[index];
+            if (waiter !== undefined && this.pullCount >= waiter.count) {
+              this.pullWaiters.splice(index, 1);
+              waiter.resolve();
+            }
           }
+          const chunk = this.chunks.shift();
+          if (chunk !== undefined) yield chunk;
+          continue;
         }
-        const chunk = this.chunks.shift();
-        if (chunk !== undefined) yield chunk;
-        continue;
+        if (this.closed) return;
+        await new Promise<void>((resolve) => {
+          this.wake = resolve;
+        });
+        this.wake = null;
       }
-      if (this.closed) return;
-      await new Promise<void>((resolve) => {
-        this.wake = resolve;
-      });
-      this.wake = null;
+    } finally {
+      this.activeReaderCount -= 1;
     }
   }
 }
@@ -61,6 +73,9 @@ export class FakeProcess implements SpawnedProcess {
   readonly signals: SignalName[] = [];
   readonly stdinWrites: string[] = [];
   stdinEnded = false;
+  outputDisposed = false;
+  outputDisposalCount = 0;
+  hasExited = false;
   /** Set by the spawner from opts.stdin - only "pipe" opens a writable. */
   stdinPiped = true;
   private readonly exitOnStdinEnd: boolean;
@@ -104,14 +119,26 @@ export class FakeProcess implements SpawnedProcess {
   emitStderr(line: string): void {
     this.stderr.push(`${line}\n`);
   }
+  failStdout(error: Error): void {
+    this.stdout.fail(error);
+  }
   exit(code: number | null): void {
+    this.hasExited = true;
     this.stdout.close();
     this.stderr.close();
     this.exitResolve(code);
   }
   /** Exit while a grandchild keeps the pipes open (the pipes-open case). */
   exitWithoutClosing(code: number | null): void {
+    this.hasExited = true;
     this.exitResolve(code);
+  }
+  disposeOutput(): void {
+    if (this.outputDisposed) return;
+    this.outputDisposed = true;
+    this.outputDisposalCount += 1;
+    this.stdout.close();
+    this.stderr.close();
   }
 }
 

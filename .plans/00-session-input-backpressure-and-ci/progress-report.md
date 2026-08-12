@@ -63,18 +63,18 @@ Source: `src/execution/deps.ts`, `src/execution/node-deps.ts`,
 `src/execution/stream-turn.ts`, `test/execution/fakes.ts`,
 `test/execution/runner-hardening.test.ts`
 
-- [ ] `SpawnedProcess.disposeOutput()` is an idempotent, injected output-disposal operation.
-- [ ] The shared Node and Bun adapter destroys both child stdout and stderr readable streams.
-- [ ] `FakeProcess.disposeOutput()` closes both fake output channels and exposes disposal state.
-- [ ] A fake held-pipe test proves queue closure alone does not settle a later pending read.
-- [ ] Terminal cleanup closes the channel, disposes output, preserves signal escalation, and awaits
+- [x] `SpawnedProcess.disposeOutput()` is an idempotent, injected output-disposal operation.
+- [x] The shared Node and Bun adapter destroys both child stdout and stderr readable streams.
+- [x] `FakeProcess.disposeOutput()` closes both fake output channels and exposes disposal state.
+- [x] A fake held-pipe test proves queue closure alone does not settle a later pending read.
+- [x] Terminal cleanup closes the channel, disposes output, preserves signal escalation, and awaits
       stdout plus stderr pumps before it returns.
-- [ ] A descendant-held-pipe integration test settles under both Vitest on Node and `bun test`.
-- [ ] Disposal-caused Node rejection and Bun fulfillment are both treated as settlement, while
+- [x] A descendant-held-pipe integration test settles under both Vitest on Node and `bun test`.
+- [x] Disposal-caused Node rejection and Bun fulfillment are both treated as settlement, while
       unrelated pump failures remain visible.
-- [ ] `abandonment_settled` logs the exact D-025 fields only after child exit and both pumps settle.
-- [ ] Normal completion, crash tail, stall, signal escalation, and pipe-grace behavior remain green.
-- [ ] Early consumer return leaves no blocked producer, pending output iterator, or live direct
+- [x] `abandonment_settled` logs the exact D-025 fields only after child exit and both pumps settle.
+- [x] Normal completion, crash tail, stall, signal escalation, and pipe-grace behavior remain green.
+- [x] Early consumer return leaves no blocked producer, pending output iterator, or live direct
       child.
 
 ## Phase 3: Main push CI and checked releases

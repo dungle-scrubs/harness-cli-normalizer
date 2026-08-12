@@ -159,6 +159,55 @@ describe("M3.1 boundary-review regression pins", () => {
     ]);
   });
 
+  test("held-pipe abandonment returns only after output disposal and both pumps settle", async () => {
+    const proc = new FakeProcess();
+    const spawner = fakeSpawner([proc]);
+    const clock = new FakeClock();
+    const logged: Record<string, unknown>[] = [];
+    const signal = (): void => {
+      proc.exitWithoutClosing(null);
+    };
+    const turn = streamTurn(
+      claudeCode,
+      { prompt: "hi" },
+      {
+        spawn: spawner.spawn,
+        clock,
+        signal,
+        turnId: "held-pipe-turn",
+        log: (event) => logged.push(event),
+      },
+    );
+    proc.emitLine(init);
+
+    for await (const event of turn) {
+      if (event.kind === "identity") break;
+    }
+
+    expect(proc.outputDisposed).toBe(true);
+    expect(proc.hasExited).toBe(true);
+    expect(proc.stdout.activeReaderCount).toBe(0);
+    expect(proc.stderr.activeReaderCount).toBe(0);
+    expect(
+      logged.filter(
+        (event) => event.event === "abandoned" || event.event === "abandonment_settled",
+      ),
+    ).toEqual([
+      {
+        event: "abandoned",
+        turnId: "held-pipe-turn",
+        harness: "claude",
+      },
+      {
+        event: "abandonment_settled",
+        turnId: "held-pipe-turn",
+        harness: "claude",
+        exitCode: null,
+        outputDisposed: true,
+      },
+    ]);
+  });
+
   test("watchdog never flips a completed turn to stall or signals a dead process", async () => {
     const bare = { ...claudeCode, launch: { ...claudeCode.launch, streamFlags: [] } };
     const proc = new FakeProcess();
@@ -305,6 +354,37 @@ describe("M3.1 boundary-review regression pins", () => {
 });
 
 describe("crash context surfaces as a stream error", () => {
+  test("an unrelated output pump failure stays visible as an event and boundary log", async () => {
+    const logged: Record<string, unknown>[] = [];
+    const proc = new FakeProcess();
+    const spawner = fakeSpawner([proc]);
+    const sig = fakeSignal();
+    const clock = new FakeClock();
+    const pending = collect(
+      streamTurn(
+        claudeCode,
+        { prompt: "hi" },
+        {
+          spawn: spawner.spawn,
+          clock,
+          signal: sig.signal,
+          log: (event) => logged.push(event),
+        },
+      ),
+    );
+    proc.failStdout(new Error("synthetic read failure"));
+    proc.exit(0);
+
+    const events = await pending;
+    expect(events.find((event) => event.kind === "error")).toMatchObject({
+      message: expect.stringContaining("stdout pump failed: synthetic read failure"),
+    });
+    expect(logged.find((event) => event.event === "output_pump_failed")).toMatchObject({
+      stream: "stdout",
+      issue: "read-failed",
+    });
+  });
+
   test("a crash with stderr yields an error event carrying the tail, then done", async () => {
     const proc = new FakeProcess();
     const spawner = fakeSpawner([proc]);
