@@ -21,6 +21,7 @@ class Channel implements AsyncIterable<string> {
   activeReaderCount = 0;
 
   push(chunk: string): void {
+    if (this.closed) return;
     this.chunks.push(chunk);
     this.wake?.();
   }

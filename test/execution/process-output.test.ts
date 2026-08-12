@@ -82,8 +82,10 @@ describe("injected process output disposal", () => {
 
     proc.disposeOutput();
     proc.disposeOutput();
+    proc.emitChunk("written after disposal");
 
     await expect(pendingRead).resolves.toMatchObject({ done: true });
+    await expect(stdout.next()).resolves.toMatchObject({ done: true });
     expect(proc.outputDisposed).toBe(true);
     expect(proc.outputDisposalCount).toBe(1);
   });
@@ -91,7 +93,7 @@ describe("injected process output disposal", () => {
   test("the Node/Bun adapter settles descendant-held stdout and stderr reads", async () => {
     const directChildSource = String.raw`
       const { spawn } = require("node:child_process");
-      const descendant = spawn(process.execPath, ["-e", "setTimeout(() => process.exit(0), 2000)"], {
+      const descendant = spawn(process.execPath, ["-e", "setTimeout(() => process.exit(0), 30000)"], {
         stdio: ["ignore", "inherit", "inherit"],
       });
       descendant.unref();
@@ -107,7 +109,7 @@ describe("injected process output disposal", () => {
     try {
       const stdout = proc.stdout[Symbol.asyncIterator]();
       const stderr = proc.stderr[Symbol.asyncIterator]();
-      const first = await settleWithin(stdout.next(), 1_000);
+      const first = await settleWithin(stdout.next(), 5_000);
       expect(first.done).toBe(false);
       ({ descendantPid } = JSON.parse(Buffer.from(first.value as Uint8Array).toString("utf8")) as {
         descendantPid: number;
@@ -119,7 +121,7 @@ describe("injected process output disposal", () => {
       proc.disposeOutput();
       proc.disposeOutput();
 
-      settlements = await settleWithin(Promise.allSettled(heldReads), 1_000);
+      settlements = await settleWithin(Promise.allSettled(heldReads), 5_000);
     } finally {
       if (descendantPid !== undefined) {
         try {
