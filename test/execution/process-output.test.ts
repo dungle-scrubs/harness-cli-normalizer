@@ -59,13 +59,10 @@ describe("injected process output disposal", () => {
 
     output.dispose();
 
-    const remaining: string[] = [];
-    while (true) {
-      const next = await iterator.next();
-      if (next.done) break;
-      remaining.push(Buffer.from(next.value).toString());
-    }
-    expect(remaining.join("")).toBe("twothree");
+    const buffered = await iterator.next();
+    expect(Buffer.from(buffered.value).toString()).toBe("twothree");
+    source.push(Buffer.from("written-after-disposal"));
+    await expect(iterator.next()).resolves.toMatchObject({ done: true });
   });
 
   test("queue close alone leaves a held output read pending; fake disposal settles it idempotently", async () => {

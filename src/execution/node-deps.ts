@@ -47,10 +47,11 @@ export const disposableOutputStream = (
   spawnOutcome: Promise<SpawnOutcome>,
 ): { readonly stream: AsyncIterable<Uint8Array>; dispose(): void } => {
   let disposalRequested = false;
+  let disposalDrainBudget = 0;
   let readPending = false;
 
   const destroyPendingRead = (): void => {
-    if (disposalRequested && readPending && source.readableLength === 0 && !source.destroyed) {
+    if (disposalRequested && readPending && disposalDrainBudget === 0 && !source.destroyed) {
       source.destroy(disposalCause);
     }
   };
@@ -58,7 +59,7 @@ export const disposableOutputStream = (
     const iterator = source[Symbol.asyncIterator]();
     while (true) {
       readPending = true;
-      if (disposalRequested && source.readableLength === 0 && !source.destroyed) {
+      if (disposalRequested && disposalDrainBudget === 0 && !source.destroyed) {
         source.destroy(disposalCause);
       }
       let next: IteratorResult<unknown>;
@@ -68,6 +69,10 @@ export const disposableOutputStream = (
         readPending = false;
       }
       if (next.done) return;
+      if (disposalRequested) {
+        const bytes = next.value as { readonly byteLength?: number };
+        disposalDrainBudget = Math.max(0, disposalDrainBudget - (bytes.byteLength ?? 0));
+      }
       yield next.value as Uint8Array;
     }
   };
@@ -77,6 +82,7 @@ export const disposableOutputStream = (
     dispose: (): void => {
       if (disposalRequested) return;
       disposalRequested = true;
+      disposalDrainBudget = source.readableLength;
       destroyPendingRead();
     },
   };
