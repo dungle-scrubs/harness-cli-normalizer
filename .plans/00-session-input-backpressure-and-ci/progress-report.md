@@ -4,7 +4,7 @@
 > what is done and what remains. Update each checkbox as its behavior is implemented. Do not mark a
 > milestone complete until every current-cutoff checkbox under it is checked.
 
-> Current focus: Phase 3 - Main push CI and checked releases, M5
+> Current focus: Complete - all milestones landed and verified
 
 ## Phase 1: Descriptor-owned session input
 
@@ -94,8 +94,8 @@ Source: `.github/workflows/ci.yml`, `.github/workflows/harness-versions.yml`,
 - [x] Release Please uses its manifest defaults and has no unsupported `command: manifest` input.
 - [x] Repository Actions may create pull requests with `GITHUB_TOKEN`, with no PAT or new secret.
 - [x] The Phase 3 pull-request run succeeds and reports the release job as skipped.
-- [ ] The merged SHA gets its own successful `push` run and no earlier main-push check is cancelled.
-- [ ] Release Please runs only after that check and creates or updates its pull request without the
+- [x] The merged SHA gets its own successful `push` run and no earlier main-push check is cancelled.
+- [x] Release Please runs only after that check and creates or updates its pull request without the
       prior unsupported-input warning or permission failure.
 
 ## Deferred follow-up
@@ -109,8 +109,8 @@ None.
 ## Summary
 
 - Total features: 43
-- Completed: 41
-- Remaining: 2
-- Current cutoff blockers: 2
+- Completed: 43
+- Remaining: 0
+- Current cutoff blockers: 0
 - Accepted/deferred follow-up: 0
 - Superseded/obsolete checklist debt: 0

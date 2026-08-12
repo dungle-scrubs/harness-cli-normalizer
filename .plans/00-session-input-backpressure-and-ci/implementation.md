@@ -276,12 +276,12 @@ Please runs only after a successful check.
 #### Gate 3 to complete
 
 - [x] Phase 3 pull-request `check` succeeds and release is skipped.
-- [ ] Phase 3 merge SHA gets a separate successful `push` run.
-- [ ] No earlier `main` push run is cancelled by the Phase 3 push concurrency group.
-- [ ] Release Please starts only after `check` and can create or update its pull request.
+- [x] Phase 3 merge SHA gets a separate successful `push` run.
+- [x] No earlier `main` push run is cancelled by the Phase 3 push concurrency group.
+- [x] Release Please starts only after `check` and can create or update its pull request.
 - [x] The workflow has no `command: manifest`, PAT, new secret, or expanded branch trigger.
 - [x] `review-changes` reports no unresolved findings.
-- [ ] Phase 3 pull request is merged to `main`.
+- [x] Phase 3 pull request is merged to `main`.
 
 ## 4. Risk Register
 
