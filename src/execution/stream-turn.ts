@@ -36,9 +36,6 @@ export const PIPE_GRACE_MS = 2_000;
 
 const OUTPUT_STREAMS = ["stdout", "stderr"] as const;
 
-const isDisposalSettlement = (cause: unknown): boolean =>
-  (cause as NodeJS.ErrnoException | null)?.code === "ERR_STREAM_PREMATURE_CLOSE";
-
 const pumpFailureMessage = (stream: (typeof OUTPUT_STREAMS)[number], cause: unknown): string =>
   `${stream} pump failed: ${cause instanceof Error ? cause.message : String(cause)}`;
 
@@ -137,14 +134,18 @@ export async function* streamTurn(
   let pipesOpenAtExit = false;
   let cancelled = false;
   let terminalEventReached = false;
-  let outputDisposed = false;
 
   const safeSignal = (sig: "SIGTERM" | "SIGKILL"): void => {
     if (!exited) deps.signal(proc, sig);
   };
+  let escalationTimer: number | null = null;
   const escalate = (): void => {
+    if (exited || escalationTimer !== null) return;
     safeSignal("SIGTERM");
-    deps.clock.setTimeout(() => safeSignal("SIGKILL"), KILL_GRACE_MS);
+    escalationTimer = deps.clock.setTimeout(() => {
+      escalationTimer = null;
+      safeSignal("SIGKILL");
+    }, KILL_GRACE_MS);
   };
 
   let watchdog: number | null = null;
@@ -167,11 +168,14 @@ export async function* streamTurn(
   void proc.exited.then((code) => {
     exited = true;
     exitCode = code;
+    if (escalationTimer !== null) deps.clock.clearTimeout(escalationTimer);
+    escalationTimer = null;
     // The process is gone: the watchdog has nothing left to kill, and a
     // fire after this point would flip a completed turn to "stall".
     disarm();
     // Pipes held open past exit (a grandchild inherited the fd) must not
     // hang the turn forever - close out with the exit code in hand.
+    if (cancelled) return;
     pipeGrace = deps.clock.setTimeout(() => {
       pipesOpenAtExit = true;
       queue.close();
@@ -221,34 +225,31 @@ export async function* streamTurn(
     }
   };
 
-  const pumpSettlements = Promise.allSettled([pumpStdout(), pumpStderr()]);
-  const outputSettlement = Promise.all([proc.exited, pumpSettlements]).then(
-    async ([, settlements]) => {
-      for (const [index, settlement] of settlements.entries()) {
-        if (
-          settlement.status !== "rejected" ||
-          (outputDisposed && isDisposalSettlement(settlement.reason))
-        ) {
-          continue;
-        }
-        const stream = OUTPUT_STREAMS[index];
-        if (stream === undefined) continue;
-        log({
-          event: "output_pump_failed",
-          turnId,
-          harness: h.name,
-          stream,
-          issue: "read-failed",
-        });
-        await queue.push({
-          kind: "error",
-          message: pumpFailureMessage(stream, settlement.reason),
-        });
-      }
+  const observePump = async (
+    stream: (typeof OUTPUT_STREAMS)[number],
+    pump: Promise<void>,
+  ): Promise<void> => {
+    try {
+      await pump;
+    } catch (cause) {
+      log({
+        event: "output_pump_failed",
+        turnId,
+        harness: h.name,
+        stream,
+        issue: "read-failed",
+      });
+      await queue.push({ kind: "error", message: pumpFailureMessage(stream, cause) });
+      escalate();
+      await proc.exited;
       queue.close();
-    },
-  );
-  void outputSettlement;
+    }
+  };
+  const pumpSettlements = Promise.all([
+    observePump("stdout", pumpStdout()),
+    observePump("stderr", pumpStderr()),
+  ]);
+  void Promise.all([proc.exited, pumpSettlements]).then(() => queue.close());
 
   try {
     for await (const event of queue) yield event;
@@ -285,15 +286,17 @@ export async function* streamTurn(
     cancelled = true;
     queue.close();
     disarm();
-    if (pipeGrace !== null) deps.clock.clearTimeout(pipeGrace);
     if (abandoned) {
       log({ event: "abandoned", turnId, harness: h.name });
       if (!exited) escalate();
     }
-    outputDisposed = true;
     proc.disposeOutput();
-    const [settledExit] = await Promise.all([proc.exited, outputSettlement]);
+    const [settledExit] = await Promise.all([proc.exited, pumpSettlements]);
     exitCode = settledExit;
+    if (pipeGrace !== null) deps.clock.clearTimeout(pipeGrace);
+    pipeGrace = null;
+    if (escalationTimer !== null) deps.clock.clearTimeout(escalationTimer);
+    escalationTimer = null;
     if (abandoned) {
       log({
         event: "abandonment_settled",

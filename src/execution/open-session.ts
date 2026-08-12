@@ -330,7 +330,8 @@ export const openSession = (
     // Pipes held open past exit (a grandchild) must not hang the session.
     const pipeGrace = deps.clock.setTimeout(() => {
       pipesOpenAtExit = true;
-      finalize();
+      proc.disposeOutput();
+      void pumping.then(() => finalize());
     }, PIPE_GRACE_MS);
     void pumping.then(() => {
       deps.clock.clearTimeout(pipeGrace);

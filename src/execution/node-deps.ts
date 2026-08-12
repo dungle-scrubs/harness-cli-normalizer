@@ -24,11 +24,16 @@ const realSpawn = (argv: readonly string[], opts: SpawnOptions): SpawnedProcess 
       "pipe",
     ],
   });
+  let outputDisposed = false;
   let spawnError: Error | null = null;
+  const spawnOutcome = new Promise<"spawned" | "failed">((resolve) => {
+    child.once("spawn", () => resolve("spawned"));
+    child.once("error", () => resolve("failed"));
+  });
   // exited resolves via 'exit' (process died - fires even while a grandchild
   // holds the pipes open, unlike 'close') or 'error' (ENOENT etc., which
   // node reports async, not as a sync throw -> map to 127 crash). The error
-  // handler is registered FIRST so spawnError is set before exited resolves.
+  // handler sets spawnError before it resolves exited.
   const exited = new Promise<number | null>((resolve) => {
     child.on("error", (err) => {
       spawnError = err;
@@ -38,26 +43,39 @@ const realSpawn = (argv: readonly string[], opts: SpawnOptions): SpawnedProcess 
   });
   // The spawn error rides the stderr stream so the runner's tail (and the
   // crash exit log) carry the explanation, matching the sync-throw path.
-  // Awaiting `exited` first closes the race where the empty stderr pipe ends
-  // before node's async 'error' event has fired.
-  const stderrWithError = async function* (): AsyncIterable<string | Uint8Array> {
+  // outputStream waits only for the spawn/error outcome when it sees a
+  // premature close, so a genuine read failure on a live child propagates
+  // immediately while an async ENOENT remains the single spawn-error signal.
+  const outputStream = async function* (
+    source: AsyncIterable<Uint8Array>,
+  ): AsyncIterable<Uint8Array> {
     try {
-      if (child.stderr !== null) yield* child.stderr as AsyncIterable<Uint8Array>;
+      yield* source;
     } catch (cause) {
-      // A failed spawn closes the stderr pipe prematurely
-      // (ERR_STREAM_PREMATURE_CLOSE); that is not fatal - the spawn error
-      // below is the signal that matters. Any OTHER read error is genuine
-      // and propagates (the tail captured so far is already preserved).
-      if ((cause as NodeJS.ErrnoException)?.code !== "ERR_STREAM_PREMATURE_CLOSE") throw cause;
+      if (outputDisposed) return;
+      if (
+        (cause as NodeJS.ErrnoException)?.code === "ERR_STREAM_PREMATURE_CLOSE" &&
+        (await spawnOutcome) === "failed"
+      ) {
+        return;
+      }
+      throw cause;
     }
+  };
+  const stderrWithError = async function* (): AsyncIterable<string | Uint8Array> {
+    if (child.stderr !== null) yield* outputStream(child.stderr as AsyncIterable<Uint8Array>);
     await exited;
     if (spawnError !== null) yield `spawn failed: ${(spawnError as Error).message}\n`;
   };
   const proc: SpawnedProcess = {
-    stdout: (child.stdout ?? emptyStream()) as AsyncIterable<Uint8Array>,
+    stdout:
+      child.stdout === null
+        ? emptyStream()
+        : outputStream(child.stdout as AsyncIterable<Uint8Array>),
     stderr: stderrWithError(),
     exited,
     disposeOutput: (): void => {
+      outputDisposed = true;
       child.stdout?.destroy();
       child.stderr?.destroy();
     },

@@ -188,6 +188,7 @@ describe("M3.1 boundary-review regression pins", () => {
     expect(proc.hasExited).toBe(true);
     expect(proc.stdout.activeReaderCount).toBe(0);
     expect(proc.stderr.activeReaderCount).toBe(0);
+    expect(clock.pendingTimerCount).toBe(0);
     expect(
       logged.filter(
         (event) => event.event === "abandoned" || event.event === "abandonment_settled",
@@ -354,12 +355,14 @@ describe("M3.1 boundary-review regression pins", () => {
 });
 
 describe("crash context surfaces as a stream error", () => {
-  test("an unrelated output pump failure stays visible as an event and boundary log", async () => {
+  test("a pre-disposal premature-close pump failure stays visible", async () => {
     const logged: Record<string, unknown>[] = [];
     const proc = new FakeProcess();
     const spawner = fakeSpawner([proc]);
-    const sig = fakeSignal();
     const clock = new FakeClock();
+    const signal = (): void => {
+      proc.exitWithoutClosing(null);
+    };
     const pending = collect(
       streamTurn(
         claudeCode,
@@ -367,22 +370,28 @@ describe("crash context surfaces as a stream error", () => {
         {
           spawn: spawner.spawn,
           clock,
-          signal: sig.signal,
+          signal,
           log: (event) => logged.push(event),
         },
       ),
     );
-    proc.failStdout(new Error("synthetic read failure"));
-    proc.exit(0);
+    const failure = new Error("synthetic premature close") as NodeJS.ErrnoException;
+    failure.code = "ERR_STREAM_PREMATURE_CLOSE";
+    proc.failStdout(failure);
 
     const events = await pending;
     expect(events.find((event) => event.kind === "error")).toMatchObject({
-      message: expect.stringContaining("stdout pump failed: synthetic read failure"),
+      message: expect.stringContaining("stdout pump failed: synthetic premature close"),
     });
     expect(logged.find((event) => event.event === "output_pump_failed")).toMatchObject({
       stream: "stdout",
       issue: "read-failed",
     });
+    expect(events.findIndex((event) => event.kind === "error")).toBeLessThan(
+      events.findIndex((event) => event.kind === "done"),
+    );
+    expect(proc.outputDisposed).toBe(true);
+    expect(proc.stderr.activeReaderCount).toBe(0);
   });
 
   test("a crash with stderr yields an error event carrying the tail, then done", async () => {

@@ -158,6 +158,9 @@ export class FakeClock implements Clock {
   clearTimeout(handle: TimerHandle): void {
     this.timers.delete(handle);
   }
+  get pendingTimerCount(): number {
+    return this.timers.size;
+  }
   advance(ms: number): void {
     this.time += ms;
     for (const [handle, timer] of [...this.timers]) {

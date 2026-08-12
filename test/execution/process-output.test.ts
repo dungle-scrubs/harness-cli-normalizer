@@ -3,6 +3,20 @@ import { AsyncChannel } from "../../src/execution/channel.js";
 import { nodeRunnerDeps } from "../../src/execution/node-deps.js";
 import { FakeProcess } from "./fakes.js";
 
+const settleWithin = async <T>(promise: Promise<T>, ms: number): Promise<T> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`settlement exceeded ${ms}ms`)), ms);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+};
+
 describe("injected process output disposal", () => {
   test("queue close alone leaves a held output read pending; fake disposal settles it idempotently", async () => {
     const proc = new FakeProcess();
@@ -30,7 +44,7 @@ describe("injected process output disposal", () => {
   test("the Node/Bun adapter settles descendant-held stdout and stderr reads", async () => {
     const directChildSource = String.raw`
       const { spawn } = require("node:child_process");
-      const descendant = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {
+      const descendant = spawn(process.execPath, ["-e", "setTimeout(() => process.exit(0), 2000)"], {
         stdio: ["ignore", "inherit", "inherit"],
       });
       descendant.unref();
@@ -40,18 +54,17 @@ describe("injected process output disposal", () => {
     const proc = nodeRunnerDeps().spawn([process.execPath, "-e", directChildSource], {
       stdin: "close",
     });
-    const stdout = proc.stdout[Symbol.asyncIterator]();
-    const stderr = proc.stderr[Symbol.asyncIterator]();
-    const first = await stdout.next();
-    expect(first.done).toBe(false);
-    const { descendantPid } = JSON.parse(
-      Buffer.from(first.value as Uint8Array).toString("utf8"),
-    ) as { descendantPid: number };
-
-    let operationError: unknown;
+    let descendantPid: number | undefined;
     let cleanupError: unknown;
     let settlements: PromiseSettledResult<IteratorResult<string | Uint8Array>>[] = [];
     try {
+      const stdout = proc.stdout[Symbol.asyncIterator]();
+      const stderr = proc.stderr[Symbol.asyncIterator]();
+      const first = await settleWithin(stdout.next(), 1_000);
+      expect(first.done).toBe(false);
+      ({ descendantPid } = JSON.parse(Buffer.from(first.value as Uint8Array).toString("utf8")) as {
+        descendantPid: number;
+      });
       const exitCode = await proc.exited;
       if (exitCode !== 7) throw new Error(`expected direct child exit 7, got ${exitCode}`);
       const heldReads = [stdout.next(), stderr.next()];
@@ -59,21 +72,18 @@ describe("injected process output disposal", () => {
       proc.disposeOutput();
       proc.disposeOutput();
 
-      settlements = await Promise.allSettled(heldReads);
-    } catch (error) {
-      operationError = error;
+      settlements = await settleWithin(Promise.allSettled(heldReads), 1_000);
     } finally {
-      try {
-        process.kill(descendantPid, "SIGTERM");
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "ESRCH") cleanupError = error;
+      if (descendantPid !== undefined) {
+        try {
+          process.kill(descendantPid, "SIGTERM");
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "ESRCH") cleanupError = error;
+        }
       }
     }
-    if (operationError !== undefined) throw operationError;
     if (cleanupError !== undefined) throw cleanupError;
     expect(settlements).toHaveLength(2);
-    expect(
-      settlements.every((result) => result.status === "fulfilled" || result.status === "rejected"),
-    ).toBe(true);
+    expect(settlements.map((result) => result.status)).toEqual(["fulfilled", "fulfilled"]);
   });
 });

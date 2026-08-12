@@ -100,6 +100,39 @@ describe("M3.2 boundary-review regression pins", () => {
     expect(sig.sent.map((s) => s.sig)).toEqual(["SIGTERM", "SIGKILL"]);
   });
 
+  test("session pipe grace disposes descendant-held output and joins both pumps", async () => {
+    const proc = new FakeProcess({ exitOnStdinEnd: false });
+    const spawner = fakeSpawner([proc]);
+    const clock = new FakeClock();
+    const signals: string[] = [];
+    const session = openSession(
+      claudeCode,
+      { sessionId: sid },
+      {
+        spawn: spawner.spawn,
+        clock,
+        signal: (_proc, signal) => {
+          signals.push(signal);
+          if (signal === "SIGKILL") proc.exitWithoutClosing(null);
+        },
+      },
+    );
+
+    const closing = session.close();
+    await tick();
+    clock.advance(CLOSE_GRACE_MS + 1);
+    await tick();
+    clock.advance(KILL_GRACE_MS + 1);
+    await tick();
+    clock.advance(PIPE_GRACE_MS + 1);
+    await closing;
+
+    expect(signals).toEqual(["SIGTERM", "SIGKILL"]);
+    expect(proc.outputDisposed).toBe(true);
+    expect(proc.stdout.activeReaderCount).toBe(0);
+    expect(proc.stderr.activeReaderCount).toBe(0);
+  });
+
   test("queued sends that die with the session are surfaced, never silently dropped", async () => {
     const logged: Record<string, unknown>[] = [];
     const proc = new FakeProcess();
