@@ -185,7 +185,7 @@ malformed direct descriptors fail before process spawn.
 - [x] Exact Claude stdin bytes match the Session Input Contract above.
 - [x] `verifiedAgainst` and captured harness fixtures are unchanged.
 - [x] `review-changes` reports no unresolved findings.
-- [ ] Phase 1 pull request is merged to `main`.
+- [x] Phase 1 pull request is merged to `main`.
 
 ### Phase 2: Full abandonment settlement
 
@@ -236,12 +236,12 @@ child, and returns only after both pumps settle.
 
 #### Gate 2 to 3
 
-- [ ] High-water abandonment test proves the producer blocked before consumer return.
-- [ ] Held-pipe tests prove both pumps settle under fake, Node, and Bun adapters.
-- [ ] Normal completion still drains every event and emits one `done` event.
-- [ ] Crash tail, stall, signal escalation, and pipe-grace tests remain green.
-- [ ] Boundary logs contain `abandoned` then `abandonment_settled` with the same `turnId`.
-- [ ] `review-changes` reports no unresolved findings.
+- [x] High-water abandonment test proves the producer blocked before consumer return.
+- [x] Held-pipe tests prove both pumps settle under fake, Node, and Bun adapters.
+- [x] Normal completion still drains every event and emits one `done` event.
+- [x] Crash tail, stall, signal escalation, and pipe-grace tests remain green.
+- [x] Boundary logs contain `abandoned` then `abandonment_settled` with the same `turnId`.
+- [x] `review-changes` reports no unresolved findings.
 - [ ] Phase 2 pull request is merged to `main`.
 
 ### Phase 3: Main push CI and checked releases

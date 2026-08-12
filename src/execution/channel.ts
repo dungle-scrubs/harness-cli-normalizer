@@ -15,6 +15,7 @@ export class AsyncChannel<T> implements AsyncIterable<T> {
   private wake: (() => void) | null = null;
   private producerWaiters: Array<() => void> = [];
   private consuming = false;
+  private backpressureEnabled = true;
 
   constructor(
     private readonly highWater = 1024,
@@ -29,7 +30,7 @@ export class AsyncChannel<T> implements AsyncIterable<T> {
     if (this.closed) return Promise.resolve();
     this.items.push(item);
     this.wake?.();
-    if (this.size > this.highWater) {
+    if (this.backpressureEnabled && this.size > this.highWater) {
       return new Promise((resolve) => this.producerWaiters.push(resolve));
     }
     return Promise.resolve();
@@ -38,6 +39,14 @@ export class AsyncChannel<T> implements AsyncIterable<T> {
   close(): void {
     this.closed = true;
     this.wake?.();
+    this.releaseProducers();
+  }
+
+  /** Stop blocking producers without closing delivery. This is a terminal
+   * process state: the child has exited and output reads are being disposed,
+   * so only already-buffered pipe data can still be added. */
+  releaseBackpressure(): void {
+    this.backpressureEnabled = false;
     this.releaseProducers();
   }
 

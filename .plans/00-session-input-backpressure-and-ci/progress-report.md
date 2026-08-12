@@ -4,7 +4,7 @@
 > what is done and what remains. Update each checkbox as its behavior is implemented. Do not mark a
 > milestone complete until every current-cutoff checkbox under it is checked.
 
-> Current focus: Phase 2 - Full abandonment settlement, M3
+> Current focus: Phase 3 - Main push CI and checked releases, M5
 
 ## Phase 1: Descriptor-owned session input
 
@@ -48,14 +48,14 @@ Source: `src/execution/open-session.ts`, `test/execution/open-session.test.ts`,
 Source: `src/execution/channel.ts`, `src/execution/stream-turn.ts`,
 `test/execution/runner-hardening.test.ts`, `test/execution/fakes.ts`
 
-- [ ] `AsyncChannel.close()` releases every producer blocked above the high-water mark.
-- [ ] `AsyncChannel.push()` after close resolves without storing or delivering the event.
-- [ ] Existing single-consumer, high-water, and low-water behavior remains unchanged.
-- [ ] `streamTurn` uses `AsyncChannel<HarnessEvent>` and the private `EventQueue` is removed.
-- [ ] A deterministic test proves a producer is blocked after more than 1,024 decoded events before
+- [x] `AsyncChannel.close()` releases every producer blocked above the high-water mark.
+- [x] `AsyncChannel.push()` after close resolves without storing or delivering the event.
+- [x] Existing single-consumer, high-water, and low-water behavior remains unchanged.
+- [x] `streamTurn` uses `AsyncChannel<HarnessEvent>` and the private `EventQueue` is removed.
+- [x] A deterministic test proves a producer is blocked after more than 1,024 decoded events before
       the consumer returns early.
-- [ ] Consumer abandonment closes the channel before waiting for child-process settlement.
-- [ ] Normal and slow-consumer completion still drains every event and emits exactly one `done`.
+- [x] Consumer abandonment closes the channel before waiting for child-process settlement.
+- [x] Normal and slow-consumer completion still drains every event and emits exactly one `done`.
 
 ### M4: Injected pipe disposal and pump join
 
@@ -63,18 +63,18 @@ Source: `src/execution/deps.ts`, `src/execution/node-deps.ts`,
 `src/execution/stream-turn.ts`, `test/execution/fakes.ts`,
 `test/execution/runner-hardening.test.ts`
 
-- [ ] `SpawnedProcess.disposeOutput()` is an idempotent, injected output-disposal operation.
-- [ ] The shared Node and Bun adapter destroys both child stdout and stderr readable streams.
-- [ ] `FakeProcess.disposeOutput()` closes both fake output channels and exposes disposal state.
-- [ ] A fake held-pipe test proves queue closure alone does not settle a later pending read.
-- [ ] Terminal cleanup closes the channel, disposes output, preserves signal escalation, and awaits
+- [x] `SpawnedProcess.disposeOutput()` is an idempotent, injected output-disposal operation.
+- [x] The shared Node and Bun adapter destroys both child stdout and stderr readable streams.
+- [x] `FakeProcess.disposeOutput()` closes both fake output channels and exposes disposal state.
+- [x] A fake held-pipe test proves queue closure alone does not settle a later pending read.
+- [x] Terminal cleanup closes the channel, disposes output, preserves signal escalation, and awaits
       stdout plus stderr pumps before it returns.
-- [ ] A descendant-held-pipe integration test settles under both Vitest on Node and `bun test`.
-- [ ] Disposal-caused Node rejection and Bun fulfillment are both treated as settlement, while
+- [x] A descendant-held-pipe integration test settles under both Vitest on Node and `bun test`.
+- [x] Disposal-caused Node rejection and Bun fulfillment are both treated as settlement, while
       unrelated pump failures remain visible.
-- [ ] `abandonment_settled` logs the exact D-025 fields only after child exit and both pumps settle.
-- [ ] Normal completion, crash tail, stall, signal escalation, and pipe-grace behavior remain green.
-- [ ] Early consumer return leaves no blocked producer, pending output iterator, or live direct
+- [x] `abandonment_settled` logs the exact D-025 fields only after child exit and both pumps settle.
+- [x] Normal completion, crash tail, stall, signal escalation, and pipe-grace behavior remain green.
+- [x] Early consumer return leaves no blocked producer, pending output iterator, or live direct
       child.
 
 ## Phase 3: Main push CI and checked releases
@@ -109,8 +109,8 @@ None.
 ## Summary
 
 - Total features: 43
-- Completed: 15
-- Remaining: 28
-- Current cutoff blockers: 28
+- Completed: 32
+- Remaining: 11
+- Current cutoff blockers: 11
 - Accepted/deferred follow-up: 0
 - Superseded/obsolete checklist debt: 0
