@@ -4,7 +4,7 @@
 > what is done and what remains. Update each checkbox as its behavior is implemented. Do not mark a
 > milestone complete until every current-cutoff checkbox under it is checked.
 
-> Current focus: Phase 1 - Descriptor-owned session input, M1
+> Current focus: Phase 2 - Full abandonment settlement, M3
 
 ## Phase 1: Descriptor-owned session input
 
