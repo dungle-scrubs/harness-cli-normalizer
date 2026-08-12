@@ -185,7 +185,7 @@ malformed direct descriptors fail before process spawn.
 - [x] Exact Claude stdin bytes match the Session Input Contract above.
 - [x] `verifiedAgainst` and captured harness fixtures are unchanged.
 - [x] `review-changes` reports no unresolved findings.
-- [ ] Phase 1 pull request is merged to `main`.
+- [x] Phase 1 pull request is merged to `main`.
 
 ### Phase 2: Full abandonment settlement
 
