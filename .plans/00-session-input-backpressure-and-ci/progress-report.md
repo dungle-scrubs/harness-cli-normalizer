@@ -81,18 +81,18 @@ Source: `src/execution/deps.ts`, `src/execution/node-deps.ts`,
 
 ### M5: CI trigger, concurrency, and Release Please repair
 
-Source: `.github/workflows/ci.yml`, `.github/workflows/release.yml`,
+Source: `.github/workflows/ci.yml`, `.github/workflows/harness-versions.yml`,
 `release-please-config.json`, `.release-please-manifest.json`, `package.json`
 
-- [ ] CI triggers on pull requests and pushes limited to `main`, with no wildcard push branch.
-- [ ] Pull-request runs keep ref-based cancellation and push runs use SHA-specific concurrency.
-- [ ] The same `check` job runs the full pnpm, TypeScript, Vitest, and Bun gate for both events.
-- [ ] Release Please is a push-only job in CI with `needs: check`.
-- [ ] Check permissions remain read-only and release write permissions are scoped to the release
+- [x] CI triggers on pull requests and pushes limited to `main`, with no wildcard push branch.
+- [x] Pull-request runs keep ref-based cancellation and push runs use SHA-specific concurrency.
+- [x] The same `check` job runs the full pnpm, TypeScript, Vitest, and Bun gate for both events.
+- [x] Release Please is a push-only job in CI with `needs: check`.
+- [x] Check permissions remain read-only and release write permissions are scoped to the release
       job.
-- [ ] The standalone `.github/workflows/release.yml` is removed.
-- [ ] Release Please uses its manifest defaults and has no unsupported `command: manifest` input.
-- [ ] Repository Actions may create pull requests with `GITHUB_TOKEN`, with no PAT or new secret.
+- [x] The standalone `.github/workflows/release.yml` is removed.
+- [x] Release Please uses its manifest defaults and has no unsupported `command: manifest` input.
+- [x] Repository Actions may create pull requests with `GITHUB_TOKEN`, with no PAT or new secret.
 - [ ] The Phase 3 pull-request run succeeds and reports the release job as skipped.
 - [ ] The merged SHA gets its own successful `push` run and no earlier main-push check is cancelled.
 - [ ] Release Please runs only after that check and creates or updates its pull request without the
@@ -109,8 +109,8 @@ None.
 ## Summary
 
 - Total features: 43
-- Completed: 32
-- Remaining: 11
-- Current cutoff blockers: 11
+- Completed: 40
+- Remaining: 3
+- Current cutoff blockers: 3
 - Accepted/deferred follow-up: 0
 - Superseded/obsolete checklist debt: 0

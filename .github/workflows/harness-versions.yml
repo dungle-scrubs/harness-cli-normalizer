@@ -20,7 +20,9 @@ jobs:
     # runner label if standardizing runners across repos.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: oven-sh/setup-bun@v2
       # check:versions imports only src/ (pure) + fetch; no dependency install
       # is needed. muse (installed source) has no CLI here, so it reads

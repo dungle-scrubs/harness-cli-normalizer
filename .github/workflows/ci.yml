@@ -1,31 +1,30 @@
-# CI runs on pull requests only - never on push. A PR already validated the
-# code, so push-triggered CI would double the minutes for no benefit.
 name: CI
 
 on:
   pull_request:
+  push:
+    branches: [main]
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
         with:
-          version: 11.5.2
+          persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: pnpm/setup@v2
         with:
-          node-version: "24"
-          cache: pnpm
+          runtime: node@24
+          cache: true
+          install: false
 
       - uses: oven-sh/setup-bun@v2
 
@@ -36,3 +35,16 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm test:bun
+
+  release-please:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      # Manifest-driven: reads release-please-config.json and
+      # .release-please-manifest.json. The package is source-public only,
+      # so no publish command is wired.
+      - uses: googleapis/release-please-action@v5
