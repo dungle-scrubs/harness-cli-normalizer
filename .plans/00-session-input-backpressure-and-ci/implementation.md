@@ -242,7 +242,7 @@ child, and returns only after both pumps settle.
 - [x] Crash tail, stall, signal escalation, and pipe-grace tests remain green.
 - [x] Boundary logs contain `abandoned` then `abandonment_settled` with the same `turnId`.
 - [x] `review-changes` reports no unresolved findings.
-- [ ] Phase 2 pull request is merged to `main`.
+- [x] Phase 2 pull request is merged to `main`.
 
 ### Phase 3: Main push CI and checked releases
 
