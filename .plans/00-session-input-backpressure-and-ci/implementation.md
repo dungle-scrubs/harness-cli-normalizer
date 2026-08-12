@@ -180,11 +180,11 @@ malformed direct descriptors fail before process spawn.
 
 #### Gate 1 to 2
 
-- [ ] Phase 1 tests pass in Vitest and Bun.
-- [ ] Purity and no-chat-import gates pass.
-- [ ] Exact Claude stdin bytes match the Session Input Contract above.
-- [ ] `verifiedAgainst` and captured harness fixtures are unchanged.
-- [ ] `review-changes` reports no unresolved findings.
+- [x] Phase 1 tests pass in Vitest and Bun.
+- [x] Purity and no-chat-import gates pass.
+- [x] Exact Claude stdin bytes match the Session Input Contract above.
+- [x] `verifiedAgainst` and captured harness fixtures are unchanged.
+- [x] `review-changes` reports no unresolved findings.
 - [ ] Phase 1 pull request is merged to `main`.
 
 ### Phase 2: Full abandonment settlement
