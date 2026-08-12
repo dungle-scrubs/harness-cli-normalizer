@@ -4,7 +4,7 @@
 > what is done and what remains. Update each checkbox as its behavior is implemented. Do not mark a
 > milestone complete until every current-cutoff checkbox under it is checked.
 
-> Current focus: Phase 2 - Full abandonment settlement, M4
+> Current focus: Phase 3 - Main push CI and checked releases, M5
 
 ## Phase 1: Descriptor-owned session input
 
@@ -109,8 +109,8 @@ None.
 ## Summary
 
 - Total features: 43
-- Completed: 22
-- Remaining: 21
-- Current cutoff blockers: 21
+- Completed: 32
+- Remaining: 11
+- Current cutoff blockers: 11
 - Accepted/deferred follow-up: 0
 - Superseded/obsolete checklist debt: 0
