@@ -15,6 +15,7 @@ class Channel implements AsyncIterable<string> {
   private readonly chunks: string[] = [];
   private closed = false;
   private wake: (() => void) | null = null;
+  private readonly pullWaiters: Array<{ count: number; resolve: () => void }> = [];
   pullCount = 0;
 
   push(chunk: string): void {
@@ -25,10 +26,21 @@ class Channel implements AsyncIterable<string> {
     this.closed = true;
     this.wake?.();
   }
+  waitForPullCount(count: number): Promise<void> {
+    if (this.pullCount >= count) return Promise.resolve();
+    return new Promise((resolve) => this.pullWaiters.push({ count, resolve }));
+  }
   async *[Symbol.asyncIterator](): AsyncIterator<string> {
     while (true) {
       if (this.chunks.length > 0) {
         this.pullCount += 1;
+        for (let index = this.pullWaiters.length - 1; index >= 0; index -= 1) {
+          const waiter = this.pullWaiters[index];
+          if (waiter !== undefined && this.pullCount >= waiter.count) {
+            this.pullWaiters.splice(index, 1);
+            waiter.resolve();
+          }
+        }
         const chunk = this.chunks.shift();
         if (chunk !== undefined) yield chunk;
         continue;

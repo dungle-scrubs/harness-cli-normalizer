@@ -1,4 +1,5 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
+import { AsyncChannel } from "../../src/execution/channel.js";
 import type { HarnessEvent } from "../../src/execution/events.js";
 import { LINE_MAX, LineBuffer } from "../../src/execution/lines.js";
 import {
@@ -21,10 +22,6 @@ const collect = async (events: AsyncIterable<HarnessEvent>): Promise<HarnessEven
 };
 
 const tick = () => new Promise<void>((r) => setTimeout(r, 0));
-
-const flushMicrotasks = async (count: number): Promise<void> => {
-  for (let i = 0; i < count; i += 1) await Promise.resolve();
-};
 
 describe("M3.1 boundary-review regression pins", () => {
   test("torn multi-byte UTF-8 decodes whole, never as replacement characters", async () => {
@@ -70,6 +67,25 @@ describe("M3.1 boundary-review regression pins", () => {
   });
 
   test("high-water abandonment releases the blocked stdout producer before child exit", async () => {
+    let reportBlocked!: (blocked: { readonly push: Promise<void> }) => void;
+    const producerBlocked = new Promise<{ readonly push: Promise<void> }>((resolve) => {
+      reportBlocked = resolve;
+    });
+    const originalPush = AsyncChannel.prototype.push;
+    const pushSpy = vi.spyOn(AsyncChannel.prototype, "push").mockImplementation(function (
+      this: AsyncChannel<HarnessEvent>,
+      event: HarnessEvent,
+    ) {
+      const push = originalPush.call(this, event);
+      let settled = false;
+      void push.then(() => {
+        settled = true;
+      });
+      void Promise.resolve().then(() => {
+        if (!settled) reportBlocked({ push });
+      });
+      return push;
+    });
     const proc = new FakeProcess();
     const spawner = fakeSpawner([proc]);
     const sig = fakeSignal({ autoExit: false });
@@ -88,16 +104,21 @@ describe("M3.1 boundary-review regression pins", () => {
     proc.emitChunk(`${JSON.stringify({ type: "assistant", message: { content } })}\n`);
     proc.emitLine(JSON.stringify({ type: "result", subtype: "success" }));
 
-    await expect(firstEvent).resolves.toMatchObject({ value: { kind: "tool", name: "tool-0" } });
-    await flushMicrotasks(2_048);
-    expect(proc.stdout.pullCount).toBe(1);
+    try {
+      await expect(firstEvent).resolves.toMatchObject({ value: { kind: "tool", name: "tool-0" } });
+      const blocked = await producerBlocked;
+      expect(proc.stdout.pullCount).toBe(1);
 
-    const returned = turn.return?.();
-    await flushMicrotasks(2_048);
-    expect(proc.stdout.pullCount).toBe(2);
+      const returned = turn.return?.();
+      await expect(blocked.push).resolves.toBeUndefined();
+      await proc.stdout.waitForPullCount(2);
+      expect(proc.stdout.pullCount).toBe(2);
 
-    proc.exit(null);
-    await returned;
+      proc.exit(null);
+      await returned;
+    } finally {
+      pushSpy.mockRestore();
+    }
   });
 
   test("a slow consumer drains every buffered event and receives exactly one done", async () => {
