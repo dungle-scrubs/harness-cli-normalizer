@@ -279,8 +279,8 @@ Please runs only after a successful check.
 - [ ] Phase 3 merge SHA gets a separate successful `push` run.
 - [ ] No earlier `main` push run is cancelled by the Phase 3 push concurrency group.
 - [ ] Release Please starts only after `check` and can create or update its pull request.
-- [ ] The workflow has no `command: manifest`, PAT, new secret, or expanded branch trigger.
-- [ ] `review-changes` reports no unresolved findings.
+- [x] The workflow has no `command: manifest`, PAT, new secret, or expanded branch trigger.
+- [x] `review-changes` reports no unresolved findings.
 - [ ] Phase 3 pull request is merged to `main`.
 
 ## 4. Risk Register
