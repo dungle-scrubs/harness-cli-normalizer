@@ -22,6 +22,10 @@ const collect = async (events: AsyncIterable<HarnessEvent>): Promise<HarnessEven
 
 const tick = () => new Promise<void>((r) => setTimeout(r, 0));
 
+const flushMicrotasks = async (count: number): Promise<void> => {
+  for (let i = 0; i < count; i += 1) await Promise.resolve();
+};
+
 describe("M3.1 boundary-review regression pins", () => {
   test("torn multi-byte UTF-8 decodes whole, never as replacement characters", async () => {
     const text = JSON.stringify({
@@ -63,6 +67,75 @@ describe("M3.1 boundary-review regression pins", () => {
     await tick();
     expect(sig.sent.length).toBeGreaterThan(0);
     expect(sig.sent[0]?.sig).toBe("SIGTERM");
+  });
+
+  test("high-water abandonment releases the blocked stdout producer before child exit", async () => {
+    const proc = new FakeProcess();
+    const spawner = fakeSpawner([proc]);
+    const sig = fakeSignal({ autoExit: false });
+    const clock = new FakeClock();
+    const turn = streamTurn(
+      claudeCode,
+      { prompt: "hi" },
+      { spawn: spawner.spawn, clock, signal: sig.signal },
+    )[Symbol.asyncIterator]();
+    const firstEvent = turn.next();
+    const content = Array.from({ length: 1_100 }, (_, index) => ({
+      type: "tool_use",
+      name: `tool-${index}`,
+      input: {},
+    }));
+    proc.emitChunk(`${JSON.stringify({ type: "assistant", message: { content } })}\n`);
+    proc.emitLine(JSON.stringify({ type: "result", subtype: "success" }));
+
+    await expect(firstEvent).resolves.toMatchObject({ value: { kind: "tool", name: "tool-0" } });
+    await flushMicrotasks(2_048);
+    expect(proc.stdout.pullCount).toBe(1);
+
+    const returned = turn.return?.();
+    await flushMicrotasks(2_048);
+    expect(proc.stdout.pullCount).toBe(2);
+
+    proc.exit(null);
+    await returned;
+  });
+
+  test("a slow consumer drains every buffered event and receives exactly one done", async () => {
+    const proc = new FakeProcess();
+    const spawner = fakeSpawner([proc]);
+    const sig = fakeSignal();
+    const clock = new FakeClock();
+    const turn = streamTurn(
+      claudeCode,
+      { prompt: "hi" },
+      { spawn: spawner.spawn, clock, signal: sig.signal },
+    )[Symbol.asyncIterator]();
+    const firstEvent = turn.next();
+    proc.emitLine(init);
+    for (let index = 0; index < 500; index += 1) {
+      proc.emitLine(
+        JSON.stringify({
+          type: "stream_event",
+          event: { delta: { type: "text_delta", text: `chunk-${index}` } },
+        }),
+      );
+    }
+    proc.emitLine(JSON.stringify({ type: "result", subtype: "success" }));
+    proc.exit(0);
+
+    const first = await firstEvent;
+    await tick();
+    const events = first.value === undefined ? [] : [first.value];
+    while (true) {
+      const next = await turn.next();
+      if (next.done) break;
+      events.push(next.value);
+    }
+
+    expect(events.filter((event) => event.kind === "token")).toHaveLength(500);
+    expect(events.filter((event) => event.kind === "done")).toEqual([
+      { kind: "done", exitCode: 0, cause: "clean" },
+    ]);
   });
 
   test("watchdog never flips a completed turn to stall or signals a dead process", async () => {

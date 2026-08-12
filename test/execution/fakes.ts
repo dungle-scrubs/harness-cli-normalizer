@@ -15,6 +15,7 @@ class Channel implements AsyncIterable<string> {
   private readonly chunks: string[] = [];
   private closed = false;
   private wake: (() => void) | null = null;
+  pullCount = 0;
 
   push(chunk: string): void {
     this.chunks.push(chunk);
@@ -27,6 +28,7 @@ class Channel implements AsyncIterable<string> {
   async *[Symbol.asyncIterator](): AsyncIterator<string> {
     while (true) {
       if (this.chunks.length > 0) {
+        this.pullCount += 1;
         const chunk = this.chunks.shift();
         if (chunk !== undefined) yield chunk;
         continue;

@@ -18,6 +18,7 @@ import {
 import { stdinPolicyOf } from "../interpretation/dimensions.js";
 import { detectAuthFailureInLine, detectLimitInLine } from "../interpretation/limits.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
+import { AsyncChannel } from "./channel.js";
 import { decodeLine, freshDecodeState } from "./decode.js";
 import type { RunnerDeps, SpawnedProcess } from "./deps.js";
 import type { ExitCause, HarnessEvent } from "./events.js";
@@ -46,66 +47,6 @@ export const redactArgv = (argv: readonly string[], prompt?: string): string[] =
     if (SECRETISH.test(token)) return "[redacted]";
     return token;
   });
-
-const QUEUE_HIGH_WATER = 1024;
-const QUEUE_LOW_WATER = 256;
-
-/** Single-consumer async queue with producer backpressure: past the high
- * water mark push() blocks the pump, the pump stops reading the pipe, and
- * OS pipe backpressure reaches the child. (One consumer by invariant - an
- * async generator body cannot re-enter; a second concurrent next() caller
- * would overwrite the consumer wake.) */
-class EventQueue {
-  private items: HarnessEvent[] = [];
-  private head = 0;
-  private closed = false;
-  private wakeConsumer: (() => void) | null = null;
-  private producerWaiters: Array<() => void> = [];
-
-  private get size(): number {
-    return this.items.length - this.head;
-  }
-
-  push(event: HarnessEvent): Promise<void> {
-    this.items.push(event);
-    this.wakeConsumer?.();
-    if (this.size > QUEUE_HIGH_WATER && !this.closed) {
-      return new Promise((resolve) => this.producerWaiters.push(resolve));
-    }
-    return Promise.resolve();
-  }
-
-  close(): void {
-    this.closed = true;
-    this.wakeConsumer?.();
-    this.releaseProducers();
-  }
-
-  private releaseProducers(): void {
-    const waiters = this.producerWaiters;
-    this.producerWaiters = [];
-    for (const release of waiters) release();
-  }
-
-  async next(): Promise<HarnessEvent | null> {
-    while (true) {
-      if (this.size > 0) {
-        const item = this.items[this.head++];
-        if (this.head === this.items.length) {
-          this.items = [];
-          this.head = 0;
-        }
-        if (this.size < QUEUE_LOW_WATER) this.releaseProducers();
-        return item ?? null;
-      }
-      if (this.closed) return null;
-      await new Promise<void>((resolve) => {
-        this.wakeConsumer = resolve;
-      });
-      this.wakeConsumer = null;
-    }
-  }
-}
 
 /** Bounded tail of unmatched stderr - the crash context a nonzero exit is
  * explained by (v1 kept the turn's output slice for exactly this). Shared
@@ -179,7 +120,7 @@ export async function* streamTurn(
     return;
   }
 
-  const queue = new EventQueue();
+  const queue = new AsyncChannel<HarnessEvent>();
   const state = freshDecodeState(opts.resume ?? null);
   const stderrTail = new StderrTail();
   let killedByWatchdog = false;
@@ -273,11 +214,7 @@ export async function* streamTurn(
   void Promise.allSettled([proc.exited, pumpStdout(), pumpStderr()]).then(() => queue.close());
 
   try {
-    while (true) {
-      const event = await queue.next();
-      if (event === null) break;
-      yield event;
-    }
+    for await (const event of queue) yield event;
 
     const cause: ExitCause = state.limitSeen
       ? "limit"
@@ -307,6 +244,7 @@ export async function* streamTurn(
     yield { kind: "done", exitCode, cause };
   } finally {
     cancelled = true;
+    queue.close();
     disarm();
     if (pipeGrace !== null) deps.clock.clearTimeout(pipeGrace);
     if (!exited) {

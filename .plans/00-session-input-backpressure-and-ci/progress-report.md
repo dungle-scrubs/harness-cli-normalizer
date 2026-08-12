@@ -48,14 +48,14 @@ Source: `src/execution/open-session.ts`, `test/execution/open-session.test.ts`,
 Source: `src/execution/channel.ts`, `src/execution/stream-turn.ts`,
 `test/execution/runner-hardening.test.ts`, `test/execution/fakes.ts`
 
-- [ ] `AsyncChannel.close()` releases every producer blocked above the high-water mark.
-- [ ] `AsyncChannel.push()` after close resolves without storing or delivering the event.
-- [ ] Existing single-consumer, high-water, and low-water behavior remains unchanged.
-- [ ] `streamTurn` uses `AsyncChannel<HarnessEvent>` and the private `EventQueue` is removed.
-- [ ] A deterministic test proves a producer is blocked after more than 1,024 decoded events before
+- [x] `AsyncChannel.close()` releases every producer blocked above the high-water mark.
+- [x] `AsyncChannel.push()` after close resolves without storing or delivering the event.
+- [x] Existing single-consumer, high-water, and low-water behavior remains unchanged.
+- [x] `streamTurn` uses `AsyncChannel<HarnessEvent>` and the private `EventQueue` is removed.
+- [x] A deterministic test proves a producer is blocked after more than 1,024 decoded events before
       the consumer returns early.
-- [ ] Consumer abandonment closes the channel before waiting for child-process settlement.
-- [ ] Normal and slow-consumer completion still drains every event and emits exactly one `done`.
+- [x] Consumer abandonment closes the channel before waiting for child-process settlement.
+- [x] Normal and slow-consumer completion still drains every event and emits exactly one `done`.
 
 ### M4: Injected pipe disposal and pump join
 
