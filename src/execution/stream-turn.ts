@@ -178,7 +178,7 @@ export async function* streamTurn(
     if (cancelled) return;
     pipeGrace = deps.clock.setTimeout(() => {
       pipesOpenAtExit = true;
-      queue.close();
+      proc.disposeOutput();
     }, PIPE_GRACE_MS);
   });
 
@@ -242,7 +242,7 @@ export async function* streamTurn(
       await queue.push({ kind: "error", message: pumpFailureMessage(stream, cause) });
       escalate();
       await proc.exited;
-      queue.close();
+      proc.disposeOutput();
     }
   };
   const pumpSettlements = Promise.all([

@@ -49,4 +49,19 @@ describe("AsyncChannel backpressure", () => {
     channel.close();
     await consumer.return?.();
   });
+
+  test("terminal release stops backpressure without closing buffered delivery", async () => {
+    const channel = new AsyncChannel<number>(1, 1);
+    await channel.push(1);
+    const blocked = channel.push(2);
+
+    channel.releaseBackpressure();
+    await expect(blocked).resolves.toBeUndefined();
+    await expect(channel.push(3)).resolves.toBeUndefined();
+    channel.close();
+
+    const received: number[] = [];
+    for await (const item of channel) received.push(item);
+    expect(received).toEqual([1, 2, 3]);
+  });
 });

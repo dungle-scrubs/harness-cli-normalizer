@@ -159,6 +159,41 @@ describe("M3.1 boundary-review regression pins", () => {
     ]);
   });
 
+  test("pipe grace preserves every event when normal completion is backpressured", async () => {
+    const proc = new FakeProcess();
+    const spawner = fakeSpawner([proc]);
+    const sig = fakeSignal();
+    const clock = new FakeClock();
+    const turn = streamTurn(
+      claudeCode,
+      { prompt: "hi" },
+      { spawn: spawner.spawn, clock, signal: sig.signal },
+    )[Symbol.asyncIterator]();
+    const firstEvent = turn.next();
+    const content = Array.from({ length: 1_100 }, (_, index) => ({
+      type: "tool_use",
+      name: `tool-${index}`,
+      input: {},
+    }));
+    proc.emitChunk(`${JSON.stringify({ type: "assistant", message: { content } })}\n`);
+    proc.exitWithoutClosing(0);
+
+    const first = await firstEvent;
+    await tick();
+    clock.advance(PIPE_GRACE_MS + 1);
+    const events = first.value === undefined ? [] : [first.value];
+    while (true) {
+      const next = await turn.next();
+      if (next.done) break;
+      events.push(next.value);
+    }
+
+    expect(events.filter((event) => event.kind === "tool")).toHaveLength(1_100);
+    expect(events.filter((event) => event.kind === "done")).toEqual([
+      { kind: "done", exitCode: 0, cause: "clean" },
+    ]);
+  });
+
   test("held-pipe abandonment returns only after output disposal and both pumps settle", async () => {
     const proc = new FakeProcess();
     const spawner = fakeSpawner([proc]);

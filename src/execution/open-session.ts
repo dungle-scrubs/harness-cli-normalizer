@@ -266,8 +266,8 @@ export const openSession = (
     }
   };
 
-  const pumping = Promise.all([pumpStdout(), pumpStderr()]).catch((cause) => {
-    pumpError = cause;
+  const pumping = Promise.allSettled([pumpStdout(), pumpStderr()]).then((settlements) => {
+    pumpError = settlements.find((settlement) => settlement.status === "rejected")?.reason ?? null;
   });
 
   let shutdownComplete: () => void = () => {};
@@ -330,6 +330,7 @@ export const openSession = (
     // Pipes held open past exit (a grandchild) must not hang the session.
     const pipeGrace = deps.clock.setTimeout(() => {
       pipesOpenAtExit = true;
+      activeTurn?.releaseBackpressure();
       proc.disposeOutput();
       void pumping.then(() => finalize());
     }, PIPE_GRACE_MS);
