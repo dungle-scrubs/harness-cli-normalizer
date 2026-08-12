@@ -8,6 +8,7 @@ import type {
   SessionInputKind,
 } from "../knowledge/descriptor.js";
 import { SESSION_INPUT_KINDS } from "../knowledge/descriptor.js";
+import { asRecord } from "./shape.js";
 
 export type SessionInputIssue = "missing-session-input-contract" | "unsupported-session-input-kind";
 
@@ -22,8 +23,9 @@ const isSessionInputKind = (value: unknown): value is SessionInputKind =>
   SESSION_INPUT_KINDS.some((kind) => kind === value);
 
 export const resolveSessionInput = (harness: HarnessDescriptor): SessionInputContract => {
-  const input: unknown = (harness.sessionMode as { readonly input?: unknown } | null)?.input;
-  if (typeof input !== "object" || input === null || !("kind" in input)) {
+  const sessionMode = asRecord(harness.sessionMode);
+  const input = asRecord(sessionMode?.input);
+  if (input === null || !("kind" in input)) {
     throw new SessionInputRefusalError("missing-session-input-contract");
   }
   if (!isSessionInputKind(input.kind)) {
