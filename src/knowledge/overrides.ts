@@ -14,7 +14,12 @@
  */
 import { claudeCode } from "./claude-code.js";
 import { codexCli } from "./codex.js";
-import { HARNESS_NAMES, type HarnessDescriptor, type HarnessName } from "./descriptor.js";
+import {
+  HARNESS_NAMES,
+  type HarnessDescriptor,
+  type HarnessName,
+  SESSION_INPUT_KINDS,
+} from "./descriptor.js";
 import { museCode } from "./muse.js";
 import { piCli } from "./pi.js";
 
@@ -71,6 +76,8 @@ const enumAt = (keyPath: readonly string[]): readonly string[] | null => {
       return ["token", "message", "none"];
     case "launch.promptStyle":
       return ["positional"];
+    case "sessionMode.input.kind":
+      return SESSION_INPUT_KINDS;
     default:
       return null;
   }

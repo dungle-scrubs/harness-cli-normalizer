@@ -24,6 +24,13 @@ export type StreamingGranularity = "token" | "message" | "none";
 
 export type HarnessMode = "headless-turn" | "headless-session" | "interactive";
 
+export const SESSION_INPUT_KINDS = ["claude-sdk-user-message"] as const;
+export type SessionInputKind = (typeof SESSION_INPUT_KINDS)[number];
+
+export interface SessionInputContract {
+  readonly kind: SessionInputKind;
+}
+
 /** Consumers branch on these (session-limit: wait for reset; weekly-limit:
  * route elsewhere), so the vocabulary is closed - a descriptor cannot invent
  * a code a consumer has no arm for. */
@@ -109,6 +116,7 @@ export interface HarnessDescriptor {
   readonly sessionMode: {
     readonly flags: readonly string[];
     readonly idFlag: string;
+    readonly input: SessionInputContract;
   } | null;
   /** Streaming is a property of the INVOCATION, not the harness: each pin
    * names the flag set that unlocks a granularity, checked in order, first

@@ -13,18 +13,18 @@
 Source: `src/knowledge/descriptor.ts`, `src/knowledge/claude-code.ts`,
 `src/knowledge/overrides.ts`, `src/knowledge/index.ts`, `src/interpretation/index.ts`
 
-- [ ] `SessionInputKind` is the closed literal union `"claude-sdk-user-message"`.
-- [ ] Every non-null `sessionMode` requires `input.kind`, while descriptors without session mode
+- [x] `SessionInputKind` is the closed literal union `"claude-sdk-user-message"`.
+- [x] Every non-null `sessionMode` requires `input.kind`, while descriptors without session mode
       remain `null`.
-- [ ] The Claude Code descriptor declares `input.kind` without changing `verifiedAgainst`, flags,
+- [x] The Claude Code descriptor declares `input.kind` without changing `verifiedAgainst`, flags,
       or captured fixtures.
-- [ ] JSON overrides accept the supported `sessionMode.input.kind` value through recursive merge.
-- [ ] JSON overrides refuse every unsupported input kind with `OverrideRefusalError`.
-- [ ] Direct descriptors with a missing or unsupported contract fail with `SessionInputRefusalError`
+- [x] JSON overrides accept the supported `sessionMode.input.kind` value through recursive merge.
+- [x] JSON overrides refuse every unsupported input kind with `OverrideRefusalError`.
+- [x] Direct descriptors with a missing or unsupported contract fail with `SessionInputRefusalError`
       and the exact D-024 `issue` value.
-- [ ] The pure encoder emits the exact Claude SDK user-message record plus one LF for quotes,
+- [x] The pure encoder emits the exact Claude SDK user-message record plus one LF for quotes,
       backslashes, embedded newlines, and control characters.
-- [ ] The new interpretation module is exported and passes the purity and no-chat-import gates.
+- [x] The new interpretation module is exported and passes the purity and no-chat-import gates.
 
 ### M2: `openSession` adoption
 
@@ -109,8 +109,8 @@ None.
 ## Summary
 
 - Total features: 43
-- Completed: 0
-- Remaining: 43
-- Current cutoff blockers: 43
+- Completed: 8
+- Remaining: 35
+- Current cutoff blockers: 35
 - Accepted/deferred follow-up: 0
 - Superseded/obsolete checklist debt: 0
