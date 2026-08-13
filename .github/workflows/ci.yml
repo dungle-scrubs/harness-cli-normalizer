@@ -56,8 +56,7 @@ jobs:
       pull-requests: write
     steps:
       # Manifest-driven: reads release-please-config.json and
-      # .release-please-manifest.json. A published GitHub release triggers
-      # the separate npm trusted-publishing workflow.
+      # .release-please-manifest.json.
       - id: release
         uses: googleapis/release-please-action@v5
 
@@ -70,3 +69,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_BRANCH: ${{ fromJSON(steps.release.outputs.pr || '{}').headBranchName }}
         run: gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$RELEASE_BRANCH"
+
+      # Release Please publishes with GITHUB_TOKEN, so the resulting release
+      # event cannot start another workflow. workflow_dispatch is the supported
+      # recursive-run exception.
+      - name: Publish the release to npm
+        if: steps.release.outputs.release_created == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag_name }}
+        run: >-
+          gh workflow run publish.yml --repo "$GITHUB_REPOSITORY" --ref main
+          --field tag="$RELEASE_TAG"
