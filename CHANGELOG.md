@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.1.2...v0.1.3) (2026-08-13)
+
+
+### Fixed
+
+* dispatch npm publish after release ([#26](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/26)) ([3c7a987](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/3c7a987cf02b4f8ce94b00e46ddceb8daa226c7c))
+
 ## [0.1.2](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.1.1...v0.1.2) (2026-08-13)
 
 
