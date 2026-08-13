@@ -186,10 +186,12 @@ describe("M2.3 boundary-review regression pins", () => {
   });
 
   test("codex effort ladders are per-model", () => {
-    expect(validateEffort(codexCli, "ultra", "gpt-5.5").ok).toBe(false);
+    expect(validateEffort(codexCli, "xhigh", "gpt-5.5").ok).toBe(false);
     expect(validateEffort(codexCli, "minimal", "gpt-5.6-sol").ok).toBe(false);
     expect(validateEffort(codexCli, "high", "gpt-5.5").ok).toBe(true);
-    expect(validateEffort(codexCli, "ultra", "gpt-5.6-sol").ok).toBe(true);
+    expect(validateEffort(codexCli, "xhigh", "gpt-5.6-sol").ok).toBe(true);
+    expect(validateEffort(codexCli, "ultra", "gpt-5.6-sol").ok).toBe(false);
+    expect(validateEffort(codexCli, "ultra", "gpt-5.5").ok).toBe(false);
   });
 
   test("every registered descriptor is deeply frozen", () => {

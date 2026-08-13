@@ -64,13 +64,13 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     modelFlag: "--model",
     models: ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5"],
     aliases: {},
-    efforts: ["minimal", "low", "medium", "high", "xhigh", "max", "ultra"],
+    efforts: ["minimal", "low", "medium", "high", "xhigh", "max"],
     // Codex constrains ladders per model generation (v1 registry).
     effortsByModel: {
       "gpt-5.5": ["minimal", "low", "medium", "high"],
-      "gpt-5.6-sol": ["medium", "high", "xhigh", "max", "ultra"],
-      "gpt-5.6-terra": ["medium", "high", "xhigh", "max", "ultra"],
-      "gpt-5.6-luna": ["medium", "high", "xhigh", "max", "ultra"],
+      "gpt-5.6-sol": ["medium", "high", "xhigh", "max"],
+      "gpt-5.6-terra": ["medium", "high", "xhigh", "max"],
+      "gpt-5.6-luna": ["medium", "high", "xhigh", "max"],
     },
     extensible: false,
   },
