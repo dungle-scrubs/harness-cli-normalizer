@@ -287,7 +287,13 @@ describe("M3.1 boundary-review regression pins", () => {
     );
     const events = await collect(turn);
     expect(events[0]).toMatchObject({ kind: "error" });
-    expect(events.at(-1)).toEqual({ kind: "done", exitCode: 127, cause: "crash" });
+    // 0.2.0: spawn failure now also yields a transport failure and cause failed (self-sufficient done.failure)
+    expect(events.find((e) => e.kind === "failure")).toMatchObject({
+      class: "transport",
+      retryable: true,
+    });
+    expect(events.at(-1)).toMatchObject({ kind: "done", exitCode: 127, cause: "failed" });
+    expect((events.at(-1) as unknown as { failure?: unknown }).failure).toBeDefined();
   });
 
   test("redaction keeps identifiers and masks content: session ids log verbatim, prompts never", () => {

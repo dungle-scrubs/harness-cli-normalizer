@@ -29,6 +29,10 @@ export interface SpawnOptions {
   /** `pipe` opens a writable stdin (sessions require it); `inherit` hands
    * the child the parent's fd 0; `close` gives it nothing (pi's rule). */
   readonly stdin: "inherit" | "close" | "pipe";
+  /** Merged over the parent environment by the spawn adapter. A key mapped
+   * to "" means DELETE the variable (not an empty string). Validated
+   * against /^[A-Za-z_][A-Za-z0-9_]*$/ and NUL-free. */
+  readonly env?: Readonly<Record<string, string>>;
 }
 
 export type TimerHandle = number;
@@ -50,8 +54,10 @@ export interface RunnerDeps {
   readonly spawn: (argv: readonly string[], opts: SpawnOptions) => SpawnedProcess;
   readonly clock: Clock;
   readonly signal: (proc: SpawnedProcess, sig: SignalName) => void;
-  /** Stall watchdog budget; armed ONLY for none-granularity invocations. */
+  /** Inactivity budget; arms at every granularity and rearms on any output chunk. */
   readonly stallMs?: number;
+  /** Wall-clock ceiling; armed once at spawn and never rearmed. */
+  readonly turnTimeoutMs?: number;
   readonly log?: BoundaryLog;
   /** Host-minted correlation id; without it the runner falls back to a
    * per-process monotonic counter (collides across processes). */

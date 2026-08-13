@@ -11,8 +11,8 @@ const DIMENSION_TO_KEY = {
   sessionId: "identity",
   resume: "resume",
   resumeLast: "resumeLast",
-  provider: "provider",
-  effort: "vocabulary",
+  provider: "turnOptions",
+  effort: "turnOptions",
   model: "vocabulary",
   autonomy: "autonomy",
   tools: "launch",
@@ -26,7 +26,7 @@ const DIMENSION_TO_KEY = {
   stdin: "stdin",
   contextHook: "contextHook",
   capabilities: "capabilities",
-  discoveryFlags: "discoveryDisableFlags",
+  discoveryFlags: "turnOptions",
   authWalls: "authMatchers",
 } as const;
 

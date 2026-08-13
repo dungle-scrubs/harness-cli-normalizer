@@ -44,9 +44,17 @@ describe("override refusals name the file and the offending harness", () => {
   });
 
   test("regex-bearing sections cannot be overridden from JSON", () => {
-    expect(() => parseOverrides(JSON.stringify({ claude: { limitMatchers: [] } }), PATH)).toThrow(
-      /limitMatchers/,
-    );
+    // limitMatchers/authMatchers are now serializable objects and CAN be overridden
+    expect(() =>
+      parseOverrides(JSON.stringify({ claude: { limitMatchers: [] } }), PATH),
+    ).not.toThrow();
+    expect(() =>
+      parseOverrides(JSON.stringify({ claude: { authMatchers: [] } }), PATH),
+    ).not.toThrow();
+    // but resume.idShape still carries a RegExp and must refuse
+    expect(() =>
+      parseOverrides(JSON.stringify({ claude: { resume: { idShape: ".*" } } }), PATH),
+    ).toThrow(/idShape/);
   });
 
   test("a non-object top level or harness value is refused with the path", () => {
@@ -130,7 +138,7 @@ describe("boundary-review regression pins", () => {
 
   test("null sections have no shape to validate and refuse overrides", () => {
     expect(() =>
-      parseOverrides(JSON.stringify({ claude: { provider: { flag: "-x" } } }), PATH),
+      parseOverrides(JSON.stringify({ codex: { sessionMode: { flags: ["-x"] } } }), PATH),
     ).toThrow(/null/);
   });
 

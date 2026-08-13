@@ -1,6 +1,12 @@
 /**
  * Descriptor types: the shape of what is KNOWN about a harness CLI, as pure
  * data. Interpretation functions consume these; nothing here executes.
+ *
+ * Turn option keys and discovery facets use a closed vocabulary for the same
+ * reason `LimitCode` does: a descriptor must not invent an option a consumer
+ * has no field for. Every `TurnOptionKey` maps to a field on `TurnOptions`
+ * and every `DiscoveryFacet` maps to a field on `DiscoveryOptions`; adding
+ * a key without a consumer arm would be dead data that can only drift.
  */
 
 export const HARNESS_NAMES = ["claude", "codex", "pi", "muse"] as const;
@@ -34,12 +40,135 @@ export interface SessionInputContract {
 /** Consumers branch on these (session-limit: wait for reset; weekly-limit:
  * route elsewhere), so the vocabulary is closed - a descriptor cannot invent
  * a code a consumer has no arm for. */
-export type LimitCode = "usage-limit" | "session-limit" | "weekly-limit" | "credits" | "quota";
+export type LimitCode =
+  | "usage-limit"
+  | "session-limit"
+  | "weekly-limit"
+  | "credits"
+  | "quota"
+  | "rate-limit";
 
 /** Auth walls are separate from usage limits because the remedy is entirely
  * different (re-auth vs wait), and a detached process misreading one as the
  * other sends the human to fix the wrong thing. */
 export type AuthFailureKind = "not-logged-in" | "expired" | "invalid-key";
+
+/** Serializable wall matcher: pattern and flags are data, not a RegExp
+ * literal, so an override file can extend them. `compileMatchers` turns
+ * these into RegExps with bounds (pattern length, count, allowed flags)
+ * and a WeakMap cache so the same array instance reuses compiled RegExps.
+ * The input window (first 4096 chars of a line), not pattern analysis, is
+ * the backtracking bound. */
+export interface LimitMatcher {
+  readonly pattern: string;
+  readonly flags?: string;
+  readonly code: LimitCode;
+}
+
+export interface AuthMatcher {
+  readonly pattern: string;
+  readonly flags?: string;
+  readonly kind: AuthFailureKind;
+}
+
+/** The turn-option vocabulary is closed for the same reason `LimitCode` is:
+ * a descriptor must not invent an option a consumer has no field for. Every
+ * key here maps to a field on `TurnOptions`; adding a key without a consumer
+ * arm would be dead data that can only drift. Render order is the tuple
+ * order, so argv is deterministic regardless of caller field order. */
+export const TURN_OPTION_KEYS = deepFreeze([
+  "effort",
+  "sandbox",
+  "provider",
+  "discovery",
+  "write",
+  "shell",
+  "maxSteps",
+] as const);
+export type TurnOptionKey = (typeof TURN_OPTION_KEYS)[number];
+
+/** Discovery facets are closed for the same reason as `TurnOptionKey`: each
+ * maps to a field on `DiscoveryOptions` and a concrete flag spelling per
+ * harness. A harness that cannot express a facet simply omits it from its
+ * `turnOptions.discovery.facets` table; a call passing that facet must
+ * refuse. */
+export const DISCOVERY_FACETS = deepFreeze([
+  "tools",
+  "instructionFiles",
+  "extensions",
+  "skills",
+] as const);
+export type DiscoveryFacet = (typeof DISCOVERY_FACETS)[number];
+
+export type OptionRender =
+  /** `--flag <value>` */
+  | { readonly kind: "flag-value"; readonly flag: string }
+  /** `-c key=value` - codex's config-override grammar. Permitted only for
+   *  closed-vocabulary specs, so no value can need escaping. */
+  | { readonly kind: "config-kv"; readonly flag: string; readonly key: string }
+  /** A fixed multi-token flag set emitted verbatim, value-less. */
+  | { readonly kind: "flag-list"; readonly flags: readonly string[] };
+
+export interface SpecBase {
+  readonly render: OptionRender;
+  /** The spelling the RESUME grammar accepts. Omitted means "same as
+   *  `render`"; an explicit `null` declares the option unexpressible on
+   *  resume, and building a resume argv with it must refuse. */
+  readonly resumeRender?: OptionRender | null;
+}
+
+export type TurnOptionSpec =
+  /** Closed value vocabulary. `default` renders on LAUNCH ONLY. */
+  | (SpecBase & {
+      readonly kind: "enum";
+      readonly values: readonly string[];
+      readonly default?: string;
+    })
+  /** Ladder comes from vocabulary.efforts / effortsByModel, not from here. */
+  | (SpecBase & { readonly kind: "effort" })
+  /** Open selector, CLEAN_SELECTOR-validated. */
+  | (SpecBase & { readonly kind: "selector" })
+  /** `polarity: "disables"` emits the render when the caller asks for FALSE. */
+  | (SpecBase & { readonly kind: "toggle"; readonly polarity: "enables" | "disables" })
+  | (SpecBase & { readonly kind: "integer"; readonly min: number; readonly max: number })
+  /** Per-facet toggles; a facet absent from the table cannot be expressed. */
+  | {
+      readonly kind: "discovery";
+      readonly facets: Readonly<
+        Partial<Record<DiscoveryFacet, SpecBase & { readonly polarity: "enables" | "disables" }>>
+      >;
+    };
+
+/** Resolve the effective render for a spec at a given phase.
+ * - `launch` always uses `render`.
+ * - `resume` with `resumeRender: null` is unexpressible (returns null).
+ * - `resume` with `resumeRender` omitted resolves to the same render as `render`.
+ * - `resume` with an explicit `resumeRender` uses that spelling.
+ * Discovery facets use the same rule per facet; this helper works for any
+ * `SpecBase` (top-level specs and per-facet specs alike). */
+export const resolveRender = (spec: SpecBase, phase: "launch" | "resume"): OptionRender | null => {
+  if (phase === "launch") return spec.render;
+  if (spec.resumeRender === null) return null;
+  return spec.resumeRender ?? spec.render;
+};
+
+/** Alias for `resolveRender` with the resume-only null semantics made
+ * explicit in the name; useful for tests asserting the "omitted => same as
+ * render, null => unexpressible" contract. */
+export const resolveResumeRender = (spec: SpecBase): OptionRender | null =>
+  resolveRender(spec, "resume");
+
+/** Like `resolveRender` but for a `TurnOptionSpec` that may be a `discovery`
+ * table. Returns null for an unexpressible resume, the spec's render for
+ * non-discovery specs, and for discovery returns the spec itself (facets are
+ * resolved per-facet via `resolveRender`). */
+export const getOptionRender = (
+  spec: TurnOptionSpec,
+  phase: "launch" | "resume",
+): OptionRender | null => {
+  if (spec.kind === "discovery") return null;
+  return resolveRender(spec, phase);
+};
 
 export interface HarnessDescriptor {
   readonly name: HarnessName;
@@ -147,17 +276,15 @@ export interface HarnessDescriptor {
   };
   /** "Stopped on a limit" vs crash vs clean exit: the harness's own wall
    * phrasings. First match wins per line. */
-  readonly limitMatchers: ReadonlyArray<readonly [RegExp, LimitCode]>;
+  readonly limitMatchers: ReadonlyArray<LimitMatcher>;
   /** Auth-wall phrasings, same scan discipline as limitMatchers. */
-  readonly authMatchers: ReadonlyArray<readonly [RegExp, AuthFailureKind]>;
+  readonly authMatchers: ReadonlyArray<AuthMatcher>;
   /** The "run unattended without stops" flag, or null when the harness has
    * no such mode. */
   readonly autonomy: { readonly flag: string } | null;
   /** The harness's own model-id spellings, alias map, and effort ladder.
    * Curated baseline - pi's registry is runtime-extensible, so validation
-   * against this vocabulary is a default, not a final word (D-008).
-   * `effortFlag` is null where effort is not a launch-time flag (claude:
-   * effort is an in-session command, not argv). */
+   * against this vocabulary is a default, not a final word (D-008). */
   readonly vocabulary: {
     readonly modelFlag: string;
     readonly models: readonly string[];
@@ -167,7 +294,6 @@ export interface HarnessDescriptor {
      * gpt-5.5 tops out at high; gpt-5.6-* starts at medium). Falls back to
      * the harness-wide `efforts`. */
     readonly effortsByModel?: Readonly<Record<string, readonly string[]>>;
-    readonly effortFlag: string | null;
     /** D-008: an extensible vocabulary (pi) accepts clean unknown model
      * selectors at argv time; capability claims for them degrade to
      * unknown until runtime verification. */
@@ -190,14 +316,9 @@ export interface HarnessDescriptor {
   /** Resume-most-recent support (codex --last), or null. The race it opens
    * is owned by the corroboration ranking in interpretation. */
   readonly resumeLast: { readonly flag: string } | null;
-  /** Provider/model-route flag where present (pi --provider). */
-  readonly provider: { readonly flag: string } | null;
   /** Whether backgrounded headless calls must have stdin closed (pi hangs
    * without `< /dev/null`). */
   readonly stdin: "inherit" | "close-required";
-  /** Flags that disable instruction-file/skill/MCP auto-discovery, in the
-   * spelling the harness accepts. */
-  readonly discoveryDisableFlags: readonly string[];
   /** Presence recognition: how an interactive process for a session id shows
    * up in a process listing. `headlessMarkers` mark a process as headless
    * (not interactive presence). Known blind spot, inherent to argv matching:
@@ -214,4 +335,9 @@ export interface HarnessDescriptor {
     readonly streamingByMode: Readonly<Record<HarnessMode, StreamingGranularity>>;
     readonly session: boolean;
   };
+  /** Per-call turn options this harness can express, keyed by the closed
+   * `TurnOptionKey` vocabulary. Absent keys are unexpressible on this
+   * harness; a call passing them must refuse. Discovery is a table of
+   * per-facet specs rather than a single flag. */
+  readonly turnOptions: Readonly<Partial<Record<TurnOptionKey, TurnOptionSpec>>>;
 }
