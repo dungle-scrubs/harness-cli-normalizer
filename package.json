@@ -1,7 +1,7 @@
 {
   "name": "@dungle-scrubs/harness-cli-normalizer",
-  "version": "0.2.0",
-  "description": "One stable interface to four coding-agent CLIs that survives their updates.",
+  "version": "0.3.0",
+  "description": "One stable interface to four coding-agent CLIs.",
   "license": "MIT",
   "author": "Kevin Frilot",
   "repository": {
@@ -10,6 +10,9 @@
   },
   "homepage": "https://github.com/dungle-scrubs/harness-cli-normalizer#readme",
   "type": "module",
+  "bin": {
+    "hcn": "./dist/cli.js"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

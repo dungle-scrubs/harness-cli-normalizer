@@ -16,6 +16,7 @@ interface PackageManifest {
   readonly publishConfig?: {
     readonly access?: string;
   };
+  readonly bin?: Record<string, string>;
 }
 
 const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
@@ -43,12 +44,21 @@ for (const required of [
   "dist/knowledge/index.js",
   "dist/interpretation/index.js",
   "dist/execution/index.js",
+  "dist/cli.js",
+  "dist/cli/index.js",
   "LICENSE",
   "README.md",
   "package.json",
 ]) {
   assert.ok(files.has(required), `packed package is missing ${required}`);
 }
+
+assert.ok(
+  manifest.bin?.hcn === "./dist/cli.js",
+  `package.json bin.hcn must be "./dist/cli.js", got ${JSON.stringify(manifest.bin?.hcn)}`,
+);
+assert.ok(files.has("dist/cli.js"), "dist/cli.js must be packed");
+assert.ok(files.has("dist/cli/index.js"), "dist/cli/index.js must be packed");
 
 for (const forbiddenPrefix of [".plans/", "scripts/", "test/"]) {
   assert.equal(
