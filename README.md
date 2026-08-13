@@ -1,12 +1,11 @@
 # harness-cli-normalizer
 
-One stable interface to four coding-agent CLIs that survives their updates.
+One stable interface to four coding-agent CLIs.
 
 [![CI](https://github.com/dungle-scrubs/harness-cli-normalizer/actions/workflows/ci.yml/badge.svg)](https://github.com/dungle-scrubs/harness-cli-normalizer/actions/workflows/ci.yml) [![npm](https://img.shields.io/npm/v/@dungle-scrubs/harness-cli-normalizer.svg)](https://www.npmjs.com/package/@dungle-scrubs/harness-cli-normalizer) [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-harness-cli-normalizer describes each of four coding-agent CLIs (Claude Code, Codex, pi, and Muse) as pure data and normalizes their headless output into a single `HarnessEvent` stream. You write one consumer against that surface instead of a bespoke spawn-and-parse path for each agent. A separate execution layer drives any of them as a child process and emits the events. Today most teams hold these agents together by hand, one parser per CLI, and redo the work whenever an agent ships a new version.
-
-You reach for this when you are building on top of more than one coding agent: an orchestrator, an observer, a benchmark rig, or a way to switch which agent does a job. Each descriptor is pinned to the CLI version its facts were verified against, and a weekly check flags when a harness has shipped ahead of its descriptor. You learn drift is possible from a check, not from a crash.
+<!-- D-001 -->
+harness-cli-normalizer describes Claude Code, Codex, pi, and Muse as pure data and normalizes their headless output to a single `HarnessEvent` stream. You build one consumer against that stream instead of a separate spawn-and-parse path per CLI - the execution layer spawns the harness and emits the events. Use it for multi-agent work like an orchestrator, observer, benchmark rig, or to swap agents. Descriptors are pinned to their verified CLI version and a weekly check flags when a harness has moved ahead.
 
 ```bash
 pnpm add @dungle-scrubs/harness-cli-normalizer
@@ -60,6 +59,72 @@ bun run demo --chat claude            # interactive session (claude only)
 ```
 
 For a multi-turn session you drive yourself, `openSession` returns a handle whose `turns` you iterate and whose `send()` you call between turns. See `scripts/demo.ts` for the working pattern.
+
+## CLI
+
+The package ships a `hcn` binary for shell and CI use. Install it with your package manager or run it ad-hoc with `npx`:
+
+```bash
+pnpm add @dungle-scrubs/harness-cli-normalizer
+npx hcn --help
+npm install -g @dungle-scrubs/harness-cli-normalizer  # global
+```
+
+One-shot turn:
+
+```bash
+hcn run claude "explain a monad in one sentence"
+hcn run codex "what is 2+2" --model gpt-5.6-sol
+hcn run pi "name three primes" --provider zai/glm-5.2
+hcn run muse "say hi" --no-write
+```
+
+Piped JSON for programmatic use:
+
+```bash
+hcn run claude "say hi" --json | jq .
+hcn run claude "hi" --json | head -n 5  # abandonment-safe, no hanging handles
+```
+
+Session (Claude-only):
+
+```bash
+hcn session claude
+hcn session claude --model opus --session-id 550e8400-e29b-41d4-a716-446655440000
+```
+
+Inspection and drift (no spawn):
+
+```bash
+hcn ls
+hcn inspect claude
+hcn inspect claude --argv --prompt "hi" --effort high
+hcn check
+hcn check --json
+```
+
+Flag table (maps to `TurnOptions` / `TurnRunOptions`):
+
+| CLI flag | TurnOptions field | Notes |
+|---|---|---|
+| `--prompt <text>` | `prompt` | Alternative to positional; mutual exclusion |
+| `--prompt-file <path\|->` | `prompt` | Reads UTF-8 file or stdin (`-`) |
+| `--model <id>` | `model` | Validated via `validateModel` |
+| `--effort <value>` | `effort` | Validated via `validateEffort` |
+| `--sandbox <value>` | `sandbox` | Codex only |
+| `--provider <value>` | `provider` | pi only |
+| `--tools <a,b>` | `tools` | Claude only, comma-separated |
+| `--autonomy` / `--no-autonomy` | `autonomy` | |
+| `--write` / `--no-write` | `write` | Muse |
+| `--shell` / `--no-shell` | `shell` | Muse |
+| `--max-steps <n>` | `maxSteps` | Muse, 1-10000 |
+| `--no-tools, --no-instruction-files, --no-extensions, --no-skills` | `discovery` | |
+| `--cwd <path>` | `cwd` | Working directory |
+| `--env KEY=VAL` | `env` | Repeatable; `KEY=` deletes |
+| `--resume <uuid>` | `resume` | Resume session |
+| `--json` | output mode | NDJSON `HarnessEvent` to stdout |
+
+For development, `bun run demo claude "hi"` remains as a live-rendering alternative.
 
 ## Concepts
 
