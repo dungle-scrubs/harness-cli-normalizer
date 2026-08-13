@@ -27,6 +27,19 @@ const assertCleanPrompt = (h: HarnessDescriptor, prompt: string): void => {
   }
 };
 
+/**
+ * Variant that allows a leading '-' when the caller explicitly opted in via
+ * --prompt / --prompt-file. The positional guard still applies for implicit
+ * positional prompts, but an explicit opt-in bypasses it so `hcn run --prompt "-bad"`
+ * succeeds while `hcn run "-bad"` refuses. The caller must set
+ * `__explicitPrompt: true` on the options object when the prompt came from an
+ * explicit flag.
+ */
+const assertCleanPromptMaybe = (h: HarnessDescriptor, prompt: string, explicit?: boolean): void => {
+  if (explicit) return;
+  assertCleanPrompt(h, prompt);
+};
+
 export interface DiscoveryOptions {
   readonly tools?: boolean;
   readonly instructionFiles?: boolean;
@@ -46,6 +59,8 @@ export interface TurnOptions {
   readonly write?: boolean;
   readonly shell?: boolean;
   readonly maxSteps?: number;
+  /** Internal: set by CLI when prompt came from --prompt/--prompt-file to bypass leading '-' guard */
+  readonly __explicitPrompt?: boolean;
 }
 
 export interface ResumeOptions extends TurnOptions {
@@ -58,7 +73,7 @@ export type LaunchOptions = TurnOptions;
  * validated selections, with the variadic tools flag LAST and fed exactly
  * one joined token so nothing after it can be swallowed as a tool name. */
 const turnTail = (h: HarnessDescriptor, opts: TurnOptions): string[] => {
-  assertCleanPrompt(h, opts.prompt);
+  assertCleanPromptMaybe(h, opts.prompt, opts.__explicitPrompt);
   const tail = [opts.prompt, ...h.launch.streamFlags];
   if (opts.model !== undefined) {
     const validated = validateModel(h, opts.model);

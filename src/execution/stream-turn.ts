@@ -180,7 +180,7 @@ export async function* streamTurn(
     argv: redactArgv(argv, opts.prompt),
     granularity,
     ...(matcherOverrides ? { matcherOverrides } : {}),
-    ...(envKeys && envKeys.length ? { envKeys } : {}),
+    ...(envKeys?.length ? { envKeys } : {}),
   });
 
   let proc: SpawnedProcess;

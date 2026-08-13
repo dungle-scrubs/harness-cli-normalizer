@@ -9,12 +9,7 @@
  * Folding it into argv.ts would make the largest interpretation file the
  * place two unrelated questions are answered.
  */
-import type {
-  HarnessDescriptor,
-  OptionRender,
-  SpecBase,
-  TurnOptionKey,
-} from "../knowledge/descriptor.js";
+import type { HarnessDescriptor, OptionRender, SpecBase } from "../knowledge/descriptor.js";
 import { DISCOVERY_FACETS, resolveRender, TURN_OPTION_KEYS } from "../knowledge/descriptor.js";
 import type { DiscoveryOptions, TurnOptions } from "./argv.js";
 import { ArgvRefusalError } from "./refusal.js";
