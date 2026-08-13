@@ -188,7 +188,16 @@ export const fakeSpawner = (procs: FakeProcess[]) => {
     // The fake honors the requested stdin mode - it must not hand a
     // writable to a spawn that never asked for a pipe.
     proc.stdinPiped = opts.stdin === "pipe";
-    calls.push({ argv, opts, proc });
+    // Mirror delete-on-empty for env: a key mapped to "" is a deletion, not an empty string
+    let recordedOpts = opts;
+    if (opts.env !== undefined) {
+      const filtered: Record<string, string> = {};
+      for (const [k, v] of Object.entries(opts.env)) {
+        if (v !== "") filtered[k] = v;
+      }
+      recordedOpts = { ...opts, env: filtered };
+    }
+    calls.push({ argv, opts: recordedOpts, proc });
     return proc;
   };
   return { spawn, calls };

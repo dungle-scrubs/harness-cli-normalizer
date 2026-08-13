@@ -5,11 +5,7 @@ import {
   streamingGranularityOf,
 } from "../../src/interpretation/argv.js";
 import { capabilitiesOf } from "../../src/interpretation/capabilities.js";
-import {
-  discoveryDisableFlagsOf,
-  providerFlagOf,
-  stdinPolicyOf,
-} from "../../src/interpretation/dimensions.js";
+import { stdinPolicyOf } from "../../src/interpretation/dimensions.js";
 import { decodeIdentity } from "../../src/interpretation/identity.js";
 import { parseResumeCommand } from "../../src/interpretation/parse-resume.js";
 import { isInteractive } from "../../src/interpretation/presence.js";
@@ -56,9 +52,27 @@ describe("codex descriptor (v1 scars)", () => {
 });
 
 describe("pi descriptor (v1 scars)", () => {
-  test("provider, discovery-disable flags, and the stdin close rule come from data", () => {
-    expect(providerFlagOf(piCli)).toBe("--provider");
-    expect(discoveryDisableFlagsOf(piCli)).toEqual(["-nt", "-nc", "-ne", "-ns"]);
+  test("pi turnOptions and the stdin close rule come from data", () => {
+    expect(piCli.turnOptions.provider).toEqual({
+      kind: "selector",
+      render: { kind: "flag-value", flag: "--provider" },
+    });
+    const piDisc = piCli.turnOptions.discovery as Extract<
+      (typeof piCli.turnOptions)["discovery"],
+      { kind: "discovery" }
+    >;
+    expect(piDisc?.facets.tools).toEqual({
+      polarity: "disables",
+      render: { kind: "flag-list", flags: ["-nt"] },
+    });
+    expect(piDisc?.facets.instructionFiles).toEqual({
+      polarity: "disables",
+      render: { kind: "flag-list", flags: ["-nc"] },
+    });
+    expect(piCli.turnOptions.effort).toEqual({
+      kind: "effort",
+      render: { kind: "flag-value", flag: "--thinking" },
+    });
     expect(stdinPolicyOf(piCli)).toBe("close-required");
   });
 
@@ -172,10 +186,12 @@ describe("M2.3 boundary-review regression pins", () => {
   });
 
   test("codex effort ladders are per-model", () => {
-    expect(validateEffort(codexCli, "ultra", "gpt-5.5").ok).toBe(false);
+    expect(validateEffort(codexCli, "xhigh", "gpt-5.5").ok).toBe(false);
     expect(validateEffort(codexCli, "minimal", "gpt-5.6-sol").ok).toBe(false);
     expect(validateEffort(codexCli, "high", "gpt-5.5").ok).toBe(true);
-    expect(validateEffort(codexCli, "ultra", "gpt-5.6-sol").ok).toBe(true);
+    expect(validateEffort(codexCli, "xhigh", "gpt-5.6-sol").ok).toBe(true);
+    expect(validateEffort(codexCli, "ultra", "gpt-5.6-sol").ok).toBe(false);
+    expect(validateEffort(codexCli, "ultra", "gpt-5.5").ok).toBe(false);
   });
 
   test("every registered descriptor is deeply frozen", () => {
@@ -223,7 +239,7 @@ describe("phase-2 codex-review regression pins", () => {
   test("override pins arrays refuse null or wrong-shaped elements", () => {
     expect(() => parseOverrides('{"codex":{"output":{"pins":[null]}}}', "/tmp/o.json")).toThrow();
     expect(() => parseOverrides('{"codex":{"discoveryDisableFlags":[42]}}', "/tmp/o.json")).toThrow(
-      /strings/,
+      /has no field/,
     );
   });
 });

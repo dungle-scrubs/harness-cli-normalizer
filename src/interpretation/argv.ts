@@ -5,37 +5,47 @@
  * no caller re-derives them.
  */
 import type { HarnessDescriptor, StreamingGranularity } from "../knowledge/descriptor.js";
+import { ArgvRefusalError } from "./refusal.js";
 import { assertUsableSessionId } from "./session-id.js";
+import { renderTurnOptions } from "./turn-options.js";
 import { validateModel } from "./vocabulary.js";
 
-/** Raised when launch options would corrupt or subvert the spawned argv. */
-export class ArgvRefusalError extends Error {
-  constructor(
-    readonly issue: string,
-    message: string,
-  ) {
-    super(message);
-    this.name = "ArgvRefusalError";
-  }
-}
+export type { RefusalIssue } from "./refusal.js";
+export { ArgvRefusalError, buildRefusalMessage, REFUSAL_ISSUES } from "./refusal.js";
 
 /** One guard for every builder that places a positional prompt. Selector
  * hygiene (session ids) lives in session-id.ts; model selectors go through
  * validateModel - both refuse, never sanitize. */
 const assertCleanPrompt = (h: HarnessDescriptor, prompt: string): void => {
   if (prompt.startsWith("-")) {
-    throw new ArgvRefusalError(
-      "prompt-flag-injection",
-      `positional prompt may not start with '-'; it would be parsed as a flag by ${h.bin}`,
-    );
+    throw new ArgvRefusalError({
+      issue: "prompt-flag-injection",
+      harness: h.name,
+      supported: ["prompt must not start with '-'"],
+      detail: `it would be parsed as a flag by ${h.bin}`,
+    });
   }
 };
+
+export interface DiscoveryOptions {
+  readonly tools?: boolean;
+  readonly instructionFiles?: boolean;
+  readonly extensions?: boolean;
+  readonly skills?: boolean;
+}
 
 export interface TurnOptions {
   readonly prompt: string;
   readonly tools?: readonly string[];
   readonly model?: string;
   readonly autonomy?: boolean;
+  readonly effort?: string;
+  readonly sandbox?: string;
+  readonly provider?: string;
+  readonly discovery?: DiscoveryOptions;
+  readonly write?: boolean;
+  readonly shell?: boolean;
+  readonly maxSteps?: number;
 }
 
 export interface ResumeOptions extends TurnOptions {
@@ -52,21 +62,43 @@ const turnTail = (h: HarnessDescriptor, opts: TurnOptions): string[] => {
   const tail = [opts.prompt, ...h.launch.streamFlags];
   if (opts.model !== undefined) {
     const validated = validateModel(h, opts.model);
-    if (!validated.ok) throw new ArgvRefusalError("unknown-model", validated.reason);
+    if (!validated.ok) {
+      const supported = [...h.vocabulary.models, ...Object.keys(h.vocabulary.aliases)];
+      throw new ArgvRefusalError({
+        issue: "unknown-model",
+        harness: h.name,
+        supported: supported.length ? supported : ["no curated models"],
+        detail: opts.model,
+      });
+    }
     tail.push(h.vocabulary.modelFlag, validated.id);
   }
   if (opts.autonomy === true) {
     if (h.autonomy === null) {
-      throw new ArgvRefusalError("no-autonomy-mode", `${h.bin} has no unattended-run flag`);
+      throw new ArgvRefusalError({
+        issue: "no-autonomy-mode",
+        harness: h.name,
+        supported: ["claude --dangerously-skip-permissions", "codex --yolo", "muse --yolo"],
+      });
     }
     tail.push(h.autonomy.flag);
   }
-  if (opts.tools !== undefined && h.launch.toolsFlag !== null) {
+  if (opts.tools !== undefined) {
+    if (h.launch.toolsFlag === null) {
+      throw new ArgvRefusalError({
+        issue: "unsupported-option",
+        harness: h.name,
+        supported: ["--allowedTools is claude-only"],
+        detail: "tools",
+      });
+    }
     if (opts.tools.length === 0 || opts.tools.some((t) => t.trim() === "" || t.includes(","))) {
-      throw new ArgvRefusalError(
-        "invalid-tool-grant",
-        `tool grant for ${h.bin} contains an empty entry or a comma; a blank ${h.launch.toolsFlag} value grants nothing detectable, and a comma inside one name silently splits the grant`,
-      );
+      throw new ArgvRefusalError({
+        issue: "invalid-tool-grant",
+        harness: h.name,
+        supported: ["non-empty, comma-free tool names"],
+        detail: `tools=${JSON.stringify(opts.tools)}`,
+      });
     }
     tail.push(h.launch.toolsFlag, opts.tools.join(","));
   }
@@ -76,6 +108,7 @@ const turnTail = (h: HarnessDescriptor, opts: TurnOptions): string[] => {
 export const buildLaunchArgv = (h: HarnessDescriptor, opts: LaunchOptions): string[] => [
   h.bin,
   ...h.launch.baseFlags,
+  ...renderTurnOptions(h, opts, "launch"),
   ...turnTail(h, opts),
 ];
 
@@ -92,6 +125,7 @@ export const buildResumeArgv = (h: HarnessDescriptor, opts: ResumeOptions): stri
     h.resume.flag,
     opts.sessionId,
     ...h.resume.extraFlags,
+    ...renderTurnOptions(h, opts, "resume"),
     ...turnTail(h, opts),
   ];
 };
@@ -103,10 +137,11 @@ export interface SessionOptions {
 
 export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): string[] => {
   if (!h.sessionMode) {
-    throw new ArgvRefusalError(
-      "no-session-mode",
-      `${h.bin} declares no persistent headless session mode`,
-    );
+    throw new ArgvRefusalError({
+      issue: "no-session-mode",
+      harness: h.name,
+      supported: ["session is claude-only"],
+    });
   }
   assertUsableSessionId(opts.sessionId);
   const argv = [
@@ -118,7 +153,15 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
   ];
   if (opts.model !== undefined) {
     const validated = validateModel(h, opts.model);
-    if (!validated.ok) throw new ArgvRefusalError("unknown-model", validated.reason);
+    if (!validated.ok) {
+      const supported = [...h.vocabulary.models, ...Object.keys(h.vocabulary.aliases)];
+      throw new ArgvRefusalError({
+        issue: "unknown-model",
+        harness: h.name,
+        supported: supported.length ? supported : ["no curated models"],
+        detail: opts.model,
+      });
+    }
     argv.push(h.vocabulary.modelFlag, validated.id);
   }
   return argv;

@@ -79,12 +79,84 @@ knowledge (pure data) -> interpretation (pure functions) -> execution (child pro
 
 Every descriptor carries a `verifiedAgainst` version, the anchor for all of its facts. A weekly CI job compares each harness's published version to its descriptor and opens a tracking issue when one has moved ahead. Trust a descriptor only at its pinned version, and bump `verifiedAgainst` only after re-running the capability checks locally.
 
+## Turn options
+
+Every `streamTurn` call can now shape the turn per-call without touching the descriptor:
+
+```ts
+await streamTurn(claudeCode, {
+  prompt: "explain a monad",
+  effort: "high",                 // --effort (claude), -c model_reasoning_effort (codex), --thinking (pi), --reasoning-effort (muse)
+  provider: "zai/glm-5.2",        // --provider (pi only)
+  discovery: { tools: false, instructionFiles: false, extensions: false, skills: false }, // -nt/-nc/-ne/-ns (pi) or --setting-sources project (claude)
+  write: false,                   // --disable-write (muse)
+  shell: false,                   // --disable-shell (muse)
+  maxSteps: 50,                   // --max-model-steps (muse)
+  sandbox: "read-only",           // --sandbox (codex, launch only)
+}, deps);
+```
+
+Support matrix (anything not marked refuses with a typed `ArgvRefusalError` naming what the harness does support):
+
+| Option | claude | codex | pi | muse |
+| --- | --- | --- | --- | --- |
+| `effort` | `--effort` | `-c model_reasoning_effort=` | `--thinking` | `--reasoning-effort` |
+| `sandbox` | - | `--sandbox` (launch only) | - | - |
+| `provider` | - | - | `--provider` | - |
+| `discovery.tools` | - | - | `-nt` | - |
+| `discovery.instructionFiles` | - | - | `-nc` | - |
+| `discovery.extensions` | `--setting-sources project` | - | `-ne` | - |
+| `discovery.skills` | `--setting-sources project` | - | `-ns` | - |
+| `write` | - | - | - | `--disable-write` |
+| `shell` | - | - | - | `--disable-shell` |
+| `maxSteps` | - | - | - | `--max-model-steps` |
+| `tools` | `--allowedTools` | - | - | - |
+
+Per-call `env` is merged over the parent environment (`""` deletes) and never appears in logs:
+
+```ts
+streamTurn(harness, { prompt, env: { FOO: "bar", OLD: "" } }, deps);
+```
+
+## Failure taxonomy
+
+Every failure - provider, work, transport, or refusal - arrives as a typed `failure` event and reduces to one self-sufficient summary on `done`:
+
+```ts
+type FailureClass = "rate-limit" | "usage-limit" | "quota" | "auth" | "budget" | "task" | "transport" | "rejected";
+interface FailureSummary { class: FailureClass; retryable: boolean; message: string; code?: LimitCode; authKind?: AuthFailureKind; resetsAt?: number; issue?: RefusalIssue; option?: TurnOptionKey; facet?: DiscoveryFacet; supported?: readonly string[]; }
+type HarnessEvent = ... | ({ kind: "failure" } & FailureSummary) | { kind: "done"; exitCode: number | null; cause: ExitCause; failure?: FailureSummary };
+type ExitCause = "clean" | "limit" | "crash" | "stall" | "killed" | "failed";
+```
+
+The canonical consumer check, identical for a deterministic router and an agent:
+
+```ts
+if (done.failure) {
+  if (done.failure.retryable) descendFallbackChain(done.failure);
+  else pivot(done.failure); // rejected -> change options; budget -> raise cap; task -> surface
+}
+```
+
+`retryable` is `false` for `task`, `budget`, `rejected` and `true` for the rest. `rejected` is non-retryable across the whole model chain because the remedy is different options or a different harness.
+
+## Refusals
+
+An unexpressible option throws `ArgvRefusalError` from the builders and is also delivered as `failure class=rejected` + `done cause=failed` from `streamTurn` (which never throws out of its first `next()`):
+
+```ts
+class ArgvRefusalError extends Error { issue: RefusalIssue; harness: HarnessName; option?: TurnOptionKey; facet?: DiscoveryFacet; supported: readonly string[]; }
+type RefusalIssue = "unsupported-option" | "unsupported-option-facet" | "unsupported-on-resume" | "invalid-option-value" | "unknown-effort" | "unknown-model" | "invalid-env" | "invalid-tool-grant" | "prompt-flag-injection" | "no-autonomy-mode" | "no-session-mode";
+```
+
+Every refusal names an alternative in `supported` and `message`, not only a negation.
+
 ## Reference
 
 - Descriptors live in `src/knowledge/` (`claude-code.ts`, `codex.ts`, `pi.ts`, `muse.ts`), with shared types in `descriptor.ts`.
-- The normalized event surface is `HarnessEvent` in `src/execution/events.ts`: `identity`, `token`, `message`, `progress`, `tool`, `context`, `limit`, `error`, `done`.
-- Narrow or override a descriptor's facts with `parseOverrides` (`src/knowledge/overrides.ts`). An override a harness cannot satisfy throws `OverrideRefusalError` instead of producing a broken argv.
-- `DROPPABLE_KINDS` (`token`, `progress`, `context`) marks events safe to drop when you only need the full messages.
+- The normalized event surface is `HarnessEvent` in `src/execution/events.ts`: `identity`, `token`, `message`, `progress`, `tool`, `context`, `limit`, `error`, `failure`, `done` (with `done.failure`).
+- Narrow or override a descriptor's facts with `parseOverrides` (`src/knowledge/overrides.ts`). An override a harness cannot satisfy throws `OverrideRefusalError` instead of producing a broken argv. `limitMatchers`/`authMatchers` are now serializable `{pattern, flags, code/kind}` objects so they can be overridden from JSON; bad patterns are refused at load with file and harness named.
+- `DROPPABLE_KINDS` (`token`, `progress`, `context`) marks events safe to drop when you only need the full messages. `failure` is never droppable.
 
 ## Contributing
 

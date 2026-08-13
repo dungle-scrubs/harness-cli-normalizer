@@ -1,11 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { capabilitiesOf } from "../../src/interpretation/capabilities.js";
-import {
-  discoveryDisableFlagsOf,
-  providerFlagOf,
-  stdinPolicyOf,
-  toolsFlagOf,
-} from "../../src/interpretation/dimensions.js";
+import { stdinPolicyOf, toolsFlagOf } from "../../src/interpretation/dimensions.js";
 import { isInteractive } from "../../src/interpretation/presence.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 
@@ -24,11 +19,22 @@ describe("presence / isInteractive (claude)", () => {
 });
 
 describe("flag dimensions (claude)", () => {
-  test("stdin policy, provider, tools, discovery flags come from descriptor data", () => {
+  test("stdin policy and tools flag come from descriptor data", () => {
     expect(stdinPolicyOf(claudeCode)).toBe("inherit");
-    expect(providerFlagOf(claudeCode)).toBeNull();
     expect(toolsFlagOf(claudeCode)).toBe("--allowedTools");
-    expect(discoveryDisableFlagsOf(claudeCode)).toEqual(["--setting-sources", "project"]);
+    // Provider and discovery flags now live in turnOptions, not dimensions.ts
+    expect(claudeCode.turnOptions.effort).toEqual({
+      kind: "effort",
+      render: { kind: "flag-value", flag: "--effort" },
+    });
+    const disc = claudeCode.turnOptions.discovery as Extract<
+      (typeof claudeCode.turnOptions)["discovery"],
+      { kind: "discovery" }
+    >;
+    expect(disc?.facets.extensions).toEqual({
+      polarity: "disables",
+      render: { kind: "flag-list", flags: ["--setting-sources", "project"] },
+    });
   });
 });
 

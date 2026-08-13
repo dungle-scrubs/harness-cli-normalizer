@@ -15,8 +15,9 @@
  * concatenate both.
  */
 import type { CapabilityResult } from "../interpretation/capabilities.js";
+import type { FailureSummary } from "./failure.js";
 
-export type ExitCause = "clean" | "limit" | "crash" | "stall" | "killed";
+export type ExitCause = "clean" | "limit" | "crash" | "stall" | "killed" | "failed";
 
 export type HarnessEvent =
   | {
@@ -32,6 +33,12 @@ export type HarnessEvent =
   | { readonly kind: "context"; readonly usedPct: number }
   | { readonly kind: "limit"; readonly code: string; readonly message: string }
   | { readonly kind: "error"; readonly message: string }
-  | { readonly kind: "done"; readonly exitCode: number | null; readonly cause: ExitCause };
+  | ({ readonly kind: "failure" } & FailureSummary)
+  | {
+      readonly kind: "done";
+      readonly exitCode: number | null;
+      readonly cause: ExitCause;
+      readonly failure?: FailureSummary;
+    };
 
 export const DROPPABLE_KINDS = new Set(["token", "progress", "context"]);

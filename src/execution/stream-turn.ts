@@ -17,11 +17,21 @@ import {
 } from "../interpretation/argv.js";
 import { stdinPolicyOf } from "../interpretation/dimensions.js";
 import { detectAuthFailureInLine, detectLimitInLine } from "../interpretation/limits.js";
+import { ArgvRefusalError } from "../interpretation/refusal.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
+import { matcherOverridesOf } from "../knowledge/overrides.js";
 import { AsyncChannel } from "./channel.js";
 import { decodeLine, freshDecodeState } from "./decode.js";
 import type { RunnerDeps, SpawnedProcess } from "./deps.js";
 import type { ExitCause, HarnessEvent } from "./events.js";
+import type { FailureSummary } from "./failure.js";
+import {
+  failureFromAuth,
+  failureFromLimit,
+  failureFromRejected,
+  failureFromTransport,
+  reduceFailures,
+} from "./failure.js";
 import { LineBuffer } from "./lines.js";
 
 /** Fallback correlation when the host does not mint turn ids: monotonic per
@@ -79,6 +89,8 @@ export interface TurnRunOptions extends LaunchOptions {
   readonly resume?: string;
   /** Working directory for the spawned harness. */
   readonly cwd?: string;
+  /** Per-call environment, merged over parent; "" deletes. */
+  readonly env?: Readonly<Record<string, string>>;
 }
 
 export async function* streamTurn(
@@ -88,18 +100,87 @@ export async function* streamTurn(
 ): AsyncIterable<HarnessEvent> {
   const turnId = deps.turnId ?? `turn-${++turnCounter}`;
   const log = deps.log ?? (() => {});
-  const argv =
-    opts.resume === undefined
-      ? buildLaunchArgv(h, opts)
-      : buildResumeArgv(h, { ...opts, sessionId: opts.resume });
-  const granularity = streamingGranularityOf(h, argv);
 
+  // Validate env before building argv so an invalid env is a refusal, not a spawn
+  if (opts.env !== undefined) {
+    for (const [k, v] of Object.entries(opts.env)) {
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(k) || k.includes("\0") || v.includes("\0")) {
+        const refusal = new ArgvRefusalError({
+          issue: "invalid-env",
+          harness: h.name,
+          supported: ["env keys must match /^[A-Za-z_][A-Za-z0-9_]*$/ and no NUL"],
+          detail: k,
+        });
+        const failure = failureFromRejected({
+          issue: refusal.issue,
+          option: undefined,
+          supported: refusal.supported,
+          detail: k,
+        });
+        log({
+          event: "rejected",
+          turnId,
+          harness: h.name,
+          issue: refusal.issue,
+          supported: refusal.supported,
+          argv: redactArgv([], opts.prompt),
+        });
+        yield { kind: "failure", ...failure };
+        yield { kind: "done", exitCode: null, cause: "failed", failure };
+        return;
+      }
+    }
+  }
+
+  let argv: string[];
+  let granularity: import("../knowledge/descriptor.js").StreamingGranularity;
+  try {
+    argv =
+      opts.resume === undefined
+        ? buildLaunchArgv(h, opts)
+        : buildResumeArgv(h, { ...opts, sessionId: opts.resume });
+    granularity = streamingGranularityOf(h, argv);
+  } catch (e) {
+    if (e instanceof ArgvRefusalError) {
+      const failure = failureFromRejected({
+        issue: e.issue,
+        option: e.option,
+        facet: e.facet,
+        supported: e.supported,
+        detail: e.message,
+      });
+      // No process spawned on a refusal - log rejected instead of spawn
+      let argvForLog: string[] = [];
+      try {
+        argvForLog = redactArgv([], opts.prompt);
+      } catch {}
+      log({
+        event: "rejected",
+        turnId,
+        harness: h.name,
+        issue: e.issue,
+        option: e.option,
+        facet: e.facet,
+        supported: e.supported,
+        argv: argvForLog,
+      });
+      yield { kind: "failure", ...failure };
+      yield { kind: "done", exitCode: null, cause: "failed", failure };
+      return;
+    }
+    throw e;
+  }
+
+  const matcherOverrides = matcherOverridesOf.get(h);
+  const envKeys = opts.env ? Object.keys(opts.env) : undefined;
   log({
     event: "spawn",
     turnId,
     harness: h.name,
     argv: redactArgv(argv, opts.prompt),
     granularity,
+    ...(matcherOverrides ? { matcherOverrides } : {}),
+    ...(envKeys && envKeys.length ? { envKeys } : {}),
   });
 
   let proc: SpawnedProcess;
@@ -107,11 +188,12 @@ export async function* streamTurn(
     proc = deps.spawn(argv, {
       stdin: stdinPolicyOf(h) === "close-required" ? "close" : "inherit",
       ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
+      ...(opts.env !== undefined ? { env: opts.env } : {}),
     });
   } catch (cause) {
-    // A spawn that cannot start still honors the contract: error, done,
-    // and a closed exit log - never a throw out of the first next().
+    // Spawn failure is a transport failure, not merely a crash
     const message = cause instanceof Error ? cause.message : String(cause);
+    const failure = failureFromTransport(`spawn failed: ${message}`);
     log({
       event: "exit",
       turnId,
@@ -121,7 +203,8 @@ export async function* streamTurn(
       spawnError: message,
     });
     yield { kind: "error", message: `spawn failed: ${message}` };
-    yield { kind: "done", exitCode: 127, cause: "crash" };
+    yield { kind: "failure", ...failure };
+    yield { kind: "done", exitCode: 127, cause: "failed", failure };
     return;
   }
 
@@ -148,21 +231,62 @@ export async function* streamTurn(
     }, KILL_GRACE_MS);
   };
 
+  const failures: FailureSummary[] = [];
+  const pushFailure = async (f: FailureSummary): Promise<void> => {
+    failures.push(f);
+    await queue.push({ kind: "failure", ...f });
+  };
+
   let watchdog: number | null = null;
+  let turnDeadline: number | null = null;
+  let watchdogReason: "inactivity" | "turn-deadline" | null = null;
   const disarm = (): void => {
     if (watchdog !== null) deps.clock.clearTimeout(watchdog);
     watchdog = null;
+    if (turnDeadline !== null) deps.clock.clearTimeout(turnDeadline);
+    turnDeadline = null;
   };
   const rearm = (): void => {
-    if (granularity !== "none" || deps.stallMs === undefined) return;
-    disarm();
+    if (deps.stallMs === undefined) return;
+    if (watchdog !== null) deps.clock.clearTimeout(watchdog);
     watchdog = deps.clock.setTimeout(() => {
       killedByWatchdog = true;
-      log({ event: "stall", turnId, harness: h.name, stallMs: deps.stallMs });
+      watchdogReason = "inactivity";
+      log({
+        event: "stall",
+        turnId,
+        harness: h.name,
+        reason: "inactivity",
+        budgetMs: deps.stallMs,
+      });
+      // Disarm the other budget
+      if (turnDeadline !== null) {
+        deps.clock.clearTimeout(turnDeadline);
+        turnDeadline = null;
+      }
       escalate();
     }, deps.stallMs);
   };
+  // Arm both budgets
   rearm();
+  if (deps.turnTimeoutMs !== undefined) {
+    turnDeadline = deps.clock.setTimeout(() => {
+      killedByWatchdog = true;
+      watchdogReason = "turn-deadline";
+      log({
+        event: "stall",
+        turnId,
+        harness: h.name,
+        reason: "turn-deadline",
+        budgetMs: deps.turnTimeoutMs,
+      });
+      if (watchdog !== null) {
+        deps.clock.clearTimeout(watchdog);
+        watchdog = null;
+      }
+      escalate();
+    }, deps.turnTimeoutMs);
+  }
 
   let pipeGrace: number | null = null;
   void proc.exited.then((code) => {
@@ -186,16 +310,26 @@ export async function* streamTurn(
     const lines = new LineBuffer();
     for await (const chunk of proc.stdout) {
       if (cancelled) break;
-      rearm();
+      // Any output chunk rearms the inactivity budget, but not the wall-clock deadline
+      if (deps.stallMs !== undefined) rearm();
       for (const line of lines.push(chunk)) {
         for (const event of decodeLine(h, line, state, opts.model ?? "")) {
+          if ((event as unknown as { kind: string }).kind === "failure") {
+            // Directly from decode's rate_limit_event handling - track for reduction
+            failures.push(event as unknown as FailureSummary);
+          }
           await queue.push(event);
         }
       }
     }
     const rest = lines.flush();
     if (rest !== null && !cancelled) {
-      for (const event of decodeLine(h, rest, state, opts.model ?? "")) await queue.push(event);
+      for (const event of decodeLine(h, rest, state, opts.model ?? "")) {
+        if ((event as unknown as { kind: string }).kind === "failure") {
+          failures.push(event as unknown as FailureSummary);
+        }
+        await queue.push(event);
+      }
     }
   };
 
@@ -203,20 +337,27 @@ export async function* streamTurn(
     const lines = new LineBuffer();
     for await (const chunk of proc.stderr) {
       if (cancelled) break;
-      rearm();
+      if (deps.stallMs !== undefined) rearm();
       for (const line of lines.push(chunk)) {
         const limit = detectLimitInLine(h, line);
         if (limit !== null) {
           state.limitSeen = true;
+          const failure = failureFromLimit(limit);
+          // Emit both limit (for 0.1.3 compat) and failure
           await queue.push({
             kind: "limit",
             code: limit,
             message: `limit wall detected (${limit})`,
           });
+          await pushFailure(failure);
           continue;
         }
         const auth = detectAuthFailureInLine(h, line);
         if (auth !== null) {
+          const failure = failureFromAuth(auth);
+          await pushFailure(failure);
+          // Also emit error for compat? The old code emitted error, but now we emit failure.
+          // Keep error for 0.1.3 compat as well
           await queue.push({ kind: "error", message: `auth wall: ${auth}` });
           continue;
         }
@@ -240,6 +381,7 @@ export async function* streamTurn(
         issue: "read-failed",
       });
       await queue.push({ kind: "error", message: pumpFailureMessage(stream, cause) });
+      await pushFailure(failureFromTransport(pumpFailureMessage(stream, cause)));
       escalate();
       await proc.exited;
       proc.disposeOutput();
@@ -254,7 +396,27 @@ export async function* streamTurn(
   try {
     for await (const event of queue) yield event;
 
-    const cause: ExitCause = state.limitSeen
+    // Post-queue failure sources: nonzero exit with no other failure is transport
+    if (
+      failures.length === 0 &&
+      exitCode !== 0 &&
+      exitCode !== null &&
+      !killedByWatchdog &&
+      !state.limitSeen
+    ) {
+      const f = failureFromTransport(`nonzero exit ${exitCode}`);
+      failures.push(f);
+      // Need to emit this failure before done, even though queue is closed
+      yield { kind: "failure", ...f };
+    }
+    // Stall watchdog also implies a transport failure if not already present
+    if (killedByWatchdog && failures.length === 0) {
+      const f = failureFromTransport(`stalled: ${watchdogReason ?? "inactivity"}`);
+      failures.push(f);
+      yield { kind: "failure", ...f };
+    }
+
+    let cause: ExitCause = state.limitSeen
       ? "limit"
       : killedByWatchdog && exitCode !== 0
         ? "stall"
@@ -263,6 +425,13 @@ export async function* streamTurn(
           : exitCode === null
             ? "killed"
             : "crash";
+    const reduced = reduceFailures(failures);
+    if (reduced && cause === "clean") cause = "failed";
+    // Also handle pi stopReason error at exit 0 yielding failed - if we have a failure and exit 0, ensure cause is failed
+    if (reduced && exitCode === 0 && cause !== "limit" && cause !== "stall") {
+      // If we have any failure at exit 0, the cause should be failed, not clean
+      if (cause === "clean") cause = "failed";
+    }
     const tail = stderrTail.snapshot();
     log({
       event: "exit",
@@ -271,7 +440,10 @@ export async function* streamTurn(
       exitCode,
       cause,
       ...(pipesOpenAtExit ? { pipesOpenAtExit } : {}),
-      ...(cause === "crash" || cause === "stall" || cause === "killed" ? { stderrTail: tail } : {}),
+      ...(cause === "crash" || cause === "stall" || cause === "killed" || cause === "failed"
+        ? { stderrTail: tail }
+        : {}),
+      ...(reduced ? { failure: reduced } : {}),
     });
     // A failure with captured stderr surfaces as a stream-level error, not
     // only in the exit log - so a crash from the real adapter's async spawn
@@ -280,7 +452,7 @@ export async function* streamTurn(
       yield { kind: "error", message: tail.join("\n").slice(0, 4096) };
     }
     terminalEventReached = true;
-    yield { kind: "done", exitCode, cause };
+    yield { kind: "done", exitCode, cause, ...(reduced ? { failure: reduced } : {}) };
   } finally {
     const abandoned = !terminalEventReached;
     cancelled = true;

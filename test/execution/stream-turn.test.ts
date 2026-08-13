@@ -85,20 +85,17 @@ describe("streamTurn behaviors (M3.1 boxes)", () => {
     expect(events.find((e) => e.kind === "message")).toMatchObject({ text: "hello there" });
   });
 
-  test("stall watchdog fires ONLY for none-granularity invocations", async () => {
-    // Token-granularity claude: watchdog must NOT arm.
+  test("stall watchdog fires for every granularity (M13)", async () => {
+    // 0.2.0: stallMs now arms at every granularity, not only none
     const tokenProc = new FakeProcess();
     const dTok = deps(tokenProc);
     const tokenTurn = collect(streamTurn(claudeCode, { prompt: "hi" }, { ...dTok, stallMs: 100 }));
-    dTok.clock.advance(10_000);
-    tokenProc.emitLine(init);
-    tokenProc.emitLine(result);
-    tokenProc.exit(0);
+    dTok.clock.advance(101);
     const tokenEvents = await tokenTurn;
-    expect(tokenEvents.at(-1)).toMatchObject({ cause: "clean" });
-    expect(dTok.sig.sent).toHaveLength(0);
+    expect(dTok.sig.sent).toHaveLength(1);
+    expect(tokenEvents.at(-1)).toMatchObject({ kind: "done", cause: "stall" });
 
-    // A none-granularity invocation (no stream flags): watchdog arms and fires.
+    // A none-granularity invocation (no stream flags): watchdog also arms and fires.
     const bare = {
       ...claudeCode,
       launch: { ...claudeCode.launch, streamFlags: [] },
@@ -152,7 +149,18 @@ describe("streamTurn behaviors (M3.1 boxes)", () => {
     const turn = streamTurn(claudeCode, { prompt: "hi" }, d);
     proc.exit(3);
     const events = await collect(turn);
-    expect(events.at(-1)).toEqual({ kind: "done", exitCode: 3, cause: "crash" });
+    // 0.2.0: nonzero exit with no other classification is transport, with a failure on done
+    const done = events.at(-1) as unknown as {
+      kind: string;
+      exitCode: number;
+      cause: string;
+      failure?: unknown;
+    };
+    expect(done.kind).toBe("done");
+    expect(done.exitCode).toBe(3);
+    expect((done as unknown as { failure?: { class: string } }).failure).toMatchObject({
+      class: "transport",
+    });
   });
 });
 

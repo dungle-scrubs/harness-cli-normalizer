@@ -62,7 +62,6 @@ export const piCli: HarnessDescriptor = deepFreeze({
     models: ["zai/glm-5.2"],
     aliases: {},
     efforts: ["off", "minimal", "low", "medium", "high", "xhigh", "max"],
-    effortFlag: "--thinking",
     // D-008: providers register models at runtime (~/.pi/models.json), so
     // the vocabulary is open - validation accepts clean unknown selectors
     // and capability claims degrade to unknown instead.
@@ -78,9 +77,7 @@ export const piCli: HarnessDescriptor = deepFreeze({
   },
   contextHook: null,
   resumeLast: null,
-  provider: { flag: "--provider" },
   stdin: "close-required",
-  discoveryDisableFlags: ["-nt", "-nc", "-ne", "-ns"],
   presence: {
     headlessMarkers: ["-p", "--print"],
   },
@@ -93,5 +90,30 @@ export const piCli: HarnessDescriptor = deepFreeze({
       interactive: "none",
     },
     session: false,
+  },
+  turnOptions: {
+    effort: { kind: "effort", render: { kind: "flag-value", flag: "--thinking" } },
+    provider: { kind: "selector", render: { kind: "flag-value", flag: "--provider" } },
+    discovery: {
+      kind: "discovery",
+      facets: {
+        tools: {
+          polarity: "disables",
+          render: { kind: "flag-list", flags: ["-nt"] },
+        },
+        instructionFiles: {
+          polarity: "disables",
+          render: { kind: "flag-list", flags: ["-nc"] },
+        },
+        extensions: {
+          polarity: "disables",
+          render: { kind: "flag-list", flags: ["-ne"] },
+        },
+        skills: {
+          polarity: "disables",
+          render: { kind: "flag-list", flags: ["-ns"] },
+        },
+      },
+    },
   },
 });

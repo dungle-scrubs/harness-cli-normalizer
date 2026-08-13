@@ -32,6 +32,11 @@ export const defaultDescriptors = (): DescriptorSet => ({
   muse: museCode,
 });
 
+/** Tracks which descriptors were produced by an override file and what their
+ * matcher counts are, so the execution layer can emit `matcherOverrides` on
+ * the spawn boundary event without re-deriving it. */
+export const matcherOverridesOf = new WeakMap<HarnessDescriptor, { limit: number; auth: number }>();
+
 export class OverrideRefusalError extends Error {
   constructor(
     readonly path: string,
@@ -146,6 +151,80 @@ const mergeValue = (
   return override;
 };
 
+const validateMatcherPattern = (
+  pattern: string,
+  flags: string | undefined,
+  path: string,
+  harness: string,
+): void => {
+  const f = flags ?? "i";
+  if (pattern.length > 200) {
+    throw new OverrideRefusalError(
+      path,
+      `pattern over 200 characters: ${JSON.stringify(pattern.slice(0, 40))}`,
+      harness,
+    );
+  }
+  if (pattern.length === 0) {
+    throw new OverrideRefusalError(path, `pattern must not be empty`, harness);
+  }
+  if (f.includes("g") || f.includes("y")) {
+    throw new OverrideRefusalError(
+      path,
+      `flags must not contain g or y (got ${JSON.stringify(f)})`,
+      harness,
+    );
+  }
+  for (const ch of f) {
+    if (!"imsu".includes(ch))
+      throw new OverrideRefusalError(path, `flag ${JSON.stringify(ch)} outside imsu`, harness);
+  }
+  try {
+    new RegExp(pattern, f);
+  } catch (e) {
+    throw new OverrideRefusalError(
+      path,
+      `uncompilable pattern ${JSON.stringify(pattern)}: ${(e as Error).message}`,
+      harness,
+    );
+  }
+};
+
+const validateMatchers = (desc: HarnessDescriptor, path: string, harness: string): void => {
+  const limitMatchers = (desc as unknown as { limitMatchers: readonly unknown[] }).limitMatchers;
+  const authMatchers = (desc as unknown as { authMatchers: readonly unknown[] }).authMatchers;
+  if (Array.isArray(limitMatchers)) {
+    if (limitMatchers.length > 64) {
+      throw new OverrideRefusalError(path, `more than 64 limit matchers`, harness);
+    }
+    for (const m of limitMatchers) {
+      if (!isPlain(m as unknown as Record<string, unknown>)) {
+        throw new OverrideRefusalError(path, `limit matcher must be an object`, harness);
+      }
+      const obj = m as Record<string, unknown>;
+      if (typeof obj.pattern !== "string" || typeof obj.code !== "string") {
+        throw new OverrideRefusalError(path, `limit matcher must have pattern and code`, harness);
+      }
+      validateMatcherPattern(obj.pattern, obj.flags as string | undefined, path, harness);
+    }
+  }
+  if (Array.isArray(authMatchers)) {
+    if (authMatchers.length > 64) {
+      throw new OverrideRefusalError(path, `more than 64 auth matchers`, harness);
+    }
+    for (const m of authMatchers) {
+      if (!isPlain(m as unknown as Record<string, unknown>)) {
+        throw new OverrideRefusalError(path, `auth matcher must be an object`, harness);
+      }
+      const obj = m as Record<string, unknown>;
+      if (typeof obj.pattern !== "string" || typeof obj.kind !== "string") {
+        throw new OverrideRefusalError(path, `auth matcher must have pattern and kind`, harness);
+      }
+      validateMatcherPattern(obj.pattern, obj.flags as string | undefined, path, harness);
+    }
+  }
+};
+
 /** Parse an override document and merge it over the code defaults. */
 export const parseOverrides = (jsonText: string, path: string): DescriptorSet => {
   let doc: unknown;
@@ -175,6 +254,24 @@ export const parseOverrides = (jsonText: string, path: string): DescriptorSet =>
     const next = mergeValue(base, sections, [], refuse) as HarnessDescriptor;
     if (next.store.template.includes("..")) {
       refuse('store.template must not contain ".."');
+    }
+    // Validate matcher compilation at load time, not at first line
+    validateMatchers(next, path, name);
+    // Record matcher counts for the spawn boundary event when this descriptor was overridden
+    const defaultsForHarness = defaults[name as HarnessName] as HarnessDescriptor;
+    const limitChanged =
+      (next.limitMatchers as unknown as ReadonlyArray<unknown>).length !==
+        (defaultsForHarness.limitMatchers as unknown as ReadonlyArray<unknown>).length ||
+      JSON.stringify(next.limitMatchers) !== JSON.stringify(defaultsForHarness.limitMatchers);
+    const authChanged =
+      (next.authMatchers as unknown as ReadonlyArray<unknown>).length !==
+        (defaultsForHarness.authMatchers as unknown as ReadonlyArray<unknown>).length ||
+      JSON.stringify(next.authMatchers) !== JSON.stringify(defaultsForHarness.authMatchers);
+    if (limitChanged || authChanged) {
+      matcherOverridesOf.set(next, {
+        limit: (next.limitMatchers as unknown as ReadonlyArray<unknown>).length,
+        auth: (next.authMatchers as unknown as ReadonlyArray<unknown>).length,
+      });
     }
     merged[name as HarnessName] = next;
   }

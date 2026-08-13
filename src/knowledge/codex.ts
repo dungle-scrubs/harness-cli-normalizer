@@ -14,13 +14,13 @@ export const codexCli: HarnessDescriptor = deepFreeze({
   versionSource: { kind: "npm", package: "@openai/codex" },
   launch: {
     // exec --json emits structured item events; without --json, identity
-    // discovery is blind (v1: requiredArgument "--json"). The sandbox grant
-    // is v1's proven spawn shape - codex's built-in default is read-only,
-    // under which a non-autonomy turn cannot write files.
+    // discovery is blind (v1: requiredArgument "--json").
     // --skip-git-repo-check: codex exec refuses to run outside a trusted
     // git dir without it (verified 0.147.0). cwd targeting is the spawner's
     // job (spawn opts.cwd), not descriptor data.
-    baseFlags: ["exec", "--json", "--sandbox", "workspace-write", "--skip-git-repo-check"],
+    // Sandbox is now per-call via turnOptions.sandbox with default
+    // workspace-write, not a hardcoded base flag.
+    baseFlags: ["exec", "--json", "--skip-git-repo-check"],
     subcommands: ["exec"],
     promptStyle: "positional",
     toolsFlag: null,
@@ -54,24 +54,24 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     announce: { match: { type: "thread.started" }, idField: "thread_id" },
   },
   limitMatchers: [...SHARED_LIMIT_MATCHERS],
-  authMatchers: [[/run codex login/i, "not-logged-in"], ...SHARED_AUTH_MATCHERS],
+  authMatchers: [
+    { pattern: "run codex login", flags: "i", kind: "not-logged-in" },
+    ...SHARED_AUTH_MATCHERS,
+  ],
   // Accepted by codex 0.147.0 as a hidden alias (not in --help).
   autonomy: { flag: "--yolo" },
   vocabulary: {
     modelFlag: "--model",
     models: ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5"],
     aliases: {},
-    efforts: ["minimal", "low", "medium", "high", "xhigh", "max", "ultra"],
+    efforts: ["minimal", "low", "medium", "high", "xhigh", "max"],
     // Codex constrains ladders per model generation (v1 registry).
     effortsByModel: {
       "gpt-5.5": ["minimal", "low", "medium", "high"],
-      "gpt-5.6-sol": ["medium", "high", "xhigh", "max", "ultra"],
-      "gpt-5.6-terra": ["medium", "high", "xhigh", "max", "ultra"],
-      "gpt-5.6-luna": ["medium", "high", "xhigh", "max", "ultra"],
+      "gpt-5.6-sol": ["medium", "high", "xhigh", "max"],
+      "gpt-5.6-terra": ["medium", "high", "xhigh", "max"],
+      "gpt-5.6-luna": ["medium", "high", "xhigh", "max"],
     },
-    // Reasoning effort is a config key (-c model_reasoning_effort=...), not
-    // a plain flag; argv-level insertion has no spelling to use.
-    effortFlag: null,
     extensible: false,
   },
   store: {
@@ -84,12 +84,10 @@ export const codexCli: HarnessDescriptor = deepFreeze({
   contextHook: null,
   // Valid only in the `exec resume` context: `codex exec resume --last`.
   resumeLast: { flag: "--last" },
-  provider: null,
   // codex exec appends piped stdin as a <stdin> block and can block on an
   // open stdin - close it (verified 0.147.0: "Reading additional input
   // from stdin...").
   stdin: "close-required",
-  discoveryDisableFlags: [],
   presence: {
     headlessMarkers: ["exec"],
   },
@@ -102,5 +100,18 @@ export const codexCli: HarnessDescriptor = deepFreeze({
       interactive: "none",
     },
     session: false,
+  },
+  turnOptions: {
+    effort: {
+      kind: "effort",
+      render: { kind: "config-kv", flag: "-c", key: "model_reasoning_effort" },
+    },
+    sandbox: {
+      kind: "enum",
+      values: ["read-only", "workspace-write", "danger-full-access"],
+      default: "workspace-write",
+      render: { kind: "flag-value", flag: "--sandbox" },
+      resumeRender: null,
+    },
   },
 });
