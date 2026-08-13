@@ -34,11 +34,13 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Mirrors `pnpm check`: lint, typecheck, vitest, then the bun test lane.
+      # Mirrors `pnpm check` explicitly so each failed gate is named in Actions.
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm test:bun
+      - run: pnpm build
+      - run: pnpm check:package
 
   release-please:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -54,8 +56,8 @@ jobs:
       pull-requests: write
     steps:
       # Manifest-driven: reads release-please-config.json and
-      # .release-please-manifest.json. The package is source-public only,
-      # so no publish command is wired.
+      # .release-please-manifest.json. A published GitHub release triggers
+      # the separate npm trusted-publishing workflow.
       - id: release
         uses: googleapis/release-please-action@v5
 
