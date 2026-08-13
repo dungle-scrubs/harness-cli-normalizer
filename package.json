@@ -6,7 +6,7 @@
   "author": "Kevin Frilot",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dungle-scrubs/harness-cli-normalizer.git"
+    "url": "git+https://github.com/dungle-scrubs/harness-cli-normalizer.git"
   },
   "homepage": "https://github.com/dungle-scrubs/harness-cli-normalizer#readme",
   "type": "module",
