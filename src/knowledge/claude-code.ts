@@ -1,7 +1,19 @@
 /**
  * The claude-code descriptor: facts about the `claude` CLI as data, verified
- * against claude 2.1.227 and the 00-chat-substrate spike evidence (A-001,
+ * against claude 2.1.229 and the 00-chat-substrate spike evidence (A-001,
  * A-002, A-005). No process logic lives here.
+ *
+ * Discovery: claude 2.1.229 has no isolated instruction-file toggle.
+ * `--bare` would stop `CLAUDE.md` discovery, but it also skips hooks, LSP,
+ * plugin sync, auto-memory and keychain reads, and forces auth to
+ * `ANTHROPIC_API_KEY` / `apiKeyHelper` (OAuth never read) - so a caller
+ * authenticated via OAuth would break. The descriptor therefore offers no
+ * `instructionFiles` facet and a call passing it must refuse. Likewise
+ * `tools` has no discovery flag on claude and refuses.
+ *
+ * Effort: A-002 showed `--effort bogus` warns on stderr and runs at DEFAULT
+ * effort, exit 0, with nothing echoed in the stream. The library-side
+ * `validateEffort` refusal is therefore load-bearing, not cosmetic.
  */
 import { deepFreeze, type HarnessDescriptor, UUID_SHAPE } from "./descriptor.js";
 import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
@@ -9,7 +21,7 @@ import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
 export const claudeCode: HarnessDescriptor = deepFreeze({
   name: "claude",
   bin: "claude",
-  verifiedAgainst: "2.1.227",
+  verifiedAgainst: "2.1.229",
   versionSource: { kind: "npm", package: "@anthropic-ai/claude-code" },
   launch: {
     baseFlags: ["-p"],
@@ -69,17 +81,17 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
   limitMatchers: [
     // Observed phrasings from the live CLI (ported from lucid v1's limits.ts):
     // "You've hit your session limit · resets 6:30pm"
-    [/you'?ve hit your session limit/i, "session-limit"],
+    { pattern: "you'?ve hit your session limit", flags: "i", code: "session-limit" },
     // "You've hit your weekly limit · resets 2am (Asia/Bangkok)"
-    [/you'?ve hit your weekly limit/i, "weekly-limit"],
+    { pattern: "you'?ve hit your weekly limit", flags: "i", code: "weekly-limit" },
     ...SHARED_LIMIT_MATCHERS,
   ],
   authMatchers: [
     // A detached process cannot read Keychain creds, and misreading that as
     // "not logged in" sends the human to redo a login that was never broken.
-    [/oauth session expired|could not be refreshed/i, "expired"],
-    [/failed to authenticate/i, "expired"],
-    [/not logged in|please run \/login/i, "not-logged-in"],
+    { pattern: "oauth session expired|could not be refreshed", flags: "i", kind: "expired" },
+    { pattern: "failed to authenticate", flags: "i", kind: "expired" },
+    { pattern: "not logged in|please run \\/login", flags: "i", kind: "not-logged-in" },
     ...SHARED_AUTH_MATCHERS,
   ],
   autonomy: { flag: "--dangerously-skip-permissions" },
@@ -93,8 +105,6 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
       haiku: "claude-haiku-4-5-20251001",
     },
     efforts: ["low", "medium", "high", "xhigh", "max"],
-    // Effort is an in-session command for claude, not a launch flag.
-    effortFlag: null,
     extensible: false,
   },
   store: {
@@ -111,11 +121,7 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     usedPctField: "used_percentage",
   },
   resumeLast: null,
-  provider: null,
   stdin: "inherit",
-  // D-025: project-only setting sources is claude's discovery-isolation
-  // spelling; the child loads no user-level hooks or skills.
-  discoveryDisableFlags: ["--setting-sources", "project"],
   presence: {
     headlessMarkers: ["-p", "--print"],
   },
@@ -128,5 +134,21 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
       interactive: "message",
     },
     session: true,
+  },
+  turnOptions: {
+    effort: { kind: "effort", render: { kind: "flag-value", flag: "--effort" } },
+    discovery: {
+      kind: "discovery",
+      facets: {
+        extensions: {
+          polarity: "disables",
+          render: { kind: "flag-list", flags: ["--setting-sources", "project"] },
+        },
+        skills: {
+          polarity: "disables",
+          render: { kind: "flag-list", flags: ["--setting-sources", "project"] },
+        },
+      },
+    },
   },
 });

@@ -4,8 +4,8 @@
  * (D-003). The v1 scars this encodes: headless re-entry is `muse exec
  * --session-id <id>` (the positional `muse resume <id>` is the INTERACTIVE
  * picker - recognized when pasted, never built), and `muse exec` exits 0
- * even when the work inside failed (verification always reruns the
- * project's own checks).
+ * on task failure but 1 on step exhaustion (verified 0.1.0 - see spike
+ * report A-003 for `budget` vs `task` split).
  */
 import { deepFreeze, type HarnessDescriptor, UUID_SHAPE } from "./descriptor.js";
 import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
@@ -60,7 +60,6 @@ export const museCode: HarnessDescriptor = deepFreeze({
     models: ["muse-spark-1.2-contributor", "muse-spark-1.2", "muse-spark-1.1"],
     aliases: {},
     efforts: ["none", "minimal", "low", "medium", "high", "xhigh", "ultra"],
-    effortFlag: "--reasoning-effort",
     extensible: false,
   },
   store: {
@@ -73,9 +72,7 @@ export const museCode: HarnessDescriptor = deepFreeze({
   contextHook: null,
   // `muse resume --last` exists (muse resume --help).
   resumeLast: { flag: "--last" },
-  provider: null,
   stdin: "inherit",
-  discoveryDisableFlags: [],
   presence: {
     headlessMarkers: ["exec"],
   },
@@ -90,5 +87,24 @@ export const museCode: HarnessDescriptor = deepFreeze({
       interactive: "none",
     },
     session: false,
+  },
+  turnOptions: {
+    effort: { kind: "effort", render: { kind: "flag-value", flag: "--reasoning-effort" } },
+    write: {
+      kind: "toggle",
+      polarity: "disables",
+      render: { kind: "flag-list", flags: ["--disable-write"] },
+    },
+    shell: {
+      kind: "toggle",
+      polarity: "disables",
+      render: { kind: "flag-list", flags: ["--disable-shell"] },
+    },
+    maxSteps: {
+      kind: "integer",
+      min: 1,
+      max: 10000,
+      render: { kind: "flag-value", flag: "--max-model-steps" },
+    },
   },
 });

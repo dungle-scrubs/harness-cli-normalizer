@@ -18,7 +18,7 @@ export interface ValidationRefusal {
  * models as provider/id[:thinking], so word characters plus the few real
  * separators - never whitespace, shell metacharacters, or control/format
  * characters, and bounded like session ids. */
-const CLEAN_SELECTOR = /^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$/;
+export const CLEAN_SELECTOR = /^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$/;
 
 export interface ResolvedModel {
   readonly id: string;
