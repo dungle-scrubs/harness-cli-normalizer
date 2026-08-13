@@ -2,36 +2,37 @@
 
 One stable interface to four coding-agent CLIs that survives their updates.
 
-[![CI](https://github.com/dungle-scrubs/harness-cli-normalizer/actions/workflows/ci.yml/badge.svg)](https://github.com/dungle-scrubs/harness-cli-normalizer/actions/workflows/ci.yml) [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/dungle-scrubs/harness-cli-normalizer/actions/workflows/ci.yml/badge.svg)](https://github.com/dungle-scrubs/harness-cli-normalizer/actions/workflows/ci.yml) [![npm](https://img.shields.io/npm/v/@dungle-scrubs/harness-cli-normalizer.svg)](https://www.npmjs.com/package/@dungle-scrubs/harness-cli-normalizer) [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 harness-cli-normalizer describes each of four coding-agent CLIs (Claude Code, Codex, pi, and Muse) as pure data and normalizes their headless output into a single `HarnessEvent` stream. You write one consumer against that surface instead of a bespoke spawn-and-parse path for each agent. A separate execution layer drives any of them as a child process and emits the events. Today most teams hold these agents together by hand, one parser per CLI, and redo the work whenever an agent ships a new version.
 
 You reach for this when you are building on top of more than one coding agent: an orchestrator, an observer, a benchmark rig, or a way to switch which agent does a job. Each descriptor is pinned to the CLI version its facts were verified against, and a weekly check flags when a harness has shipped ahead of its descriptor. You learn drift is possible from a check, not from a crash.
 
 ```bash
-git clone https://github.com/dungle-scrubs/harness-cli-normalizer.git
-cd harness-cli-normalizer
-pnpm install
-bun run demo claude "explain a monad in one sentence"
+pnpm add @dungle-scrubs/harness-cli-normalizer
 ```
 
 ## Install
 
-Requires Node 24 or newer, [Bun](https://bun.sh/), and [pnpm](https://pnpm.io/). The package is source-public; it is not on npm.
+Requires Node 24 or newer. Install the public package from npm with your package manager:
 
 ```bash
-git clone https://github.com/dungle-scrubs/harness-cli-normalizer.git
-cd harness-cli-normalizer
-pnpm install   # also installs the git hooks through lefthook
+pnpm add @dungle-scrubs/harness-cli-normalizer
 ```
+
+The repository uses pnpm and Bun for development and its dual-runtime test lane. Consumers do not
+need either one unless their application runs on Bun.
 
 ## Use it
 
 One-shot headless turn, the simplest path:
 
 ```ts
-import { claudeCode } from "./src/knowledge/index.js";
-import { nodeRunnerDeps, streamTurn } from "./src/execution/index.js";
+import {
+  claudeCode,
+  nodeRunnerDeps,
+  streamTurn,
+} from "@dungle-scrubs/harness-cli-normalizer";
 
 for await (const event of streamTurn(
   claudeCode,
@@ -43,7 +44,10 @@ for await (const event of streamTurn(
 }
 ```
 
-Swap `claudeCode` for `codexCli`, `piCli`, or `museCode` (all from `./src/knowledge/index.js`) and the consumer code does not change. That is the point.
+Swap `claudeCode` for `codexCli`, `piCli`, or `museCode` and the consumer code does not change. The
+three layers are also available as `@dungle-scrubs/harness-cli-normalizer/knowledge`,
+`@dungle-scrubs/harness-cli-normalizer/interpretation`, and
+`@dungle-scrubs/harness-cli-normalizer/execution` for narrower imports.
 
 To watch the normalized stream render live against a real harness:
 
@@ -88,7 +92,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). The short version: run `pnpm check` befo
 
 ## Status
 
-Pre-1.0. Four harnesses are described (Claude Code, Codex, pi, Muse). Drift detection runs weekly in CI; re-verifying a descriptor's capability claims against a new CLI version is a local, manual step (`bun run smoke:seven`), not CI. The package is not published to npm. Authentication and usage-limit signals are parsed from each harness's stream, but this library never holds or ships credentials; each harness authenticates under the end user's own session.
+Pre-1.0. Four harnesses are described (Claude Code, Codex, pi, Muse). Drift detection runs weekly in CI; re-verifying a descriptor's capability claims against a new CLI version is a local, manual step (`bun run smoke:seven`), not CI. Authentication and usage-limit signals are parsed from each harness's stream, but this library never holds or ships credentials; each harness authenticates under the end user's own session.
 
 ## Prior art
 

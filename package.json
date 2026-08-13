@@ -3,24 +3,56 @@
   "version": "0.1.1",
   "description": "One stable interface to four coding-agent CLIs that survives their updates.",
   "license": "MIT",
-  "private": true,
+  "author": "Kevin Frilot",
   "repository": {
     "type": "git",
     "url": "https://github.com/dungle-scrubs/harness-cli-normalizer.git"
   },
   "homepage": "https://github.com/dungle-scrubs/harness-cli-normalizer#readme",
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./knowledge": {
+      "types": "./dist/knowledge/index.d.ts",
+      "import": "./dist/knowledge/index.js"
+    },
+    "./interpretation": {
+      "types": "./dist/interpretation/index.d.ts",
+      "import": "./dist/interpretation/index.js"
+    },
+    "./execution": {
+      "types": "./dist/execution/index.d.ts",
+      "import": "./dist/execution/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
   "packageManager": "pnpm@11.5.2",
   "engines": {
     "node": ">=24"
   },
   "scripts": {
-    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:bun",
+    "build": "node scripts/build.ts",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:bun && pnpm build && pnpm check:package",
+    "check:package": "node scripts/check-package.ts",
     "lint": "biome check .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:bun": "bun test",
     "prepare": "git config --local core.hooksPath .git/hooks && lefthook install --force",
+    "prepack": "pnpm build",
     "smoke:claude": "bun scripts/smoke-claude.ts",
     "smoke:all": "bun scripts/smoke-all.ts",
     "demo": "bun scripts/demo.ts",
