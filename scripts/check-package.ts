@@ -58,10 +58,13 @@ for (const forbiddenPrefix of [".plans/", "scripts/", "test/"]) {
   );
 }
 
-const root = await import("../dist/index.js");
-const knowledge = await import("../dist/knowledge/index.js");
-const interpretation = await import("../dist/interpretation/index.js");
-const execution = await import("../dist/execution/index.js");
+const importBuilt = async (relativePath: string): Promise<Record<string, unknown>> =>
+  import(new URL(relativePath, import.meta.url).href) as Promise<Record<string, unknown>>;
+
+const root = await importBuilt("../dist/index.js");
+const knowledge = await importBuilt("../dist/knowledge/index.js");
+const interpretation = await importBuilt("../dist/interpretation/index.js");
+const execution = await importBuilt("../dist/execution/index.js");
 
 assert.equal(root.claudeCode, knowledge.claudeCode);
 assert.equal(root.buildLaunchArgv, interpretation.buildLaunchArgv);
