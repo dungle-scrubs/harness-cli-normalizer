@@ -1,6 +1,6 @@
 {
   "name": "@dungle-scrubs/harness-cli-normalizer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "One stable interface to four coding-agent CLIs that survives their updates.",
   "license": "MIT",
   "private": true,
