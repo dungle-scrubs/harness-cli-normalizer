@@ -14,6 +14,9 @@ export const museCode: HarnessDescriptor = deepFreeze({
   name: "muse",
   bin: "muse",
   verifiedAgainst: "0.1.0",
+  // No npm package - `hcn check` falls back to `muse --version` locally and
+  // is skipped in CI where the binary is absent, so this harness is exempt
+  // from automated drift detection (see README Version-pinning and drift).
   versionSource: { kind: "installed" },
   launch: {
     // exec --json emits the payload_type/stream records the runner decodes

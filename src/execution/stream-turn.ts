@@ -55,13 +55,18 @@ const SECRETISH = /(sk-[A-Za-z0-9_-]{8,}|(?:token|key|secret|password)=\S+)/i;
 
 /** Redact by POSITION, not shape: the prompt is a known argv slot and is
  * masked wholesale (content never reaches a log line - v1 D-005); every
- * other token is kept unless it is secret-shaped. */
-export const redactArgv = (argv: readonly string[], prompt?: string): string[] =>
-  argv.map((token) => {
-    if (prompt !== undefined && token === prompt) return `[prompt:${prompt.length}ch]`;
+ * other token is kept unless it is secret-shaped. Only the prompt's
+ * positional slot is masked, so a one-word prompt that equals a flag
+ * value does not cause that flag value to be masked. */
+export const redactArgv = (argv: readonly string[], prompt?: string): string[] => {
+  const promptIndex = prompt !== undefined ? argv.lastIndexOf(prompt) : -1;
+  const promptLabel = prompt !== undefined ? `[prompt:${prompt.length}ch]` : "";
+  return argv.map((token, index) => {
+    if (index === promptIndex) return promptLabel;
     if (SECRETISH.test(token)) return "[redacted]";
     return token;
   });
+};
 
 /** Bounded tail of unmatched stderr - the crash context a nonzero exit is
  * explained by (v1 kept the turn's output slice for exactly this). Shared
@@ -356,8 +361,7 @@ export async function* streamTurn(
         if (auth !== null) {
           const failure = failureFromAuth(auth);
           await pushFailure(failure);
-          // Also emit error for compat? The old code emitted error, but now we emit failure.
-          // Keep error for 0.1.3 compat as well
+          // Emit error alongside failure for 0.1.3 compat
           await queue.push({ kind: "error", message: `auth wall: ${auth}` });
           continue;
         }
@@ -427,11 +431,6 @@ export async function* streamTurn(
             : "crash";
     const reduced = reduceFailures(failures);
     if (reduced && cause === "clean") cause = "failed";
-    // Also handle pi stopReason error at exit 0 yielding failed - if we have a failure and exit 0, ensure cause is failed
-    if (reduced && exitCode === 0 && cause !== "limit" && cause !== "stall") {
-      // If we have any failure at exit 0, the cause should be failed, not clean
-      if (cause === "clean") cause = "failed";
-    }
     const tail = stderrTail.snapshot();
     log({
       event: "exit",
