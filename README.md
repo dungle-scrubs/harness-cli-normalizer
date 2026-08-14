@@ -22,47 +22,9 @@ pnpm add @dungle-scrubs/harness-cli-normalizer
 The repository uses pnpm and Bun for development and its dual-runtime test lane. Consumers do not
 need either one unless their application runs on Bun.
 
-## Use it
-
-One-shot headless turn, the simplest path:
-
-```ts
-import {
-  claudeCode,
-  nodeRunnerDeps,
-  streamTurn,
-} from "@dungle-scrubs/harness-cli-normalizer";
-
-for await (const event of streamTurn(
-  claudeCode,
-  { prompt: "explain a monad in one sentence", cwd: process.cwd() },
-  nodeRunnerDeps(),
-)) {
-  if (event.kind === "message") console.log(event.text);
-  if (event.kind === "done") console.log(`exit: ${event.cause}`);
-}
-```
-
-Swap `claudeCode` for `codexCli`, `piCli`, or `museCode` and the consumer code does not change for one-shot turns (`streamTurn`). The
-three layers are also available as `@dungle-scrubs/harness-cli-normalizer/knowledge`,
-`@dungle-scrubs/harness-cli-normalizer/interpretation`, and
-`@dungle-scrubs/harness-cli-normalizer/execution` for narrower imports. Persistent multi-turn sessions (`openSession`, `sessionMode`) are Claude-only - the other three harnesses have `sessionMode: null` and `openSession`/`hcn session` refuse with `no-session-mode`.
-
-To watch the normalized stream render live against a real harness:
-
-```bash
-bun run demo claude "explain a monad in one sentence"
-bun run demo codex  "what is 2+2"
-bun run demo pi     "name three primes"
-bun run demo muse   "say hi"
-bun run demo --chat claude            # interactive session (claude only)
-```
-
-For a persistent multi-turn session (Claude-only), `openSession` returns a handle whose `turns` you iterate and whose `send()` you call between turns. Other harnesses do not support this mode. See `scripts/demo.ts` for the working pattern.
-
 ## CLI
 
-The package ships a `hcn` binary for shell and CI use. Install it with your package manager or run it ad-hoc with `npx`:
+The package ships a `hcn` binary for shell and CI use. This is the primary interface - use it for one-off turns, sessions, and inspection without writing TypeScript. Install it with your package manager or run it ad-hoc with `npx`:
 
 ```bash
 pnpm add @dungle-scrubs/harness-cli-normalizer
@@ -125,6 +87,46 @@ Flag table (maps to `TurnOptions` / `TurnRunOptions`):
 | `--json` | output mode | NDJSON `HarnessEvent` to stdout |
 
 For development, `bun run demo claude "hi"` remains as a live-rendering alternative.
+
+## TypeScript library
+
+If you need the library, the same `hcn` commands are available as a typed `HarnessEvent` stream. Prefer the CLI above unless you are building an orchestrator, observer, or benchmark rig that must consume events in-process.
+
+One-shot headless turn, the simplest path:
+
+```ts
+import {
+  claudeCode,
+  nodeRunnerDeps,
+  streamTurn,
+} from "@dungle-scrubs/harness-cli-normalizer";
+
+for await (const event of streamTurn(
+  claudeCode,
+  { prompt: "explain a monad in one sentence", cwd: process.cwd() },
+  nodeRunnerDeps(),
+)) {
+  if (event.kind === "message") console.log(event.text);
+  if (event.kind === "done") console.log(`exit: ${event.cause}`);
+}
+```
+
+Swap `claudeCode` for `codexCli`, `piCli`, or `museCode` and the consumer code does not change for one-shot turns (`streamTurn`). The
+three layers are also available as `@dungle-scrubs/harness-cli-normalizer/knowledge`,
+`@dungle-scrubs/harness-cli-normalizer/interpretation`, and
+`@dungle-scrubs/harness-cli-normalizer/execution` for narrower imports. Persistent multi-turn sessions (`openSession`, `sessionMode`) are Claude-only - the other three harnesses have `sessionMode: null` and `openSession`/`hcn session` refuse with `no-session-mode`.
+
+To watch the normalized stream render live against a real harness:
+
+```bash
+bun run demo claude "explain a monad in one sentence"
+bun run demo codex  "what is 2+2"
+bun run demo pi     "name three primes"
+bun run demo muse   "say hi"
+bun run demo --chat claude            # interactive session (claude only)
+```
+
+For a persistent multi-turn session (Claude-only), `openSession` returns a handle whose `turns` you iterate and whose `send()` you call between turns. Other harnesses do not support this mode. See `scripts/demo.ts` for the working pattern.
 
 ## Concepts
 
