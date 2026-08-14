@@ -5,7 +5,7 @@ One stable interface to four coding-agent CLIs.
 [![CI](https://github.com/dungle-scrubs/harness-cli-normalizer/actions/workflows/ci.yml/badge.svg)](https://github.com/dungle-scrubs/harness-cli-normalizer/actions/workflows/ci.yml) [![npm](https://img.shields.io/npm/v/@dungle-scrubs/harness-cli-normalizer.svg)](https://www.npmjs.com/package/@dungle-scrubs/harness-cli-normalizer) [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 <!-- D-001 -->
-harness-cli-normalizer describes Claude Code, Codex, pi, and Muse as pure data and normalizes their headless output to a single `HarnessEvent` stream. You build one consumer against that stream instead of a separate spawn-and-parse path per CLI - the execution layer spawns the harness and emits the events. Use it for multi-agent work like an orchestrator, observer, benchmark rig, or to swap agents. Descriptors are pinned to their verified CLI version and a weekly check flags when a harness has moved ahead.
+harness-cli-normalizer describes Claude Code, Codex, pi, and Muse as pure data and normalizes their headless output to a single `HarnessEvent` stream. You build one consumer against that stream instead of a separate spawn-and-parse path per CLI - the execution layer spawns the harness and emits the events. Use it for multi-agent work like an orchestrator, observer, benchmark rig, or to swap agents. Descriptors are pinned to their verified CLI version and a weekly check flags when a harness has moved ahead (npm harnesses via registry; `muse` via local `muse --version`, skipped in CI where not installed - see Version-pinning and drift).
 
 ```bash
 pnpm add @dungle-scrubs/harness-cli-normalizer
@@ -22,47 +22,9 @@ pnpm add @dungle-scrubs/harness-cli-normalizer
 The repository uses pnpm and Bun for development and its dual-runtime test lane. Consumers do not
 need either one unless their application runs on Bun.
 
-## Use it
-
-One-shot headless turn, the simplest path:
-
-```ts
-import {
-  claudeCode,
-  nodeRunnerDeps,
-  streamTurn,
-} from "@dungle-scrubs/harness-cli-normalizer";
-
-for await (const event of streamTurn(
-  claudeCode,
-  { prompt: "explain a monad in one sentence", cwd: process.cwd() },
-  nodeRunnerDeps(),
-)) {
-  if (event.kind === "message") console.log(event.text);
-  if (event.kind === "done") console.log(`exit: ${event.cause}`);
-}
-```
-
-Swap `claudeCode` for `codexCli`, `piCli`, or `museCode` and the consumer code does not change. The
-three layers are also available as `@dungle-scrubs/harness-cli-normalizer/knowledge`,
-`@dungle-scrubs/harness-cli-normalizer/interpretation`, and
-`@dungle-scrubs/harness-cli-normalizer/execution` for narrower imports.
-
-To watch the normalized stream render live against a real harness:
-
-```bash
-bun run demo claude "explain a monad in one sentence"
-bun run demo codex  "what is 2+2"
-bun run demo pi     "name three primes"
-bun run demo muse   "say hi"
-bun run demo --chat claude            # interactive session (claude only)
-```
-
-For a multi-turn session you drive yourself, `openSession` returns a handle whose `turns` you iterate and whose `send()` you call between turns. See `scripts/demo.ts` for the working pattern.
-
 ## CLI
 
-The package ships a `hcn` binary for shell and CI use. Install it with your package manager or run it ad-hoc with `npx`:
+The package ships a `hcn` binary for shell and CI use. This is the primary interface - use it for one-off turns, sessions, and inspection without writing TypeScript. Install it with your package manager or run it ad-hoc with `npx`:
 
 ```bash
 pnpm add @dungle-scrubs/harness-cli-normalizer
@@ -126,6 +88,46 @@ Flag table (maps to `TurnOptions` / `TurnRunOptions`):
 
 For development, `bun run demo claude "hi"` remains as a live-rendering alternative.
 
+## TypeScript library
+
+If you need the library, the same `hcn` commands are available as a typed `HarnessEvent` stream. Prefer the CLI above unless you are building an orchestrator, observer, or benchmark rig that must consume events in-process.
+
+One-shot headless turn, the simplest path:
+
+```ts
+import {
+  claudeCode,
+  nodeRunnerDeps,
+  streamTurn,
+} from "@dungle-scrubs/harness-cli-normalizer";
+
+for await (const event of streamTurn(
+  claudeCode,
+  { prompt: "explain a monad in one sentence", cwd: process.cwd() },
+  nodeRunnerDeps(),
+)) {
+  if (event.kind === "message") console.log(event.text);
+  if (event.kind === "done") console.log(`exit: ${event.cause}`);
+}
+```
+
+Swap `claudeCode` for `codexCli`, `piCli`, or `museCode` and the consumer code does not change for one-shot turns (`streamTurn`). The
+three layers are also available as `@dungle-scrubs/harness-cli-normalizer/knowledge`,
+`@dungle-scrubs/harness-cli-normalizer/interpretation`, and
+`@dungle-scrubs/harness-cli-normalizer/execution` for narrower imports. Persistent multi-turn sessions (`openSession`, `sessionMode`) are Claude-only - the other three harnesses have `sessionMode: null` and `openSession`/`hcn session` refuse with `no-session-mode`.
+
+To watch the normalized stream render live against a real harness:
+
+```bash
+bun run demo claude "explain a monad in one sentence"
+bun run demo codex  "what is 2+2"
+bun run demo pi     "name three primes"
+bun run demo muse   "say hi"
+bun run demo --chat claude            # interactive session (claude only)
+```
+
+For a persistent multi-turn session (Claude-only), `openSession` returns a handle whose `turns` you iterate and whose `send()` you call between turns. Other harnesses do not support this mode. See `scripts/demo.ts` for the working pattern.
+
 ## Concepts
 
 ### Descriptors are data, not behavior
@@ -142,7 +144,11 @@ knowledge (pure data) -> interpretation (pure functions) -> execution (child pro
 
 ### Version-pinning and drift
 
-Every descriptor carries a `verifiedAgainst` version, the anchor for all of its facts. A weekly CI job compares each harness's published version to its descriptor and opens a tracking issue when one has moved ahead. Trust a descriptor only at its pinned version, and bump `verifiedAgainst` only after re-running the capability checks locally.
+Every descriptor carries a `verifiedAgainst` version, the anchor for all of its facts. A weekly CI job compares each harness's published version to its descriptor and opens a tracking issue when one has moved ahead. Trust a descriptor only at its pinned version, and bump `verifiedAgainst` only after re-running the capability checks locally (`bun run smoke:seven`) and re-capturing fixtures.
+
+For the three npm harnesses (Claude Code, Codex, pi) the check queries the registry and is credential-free. Muse ships as an installed shell script (`versionSource: { kind: "installed" }`), so there is no registry to poll - `hcn check` falls back to `muse --version` locally and is skipped in CI where the binary is absent. A quarter of the matrix is therefore exempt from automated drift detection, and a stale Muse descriptor will not surface until a manual re-verification.
+
+Four harnesses are hand-verified by one maintainer. Claude Code alone ships more often than the pin is bumped, and the weekly issue only tells you the descriptor is stale - it does not re-capture the fixtures. Treat `verifiedAgainst` bumps as manual work, and expect Claude + Codex to carry most of the usage while pi and Muse double the verification surface for a smaller slice of value.
 
 ## Turn options
 
@@ -229,7 +235,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). The short version: run `pnpm check` befo
 
 ## Status
 
-Pre-1.0. Four harnesses are described (Claude Code, Codex, pi, Muse). Drift detection runs weekly in CI; re-verifying a descriptor's capability claims against a new CLI version is a local, manual step (`bun run smoke:seven`), not CI. Authentication and usage-limit signals are parsed from each harness's stream, but this library never holds or ships credentials; each harness authenticates under the end user's own session.
+Pre-1.0. Four harnesses are described (Claude Code, Codex, pi, Muse). One-shot turns (`streamTurn`) are normalized across all four; persistent sessions (`openSession` / `sessionMode`) are Claude-only - other harnesses return `no-session-mode`. Drift detection runs weekly in CI for the three npm harnesses; Muse is `installed` and only checked locally via `muse --version`. Re-verifying a descriptor's capability claims against a new CLI version is a local, manual step (`bun run smoke:seven`) plus fixture re-capture, not CI. Authentication and usage-limit signals are parsed from each harness's stream, but this library never holds or ships credentials; each harness authenticates under the end user's own session.
 
 ## Prior art
 
