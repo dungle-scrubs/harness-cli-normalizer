@@ -19,6 +19,8 @@ describe("decodeIdentity (claude, A-001 fixture)", () => {
       (e) => typeof e === "object" && e !== null && (e as { subtype?: string }).subtype === "init",
     );
     expect(inits.length).toBeGreaterThan(1); // the fixture really re-emits init
+    const sessionId = (inits[0] as { session_id: string }).session_id;
+    expect(typeof sessionId).toBe("string");
 
     let lastSeen: string | null = null;
     const identities: string[] = [];
@@ -27,7 +29,7 @@ describe("decodeIdentity (claude, A-001 fixture)", () => {
       if (decoded.identity !== null) identities.push(decoded.identity);
       lastSeen = decoded.sessionId ?? lastSeen;
     }
-    expect(identities).toEqual(["eb04301d-8756-4a8b-ae3e-aac0e71f7265"]);
+    expect(identities).toEqual([sessionId]);
   });
 
   test("classifies duplicate re-announcements as turn-start metadata, not news", () => {
