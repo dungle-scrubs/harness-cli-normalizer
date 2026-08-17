@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.3.0...v0.3.1) (2026-08-17)
+
+
+### Fixed
+
+* clean stream-turn cruft and document drift/session scope ([#31](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/31)) ([24c90a3](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/24c90a3e7029ac951ab51be007f715bcd58363f9))
+* run the hcn bin entry regardless of symlink name ([#34](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/34)) ([3f6a11c](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/3f6a11c51a1eec96941be8f7f1364ffb1dc26f23))
+
+
+### Changed
+
+* re-verify descriptors against claude 2.1.233 and pi 0.84.2 ([#35](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/35)) ([795670d](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/795670d7949e5308d8f71da0fa35512fb7253a6b))
+
 ## [0.1.3](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.1.2...v0.1.3) (2026-08-13)
 
 
