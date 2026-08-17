@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+import { realpathSync } from "node:fs";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { TOP_LEVEL_HELP } from "./help.js";
 import { getVersion } from "./version.js";
 
@@ -155,23 +158,33 @@ export const dispatch = async (raw: string[]): Promise<void> => {
   }
 };
 
-const main = async (): Promise<void> => {
+export const main = async (): Promise<void> => {
   await dispatch(process.argv.slice(2));
 };
 
-const shouldAutoRun = (() => {
-  const entry = process.argv[1] ?? "";
-  return (
-    entry.endsWith("cli.js") || entry.endsWith("cli/index.js") || entry.endsWith("src/cli/index.ts")
-  );
-})();
-
-if (shouldAutoRun) {
-  main().catch((err) => {
+// The bin entry invokes this directly. Auto-run below covers direct
+// execution of this module itself (node dist/cli/index.js, bun src/cli/index.ts).
+export const run = (): void => {
+  main().catch((err: unknown) => {
     const message = err instanceof Error ? err.message : String(err);
     process.stderr.write(`fatal: ${message}\n`);
     if (err instanceof Error && err.stack) process.stderr.write(`${err.stack}\n`);
     process.exitCode = 1;
-    if (process.exitCode === 0) process.exitCode = 1;
   });
-}
+};
+
+// Run only when this module is the process main entry. process.argv[1] is
+// the path as invoked - a bin symlink such as npm's `hcn` keeps its link
+// name - while import.meta.url is this file's realpath, so resolving argv[1]
+// the same way survives symlinks. Filename suffix sniffing cannot (issue #33).
+const isMainEntry = (() => {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return import.meta.url === pathToFileURL(realpathSync(resolve(entry))).href;
+  } catch {
+    return false;
+  }
+})();
+
+if (isMainEntry) run();
