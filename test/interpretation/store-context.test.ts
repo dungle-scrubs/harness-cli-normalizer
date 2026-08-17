@@ -6,7 +6,7 @@ import { claudeCode } from "../../src/knowledge/claude-code.js";
 describe("storePath (claude)", () => {
   test("resolves the transcript tail path with the '/'-to-'-' project slug", () => {
     // Ground truth from the A-001 fixture's memory_paths:
-    // /Users/kevin/.claude/projects/-Users-kevin-dev-lucid-v2-spikes/...
+    // /Users/kevin/.claude/projects/-Users-kevin-dev-harness-cli-normalizer/...
     expect(
       storePath(claudeCode, {
         home: "/Users/kevin",

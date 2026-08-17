@@ -1,9 +1,9 @@
 /**
  * The claude-code descriptor: facts about the `claude` CLI as data, verified
- * against claude 2.1.229 and the 00-chat-substrate spike evidence (A-001,
+ * against claude 2.1.233 and the 00-chat-substrate spike evidence (A-001,
  * A-002, A-005). No process logic lives here.
  *
- * Discovery: claude 2.1.229 has no isolated instruction-file toggle.
+ * Discovery: claude 2.1.233 has no isolated instruction-file toggle.
  * `--bare` would stop `CLAUDE.md` discovery, but it also skips hooks, LSP,
  * plugin sync, auto-memory and keychain reads, and forces auth to
  * `ANTHROPIC_API_KEY` / `apiKeyHelper` (OAuth never read) - so a caller
@@ -21,7 +21,7 @@ import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
 export const claudeCode: HarnessDescriptor = deepFreeze({
   name: "claude",
   bin: "claude",
-  verifiedAgainst: "2.1.229",
+  verifiedAgainst: "2.1.233",
   versionSource: { kind: "npm", package: "@anthropic-ai/claude-code" },
   launch: {
     baseFlags: ["-p"],

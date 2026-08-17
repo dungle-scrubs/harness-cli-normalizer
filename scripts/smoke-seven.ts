@@ -29,8 +29,15 @@ delete process.env.HERDR_ENV;
 const HARNESSES: HarnessDescriptor[] = [claudeCode, codexCli, piCli, museCode];
 const cwd = process.cwd();
 // pi is pinned to the free local model; the others use their defaults.
+// SMOKE_PI_MODEL overrides the id for environments whose registry resolves
+// the short name to an unloadable variant (e.g. pro currently cannot load
+// unsloth/qwen3.6-27b-mlx, so pin lmstudio-community/qwen3.6-27b-mlx).
 const modelFor = (h: HarnessDescriptor): string | undefined =>
-  h.name === "pi" ? "qwen3.6-27b" : h.name === "claude" ? "sonnet" : undefined;
+  h.name === "pi"
+    ? (process.env.SMOKE_PI_MODEL ?? "qwen3.6-27b")
+    : h.name === "claude"
+      ? "sonnet"
+      : undefined;
 
 type Status = "pass" | "fail" | "skip";
 interface Cell {
