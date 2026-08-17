@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { describe, expect, test } from "vitest";
 import { parseEnvEntries, parseTurnOptions } from "../../src/cli/args.js";
 import { exitCodeForCause } from "../../src/cli/exit-codes.js";
@@ -533,6 +533,37 @@ describe("integration: built cli via spawnSync", () => {
       if (result.error) return;
       expect(result.stdout).toMatch(/x/);
     } catch {}
+  });
+
+  // Issue #33: through an npm global install, the bin is a symlink named
+  // `hcn`, so argv[1] ends with "hcn" - the old filename-suffix guard never
+  // matched and every invocation exited 0 with no output.
+  test("hcn bin symlink (npm global install shape) runs the CLI", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "hcn-bin-"));
+    try {
+      const link = join(tmp, "hcn");
+      symlinkSync(resolve("dist/cli.js"), link);
+      const result = spawnSync(link, ["ls"], { encoding: "utf8" });
+      if (result.error && (result.error as NodeJS.ErrnoException).code === "ENOENT") return; // dist not built
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain("claude@");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test("symlink named hcn pointing at dist/cli/index.js runs the CLI", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "hcn-idx-"));
+    try {
+      const link = join(tmp, "hcn");
+      symlinkSync(resolve("dist/cli/index.js"), link);
+      const result = spawnSync(link, ["--help"], { encoding: "utf8" });
+      if (result.error && (result.error as NodeJS.ErrnoException).code === "ENOENT") return;
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain("hcn");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
   });
 });
 
