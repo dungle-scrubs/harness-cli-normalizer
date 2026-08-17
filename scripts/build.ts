@@ -26,5 +26,12 @@ if (existsSync(cliIndexJs)) {
   chmodSync(cliIndexJs, 0o755);
 }
 const cliWrapperPath = resolve(outputDirectory, "cli.js");
-writeFileSync(cliWrapperPath, `#!/usr/bin/env node\nimport "./cli/index.js";\n`);
+// Dedicated bin entry (package.json bin.hcn). npm installs it as a symlink
+// named `hcn`, so it must invoke the entrypoint directly rather than rely on
+// argv filename sniffing inside cli/index.js - the link name defeats that
+// (issue #33: every `hcn` invocation exited 0 with no output).
+writeFileSync(
+  cliWrapperPath,
+  '#!/usr/bin/env node\nimport { run } from "./cli/index.js";\nrun();\n',
+);
 chmodSync(cliWrapperPath, 0o755);

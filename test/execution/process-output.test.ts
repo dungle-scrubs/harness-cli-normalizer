@@ -59,8 +59,18 @@ describe("injected process output disposal", () => {
 
     output.dispose();
 
-    const buffered = await iterator.next();
-    expect(Buffer.from(buffered.value).toString()).toBe("twothree");
+    // The contract: every runtime-buffered byte is delivered in order after
+    // disposal, then the stream settles cleanly - never a lost chunk, never
+    // a rejection. Chunk granularity is the runtime's choice (Node 24's
+    // iterator coalesces the buffer into one read; Node 26 delivers
+    // chunk-per-push), so assert on the drained concatenation.
+    let drained = "";
+    for (;;) {
+      const result = await iterator.next();
+      if (result.done) break;
+      drained += Buffer.from(result.value).toString();
+    }
+    expect(drained).toBe("twothree");
     source.push(Buffer.from("written-after-disposal"));
     await expect(iterator.next()).resolves.toMatchObject({ done: true });
   });
