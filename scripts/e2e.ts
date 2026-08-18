@@ -136,7 +136,113 @@ const baselineScenario: Scenario = {
   },
 };
 
-const SCENARIOS: Scenario[] = [baselineScenario];
+/** Tool-selection scenarios (Phase 2, D1-D3): a granted pi read-only set
+ * must actually refuse a bash task; the claude deny-complement must reshape
+ * the visible set; mutual exclusion must refuse with exit 2; codex/muse
+ * refuse name lists. These are live model turns - spawn-cheap harnesses
+ * only, per the approved gate scope. */
+const toolSelectionScenario: Scenario = {
+  name: "tools",
+  phases: ["all"],
+  run: async (harness) => {
+    const failures: string[] = [];
+    const t0 = Date.now();
+    let exitCode: number | null = null;
+    const eventCounts: Record<string, number> = {};
+
+    if (harness === "pi") {
+      // Grant read-only: the model must NOT be able to run bash. A
+      // well-behaved refusal to attempt it, or an error about the missing
+      // tool, both count - the grant shaped the tool set.
+      const r = await runCli([
+        harness,
+        "--json",
+        "--tools",
+        "read",
+        "--prompt",
+        "You have no bash tool. Reply with exactly: NOBASH. Do not attempt any tool call.",
+      ]);
+      exitCode = r.exitCode;
+      Object.assign(eventCounts, countKinds(r.events));
+      const done = r.events.find(
+        (e): e is Extract<HarnessEvent, { kind: "done" }> => e.kind === "done",
+      );
+      if (!done || done.cause !== "clean")
+        failures.push(`pi read-only run not clean: ${done?.cause ?? "no done"}`);
+      const text = r.events
+        .filter((e): e is Extract<HarnessEvent, { kind: "message" }> => e.kind === "message")
+        .map((e) => e.text)
+        .join("");
+      if (!/NOBASH/i.test(text))
+        failures.push(`pi read-only reply unexpected: ${text.slice(0, 120)}`);
+    } else if (harness === "claude") {
+      // Deny-complement: with only Read and Bash granted (everything else
+      // denied), the visible set must not contain Edit.
+      const r = await runCli([
+        harness,
+        "--json",
+        "--tools",
+        "Read,Bash",
+        "--prompt",
+        "Do not call any tools. One line: is an Edit tool available to you? Answer YES or NO only.",
+      ]);
+      exitCode = r.exitCode;
+      Object.assign(eventCounts, countKinds(r.events));
+      const done = r.events.find(
+        (e): e is Extract<HarnessEvent, { kind: "done" }> => e.kind === "done",
+      );
+      if (!done || done.cause !== "clean")
+        failures.push(`claude complement run not clean: ${done?.cause ?? "no done"}`);
+      const text = r.events
+        .filter((e): e is Extract<HarnessEvent, { kind: "message" }> => e.kind === "message")
+        .map((e) => e.text)
+        .join("");
+      if (!/\bNO\b/i.test(text))
+        failures.push(`claude Edit should be denied, reply: ${text.slice(0, 120)}`);
+    } else {
+      // codex/muse: name lists refuse before spawn.
+      const r = await runCli([harness, "--json", "--tools", "Read", "--prompt", "hi"]);
+      exitCode = r.exitCode;
+      Object.assign(eventCounts, countKinds(r.events));
+      if (r.exitCode !== 2) failures.push(`expected refusal exit 2, got ${r.exitCode}`);
+      if (!/cannot express/i.test(r.stderr))
+        failures.push(`stderr lacks refusal: ${r.stderr.slice(0, 200)}`);
+    }
+    return { durationMs: Date.now() - t0, exitCode, eventCounts, failures };
+  },
+};
+
+/** Mutual exclusion (D1) refuses with exit 2 - cheap, no spawn needed on
+ * refusal, but run through all harnesses for uniformity. */
+const mutualExclusionScenario: Scenario = {
+  name: "tools-mutual-exclusion",
+  phases: ["all"],
+  run: async (harness) => {
+    const failures: string[] = [];
+    const t0 = Date.now();
+    const r = await runCli([
+      harness,
+      "--json",
+      "--tools",
+      "read",
+      "--exclude-tools",
+      "bash",
+      "--prompt",
+      "hi",
+    ]);
+    if (r.exitCode !== 2) failures.push(`expected exit 2, got ${r.exitCode}`);
+    if (!/exactly one/i.test(r.stderr))
+      failures.push(`stderr lacks mutual-exclusion: ${r.stderr.slice(0, 200)}`);
+    return {
+      durationMs: Date.now() - t0,
+      exitCode: r.exitCode,
+      eventCounts: countKinds(r.events),
+      failures,
+    };
+  },
+};
+
+const SCENARIOS: Scenario[] = [baselineScenario, toolSelectionScenario, mutualExclusionScenario];
 
 // ---- CLI arg parsing ----
 const argv = process.argv.slice(2);

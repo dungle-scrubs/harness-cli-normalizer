@@ -7,6 +7,7 @@
 import type { HarnessDescriptor, StreamingGranularity } from "../knowledge/descriptor.js";
 import { ArgvRefusalError } from "./refusal.js";
 import { assertUsableSessionId } from "./session-id.js";
+import { renderToolSelection } from "./tool-selection.js";
 import { renderTurnOptions } from "./turn-options.js";
 import { validateModel } from "./vocabulary.js";
 
@@ -50,6 +51,7 @@ export interface DiscoveryOptions {
 export interface TurnOptions {
   readonly prompt: string;
   readonly tools?: readonly string[];
+  readonly excludeTools?: readonly string[];
   readonly model?: string;
   readonly autonomy?: boolean;
   readonly effort?: string;
@@ -98,24 +100,12 @@ const turnTail = (h: HarnessDescriptor, opts: TurnOptions): string[] => {
     }
     tail.push(h.autonomy.flag);
   }
-  if (opts.tools !== undefined) {
-    if (h.launch.toolsFlag === null) {
-      throw new ArgvRefusalError({
-        issue: "unsupported-option",
-        harness: h.name,
-        supported: ["--allowedTools is claude-only"],
-        detail: "tools",
-      });
-    }
-    if (opts.tools.length === 0 || opts.tools.some((t) => t.trim() === "" || t.includes(","))) {
-      throw new ArgvRefusalError({
-        issue: "invalid-tool-grant",
-        harness: h.name,
-        supported: ["non-empty, comma-free tool names"],
-        detail: `tools=${JSON.stringify(opts.tools)}`,
-      });
-    }
-    tail.push(h.launch.toolsFlag, opts.tools.join(","));
+  if (opts.tools !== undefined || opts.excludeTools !== undefined) {
+    const rendered = renderToolSelection(h, {
+      include: opts.tools,
+      exclude: opts.excludeTools,
+    });
+    tail.push(...rendered.tokens);
   }
   return tail;
 };

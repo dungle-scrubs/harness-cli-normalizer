@@ -41,7 +41,7 @@ export interface FailureSummary {
   readonly authKind?: AuthFailureKind;
   readonly resetsAt?: number;
   readonly issue?: RefusalIssue;
-  readonly option?: TurnOptionKey;
+  readonly option?: import("../interpretation/refusal.js").RefusalOption;
   readonly facet?: DiscoveryFacet;
   readonly supported?: readonly string[];
 }
@@ -114,7 +114,7 @@ export const failureFromTransport = (detail?: string): FailureSummary => ({
 
 export const failureFromRejected = (opts: {
   issue: RefusalIssue;
-  option?: TurnOptionKey;
+  option?: import("../interpretation/refusal.js").RefusalOption;
   facet?: DiscoveryFacet;
   supported?: readonly string[];
   detail?: string;
