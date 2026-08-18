@@ -152,6 +152,8 @@ export async function* streamTurn(
         option: e.option,
         facet: e.facet,
         supported: e.supported,
+        supportedBy: e.supportedBy,
+        hint: e.hint,
         detail: e.message,
       });
       // No process spawned on a refusal - log rejected instead of spawn

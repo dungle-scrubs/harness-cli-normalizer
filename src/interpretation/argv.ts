@@ -5,8 +5,10 @@
  * no caller re-derives them.
  */
 import type { HarnessDescriptor, StreamingGranularity } from "../knowledge/descriptor.js";
+import { defaultDescriptors } from "../knowledge/overrides.js";
 import { ArgvRefusalError } from "./refusal.js";
 import { assertUsableSessionId } from "./session-id.js";
+import { supportedBy } from "./support.js";
 import { renderToolSelection } from "./tool-selection.js";
 import { renderTurnOptions } from "./turn-options.js";
 import { validateModel } from "./vocabulary.js";
@@ -92,10 +94,13 @@ const turnTail = (h: HarnessDescriptor, opts: TurnOptions): string[] => {
   }
   if (opts.autonomy === true) {
     if (h.autonomy === null) {
+      const by = supportedBy(defaultDescriptors(), "autonomy");
       throw new ArgvRefusalError({
         issue: "no-autonomy-mode",
         harness: h.name,
-        supported: ["claude --dangerously-skip-permissions", "codex --yolo", "muse --yolo"],
+        supported: by.map((e) => `${e.harness} ${e.spelling}`),
+        supportedBy: by,
+        hint: "pi has no unattended-run flag; approximate with a per-tool allowlist (--tools read,bash) if you need unattended behavior on pi",
       });
     }
     tail.push(h.autonomy.flag);

@@ -16,7 +16,9 @@
  *   provenance can surface them.
  */
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
+import { defaultDescriptors } from "../knowledge/overrides.js";
 import { ArgvRefusalError } from "./refusal.js";
+import { supportedBy } from "./support.js";
 
 export const TOOL_SELECTOR = /^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$/;
 
@@ -88,12 +90,18 @@ export const renderToolSelection = (
   if (!hasInclude && !hasExclude) return { tokens: [], unmapped: [] };
 
   if (h.tools.includeFlag === null || h.tools.excludeFlag === null) {
+    const option = hasInclude ? "tools" : "excludeTools";
+    const by = supportedBy(defaultDescriptors(), option);
     throw new ArgvRefusalError({
       issue: "unsupported-option",
       harness: h.name,
-      option: hasInclude ? "tools" : "tools",
+      option,
       supported: ["per-tool name lists"],
-      detail: hasInclude ? "tools" : "excludeTools",
+      supportedBy: by,
+      hint:
+        h.name === "codex"
+          ? "nearest control on codex: category switches via config keys (features.shell_tool, web_search) or sandbox modes - see `hcn inspect codex`"
+          : "nearest control on muse: category switches (--disable-write, --disable-shell, --disable-web-tools) gate tool execution per session",
     });
   }
 

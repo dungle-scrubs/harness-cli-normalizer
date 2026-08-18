@@ -26,10 +26,15 @@ export const REFUSAL_ISSUES = deepFreeze([
 export type RefusalIssue = (typeof REFUSAL_ISSUES)[number];
 
 /** The option a refusal names: turn-option spec keys (descriptor tables)
- * plus the tool-list dimensions, which render via the descriptor `tools`
- * field rather than a spec table. Kept closed so consumers can branch on
- * it without a default arm. */
-export type RefusalOption = TurnOptionKey | "tools" | "excludeTools";
+ * plus the tool-list dimensions and autonomy, which render via dedicated
+ * descriptor fields rather than a spec table. Kept closed so consumers can
+ * branch on it without a default arm. */
+export type RefusalOption =
+  | TurnOptionKey
+  | "tools"
+  | "excludeTools"
+  | "autonomy"
+  | `discovery.${string}`;
 
 /** One helper builds the message from the structured fields so message and
  * fields cannot drift. Every message names an alternative, not only a
@@ -98,12 +103,22 @@ export class ArgvRefusalError extends Error {
   readonly option?: RefusalOption;
   readonly facet?: DiscoveryFacet;
   readonly supported: readonly string[];
+  /** D7: which harnesses DO express the refused option, native spellings
+   * included. Derived by the raise site from descriptors - absent when the
+   * refusing layer has no descriptor set in scope. */
+  readonly supportedBy?: ReadonlyArray<{ harness: string; spelling: string }>;
+  /** D8: nearest-alternative suggestion for the CURRENT harness - keeps a
+   * scanning agent on its chosen harness instead of switching. Curatorial
+   * data set at the raise site; absent when no hint exists. */
+  readonly hint?: string;
   constructor(args: {
     readonly issue: RefusalIssue;
     readonly harness: HarnessName;
     readonly option?: RefusalOption;
     readonly facet?: DiscoveryFacet;
     readonly supported?: readonly string[];
+    readonly supportedBy?: ReadonlyArray<{ harness: string; spelling: string }>;
+    readonly hint?: string;
     readonly detail?: string;
     readonly message?: string;
   }) {
@@ -124,5 +139,7 @@ export class ArgvRefusalError extends Error {
     this.option = args.option;
     this.facet = args.facet;
     this.supported = args.supported ?? [];
+    this.supportedBy = args.supportedBy;
+    this.hint = args.hint;
   }
 }

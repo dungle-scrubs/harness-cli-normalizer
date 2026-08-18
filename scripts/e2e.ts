@@ -242,7 +242,61 @@ const mutualExclusionScenario: Scenario = {
   },
 };
 
-const SCENARIOS: Scenario[] = [baselineScenario, toolSelectionScenario, mutualExclusionScenario];
+/** Phase 3 refusal-diagnostics scenarios: every refusal class fires with
+ * the D7/D8 fields intact - hint present, supportedBy derived, native
+ * spellings redirected. Cheap (refusals never spawn). */
+const refusalDiagnosticsScenario: Scenario = {
+  name: "refusal-diagnostics",
+  phases: ["all"],
+  run: async (harness) => {
+    const failures: string[] = [];
+    const t0 = Date.now();
+    let exitCode: number | null = null;
+
+    if (harness === "codex" || harness === "muse") {
+      // unsupported tool lists: hint + derived support list on stderr
+      const r = await runCli([harness, "--tools", "Read", "--prompt", "hi"]);
+      exitCode = r.exitCode;
+      if (r.exitCode !== 2) failures.push(`expected 2, got ${r.exitCode}`);
+      if (!/^hint: /m.test(r.stderr)) failures.push("no hint line");
+      if (!/supported on: claude \(--allowedTools\), pi \(--tools\)/.test(r.stderr)) {
+        failures.push(`no derived support list: ${r.stderr.slice(0, 200)}`);
+      }
+    } else if (harness === "pi") {
+      // autonomy: derived list, hardcoded array gone, stay-on-harness hint
+      const r = await runCli([harness, "--autonomy", "--prompt", "hi"]);
+      exitCode = r.exitCode;
+      if (r.exitCode !== 2) failures.push(`expected 2, got ${r.exitCode}`);
+      if (!/hint: pi has no unattended-run flag/.test(r.stderr))
+        failures.push("no pi autonomy hint");
+      if (
+        !/supported on: claude \(--dangerously-skip-permissions\), codex \(--yolo\), muse \(--yolo\)/.test(
+          r.stderr,
+        )
+      ) {
+        failures.push(`autonomy support list wrong: ${r.stderr.slice(0, 200)}`);
+      }
+    } else {
+      // claude: native-spelling recognition path. Use a spelling ONLY pi
+      // has (its -nt tools-off switch) so it stays unknown to hcn's flag
+      // table and exercises the recognition path, not flag parsing.
+      const r = await runCli(["claude", "-nt", "--prompt", "hi"]);
+      exitCode = r.exitCode;
+      if (r.exitCode !== 2) failures.push(`expected 2, got ${r.exitCode}`);
+      if (!/is a native spelling \(used by pi\)/.test(r.stderr)) {
+        failures.push(`no native redirect: ${r.stderr.slice(0, 200)}`);
+      }
+    }
+    return { durationMs: Date.now() - t0, exitCode, eventCounts: {}, failures };
+  },
+};
+
+const SCENARIOS: Scenario[] = [
+  baselineScenario,
+  toolSelectionScenario,
+  mutualExclusionScenario,
+  refusalDiagnosticsScenario,
+];
 
 // ---- CLI arg parsing ----
 const argv = process.argv.slice(2);

@@ -44,6 +44,10 @@ export interface FailureSummary {
   readonly option?: import("../interpretation/refusal.js").RefusalOption;
   readonly facet?: DiscoveryFacet;
   readonly supported?: readonly string[];
+  /** D7: cross-harness support entries derived from descriptors. */
+  readonly supportedBy?: ReadonlyArray<{ harness: string; spelling: string }>;
+  /** D8: nearest-alternative hint for the current harness. */
+  readonly hint?: string;
 }
 
 export const retryableOf = (cls: FailureClass): boolean =>
@@ -117,15 +121,22 @@ export const failureFromRejected = (opts: {
   option?: import("../interpretation/refusal.js").RefusalOption;
   facet?: DiscoveryFacet;
   supported?: readonly string[];
+  supportedBy?: ReadonlyArray<{ harness: string; spelling: string }>;
+  hint?: string;
   detail?: string;
 }): FailureSummary => ({
   class: "rejected",
   retryable: false,
+  // D8: hint first, support list second - prose order matches the
+  // structured fields so an agent scanning the message hits the
+  // stay-on-harness suggestion before the switch temptation.
   message: messageFor("rejected", opts.detail ?? opts.issue),
   issue: opts.issue,
   option: opts.option,
   facet: opts.facet,
   supported: opts.supported,
+  supportedBy: opts.supportedBy,
+  hint: opts.hint,
 });
 
 /** Precedence for reduction: lower number = higher priority (wins). */

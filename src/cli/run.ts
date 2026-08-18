@@ -3,6 +3,8 @@ import { nodeRunnerDeps } from "../execution/node-deps.js";
 import { KILL_GRACE_MS, redactArgv, streamTurn } from "../execution/stream-turn.js";
 import { buildLaunchArgv, buildResumeArgv } from "../interpretation/argv.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
+import { recognizeNativeSpelling, supportedBy } from "../interpretation/support.js";
+import { defaultDescriptors } from "../knowledge/overrides.js";
 import { parseRunExtra, parseTurnOptions, resolvePromptAsync } from "./args.js";
 import { createRenderState, renderEvent, writeEventNdjson } from "./render.js";
 import { resolveHarness } from "./resolve-harness.js";
@@ -35,7 +37,52 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     parsed = parseCommonFlags(rawArgs);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    process.stderr.write(`unknown flag: ${message}\n`);
+    // D7 part B: a native spelling passed before the separator gets
+    // recognized and redirected to the normalized flag instead of a
+    // generic unknown-flag error.
+    // parseArgs reports unknown long flags as "Unknown option '--x'" but
+    // splits bundled short flags ("-nt" -> "Unknown option 'n'"). Match the
+    // reported token back against the ORIGINAL argv: a short-flag bundle
+    // that some descriptor spells exactly (pi's -nt) is recognizable; a
+    // lone unknown token keeps the plain error.
+    const flagMatch = message.match(/Unknown option '([A-Za-z0-9_-]+)'/);
+    let rawFlag: string | undefined;
+    if (flagMatch?.[1] !== undefined) {
+      const reported = flagMatch[1].startsWith("-") ? flagMatch[1] : `-${flagMatch[1]}`;
+      // Exact long flag: use it. Reported short flag (e.g. -n): the caller
+      // may have typed a BUNDLE (-nt) that parseArgs split - find the argv
+      // token that starts with the reported short and is longer; recognition
+      // then decides whether the whole bundle is a descriptor spelling.
+      const fromArgv =
+        rawArgs.find((a) => a === reported) ??
+        (reported.length === 2
+          ? rawArgs.find((a) => a.length > 2 && a.startsWith(reported))
+          : undefined);
+      rawFlag = fromArgv ?? reported;
+    }
+    const native =
+      rawFlag !== undefined ? recognizeNativeSpelling(defaultDescriptors(), rawFlag) : null;
+    if (native !== null) {
+      const by = native.option.startsWith("discovery.")
+        ? native.entries
+        : supportedBy(defaultDescriptors(), native.option);
+      const normalizedSpelling =
+        native.option === "excludeTools"
+          ? "--exclude-tools"
+          : native.option.startsWith("discovery.")
+            ? `--no-${native.option.split(".")[1] === "instructionFiles" ? "instruction-files" : native.option.split(".")[1]}`
+            : `--${native.option}`;
+      process.stderr.write(
+        `unknown flag: ${rawFlag} is a native spelling (used by ${native.entries.map((e) => e.harness).join(", ")}) - use the normalized ${normalizedSpelling} flag instead\n`,
+      );
+      if (by.length > 0) {
+        process.stderr.write(
+          `supported on: ${by.map((e) => `${e.harness} (${e.spelling})`).join(", ")}\n`,
+        );
+      }
+    } else {
+      process.stderr.write(`unknown flag: ${message}\n`);
+    }
     process.stderr.write(`Run 'hcn run --help' for usage.\n`);
     process.exitCode = 2;
     return;
@@ -67,6 +114,12 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   } catch (err) {
     if (err instanceof ArgvRefusalError) {
       process.stderr.write(`${err.message}\n`);
+      if (err.hint) process.stderr.write(`hint: ${err.hint}\n`);
+      if (err.supportedBy?.length) {
+        process.stderr.write(
+          `supported on: ${err.supportedBy.map((e) => `${e.harness} (${e.spelling})`).join(", ")}\n`,
+        );
+      }
       if (err.supported.length) process.stderr.write(`supported: ${err.supported.join(", ")}\n`);
       process.exitCode = 2;
       return;
@@ -86,6 +139,12 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   } catch (err) {
     if (err instanceof ArgvRefusalError) {
       process.stderr.write(`${err.message}\n`);
+      if (err.hint) process.stderr.write(`hint: ${err.hint}\n`);
+      if (err.supportedBy?.length) {
+        process.stderr.write(
+          `supported on: ${err.supportedBy.map((e) => `${e.harness} (${e.spelling})`).join(", ")}\n`,
+        );
+      }
       if (err.supported.length) process.stderr.write(`supported: ${err.supported.join(", ")}\n`);
       process.exitCode = 2;
       return;
@@ -99,6 +158,12 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   } catch (err) {
     if (err instanceof ArgvRefusalError) {
       process.stderr.write(`${err.message}\n`);
+      if (err.hint) process.stderr.write(`hint: ${err.hint}\n`);
+      if (err.supportedBy?.length) {
+        process.stderr.write(
+          `supported on: ${err.supportedBy.map((e) => `${e.harness} (${e.spelling})`).join(", ")}\n`,
+        );
+      }
       if (err.supported.length) process.stderr.write(`supported: ${err.supported.join(", ")}\n`);
       process.exitCode = 2;
       return;
@@ -138,6 +203,12 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   } catch (err) {
     if (err instanceof ArgvRefusalError) {
       process.stderr.write(`${err.message}\n`);
+      if (err.hint) process.stderr.write(`hint: ${err.hint}\n`);
+      if (err.supportedBy?.length) {
+        process.stderr.write(
+          `supported on: ${err.supportedBy.map((e) => `${e.harness} (${e.spelling})`).join(", ")}\n`,
+        );
+      }
       if (err.supported.length) process.stderr.write(`supported: ${err.supported.join(", ")}\n`);
       process.exitCode = 2;
       return;
@@ -234,6 +305,12 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   } catch (err) {
     if (err instanceof ArgvRefusalError) {
       process.stderr.write(`${err.message}\n`);
+      if (err.hint) process.stderr.write(`hint: ${err.hint}\n`);
+      if (err.supportedBy?.length) {
+        process.stderr.write(
+          `supported on: ${err.supportedBy.map((e) => `${e.harness} (${e.spelling})`).join(", ")}\n`,
+        );
+      }
       if (err.supported.length) process.stderr.write(`supported: ${err.supported.join(", ")}\n`);
       process.exitCode = 2;
       process.off("SIGINT", onSig);
