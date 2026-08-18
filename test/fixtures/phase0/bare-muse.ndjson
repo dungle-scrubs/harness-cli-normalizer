@@ -1,0 +1,4 @@
+{"kind":"identity","sessionId":"b39e1e88-71a1-41e6-9e9c-721c48a4d224","authority":"caller-assigned","capabilities":{"vision":false,"images":false,"streaming":"none","session":false,"source":"unknown","confidence":"none"}}
+{"kind":"token","text":"OK"}
+{"kind":"message","role":"assistant","text":"OK"}
+{"kind":"done","exitCode":0,"cause":"clean"}

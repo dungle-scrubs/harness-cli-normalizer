@@ -12,3 +12,8 @@ coverage/
 # .local.md siblings are local-only and must stay untracked at every scope.
 AGENTS.local.md
 CLAUDE.local.md
+
+# lucid review records: artifacts are committed deliberately; run/ is machine-local
+.lucid/**/run/
+# e2e run output (evidence rerun, not kept)
+.e2e/
