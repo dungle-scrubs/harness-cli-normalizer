@@ -340,4 +340,36 @@ export interface HarnessDescriptor {
    * harness; a call passing them must refuse. Discovery is a table of
    * per-facet specs rather than a single flag. */
   readonly turnOptions: Readonly<Partial<Record<TurnOptionKey, TurnOptionSpec>>>;
+  /** Tool-selection surface, grounded in test/fixtures/phase0/ evidence.
+   * `includeFlag`/`excludeFlag` are the per-tool NAME-LIST flags (null when
+   * the harness has none - codex/muse). `includeIsStrictAllowlist` records
+   * the claude asymmetry: claude's include flag pre-approves without
+   * restricting the visible set, so an exact allowlist must render as a
+   * disallow-complement there; pi's include IS strict (over built-ins).
+   * `composable`: both flags legal at once (pi: exclude subtracts from
+   * include). `builtins`: curated names + default-enabled state - grep/find/
+   * ls ship off on pi, everything ships on elsewhere. `categories`:
+   * non-list switches (muse disable flags, codex config booleans).
+   * `denySemantics`: whether a deny removes the tool from the model-visible
+   * set (claude/pi), policy-gates execution while the tool stays listed
+   * (muse), or there are no lists to deny with (codex). Extension and MCP
+   * tools register at runtime and are NEVER enumerated here - name
+   * validation is a default, not a refusal authority (same stance as the
+   * pi model registry, D-008). */
+  readonly tools: {
+    readonly includeFlag: string | null;
+    readonly excludeFlag: string | null;
+    readonly includeIsStrictAllowlist: boolean;
+    readonly composable: boolean;
+    readonly builtins: ReadonlyArray<{
+      readonly name: string;
+      readonly defaultEnabled: boolean;
+    }>;
+    readonly categories: ReadonlyArray<{
+      readonly key: "shell" | "write" | "web" | "exec" | "view-image";
+      readonly disableFlag: string | null;
+      readonly configKey: string | null;
+    }>;
+    readonly denySemantics: "remove-from-set" | "policy-gate" | "no-lists";
+  };
 }

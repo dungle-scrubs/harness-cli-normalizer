@@ -20,6 +20,21 @@ from the model's visible set (probe 3), --disallowedTools removes matching
 tools; other routes (Monitor in headless) can still execute commands. Tool
 denial is prompt-level surface control, not a security boundary.
 
+## Probe 2b: include-only is a grant, not a visibility filter
+
+`--allowedTools "Read"` ALONE: model still lists 34 tools including Bash
+and Edit. So claude's include flag pre-approves named tools (skips
+permission prompts) but does NOT restrict the visible tool set. Only the
+disallow flag reshapes the set.
+
+**Rendering consequence for hcn:** an exact normalized allowlist on claude
+must be rendered as `--disallowedTools <all known minus included>` (D2's
+complement math inverted), with `--allowedTools <names>` optionally added
+so the granted set also skips approval. pi's `--tools` IS a strict
+built-in allowlist, so pi renders includes directly. The two harnesses'
+include flags are NOT semantically equivalent - the descriptor records
+this asymmetry and Phase 2 renders per-harness accordingly.
+
 ## Probe 3: deny removes from effective set
 
 `--disallowedTools "Bash,Monitor,Read"` -> model reports 33 tools, none of
