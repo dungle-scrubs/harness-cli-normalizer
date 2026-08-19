@@ -161,6 +161,7 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
   // compose, deny winning on overlap. Patterns (Bash(git *)) valid in both
   // lists; unknown PATTERN spellings warn on stderr, unknown exact names
   // are the silent-acceptance hazard the curated vocabulary guards.
+  skills: { loadFlag: null, overridesVia: "settings-skilloverrides" },
   tools: {
     includeFlag: "--allowedTools",
     excludeFlag: "--disallowedTools",

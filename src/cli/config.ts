@@ -65,6 +65,7 @@ const KNOWN_KEYS = new Set([
   "shell",
   "maxSteps",
   "toolsets",
+  "timeout",
 ]);
 
 const LIST_KEYS = new Set(["tools", "excludeTools"]);
@@ -110,6 +111,15 @@ export const parseUserConfig = (text: string): Partial<TurnOptions> => {
       ) {
         throw new ConfigError(
           'config key "toolsets" must be an object of name -> non-empty string array',
+        );
+      }
+      (out as Record<string, unknown>)[key] = value;
+      continue;
+    }
+    if (key === "timeout") {
+      if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
+        throw new ConfigError(
+          'config key "timeout" must be a whole number of seconds, >= 0 (0 disables)',
         );
       }
       (out as Record<string, unknown>)[key] = value;

@@ -54,6 +54,9 @@ const EXPRESSIBLE: Readonly<Record<ProfileKey, (h: HarnessDescriptor) => boolean
   sandbox: (h) => h.turnOptions.sandbox !== undefined,
   discovery: () => true,
   autonomy: () => true,
+  write: () => true,
+  shell: () => true,
+  tools: (h) => h.tools.includeFlag !== null || h.tools.excludeFlag !== null,
 };
 
 export interface ConfigTiers {
@@ -155,12 +158,33 @@ export const resolveEffectiveOptions = (
       provenance.push({ key, value, tier: "harness" });
       continue;
     }
+    // D13: the tools marker expands per descriptor. On a harness whose
+    // default is already everything (claude), expansion emits nothing -
+    // the emit-nothing rule, recorded in provenance. On a harness with
+    // dormant built-ins (pi), it becomes the enabling include list.
+    if (key === "tools" && value === "all-known") {
+      const enabled = h.tools.builtins.filter((t) => t.defaultEnabled).length;
+      const all = h.tools.builtins.length;
+      if (enabled === all) {
+        provenance.push({ key, value: "all known (already default)", tier: "profile" });
+        continue;
+      }
+      const expanded = h.tools.builtins.map((t) => t.name);
+      resolved[key] = expanded;
+      provenance.push({ key, value: expanded, tier: "profile" });
+      continue;
+    }
     // Dimensions whose value reduces to "emit nothing" (autonomy false,
-    // discovery all-on) stay ABSENT from the resolved options - the
-    // harness's default already satisfies the profile, and emitting
-    // explicit on-flags would change resume grammar and add breakage
-    // surface for no semantic gain. Provenance still records the tier.
-    if ((key === "autonomy" && value === false) || (key === "discovery" && emitsNothing(value))) {
+    // discovery all-on, write/shell true) stay ABSENT from the resolved
+    // options - the harness's default already satisfies the profile, and
+    // emitting explicit on-flags would change resume grammar and add
+    // breakage surface for no semantic gain. Provenance still records
+    // the tier.
+    if (
+      (key === "autonomy" && value === false) ||
+      (key === "discovery" && emitsNothing(value)) ||
+      ((key === "write" || key === "shell") && value === true)
+    ) {
       provenance.push({ key, value, tier: "profile" });
       continue;
     }

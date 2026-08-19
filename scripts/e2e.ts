@@ -599,6 +599,158 @@ const resumeBypassScenario: Scenario = {
   },
 };
 
+/** D11 timeout: opt-in wall-clock budget. A 3s budget kills a slow
+ * prompt with the timeout failure class and done cause "killed"; hcn
+ * exit 1; 0 disables (a quick prompt completes clean). Live spawns. */
+const timeoutScenario: Scenario = {
+  name: "timeout",
+  phases: ["all"],
+  run: async (harness) => {
+    const failures: string[] = [];
+    const t0 = Date.now();
+    const tSlow0 = Date.now();
+    const slow = await runCli([
+      harness,
+      "--json",
+      "--timeout",
+      "3",
+      "--prompt",
+      "Count slowly from 1 to 100, one number per line, pausing between each.",
+    ]);
+    const slowMs = Date.now() - tSlow0;
+    const fail = slow.events.find(
+      (e): e is Extract<HarnessEvent, { kind: "failure" }> => e.kind === "failure",
+    );
+    if (!fail) failures.push("no failure event on timeout kill");
+    else if (fail.class !== "timeout")
+      failures.push(`failure class ${fail.class}, expected timeout`);
+    const done = slow.events.find(
+      (e): e is Extract<HarnessEvent, { kind: "done" }> => e.kind === "done",
+    );
+    if (done && done.cause !== "killed") failures.push(`done cause ${done.cause}, expected killed`);
+    if (slow.exitCode !== 1) failures.push(`hcn exit ${slow.exitCode}, expected 1`);
+    if (slowMs > 15000) failures.push(`kill took ${slowMs}ms - grace ladder too slow`);
+    // timeout 0 = disable: quick prompt completes clean
+    const off = await runCli([
+      harness,
+      "--json",
+      "--timeout",
+      "0",
+      "--prompt",
+      "Reply with the single word OK and nothing else.",
+    ]);
+    const doneOff = off.events.find(
+      (e): e is Extract<HarnessEvent, { kind: "done" }> => e.kind === "done",
+    );
+    if (!doneOff || doneOff.cause !== "clean")
+      failures.push(`--timeout 0 run not clean: ${doneOff?.cause}`);
+    return { durationMs: Date.now() - t0, exitCode: slow.exitCode, eventCounts: {}, failures };
+  },
+};
+
+/** D13: equivalence by default. A BARE pi run (no --tools) must have grep
+ * working - the dormant trio enabled by the profile marker - and the
+ * provenance must show the tools entry at profile tier. */
+const toolsEquivalenceScenario: Scenario = {
+  name: "tools-equivalence",
+  phases: ["all"],
+  run: async (harness) => {
+    const failures: string[] = [];
+    const t0 = Date.now();
+    if (harness === "pi") {
+      const r = await runCli([
+        harness,
+        "--json",
+        "--prompt",
+        "Use your grep tool to search this directory for the literal string 'createRenderState'. Report the count of matching lines only. If you have no grep tool, say NOGREP.",
+      ]);
+      const done = r.events.find(
+        (e): e is Extract<HarnessEvent, { kind: "done" }> => e.kind === "done",
+      );
+      if (!done || done.cause !== "clean") failures.push(`pi bare run not clean: ${done?.cause}`);
+      const text = r.events
+        .filter((e): e is Extract<HarnessEvent, { kind: "message" }> => e.kind === "message")
+        .map((e) => e.text)
+        .join("");
+      if (/NOGREP/i.test(text)) failures.push("pi bare run lacks grep - marker not applied");
+      if (!/\d/.test(text)) failures.push(`no count reported: ${text.slice(0, 150)}`);
+      if (
+        !/tools = \["read","bash","edit","write","grep","find","ls"\] \(profile\)/.test(r.stderr)
+      ) {
+        failures.push(`tools provenance missing: ${r.stderr.slice(0, 250)}`);
+      }
+    } else if (harness === "claude") {
+      const r = await runCli([harness, "--json", "--prompt", "Reply OK only."]);
+      if (!/tools = "all known \(already default\)" \(profile\)/.test(r.stderr)) {
+        failures.push(`claude emit-nothing provenance missing: ${r.stderr.slice(0, 250)}`);
+      }
+    } else {
+      // codex/muse: divergence line on tools
+      const r = await runCli([harness, "--json", "--prompt", "Reply OK only."]);
+      if (!/divergence: profile "tools" not expressible/.test(r.stderr)) {
+        failures.push(`tools divergence missing: ${r.stderr.slice(0, 250)}`);
+      }
+    }
+    return { durationMs: Date.now() - t0, exitCode: 0, eventCounts: {}, failures };
+  },
+};
+
+/** issue #38 skills allowlist: pi loads ONLY the picked skill (live check
+ * of the listed set); claude complement narrows the personal registry;
+ * codex/muse refuse with hints; unknown names refuse listing the
+ * registry. */
+const skillsAllowlistScenario: Scenario = {
+  name: "skills-allowlist",
+  phases: ["all"],
+  run: async (harness) => {
+    const failures: string[] = [];
+    const t0 = Date.now();
+    if (harness === "pi") {
+      const r = await runCli([
+        harness,
+        "--json",
+        "--skills",
+        "hcn",
+        "--prompt",
+        "Which skills are listed as available to you? Names only, one line, comma separated. If none, say NONE.",
+      ]);
+      const done = r.events.find(
+        (e): e is Extract<HarnessEvent, { kind: "done" }> => e.kind === "done",
+      );
+      if (!done || done.cause !== "clean") failures.push(`pi skills run not clean: ${done?.cause}`);
+      const text = r.events
+        .filter((e): e is Extract<HarnessEvent, { kind: "message" }> => e.kind === "message")
+        .map((e) => e.text)
+        .join("");
+      if (!/^\s*hcn\s*$/m.test(text) && !text.trim().endsWith("hcn")) {
+        failures.push(`pi allowlist not exact (expected only hcn): ${text.slice(0, 150)}`);
+      }
+      const bad = await runCli([
+        harness,
+        "--json",
+        "--skills",
+        "definitely-not-a-skill",
+        "--prompt",
+        "hi",
+      ]);
+      if (bad.exitCode !== 2) failures.push(`unknown skill exit ${bad.exitCode}, expected 2`);
+      if (!/unknown skill name/.test(bad.stderr)) failures.push("unknown-skill refusal missing");
+    } else if (harness === "claude") {
+      const r = await runCli([harness, "--json", "--skills", "hcn", "--prompt", "Reply OK only."]);
+      if (!/--settings \{"skillOverrides"/.test(r.stderr)) {
+        failures.push(`claude complement missing: ${r.stderr.slice(0, 200)}`);
+      }
+    } else {
+      const r = await runCli([harness, "--json", "--skills", "hcn", "--prompt", "hi"]);
+      if (r.exitCode !== 2) failures.push(`${harness} skills exit ${r.exitCode}, expected 2`);
+      if (!/hint: .*no (call-time|per-skill) surface/.test(r.stderr)) {
+        failures.push(`refusal hint missing: ${r.stderr.slice(0, 200)}`);
+      }
+    }
+    return { durationMs: Date.now() - t0, exitCode: 0, eventCounts: {}, failures };
+  },
+};
+
 const SCENARIOS: Scenario[] = [
   baselineScenario,
   toolSelectionScenario,
@@ -610,6 +762,9 @@ const SCENARIOS: Scenario[] = [
   tableHintsScenario,
   effortEffectScenario,
   resumeBypassScenario,
+  timeoutScenario,
+  toolsEquivalenceScenario,
+  skillsAllowlistScenario,
 ];
 
 // ---- CLI arg parsing ----

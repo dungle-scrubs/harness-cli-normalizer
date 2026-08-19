@@ -16,6 +16,7 @@ const DIMENSION_TO_KEY = {
   model: "vocabulary",
   autonomy: "autonomy",
   tools: "tools",
+  skillsAllowlist: "skills",
   output: "output",
   sessionMode: "sessionMode",
   storePath: "store",

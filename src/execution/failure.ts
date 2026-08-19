@@ -31,6 +31,7 @@ export const FAILURE_CLASSES = Object.freeze([
   "transport",
   "rejected",
   "native",
+  "timeout",
 ] as const);
 export type FailureClass = (typeof FAILURE_CLASSES)[number];
 
@@ -56,7 +57,7 @@ export interface FailureSummary {
 }
 
 export const retryableOf = (cls: FailureClass): boolean =>
-  cls !== "task" && cls !== "budget" && cls !== "rejected" && cls !== "native";
+  cls !== "task" && cls !== "budget" && cls !== "rejected" && cls !== "native" && cls !== "timeout";
 
 const messageFor = (cls: FailureClass, detail?: string): string => {
   switch (cls) {
@@ -76,6 +77,11 @@ const messageFor = (cls: FailureClass, detail?: string): string => {
       return `Transport failure${detail ? ` (${detail})` : ""} - retry or route to another provider`;
     case "rejected":
       return `Request rejected${detail ? ` (${detail})` : ""} - change options or harness`;
+    case "timeout":
+      // D11: hcn's wall-clock budget expired and the run was killed. The
+      // caller chose this number (arg or config); retrying unchanged will
+      // hit the same wall - retry only with a raised budget.
+      return `Timeout: run exceeded its wall-clock budget and was killed (SIGTERM, then SIGKILL after grace) - raise --timeout for this workload or split the task`;
     case "native":
       // D6: labeled NATIVE so it can never be confused with an hcn error.
       // The harness's own message follows verbatim; the process exit code
@@ -86,7 +92,14 @@ const messageFor = (cls: FailureClass, detail?: string): string => {
     default:
       return `Failure${detail ? ` (${detail})` : ""}`;
   }
-}; /** D6: a failure that belongs to the harness, not hcn. Carries the
+}; /** D11: the run outlived its caller-set wall-clock budget. */
+export const failureFromTimeout = (): FailureSummary => ({
+  class: "timeout",
+  retryable: false,
+  message: messageFor("timeout"),
+});
+
+/** D6: a failure that belongs to the harness, not hcn. Carries the
  * native stderr verbatim and the native exit code as data. */
 export const failureFromNative = (
   nativeExitCode: number | null,
@@ -173,6 +186,7 @@ const PRECEDENCE: Record<FailureClass, number> = {
   budget: 3,
   task: 3,
   transport: 4,
+  timeout: 3,
   // rejected stands alone (checked before precedence applies); native is
   // terminal-by-classification, never reduced into anything else.
   rejected: 0,

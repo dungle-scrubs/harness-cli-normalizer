@@ -8,6 +8,7 @@ import type { HarnessDescriptor, StreamingGranularity } from "../knowledge/descr
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { ArgvRefusalError } from "./refusal.js";
 import { assertUsableSessionId } from "./session-id.js";
+import { renderSkillsSelection } from "./skills-selection.js";
 import { supportedBy } from "./support.js";
 import { renderToolSelection } from "./tool-selection.js";
 import { renderTurnOptions } from "./turn-options.js";
@@ -54,6 +55,11 @@ export interface TurnOptions {
   readonly prompt: string;
   readonly tools?: readonly string[];
   readonly excludeTools?: readonly string[];
+  /** Caller-directed skills allowlist: resolved absolute paths, one per
+   * skill. Rendering: pi loads each via --skill with discovery off;
+   * claude turns off the complement via skillOverrides settings; codex
+   * and muse refuse (structural - no per-skill surface). */
+  readonly skills?: readonly string[];
   readonly model?: string;
   readonly autonomy?: boolean;
   readonly effort?: string;
@@ -111,6 +117,9 @@ const turnTail = (h: HarnessDescriptor, opts: TurnOptions): string[] => {
       exclude: opts.excludeTools,
     });
     tail.push(...rendered.tokens);
+  }
+  if (opts.skills !== undefined && opts.skills.length > 0) {
+    tail.push(...renderSkillsSelection(h, opts.skills));
   }
   return tail;
 };

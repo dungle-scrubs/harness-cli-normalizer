@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Next five defaults - ratification review</title>
+<style>
+  :root {
+    --paper:     #faf6ec;
+    --ink:       #211d15;
+    --ink-muted: #5e6773;
+    --rule:      rgba(33, 29, 21, 0.12);
+    --accent:    #7b6228;
+    --accent-wash: rgba(203, 168, 90, 0.16);
+    --wash-muted: rgba(94, 103, 115, 0.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:     #211d15;
+      --ink:       #ece3cf;
+      --ink-muted: #a89d84;
+      --rule:      rgba(236, 227, 207, 0.14);
+      --accent:    #d9bd7a;
+      --accent-wash: rgba(203, 168, 90, 0.18);
+      --wash-muted: rgba(168, 157, 132, 0.10);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+    font-size: 16px; line-height: 1.55;
+  }
+  .page { max-width: 1040px; margin: 0 auto; padding: 48px 28px 80px; }
+  h1 { font-size: 28px; line-height: 1.2; margin: 0 0 6px; font-weight: 600; }
+  .lede { color: var(--ink-muted); max-width: 66ch; margin: 0 0 8px; }
+  .meta {
+    font-family: ui-sans-serif, -apple-system, sans-serif;
+    font-size: 12.5px; color: var(--ink-muted); margin: 12px 0 0;
+  }
+  section { padding: 22px 0 26px; border-top: 1px solid var(--rule); margin-top: 26px; }
+  h2 { font-size: 19px; margin: 0 0 4px; font-weight: 600; }
+  .eyebrow {
+    font-family: ui-sans-serif, -apple-system, sans-serif;
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent); margin: 0 0 6px; font-weight: 600;
+  }
+  .section-note { color: var(--ink-muted); margin: 0 0 14px; max-width: 74ch; }
+  code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 0.88em; }
+  .facts {
+    margin: 0 0 14px; padding: 4px 0;
+  }
+  .facts li { margin: 4px 0; font-size: 14px; }
+  .proposal {
+    margin: 0 0 12px; padding: 14px 18px;
+    border: 1px solid var(--accent); border-radius: 6px;
+    background: var(--accent-wash);
+    font-size: 15px;
+  }
+  .proposal .plabel {
+    font-family: ui-sans-serif, -apple-system, sans-serif;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 4px;
+  }
+  .decision-block {
+    margin: 16px 0 0; padding: 14px 18px;
+    border: 1px dashed var(--rule); border-radius: 6px;
+    background: var(--wash-muted);
+  }
+  .decision-block .q {
+    font-family: ui-sans-serif, -apple-system, sans-serif;
+    font-weight: 700; font-size: 13.5px; margin: 0 0 6px;
+  }
+  .decision-block p { margin: 0; font-size: 14px; }
+  .cost { font-size: 13.5px; color: var(--ink-muted); margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <p class="eyebrow">hcn defaults roadmap</p>
+  <h1>Next five dimensions, one decision each</h1>
+  <p class="lede">
+    Five ratification proposals in the order they should land. Each card: the
+    facts, the proposal, and the decision you owe. D-numbers continue from
+    the tool-enablement review (D1-D8 closed).
+  </p>
+  <p class="meta">
+    Ordered by cost/benefit: two free ratifications, one new dimension, one
+    behavior change, one design sitting. Model abstention recorded at the end.
+  </p>
+
+  <section data-lucid-id="sec-d9">
+    <h2>D9 - write: true</h2>
+    <p class="section-note">Muse-only toggle. True emits nothing on claude/codex/pi and omits <code>--disable-write</code> on muse - the emit-nothing rule from the autonomy ratification applies directly.</p>
+    <div class="proposal">
+      <span class="plabel">Proposal</span>
+      <code>write: true</code> in the profile. Provenance answers "can a bare run modify files?" - <code>write = true (profile)</code> - and muse's bare runs stay exactly as they are today.
+    </div>
+    <div class="decision-block" data-lucid-id="d9-decision" data-lucid-decision>
+      <p class="q">D9: ratify write = true?</p>
+      <p>Zero behavior change on any harness. One card with D10 - same shape, same PR.</p>
+    </div>
+  </section>
+
+  <section data-lucid-id="sec-d10">
+    <h2>D10 - shell: true</h2>
+    <p class="section-note">Identical shape: muse-only, true emits nothing elsewhere. Completes the "what can this run do to my machine" row of provenance.</p>
+    <div class="proposal">
+      <span class="plabel">Proposal</span>
+      <code>shell: true</code> alongside D9. Together: provenance shows <code>write = true</code>, <code>shell = true</code> on every bare run, every harness.
+    </div>
+    <div class="decision-block" data-lucid-id="d10-decision" data-lucid-decision>
+      <p class="q">D10: ratify shell = true?</p>
+      <p>Same zero-cost shape as D9. The honest question is whether you want the DEFAULT to be permissive - but that is already today's behavior on all four; this only names it.</p>
+    </div>
+  </section>
+
+  <section data-lucid-id="sec-d11">
+    <h2>D11 - timeout: a new dimension hcn owns</h2>
+    <p class="section-note">Not a harness flag. hcn owns the process and already has the machinery: the injected <code>{ spawn, clock, signal }</code> adapter, the stall watchdog, and the kill-grace ladder in streamTurn.</p>
+    <ul class="facts">
+      <li>Identical semantics on all four harnesses - no descriptor data, no divergence column, the only fully-uniform dimension possible</li>
+      <li>Max-steps and sandbox hints already tell callers to "impose a wall-clock timeout at the caller" - this makes hcn that caller</li>
+      <li>Mechanics: deadline via <code>clock</code>, SIGTERM then SIGKILL after grace, <code>done cause: "killed"</code> with a <code>timeout</code> failure class (or reuse "budget")</li>
+      <li><code>--timeout &lt;seconds&gt;</code> arg; config tier key <code>"timeout"</code>; profile default needs your number</li>
+    </ul>
+    <div class="proposal">
+      <span class="plabel">Proposal</span>
+      New dimension, implemented in the execution layer. Profile default <strong>600s</strong>: long enough that no legitimate turn trips it, short enough that a runaway loop dies in 10 minutes instead of overnight. Your number overrides.
+    </div>
+    <div class="decision-block" data-lucid-id="d11-decision" data-lucid-decision>
+      <p class="q">D11: add the timeout dimension, default 600s?</p>
+      <p>Also decide: unlimited opt-out (<code>--timeout 0</code> or <code>--no-timeout</code>) - recommend explicit <code>--timeout 0</code>, zero being "disable" follows the config tier's delete semantics.</p>
+      <p class="cost">Cost: execution-layer change, e2e scenario with a deliberately-hanging prompt, ~one sitting including tests.</p>
+    </div>
+  </section>
+
+  <section data-lucid-id="sec-d12">
+    <h2>D12 - maxSteps: the first deliberate behavior change</h2>
+    <p class="section-note">Muse-only (<code>--max-model-steps</code>, 1-10000, currently unbounded on bare runs). The other three report divergence - correct, visible, and the hints already route callers to prompt-bounds or timeouts.</p>
+    <ul class="facts">
+      <li>Muse exits 1 on step exhaustion with a distinct budget-vs-task split (descriptor's A-003 note)</li>
+      <li>A default turns muse's infinite loop into a bounded, classified failure</li>
+      <li>On claude/codex/pi: divergence lines name the dimension; timeout (D11) becomes the real backstop there</li>
+    </ul>
+    <div class="proposal">
+      <span class="plabel">Proposal</span>
+      Profile default <strong>200</strong> steps for muse. High enough that normal tasks never see it (a step is a model call with tools, not a token), low enough that a stuck agent dies in minutes. Needs one live probe of muse's exhaustion behavior before shipping to pin the event mapping.
+    </div>
+    <div class="decision-block" data-lucid-id="d12-decision" data-lucid-decision>
+      <p class="q">D12: ratify maxSteps = 200 (muse-only)?</p>
+      <p>Your number. 500 and 1000 are defensible; 200 is my recommendation because the failure mode it guards (silent runaway) costs more than a spurious stop.</p>
+      <p class="cost">Cost: one probe, resolver entry, divergence plumbing (already built), e2e scenario.</p>
+    </div>
+  </section>
+
+  <section data-lucid-id="sec-d13">
+    <h2>D13 - tools: the heavyweight, last on purpose</h2>
+    <p class="section-note">A profile-level default grant answers "what does a bare run get?" uniformly. It changes behavior on every harness and needs its own design sitting - this card scopes it, ratification comes later.</p>
+    <ul class="facts">
+      <li>Open questions: does the profile default interact with project floors (a floor tighter than the profile default - who wins?), does pi's off-by-default grep/find/ls become on-by-default under hcn, does claude's everything-on stance get narrowed?</li>
+      <li>The floor rule (D5) already exists; profile-vs-floor precedence is the new rule needed</li>
+      <li>Arguments/config tiers all flow through existing machinery - this is curation plus one precedence rule, not new mechanics</li>
+    </ul>
+    <div class="proposal">
+      <span class="plabel">Proposal</span>
+      Defer ratification. Land D9-D12 first; schedule the tools design as its own lucid sitting with the pi/claude asymmetries on the table. My leaning when it comes: profile grants nothing by default (all tools stay available per harness default), because the project tier already provides "less by default" where wanted - but that is for the sitting.
+    </div>
+    <div class="decision-block" data-lucid-id="d13-decision" data-lucid-decision>
+      <p class="q">D13: defer tools ratification to its own sitting?</p>
+      <p>Agreeing to defer is the decision. If you would rather pull it forward, D11 and D12 slide.</p>
+    </div>
+  </section>
+
+  <section data-lucid-id="sec-model">
+    <h2>Model: ratify permanent abstention</h2>
+    <p class="section-note">Not one of the five - a closure. No shared model namespace exists across harnesses; pi's registry is runtime-extensible and environment-dependent; per-harness config already covers "claude on X, pi on Y."</p>
+    <div class="proposal">
+      <span class="plabel">Proposal</span>
+      Record in the profile's doc comment and the README: model is permanently out of profile scope. The dimension stays arg-only and config-only. Closes the question rather than leaving it open.
+    </div>
+    <div class="decision-block" data-lucid-id="model-decision" data-lucid-decision>
+      <p class="q">Abstain from model, permanently?</p>
+      <p>One line in two files, recorded forever.</p>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

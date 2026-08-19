@@ -70,3 +70,17 @@ describe("userConfigPath", () => {
     expect(userConfigPath()).toMatch(/\.config\/hcn\/config\.json$/);
   });
 });
+
+describe("round 2 keys (D11/D12)", () => {
+  it("timeout validates as whole seconds >= 0", () => {
+    expect(parseUserConfig('{"version":1,"timeout":300}')).toEqual({ timeout: 300 });
+    expect(parseUserConfig('{"version":1,"timeout":0}')).toEqual({ timeout: 0 });
+    expect(() => parseUserConfig('{"version":1,"timeout":-1}')).toThrow(/whole number/);
+    expect(() => parseUserConfig('{"version":1,"timeout":1.5}')).toThrow(/whole number/);
+    expect(() => parseUserConfig('{"version":1,"timeout":"300"}')).toThrow(/whole number/);
+  });
+
+  it("maxSteps remains a valid config key (D12)", () => {
+    expect(parseUserConfig('{"version":1,"maxSteps":200}')).toEqual({ maxSteps: 200 });
+  });
+});
