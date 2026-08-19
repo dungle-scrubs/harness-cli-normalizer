@@ -2,3 +2,4 @@
 {"t":"review_resolved","seq":2,"at":"2026-08-18T10:33:57.969Z"}
 {"t":"agent_ack","id":"1dc90bd7-0567-48a7-8d00-b78a14d791aa","covers":2,"attendant":{"harness":"pi","sessionId":"01a013f4-8eef-7d11-bd1d-22e34a4cce52","cwd":"/Users/kevin/dev/harness-cli-normalizer","model":"glm-5.3","effort":"high"},"seq":3,"at":"2026-08-18T10:35:06.416Z"}
 {"t":"session_suspended","seq":4,"at":"2026-08-19T02:07:57.884Z"}
+{"t":"session_resumed","segment":1,"seq":5,"at":"2026-08-19T07:19:27.941Z"}

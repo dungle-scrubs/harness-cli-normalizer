@@ -96,3 +96,4 @@
 {"t":"review_resolved","seq":96,"at":"2026-08-18T10:10:08.239Z"}
 {"t":"agent_ack","id":"fb67bbea-1373-41ab-a55d-bfbfa3b87d64","covers":96,"attendant":{"harness":"pi","sessionId":"01a013f4-8eef-7d11-bd1d-22e34a4cce52","cwd":"/Users/kevin/dev/harness-cli-normalizer","model":"glm-5.3","effort":"high"},"seq":97,"at":"2026-08-18T10:10:08.278Z"}
 {"t":"session_suspended","seq":98,"at":"2026-08-19T02:07:57.889Z"}
+{"t":"session_resumed","segment":1,"seq":99,"at":"2026-08-19T07:18:45.829Z"}
