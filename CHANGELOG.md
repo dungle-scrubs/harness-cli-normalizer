@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.3.1...v0.4.0) (2026-08-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* 1.0.0 - defaults profile, config tiers, tool selection, CLI-only surface ([#36](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/36))
+
+### Added
+
+* 1.0.0 - defaults profile, config tiers, tool selection, CLI-only surface ([#36](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/36)) ([986ce17](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/986ce1771cc8c538b10b6663f5cd04c9bc434563))
+
 ## [0.3.1](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.3.0...v0.3.1) (2026-08-17)
 
 
