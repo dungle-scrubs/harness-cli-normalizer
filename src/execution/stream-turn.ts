@@ -17,6 +17,7 @@ import {
 } from "../interpretation/argv.js";
 import { stdinPolicyOf } from "../interpretation/dimensions.js";
 import { detectAuthFailureInLine, detectLimitInLine } from "../interpretation/limits.js";
+import { composeEscalatedPrompt, detectQuestionBlock } from "../interpretation/question.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { matcherOverridesOf } from "../knowledge/overrides.js";
@@ -102,6 +103,13 @@ export interface TurnRunOptions extends LaunchOptions {
    * normalized argv. Wrong-harness flags here fail in the harness itself
    * and surface as native errors - hcn never validates them. */
   readonly passthrough?: readonly string[];
+  /** issue #41: question escalation (behavior instruction, NOT a turn
+   * option - no flag ever reaches the harness). True (the default when
+   * undefined) prepends the protocol preamble and arms question-block
+   * detection; false prepends the state-the-assumption instruction and
+   * disarms detection. Applies on launch AND resume: it shapes each
+   * turn's prompt and event stream, never a session setting. */
+  readonly escalateQuestions?: boolean;
 }
 
 export async function* streamTurn(
@@ -111,6 +119,21 @@ export async function* streamTurn(
 ): AsyncIterable<HarnessEvent> {
   const turnId = deps.turnId ?? `turn-${++turnCounter}`;
   const log = deps.log ?? (() => {});
+
+  // issue #41: compose the escalation preamble onto the prompt (the
+  // transport IS the prompt - no harness has native question conveyance)
+  // and arm detection in the true mode. Composition is idempotent, so a
+  // caller that already composed (the CLI does, for spawn-line truth)
+  // never double-prepends.
+  const escalateQuestions = opts.escalateQuestions !== false;
+  const effective: TurnRunOptions = {
+    ...opts,
+    prompt: composeEscalatedPrompt(opts.prompt, escalateQuestions),
+  };
+  // The turn's last assistant message - where the protocol says the
+  // hcn-question block lives. Tracked only when detection is armed.
+  let lastAssistantText: string | null = null;
+  let asked = false;
 
   // Validate env before building argv so an invalid env is a refusal, not a spawn
   if (opts.env !== undefined) {
@@ -134,7 +157,7 @@ export async function* streamTurn(
           harness: h.name,
           issue: refusal.issue,
           supported: refusal.supported,
-          argv: redactArgv([], opts.prompt),
+          argv: redactArgv([], effective.prompt),
         });
         yield { kind: "failure", ...failure };
         yield { kind: "done", exitCode: null, cause: "failed", failure };
@@ -147,11 +170,11 @@ export async function* streamTurn(
   let granularity: import("../knowledge/descriptor.js").StreamingGranularity;
   try {
     argv =
-      opts.resume === undefined
-        ? buildLaunchArgv(h, opts)
-        : buildResumeArgv(h, { ...opts, sessionId: opts.resume });
-    if (opts.passthrough !== undefined && opts.passthrough.length > 0) {
-      argv = [...argv, "--", ...opts.passthrough];
+      effective.resume === undefined
+        ? buildLaunchArgv(h, effective)
+        : buildResumeArgv(h, { ...effective, sessionId: effective.resume });
+    if (effective.passthrough !== undefined && effective.passthrough.length > 0) {
+      argv = [...argv, "--", ...effective.passthrough];
     }
     // issue #38: claude renders the skills allowlist as settings JSON at
     // the argv tail (the complement-off form).
@@ -175,7 +198,7 @@ export async function* streamTurn(
       // No process spawned on a refusal - log rejected instead of spawn
       let argvForLog: string[] = [];
       try {
-        argvForLog = redactArgv([], opts.prompt);
+        argvForLog = redactArgv([], effective.prompt);
       } catch {}
       log({
         event: "rejected",
@@ -200,7 +223,7 @@ export async function* streamTurn(
     event: "spawn",
     turnId,
     harness: h.name,
-    argv: redactArgv(argv, opts.prompt),
+    argv: redactArgv(argv, effective.prompt),
     granularity,
     ...(matcherOverrides ? { matcherOverrides } : {}),
     ...(envKeys?.length ? { envKeys } : {}),
@@ -210,8 +233,8 @@ export async function* streamTurn(
   try {
     proc = deps.spawn(argv, {
       stdin: stdinPolicyOf(h) === "close-required" ? "close" : "inherit",
-      ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
-      ...(opts.env !== undefined ? { env: opts.env } : {}),
+      ...(effective.cwd !== undefined ? { cwd: effective.cwd } : {}),
+      ...(effective.env !== undefined ? { env: effective.env } : {}),
     });
   } catch (cause) {
     // Spawn failure is a transport failure, not merely a crash
@@ -232,7 +255,7 @@ export async function* streamTurn(
   }
 
   const queue = new AsyncChannel<HarnessEvent>();
-  const state = freshDecodeState(opts.resume ?? null);
+  const state = freshDecodeState(effective.resume ?? null);
   const stderrTail = new StderrTail();
   let killedByWatchdog = false;
   let exited = false;
@@ -341,6 +364,9 @@ export async function* streamTurn(
             // Directly from decode's rate_limit_event handling - track for reduction
             failures.push(event as unknown as FailureSummary);
           }
+          if (escalateQuestions && event.kind === "message" && event.role === "assistant") {
+            lastAssistantText = event.text;
+          }
           await queue.push(event);
         }
       }
@@ -354,6 +380,37 @@ export async function* streamTurn(
         await queue.push(event);
       }
     }
+  };
+
+  /** issue #41: scan the last assistant message for the hcn-question
+   * block. Structured-first - the block's fields become the event; no
+   * prose parsing. Runs after the pumps settle (the last message is only
+   * last then) and only when detection is armed (escalateQuestions
+   * true). A malformed block surfaces as an error event, never a silent
+   * no-op. */
+  const emitQuestionIfAsked = async (): Promise<void> => {
+    if (!escalateQuestions || lastAssistantText === null) return;
+    const detection = detectQuestionBlock(lastAssistantText);
+    if (detection === null) return;
+    if ("malformed" in detection) {
+      await queue.push({ kind: "error", message: detection.malformed });
+      return;
+    }
+    log({
+      event: "question",
+      turnId,
+      harness: h.name,
+      options: detection.block.options.length,
+    });
+    asked = true;
+    await queue.push({
+      kind: "question",
+      question: detection.block.question,
+      options: detection.block.options,
+      ...(detection.block.recommended !== undefined
+        ? { recommended: detection.block.recommended }
+        : {}),
+    });
   };
 
   const pumpStderr = async (): Promise<void> => {
@@ -413,7 +470,9 @@ export async function* streamTurn(
     observePump("stdout", pumpStdout()),
     observePump("stderr", pumpStderr()),
   ]);
-  void Promise.all([proc.exited, pumpSettlements]).then(() => queue.close());
+  void Promise.all([proc.exited, pumpSettlements])
+    .then(() => emitQuestionIfAsked())
+    .then(() => queue.close());
 
   try {
     for await (const event of queue) yield event;
@@ -459,7 +518,9 @@ export async function* streamTurn(
           ? "killed" // D11: the run was killed on budget, not stalled
           : "stall"
         : exitCode === 0
-          ? "clean"
+          ? asked
+            ? "awaiting-input" // issue #41: asking SUCCEEDED the turn
+            : "clean"
           : exitCode === null
             ? "killed"
             : "crash";

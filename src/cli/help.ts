@@ -42,6 +42,12 @@ Options:
   --no-write                Disable write
   --shell                   Enable shell (muse)
   --no-shell                Disable shell
+  --escalate-questions      Let the worker ask the caller's user when a
+                            genuine decision blocks progress (DEFAULT;
+                            prompt-preamble transport, question event +
+                            done cause "awaiting-input", exit 0)
+  --no-escalate-questions   Worker never asks: it states the assumption it
+                            proceeded under and continues
   --max-steps <n>           Max steps (muse, 1-10000)
   --timeout <seconds>       Wall-clock budget for the run (all harnesses,
                             hcn-enforced; 0 disables; no default)
@@ -51,7 +57,11 @@ Options:
   --no-skills               Disable skills discovery facet
   --cwd <path>              Working directory for spawn
   --env KEY=VAL             Environment (repeatable; KEY= deletes)
-  --resume <uuid>           Resume session id (UUID)
+  --resume <uuid>           Resume session id (UUID). The answer path for
+                            question escalation: resume with the chosen
+                            answer as the prompt; id continuity per
+                            harness (claude stable, pi/muse caller-assigned,
+                            codex minted via identity event)
   --                        Passthrough: native harness args verbatim
                             (failures surface as labeled native errors)
   --json                    NDJSON HarnessEvent to stdout
@@ -64,7 +74,9 @@ Defaults with no flags:
   > harness default. The profile pins: effort medium, sandbox
   workspace-write (codex only; other harnesses report divergence),
   discovery on, autonomy off, write/shell on. timeout and max-steps have
-  no default. Provenance prints to stderr on every run; see
+  no default. Question escalation defaults ON (config key
+  "escalateQuestions"; it is a prompt preamble, never a harness flag).
+  Provenance prints to stderr on every run; see
   'hcn inspect <harness>' for the resolved argv of a bare run.
 `;
 
@@ -102,8 +114,13 @@ Options:
   --autonomy / --no-autonomy
   --write / --no-write
   --shell / --no-shell
+  --escalate-questions / --no-escalate-questions
+                            (accepted; renders nothing - rides the run prompt)
   --max-steps <n>
   --no-tools, --no-instruction-files, --no-extensions, --no-skills
+  --escalate-questions / --no-escalate-questions
+                            Accepted; renders nothing in argv (the mode
+                            rides the run prompt, not a harness flag)
   --cwd <path>
   --env KEY=VAL
   --resume <uuid>

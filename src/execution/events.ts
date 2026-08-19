@@ -17,7 +17,16 @@
 import type { CapabilityResult } from "../interpretation/capabilities.js";
 import type { FailureSummary } from "./failure.js";
 
-export type ExitCause = "clean" | "limit" | "crash" | "stall" | "killed" | "failed";
+export type ExitCause =
+  | "clean"
+  | "limit"
+  | "crash"
+  | "stall"
+  | "killed"
+  | "failed"
+  /** issue #41: the turn ended by asking (escalateQuestions) - a
+   * SUCCESSFUL turn (process exit 0); the caller resumes with the answer. */
+  | "awaiting-input";
 
 export type HarnessEvent =
   | {
@@ -31,6 +40,15 @@ export type HarnessEvent =
   | { readonly kind: "progress"; readonly label: string }
   | { readonly kind: "tool"; readonly name: string; readonly input?: unknown }
   | { readonly kind: "context"; readonly usedPct: number }
+  | {
+      /** issue #41: the worker asked the caller's user a question (the
+       * final message carried an hcn-question block). Structured-first:
+       * these fields ARE the question; prose renders from them. */
+      readonly kind: "question";
+      readonly question: string;
+      readonly options: readonly string[];
+      readonly recommended?: string;
+    }
   | { readonly kind: "limit"; readonly code: string; readonly message: string }
   | { readonly kind: "error"; readonly message: string }
   | ({ readonly kind: "failure" } & FailureSummary)

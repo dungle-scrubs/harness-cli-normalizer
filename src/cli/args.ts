@@ -179,6 +179,8 @@ export const parseTurnOptions = (values: Record<string, unknown>): TurnOptions =
   else if (values["no-write"] === true) opts.write = false;
   if (values.shell === true) opts.shell = true;
   else if (values["no-shell"] === true) opts.shell = false;
+  if (values["escalate-questions"] === true) opts.escalateQuestions = true;
+  else if (values["no-escalate-questions"] === true) opts.escalateQuestions = false;
 
   if (values["max-steps"] !== undefined) {
     const n = Number(values["max-steps"]);
@@ -277,6 +279,8 @@ const KNOWN_FLAGS = new Set([
   "--no-write",
   "--shell",
   "--no-shell",
+  "--escalate-questions",
+  "--no-escalate-questions",
   "--max-steps",
   "--no-tools",
   "--no-instruction-files",
@@ -421,6 +425,8 @@ export const parseCommonFlags = (
       "no-write": { type: "boolean" as const },
       shell: { type: "boolean" as const },
       "no-shell": { type: "boolean" as const },
+      "escalate-questions": { type: "boolean" as const },
+      "no-escalate-questions": { type: "boolean" as const },
       "max-steps": { type: "string" as const },
       "no-tools": { type: "boolean" as const },
       "no-instruction-files": { type: "boolean" as const },

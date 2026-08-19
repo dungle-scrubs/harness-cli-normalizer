@@ -69,6 +69,11 @@ export interface TurnOptions {
   readonly write?: boolean;
   readonly shell?: boolean;
   readonly maxSteps?: number;
+  /** issue #41: question escalation - a BEHAVIOR INSTRUCTION, not a turn
+   * option. It never renders into any harness argv; the CLI layer turns
+   * it into the prompt preamble and arms question-block detection.
+   * Undefined means the default: true. */
+  readonly escalateQuestions?: boolean;
   /** Internal: set by CLI when prompt came from --prompt/--prompt-file to bypass leading '-' guard */
   readonly __explicitPrompt?: boolean;
 }

@@ -15,9 +15,15 @@
  *   bun scripts/e2e.ts --only baseline  # scenarios matching a substring
  *   bun scripts/e2e.ts --harness pi     # restrict harnesses
  */
-import { spawn } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { execFileSync, spawn } from "node:child_process";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import type { HarnessEvent } from "../src/execution/events.js";
+import {
+  questionAskScenario,
+  questionOffScenario,
+  questionPrecedenceScenario,
+  questionRoundtripScenario,
+} from "./e2e-questions.js";
 
 const CLI_TIMEOUT_MS = 240_000;
 
@@ -766,6 +772,49 @@ const SCENARIOS: Scenario[] = [
   toolsEquivalenceScenario,
   skillsAllowlistScenario,
 ];
+
+// issue #41 question-escalation scenarios (see e2e-questions.ts). They
+// need extra capabilities (temp dirs, git init) injected from this
+// runner, so they adapt the Scenario shape here rather than in the module.
+const gitInit = (cwd: string): void => {
+  try {
+    execFileSync("git", ["init", "-q"], { cwd });
+  } catch {
+    /* git absence fails the scenario assertions via stderr text */
+  }
+};
+const qRunCli: import("./e2e-questions.js").RunCli = (args, env, cwd) =>
+  cwd === undefined ? runCliEnv(args, env) : runCliIn(args, env, cwd);
+const QUESTION_SCENARIOS: Scenario[] = [
+  {
+    name: questionAskScenario.name,
+    phases: ["all"],
+    run: async (harness) => questionAskScenario.run(qRunCli, harness),
+  },
+  {
+    name: questionOffScenario.name,
+    phases: ["all"],
+    run: async (harness) => questionOffScenario.run(qRunCli, harness, mkdtempSync),
+  },
+  {
+    name: questionPrecedenceScenario.name,
+    phases: ["all"],
+    run: async (harness) =>
+      questionPrecedenceScenario.run(
+        qRunCli,
+        harness,
+        mkdtempSync,
+        { writeFileSync, mkdirSync },
+        gitInit,
+      ),
+  },
+  {
+    name: questionRoundtripScenario.name,
+    phases: ["all"],
+    run: async (harness) => questionRoundtripScenario.run(qRunCli, harness, mkdtempSync),
+  },
+];
+SCENARIOS.push(...QUESTION_SCENARIOS);
 
 // ---- CLI arg parsing ----
 const argv = process.argv.slice(2);
