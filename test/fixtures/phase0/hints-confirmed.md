@@ -88,3 +88,21 @@ Wording locked as proposed, with one correction from sandbox discussion:
     --no-foreign-personal-context drops foreign skills and untrusted
     workspaces stay unloaded - there is no unconditional skills-off
     switch"
+
+## Defaults roadmap ratifications (round 2)
+
+Approved in review (.lucid/next-five-defaults.html, v3), 2026-08-19:
+
+- D9: profile write = true (emit-nothing ratification, names current
+  behavior)
+- D10: profile shell = true (same shape)
+- D11: timeout dimension ADDED as opt-in only - --timeout <seconds> arg
+  and "timeout" config key, NO profile default. Grounding: no harness
+  ships a wall-clock run cap; one prompt expands into an unbounded turn
+  loop; a fixed default kills legitimate work. --timeout 0 = disable.
+  Process-group signalling; timeout failure class; done cause "killed".
+- D12: maxSteps opt-in only (config key), NO profile default - same
+  argument as D11; arg already exists (muse-only).
+- D13: tools ratification deferred to its own design sitting.
+- Model: permanently out of profile scope (recorded in profile doc
+  comment + README).

@@ -30,6 +30,7 @@ import {
   failureFromLimit,
   failureFromNative,
   failureFromRejected,
+  failureFromTimeout,
   failureFromTransport,
   reduceFailures,
 } from "./failure.js";
@@ -434,7 +435,12 @@ export async function* streamTurn(
     }
     // Stall watchdog also implies a transport failure if not already present
     if (killedByWatchdog && failures.length === 0) {
-      const f = failureFromTransport(`stalled: ${watchdogReason ?? "inactivity"}`);
+      // D11: a wall-clock deadline kill is a timeout, not a stall - the
+      // run was not necessarily silent, it simply outlived its budget.
+      const f =
+        watchdogReason === "turn-deadline"
+          ? failureFromTimeout()
+          : failureFromTransport(`stalled: ${watchdogReason ?? "inactivity"}`);
       failures.push(f);
       yield { kind: "failure", ...f };
     }
@@ -442,7 +448,9 @@ export async function* streamTurn(
     let cause: ExitCause = state.limitSeen
       ? "limit"
       : killedByWatchdog && exitCode !== 0
-        ? "stall"
+        ? watchdogReason === "turn-deadline"
+          ? "killed" // D11: the run was killed on budget, not stalled
+          : "stall"
         : exitCode === 0
           ? "clean"
           : exitCode === null

@@ -1,0 +1,7 @@
+{"t":"session_opened","segment":1,"artifact":"next-five-defaults.html","version":1,"hash":"sha256:67245774c2aadf8d5cf9f5403c1c181c2f435aa578c12a84c946cea4cdd2ebec","path":"versions/s1/v1.html","attendant":{"harness":"pi","sessionId":"01a013f4-8eef-7d11-bd1d-22e34a4cce52","cwd":"/Users/kevin/dev/harness-cli-normalizer"},"seq":1,"at":"2026-08-19T08:32:29.440Z"}
+{"t":"agent_ack","id":"f2269acd-245d-4a83-8076-d4a5bb4a5aad","intent":"revise","attendant":{"harness":"pi","sessionId":"01a013f4-8eef-7d11-bd1d-22e34a4cce52","cwd":"/Users/kevin/dev/harness-cli-normalizer"},"seq":2,"at":"2026-08-19T09:43:18.000Z"}
+{"t":"version","version":2,"hash":"sha256:1c8303d09729f1dcb355b0f6bbf6c1648f302d3a632ae51e199517169cb5aa4d","path":"versions/s1/v2.html","seq":3,"at":"2026-08-19T09:43:18.081Z"}
+{"t":"agent_ack","id":"2b79d218-1e43-4c6e-8f0f-92d2ff306e48","intent":"revise","attendant":{"harness":"pi","sessionId":"01a013f4-8eef-7d11-bd1d-22e34a4cce52","cwd":"/Users/kevin/dev/harness-cli-normalizer"},"seq":4,"at":"2026-08-19T09:44:26.684Z"}
+{"t":"version","version":3,"hash":"sha256:0cc761ab4df02d028f15a96fcdb194e3223b6372e007e21c2506863bbad2cc60","path":"versions/s1/v3.html","seq":5,"at":"2026-08-19T09:44:26.853Z"}
+{"t":"review_resolved","seq":6,"at":"2026-08-19T09:47:26.677Z"}
+{"t":"agent_ack","id":"d921ef8c-9d02-4ff4-a4fd-91c984de7f9e","covers":6,"attendant":{"harness":"pi","sessionId":"01a013f4-8eef-7d11-bd1d-22e34a4cce52","cwd":"/Users/kevin/dev/harness-cli-normalizer"},"seq":7,"at":"2026-08-19T09:47:40.259Z"}

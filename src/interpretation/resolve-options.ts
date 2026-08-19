@@ -54,6 +54,8 @@ const EXPRESSIBLE: Readonly<Record<ProfileKey, (h: HarnessDescriptor) => boolean
   sandbox: (h) => h.turnOptions.sandbox !== undefined,
   discovery: () => true,
   autonomy: () => true,
+  write: () => true,
+  shell: () => true,
 };
 
 export interface ConfigTiers {
@@ -156,11 +158,16 @@ export const resolveEffectiveOptions = (
       continue;
     }
     // Dimensions whose value reduces to "emit nothing" (autonomy false,
-    // discovery all-on) stay ABSENT from the resolved options - the
-    // harness's default already satisfies the profile, and emitting
-    // explicit on-flags would change resume grammar and add breakage
-    // surface for no semantic gain. Provenance still records the tier.
-    if ((key === "autonomy" && value === false) || (key === "discovery" && emitsNothing(value))) {
+    // discovery all-on, write/shell true) stay ABSENT from the resolved
+    // options - the harness's default already satisfies the profile, and
+    // emitting explicit on-flags would change resume grammar and add
+    // breakage surface for no semantic gain. Provenance still records
+    // the tier.
+    if (
+      (key === "autonomy" && value === false) ||
+      (key === "discovery" && emitsNothing(value)) ||
+      ((key === "write" || key === "shell") && value === true)
+    ) {
       provenance.push({ key, value, tier: "profile" });
       continue;
     }

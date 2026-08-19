@@ -191,11 +191,12 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   let resolvedProvenance: readonly ProvenanceEntry[] = [];
   let resolvedUnrenderable: readonly string[] = [];
   let effectiveTurnOpts: ReturnType<typeof parseTurnOptions> = turnOpts;
+  const resolvedTiers: {
+    user?: Partial<ReturnType<typeof parseTurnOptions>>;
+    project?: Partial<ReturnType<typeof parseTurnOptions>>;
+  } = {};
   if (extra.resume === undefined) {
-    const tiers: {
-      user?: Partial<ReturnType<typeof parseTurnOptions>>;
-      project?: Partial<ReturnType<typeof parseTurnOptions>>;
-    } = {};
+    const tiers = resolvedTiers;
     const { loadUserConfig, loadProjectConfig, ConfigError } = await import("./config.js");
     try {
       const loaded = loadUserConfig();
@@ -311,7 +312,17 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   // Delete HERDR_ENV before spawn
   delete (process.env as Record<string, string | undefined>).HERDR_ENV;
 
-  const deps = nodeRunnerDeps();
+  // D11: opt-in wall-clock budget. Precedence arg > project > user (no
+  // profile entry by ratification). 0 = explicit disable.
+  const timeoutSeconds =
+    extra.timeoutSeconds !== undefined
+      ? extra.timeoutSeconds
+      : ((resolvedTiers?.project as { timeout?: number } | undefined)?.timeout ??
+        (resolvedTiers?.user as { timeout?: number } | undefined)?.timeout);
+  const deps =
+    timeoutSeconds !== undefined && timeoutSeconds > 0
+      ? nodeRunnerDeps({ turnTimeoutMs: timeoutSeconds * 1000 })
+      : nodeRunnerDeps();
 
   // Signal handling
   const _currentProc: { signal: (sig: "SIGTERM" | "SIGKILL") => void } | null = null;

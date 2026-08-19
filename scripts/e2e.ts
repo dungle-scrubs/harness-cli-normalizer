@@ -599,6 +599,55 @@ const resumeBypassScenario: Scenario = {
   },
 };
 
+/** D11 timeout: opt-in wall-clock budget. A 3s budget kills a slow
+ * prompt with the timeout failure class and done cause "killed"; hcn
+ * exit 1; 0 disables (a quick prompt completes clean). Live spawns. */
+const timeoutScenario: Scenario = {
+  name: "timeout",
+  phases: ["all"],
+  run: async (harness) => {
+    const failures: string[] = [];
+    const t0 = Date.now();
+    const tSlow0 = Date.now();
+    const slow = await runCli([
+      harness,
+      "--json",
+      "--timeout",
+      "3",
+      "--prompt",
+      "Count slowly from 1 to 100, one number per line, pausing between each.",
+    ]);
+    const slowMs = Date.now() - tSlow0;
+    const fail = slow.events.find(
+      (e): e is Extract<HarnessEvent, { kind: "failure" }> => e.kind === "failure",
+    );
+    if (!fail) failures.push("no failure event on timeout kill");
+    else if (fail.class !== "timeout")
+      failures.push(`failure class ${fail.class}, expected timeout`);
+    const done = slow.events.find(
+      (e): e is Extract<HarnessEvent, { kind: "done" }> => e.kind === "done",
+    );
+    if (done && done.cause !== "killed") failures.push(`done cause ${done.cause}, expected killed`);
+    if (slow.exitCode !== 1) failures.push(`hcn exit ${slow.exitCode}, expected 1`);
+    if (slowMs > 15000) failures.push(`kill took ${slowMs}ms - grace ladder too slow`);
+    // timeout 0 = disable: quick prompt completes clean
+    const off = await runCli([
+      harness,
+      "--json",
+      "--timeout",
+      "0",
+      "--prompt",
+      "Reply with the single word OK and nothing else.",
+    ]);
+    const doneOff = off.events.find(
+      (e): e is Extract<HarnessEvent, { kind: "done" }> => e.kind === "done",
+    );
+    if (!doneOff || doneOff.cause !== "clean")
+      failures.push(`--timeout 0 run not clean: ${doneOff?.cause}`);
+    return { durationMs: Date.now() - t0, exitCode: slow.exitCode, eventCounts: {}, failures };
+  },
+};
+
 const SCENARIOS: Scenario[] = [
   baselineScenario,
   toolSelectionScenario,
@@ -610,6 +659,7 @@ const SCENARIOS: Scenario[] = [
   tableHintsScenario,
   effortEffectScenario,
   resumeBypassScenario,
+  timeoutScenario,
 ];
 
 // ---- CLI arg parsing ----

@@ -28,6 +28,20 @@ export const DEFAULT_TURN_PROFILE = deepFreeze({
   // Ratified: autonomy OFF. No bare run is unattended; --autonomy or a
   // config must say so deliberately.
   autonomy: false,
+  // D9/D10, ratified round 2: write and shell ON - names current
+  // behavior (emit-nothing on claude/codex/pi; muse omits its disable
+  // flags). Completes the "what can a bare run do to the machine" row of
+  // provenance.
+  write: true,
+  shell: true,
+  // Model is PERMANENTLY out of profile scope (ratified round 2): no
+  // cross-harness model namespace exists, pi's registry is
+  // runtime-extensible and environment-dependent, and per-harness config
+  // already covers "claude on X, pi on Y". Do not add a model entry.
+  // timeout and maxSteps are likewise opt-in-only dimensions (D11/D12):
+  // no harness ships a wall-clock cap, one prompt expands into an
+  // unbounded turn loop, and a fixed default kills legitimate work. They
+  // live in args/config only, never here.
 } as const);
 
 export type ProfileKey = keyof typeof DEFAULT_TURN_PROFILE;
