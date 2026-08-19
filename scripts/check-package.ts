@@ -38,12 +38,10 @@ const [pack] = JSON.parse(result.stdout) as readonly PackResult[];
 assert.ok(pack, "npm pack returned no package result");
 
 const files = new Set(pack.files.map(({ path }) => path));
+// CLI-only surface (Phase 7): the bin is the product. No root export, no
+// library subpaths, no d.ts entry points - src/ ships for reading, dist/
+// for running.
 for (const required of [
-  "dist/index.js",
-  "dist/index.d.ts",
-  "dist/knowledge/index.js",
-  "dist/interpretation/index.js",
-  "dist/execution/index.js",
   "dist/cli.js",
   "dist/cli/index.js",
   "LICENSE",
@@ -51,6 +49,9 @@ for (const required of [
   "package.json",
 ]) {
   assert.ok(files.has(required), `packed package is missing ${required}`);
+}
+for (const forbidden of ["dist/index.js", "dist/index.d.ts"]) {
+  assert.equal(files.has(forbidden), false, `packed package must not carry ${forbidden}`);
 }
 
 assert.ok(
@@ -68,14 +69,10 @@ for (const forbiddenPrefix of [".plans/", "scripts/", "test/"]) {
   );
 }
 
-const importBuilt = async (relativePath: string): Promise<Record<string, unknown>> =>
-  import(new URL(relativePath, import.meta.url).href) as Promise<Record<string, unknown>>;
-
-const root = await importBuilt("../dist/index.js");
-const knowledge = await importBuilt("../dist/knowledge/index.js");
-const interpretation = await importBuilt("../dist/interpretation/index.js");
-const execution = await importBuilt("../dist/execution/index.js");
-
-assert.equal(root.claudeCode, knowledge.claudeCode);
-assert.equal(root.buildLaunchArgv, interpretation.buildLaunchArgv);
-assert.equal(root.streamTurn, execution.streamTurn);
+// The packed CLI must actually run: --version exercises the built entry
+// end to end.
+const cli = spawnSync("node", [new URL("../dist/cli.js", import.meta.url).pathname, "--version"], {
+  encoding: "utf8",
+});
+assert.equal(cli.status, 0, `built cli.js --version failed: ${cli.stderr}`);
+assert.match(cli.stdout, /\d+\.\d+\.\d+/, "cli --version must print a version");
