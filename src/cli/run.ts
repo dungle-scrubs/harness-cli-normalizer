@@ -4,6 +4,7 @@ import { KILL_GRACE_MS, redactArgv, streamTurn } from "../execution/stream-turn.
 import { buildLaunchArgv, buildResumeArgv } from "../interpretation/argv.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
 import {
+  FloorExceededError,
   type ProvenanceEntry,
   resolveEffectiveOptions,
 } from "../interpretation/resolve-options.js";
@@ -191,11 +192,16 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   let resolvedUnrenderable: readonly string[] = [];
   let effectiveTurnOpts: ReturnType<typeof parseTurnOptions> = turnOpts;
   if (extra.resume === undefined) {
-    let userConfig: Partial<ReturnType<typeof parseTurnOptions>> | undefined;
-    const { loadUserConfig, ConfigError } = await import("./config.js");
+    const tiers: {
+      user?: Partial<ReturnType<typeof parseTurnOptions>>;
+      project?: Partial<ReturnType<typeof parseTurnOptions>>;
+    } = {};
+    const { loadUserConfig, loadProjectConfig, ConfigError } = await import("./config.js");
     try {
       const loaded = loadUserConfig();
-      if (loaded !== null) userConfig = loaded.config;
+      if (loaded !== null) tiers.user = loaded.config;
+      const proj = loadProjectConfig();
+      if (proj !== null) tiers.project = proj.config;
     } catch (configErr) {
       if (configErr instanceof ConfigError) {
         process.stderr.write(`config error: ${(configErr as Error).message}\n`);
@@ -204,7 +210,17 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
       }
       throw configErr;
     }
-    const resolved = resolveEffectiveOptions(h, { ...turnOpts, prompt } as never, userConfig);
+    let resolved: ReturnType<typeof resolveEffectiveOptions>;
+    try {
+      resolved = resolveEffectiveOptions(h, { ...turnOpts, prompt } as never, tiers);
+    } catch (resErr) {
+      if (resErr instanceof FloorExceededError) {
+        process.stderr.write(`${(resErr as Error).message}\n`);
+        process.exitCode = 2;
+        return;
+      }
+      throw resErr;
+    }
     const { provenance, unrenderable } = resolved;
     resolvedProvenance = provenance;
     resolvedUnrenderable = unrenderable;

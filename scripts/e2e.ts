@@ -42,10 +42,13 @@ const CLI_ENTRY = new URL("../src/cli/index.ts", import.meta.url).pathname;
 
 /** Run `hcn run <harness> ...` as a subprocess, collect NDJSON + exit code. */
 const runCli = (args: string[]) => runCliEnv(args, {});
+const runCliIn = (args: string[], env: Record<string, string>, cwd: string) =>
+  runCliEnv(args, env, cwd);
 
 const runCliEnv = async (
   args: string[],
   extraEnv: Record<string, string>,
+  cwd: string = process.cwd(),
 ): Promise<{
   exitCode: number | null;
   events: HarnessEvent[];
@@ -53,7 +56,7 @@ const runCliEnv = async (
   timedOut: boolean;
 }> => {
   const proc = spawn(HARNESS_BIN, [CLI_ENTRY, "run", ...args], {
-    cwd: process.cwd(),
+    cwd,
     stdio: ["ignore", "pipe", "pipe"],
     env: { ...process.env, NO_COLOR: "1", ...extraEnv },
   });
@@ -406,6 +409,75 @@ const defaultsProfileScenario: Scenario = {
   },
 };
 
+/** Phase 6 project-tier scenarios: git-root auto-discovery, precedence
+ * over the user tier, the all-off floor, named toolsets, floor refusal.
+ * Runs inside a temp git repo with a .hcn/config.json; the user tier is
+ * neutralized via HCN_CONFIG_DIR pointing at an empty dir. */
+const projectTierScenario: Scenario = {
+  name: "project-config",
+  phases: ["all"],
+  run: async (harness) => {
+    const failures: string[] = [];
+    const t0 = Date.now();
+    let exitCode: number | null = null;
+    const { mkdtempSync, writeFileSync, mkdirSync } = await import("node:fs");
+    const emptyUser = mkdtempSync("/tmp/hcn-user-empty-");
+    const repo = mkdtempSync("/tmp/hcn-proj-repo-");
+    const { execFileSync } = await import("node:child_process");
+    try {
+      execFileSync("git", ["init", "-q"], { cwd: repo });
+    } catch {
+      failures.push("git init failed (git required for project tier e2e)");
+    }
+    mkdirSync(`${repo}/.hcn`, { recursive: true });
+    writeFileSync(
+      `${repo}/.hcn/config.json`,
+      JSON.stringify({
+        version: 1,
+        effort: "low",
+        tools: ["read", "grep", "find", "ls"],
+        toolsets: { review: ["read", "grep"] },
+      }),
+    );
+
+    const env = { HCN_CONFIG_DIR: emptyUser, HCNE2E_CWD: repo };
+
+    // precedence: project effort=low beats profile medium (spawn line shows it)
+    const r = await runCliIn([harness, "--json", "--prompt", "hi"], env, repo);
+    exitCode = r.exitCode;
+    if (!/effort = "low" \(project-config\)/.test(r.stderr)) {
+      failures.push(`project provenance missing: ${r.stderr.slice(0, 250)}`);
+    }
+
+    if (harness === "pi") {
+      // floor: grant exceeding refuses exit 2 naming both sets
+      const f = await runCliIn(
+        [harness, "--json", "--prompt", "hi", "--tools", "read,bash"],
+        env,
+        repo,
+      );
+      if (f.exitCode !== 2) failures.push(`floor exit ${f.exitCode}, expected 2`);
+      if (!/exceeds the project floor/.test(f.stderr)) failures.push("floor refusal missing");
+      // named toolset within floor passes
+      const ok = await runCliIn(
+        [harness, "--json", "--prompt", "hi", "--tools", "review"],
+        env,
+        repo,
+      );
+      if (ok.exitCode === 2) failures.push(`named toolset refused: ${ok.stderr.slice(0, 200)}`);
+      // all-off: empty floor refuses any grant
+      writeFileSync(`${repo}/.hcn/config.json`, JSON.stringify({ version: 1, tools: [] }));
+      const off = await runCliIn(
+        [harness, "--json", "--prompt", "hi", "--tools", "read"],
+        env,
+        repo,
+      );
+      if (off.exitCode !== 2) failures.push(`all-off exit ${off.exitCode}, expected 2`);
+    }
+    return { durationMs: Date.now() - t0, exitCode, eventCounts: {}, failures };
+  },
+};
+
 const SCENARIOS: Scenario[] = [
   baselineScenario,
   toolSelectionScenario,
@@ -413,6 +485,7 @@ const SCENARIOS: Scenario[] = [
   refusalDiagnosticsScenario,
   passthroughScenario,
   defaultsProfileScenario,
+  projectTierScenario,
 ];
 
 // ---- CLI arg parsing ----

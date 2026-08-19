@@ -10,9 +10,9 @@
  * model in vocabulary) is enforced by the same renderers as args, so
  * config and CLI can never disagree about what is legal.
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import type { TurnOptions } from "../interpretation/argv.js";
 
 const SCHEMA_VERSION = 1;
@@ -25,7 +25,29 @@ export class ConfigError extends Error {
 }
 
 export const userConfigPath = (): string =>
-  join(process.env.HCN_CONFIG_DIR ?? join(homedir(), ".config", "hcn"), "config.json");
+  join(
+    process.env.HCN_CONFIG_DIR ??
+      join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "hcn"),
+    "config.json",
+  );
+
+/** Project config: `.hcn/config.json` at the git root (P4 ratified as A -
+ * auto-discover, no trust gate; the config is code-reviewed like AGENTS.md
+ * and every project-tier provenance line names its path). Null outside a
+ * repo or when the repo declares none. */
+export const projectConfigPath = (startDir: string = process.cwd()): string | null => {
+  let dir = resolve(startDir);
+  for (;;) {
+    if (existsSync(join(dir, ".hcn", "config.json"))) return join(dir, ".hcn", "config.json");
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    // stop at the git root: above it is not this project
+    if (existsSync(join(dir, ".git")) && !existsSync(join(parent, ".git"))) {
+      return null;
+    }
+    dir = parent;
+  }
+};
 
 type MutableTurnOptions = {
   [K in keyof TurnOptions]?: TurnOptions[K];
@@ -42,6 +64,7 @@ const KNOWN_KEYS = new Set([
   "write",
   "shell",
   "maxSteps",
+  "toolsets",
 ]);
 
 const LIST_KEYS = new Set(["tools", "excludeTools"]);
@@ -76,6 +99,22 @@ export const parseUserConfig = (text: string): Partial<TurnOptions> => {
     if (!KNOWN_KEYS.has(key)) {
       throw new ConfigError(`unknown config key: ${JSON.stringify(key)}`);
     }
+    if (key === "toolsets") {
+      if (
+        typeof value !== "object" ||
+        value === null ||
+        Array.isArray(value) ||
+        Object.entries(value).some(
+          ([, v]) => !Array.isArray(v) || v.some((t) => typeof t !== "string" || t.trim() === ""),
+        )
+      ) {
+        throw new ConfigError(
+          'config key "toolsets" must be an object of name -> non-empty string array',
+        );
+      }
+      (out as Record<string, unknown>)[key] = value;
+      continue;
+    }
     if (LIST_KEYS.has(key)) {
       if (!Array.isArray(value) || value.some((v) => typeof v !== "string")) {
         throw new ConfigError(`config key ${JSON.stringify(key)} must be an array of strings`);
@@ -102,8 +141,19 @@ export const parseUserConfig = (text: string): Partial<TurnOptions> => {
 
 /** Load the user config if the file exists; absent file is an empty config
  * (no tiers engaged), unreadable or invalid file is a hard error. */
-export const loadUserConfig = (): { config: Partial<TurnOptions>; path: string } | null => {
-  const path = userConfigPath();
+export const loadUserConfig = (): { config: Partial<TurnOptions>; path: string } | null =>
+  loadConfigAt(userConfigPath());
+
+/** Load the project config (git-root auto-discovery, ratified A). */
+export const loadProjectConfig = (
+  startDir?: string,
+): { config: Partial<TurnOptions>; path: string } | null => {
+  const path = projectConfigPath(startDir);
+  if (path === null) return null;
+  return loadConfigAt(path);
+};
+
+const loadConfigAt = (path: string): { config: Partial<TurnOptions>; path: string } | null => {
   let text: string;
   try {
     text = readFileSync(path, "utf8");

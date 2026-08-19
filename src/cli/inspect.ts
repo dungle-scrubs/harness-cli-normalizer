@@ -1,7 +1,7 @@
 import { redactArgv } from "../execution/stream-turn.js";
 import { buildLaunchArgv } from "../interpretation/argv.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
-import { resolveEffectiveOptions } from "../interpretation/resolve-options.js";
+import { FloorExceededError, resolveEffectiveOptions } from "../interpretation/resolve-options.js";
 import { parseTurnOptions, resolvePromptAsync } from "./args.js";
 import { resolveHarness } from "./resolve-harness.js";
 
@@ -126,11 +126,16 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
 
   // Inspect resolves exactly as a launch would: profile + user config,
   // launch-only semantics, so --argv previews the truth of a bare run.
-  const { loadUserConfig, ConfigError } = await import("./config.js");
-  let userConfig: Partial<ReturnType<typeof parseTurnOptions>> | undefined;
+  const { loadUserConfig, loadProjectConfig, ConfigError } = await import("./config.js");
+  const tiers: {
+    user?: Partial<ReturnType<typeof parseTurnOptions>>;
+    project?: Partial<ReturnType<typeof parseTurnOptions>>;
+  } = {};
   try {
     const loaded = loadUserConfig();
-    if (loaded !== null) userConfig = loaded.config;
+    if (loaded !== null) tiers.user = loaded.config;
+    const proj = loadProjectConfig();
+    if (proj !== null) tiers.project = proj.config;
   } catch (configErr) {
     if (configErr instanceof ConfigError) {
       process.stderr.write(`config error: ${(configErr as Error).message}\n`);
@@ -139,7 +144,17 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
     }
     throw configErr;
   }
-  const resolved = resolveEffectiveOptions(h, { ...turnOpts, prompt } as never, userConfig);
+  let resolved: ReturnType<typeof resolveEffectiveOptions>;
+  try {
+    resolved = resolveEffectiveOptions(h, { ...turnOpts, prompt } as never, tiers);
+  } catch (resErr) {
+    if (resErr instanceof FloorExceededError) {
+      process.stderr.write(`${(resErr as Error).message}\n`);
+      process.exitCode = 2;
+      return;
+    }
+    throw resErr;
+  }
   const { prompt: _p, ...effectiveRest } = resolved.options as { prompt: string };
   const fullOpts = {
     ...(effectiveRest as object),

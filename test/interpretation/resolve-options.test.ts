@@ -5,7 +5,11 @@
  */
 import { describe, expect, it } from "vitest";
 import type { TurnOptions } from "../../src/interpretation/argv.js";
-import { resolveEffectiveOptions } from "../../src/interpretation/resolve-options.js";
+import {
+  type ConfigTiers,
+  FloorExceededError,
+  resolveEffectiveOptions,
+} from "../../src/interpretation/resolve-options.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
 import { piCli } from "../../src/knowledge/pi.js";
@@ -64,19 +68,23 @@ describe("profile floor", () => {
 
 describe("precedence", () => {
   it("arg wins over config and profile", () => {
-    const r = resolveEffectiveOptions(piCli, { ...base, effort: "max" }, { effort: "high" });
+    const r = resolveEffectiveOptions(
+      piCli,
+      { ...base, effort: "max" },
+      { user: { effort: "high" } },
+    );
     expect(r.options.effort).toBe("max");
     expect(r.provenance).toContainEqual({ key: "effort", value: "max", tier: "arg" });
   });
 
   it("config wins over profile", () => {
-    const r = resolveEffectiveOptions(piCli, base, { effort: "high" });
+    const r = resolveEffectiveOptions(piCli, base, { user: { effort: "high" } });
     expect(r.options.effort).toBe("high");
     expect(r.provenance).toContainEqual({ key: "effort", value: "high", tier: "user-config" });
   });
 
   it("config keys outside the profile pass through at their tier", () => {
-    const r = resolveEffectiveOptions(piCli, base, { model: "zai/glm-5.2" });
+    const r = resolveEffectiveOptions(piCli, base, { user: { model: "zai/glm-5.2" } });
     expect(r.options.model).toBe("zai/glm-5.2");
     expect(r.provenance).toContainEqual({
       key: "model",
@@ -89,7 +97,7 @@ describe("precedence", () => {
     const r = resolveEffectiveOptions(
       piCli,
       { ...base, model: "other/x" },
-      { model: "zai/glm-5.2" },
+      { user: { model: "zai/glm-5.2" } },
     );
     expect(r.options.model).toBe("other/x");
     expect(r.provenance).toContainEqual({ key: "model", value: "other/x", tier: "arg" });
@@ -120,5 +128,105 @@ describe("profile data", () => {
     expect(DEFAULT_TURN_PROFILE.effort).toBe("medium");
     expect(DEFAULT_TURN_PROFILE.sandbox).toBe("workspace-write");
     expect(DEFAULT_TURN_PROFILE.autonomy).toBe(false);
+  });
+});
+
+describe("project tier (Phase 6)", () => {
+  it("project beats user, arg beats both", () => {
+    const r = resolveEffectiveOptions(piCli, base, {
+      user: { effort: "high" },
+      project: { effort: "low" },
+    });
+    expect(r.options.effort).toBe("low");
+    expect(r.provenance).toContainEqual({ key: "effort", value: "low", tier: "project-config" });
+
+    const r2 = resolveEffectiveOptions(
+      piCli,
+      { ...base, effort: "max" },
+      {
+        user: { effort: "high" },
+        project: { effort: "low" },
+      },
+    );
+    expect(r2.options.effort).toBe("max");
+    expect(r2.provenance).toContainEqual({ key: "effort", value: "max", tier: "arg" });
+  });
+
+  it("non-overlapping keys from both tiers coexist", () => {
+    const r = resolveEffectiveOptions(piCli, base, {
+      user: { effort: "high" },
+      project: { tools: ["read"] },
+    });
+    expect(r.options.effort).toBe("high");
+    expect(r.options.tools).toEqual(["read"]);
+  });
+
+  it("the all-off workflow: project floor [] grants nothing and refuses excess args", () => {
+    const r = resolveEffectiveOptions(piCli, base, { project: { tools: [] } });
+    expect(r.options.tools).toEqual([]);
+    try {
+      resolveEffectiveOptions(
+        piCli,
+        { ...base, tools: ["read", "bash"] },
+        { project: { tools: [] } },
+      );
+      expect.unreachable();
+    } catch (e) {
+      const err = e as FloorExceededError;
+      expect(err).toBeInstanceOf(FloorExceededError);
+      expect(err.excess).toEqual(["read", "bash"]);
+      expect(err.floor).toEqual([]);
+    }
+  });
+
+  it("floor caps arg grants; within-floor grants pass", () => {
+    const r = resolveEffectiveOptions(
+      piCli,
+      { ...base, tools: ["read"] },
+      {
+        project: { tools: ["read", "grep", "find", "ls"] },
+      },
+    );
+    expect(r.options.tools).toEqual(["read"]);
+    try {
+      resolveEffectiveOptions(
+        piCli,
+        { ...base, tools: ["read", "bash"] },
+        {
+          project: { tools: ["read", "grep"] },
+        },
+      );
+      expect.unreachable();
+    } catch (e) {
+      expect((e as FloorExceededError).excess).toEqual(["bash"]);
+      expect((e as FloorExceededError).floor).toEqual(["read", "grep"]);
+    }
+  });
+});
+
+describe("named toolsets (D5)", () => {
+  const tiersWithSets = {
+    user: { toolsets: { review: ["read", "grep"], wide: ["read", "bash"] } },
+    project: { tools: ["read", "grep", "find", "ls"], toolsets: { review: ["read"] } },
+  } as never as ConfigTiers;
+
+  it("a bare --tools name expands to the set, project winning name collisions", () => {
+    const r = resolveEffectiveOptions(piCli, { ...base, tools: ["review"] }, tiersWithSets);
+    expect(r.options.tools).toEqual(["read"]); // project's review, not user's
+  });
+
+  it("expanded sets face the floor like literal lists", () => {
+    // user's "wide" = read,bash; floor lacks bash -> refuses naming bash
+    try {
+      resolveEffectiveOptions(piCli, { ...base, tools: ["wide"] }, tiersWithSets);
+      expect.unreachable();
+    } catch (e) {
+      expect((e as FloorExceededError).excess).toEqual(["bash"]);
+    }
+  });
+
+  it("expansion recorded in provenance as the expanded list at arg tier", () => {
+    const r = resolveEffectiveOptions(piCli, { ...base, tools: ["review"] }, tiersWithSets);
+    expect(r.provenance).toContainEqual({ key: "tools", value: ["read"], tier: "arg" });
   });
 });
