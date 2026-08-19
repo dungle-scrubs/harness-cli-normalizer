@@ -24,6 +24,11 @@ import {
   questionPrecedenceScenario,
   questionRoundtripScenario,
 } from "./e2e-questions.js";
+import {
+  type SessionStep,
+  sessionAskScenario,
+  sessionOffScenario,
+} from "./e2e-session-questions.js";
 
 const CLI_TIMEOUT_MS = 240_000;
 
@@ -783,6 +788,92 @@ const gitInit = (cwd: string): void => {
     /* git absence fails the scenario assertions via stderr text */
   }
 };
+// issue #44 session-mode scenarios: drive `hcn session <harness>` with a
+// stdout-synchronized stdin feeder (answer typed only after the menu
+// renders, exit only after the final turn). claude + pi only.
+const spawnSessionCli = async (
+  harness: string,
+  argv: string[],
+  steps: readonly SessionStep[],
+  timeoutMs: number,
+): Promise<{ exitCode: number | null; stdout: string; stderr: string }> => {
+  const proc = spawn(HARNESS_BIN, [CLI_ENTRY, "session", harness, ...argv], {
+    cwd: process.cwd(),
+    stdio: ["pipe", "pipe", "pipe"],
+    env: { ...process.env, NO_COLOR: "1" },
+  });
+  let stdout = "";
+  let stderr = "";
+  proc.stdout.on("data", (c: Buffer) => {
+    stdout += c.toString("utf8");
+  });
+  proc.stderr.on("data", (c: Buffer) => {
+    stderr += c.toString("utf8");
+  });
+  const timer = setTimeout(() => proc.kill("SIGKILL"), timeoutMs);
+  const exitCode = await new Promise<number | null>((resolve) => {
+    proc.on("close", (code) => resolve(code));
+    void (async () => {
+      for (const step of steps) {
+        if (step.branch !== undefined) {
+          const start = stdout.length;
+          const deadline = Date.now() + timeoutMs;
+          for (;;) {
+            const seen = stdout.slice(start);
+            const hit = step.branch.find((b) => b.expect.test(seen));
+            if (hit !== undefined) {
+              proc.stdin.write(`${hit.line}\n`);
+              break;
+            }
+            if (Date.now() > deadline || proc.exitCode !== null) return;
+            await new Promise((r) => setTimeout(r, 200));
+          }
+          continue;
+        }
+        if (step.expect !== undefined) {
+          // Positional: match only text emitted AFTER the previous step
+          // matched - a later step must never re-match an earlier turn's
+          // marker (the drive wrote "exit" against turn-1's awaiting-input
+          // line while the menu was still open).
+          const start = stdout.length;
+          const deadline = Date.now() + timeoutMs;
+          while (!step.expect.test(stdout.slice(start))) {
+            if (Date.now() > deadline || proc.exitCode !== null) return;
+            await new Promise((r) => setTimeout(r, 200));
+          }
+        }
+        proc.stdin.write(`${step.line ?? ""}\n`);
+      }
+    })();
+  });
+  clearTimeout(timer);
+  return { exitCode, stdout, stderr };
+};
+
+const SESSION_SCENARIOS: Scenario[] = [
+  {
+    name: sessionAskScenario.name,
+    phases: ["all"],
+    run: async (harness) => {
+      if (harness !== "claude" && harness !== "pi") {
+        return { durationMs: 0, exitCode: 0, eventCounts: {}, failures: [] };
+      }
+      return sessionAskScenario.run(spawnSessionCli, harness, mkdtempSync);
+    },
+  },
+  {
+    name: sessionOffScenario.name,
+    phases: ["all"],
+    run: async (harness) => {
+      if (harness !== "claude" && harness !== "pi") {
+        return { durationMs: 0, exitCode: 0, eventCounts: {}, failures: [] };
+      }
+      return sessionOffScenario.run(spawnSessionCli, harness, mkdtempSync);
+    },
+  },
+];
+SCENARIOS.push(...SESSION_SCENARIOS);
+
 const qRunCli: import("./e2e-questions.js").RunCli = (args, env, cwd) =>
   cwd === undefined ? runCliEnv(args, env) : runCliIn(args, env, cwd);
 const QUESTION_SCENARIOS: Scenario[] = [

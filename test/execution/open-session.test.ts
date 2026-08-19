@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { HarnessEvent } from "../../src/execution/events.js";
 import { openSession, SessionClosedError } from "../../src/execution/open-session.js";
+import { composeEscalatedPrompt } from "../../src/interpretation/question.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
 
@@ -31,7 +32,14 @@ const expectClaudeUserWrite = (proc: FakeProcess, index: number, text: string): 
     type: "user",
     message: {
       role: "user",
-      content: [{ type: "text", text }],
+      content: [
+        {
+          type: "text",
+          // issue #44: escalation composes the SESSION preamble onto every
+          // send by default; the raw text rides as the prompt's tail.
+          text: composeEscalatedPrompt(text, true, "session"),
+        },
+      ],
     },
   };
   expect(proc.stdinWrites[index]).toBe(`${JSON.stringify(expectedInput)}\n`);

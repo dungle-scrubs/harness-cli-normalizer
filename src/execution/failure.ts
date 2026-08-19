@@ -14,12 +14,7 @@
  */
 
 import type { RefusalIssue } from "../interpretation/refusal.js";
-import type {
-  AuthFailureKind,
-  DiscoveryFacet,
-  LimitCode,
-  TurnOptionKey,
-} from "../knowledge/descriptor.js";
+import type { AuthFailureKind, DiscoveryFacet, LimitCode } from "../knowledge/descriptor.js";
 
 export const FAILURE_CLASSES = Object.freeze([
   "rate-limit",

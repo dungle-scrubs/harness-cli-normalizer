@@ -41,5 +41,10 @@ export const encodeSessionInput = (input: SessionInputContract, text: string): s
         type: "user",
         message: { role: "user", content: [{ type: "text", text }] },
       })}\n`;
+    case "pi-rpc-prompt":
+      // Verified against pi 0.84.2 rpc (spike fixtures): a prompt command
+      // while idle; hcn never writes mid-run (it queues sends itself), so
+      // no streamingBehavior field is ever needed.
+      return `${JSON.stringify({ id: "hcn-send", type: "prompt", message: text })}\n`;
   }
 };

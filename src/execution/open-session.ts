@@ -14,7 +14,9 @@
  * sessionId + turnId correlation.
  */
 import { buildSessionArgv } from "../interpretation/argv.js";
+import { capabilitiesOf } from "../interpretation/capabilities.js";
 import { detectAuthFailureInLine, detectLimitInLine } from "../interpretation/limits.js";
+import { composeEscalatedPrompt, detectQuestionBlock } from "../interpretation/question.js";
 import {
   encodeSessionInput,
   resolveSessionInput,
@@ -52,6 +54,11 @@ export interface OpenSessionOptions {
   readonly model?: string;
   /** Working directory for the spawned harness. */
   readonly cwd?: string;
+  /** issue #44: question escalation in session mode (behavior
+   * instruction, default true). True composes the session preamble onto
+   * every send and arms block detection at turn end; false composes the
+   * no-ask instruction and disarms detection. */
+  readonly escalateQuestions?: boolean;
 }
 
 export class SessionClosedError extends Error {
@@ -124,6 +131,8 @@ export const openSession = (
 
   const turnsChannel = new AsyncChannel<AsyncIterable<HarnessEvent>>();
   const state = freshDecodeState(opts.sessionId);
+  const escalateQuestions = opts.escalateQuestions !== false;
+  const sessionInputMode = h.sessionMode;
   const stderrTail = new StderrTail();
   let turnCounter = 0;
   let activeTurn: AsyncChannel<HarnessEvent> | null = null;
@@ -137,6 +146,11 @@ export const openSession = (
   let resultError = false;
   let turnLimitSeen = false;
   let pumpError: unknown = null;
+  // issue #44: the active turn's last assistant message (where the
+  // hcn-question block lives) and whether the turn ended by asking.
+  let lastAssistantText: string | null = null;
+  let turnAsked = false;
+  let identityAnnounced = false;
 
   const safeSignal = (sig: "SIGTERM" | "SIGKILL"): void => {
     if (!dead) deps.signal(proc, sig);
@@ -148,7 +162,12 @@ export const openSession = (
 
   const writeUser = (text: string): boolean => {
     try {
-      stdin.write(encodeSessionInput(sessionInput, text));
+      stdin.write(
+        encodeSessionInput(
+          sessionInput,
+          composeEscalatedPrompt(text, escalateQuestions, "session"),
+        ),
+      );
       return true;
     } catch {
       activeTurn?.push({ kind: "error", message: "send failed: session stdin is gone" });
@@ -158,6 +177,8 @@ export const openSession = (
 
   const startTurn = (): void => {
     turnLimitSeen = false;
+    turnAsked = false;
+    lastAssistantText = null;
     activeTurn = new AsyncChannel<HarnessEvent>();
     activeTurnId = `${opts.sessionId}:turn-${++turnCounter}`;
     log({ event: "turn_start", sessionId: opts.sessionId, turnId: activeTurnId });
@@ -165,8 +186,44 @@ export const openSession = (
     turnsChannel.push(activeTurn);
   };
 
+  /** issue #44: at a turn boundary, scan the last assistant message for
+   * the hcn-question block - same structured-first discipline and
+   * last-message rule as streamTurn. The question event lands in the
+   * turn stream right before its done; a malformed block surfaces as an
+   * error event, never a silent no-op. */
+  const emitQuestionIfAsked = (): void => {
+    if (!escalateQuestions || lastAssistantText === null) return;
+    const detection = detectQuestionBlock(lastAssistantText);
+    if (detection === null) return;
+    if ("malformed" in detection) {
+      activeTurn?.push({ kind: "error", message: detection.malformed });
+      return;
+    }
+    turnAsked = true;
+    log({
+      event: "question",
+      sessionId: opts.sessionId,
+      turnId: activeTurnId,
+      harness: h.name,
+      options: detection.block.options.length,
+    });
+    activeTurn?.push({
+      kind: "question",
+      question: detection.block.question,
+      options: detection.block.options,
+      ...(detection.block.recommended !== undefined
+        ? { recommended: detection.block.recommended }
+        : {}),
+    });
+  };
+
   const endTurn = (done: HarnessEvent & { kind: "done" }): void => {
     if (activeTurn === null) return;
+    // Asking is a successful turn: the session semantic is "blocked on
+    // answer, session alive" - the done stays TURN-scoped (exitCode null
+    // in sessions) and the caller answers with the next send().
+    emitQuestionIfAsked();
+    if (turnAsked && done.cause === "clean") done = { ...done, cause: "awaiting-input" };
     activeTurn.push(done);
     activeTurn.close();
     log({
@@ -188,6 +245,9 @@ export const openSession = (
       state.limitSeen = true;
       turnLimitSeen = true;
     }
+    if (escalateQuestions && event.kind === "message" && event.role === "assistant") {
+      lastAssistantText = event.text;
+    }
     if (activeTurn !== null) {
       // Awaited by the pumps: past the channel's high water mark this
       // blocks the pump, so OS pipe backpressure reaches the child.
@@ -207,6 +267,28 @@ export const openSession = (
 
   const pumpStdout = async (): Promise<void> => {
     const lines = new LineBuffer();
+    const matches = (
+      record: Record<string, unknown>,
+      spec: Readonly<Record<string, string>>,
+    ): boolean => {
+      for (const [key, expected] of Object.entries(spec)) {
+        if (record[key] !== expected) return false;
+      }
+      return true;
+    };
+    // issue #44: pi rpc is identity-silent at startup; the probe round
+    // trip is the only way to read the id (spike fixtures). The response
+    // echoes our marker id, so it cannot be confused with a user-visible
+    // get_state response.
+    if (sessionInputMode?.identityProbe !== null && sessionInputMode !== null) {
+      try {
+        stdin.write(
+          `${JSON.stringify({ id: "hcn-identity", type: sessionInputMode.identityProbe.command })}\n`,
+        );
+      } catch {
+        // stdin already gone; the exited handler will surface the death.
+      }
+    }
     const handleLine = async (line: string): Promise<void> => {
       let parsed: Record<string, unknown> | null = null;
       try {
@@ -218,10 +300,70 @@ export const openSession = (
         }
         return;
       }
-      // The result line still feeds identity dedupe (claude includes
-      // session_id on it - a rotation announced there must not be missed).
+      // pi rpc bookkeeping: the probe response announces identity; a
+      // failed command response is a surfaced error, never a silent drop
+      // (spike: mid-stream prompts fail with success:false naming the
+      // remedy - hcn never sends those, but any other failure shows here).
+      if (parsed.type === "response") {
+        if (
+          parsed.id === "hcn-identity" &&
+          typeof parsed.command === "string" &&
+          parsed.command === sessionInputMode?.identityProbe?.command &&
+          parsed.success === true
+        ) {
+          const data = parsed.data as Record<string, unknown> | undefined;
+          const announced = data?.sessionId;
+          if (typeof announced !== "string") {
+            await routeEvent({
+              kind: "error",
+              message: "identity probe response carried no sessionId",
+            });
+          } else if (sessionInputMode.idFlag === null) {
+            // Harness-MINTED identity (pi rpc: `--session` refuses unknown
+            // ids, so fresh sessions omit the flag). The minted id IS the
+            // identity; opts.sessionId stays the caller-side handle.
+            if (!identityAnnounced) {
+              identityAnnounced = true;
+              state.lastSeenId = announced;
+              await routeEvent({
+                kind: "identity",
+                sessionId: announced,
+                authority: h.identity.authority,
+                capabilities: capabilitiesOf(h, opts.model ?? "", "headless-session"),
+              });
+            }
+          } else if (announced === opts.sessionId) {
+            if (!identityAnnounced) {
+              identityAnnounced = true;
+              await routeEvent({
+                kind: "identity",
+                sessionId: announced,
+                authority: h.identity.authority,
+                capabilities: capabilitiesOf(h, opts.model ?? "", "headless-session"),
+              });
+            }
+          } else {
+            await routeEvent({
+              kind: "error",
+              message: `identity rotated: session announced ${JSON.stringify(announced)} but ${opts.sessionId} was requested`,
+            });
+          }
+          return;
+        }
+        if (parsed.success === false) {
+          await routeEvent({
+            kind: "error",
+            message: `rpc command failed: ${JSON.stringify(parsed.command)} - ${JSON.stringify(parsed.error ?? "unknown error")}`,
+          });
+        }
+        return;
+      }
+      // The turn-end record still feeds identity dedupe (claude includes
+      // session_id on result - a rotation announced there must not be
+      // missed).
       const events = decodeParsed(h, parsed, state, opts.model ?? "");
-      if (parsed.type === "result") {
+      const isTurnEnd = sessionInputMode !== null && matches(parsed, sessionInputMode.turnEnd);
+      if (isTurnEnd) {
         // decodeParsed already surfaces the is_error case as an error event
         // (content.ts claude reader); routing the events is enough - we only
         // still track resultError here to classify the done cause.

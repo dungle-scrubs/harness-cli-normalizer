@@ -80,16 +80,21 @@ Defaults with no flags:
   'hcn inspect <harness>' for the resolved argv of a bare run.
 `;
 
-export const SESSION_HELP = `hcn session - Interactive session (Claude-only)
+export const SESSION_HELP = `hcn session - Interactive session (claude, pi)
 
 Usage: hcn session <harness> [options]
 
 Arguments:
-  <harness>                 Must be 'claude' (other harnesses have no sessionMode)
+  <harness>               claude | pi (others have no sessionMode)
 
 Options:
   --model <id>              Model for the session
-  --session-id <uuid>       Session id (UUID, else random)
+  --session-id <uuid>       Session id (UUID, else random; re-enters an
+                            existing session)
+  --escalate-questions      Worker may ask; question renders as a pickable
+                            menu, the answer flows back into the SAME live
+                            session (DEFAULT)
+  --no-escalate-questions   Worker never asks; states its assumption
   --cwd <path>              Working directory
   --help                    Show help
   --version                 Show version
