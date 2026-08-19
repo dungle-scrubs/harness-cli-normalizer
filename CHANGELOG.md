@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.3](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.4.2...v0.4.3) (2026-08-19)
+
+
+### Added
+
+* session-mode live question channel - claude + pi ask without exit/resume ([#44](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/44)) ([#47](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/47)) ([ddf09c1](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/ddf09c10754cb7f761630d0acbfc4187f42528de))
+
+
+### Changed
+
+* fixture pi --mode rpc spike evidence (25/25 assertions) ([#45](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/45)) ([2a5c4de](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/2a5c4de364a492b5b6c1aa59668b6d16b591ba73))
+
 ## [0.4.2](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.4.1...v0.4.2) (2026-08-19)
 
 
