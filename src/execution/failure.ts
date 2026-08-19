@@ -30,6 +30,7 @@ export const FAILURE_CLASSES = Object.freeze([
   "task",
   "transport",
   "rejected",
+  "native",
 ] as const);
 export type FailureClass = (typeof FAILURE_CLASSES)[number];
 
@@ -41,13 +42,21 @@ export interface FailureSummary {
   readonly authKind?: AuthFailureKind;
   readonly resetsAt?: number;
   readonly issue?: RefusalIssue;
-  readonly option?: TurnOptionKey;
+  readonly option?: import("../interpretation/refusal.js").RefusalOption;
   readonly facet?: DiscoveryFacet;
   readonly supported?: readonly string[];
+  /** D7: cross-harness support entries derived from descriptors. */
+  readonly supportedBy?: ReadonlyArray<{ harness: string; spelling: string }>;
+  /** D8: nearest-alternative hint for the current harness. */
+  readonly hint?: string;
+  /** D6: the harness process's own exit code for a native failure - data,
+   * because native conventions differ from hcn's (codex usage errors exit
+   * 2, which hcn reserves for refusals). */
+  readonly nativeExitCode?: number;
 }
 
 export const retryableOf = (cls: FailureClass): boolean =>
-  cls !== "task" && cls !== "budget" && cls !== "rejected";
+  cls !== "task" && cls !== "budget" && cls !== "rejected" && cls !== "native";
 
 const messageFor = (cls: FailureClass, detail?: string): string => {
   switch (cls) {
@@ -67,10 +76,30 @@ const messageFor = (cls: FailureClass, detail?: string): string => {
       return `Transport failure${detail ? ` (${detail})` : ""} - retry or route to another provider`;
     case "rejected":
       return `Request rejected${detail ? ` (${detail})` : ""} - change options or harness`;
+    case "native":
+      // D6: labeled NATIVE so it can never be confused with an hcn error.
+      // The harness's own message follows verbatim; the process exit code
+      // rides as data (nativeExitCode), because harness conventions differ
+      // (codex exits 2 on usage errors - the same code hcn uses for
+      // refusals, so hcn owns its own exit code and reports the native one).
+      return `NATIVE ERROR from harness${detail ? `: ${detail}` : ""} - the harness rejected or failed on its own arguments; this is not an hcn error`;
     default:
       return `Failure${detail ? ` (${detail})` : ""}`;
   }
-};
+}; /** D6: a failure that belongs to the harness, not hcn. Carries the
+ * native stderr verbatim and the native exit code as data. */
+export const failureFromNative = (
+  nativeExitCode: number | null,
+  stderrTail: readonly string[],
+): FailureSummary => ({
+  class: "native",
+  retryable: false,
+  message: messageFor(
+    "native",
+    stderrTail.slice(-3).join(" | ").slice(0, 512) || `exit ${nativeExitCode}`,
+  ),
+  nativeExitCode: nativeExitCode ?? undefined,
+});
 
 export const failureFromLimit = (code: LimitCode): FailureSummary => {
   const cls: FailureClass =
@@ -114,18 +143,25 @@ export const failureFromTransport = (detail?: string): FailureSummary => ({
 
 export const failureFromRejected = (opts: {
   issue: RefusalIssue;
-  option?: TurnOptionKey;
+  option?: import("../interpretation/refusal.js").RefusalOption;
   facet?: DiscoveryFacet;
   supported?: readonly string[];
+  supportedBy?: ReadonlyArray<{ harness: string; spelling: string }>;
+  hint?: string;
   detail?: string;
 }): FailureSummary => ({
   class: "rejected",
   retryable: false,
+  // D8: hint first, support list second - prose order matches the
+  // structured fields so an agent scanning the message hits the
+  // stay-on-harness suggestion before the switch temptation.
   message: messageFor("rejected", opts.detail ?? opts.issue),
   issue: opts.issue,
   option: opts.option,
   facet: opts.facet,
   supported: opts.supported,
+  supportedBy: opts.supportedBy,
+  hint: opts.hint,
 });
 
 /** Precedence for reduction: lower number = higher priority (wins). */
@@ -137,7 +173,10 @@ const PRECEDENCE: Record<FailureClass, number> = {
   budget: 3,
   task: 3,
   transport: 4,
-  rejected: 0, // rejected is separate, not reduced with others? But per spec, rejected is non-retryable and stands alone
+  // rejected stands alone (checked before precedence applies); native is
+  // terminal-by-classification, never reduced into anything else.
+  rejected: 0,
+  native: 0,
 };
 
 export const reduceFailures = (failures: readonly FailureSummary[]): FailureSummary | undefined => {

@@ -17,11 +17,24 @@ export const REFUSAL_ISSUES = deepFreeze([
   "unknown-model",
   "invalid-env",
   "invalid-tool-grant",
+  "unknown-tool-name",
+  "mutually-exclusive-options",
   "prompt-flag-injection",
   "no-autonomy-mode",
   "no-session-mode",
 ] as const);
 export type RefusalIssue = (typeof REFUSAL_ISSUES)[number];
+
+/** The option a refusal names: turn-option spec keys (descriptor tables)
+ * plus the tool-list dimensions and autonomy, which render via dedicated
+ * descriptor fields rather than a spec table. Kept closed so consumers can
+ * branch on it without a default arm. */
+export type RefusalOption =
+  | TurnOptionKey
+  | "tools"
+  | "excludeTools"
+  | "autonomy"
+  | `discovery.${string}`;
 
 /** One helper builds the message from the structured fields so message and
  * fields cannot drift. Every message names an alternative, not only a
@@ -29,7 +42,7 @@ export type RefusalIssue = (typeof REFUSAL_ISSUES)[number];
 export const buildRefusalMessage = (
   issue: RefusalIssue,
   harness: HarnessName,
-  option?: TurnOptionKey,
+  option?: RefusalOption,
   facet?: DiscoveryFacet,
   supported: readonly string[] = [],
   detail?: string,
@@ -66,6 +79,10 @@ export const buildRefusalMessage = (
       return `invalid env key or value for ${harness}${detailSuffix}; ${supportedStr} - keys must match ^[A-Za-z_][A-Za-z0-9_]*$ and contain no NUL`;
     case "invalid-tool-grant":
       return `tool grant for ${harness} contains an empty entry or a comma; a blank tool flag value grants nothing detectable, and a comma inside one name silently splits the grant; ${supportedStr} - provide comma-free, non-empty tool names as separate entries`;
+    case "unknown-tool-name":
+      return `${harness} cannot compute a tool complement around an unknown name${detailSuffix}; ${supportedStr} - exclude only curated names, or pass the unknown name through an include list instead`;
+    case "mutually-exclusive-options":
+      return `${harness} cannot combine${optionPart}${detailSuffix}; ${supportedStr} - pass exactly one of them`;
     case "prompt-flag-injection":
       return `positional prompt may not start with '-'; it would be parsed as a flag by ${harness}${detailSuffix}; ${supportedStr} - remove leading '-' or prefix with a space`;
     case "no-autonomy-mode":
@@ -83,15 +100,25 @@ export const buildRefusalMessage = (
 export class ArgvRefusalError extends Error {
   readonly issue: RefusalIssue;
   readonly harness: HarnessName;
-  readonly option?: TurnOptionKey;
+  readonly option?: RefusalOption;
   readonly facet?: DiscoveryFacet;
   readonly supported: readonly string[];
+  /** D7: which harnesses DO express the refused option, native spellings
+   * included. Derived by the raise site from descriptors - absent when the
+   * refusing layer has no descriptor set in scope. */
+  readonly supportedBy?: ReadonlyArray<{ harness: string; spelling: string }>;
+  /** D8: nearest-alternative suggestion for the CURRENT harness - keeps a
+   * scanning agent on its chosen harness instead of switching. Curatorial
+   * data set at the raise site; absent when no hint exists. */
+  readonly hint?: string;
   constructor(args: {
     readonly issue: RefusalIssue;
     readonly harness: HarnessName;
-    readonly option?: TurnOptionKey;
+    readonly option?: RefusalOption;
     readonly facet?: DiscoveryFacet;
     readonly supported?: readonly string[];
+    readonly supportedBy?: ReadonlyArray<{ harness: string; spelling: string }>;
+    readonly hint?: string;
     readonly detail?: string;
     readonly message?: string;
   }) {
@@ -112,5 +139,7 @@ export class ArgvRefusalError extends Error {
     this.option = args.option;
     this.facet = args.facet;
     this.supported = args.supported ?? [];
+    this.supportedBy = args.supportedBy;
+    this.hint = args.hint;
   }
 }

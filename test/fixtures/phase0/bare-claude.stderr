@@ -1,0 +1,1 @@
+spawn: claude -p [prompt:47ch] --output-format stream-json --verbose --include-partial-messages

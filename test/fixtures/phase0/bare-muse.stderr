@@ -1,0 +1,1 @@
+spawn: muse exec --json [prompt:47ch]

@@ -118,4 +118,25 @@ export const piCli: HarnessDescriptor = deepFreeze({
       },
     },
   },
+  // Phase 0 fixtures: pi-both-tool-flags.md. Both list flags legal at once;
+  // exclude subtracts from include. --tools is strict over BUILT-INS but
+  // does not strip MCP/extension registrations (additive over them);
+  // -nbt (built-ins only off) exists but has no normalized spelling yet.
+  tools: {
+    includeFlag: "--tools",
+    excludeFlag: "--exclude-tools",
+    includeIsStrictAllowlist: true,
+    composable: true,
+    builtins: [
+      { name: "read", defaultEnabled: true },
+      { name: "bash", defaultEnabled: true },
+      { name: "edit", defaultEnabled: true },
+      { name: "write", defaultEnabled: true },
+      { name: "grep", defaultEnabled: false },
+      { name: "find", defaultEnabled: false },
+      { name: "ls", defaultEnabled: false },
+    ],
+    categories: [],
+    denySemantics: "remove-from-set",
+  },
 });

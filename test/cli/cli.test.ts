@@ -323,7 +323,7 @@ describe("flag mapping and validation", () => {
     expect(out.exitCode === undefined || out.exitCode === 0).toBe(true);
   });
 
-  test("tools claude only", async () => {
+  test("tools: claude include-complement, pi strict include, codex refuses", async () => {
     const out = await captureDispatch([
       "inspect",
       "claude",
@@ -334,9 +334,20 @@ describe("flag mapping and validation", () => {
       "Read,Grep",
     ]);
     expect(out.stdout).toContain("--allowedTools");
-    const out2 = await captureDispatch([
+    const outPi = await captureDispatch([
       "inspect",
       "pi",
+      "--argv",
+      "--prompt",
+      "hi",
+      "--tools",
+      "read,bash",
+    ]);
+    expect(outPi.exitCode).toBeUndefined();
+    expect(outPi.stdout).toContain('"--tools","read,bash"');
+    const out2 = await captureDispatch([
+      "inspect",
+      "codex",
       "--argv",
       "--prompt",
       "hi",

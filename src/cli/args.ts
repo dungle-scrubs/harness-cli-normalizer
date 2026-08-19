@@ -162,6 +162,10 @@ export const parseTurnOptions = (values: Record<string, unknown>): TurnOptions =
     const raw = String(values.tools);
     opts.tools = raw.length === 0 ? [] : raw.split(",").map((s) => s.trim());
   }
+  if (values["exclude-tools"] !== undefined) {
+    const raw = String(values["exclude-tools"]);
+    opts.excludeTools = raw.length === 0 ? [] : raw.split(",").map((s) => s.trim());
+  }
   if (values.autonomy === true) opts.autonomy = true;
   else if (values["no-autonomy"] === true) opts.autonomy = false;
   else if (values.autonomy === false) opts.autonomy = false; // for completeness
@@ -238,6 +242,7 @@ const KNOWN_FLAGS = new Set([
   "--sandbox",
   "--provider",
   "--tools",
+  "--exclude-tools",
   "--autonomy",
   "--no-autonomy",
   "--write",
@@ -269,6 +274,7 @@ const FLAGS_WITH_VALUE = new Set([
   "--sandbox",
   "--provider",
   "--tools",
+  "--exclude-tools",
   "--max-steps",
   "--cwd",
   "--env",
@@ -339,11 +345,34 @@ const preprocessPromptArgs = (argv: string[]): string[] => {
  * Wrapper around node:util parseArgs for the common flag table.
  * Throws with exit code 2 on unknown flag.
  */
+export interface SplitPassthrough {
+  /** Tokens before the separator - hcn's normalized surface. */
+  readonly normalized: string[];
+  /** Tokens after the separator - verbatim passthrough to the harness,
+   * empty when no separator was present. */
+  readonly passthrough: readonly string[];
+}
+
+/** D6: split argv at the first bare `--`. Everything after it belongs to
+ * the harness, not to hcn - wrong-harness flags there fail in the harness
+ * itself and surface as native errors, never as hcn refusals. */
+export const splitPassthrough = (argv: readonly string[]): SplitPassthrough => {
+  const idx = argv.indexOf("--");
+  if (idx === -1) return { normalized: [...argv], passthrough: [] };
+  return {
+    normalized: argv.slice(0, idx),
+    passthrough: argv.slice(idx + 1),
+  };
+};
+
 export const parseCommonFlags = (
   argv: string[],
   opts: { strict?: boolean } = {},
 ): ReturnType<typeof parseArgs> => {
-  const normalized = preprocessPromptArgs(argv);
+  // The separator itself never reaches parseArgs: passthrough tokens may
+  // be unknown to hcn by design (that is their purpose).
+  const { normalized: withoutPassthrough } = splitPassthrough(argv);
+  const normalized = preprocessPromptArgs(withoutPassthrough);
   const config = {
     allowPositionals: true,
     strict: opts.strict ?? true,
@@ -355,6 +384,7 @@ export const parseCommonFlags = (
       sandbox: { type: "string" as const },
       provider: { type: "string" as const },
       tools: { type: "string" as const },
+      "exclude-tools": { type: "string" as const },
       autonomy: { type: "boolean" as const },
       "no-autonomy": { type: "boolean" as const },
       write: { type: "boolean" as const },
