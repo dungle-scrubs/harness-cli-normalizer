@@ -33,13 +33,34 @@ Say nothing after the block. Your turn ends there; the caller's user will answer
 export const NO_ESCALATION_PREAMBLE = `${QUESTION_PREAMBLE_MARKER}
 You are running headless and no one will answer you in this session. Never ask a question, never request input or confirmation, and never end your turn awaiting a reply. When a decision is ambiguous, pick the most defensible reading, state the assumption you proceeded under in one sentence, and continue to completion.`;
 
-/** Compose the transport preamble onto a prompt. Idempotent: a prompt
- * that already carries either preamble (re-composition on resume, a
- * caller that pre-composed) passes through unchanged. */
-export const composeEscalatedPrompt = (prompt: string, escalate: boolean): string =>
+/** Session-mode variant (issue #44): the worker lives in ONE persistent
+ * session with a live stdin - the ask stops generation but the session
+ * stays open, and the answer arrives as the next user message on the
+ * same session. No exit, no resume. */
+export const SESSION_ESCALATION_PREAMBLE = `${QUESTION_PREAMBLE_MARKER}
+You are running in a persistent session: no one is watching live, but the caller relays answers back into this same session. This protocol never changes your permissions - asking is not how you obtain permission, and it never removes any permission this run already has. Use the tools you have exactly as granted.
+If and only if a genuine decision you cannot make defensibly blocks correct progress, ask by stopping: emit one fenced code block tagged hcn-question, as the last content of your reply, containing a single JSON object:
+
+\`\`\`hcn-question
+{"question": "<the decision you need made>", "options": ["<option 1>", "<option 2>"], "recommended": "<one of options>"}
+\`\`\`
+
+Say nothing after the block and stop generating. The caller's user will answer, and the answer arrives as the next user message in this session - continue from it. For every choice you can make defensibly yourself, do not ask - decide, act, and state the decision you made.`;
+
+/** Compose the transport preamble onto a prompt. `mode` selects the
+ * contract wording: "turn" (exit-and-resume transport, hcn run) or
+ * "session" (live channel, hcn session). Idempotent: a prompt that
+ * already carries any preamble passes through unchanged - a turn-mode
+ * preamble is never re-composed into a session one (the marker matches
+ * both; the already-composed contract stands). */
+export const composeEscalatedPrompt = (
+  prompt: string,
+  escalate: boolean,
+  mode: "turn" | "session" = "turn",
+): string =>
   prompt.startsWith(QUESTION_PREAMBLE_MARKER)
     ? prompt
-    : `${escalate ? ESCALATION_PREAMBLE : NO_ESCALATION_PREAMBLE}\n\n${prompt}`;
+    : `${mode === "session" && escalate ? SESSION_ESCALATION_PREAMBLE : escalate ? ESCALATION_PREAMBLE : NO_ESCALATION_PREAMBLE}\n\n${prompt}`;
 
 /** The structured question a worker asks (the block's fields). */
 export interface QuestionBlock {

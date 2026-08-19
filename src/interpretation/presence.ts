@@ -18,7 +18,9 @@ export interface ProcessRow {
 const idBearingFlags = (h: HarnessDescriptor): readonly string[] => [
   h.resume.flag,
   ...h.resume.aliases,
-  ...(h.sessionMode === null ? [] : [h.sessionMode.idFlag]),
+  // idFlag null = the harness mints session ids and accepts no id flag
+  // (pi rpc); such processes never carry a caller id to match anyway.
+  ...(h.sessionMode === null || h.sessionMode.idFlag === null ? [] : [h.sessionMode.idFlag]),
   // muse's interactive process IS `muse resume <id>` - the parse-only
   // spelling is exactly what a live interactive argv looks like.
   ...(h.resume.positionalParseWord === undefined ? [] : [h.resume.positionalParseWord]),

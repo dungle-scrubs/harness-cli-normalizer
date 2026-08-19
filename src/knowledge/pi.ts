@@ -37,11 +37,23 @@ export const piCli: HarnessDescriptor = deepFreeze({
     onMissing: "create",
     extraFlags: ["-p", "--mode", "json"],
   },
-  // --mode rpc exists on 0.84.2 but its session semantics are unverified
-  // against a live run; per the truthfulness rule it stays null until a
-  // spike proves the contract (the claude slice is the proven vertical -
-  // D-003).
-  sessionMode: null,
+  // --mode rpc exists on 0.84.2 and its session semantics are now VERIFIED
+  // against a live run (2026-08-19 spike, evidence at
+  // test/fixtures/pi-rpc-spike): JSONL both directions, agent_settled
+  // delimits turns, steer/follow_up queue mid-run (hcn never needs them -
+  // it queues sends itself), identity is silent at startup and readable
+  // only via a get_state round trip, stdin EOF exits rc=0. The claude
+  // slice remains the proven vertical (D-003); this entry is the second.
+  sessionMode: {
+    flags: ["--mode", "rpc"],
+    // `--session <id>` requires an EXISTING id ("No session found" on a
+    // fresh uuid - live-verified); fresh sessions omit it and pi mints
+    // the id, readable only through the get_state probe.
+    idFlag: null,
+    input: { kind: "pi-rpc-prompt" },
+    turnEnd: { type: "agent_settled" },
+    identityProbe: { command: "get_state" },
+  },
   output: {
     // pi -p prints plain text; --mode json emits structured v3 records
     // INCLUDING assistantMessageEvent text_delta tokens (verified 0.84.2),
@@ -88,10 +100,12 @@ export const piCli: HarnessDescriptor = deepFreeze({
     images: false,
     streamingByMode: {
       "headless-turn": "token",
-      "headless-session": "none",
+      // rpc mode streams the same assistantMessageEvent deltas json mode
+      // does (spike fixture 02: text/thinking deltas under message_update).
+      "headless-session": "token",
       interactive: "none",
     },
-    session: false,
+    session: true,
   },
   turnOptions: {
     effort: { kind: "effort", render: { kind: "flag-value", flag: "--thinking" } },
