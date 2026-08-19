@@ -18,7 +18,10 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     return;
   }
 
-  const { parseCommonFlags, detectPositionalPromptInjection } = await import("./args.js");
+  const { parseCommonFlags, detectPositionalPromptInjection, splitPassthrough } = await import(
+    "./args.js"
+  );
+  const { passthrough } = splitPassthrough(rawArgs);
   const injection = detectPositionalPromptInjection(rawArgs);
   if (injection) {
     const err = new ArgvRefusalError({
@@ -94,6 +97,11 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   const positionalPrompt = positionals.length > 0 ? positionals[0] : undefined;
   if (positionals.length > 1) {
     process.stderr.write(`too many positionals for run; expected one prompt\n`);
+    process.exitCode = 2;
+    return;
+  }
+  if (passthrough.length === 0 && rawArgs.includes("--")) {
+    process.stderr.write(`-- separator given but no passthrough tokens followed it\n`);
     process.exitCode = 2;
     return;
   }
@@ -178,8 +186,13 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     cwd: extra.cwd,
     env: extra.env,
     resume: extra.resume,
+    ...(passthrough.length > 0 ? { passthrough } : {}),
     ...(isExplicit ? { __explicitPrompt: true as const } : {}),
-  } as Parameters<typeof streamTurn>[1] & { resume?: string; __explicitPrompt?: boolean };
+  } as Parameters<typeof streamTurn>[1] & {
+    resume?: string;
+    __explicitPrompt?: boolean;
+    passthrough?: readonly string[];
+  };
 
   // Pre-validate via building argv to catch refusals before spawn (so we don't spawn on bad args)
   let _validated = false;

@@ -291,11 +291,65 @@ const refusalDiagnosticsScenario: Scenario = {
   },
 };
 
+/** Phase 4 (D6) passthrough scenarios: native error labeling end to end.
+ * Wrong-harness flag after -- fails in the harness, surfaces as native
+ * (labeled, nativeExitCode data, hcn exit 1); before -- the same flag is
+ * recognized and redirected (exit 2). Live spawns, cheap (they fail fast). */
+const passthroughScenario: Scenario = {
+  name: "passthrough-native",
+  phases: ["all"],
+  run: async (harness) => {
+    const failures: string[] = [];
+    const t0 = Date.now();
+    let exitCode: number | null = null;
+
+    if (harness === "codex") {
+      // after --: native failure, labeled, hcn exit 1, native code as data
+      const r = await runCli([harness, "--json", "--prompt", "hi", "--", "--allowedTools", "Read"]);
+      exitCode = r.exitCode;
+      const fail = r.events.find(
+        (e): e is Extract<HarnessEvent, { kind: "failure" }> => e.kind === "failure",
+      );
+      const done = r.events.find(
+        (e): e is Extract<HarnessEvent, { kind: "done" }> => e.kind === "done",
+      );
+      if (!fail) failures.push("no failure event");
+      else {
+        if (fail.class !== "native") failures.push(`failure class ${fail.class}, expected native`);
+        if ((fail as { nativeExitCode?: number }).nativeExitCode !== 2) {
+          failures.push("nativeExitCode not carried as data");
+        }
+      }
+      if (r.exitCode !== 1) failures.push(`hcn exit ${r.exitCode}, expected 1 (hcn owns it)`);
+      if (done && done.exitCode !== null) failures.push("done.exitCode should be null for native");
+      // before --: recognized and redirected, hcn refusal exit 2
+      const r2 = await runCli([harness, "--json", "--allowedTools", "Read", "--prompt", "hi"]);
+      if (r2.exitCode !== 2) failures.push(`pre-separator exit ${r2.exitCode}, expected 2`);
+      if (!/native spelling/.test(r2.stderr)) failures.push("pre-separator not redirected");
+    } else {
+      // other harnesses: separator mechanics still work; a valid native
+      // flag rides through (pi -ns after -- is legal for pi itself).
+      const r = await runCli([harness, "--json", "--prompt", "hi"]);
+      exitCode = r.exitCode;
+      const done = r.events.find(
+        (e): e is Extract<HarnessEvent, { kind: "done" }> => e.kind === "done",
+      );
+      if (!done || done.cause !== "clean")
+        failures.push(`baseline-with-passthrough-api not clean: ${done?.cause}`);
+      // empty passthrough refuses
+      const r2 = await runCli([harness, "--json", "--prompt", "hi", "--"]);
+      if (r2.exitCode !== 2) failures.push(`empty passthrough exit ${r2.exitCode}, expected 2`);
+    }
+    return { durationMs: Date.now() - t0, exitCode, eventCounts: {}, failures };
+  },
+};
+
 const SCENARIOS: Scenario[] = [
   baselineScenario,
   toolSelectionScenario,
   mutualExclusionScenario,
   refusalDiagnosticsScenario,
+  passthroughScenario,
 ];
 
 // ---- CLI arg parsing ----

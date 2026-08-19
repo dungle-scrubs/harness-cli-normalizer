@@ -28,6 +28,7 @@ import type { FailureSummary } from "./failure.js";
 import {
   failureFromAuth,
   failureFromLimit,
+  failureFromNative,
   failureFromRejected,
   failureFromTransport,
   reduceFailures,
@@ -96,6 +97,10 @@ export interface TurnRunOptions extends LaunchOptions {
   readonly cwd?: string;
   /** Per-call environment, merged over parent; "" deletes. */
   readonly env?: Readonly<Record<string, string>>;
+  /** D6 passthrough: raw harness tokens appended verbatim after the
+   * normalized argv. Wrong-harness flags here fail in the harness itself
+   * and surface as native errors - hcn never validates them. */
+  readonly passthrough?: readonly string[];
 }
 
 export async function* streamTurn(
@@ -144,6 +149,9 @@ export async function* streamTurn(
       opts.resume === undefined
         ? buildLaunchArgv(h, opts)
         : buildResumeArgv(h, { ...opts, sessionId: opts.resume });
+    if (opts.passthrough !== undefined && opts.passthrough.length > 0) {
+      argv = [...argv, "--", ...opts.passthrough];
+    }
     granularity = streamingGranularityOf(h, argv);
   } catch (e) {
     if (e instanceof ArgvRefusalError) {
@@ -402,7 +410,12 @@ export async function* streamTurn(
   try {
     for await (const event of queue) yield event;
 
-    // Post-queue failure sources: nonzero exit with no other failure is transport
+    // Post-queue failure sources. Nonzero exit with no other failure and a
+    // non-empty stderr tail is a NATIVE failure (D6): the harness rejected
+    // its own arguments or crashed on them - verbatim stderr, native exit
+    // code as data, hcn exit 1. Without a stderr tail it stays transport
+    // (a silent nonzero exit reads as an environment problem, not a
+    // harness judgment).
     if (
       failures.length === 0 &&
       exitCode !== 0 &&
@@ -410,7 +423,11 @@ export async function* streamTurn(
       !killedByWatchdog &&
       !state.limitSeen
     ) {
-      const f = failureFromTransport(`nonzero exit ${exitCode}`);
+      const tailForNative = stderrTail.snapshot();
+      const f =
+        tailForNative.length > 0
+          ? failureFromNative(exitCode, tailForNative)
+          : failureFromTransport(`nonzero exit ${exitCode}`);
       failures.push(f);
       // Need to emit this failure before done, even though queue is closed
       yield { kind: "failure", ...f };
@@ -453,7 +470,18 @@ export async function* streamTurn(
       yield { kind: "error", message: tail.join("\n").slice(0, 4096) };
     }
     terminalEventReached = true;
-    yield { kind: "done", exitCode, cause, ...(reduced ? { failure: reduced } : {}) };
+    // D6: when the failure is native, the harness's own exit convention is
+    // DATA (nativeExitCode on the failure), not the done event's contract -
+    // hcn owns the process exit code (1 for any native failure) because
+    // harness conventions collide with hcn's (codex usage errors exit 2,
+    // which hcn reserves for refusals).
+    const nativeReduced = reduced?.class === "native";
+    yield {
+      kind: "done",
+      exitCode: nativeReduced ? null : exitCode,
+      cause,
+      ...(reduced ? { failure: reduced } : {}),
+    };
   } finally {
     const abandoned = !terminalEventReached;
     cancelled = true;
