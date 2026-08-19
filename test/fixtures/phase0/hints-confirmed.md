@@ -88,3 +88,37 @@ Wording locked as proposed, with one correction from sandbox discussion:
     --no-foreign-personal-context drops foreign skills and untrusted
     workspaces stay unloaded - there is no unconditional skills-off
     switch"
+
+## Defaults roadmap ratifications (round 2)
+
+Approved in review (.lucid/next-five-defaults.html, v3), 2026-08-19:
+
+- D9: profile write = true (emit-nothing ratification, names current
+  behavior)
+- D10: profile shell = true (same shape)
+- D11: timeout dimension ADDED as opt-in only - --timeout <seconds> arg
+  and "timeout" config key, NO profile default. Grounding: no harness
+  ships a wall-clock run cap; one prompt expands into an unbounded turn
+  loop; a fixed default kills legitimate work. --timeout 0 = disable.
+  Process-group signalling; timeout failure class; done cause "killed".
+- D12: maxSteps opt-in only (config key), NO profile default - same
+  argument as D11; arg already exists (muse-only).
+- D13: tools ratification deferred to its own design sitting.
+- Model: permanently out of profile scope (recorded in profile doc
+  comment + README).
+
+## D13 ratification (tools default + equivalence principle)
+
+Approved in review (.lucid/d13-tools-default.html), 2026-08-19:
+
+- Principle: equivalence wherever expressible; divergence only where
+  structural. Dormancy is a choice, not a gap.
+- Profile tools = "all-known" marker, expanded per descriptor at resolve
+  time: pi gets the enabling include (dormant grep/find/ls turn on);
+  claude emits nothing (already everything; an include would trigger
+  deny-complement for zero gain); codex/muse skip-and-report divergence.
+- Project floor wins over the profile entry (precedence chain; narrowing
+  is deliberate).
+- -nbt-style narrowings are never profile entries - passthrough only.
+- Probe grounding: pi trio enables via include and works (live grep,
+  correct file:line, 2026-08-19).

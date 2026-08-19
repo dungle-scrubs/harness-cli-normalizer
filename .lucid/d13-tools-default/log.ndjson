@@ -1,0 +1,4 @@
+{"t":"session_opened","segment":1,"artifact":"d13-tools-default.html","version":1,"hash":"sha256:7b8f6576089daa47371cad87a81de3ce0a0debcc81225db6346b7b644445ae6e","path":"versions/s1/v1.html","attendant":{"harness":"pi","sessionId":"01a013f4-8eef-7d11-bd1d-22e34a4cce52","cwd":"/Users/kevin/dev/harness-cli-normalizer"},"seq":1,"at":"2026-08-19T10:14:48.408Z"}
+{"t":"review_resolved","seq":2,"at":"2026-08-19T10:18:26.245Z"}
+{"t":"agent_ack","id":"b5c3b548-61df-4dc4-a6a4-069ea2e3697c","covers":2,"attendant":{"harness":"pi","sessionId":"01a013f4-8eef-7d11-bd1d-22e34a4cce52","cwd":"/Users/kevin/dev/harness-cli-normalizer"},"seq":3,"at":"2026-08-19T10:18:26.265Z"}
+{"t":"agent_ack","id":"f4726676-bc92-4e33-a2de-f772ca1d817e","covers":3,"attendant":{"harness":"pi","sessionId":"01a013f4-8eef-7d11-bd1d-22e34a4cce52","cwd":"/Users/kevin/dev/harness-cli-normalizer"},"seq":4,"at":"2026-08-19T10:18:37.503Z"}

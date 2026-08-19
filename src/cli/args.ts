@@ -166,6 +166,11 @@ export const parseTurnOptions = (values: Record<string, unknown>): TurnOptions =
     const raw = String(values["exclude-tools"]);
     opts.excludeTools = raw.length === 0 ? [] : raw.split(",").map((s) => s.trim());
   }
+  if (values.skills !== undefined) {
+    const raw = String(values.skills);
+    (opts as Record<string, unknown>).skills =
+      raw.length === 0 ? [] : raw.split(",").map((s) => s.trim());
+  }
   if (values.autonomy === true) opts.autonomy = true;
   else if (values["no-autonomy"] === true) opts.autonomy = false;
   else if (values.autonomy === false) opts.autonomy = false; // for completeness
@@ -216,8 +221,31 @@ export const parseTurnOptions = (values: Record<string, unknown>): TurnOptions =
 
 export const parseRunExtra = (
   values: Record<string, unknown>,
-): { cwd?: string; env?: Record<string, string>; resume?: string } => {
-  const extra: { cwd?: string; env?: Record<string, string>; resume?: string } = {};
+): {
+  cwd?: string;
+  env?: Record<string, string>;
+  resume?: string;
+  timeoutSeconds?: number;
+} => {
+  const extra: {
+    cwd?: string;
+    env?: Record<string, string>;
+    resume?: string;
+    timeoutSeconds?: number;
+  } = {};
+  if (values.timeout !== undefined) {
+    const n = Number(values.timeout);
+    if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
+      throw new ArgvRefusalError({
+        issue: "invalid-option-value",
+        harness: "claude",
+        option: "maxSteps",
+        supported: ["whole seconds, >= 0 (0 disables)"],
+        detail: String(values.timeout),
+      });
+    }
+    extra.timeoutSeconds = n;
+  }
   if (values.cwd !== undefined) extra.cwd = String(values.cwd);
   if (values.resume !== undefined) extra.resume = String(values.resume);
   if (values["session-id"] !== undefined) extra.resume = String(values["session-id"]);
@@ -280,6 +308,7 @@ const FLAGS_WITH_VALUE = new Set([
   "--env",
   "--resume",
   "--session-id",
+  "--timeout",
 ]);
 
 export const detectPositionalPromptInjection = (argv: string[]): string | null => {
@@ -385,6 +414,7 @@ export const parseCommonFlags = (
       provider: { type: "string" as const },
       tools: { type: "string" as const },
       "exclude-tools": { type: "string" as const },
+      skills: { type: "string" as const },
       autonomy: { type: "boolean" as const },
       "no-autonomy": { type: "boolean" as const },
       write: { type: "boolean" as const },
@@ -400,6 +430,7 @@ export const parseCommonFlags = (
       env: { type: "string" as const, multiple: true },
       resume: { type: "string" as const },
       "session-id": { type: "string" as const },
+      timeout: { type: "string" as const },
       json: { type: "boolean" as const },
       argv: { type: "boolean" as const },
       help: { type: "boolean" as const },

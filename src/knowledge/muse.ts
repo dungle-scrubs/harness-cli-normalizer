@@ -116,6 +116,7 @@ export const museCode: HarnessDescriptor = deepFreeze({
   // Tool names follow muse.<name> (write_file, edit_file, bash, bash_input,
   // add_memory, edit_memory, web_search). --disable-web-tools has no
   // normalized turnOption yet - candidate for a web toggle or passthrough.
+  skills: null,
   tools: {
     includeFlag: null,
     excludeFlag: null,

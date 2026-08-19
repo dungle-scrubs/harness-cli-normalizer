@@ -12,6 +12,7 @@ import {
 } from "../../src/interpretation/resolve-options.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
+import { museCode } from "../../src/knowledge/muse.js";
 import { piCli } from "../../src/knowledge/pi.js";
 import { DEFAULT_TURN_PROFILE } from "../../src/knowledge/profile.js";
 
@@ -24,6 +25,8 @@ describe("profile floor", () => {
     expect(r.provenance).toContainEqual({ key: "effort", value: "medium", tier: "profile" });
     // pi's only divergence is sandbox (codex-only dimension)
     expect(r.unrenderable).toEqual(["sandbox"]);
+    expect(r.options.write).toBeUndefined(); // emit-nothing ratification (D9)
+    expect(r.options.shell).toBeUndefined(); // (D10)
   });
 
   it("all four harnesses express effort", () => {
@@ -36,7 +39,8 @@ describe("profile floor", () => {
   it("sandbox applies on codex, diverges elsewhere", () => {
     const rc = resolveEffectiveOptions(codexCli, base, undefined);
     expect(rc.options.sandbox).toBe("workspace-write");
-    expect(rc.unrenderable).toEqual([]);
+    // D13: codex has no list surface - tools diverges
+    expect(rc.unrenderable).toEqual(["tools"]);
     const rp = resolveEffectiveOptions(piCli, base, undefined);
     expect(rp.options.sandbox).toBeUndefined();
     expect(rp.unrenderable).toContain("sandbox");
@@ -124,6 +128,9 @@ describe("profile data", () => {
       "sandbox",
       "discovery",
       "autonomy",
+      "write",
+      "shell",
+      "tools",
     ]);
     expect(DEFAULT_TURN_PROFILE.effort).toBe("medium");
     expect(DEFAULT_TURN_PROFILE.sandbox).toBe("workspace-write");
@@ -228,5 +235,63 @@ describe("named toolsets (D5)", () => {
   it("expansion recorded in provenance as the expanded list at arg tier", () => {
     const r = resolveEffectiveOptions(piCli, { ...base, tools: ["review"] }, tiersWithSets);
     expect(r.provenance).toContainEqual({ key: "tools", value: ["read"], tier: "arg" });
+  });
+});
+
+describe("round 2 ratifications (D9-D12)", () => {
+  it("write and shell true are emit-nothing everywhere - no divergence, no flags", () => {
+    for (const h of [claudeCode, codexCli, piCli]) {
+      const r = resolveEffectiveOptions(h, base, undefined);
+      expect(r.options.write).toBeUndefined();
+      expect(r.options.shell).toBeUndefined();
+      expect(r.unrenderable).not.toContain("write");
+      expect(r.unrenderable).not.toContain("shell");
+      expect(r.provenance).toContainEqual({ key: "write", value: true, tier: "profile" });
+      expect(r.provenance).toContainEqual({ key: "shell", value: true, tier: "profile" });
+    }
+  });
+
+  it("profile carries no timeout and no maxSteps entry (opt-in only)", () => {
+    expect("timeout" in DEFAULT_TURN_PROFILE).toBe(false);
+    expect("maxSteps" in DEFAULT_TURN_PROFILE).toBe(false);
+  });
+});
+
+describe("D13: tools all-known marker", () => {
+  it("pi expands to the enabling include (dormant trio on)", () => {
+    const r = resolveEffectiveOptions(piCli, base, undefined);
+    expect(r.options.tools).toEqual(["read", "bash", "edit", "write", "grep", "find", "ls"]);
+    expect(r.provenance).toContainEqual({
+      key: "tools",
+      value: ["read", "bash", "edit", "write", "grep", "find", "ls"],
+      tier: "profile",
+    });
+  });
+
+  it("claude is already-everything: emit nothing, record in provenance", () => {
+    const r = resolveEffectiveOptions(claudeCode, base, undefined);
+    expect(r.options.tools).toBeUndefined();
+    expect(r.provenance).toContainEqual({
+      key: "tools",
+      value: "all known (already default)",
+      tier: "profile",
+    });
+  });
+
+  it("codex and muse report divergence (no list surface)", () => {
+    const rc = resolveEffectiveOptions(codexCli, base, undefined);
+    expect(rc.unrenderable).toContain("tools");
+    const rm = resolveEffectiveOptions(museCode, base, undefined);
+    expect(rm.unrenderable).toContain("tools");
+  });
+
+  it("project floor narrows the profile entry (precedence chain)", () => {
+    const r = resolveEffectiveOptions(piCli, base, { project: { tools: ["read", "grep"] } });
+    expect(r.options.tools).toEqual(["read", "grep"]);
+    expect(r.provenance).toContainEqual({
+      key: "tools",
+      value: ["read", "grep"],
+      tier: "project-config",
+    });
   });
 });

@@ -122,6 +122,7 @@ export const piCli: HarnessDescriptor = deepFreeze({
   // exclude subtracts from include. --tools is strict over BUILT-INS but
   // does not strip MCP/extension registrations (additive over them);
   // -nbt (built-ins only off) exists but has no normalized spelling yet.
+  skills: { loadFlag: "--skill", overridesVia: null },
   tools: {
     includeFlag: "--tools",
     excludeFlag: "--exclude-tools",

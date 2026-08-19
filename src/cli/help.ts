@@ -32,7 +32,10 @@ Options:
   --effort <value>          Effort level (validated per harness/model)
   --sandbox <value>         Sandbox mode (codex only)
   --provider <value>        Provider (pi only)
-  --tools <a,b>             Tool grants (claude only, comma-separated)
+  --tools <a,b>             Tool grant allowlist (claude, pi; a bare name
+                            matching a configured toolset expands to it)
+  --exclude-tools <a,b>     Complement over known tools (claude, pi;
+                            mutually exclusive with --tools)
   --autonomy                Enable autonomy flag (claude/codex/muse)
   --no-autonomy             Disable autonomy
   --write                   Enable write (muse)
@@ -40,6 +43,8 @@ Options:
   --shell                   Enable shell (muse)
   --no-shell                Disable shell
   --max-steps <n>           Max steps (muse, 1-10000)
+  --timeout <seconds>       Wall-clock budget for the run (all harnesses,
+                            hcn-enforced; 0 disables; no default)
   --no-tools                Disable tools discovery facet
   --no-instruction-files    Disable instructionFiles discovery facet
   --no-extensions           Disable extensions discovery facet
@@ -47,9 +52,20 @@ Options:
   --cwd <path>              Working directory for spawn
   --env KEY=VAL             Environment (repeatable; KEY= deletes)
   --resume <uuid>           Resume session id (UUID)
+  --                        Passthrough: native harness args verbatim
+                            (failures surface as labeled native errors)
   --json                    NDJSON HarnessEvent to stdout
   -h, --help                Show help
   -V, --version             Show version
+
+Defaults with no flags:
+  Every launch resolves args > project config (.hcn/config.json at the
+  git root) > user config (~/.config/hcn/config.json) > built-in profile
+  > harness default. The profile pins: effort medium, sandbox
+  workspace-write (codex only; other harnesses report divergence),
+  discovery on, autonomy off, write/shell on. timeout and max-steps have
+  no default. Provenance prints to stderr on every run; see
+  'hcn inspect <harness>' for the resolved argv of a bare run.
 `;
 
 export const SESSION_HELP = `hcn session - Interactive session (Claude-only)

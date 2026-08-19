@@ -186,16 +186,42 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
 
   const isExplicit = promptSource !== "positional";
 
+  // issue #38: resolve --skills names against the caller's registry root,
+  // then hand the harness its native rendering (pi loads; claude narrows).
+  const rawSkills = (turnOpts as unknown as { skills?: string[] }).skills;
+  if (rawSkills !== undefined && rawSkills.length > 0) {
+    try {
+      const { resolveSkillNames, listKnownSkills } = await import("./skills-root.js");
+      const resolvedSkills = resolveSkillNames(rawSkills);
+      const claudeTokens: string[] = [];
+      if (h.name === "claude") {
+        const { claudeSkillOverridesArg } = await import("../interpretation/skills-selection.js");
+        claudeTokens.push(...claudeSkillOverridesArg(listKnownSkills(), resolvedSkills));
+      }
+      (turnOpts as unknown as Record<string, unknown>).skills = resolvedSkills;
+      (turnOpts as unknown as Record<string, unknown>).__claudeSkillTokens = claudeTokens;
+    } catch (err) {
+      if (err instanceof ArgvRefusalError) {
+        process.stderr.write(`${err.message}\n`);
+        if (err.supported.length) process.stderr.write(`supported: ${err.supported.join(", ")}\n`);
+        process.exitCode = 2;
+        return;
+      }
+      throw err;
+    }
+  }
+
   // Defaults profile + user config: LAUNCH-ONLY. A resumed session keeps
   // its own settings; the resolver never runs on resume paths.
   let resolvedProvenance: readonly ProvenanceEntry[] = [];
   let resolvedUnrenderable: readonly string[] = [];
   let effectiveTurnOpts: ReturnType<typeof parseTurnOptions> = turnOpts;
+  const resolvedTiers: {
+    user?: Partial<ReturnType<typeof parseTurnOptions>>;
+    project?: Partial<ReturnType<typeof parseTurnOptions>>;
+  } = {};
   if (extra.resume === undefined) {
-    const tiers: {
-      user?: Partial<ReturnType<typeof parseTurnOptions>>;
-      project?: Partial<ReturnType<typeof parseTurnOptions>>;
-    } = {};
+    const tiers = resolvedTiers;
     const { loadUserConfig, loadProjectConfig, ConfigError } = await import("./config.js");
     try {
       const loaded = loadUserConfig();
@@ -277,6 +303,11 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
         prompt,
         __explicitPrompt: isExplicit,
       } as never);
+      const claudeSkillTokens = (effectiveTurnOpts as unknown as { __claudeSkillTokens?: string[] })
+        .__claudeSkillTokens;
+      if (claudeSkillTokens !== undefined && claudeSkillTokens.length > 0) {
+        preArgv.push(...claudeSkillTokens);
+      }
     }
     _validated = true;
   } catch (err) {
@@ -311,7 +342,17 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   // Delete HERDR_ENV before spawn
   delete (process.env as Record<string, string | undefined>).HERDR_ENV;
 
-  const deps = nodeRunnerDeps();
+  // D11: opt-in wall-clock budget. Precedence arg > project > user (no
+  // profile entry by ratification). 0 = explicit disable.
+  const timeoutSeconds =
+    extra.timeoutSeconds !== undefined
+      ? extra.timeoutSeconds
+      : ((resolvedTiers?.project as { timeout?: number } | undefined)?.timeout ??
+        (resolvedTiers?.user as { timeout?: number } | undefined)?.timeout);
+  const deps =
+    timeoutSeconds !== undefined && timeoutSeconds > 0
+      ? nodeRunnerDeps({ turnTimeoutMs: timeoutSeconds * 1000 })
+      : nodeRunnerDeps();
 
   // Signal handling
   const _currentProc: { signal: (sig: "SIGTERM" | "SIGKILL") => void } | null = null;
