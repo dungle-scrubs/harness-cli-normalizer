@@ -5,7 +5,7 @@ export const EXIT_REFUSAL = 2;
 export const EXIT_FAILURE = 1;
 
 export const exitCodeForCause = (cause: ExitCause): number => {
-  if (cause === "clean") return EXIT_CLEAN;
+  if (cause === "clean" || cause === "awaiting-input") return EXIT_CLEAN;
   // All non-clean causes are failures that should be exit 1, except refusal is already handled separately
   return EXIT_FAILURE;
 };
