@@ -3,6 +3,13 @@ import { nodeRunnerDeps } from "../execution/node-deps.js";
 import { KILL_GRACE_MS, redactArgv, streamTurn } from "../execution/stream-turn.js";
 import { buildLaunchArgv, buildResumeArgv } from "../interpretation/argv.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
+import {
+  FloorExceededError,
+  type ProvenanceEntry,
+  resolveEffectiveOptions,
+} from "../interpretation/resolve-options.js";
+import { recognizeNativeSpelling, supportedBy } from "../interpretation/support.js";
+import { defaultDescriptors } from "../knowledge/overrides.js";
 import { parseRunExtra, parseTurnOptions, resolvePromptAsync } from "./args.js";
 import { createRenderState, renderEvent, writeEventNdjson } from "./render.js";
 import { resolveHarness } from "./resolve-harness.js";
@@ -16,7 +23,10 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     return;
   }
 
-  const { parseCommonFlags, detectPositionalPromptInjection } = await import("./args.js");
+  const { parseCommonFlags, detectPositionalPromptInjection, splitPassthrough } = await import(
+    "./args.js"
+  );
+  const { passthrough } = splitPassthrough(rawArgs);
   const injection = detectPositionalPromptInjection(rawArgs);
   if (injection) {
     const err = new ArgvRefusalError({
@@ -35,7 +45,52 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     parsed = parseCommonFlags(rawArgs);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    process.stderr.write(`unknown flag: ${message}\n`);
+    // D7 part B: a native spelling passed before the separator gets
+    // recognized and redirected to the normalized flag instead of a
+    // generic unknown-flag error.
+    // parseArgs reports unknown long flags as "Unknown option '--x'" but
+    // splits bundled short flags ("-nt" -> "Unknown option 'n'"). Match the
+    // reported token back against the ORIGINAL argv: a short-flag bundle
+    // that some descriptor spells exactly (pi's -nt) is recognizable; a
+    // lone unknown token keeps the plain error.
+    const flagMatch = message.match(/Unknown option '([A-Za-z0-9_-]+)'/);
+    let rawFlag: string | undefined;
+    if (flagMatch?.[1] !== undefined) {
+      const reported = flagMatch[1].startsWith("-") ? flagMatch[1] : `-${flagMatch[1]}`;
+      // Exact long flag: use it. Reported short flag (e.g. -n): the caller
+      // may have typed a BUNDLE (-nt) that parseArgs split - find the argv
+      // token that starts with the reported short and is longer; recognition
+      // then decides whether the whole bundle is a descriptor spelling.
+      const fromArgv =
+        rawArgs.find((a) => a === reported) ??
+        (reported.length === 2
+          ? rawArgs.find((a) => a.length > 2 && a.startsWith(reported))
+          : undefined);
+      rawFlag = fromArgv ?? reported;
+    }
+    const native =
+      rawFlag !== undefined ? recognizeNativeSpelling(defaultDescriptors(), rawFlag) : null;
+    if (native !== null) {
+      const by = native.option.startsWith("discovery.")
+        ? native.entries
+        : supportedBy(defaultDescriptors(), native.option);
+      const normalizedSpelling =
+        native.option === "excludeTools"
+          ? "--exclude-tools"
+          : native.option.startsWith("discovery.")
+            ? `--no-${native.option.split(".")[1] === "instructionFiles" ? "instruction-files" : native.option.split(".")[1]}`
+            : `--${native.option}`;
+      process.stderr.write(
+        `unknown flag: ${rawFlag} is a native spelling (used by ${native.entries.map((e) => e.harness).join(", ")}) - use the normalized ${normalizedSpelling} flag instead\n`,
+      );
+      if (by.length > 0) {
+        process.stderr.write(
+          `supported on: ${by.map((e) => `${e.harness} (${e.spelling})`).join(", ")}\n`,
+        );
+      }
+    } else {
+      process.stderr.write(`unknown flag: ${message}\n`);
+    }
     process.stderr.write(`Run 'hcn run --help' for usage.\n`);
     process.exitCode = 2;
     return;
@@ -47,6 +102,11 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   const positionalPrompt = positionals.length > 0 ? positionals[0] : undefined;
   if (positionals.length > 1) {
     process.stderr.write(`too many positionals for run; expected one prompt\n`);
+    process.exitCode = 2;
+    return;
+  }
+  if (passthrough.length === 0 && rawArgs.includes("--")) {
+    process.stderr.write(`-- separator given but no passthrough tokens followed it\n`);
     process.exitCode = 2;
     return;
   }
@@ -67,6 +127,12 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   } catch (err) {
     if (err instanceof ArgvRefusalError) {
       process.stderr.write(`${err.message}\n`);
+      if (err.hint) process.stderr.write(`hint: ${err.hint}\n`);
+      if (err.supportedBy?.length) {
+        process.stderr.write(
+          `supported on: ${err.supportedBy.map((e) => `${e.harness} (${e.spelling})`).join(", ")}\n`,
+        );
+      }
       if (err.supported.length) process.stderr.write(`supported: ${err.supported.join(", ")}\n`);
       process.exitCode = 2;
       return;
@@ -86,6 +152,12 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   } catch (err) {
     if (err instanceof ArgvRefusalError) {
       process.stderr.write(`${err.message}\n`);
+      if (err.hint) process.stderr.write(`hint: ${err.hint}\n`);
+      if (err.supportedBy?.length) {
+        process.stderr.write(
+          `supported on: ${err.supportedBy.map((e) => `${e.harness} (${e.spelling})`).join(", ")}\n`,
+        );
+      }
       if (err.supported.length) process.stderr.write(`supported: ${err.supported.join(", ")}\n`);
       process.exitCode = 2;
       return;
@@ -99,6 +171,12 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   } catch (err) {
     if (err instanceof ArgvRefusalError) {
       process.stderr.write(`${err.message}\n`);
+      if (err.hint) process.stderr.write(`hint: ${err.hint}\n`);
+      if (err.supportedBy?.length) {
+        process.stderr.write(
+          `supported on: ${err.supportedBy.map((e) => `${e.harness} (${e.spelling})`).join(", ")}\n`,
+        );
+      }
       if (err.supported.length) process.stderr.write(`supported: ${err.supported.join(", ")}\n`);
       process.exitCode = 2;
       return;
@@ -107,20 +185,84 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   }
 
   const isExplicit = promptSource !== "positional";
+
+  // Defaults profile + user config: LAUNCH-ONLY. A resumed session keeps
+  // its own settings; the resolver never runs on resume paths.
+  let resolvedProvenance: readonly ProvenanceEntry[] = [];
+  let resolvedUnrenderable: readonly string[] = [];
+  let effectiveTurnOpts: ReturnType<typeof parseTurnOptions> = turnOpts;
+  if (extra.resume === undefined) {
+    const tiers: {
+      user?: Partial<ReturnType<typeof parseTurnOptions>>;
+      project?: Partial<ReturnType<typeof parseTurnOptions>>;
+    } = {};
+    const { loadUserConfig, loadProjectConfig, ConfigError } = await import("./config.js");
+    try {
+      const loaded = loadUserConfig();
+      if (loaded !== null) tiers.user = loaded.config;
+      const proj = loadProjectConfig();
+      if (proj !== null) tiers.project = proj.config;
+    } catch (configErr) {
+      if (configErr instanceof ConfigError) {
+        process.stderr.write(`config error: ${(configErr as Error).message}\n`);
+        process.exitCode = 2;
+        return;
+      }
+      throw configErr;
+    }
+    let resolved: ReturnType<typeof resolveEffectiveOptions>;
+    try {
+      resolved = resolveEffectiveOptions(h, { ...turnOpts, prompt } as never, tiers);
+    } catch (resErr) {
+      if (resErr instanceof FloorExceededError) {
+        process.stderr.write(`${(resErr as Error).message}\n`);
+        process.exitCode = 2;
+        return;
+      }
+      throw resErr;
+    }
+    const { provenance, unrenderable } = resolved;
+    resolvedProvenance = provenance;
+    resolvedUnrenderable = unrenderable;
+    const { prompt: _p, ...rest } = resolved.options as { prompt: string };
+    effectiveTurnOpts = rest as ReturnType<typeof parseTurnOptions>;
+    // Provenance is diagnostic data like the spawn line - stderr in BOTH
+    // render modes, never stdout (stdout carries the NDJSON contract).
+    if (provenance.length > 0 || unrenderable.length > 0) {
+      for (const entry of provenance) {
+        process.stderr.write(
+          `provenance: ${entry.key} = ${JSON.stringify(entry.value)} (${entry.tier})\n`,
+        );
+      }
+      for (const key of unrenderable) {
+        process.stderr.write(
+          `divergence: profile ${JSON.stringify(key)} not expressible on ${h.name}; harness default applies\n`,
+        );
+      }
+    }
+  }
+
   const fullOpts = {
-    ...turnOpts,
+    ...effectiveTurnOpts,
     prompt,
     cwd: extra.cwd,
     env: extra.env,
     resume: extra.resume,
+    ...(passthrough.length > 0 ? { passthrough } : {}),
     ...(isExplicit ? { __explicitPrompt: true as const } : {}),
-  } as Parameters<typeof streamTurn>[1] & { resume?: string; __explicitPrompt?: boolean };
+  } as Parameters<typeof streamTurn>[1] & {
+    resume?: string;
+    __explicitPrompt?: boolean;
+    passthrough?: readonly string[];
+  };
 
   // Pre-validate via building argv to catch refusals before spawn (so we don't spawn on bad args)
   let _validated = false;
   let preArgv: string[] | null = null;
   try {
     if (fullOpts.resume) {
+      // Resume never carries profile/config resolution (launch-only rule),
+      // so it builds from the raw turn options.
       preArgv = buildResumeArgv(h, {
         ...(turnOpts as object),
         prompt,
@@ -128,8 +270,10 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
         __explicitPrompt: isExplicit,
       } as never);
     } else {
+      // Launch builds from the RESOLVED options so the spawn line and the
+      // real argv agree.
       preArgv = buildLaunchArgv(h, {
-        ...(turnOpts as object),
+        ...(effectiveTurnOpts as object),
         prompt,
         __explicitPrompt: isExplicit,
       } as never);
@@ -138,6 +282,12 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   } catch (err) {
     if (err instanceof ArgvRefusalError) {
       process.stderr.write(`${err.message}\n`);
+      if (err.hint) process.stderr.write(`hint: ${err.hint}\n`);
+      if (err.supportedBy?.length) {
+        process.stderr.write(
+          `supported on: ${err.supportedBy.map((e) => `${e.harness} (${e.spelling})`).join(", ")}\n`,
+        );
+      }
       if (err.supported.length) process.stderr.write(`supported: ${err.supported.join(", ")}\n`);
       process.exitCode = 2;
       return;
@@ -234,6 +384,12 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   } catch (err) {
     if (err instanceof ArgvRefusalError) {
       process.stderr.write(`${err.message}\n`);
+      if (err.hint) process.stderr.write(`hint: ${err.hint}\n`);
+      if (err.supportedBy?.length) {
+        process.stderr.write(
+          `supported on: ${err.supportedBy.map((e) => `${e.harness} (${e.spelling})`).join(", ")}\n`,
+        );
+      }
       if (err.supported.length) process.stderr.write(`supported: ${err.supported.join(", ")}\n`);
       process.exitCode = 2;
       process.off("SIGINT", onSig);

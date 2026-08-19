@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bare-run defaults - four harnesses</title>
+<style>
+  :root {
+    --paper:     #faf6ec;
+    --ink:       #211d15;
+    --ink-muted: #5e6773;
+    --rule:      rgba(33, 29, 21, 0.12);
+    --accent:    #7b6228;
+    --accent-wash: rgba(203, 168, 90, 0.16);
+    --wash-muted: rgba(94, 103, 115, 0.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:     #211d15;
+      --ink:       #ece3cf;
+      --ink-muted: #a89d84;
+      --rule:      rgba(236, 227, 207, 0.14);
+      --accent:    #d9bd7a;
+      --accent-wash: rgba(203, 168, 90, 0.18);
+      --wash-muted: rgba(168, 157, 132, 0.10);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+    font-size: 16px;
+    line-height: 1.55;
+  }
+  .page { max-width: 1080px; margin: 0 auto; padding: 48px 28px 80px; }
+  h1 {
+    font-size: 30px; line-height: 1.2; margin: 0 0 6px;
+    font-weight: 600; letter-spacing: -0.01em;
+  }
+  .lede { color: var(--ink-muted); max-width: 62ch; margin: 0 0 8px; }
+  .meta {
+    font-family: ui-sans-serif, -apple-system, 'Helvetica Neue', sans-serif;
+    font-size: 12.5px; color: var(--ink-muted); margin: 14px 0 0;
+  }
+  .meta code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; }
+  section { padding: 22px 0 26px; border-top: 1px solid var(--rule); margin-top: 26px; }
+  h2 {
+    font-size: 20px; margin: 0 0 4px; font-weight: 600;
+    font-family: Georgia, serif; letter-spacing: -0.005em;
+  }
+  .section-note { color: var(--ink-muted); margin: 0 0 16px; max-width: 70ch; }
+  .eyebrow {
+    font-family: ui-sans-serif, -apple-system, sans-serif;
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent); margin: 0 0 6px; font-weight: 600;
+  }
+  code, .mono {
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 0.88em;
+  }
+  .argv {
+    margin: 0 0 10px; padding: 10px 14px; border: 1px solid var(--rule);
+    border-radius: 6px; background: var(--wash-muted);
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 13px;
+    line-height: 1.6; overflow-wrap: anywhere; min-width: 0;
+  }
+  .argv .bin { font-weight: 700; }
+  .argv .fixed { color: var(--accent); font-weight: 600; }
+  .matrix-scroll { overflow-x: auto; min-width: 0; }
+  .matrix {
+    display: grid;
+    grid-template-columns: 168px repeat(4, minmax(150px, 1fr));
+    min-width: 880px;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .matrix > div {
+    min-width: 0; overflow-wrap: break-word;
+    padding: 9px 12px;
+    border-top: 1px solid var(--rule);
+    font-size: 13.5px; line-height: 1.45;
+  }
+  .matrix > .mh {
+    border-top: none;
+    background: var(--wash-muted);
+    font-family: ui-sans-serif, -apple-system, sans-serif;
+    font-weight: 700; font-size: 12.5px; letter-spacing: 0.04em;
+    text-transform: uppercase; color: var(--ink);
+  }
+  .matrix > .group {
+    grid-column: 1 / -1;
+    background: var(--accent-wash);
+    font-family: ui-sans-serif, -apple-system, sans-serif;
+    font-size: 11.5px; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--accent);
+    padding: 7px 12px; border-top: 1px solid var(--rule);
+  }
+  .matrix > .rl {
+    font-family: ui-sans-serif, -apple-system, sans-serif;
+    font-weight: 600; font-size: 12.5px; color: var(--ink);
+    background: var(--wash-muted);
+  }
+  .matrix > .rl .sub { font-weight: 400; color: var(--ink-muted); font-size: 11.5px; display: block; }
+  .matrix code { font-size: 11.5px; }
+  .np { color: var(--ink-muted); }
+  .legend {
+    margin: 16px 0 0; padding: 12px 16px; border: 1px dashed var(--rule);
+    border-radius: 6px; font-size: 13.5px; color: var(--ink-muted); max-width: 70ch;
+  }
+  .legend strong { color: var(--ink); font-weight: 600; }
+  .foot { color: var(--ink-muted); font-size: 13px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <p class="eyebrow">hcn reference</p>
+  <h1>Bare-run defaults across the four harnesses</h1>
+  <p class="lede">
+    What each run looks like when the CLI is invoked with nothing but a prompt -
+    <code>hcn run &lt;harness&gt; "prompt"</code>. Every option is omitted, so each
+    run is the descriptor's pinned base flags plus whatever the harness below decides
+    on its own.
+  </p>
+  <p class="meta">
+    Sources: descriptors in <code>src/knowledge/</code>, argv captured with
+    <code>hcn inspect --argv</code> · verified against claude 2.1.233, codex 0.147.0,
+    pi 0.84.2, muse 0.1.0
+  </p>
+
+  <section id="sec-spawn" data-lucid-id="sec-spawn">
+    <h2>The spawn</h2>
+    <p class="section-note">
+      The exact argv each harness receives. Accent marks the flags hcn always injects
+      regardless of options; everything else is the harness's own headless surface.
+    </p>
+    <div class="argv" data-lucid-id="argv-claude">
+      <span class="bin">claude</span> -p &lt;prompt&gt; <span class="fixed">--output-format stream-json --verbose --include-partial-messages</span>
+    </div>
+    <div class="argv" data-lucid-id="argv-codex">
+      <span class="bin">codex</span> exec <span class="fixed">--json --skip-git-repo-check --sandbox workspace-write</span> &lt;prompt&gt;
+    </div>
+    <div class="argv" data-lucid-id="argv-pi">
+      <span class="bin">pi</span> -p <span class="fixed">--mode json</span> &lt;prompt&gt;
+    </div>
+    <div class="argv" data-lucid-id="argv-muse">
+      <span class="bin">muse</span> exec <span class="fixed">--json</span> &lt;prompt&gt;
+    </div>
+    <p class="foot">
+      Codex's <code>--sandbox workspace-write</code> is the only turn option with a
+      descriptor-level default; it is emitted on launch only, because
+      <code>codex exec resume</code> rejects <code>--sandbox</code>.
+    </p>
+  </section>
+
+  <section id="sec-injected" data-lucid-id="sec-injected">
+    <h2>What hcn decides</h2>
+    <p class="section-note">
+      Same policy for all four harnesses; only the spelling differs.
+    </p>
+    <div class="matrix-scroll">
+    <div class="matrix">
+      <div class="mh">Dimension</div><div class="mh">claude</div><div class="mh">codex</div><div class="mh">pi</div><div class="mh">muse</div>
+
+      <div class="group">Output</div>
+      <div class="rl" data-lucid-id="row-granularity">Streaming granularity</div>
+      <div>token deltas</div>
+      <div>message-level items</div>
+      <div>token deltas</div>
+      <div>token deltas</div>
+
+      <div class="group">Process environment</div>
+      <div class="rl" data-lucid-id="row-stdin">stdin</div>
+      <div>inherit</div>
+      <div>close</div>
+      <div>close</div>
+      <div>inherit</div>
+      <div class="rl">cwd<span class="sub">no --cwd passed</span></div>
+      <div>inherited</div><div>inherited</div><div>inherited</div><div>inherited</div>
+      <div class="rl">environment<span class="sub">no --env passed</span></div>
+      <div>inherited, HERDR_ENV stripped</div><div>inherited, HERDR_ENV stripped</div><div>inherited, HERDR_ENV stripped</div><div>inherited, HERDR_ENV stripped</div>
+      <div class="rl" data-lucid-id="row-git">git repo check</div>
+      <div>not a concept</div>
+      <div>skipped via injected flag</div>
+      <div>not a concept</div>
+      <div>not a concept</div>
+
+      <div class="group">Contract</div>
+      <div class="rl" data-lucid-id="row-exit">exit codes</div>
+      <div>0 clean · 1 failure · 2 refusal</div>
+      <div>0 clean · 1 failure · 2 refusal</div>
+      <div>0 clean · 1 failure · 2 refusal</div>
+      <div>same mapping; native CLI is 0 on task failure, 1 on step exhaustion</div>
+    </div>
+    </div>
+  </section>
+
+  <section id="sec-harness" data-lucid-id="sec-harness">
+    <h2>What the harness decides</h2>
+    <p class="section-note">
+      hcn emits nothing for these dimensions, so the harness's own default applies.
+      Grey cells are not recorded in any descriptor - they can change under hcn
+      with a CLI upgrade, which is the drift exposure.
+    </p>
+    <div class="matrix-scroll">
+    <div class="matrix">
+      <div class="mh">Dimension</div><div class="mh">claude</div><div class="mh">codex</div><div class="mh">pi</div><div class="mh">muse</div>
+
+      <div class="group">Model and effort</div>
+      <div class="rl" data-lucid-id="row-model">model</div>
+      <div class="np">harness default - not pinned</div>
+      <div class="np">harness default - not pinned</div>
+      <div class="np">harness default - not pinned; from runtime registry <code>~/.pi/models.json</code></div>
+      <div class="np">harness default - not pinned</div>
+      <div class="rl" data-lucid-id="row-effort">effort</div>
+      <div class="np">internal DEFAULT - not pinned</div>
+      <div class="np">harness default - not pinned</div>
+      <div class="np">harness default - not pinned</div>
+      <div class="np">harness default - not pinned</div>
+
+      <div class="group">Permissions and scope</div>
+      <div class="rl" data-lucid-id="row-sandbox">sandbox</div>
+      <div class="np">no flag - harness permission system applies</div>
+      <div><code>workspace-write</code> - hcn default, the one emitted</div>
+      <div class="np">no sandbox dimension</div>
+      <div class="np">no sandbox dimension</div>
+      <div class="rl" data-lucid-id="row-autonomy">autonomy</div>
+      <div>off - flag exists, never emitted by default</div>
+      <div>off - flag exists, never emitted by default</div>
+      <div>no autonomy mode in descriptor</div>
+      <div>off - flag exists, never emitted by default</div>
+
+      <div class="group">Tools and discovery</div>
+      <div class="rl" data-lucid-id="row-tools">tool grants</div>
+      <div>none - <code>--allowedTools</code> exists, unused</div>
+      <div>none - no tools flag exists</div>
+      <div>none - no tools flag exists</div>
+      <div>none - no tools flag exists</div>
+      <div class="rl" data-lucid-id="row-discovery">discovery<span class="sub">instruction files, skills, extensions</span></div>
+      <div>full discovery</div>
+      <div>full discovery</div>
+      <div>full discovery - per-facet kill flags exist, unused</div>
+      <div>full discovery</div>
+
+      <div class="group">Limits</div>
+      <div class="rl" data-lucid-id="row-maxsteps">max steps</div>
+      <div>unbounded - no flag exists</div>
+      <div>unbounded - no flag exists</div>
+      <div>unbounded - no flag exists</div>
+      <div>unbounded - <code>--max-model-steps</code> exists, unused</div>
+      <div class="rl" data-lucid-id="row-writeshell">write · shell</div>
+      <div>enabled - no flags exist</div>
+      <div>enabled - no flags exist</div>
+      <div>enabled - no flags exist</div>
+      <div>enabled - <code>--disable-write</code> / <code>--disable-shell</code> exist, unused</div>
+    </div>
+    </div>
+    <div class="legend" data-lucid-id="legend">
+      <strong>Reading the grey cells.</strong> "Not pinned" means the value lives in
+      the harness binary or its user config, not in this library. A CLI upgrade or a
+      changed user config silently moves every bare run. Pinned defaults - the base
+      flags and codex's sandbox - are data in <code>src/knowledge/</code>, versioned
+      against <code>verifiedAgainst</code>.
+    </div>
+  </section>
+
+  <section id="sec-structural" data-lucid-id="sec-structural">
+    <h2>Structural defaults</h2>
+    <p class="section-note">
+      Fixed facts of each harness that a bare run inherits.
+    </p>
+    <div class="matrix-scroll">
+    <div class="matrix">
+      <div class="mh">Dimension</div><div class="mh">claude</div><div class="mh">codex</div><div class="mh">pi</div><div class="mh">muse</div>
+
+      <div class="group">Sessions</div>
+      <div class="rl" data-lucid-id="row-identity">session identity</div>
+      <div>caller-assigned via <code>--session-id</code></div>
+      <div>harness-minted thread id</div>
+      <div>caller-assigned via <code>--session-id</code></div>
+      <div>caller-assigned via <code>--session-id</code></div>
+      <div class="rl" data-lucid-id="row-resume">resume without id</div>
+      <div>error - id required</div>
+      <div>error - id required</div>
+      <div>creates the session</div>
+      <div>creates the session</div>
+      <div class="rl" data-lucid-id="row-sessionmode">long-lived session mode</div>
+      <div>yes - stream-json both ways</div>
+      <div>none - one turn per process</div>
+      <div>none - one turn per process</div>
+      <div>none - one turn per process</div>
+      <div class="rl" data-lucid-id="row-store">session store</div>
+      <div><code>~/.claude/projects/&lt;cwdSlug&gt;/&lt;id&gt;.jsonl</code></div>
+      <div><code>~/.codex/sessions/YYYY/MM/DD/</code></div>
+      <div><code>~/.pi/sessions/&lt;cwdSlug&gt;/</code></div>
+      <div><code>~/.local/share/muse/sessions/</code></div>
+    </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

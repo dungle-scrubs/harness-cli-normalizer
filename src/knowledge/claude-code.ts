@@ -145,10 +145,43 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
           render: { kind: "flag-list", flags: ["--setting-sources", "project"] },
         },
         skills: {
+          // Phase 0 (claude-tool-interplay.md probe 4): --disable-slash-commands
+          // removes the Skill tool AND all skills listing - verified a full
+          // skills-off switch, not just command dispatch. --setting-sources
+          // project stays the extensions-facet spelling (settings scope).
           polarity: "disables",
-          render: { kind: "flag-list", flags: ["--setting-sources", "project"] },
+          render: { kind: "flag-list", flags: ["--disable-slash-commands"] },
         },
       },
     },
+  },
+  // Phase 0 fixtures: claude-tool-interplay.md. include is a permission
+  // grant (Bash, Edit stay visible under --allowedTools Read); only the
+  // disallow flag reshapes the model-visible set. Both flags together
+  // compose, deny winning on overlap. Patterns (Bash(git *)) valid in both
+  // lists; unknown PATTERN spellings warn on stderr, unknown exact names
+  // are the silent-acceptance hazard the curated vocabulary guards.
+  tools: {
+    includeFlag: "--allowedTools",
+    excludeFlag: "--disallowedTools",
+    includeIsStrictAllowlist: false,
+    composable: true,
+    builtins: [
+      { name: "Bash", defaultEnabled: true },
+      { name: "Edit", defaultEnabled: true },
+      { name: "Glob", defaultEnabled: true },
+      { name: "Grep", defaultEnabled: true },
+      { name: "Read", defaultEnabled: true },
+      { name: "Write", defaultEnabled: true },
+      { name: "WebFetch", defaultEnabled: true },
+      { name: "WebSearch", defaultEnabled: true },
+      { name: "Monitor", defaultEnabled: true },
+      { name: "Task", defaultEnabled: true },
+      { name: "Skill", defaultEnabled: true },
+      { name: "NotebookEdit", defaultEnabled: true },
+      { name: "LSP", defaultEnabled: true },
+    ],
+    categories: [],
+    denySemantics: "remove-from-set",
   },
 });

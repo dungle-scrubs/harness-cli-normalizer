@@ -4,8 +4,8 @@ One stable interface to four coding-agent CLIs.
 
 [![CI](https://github.com/dungle-scrubs/harness-cli-normalizer/actions/workflows/ci.yml/badge.svg)](https://github.com/dungle-scrubs/harness-cli-normalizer/actions/workflows/ci.yml) [![npm](https://img.shields.io/npm/v/@dungle-scrubs/harness-cli-normalizer.svg)](https://www.npmjs.com/package/@dungle-scrubs/harness-cli-normalizer) [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-<!-- D-001 -->
-harness-cli-normalizer describes Claude Code, Codex, pi, and Muse as pure data and normalizes their headless output to a single `HarnessEvent` stream. You build one consumer against that stream instead of a separate spawn-and-parse path per CLI - the execution layer spawns the harness and emits the events. Use it for multi-agent work like an orchestrator, observer, benchmark rig, or to swap agents. Descriptors are pinned to their verified CLI version and a weekly check flags when a harness has moved ahead (npm harnesses via registry; `muse` via local `muse --version`, skipped in CI where not installed - see Version-pinning and drift).
+<!-- D-001 / v1: CLI-only -->
+harness-cli-normalizer is a CLI, `hcn`, that normalizes four coding-agent harnesses - Claude Code, Codex, pi, and Muse - into one surface: normalized flags, ratified behavior defaults, a single `HarnessEvent` NDJSON stream, and one exit-code contract. It normalizes the interface and the defaults, and reports divergence where a harness cannot express a dimension - it does not pretend parity. There is no library API; the `hcn` binary is the product. Descriptors are pinned to their verified CLI version and a weekly check flags when a harness has moved ahead (npm harnesses via registry; `muse` via local `muse --version`, skipped in CI where not installed - see Version-pinning and drift).
 
 ```bash
 pnpm add @dungle-scrubs/harness-cli-normalizer
@@ -75,7 +75,9 @@ Flag table (maps to `TurnOptions` / `TurnRunOptions`):
 | `--effort <value>` | `effort` | Validated via `validateEffort` |
 | `--sandbox <value>` | `sandbox` | Codex only |
 | `--provider <value>` | `provider` | pi only |
-| `--tools <a,b>` | `tools` | Claude only, comma-separated |
+| `--tools <a,b>` | `tools` | Per-tool allowlist; claude and pi (pi strict, claude via grant + deny-complement). A bare name matching a configured toolset expands to it |
+| `--exclude-tools <a,b>` | `excludeTools` | Complement over known tool names; mutually exclusive with `--tools` |
+| `-- <harness args>` | `passthrough` | Verbatim harness tokens; failures surface as labeled native errors (hcn exit 1, native exit code as data) |
 | `--autonomy` / `--no-autonomy` | `autonomy` | |
 | `--write` / `--no-write` | `write` | Muse |
 | `--shell` / `--no-shell` | `shell` | Muse |
@@ -88,106 +90,69 @@ Flag table (maps to `TurnOptions` / `TurnRunOptions`):
 
 For development, `bun run demo claude "hi"` remains as a live-rendering alternative.
 
-## TypeScript library
+## Defaults, config, provenance
 
-If you need the library, the same `hcn` commands are available as a typed `HarnessEvent` stream. Prefer the CLI above unless you are building an orchestrator, observer, or benchmark rig that must consume events in-process.
+Every launch resolves through one precedence chain:
 
-One-shot headless turn, the simplest path:
+```
+args  >  .hcn/config.json (git root, auto-discovered)  >  ~/.config/hcn/config.json (XDG)  >  built-in profile  >  harness default
+```
 
-```ts
-import {
-  claudeCode,
-  nodeRunnerDeps,
-  streamTurn,
-} from "@dungle-scrubs/harness-cli-normalizer";
+The built-in profile pins the ratified defaults: effort `medium` (the only
+value in all four ladders), sandbox `workspace-write` (codex-only; reported
+as divergence elsewhere), discovery fully on, autonomy off. A dimension a
+harness cannot express is reported as divergence, never a silent skip and
+never a refusal. Resume turns bypass resolution entirely - a session keeps
+its own settings.
 
-for await (const event of streamTurn(
-  claudeCode,
-  { prompt: "explain a monad in one sentence", cwd: process.cwd() },
-  nodeRunnerDeps(),
-)) {
-  if (event.kind === "message") console.log(event.text);
-  if (event.kind === "done") console.log(`exit: ${event.cause}`);
+User config (`~/.config/hcn/config.json`, `$XDG_CONFIG_HOME` respected):
+
+```json
+{ "version": 1, "effort": "high" }
+```
+
+Project config (`.hcn/config.json` at the git root, code-reviewed with the
+repo) also carries tool floors and named toolsets:
+
+```json
+{
+  "version": 1,
+  "effort": "low",
+  "tools": ["read", "grep", "find", "ls"],
+  "toolsets": { "review": ["read", "grep"] }
 }
 ```
 
-Swap `claudeCode` for `codexCli`, `piCli`, or `museCode` and the consumer code does not change for one-shot turns (`streamTurn`). The
-three layers are also available as `@dungle-scrubs/harness-cli-normalizer/knowledge`,
-`@dungle-scrubs/harness-cli-normalizer/interpretation`, and
-`@dungle-scrubs/harness-cli-normalizer/execution` for narrower imports. Persistent multi-turn sessions (`openSession`, `sessionMode`) are Claude-only - the other three harnesses have `sessionMode: null` and `openSession`/`hcn session` refuse with `no-session-mode`.
+The project `tools` key is both the default grant and the FLOOR: a `--tools`
+arg exceeding it refuses with exit 2 naming both sets - never a silent
+clamp. An empty floor refuses every grant (the turn-everything-off
+workflow). Config parsing is hard-fail: unknown keys, malformed JSON, or a
+version mismatch exit 2 naming the offender.
 
-To watch the normalized stream render live against a real harness:
+Every resolved setting prints its provenance to stderr:
 
-```bash
-bun run demo claude "explain a monad in one sentence"
-bun run demo codex  "what is 2+2"
-bun run demo pi     "name three primes"
-bun run demo muse   "say hi"
-bun run demo --chat claude            # interactive session (claude only)
 ```
-
-For a persistent multi-turn session (Claude-only), `openSession` returns a handle whose `turns` you iterate and whose `send()` you call between turns. Other harnesses do not support this mode. See `scripts/demo.ts` for the working pattern.
+provenance: effort = "high" (user-config)
+provenance: discovery = {"tools":true,...} (profile)
+divergence: profile "sandbox" not expressible on pi; harness default applies
+```
 
 ## Concepts
 
-### Descriptors are data, not behavior
+Three layers, one direction: `knowledge` (frozen descriptors - facts about
+each CLI, stamped to `verifiedAgainst`) feeds `interpretation` (pure
+functions - argv construction, validation, refusals, option resolution)
+feeds `execution` (process lifecycle - the only impure layer, through an
+injected `{ spawn, clock, signal }` adapter). The source is public and the
+layers are real, but they are internal structure, not an install surface:
+from 1.0 the `hcn` CLI is the only supported interface.
 
-Each harness is a frozen record of facts: its binary, its argv shapes, its stream flags, its session and resume grammar, its capability claims, and the CLI version those facts were checked against. You read a descriptor; you do not configure or subclass it. Adding a fifth harness means writing a new data file, not editing branching logic.
+A harness that cannot express an option REFUSES rather than guessing -
+refusals carry structured fields (`supportedBy`: which harnesses express
+it, with native spellings; `hint`: the nearest alternative on your current
+harness). A native flag typed before `--` is recognized and redirected to
+its normalized spelling.
 
-### Three layers, one direction
-
-```
-knowledge (pure data) -> interpretation (pure functions) -> execution (child process)
-```
-
-`knowledge` and `interpretation` are 100% pure: no `node:` imports, no `process.env`, no clock, no randomness. Tests enforce this, not comments. Keep your own logic in the pure layers and reach `execution` only for actual process I/O. The execution layer never imports `child_process`; spawning, timing, and signalling arrive as injected primitives, so it runs the same on Node and Bun.
-
-### Version-pinning and drift
-
-Every descriptor carries a `verifiedAgainst` version, the anchor for all of its facts. A weekly CI job compares each harness's published version to its descriptor and opens a tracking issue when one has moved ahead. Trust a descriptor only at its pinned version, and bump `verifiedAgainst` only after re-running the capability checks locally (`bun run smoke:seven`) and re-capturing fixtures.
-
-For the three npm harnesses (Claude Code, Codex, pi) the check queries the registry and is credential-free. Muse ships as an installed shell script (`versionSource: { kind: "installed" }`), so there is no registry to poll - `hcn check` falls back to `muse --version` locally and is skipped in CI where the binary is absent. A quarter of the matrix is therefore exempt from automated drift detection, and a stale Muse descriptor will not surface until a manual re-verification.
-
-Four harnesses are hand-verified by one maintainer. Claude Code alone ships more often than the pin is bumped, and the weekly issue only tells you the descriptor is stale - it does not re-capture the fixtures. Treat `verifiedAgainst` bumps as manual work, and expect Claude + Codex to carry most of the usage while pi and Muse double the verification surface for a smaller slice of value.
-
-## Turn options
-
-Every `streamTurn` call can now shape the turn per-call without touching the descriptor:
-
-```ts
-await streamTurn(claudeCode, {
-  prompt: "explain a monad",
-  effort: "high",                 // --effort (claude), -c model_reasoning_effort (codex), --thinking (pi), --reasoning-effort (muse)
-  provider: "zai/glm-5.2",        // --provider (pi only)
-  discovery: { tools: false, instructionFiles: false, extensions: false, skills: false }, // -nt/-nc/-ne/-ns (pi) or --setting-sources project (claude)
-  write: false,                   // --disable-write (muse)
-  shell: false,                   // --disable-shell (muse)
-  maxSteps: 50,                   // --max-model-steps (muse)
-  sandbox: "read-only",           // --sandbox (codex, launch only)
-}, deps);
-```
-
-Support matrix (anything not marked refuses with a typed `ArgvRefusalError` naming what the harness does support):
-
-| Option | claude | codex | pi | muse |
-| --- | --- | --- | --- | --- |
-| `effort` | `--effort` | `-c model_reasoning_effort=` | `--thinking` | `--reasoning-effort` |
-| `sandbox` | - | `--sandbox` (launch only) | - | - |
-| `provider` | - | - | `--provider` | - |
-| `discovery.tools` | - | - | `-nt` | - |
-| `discovery.instructionFiles` | - | - | `-nc` | - |
-| `discovery.extensions` | `--setting-sources project` | - | `-ne` | - |
-| `discovery.skills` | `--setting-sources project` | - | `-ns` | - |
-| `write` | - | - | - | `--disable-write` |
-| `shell` | - | - | - | `--disable-shell` |
-| `maxSteps` | - | - | - | `--max-model-steps` |
-| `tools` | `--allowedTools` | - | - | - |
-
-Per-call `env` is merged over the parent environment (`""` deletes) and never appears in logs:
-
-```ts
-streamTurn(harness, { prompt, env: { FOO: "bar", OLD: "" } }, deps);
-```
 
 ## Failure taxonomy
 
@@ -235,7 +200,20 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). The short version: run `pnpm check` befo
 
 ## Status
 
-Pre-1.0. Four harnesses are described (Claude Code, Codex, pi, Muse). One-shot turns (`streamTurn`) are normalized across all four; persistent sessions (`openSession` / `sessionMode`) are Claude-only - other harnesses return `no-session-mode`. Drift detection runs weekly in CI for the three npm harnesses; Muse is `installed` and only checked locally via `muse --version`. Re-verifying a descriptor's capability claims against a new CLI version is a local, manual step (`bun run smoke:seven`) plus fixture re-capture, not CI. Authentication and usage-limit signals are parsed from each harness's stream, but this library never holds or ships credentials; each harness authenticates under the end user's own session.
+1.0. CLI-only surface. Four harnesses are described (Claude Code, Codex,
+pi, Muse); one-shot turns are normalized across all four with a ratified
+defaults profile, user and project config tiers, tool selection
+(include/exclude with floors and named toolsets), passthrough with native
+error labeling, and provenance on every resolved setting. Persistent
+sessions (`hcn session`) remain Claude-only. Drift detection runs weekly
+in CI for the three npm harnesses; Muse is `installed` and only checked
+locally via `muse --version`. Re-verifying a descriptor's capability
+claims against a new CLI version is a local, manual step
+(`bun run smoke:seven`) plus fixture re-capture, not CI. Authentication
+and usage-limit signals are parsed from each harness's stream, but hcn
+never holds or ships credentials; each harness authenticates under the
+end user's own session.
+
 
 ## Prior art
 

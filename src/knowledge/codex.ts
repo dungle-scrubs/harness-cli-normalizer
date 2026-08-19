@@ -114,4 +114,23 @@ export const codexCli: HarnessDescriptor = deepFreeze({
       resumeRender: null,
     },
   },
+  // Phase 0 fixtures: codex-tool-surface.md. No name lists anywhere -
+  // not on the CLI, not in config.toml. Control is feature booleans
+  // (reachable per-call via -c key=value / --enable/--disable FEATURE),
+  // sandbox, and approval policy. MCP servers do have per-tool keys
+  // (mcp_servers.<id>.tools.<tool>) but built-ins do not.
+  tools: {
+    includeFlag: null,
+    excludeFlag: null,
+    includeIsStrictAllowlist: false,
+    composable: false,
+    builtins: [],
+    categories: [
+      { key: "shell", disableFlag: null, configKey: "features.shell_tool" },
+      { key: "exec", disableFlag: null, configKey: "features.unified_exec" },
+      { key: "web", disableFlag: null, configKey: "web_search" },
+      { key: "view-image", disableFlag: null, configKey: "tools.view_image" },
+    ],
+    denySemantics: "no-lists",
+  },
 });

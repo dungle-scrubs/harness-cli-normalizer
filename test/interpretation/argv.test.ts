@@ -104,8 +104,12 @@ describe("shared spawn-boundary guards", () => {
     });
     expect(argv[argv.indexOf("--model") + 1]).toBe("claude-opus-5");
     expect(argv).toContain("--dangerously-skip-permissions");
-    // The variadic tools flag stays LAST so nothing after it can be swallowed.
-    expect(argv.indexOf("--allowedTools")).toBe(argv.length - 2);
+    // The tools flags stay LAST so nothing after them can be swallowed; on
+    // claude an include renders grant + deny-complement, and the final
+    // pair is the disallow list.
+    expect(argv[argv.length - 2]).toBe("--disallowedTools");
+    expect(argv[argv.length - 1]).not.toContain("Read,");
+    expect(argv[argv.length - 1]).toContain("Edit");
     expect(() => buildLaunchArgv(claudeCode, { prompt: "hi", model: "gpt-5.6-sol" })).toThrow(
       /model/i,
     );

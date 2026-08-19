@@ -41,7 +41,16 @@ export const renderEvent = (event: HarnessEvent, state: RenderState): void => {
       break;
     case "failure": {
       const detail = event.message ?? `${event.class}`;
-      process.stdout.write(red(`\n  ✗ failure ${event.class}: ${detail}`));
+      // D6: native failures get an unmistakable prefix and the native exit
+      // code shown as data, so a human never reads a harness error as an
+      // hcn error.
+      if (event.class === "native") {
+        const nat =
+          event.nativeExitCode !== undefined ? ` [native exit ${event.nativeExitCode}]` : "";
+        process.stdout.write(red(`\n  ✗ NATIVE${nat} ${detail}`));
+      } else {
+        process.stdout.write(red(`\n  ✗ failure ${event.class}: ${detail}`));
+      }
       break;
     }
     case "done": {

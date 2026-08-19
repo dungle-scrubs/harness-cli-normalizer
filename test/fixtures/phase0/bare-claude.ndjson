@@ -1,0 +1,14 @@
+{"kind":"progress","label":"hook_started"}
+{"kind":"progress","label":"hook_started"}
+{"kind":"progress","label":"hook_started"}
+{"kind":"progress","label":"hook_started"}
+{"kind":"progress","label":"hook_response"}
+{"kind":"progress","label":"hook_response"}
+{"kind":"progress","label":"hook_response"}
+{"kind":"progress","label":"hook_response"}
+{"kind":"identity","sessionId":"83118d2a-5899-4b01-b37c-a0e61a8ac94f","authority":"caller-assigned","capabilities":{"vision":false,"images":false,"streaming":"none","session":false,"source":"unknown","confidence":"none"}}
+{"kind":"progress","label":"status"}
+{"kind":"token","text":"O"}
+{"kind":"token","text":"K"}
+{"kind":"message","role":"assistant","text":"OK"}
+{"kind":"done","exitCode":0,"cause":"clean"}

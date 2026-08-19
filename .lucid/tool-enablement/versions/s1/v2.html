@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Per-call tool and skill enablement - decisions</title>
+<style>
+  :root {
+    --paper:     #faf6ec;
+    --ink:       #211d15;
+    --ink-muted: #5e6773;
+    --rule:      rgba(33, 29, 21, 0.12);
+    --accent:    #7b6228;
+    --accent-wash: rgba(203, 168, 90, 0.16);
+    --wash-muted: rgba(94, 103, 115, 0.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:     #211d15;
+      --ink:       #ece3cf;
+      --ink-muted: #a89d84;
+      --rule:      rgba(236, 227, 207, 0.14);
+      --accent:    #d9bd7a;
+      --accent-wash: rgba(203, 168, 90, 0.18);
+      --wash-muted: rgba(168, 157, 132, 0.10);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+    font-size: 16px; line-height: 1.55;
+  }
+  .page { max-width: 1060px; margin: 0 auto; padding: 48px 28px 80px; }
+  h1 { font-size: 29px; line-height: 1.2; margin: 0 0 6px; font-weight: 600; }
+  .lede { color: var(--ink-muted); max-width: 64ch; margin: 0 0 8px; }
+  .meta {
+    font-family: ui-sans-serif, -apple-system, 'Helvetica Neue', sans-serif;
+    font-size: 12.5px; color: var(--ink-muted); margin: 12px 0 0;
+  }
+  .meta code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; }
+  section { padding: 24px 0 28px; border-top: 1px solid var(--rule); margin-top: 28px; }
+  h2 { font-size: 20px; margin: 0 0 4px; font-weight: 600; }
+  .eyebrow {
+    font-family: ui-sans-serif, -apple-system, sans-serif;
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent); margin: 0 0 6px; font-weight: 600;
+  }
+  .section-note { color: var(--ink-muted); margin: 0 0 16px; max-width: 72ch; }
+  code {
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 0.88em;
+  }
+  .matrix-scroll { overflow-x: auto; min-width: 0; }
+  .matrix {
+    display: grid;
+    grid-template-columns: 172px repeat(4, minmax(150px, 1fr));
+    min-width: 900px;
+    border: 1px solid var(--rule); border-radius: 6px; overflow: hidden;
+  }
+  .matrix > div {
+    min-width: 0; overflow-wrap: break-word;
+    padding: 9px 12px; border-top: 1px solid var(--rule);
+    font-size: 13.5px; line-height: 1.45;
+  }
+  .matrix > .mh {
+    border-top: none; background: var(--wash-muted);
+    font-family: ui-sans-serif, -apple-system, sans-serif;
+    font-weight: 700; font-size: 12.5px; letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .matrix > .rl {
+    font-family: ui-sans-serif, -apple-system, sans-serif;
+    font-weight: 600; font-size: 12.5px; background: var(--wash-muted);
+  }
+  .matrix > .rl .sub { font-weight: 400; color: var(--ink-muted); font-size: 11.5px; display: block; }
+  .matrix code { font-size: 11.5px; }
+  .no { color: var(--ink-muted); }
+  .cards { display: flex; flex-wrap: wrap; gap: 14px; min-width: 0; }
+  .card {
+    flex: 1 1 300px; min-width: 0; padding: 16px 18px;
+    border: 1px solid var(--rule); border-radius: 6px;
+    background: var(--wash-muted);
+  }
+  .card.rec { border-color: var(--accent); background: var(--accent-wash); }
+  .card h3 {
+    margin: 0 0 6px; font-size: 15.5px; font-weight: 700;
+    font-family: ui-sans-serif, -apple-system, sans-serif;
+  }
+  .card h3 .tag {
+    font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--accent); font-weight: 700; margin-left: 8px;
+  }
+  .card p { margin: 0 0 8px; font-size: 14px; }
+  .card ul { margin: 0; padding-left: 18px; font-size: 13.5px; }
+  .card li { margin: 4px 0; }
+  .callout {
+    margin: 16px 0 0; padding: 13px 16px; border: 1px dashed var(--rule);
+    border-radius: 6px; font-size: 13.5px; color: var(--ink-muted); max-width: 74ch;
+  }
+  .callout strong { color: var(--ink); font-weight: 600; }
+  .decision-block {
+    margin: 18px 0 0; padding: 16px 18px;
+    border: 1px solid var(--accent); border-radius: 6px;
+    background: var(--accent-wash);
+  }
+  .decision-block .q {
+    font-family: ui-sans-serif, -apple-system, sans-serif;
+    font-weight: 700; font-size: 14px; margin: 0 0 6px;
+  }
+  .decision-block p { margin: 0; font-size: 14px; }
+  .foot { color: var(--ink-muted); font-size: 13px; margin-top: 12px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <p class="eyebrow">hcn design review</p>
+  <h1>Per-call tool and skill enablement</h1>
+  <p class="lede">
+    Five decisions to make before this feature is designed further. Every capability
+    claim below comes from live <code>--help</code> output on this machine, not from
+    memory. Cells marked "verify" need a live run before implementation.
+  </p>
+  <p class="meta">
+    Evidence: live <code>--help</code>, 2026-08-18 · claude 2.1.233 · codex 0.147.0 ·
+    pi 0.84.2 · muse 0.1.0 · descriptors in <code>src/knowledge/</code>
+  </p>
+
+  <section data-lucid-id="sec-capability">
+    <h2>What each harness can actually do</h2>
+    <p class="section-note">
+      Tool selection surface per harness, read from live help. This is the ground the
+      normalized layer must stand on.
+    </p>
+    <div class="matrix-scroll">
+    <div class="matrix">
+      <div class="mh">Capability</div><div class="mh">claude</div><div class="mh">codex</div><div class="mh">pi</div><div class="mh">muse</div>
+
+      <div class="rl" data-lucid-id="row-include">Include list<span class="sub">exact allowlist</span></div>
+      <div><code>--allowedTools</code>, pattern syntax <code>Bash(git *)</code></div>
+      <div class="no">no list flag; <code>--enable/--disable &lt;FEATURE&gt;</code> toggles feature classes</div>
+      <div><code>--tools</code></div>
+      <div class="no">none</div>
+
+      <div class="rl" data-lucid-id="row-exclude">Exclude list<span class="sub">denylist over the rest</span></div>
+      <div><code>--disallowedTools</code>, same patterns</div>
+      <div class="no">no list flag; generic <code>-c key=value</code> reaches config.toml</div>
+      <div><code>--exclude-tools</code></div>
+      <div class="no">none</div>
+
+      <div class="rl" data-lucid-id="row-category">Category switches</div>
+      <div class="no">none at category level</div>
+      <div>sandbox · approval policy · <code>--enable/--disable</code> feature classes (browser_use, computer_use, ...)</div>
+      <div><code>-nt</code> all · <code>-nbt</code> built-in only</div>
+      <div><code>--disable-write</code> · <code>--disable-shell</code> · <code>--disable-web-tools</code></div>
+
+      <div class="rl" data-lucid-id="row-defaultset">Default toolset</div>
+      <div>all enabled</div>
+      <div>not addressable</div>
+      <div><strong>read, bash, edit, write</strong> only - grep, find, ls are off by default</div>
+      <div>write, shell, web enabled; shell via managed bash</div>
+
+      <div class="rl" data-lucid-id="row-skills">Skills control</div>
+      <div><code>--setting-sources</code> isolates; <code>--disable-slash-commands</code> says "disable all skills" - <em>verify</em></div>
+      <div class="no">none visible</div>
+      <div><code>-ns</code> off · <code>--skill &lt;path&gt;</code> loads one, repeatable</div>
+      <div><code>--no-foreign-personal-context</code> · <code>--trust-workspace</code></div>
+    </div>
+    </div>
+    <div class="callout" data-lucid-id="evidence-notes">
+      <strong>Two facts shape everything below.</strong> First: pi's default toolset is
+      not "all tools" - grep, find, and ls exist but are off unless granted. So
+      "everything except X" has two possible meanings and D3 settles which. Second:
+      claude is the only harness with pattern syntax, so patterns cannot be part of the
+      normalized vocabulary.
+    </div>
+  </section>
+
+  <section data-lucid-id="sec-semantics">
+    <h2>D1 - List semantics</h2>
+    <p class="section-note">
+      How <code>--tools</code> and <code>--exclude-tools</code> combine. Only claude and
+      pi can express lists at all; on codex and muse the whole dimension is
+      not-applicable and follows the tier rule from the defaults discussion (built-in
+      skips, config refuses, args refuse).
+    </p>
+    <div class="cards">
+      <div class="card rec" data-lucid-id="d1-a">
+        <h3>A - Mutually exclusive pair<span class="tag">recommended</span></h3>
+        <p>One list per call. Include means exact allowlist. Exclude means everything else.</p>
+        <ul>
+          <li>Passing both refuses with exit 2</li>
+          <li>Empty include <code>--tools ""</code> = no tools; already works this way</li>
+          <li>Maps 1:1 onto both CLIs that support lists</li>
+        </ul>
+      </div>
+      <div class="card" data-lucid-id="d1-b">
+        <h3>B - Composable, exclude wins</h3>
+        <p>Claude's native model: allow a set, then carve out of it.</p>
+        <ul>
+          <li>More expressive for wide-grant-minus-one cases</li>
+          <li>Pi accepting both flags at once is unverified - grounding needed</li>
+          <li>Two interacting lists make config merging and provenance harder</li>
+        </ul>
+      </div>
+      <div class="card" data-lucid-id="d1-c">
+        <h3>C - Include only</h3>
+        <p>Drop exclude from the normalized surface.</p>
+        <ul>
+          <li>Smallest surface</li>
+          <li>"All except the dangerous one" must enumerate every safe tool</li>
+          <li>Breaks when a harness adds a new tool - the enumeration goes stale</li>
+        </ul>
+      </div>
+    </div>
+    <div class="decision-block" data-lucid-id="d1-decision" data-lucid-decision>
+      <p class="q">D1</p>
+      <p>Adopt A: <code>--tools</code> and <code>--exclude-tools</code> are mutually
+      exclusive per call; include is an exact allowlist, exclude is the complement.
+      Agree, or pick B or C?</p>
+    </div>
+  </section>
+
+  <section data-lucid-id="sec-all">
+    <h2>D2 - What "everything" means</h2>
+    <p class="section-note">
+      Only matters when exclude is used. Pi ships 7 built-ins but enables 4 by default.
+      The two meanings diverge there.
+    </p>
+    <div class="cards">
+      <div class="card" data-lucid-id="d2-harness">
+        <h3>Harness default, minus exclusions</h3>
+        <p>Exclude starts from what the harness would run anyway.</p>
+        <ul>
+          <li>On pi, <code>--exclude-tools bash</code> leaves read, edit, write - grep, find, ls stay off</li>
+          <li>Never widens a run beyond its default</li>
+          <li>"Exclude" behaves as a pure subtraction</li>
+        </ul>
+      </div>
+      <div class="card rec" data-lucid-id="d2-known">
+        <h3>All known names, minus exclusions<span class="tag">recommended</span></h3>
+        <p>Exclude starts from every tool in the descriptor, stamped to the version.</p>
+        <ul>
+          <li>On pi, <code>--exclude-tools bash</code> leaves read, edit, write, grep, find, ls</li>
+          <li>Same mental model on every harness</li>
+          <li>Can widen a run past the harness default - pi gains grep, find, ls</li>
+        </ul>
+      </div>
+    </div>
+    <div class="decision-block" data-lucid-id="d2-decision" data-lucid-decision>
+      <p class="q">D2</p>
+      <p>When rendering an exclude, start from all names known to the descriptor (pi
+      would gain its three off-by-default tools), or from the harness default (pure
+      subtraction)?</p>
+    </div>
+  </section>
+
+  <section data-lucid-id="sec-vocabulary">
+    <h2>D3 - Tool vocabulary</h2>
+    <p class="section-note">
+      Tool names are not shared across harnesses. The normalized CLI needs one
+      vocabulary; the descriptors hold the per-harness mapping, stamped to
+      <code>verifiedAgainst</code>.
+    </p>
+    <div class="cards">
+      <div class="card rec" data-lucid-id="d3-normalized">
+        <h3>A - Normalized names, mapped per descriptor<span class="tag">recommended</span></h3>
+        <p>A closed set in the vocabulary layer; each descriptor carries its spelling.</p>
+        <ul>
+          <li><code>read, bash, edit, write, grep, find, ls</code> - pi spells them exactly this way today</li>
+          <li>Claude's capitalizations map case-insensitively or via a table</li>
+          <li>Unknown names refuse with the supported list, like models do now</li>
+          <li>New descriptor field: <code>tools</code>, one entry per name + default-enabled flag</li>
+        </ul>
+      </div>
+      <div class="card" data-lucid-id="d3-passthrough">
+        <h3>B - Pass-through names</h3>
+        <p>Send the string as given; each harness judges it.</p>
+        <ul>
+          <li>Zero mapping to maintain</li>
+          <li>Same script needs different names per harness - defeats the point</li>
+          <li>Typo protection is lost; claude silently ignores unknown names</li>
+        </ul>
+      </div>
+      <div class="card" data-lucid-id="d3-hybrid">
+        <h3>C - Normalized core + pattern escape</h3>
+        <p>Normalized names, plus claude-only pattern tokens passed through.</p>
+        <ul>
+          <li>Keeps <code>Bash(git *)</code> reachable for claude users</li>
+          <li>Patterns refuse on pi - a per-harness branch inside one flag</li>
+          <li>Defer until someone needs it; A does not block adding it later</li>
+        </ul>
+      </div>
+    </div>
+    <div class="decision-block" data-lucid-id="d3-decision" data-lucid-decision>
+      <p class="q">D3</p>
+      <p>Adopt A: closed normalized name set, per-descriptor mapping, unknown names
+      refuse. Patterns stay claude-only and out of scope for now. Agree?</p>
+    </div>
+  </section>
+
+  <section data-lucid-id="sec-skills">
+    <h2>D4 - Skills granularity</h2>
+    <p class="section-note">
+      Per-skill include exists in exactly one harness, and it is additive-by-path, not
+      selection-by-name. Skills selection is also load-bearing for hcn's own operation:
+      skills decide how a delegated run behaves.
+    </p>
+    <div class="cards">
+      <div class="card rec" data-lucid-id="d4-facet">
+        <h3>A - Facet on/off only<span class="tag">recommended</span></h3>
+        <p>Normalize what more than one harness shares: skills enabled or disabled per call.</p>
+        <ul>
+          <li>pi <code>-ns</code>, claude <code>--setting-sources</code>; codex and muse are not-applicable</li>
+          <li>Fits the existing <code>discovery</code> facet table and its tier rules</li>
+          <li>Per-skill selection stays out of the normalized surface</li>
+        </ul>
+      </div>
+      <div class="card" data-lucid-id="d4-perskill">
+        <h3>B - Add per-skill include</h3>
+        <p>Surface <code>--skill</code> in the normalized CLI.</p>
+        <ul>
+          <li>pi-only; refusing on three of four harnesses</li>
+          <li>Takes a path, not a name - it is a load instruction, not a selection</li>
+          <li>Overlaps the config-tier story: a skills list in config covers this need better</li>
+        </ul>
+      </div>
+    </div>
+    <div class="decision-block" data-lucid-id="d4-decision" data-lucid-decision>
+      <p class="q">D4</p>
+      <p>Skills stay a discovery facet (on/off per call, per config tier), with no
+      per-skill selection in the normalized CLI. Agree?</p>
+    </div>
+  </section>
+
+  <section data-lucid-id="sec-config">
+    <h2>D5 - Config interplay</h2>
+    <p class="section-note">
+      Tool sets are the first dimension where a user will want named bundles, because
+      they repeat across calls: a review run wants the read-only set.
+    </p>
+    <div class="cards">
+      <div class="card rec" data-lucid-id="d5-named">
+        <h3>A - Named toolsets in config<span class="tag">recommended</span></h3>
+        <p>Config tiers can define <code>toolsets</code>: a name plus a list, in the
+        normalized vocabulary.</p>
+        <ul>
+          <li><code>toolsets: { review: [read, grep, find, ls] }</code></li>
+          <li>CLI references it: <code>--tools review</code> - a bare name that matches a toolset resolves to it</li>
+          <li>Project tier "turn off everything" sets the floor toolset <code>[]</code>; args can only grant within it... or replace it - needs one more rule below</li>
+        </ul>
+      </div>
+      <div class="card" data-lucid-id="d5-inline">
+        <h3>B - Inline lists only</h3>
+        <p>No names; every call spells the list.</p>
+        <ul>
+          <li>No new config schema</li>
+          <li>Repetitive; long command lines</li>
+          <li>The all-off project tier still needs a floor-toolset concept anyway</li>
+        </ul>
+      </div>
+    </div>
+    <div class="decision-block" data-lucid-id="d5-decision" data-lucid-decision>
+      <p class="q">D5</p>
+      <p>Two parts. First: config defines named toolsets and the CLI can reference one
+      by bare name. Second: when a project config sets a floor toolset, an explicit
+      <code>--tools</code> arg must not grant tools outside it (floor wins), or the arg
+      replaces the floor for that call (arg wins)? Recommendation: floor wins.</p>
+    </div>
+  </section>
+
+  <section data-lucid-id="sec-grounding">
+    <h2>Grounding checklist</h2>
+    <p class="section-note">
+      What must be verified against live runs before any of this is implemented. Each
+      verified fact becomes descriptor data plus a fixture, per repo convention.
+    </p>
+    <div class="matrix-scroll">
+    <div class="matrix" style="grid-template-columns: 120px 1fr 1fr;">
+      <div class="mh">Harness</div><div class="mh">To verify</div><div class="mh">Method</div>
+      <div class="rl">claude</div>
+      <div><code>--disallowedTools</code> actually denies when both lists are passed; whether <code>--disable-slash-commands</code> is a real skills-off switch or only commands</div>
+      <div>live run with a harmless tool, check refusal</div>
+      <div class="rl">codex</div>
+      <div>list surface: none confirmed from full <code>exec --help</code>; config.toml tool keys and the <code>-c</code> surface remain to verify</div>
+      <div>full help read + <code>features list</code>; config docs</div>
+      <div class="rl">pi</div>
+      <div>whether <code>--tools</code> and <code>--exclude-tools</code> together is legal or an error; full built-in name list per version</div>
+      <div>live run combining both flags</div>
+      <div class="rl">muse</div>
+      <div>exact category set (<code>--disable-write</code>, <code>--disable-shell</code>, <code>--disable-web-tools</code>) and whether any list surface exists undocumented</div>
+      <div>live runs, one flag at a time</div>
+    </div>
+    </div>
+    <p class="foot">
+      After the decisions land, the implementation order writes itself: descriptor
+      <code>tools</code> fields first (stamped), then include/exclude rendering behind
+      the tier rules, then toolset config, then provenance in <code>hcn inspect</code>.
+    </p>
+  </section>
+
+</div>
+</body>
+</html>

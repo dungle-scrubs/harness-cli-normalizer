@@ -1,0 +1,1 @@
+spawn: codex exec --json --skip-git-repo-check --sandbox workspace-write [prompt:47ch]

@@ -110,4 +110,23 @@ export const museCode: HarnessDescriptor = deepFreeze({
       render: { kind: "flag-value", flag: "--max-model-steps" },
     },
   },
+  // Phase 0 fixtures: muse-category-flags.md. No name lists; category
+  // switches are enforcement gates - tools stay listed in the catalog but
+  // calls are denied per session policy (unlike claude's set removal).
+  // Tool names follow muse.<name> (write_file, edit_file, bash, bash_input,
+  // add_memory, edit_memory, web_search). --disable-web-tools has no
+  // normalized turnOption yet - candidate for a web toggle or passthrough.
+  tools: {
+    includeFlag: null,
+    excludeFlag: null,
+    includeIsStrictAllowlist: false,
+    composable: false,
+    builtins: [],
+    categories: [
+      { key: "write", disableFlag: "--disable-write", configKey: null },
+      { key: "shell", disableFlag: "--disable-shell", configKey: null },
+      { key: "web", disableFlag: "--disable-web-tools", configKey: null },
+    ],
+    denySemantics: "policy-gate",
+  },
 });

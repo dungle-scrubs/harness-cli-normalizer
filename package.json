@@ -1,7 +1,7 @@
 {
   "name": "@dungle-scrubs/harness-cli-normalizer",
-  "version": "0.3.1",
-  "description": "One stable interface to four coding-agent CLIs.",
+  "version": "1.0.0",
+  "description": "One stable CLI to four coding-agent harnesses: normalized flags, defaults, and events.",
   "license": "MIT",
   "author": "Kevin Frilot",
   "repository": {
@@ -12,27 +12,6 @@
   "type": "module",
   "bin": {
     "hcn": "./dist/cli.js"
-  },
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    },
-    "./knowledge": {
-      "types": "./dist/knowledge/index.d.ts",
-      "import": "./dist/knowledge/index.js"
-    },
-    "./interpretation": {
-      "types": "./dist/interpretation/index.d.ts",
-      "import": "./dist/interpretation/index.js"
-    },
-    "./execution": {
-      "types": "./dist/execution/index.d.ts",
-      "import": "./dist/execution/index.js"
-    },
-    "./package.json": "./package.json"
   },
   "files": [
     "dist",

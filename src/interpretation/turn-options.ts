@@ -12,6 +12,7 @@
 import type { HarnessDescriptor, OptionRender, SpecBase } from "../knowledge/descriptor.js";
 import { DISCOVERY_FACETS, resolveRender, TURN_OPTION_KEYS } from "../knowledge/descriptor.js";
 import type { DiscoveryOptions, TurnOptions } from "./argv.js";
+import { hintFor } from "./hints.js";
 import { ArgvRefusalError } from "./refusal.js";
 import { CLEAN_SELECTOR, resolveModel, validateEffort } from "./vocabulary.js";
 
@@ -62,6 +63,7 @@ export const renderTurnOptions = (
           option: "discovery",
           supported: Object.keys(h.turnOptions).length ? Object.keys(h.turnOptions) : ["(none)"],
           detail: String(requested[0]),
+          hint: hintFor(h.name, `discovery.${String(requested[0])}`),
         });
       }
       if (spec.kind !== "discovery") {
@@ -109,6 +111,7 @@ export const renderTurnOptions = (
               option: "discovery",
               facet,
               supported: supportedFacets.length ? supportedFacets : ["(none)"],
+              hint: hintFor(h.name, `discovery.${facet}`),
             });
           }
           continue;
@@ -199,6 +202,7 @@ export const renderTurnOptions = (
         option: key,
         supported: Object.keys(h.turnOptions).length ? Object.keys(h.turnOptions) : ["(none)"],
         detail: String(raw),
+        hint: hintFor(h.name, key),
       });
     }
 

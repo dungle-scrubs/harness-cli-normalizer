@@ -15,7 +15,7 @@ const DIMENSION_TO_KEY = {
   effort: "turnOptions",
   model: "vocabulary",
   autonomy: "autonomy",
-  tools: "launch",
+  tools: "tools",
   output: "output",
   sessionMode: "sessionMode",
   storePath: "store",

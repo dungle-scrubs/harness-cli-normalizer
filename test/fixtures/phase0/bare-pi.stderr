@@ -1,0 +1,1 @@
+spawn: pi -p --mode json [prompt:47ch]

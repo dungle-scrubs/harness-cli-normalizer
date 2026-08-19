@@ -1,0 +1,3 @@
+{"kind":"identity","sessionId":"01a014e7-97f1-75f3-9c7d-26a5734586ce","authority":"harness-minted","capabilities":{"vision":false,"images":false,"streaming":"none","session":false,"source":"unknown","confidence":"none"}}
+{"kind":"message","role":"assistant","text":"OK"}
+{"kind":"done","exitCode":0,"cause":"clean"}
