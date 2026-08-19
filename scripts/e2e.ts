@@ -695,6 +695,62 @@ const toolsEquivalenceScenario: Scenario = {
   },
 };
 
+/** issue #38 skills allowlist: pi loads ONLY the picked skill (live check
+ * of the listed set); claude complement narrows the personal registry;
+ * codex/muse refuse with hints; unknown names refuse listing the
+ * registry. */
+const skillsAllowlistScenario: Scenario = {
+  name: "skills-allowlist",
+  phases: ["all"],
+  run: async (harness) => {
+    const failures: string[] = [];
+    const t0 = Date.now();
+    if (harness === "pi") {
+      const r = await runCli([
+        harness,
+        "--json",
+        "--skills",
+        "hcn",
+        "--prompt",
+        "Which skills are listed as available to you? Names only, one line, comma separated. If none, say NONE.",
+      ]);
+      const done = r.events.find(
+        (e): e is Extract<HarnessEvent, { kind: "done" }> => e.kind === "done",
+      );
+      if (!done || done.cause !== "clean") failures.push(`pi skills run not clean: ${done?.cause}`);
+      const text = r.events
+        .filter((e): e is Extract<HarnessEvent, { kind: "message" }> => e.kind === "message")
+        .map((e) => e.text)
+        .join("");
+      if (!/^\s*hcn\s*$/m.test(text) && !text.trim().endsWith("hcn")) {
+        failures.push(`pi allowlist not exact (expected only hcn): ${text.slice(0, 150)}`);
+      }
+      const bad = await runCli([
+        harness,
+        "--json",
+        "--skills",
+        "definitely-not-a-skill",
+        "--prompt",
+        "hi",
+      ]);
+      if (bad.exitCode !== 2) failures.push(`unknown skill exit ${bad.exitCode}, expected 2`);
+      if (!/unknown skill name/.test(bad.stderr)) failures.push("unknown-skill refusal missing");
+    } else if (harness === "claude") {
+      const r = await runCli([harness, "--json", "--skills", "hcn", "--prompt", "Reply OK only."]);
+      if (!/--settings \{"skillOverrides"/.test(r.stderr)) {
+        failures.push(`claude complement missing: ${r.stderr.slice(0, 200)}`);
+      }
+    } else {
+      const r = await runCli([harness, "--json", "--skills", "hcn", "--prompt", "hi"]);
+      if (r.exitCode !== 2) failures.push(`${harness} skills exit ${r.exitCode}, expected 2`);
+      if (!/hint: .*no (call-time|per-skill) surface/.test(r.stderr)) {
+        failures.push(`refusal hint missing: ${r.stderr.slice(0, 200)}`);
+      }
+    }
+    return { durationMs: Date.now() - t0, exitCode: 0, eventCounts: {}, failures };
+  },
+};
+
 const SCENARIOS: Scenario[] = [
   baselineScenario,
   toolSelectionScenario,
@@ -708,6 +764,7 @@ const SCENARIOS: Scenario[] = [
   resumeBypassScenario,
   timeoutScenario,
   toolsEquivalenceScenario,
+  skillsAllowlistScenario,
 ];
 
 // ---- CLI arg parsing ----

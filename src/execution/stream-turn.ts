@@ -153,6 +153,13 @@ export async function* streamTurn(
     if (opts.passthrough !== undefined && opts.passthrough.length > 0) {
       argv = [...argv, "--", ...opts.passthrough];
     }
+    // issue #38: claude renders the skills allowlist as settings JSON at
+    // the argv tail (the complement-off form).
+    const claudeSkillTokens = (opts as unknown as { __claudeSkillTokens?: string[] })
+      .__claudeSkillTokens;
+    if (claudeSkillTokens !== undefined && claudeSkillTokens.length > 0) {
+      argv = [...argv, ...claudeSkillTokens];
+    }
     granularity = streamingGranularityOf(h, argv);
   } catch (e) {
     if (e instanceof ArgvRefusalError) {

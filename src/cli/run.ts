@@ -186,6 +186,31 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
 
   const isExplicit = promptSource !== "positional";
 
+  // issue #38: resolve --skills names against the caller's registry root,
+  // then hand the harness its native rendering (pi loads; claude narrows).
+  const rawSkills = (turnOpts as unknown as { skills?: string[] }).skills;
+  if (rawSkills !== undefined && rawSkills.length > 0) {
+    try {
+      const { resolveSkillNames, listKnownSkills } = await import("./skills-root.js");
+      const resolvedSkills = resolveSkillNames(rawSkills);
+      const claudeTokens: string[] = [];
+      if (h.name === "claude") {
+        const { claudeSkillOverridesArg } = await import("../interpretation/skills-selection.js");
+        claudeTokens.push(...claudeSkillOverridesArg(listKnownSkills(), resolvedSkills));
+      }
+      (turnOpts as unknown as Record<string, unknown>).skills = resolvedSkills;
+      (turnOpts as unknown as Record<string, unknown>).__claudeSkillTokens = claudeTokens;
+    } catch (err) {
+      if (err instanceof ArgvRefusalError) {
+        process.stderr.write(`${err.message}\n`);
+        if (err.supported.length) process.stderr.write(`supported: ${err.supported.join(", ")}\n`);
+        process.exitCode = 2;
+        return;
+      }
+      throw err;
+    }
+  }
+
   // Defaults profile + user config: LAUNCH-ONLY. A resumed session keeps
   // its own settings; the resolver never runs on resume paths.
   let resolvedProvenance: readonly ProvenanceEntry[] = [];
@@ -278,6 +303,11 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
         prompt,
         __explicitPrompt: isExplicit,
       } as never);
+      const claudeSkillTokens = (effectiveTurnOpts as unknown as { __claudeSkillTokens?: string[] })
+        .__claudeSkillTokens;
+      if (claudeSkillTokens !== undefined && claudeSkillTokens.length > 0) {
+        preArgv.push(...claudeSkillTokens);
+      }
     }
     _validated = true;
   } catch (err) {

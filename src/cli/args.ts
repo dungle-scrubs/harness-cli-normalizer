@@ -166,6 +166,11 @@ export const parseTurnOptions = (values: Record<string, unknown>): TurnOptions =
     const raw = String(values["exclude-tools"]);
     opts.excludeTools = raw.length === 0 ? [] : raw.split(",").map((s) => s.trim());
   }
+  if (values.skills !== undefined) {
+    const raw = String(values.skills);
+    (opts as Record<string, unknown>).skills =
+      raw.length === 0 ? [] : raw.split(",").map((s) => s.trim());
+  }
   if (values.autonomy === true) opts.autonomy = true;
   else if (values["no-autonomy"] === true) opts.autonomy = false;
   else if (values.autonomy === false) opts.autonomy = false; // for completeness
@@ -409,6 +414,7 @@ export const parseCommonFlags = (
       provider: { type: "string" as const },
       tools: { type: "string" as const },
       "exclude-tools": { type: "string" as const },
+      skills: { type: "string" as const },
       autonomy: { type: "boolean" as const },
       "no-autonomy": { type: "boolean" as const },
       write: { type: "boolean" as const },

@@ -356,6 +356,13 @@ export interface HarnessDescriptor {
    * tools register at runtime and are NEVER enumerated here - name
    * validation is a default, not a refusal authority (same stance as the
    * pi model registry, D-008). */
+  /** Caller-directed skills allowlist surface (issue #38). pi: repeatable
+   * load flag. claude: per-name "off" overrides via settings JSON.
+   * codex/muse: null (structural gap - trust/config scoped only). */
+  readonly skills: {
+    readonly loadFlag: string | null;
+    readonly overridesVia: "settings-skilloverrides" | null;
+  } | null;
   readonly tools: {
     readonly includeFlag: string | null;
     readonly excludeFlag: string | null;

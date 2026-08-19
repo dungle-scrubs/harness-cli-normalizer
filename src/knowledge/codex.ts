@@ -119,6 +119,7 @@ export const codexCli: HarnessDescriptor = deepFreeze({
   // (reachable per-call via -c key=value / --enable/--disable FEATURE),
   // sandbox, and approval policy. MCP servers do have per-tool keys
   // (mcp_servers.<id>.tools.<tool>) but built-ins do not.
+  skills: null,
   tools: {
     includeFlag: null,
     excludeFlag: null,

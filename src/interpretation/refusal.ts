@@ -33,6 +33,7 @@ export type RefusalOption =
   | TurnOptionKey
   | "tools"
   | "excludeTools"
+  | "skills"
   | "autonomy"
   | `discovery.${string}`;
 
