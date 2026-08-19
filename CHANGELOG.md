@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.4.0...v0.4.1) (2026-08-19)
+
+
+### Added
+
+* 0.5.0 - round 2 defaults, tools equivalence, skills allowlist ([#39](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/39)) ([06feefe](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/06feefe1363ed6bb7396db396f50fe7835caccac))
+
 ## [0.4.0](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.3.1...v0.4.0) (2026-08-19)
 
 
