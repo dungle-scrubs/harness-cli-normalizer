@@ -18,15 +18,47 @@ describe("profile floor", () => {
     const r = resolveEffectiveOptions(piCli, base, undefined);
     expect(r.options.effort).toBe("medium");
     expect(r.provenance).toContainEqual({ key: "effort", value: "medium", tier: "profile" });
-    expect(r.unrenderable).toEqual([]);
+    // pi's only divergence is sandbox (codex-only dimension)
+    expect(r.unrenderable).toEqual(["sandbox"]);
   });
 
   it("all four harnesses express effort", () => {
     for (const h of [claudeCode, codexCli, piCli]) {
       const r = resolveEffectiveOptions(h, base, undefined);
       expect(r.options.effort).toBe("medium");
-      expect(r.unrenderable).toEqual([]);
     }
+  });
+
+  it("sandbox applies on codex, diverges elsewhere", () => {
+    const rc = resolveEffectiveOptions(codexCli, base, undefined);
+    expect(rc.options.sandbox).toBe("workspace-write");
+    expect(rc.unrenderable).toEqual([]);
+    const rp = resolveEffectiveOptions(piCli, base, undefined);
+    expect(rp.options.sandbox).toBeUndefined();
+    expect(rp.unrenderable).toContain("sandbox");
+    expect(rp.provenance).toContainEqual({
+      key: "sandbox",
+      value: "workspace-write",
+      tier: "harness",
+    });
+  });
+
+  it("autonomy false emits nothing (off is omission), and the profile records it", () => {
+    const r = resolveEffectiveOptions(piCli, base, undefined);
+    expect(r.options.autonomy).toBeUndefined();
+    expect(r.provenance).toContainEqual({ key: "autonomy", value: false, tier: "profile" });
+    // emit-nothing is expressible everywhere: no divergence for autonomy-off
+    expect(r.unrenderable).not.toContain("autonomy");
+  });
+
+  it("discovery on maps to full-discovery defaults - no disabling flags emitted", () => {
+    const r = resolveEffectiveOptions(piCli, base, undefined);
+    expect(r.options.discovery).toBeUndefined();
+    expect(r.provenance).toContainEqual({
+      key: "discovery",
+      value: { tools: true, instructionFiles: true, extensions: true, skills: true },
+      tier: "profile",
+    });
   });
 });
 
@@ -78,8 +110,15 @@ describe("skip-and-report (unrenderable profile dimensions)", () => {
 });
 
 describe("profile data", () => {
-  it("contains only ratified dimensions", () => {
-    expect(Object.keys(DEFAULT_TURN_PROFILE)).toEqual(["effort"]);
+  it("contains exactly the four ratified dimensions", () => {
+    expect(Object.keys(DEFAULT_TURN_PROFILE)).toEqual([
+      "effort",
+      "sandbox",
+      "discovery",
+      "autonomy",
+    ]);
     expect(DEFAULT_TURN_PROFILE.effort).toBe("medium");
+    expect(DEFAULT_TURN_PROFILE.sandbox).toBe("workspace-write");
+    expect(DEFAULT_TURN_PROFILE.autonomy).toBe(false);
   });
 });

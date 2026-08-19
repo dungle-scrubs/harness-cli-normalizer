@@ -14,6 +14,20 @@ import { deepFreeze } from "./descriptor.js";
 
 export const DEFAULT_TURN_PROFILE = deepFreeze({
   effort: "medium",
+  // codex-only (the only harness with a sandbox dimension). Promotes the
+  // descriptor's implicit workspace-write default into the visible
+  // profile tier. On the other three the dimension is unrenderable and
+  // reports as divergence.
+  sandbox: "workspace-write",
+  // Ratified: discovery fully ON. The harnesses' bare runs already
+  // discover instruction files, skills, and extensions; the profile makes
+  // that a stated contract. The off-spellings exist per harness
+  // (-ns/-nc/-ne on pi, --setting-sources on claude) for callers who want
+  // less.
+  discovery: { tools: true, instructionFiles: true, extensions: true, skills: true },
+  // Ratified: autonomy OFF. No bare run is unattended; --autonomy or a
+  // config must say so deliberately.
+  autonomy: false,
 } as const);
 
 export type ProfileKey = keyof typeof DEFAULT_TURN_PROFILE;

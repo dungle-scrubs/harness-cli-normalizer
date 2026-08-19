@@ -27,8 +27,16 @@ export interface ResolvedOptions {
   readonly unrenderable: readonly string[];
 }
 
+/** Expressibility per profile dimension. Dimensions whose "on" state is
+ * the harness's own default (discovery all-on) or whose "off" state emits
+ * nothing (autonomy false) are expressible EVERYWHERE - the profile value
+ * resolves to "emit nothing," which every harness can do. Divergence is
+ * reserved for dimensions that would emit a flag the harness lacks. */
 const EXPRESSIBLE: Readonly<Record<ProfileKey, (h: HarnessDescriptor) => boolean>> = {
   effort: (h) => h.turnOptions.effort !== undefined,
+  sandbox: (h) => h.turnOptions.sandbox !== undefined,
+  discovery: () => true,
+  autonomy: () => true,
 };
 
 /** Resolve the effective options for a LAUNCH. `args` is what the caller
@@ -37,6 +45,12 @@ const EXPRESSIBLE: Readonly<Record<ProfileKey, (h: HarnessDescriptor) => boolean
  * and are reported with tier "harness" only when something (config or
  * profile) attempted them - a truly untouched dimension is nobody's
  * business and appears in provenance as tier "harness" with no value. */
+/** A discovery value emits nothing when every facet is true (on). */
+const emitsNothing = (value: unknown): boolean =>
+  typeof value === "object" &&
+  value !== null &&
+  Object.values(value as Record<string, unknown>).every((v) => v === true);
+
 export const resolveEffectiveOptions = (
   h: HarnessDescriptor,
   args: TurnOptions,
@@ -65,6 +79,15 @@ export const resolveEffectiveOptions = (
       // reported divergence, never a refusal and never silence.
       unrenderable.push(key);
       provenance.push({ key, value, tier: "harness" });
+      continue;
+    }
+    // Dimensions whose value reduces to "emit nothing" (autonomy false,
+    // discovery all-on) stay ABSENT from the resolved options - the
+    // harness's default already satisfies the profile, and emitting
+    // explicit on-flags would change resume grammar and add breakage
+    // surface for no semantic gain. Provenance still records the tier.
+    if ((key === "autonomy" && value === false) || (key === "discovery" && emitsNothing(value))) {
+      provenance.push({ key, value, tier: "profile" });
       continue;
     }
     resolved[key] = value;
