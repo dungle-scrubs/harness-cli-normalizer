@@ -478,6 +478,127 @@ const projectTierScenario: Scenario = {
   },
 };
 
+/** Table-hint coverage: walk one refusal per hint family so every shipped
+ * hint string is exercised on its real raise path (cheap - all refusals). */
+const tableHintsScenario: Scenario = {
+  name: "table-hints",
+  phases: ["all"],
+  run: async (harness) => {
+    const failures: string[] = [];
+    const t0 = Date.now();
+    // one refused dimension per harness, asserting the confirmed hint text
+    const cases: Record<string, { args: string[]; hint: RegExp }> = {
+      claude: {
+        args: ["--sandbox", "read-only", "--prompt", "hi"],
+        hint: /hint: claude has no sandbox modes.*per-tool allowlist/,
+      },
+      pi: {
+        args: ["--write", "--prompt", "hi"],
+        hint: /hint: pi has no write toggle.*--exclude-tools write/,
+      },
+      muse: {
+        // max-steps is muse's OWN option (no refusal); provider is the
+        // muse-lacking dimension whose hint must fire.
+        args: ["--provider", "zai", "--prompt", "hi"],
+        hint: /hint: muse routes models through its own API.*no separate provider selector/,
+      },
+    };
+    const c = cases[harness];
+    if (c === undefined) {
+      // codex: provider hint via --provider (pi-only option)
+      const r = await runCli(["codex", "--json", "--provider", "zai", "--prompt", "hi"]);
+      if (!/hint: codex routes models through OpenAI/.test(r.stderr)) {
+        failures.push(`codex provider hint missing: ${r.stderr.slice(0, 200)}`);
+      }
+      return { durationMs: Date.now() - t0, exitCode: r.exitCode, eventCounts: {}, failures };
+    }
+    const r = await runCli([harness, "--json", ...c.args]);
+    if (r.exitCode !== 2) failures.push(`exit ${r.exitCode}, expected 2`);
+    if (!c.hint.test(r.stderr)) failures.push(`hint missing/mismatch: ${r.stderr.slice(0, 250)}`);
+    return { durationMs: Date.now() - t0, exitCode: r.exitCode, eventCounts: {}, failures };
+  },
+};
+
+/** Effort takes real effect: thinking-token magnitude at low vs high on
+ * claude (the harness whose internal default the probe measured). Asserts
+ * the flag changed model behavior, not just provenance. */
+const effortEffectScenario: Scenario = {
+  name: "effort-effect",
+  phases: ["all"],
+  run: async (harness) => {
+    const failures: string[] = [];
+    const t0 = Date.now();
+    if (harness !== "claude") {
+      // magnitude check only scripted for claude (probe baseline exists);
+      // others: effort flag rides and run completes clean.
+      const r = await runCli([
+        harness,
+        "--json",
+        "--effort",
+        "low",
+        "--prompt",
+        "Reply with the single word OK and nothing else.",
+      ]);
+      const done = r.events.find(
+        (e): e is Extract<HarnessEvent, { kind: "done" }> => e.kind === "done",
+      );
+      if (!done || done.cause !== "clean") failures.push(`effort low not clean: ${done?.cause}`);
+      return { durationMs: Date.now() - t0, exitCode: r.exitCode, eventCounts: {}, failures };
+    }
+    const TASK = "Reason step by step: which is larger, 9^9^9 or 9^99? Justify rigorously.";
+    const run = async (effort: string) => {
+      const r = await runCli([harness, "--json", "--effort", effort, "--prompt", TASK]);
+      // hcn events carry no usage; assert via completion magnitude instead:
+      // total text emitted correlates with effort on this reasoning task.
+      const text = r.events
+        .filter((e): e is Extract<HarnessEvent, { kind: "message" }> => e.kind === "message")
+        .map((e) => e.text)
+        .join("");
+      return {
+        len: text.length,
+        clean: r.events.some((e) => e.kind === "done" && e.cause === "clean"),
+      };
+    };
+    const low = await run("low");
+    const high = await run("high");
+    if (!low.clean || !high.clean) failures.push("run not clean at low or high");
+    // probe measured ~436 tokens thinking at medium vs ~893+ at high;
+    // generous bound: high must out-emit low by >=25% on this task
+    if (high.len < low.len * 1.25) {
+      failures.push(`effort had no measurable effect: low=${low.len} high=${high.len}`);
+    }
+    return { durationMs: Date.now() - t0, exitCode: 0, eventCounts: {}, failures };
+  },
+};
+
+/** Launch-only resolution: a resumed session keeps its own settings - the
+ * profile must not inject effort into a resume argv. */
+const resumeBypassScenario: Scenario = {
+  name: "resume-bypass",
+  phases: ["all"],
+  run: async (harness) => {
+    const failures: string[] = [];
+    const t0 = Date.now();
+    // claude is the resume-richest harness; others just verify the
+    // resume argv shape via a fake id (refuses before spawn is fine for
+    // wrong-shape ids only - a well-shaped unknown id launches on
+    // create-harnesses, so use inspect? inspect has no resume path;
+    // exercise via run with --json and assert NO provenance lines).
+    const FAKE = "12345678-1234-5678-1234-123456789abc";
+    const r = await runCli([harness, "--json", "--resume", FAKE, "--prompt", "Reply OK only"]);
+    if (/provenance: effort/.test(r.stderr)) {
+      failures.push("profile effort leaked into a resume run");
+    }
+    if (/spawn:.*--effort|--thinking|--reasoning-effort|model_reasoning_effort/.test(r.stderr)) {
+      failures.push("effort flag present in resume spawn line");
+    }
+    // run must not refuse purely from the profile (the resume itself may
+    // fail on nonexistent ids - acceptable, message-checked only for the
+    // profile leak above)
+    return { durationMs: Date.now() - t0, exitCode: r.exitCode, eventCounts: {}, failures };
+  },
+};
+
 const SCENARIOS: Scenario[] = [
   baselineScenario,
   toolSelectionScenario,
@@ -486,6 +607,9 @@ const SCENARIOS: Scenario[] = [
   passthroughScenario,
   defaultsProfileScenario,
   projectTierScenario,
+  tableHintsScenario,
+  effortEffectScenario,
+  resumeBypassScenario,
 ];
 
 // ---- CLI arg parsing ----
