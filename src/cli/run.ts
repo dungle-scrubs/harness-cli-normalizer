@@ -3,6 +3,10 @@ import { nodeRunnerDeps } from "../execution/node-deps.js";
 import { KILL_GRACE_MS, redactArgv, streamTurn } from "../execution/stream-turn.js";
 import { buildLaunchArgv, buildResumeArgv } from "../interpretation/argv.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
+import {
+  type ProvenanceEntry,
+  resolveEffectiveOptions,
+} from "../interpretation/resolve-options.js";
 import { recognizeNativeSpelling, supportedBy } from "../interpretation/support.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { parseRunExtra, parseTurnOptions, resolvePromptAsync } from "./args.js";
@@ -180,8 +184,50 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   }
 
   const isExplicit = promptSource !== "positional";
+
+  // Defaults profile + user config: LAUNCH-ONLY. A resumed session keeps
+  // its own settings; the resolver never runs on resume paths.
+  let resolvedProvenance: readonly ProvenanceEntry[] = [];
+  let resolvedUnrenderable: readonly string[] = [];
+  let effectiveTurnOpts: ReturnType<typeof parseTurnOptions> = turnOpts;
+  if (extra.resume === undefined) {
+    let userConfig: Partial<ReturnType<typeof parseTurnOptions>> | undefined;
+    const { loadUserConfig, ConfigError } = await import("./config.js");
+    try {
+      const loaded = loadUserConfig();
+      if (loaded !== null) userConfig = loaded.config;
+    } catch (configErr) {
+      if (configErr instanceof ConfigError) {
+        process.stderr.write(`config error: ${(configErr as Error).message}\n`);
+        process.exitCode = 2;
+        return;
+      }
+      throw configErr;
+    }
+    const resolved = resolveEffectiveOptions(h, { ...turnOpts, prompt } as never, userConfig);
+    const { provenance, unrenderable } = resolved;
+    resolvedProvenance = provenance;
+    resolvedUnrenderable = unrenderable;
+    const { prompt: _p, ...rest } = resolved.options as { prompt: string };
+    effectiveTurnOpts = rest as ReturnType<typeof parseTurnOptions>;
+    // Provenance is diagnostic data like the spawn line - stderr in BOTH
+    // render modes, never stdout (stdout carries the NDJSON contract).
+    if (provenance.length > 0 || unrenderable.length > 0) {
+      for (const entry of provenance) {
+        process.stderr.write(
+          `provenance: ${entry.key} = ${JSON.stringify(entry.value)} (${entry.tier})\n`,
+        );
+      }
+      for (const key of unrenderable) {
+        process.stderr.write(
+          `divergence: profile ${JSON.stringify(key)} not expressible on ${h.name}; harness default applies\n`,
+        );
+      }
+    }
+  }
+
   const fullOpts = {
-    ...turnOpts,
+    ...effectiveTurnOpts,
     prompt,
     cwd: extra.cwd,
     env: extra.env,
@@ -199,6 +245,8 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   let preArgv: string[] | null = null;
   try {
     if (fullOpts.resume) {
+      // Resume never carries profile/config resolution (launch-only rule),
+      // so it builds from the raw turn options.
       preArgv = buildResumeArgv(h, {
         ...(turnOpts as object),
         prompt,
@@ -206,8 +254,10 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
         __explicitPrompt: isExplicit,
       } as never);
     } else {
+      // Launch builds from the RESOLVED options so the spawn line and the
+      // real argv agree.
       preArgv = buildLaunchArgv(h, {
-        ...(turnOpts as object),
+        ...(effectiveTurnOpts as object),
         prompt,
         __explicitPrompt: isExplicit,
       } as never);

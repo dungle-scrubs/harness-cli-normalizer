@@ -41,8 +41,11 @@ const HARNESS_BIN = process.execPath.includes("bun") ? process.execPath : "bun";
 const CLI_ENTRY = new URL("../src/cli/index.ts", import.meta.url).pathname;
 
 /** Run `hcn run <harness> ...` as a subprocess, collect NDJSON + exit code. */
-const runCli = async (
+const runCli = (args: string[]) => runCliEnv(args, {});
+
+const runCliEnv = async (
   args: string[],
+  extraEnv: Record<string, string>,
 ): Promise<{
   exitCode: number | null;
   events: HarnessEvent[];
@@ -52,7 +55,7 @@ const runCli = async (
   const proc = spawn(HARNESS_BIN, [CLI_ENTRY, "run", ...args], {
     cwd: process.cwd(),
     stdio: ["ignore", "pipe", "pipe"],
-    env: { ...process.env, NO_COLOR: "1" },
+    env: { ...process.env, NO_COLOR: "1", ...extraEnv },
   });
   const events: HarnessEvent[] = [];
   let stderr = "";
@@ -344,12 +347,72 @@ const passthroughScenario: Scenario = {
   },
 };
 
+/** Phase 5 defaults-profile scenarios: bare run carries effort medium on
+ * all four; a user config changes it; a bad config refuses with exit 2
+ * naming the key. Uses HCN_CONFIG_DIR (test seam) with temp dirs. */
+const defaultsProfileScenario: Scenario = {
+  name: "defaults-profile",
+  phases: ["all"],
+  run: async (harness) => {
+    const failures: string[] = [];
+    const t0 = Date.now();
+    let exitCode: number | null = null;
+    const mkdtempSync = (await import("node:fs")).mkdtempSync;
+    const writeFileSync = (await import("node:fs")).writeFileSync;
+    const tmp = mkdtempSync("/tmp/hcn-profile-e2e-");
+    const prevEnv = { ...process.env };
+
+    try {
+      // no config: profile applies (effort medium)
+      process.env.HCN_CONFIG_DIR = tmp; // empty dir => no config file
+      const bare = await runCliEnv([harness, "--json", "--prompt", "Reply OK only"], {
+        HCN_CONFIG_DIR: tmp,
+      });
+      exitCode = bare.exitCode;
+      const done = bare.events.find(
+        (e): e is Extract<HarnessEvent, { kind: "done" }> => e.kind === "done",
+      );
+      if (!done || done.cause !== "clean")
+        failures.push(`bare profile run not clean: ${done?.cause}`);
+      if (!/effort = "medium" \(profile\)/.test(bare.stderr)) {
+        failures.push(`profile provenance missing: ${bare.stderr.slice(0, 200)}`);
+      }
+
+      if (harness === "pi") {
+        // config override: effort high at user-config tier
+        const cfgDir = mkdtempSync("/tmp/hcn-profile-e2e-cfg-");
+        writeFileSync(`${cfgDir}/config.json`, '{"version":1,"effort":"high"}');
+        const cfgRun = await runCliEnv([harness, "--json", "--prompt", "Reply OK only"], {
+          HCN_CONFIG_DIR: cfgDir,
+        });
+        if (!/effort = "high" \(user-config\)/.test(cfgRun.stderr)) {
+          failures.push(`config override provenance missing: ${cfgRun.stderr.slice(0, 200)}`);
+        }
+        // bad config: unknown key refuses with exit 2
+        const badDir = mkdtempSync("/tmp/hcn-profile-e2e-bad-");
+        writeFileSync(`${badDir}/config.json`, '{"version":1,"frobnicate":true}');
+        const badRun = await runCliEnv([harness, "--json", "--prompt", "hi"], {
+          HCN_CONFIG_DIR: badDir,
+        });
+        if (badRun.exitCode !== 2) failures.push(`bad config exit ${badRun.exitCode}, expected 2`);
+        if (!/unknown config key: "frobnicate"/.test(badRun.stderr)) {
+          failures.push(`bad config key not named: ${badRun.stderr.slice(0, 200)}`);
+        }
+      }
+    } finally {
+      process.env = prevEnv;
+    }
+    return { durationMs: Date.now() - t0, exitCode, eventCounts: {}, failures };
+  },
+};
+
 const SCENARIOS: Scenario[] = [
   baselineScenario,
   toolSelectionScenario,
   mutualExclusionScenario,
   refusalDiagnosticsScenario,
   passthroughScenario,
+  defaultsProfileScenario,
 ];
 
 // ---- CLI arg parsing ----
