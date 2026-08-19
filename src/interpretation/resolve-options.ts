@@ -56,6 +56,7 @@ const EXPRESSIBLE: Readonly<Record<ProfileKey, (h: HarnessDescriptor) => boolean
   autonomy: () => true,
   write: () => true,
   shell: () => true,
+  tools: (h) => h.tools.includeFlag !== null || h.tools.excludeFlag !== null,
 };
 
 export interface ConfigTiers {
@@ -155,6 +156,22 @@ export const resolveEffectiveOptions = (
       // reported divergence, never a refusal and never silence.
       unrenderable.push(key);
       provenance.push({ key, value, tier: "harness" });
+      continue;
+    }
+    // D13: the tools marker expands per descriptor. On a harness whose
+    // default is already everything (claude), expansion emits nothing -
+    // the emit-nothing rule, recorded in provenance. On a harness with
+    // dormant built-ins (pi), it becomes the enabling include list.
+    if (key === "tools" && value === "all-known") {
+      const enabled = h.tools.builtins.filter((t) => t.defaultEnabled).length;
+      const all = h.tools.builtins.length;
+      if (enabled === all) {
+        provenance.push({ key, value: "all known (already default)", tier: "profile" });
+        continue;
+      }
+      const expanded = h.tools.builtins.map((t) => t.name);
+      resolved[key] = expanded;
+      provenance.push({ key, value: expanded, tier: "profile" });
       continue;
     }
     // Dimensions whose value reduces to "emit nothing" (autonomy false,

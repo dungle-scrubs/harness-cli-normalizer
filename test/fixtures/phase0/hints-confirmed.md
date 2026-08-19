@@ -106,3 +106,19 @@ Approved in review (.lucid/next-five-defaults.html, v3), 2026-08-19:
 - D13: tools ratification deferred to its own design sitting.
 - Model: permanently out of profile scope (recorded in profile doc
   comment + README).
+
+## D13 ratification (tools default + equivalence principle)
+
+Approved in review (.lucid/d13-tools-default.html), 2026-08-19:
+
+- Principle: equivalence wherever expressible; divergence only where
+  structural. Dormancy is a choice, not a gap.
+- Profile tools = "all-known" marker, expanded per descriptor at resolve
+  time: pi gets the enabling include (dormant grep/find/ls turn on);
+  claude emits nothing (already everything; an include would trigger
+  deny-complement for zero gain); codex/muse skip-and-report divergence.
+- Project floor wins over the profile entry (precedence chain; narrowing
+  is deliberate).
+- -nbt-style narrowings are never profile entries - passthrough only.
+- Probe grounding: pi trio enables via include and works (live grep,
+  correct file:line, 2026-08-19).

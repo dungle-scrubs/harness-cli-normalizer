@@ -34,6 +34,12 @@ export const DEFAULT_TURN_PROFILE = deepFreeze({
   // provenance.
   write: true,
   shell: true,
+  // D13, ratified: equivalent-as-possible tool defaults. The marker
+  // expands per descriptor at resolve time - pi gains its dormant
+  // grep/find/ls; claude emits nothing (already everything); codex/muse
+  // report divergence (no list surface). Project floors narrow it by
+  // the normal precedence chain.
+  tools: "all-known",
   // Model is PERMANENTLY out of profile scope (ratified round 2): no
   // cross-harness model namespace exists, pi's registry is
   // runtime-extensible and environment-dependent, and per-harness config

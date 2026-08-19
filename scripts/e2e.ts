@@ -648,6 +648,53 @@ const timeoutScenario: Scenario = {
   },
 };
 
+/** D13: equivalence by default. A BARE pi run (no --tools) must have grep
+ * working - the dormant trio enabled by the profile marker - and the
+ * provenance must show the tools entry at profile tier. */
+const toolsEquivalenceScenario: Scenario = {
+  name: "tools-equivalence",
+  phases: ["all"],
+  run: async (harness) => {
+    const failures: string[] = [];
+    const t0 = Date.now();
+    if (harness === "pi") {
+      const r = await runCli([
+        harness,
+        "--json",
+        "--prompt",
+        "Use your grep tool to search this directory for the literal string 'createRenderState'. Report the count of matching lines only. If you have no grep tool, say NOGREP.",
+      ]);
+      const done = r.events.find(
+        (e): e is Extract<HarnessEvent, { kind: "done" }> => e.kind === "done",
+      );
+      if (!done || done.cause !== "clean") failures.push(`pi bare run not clean: ${done?.cause}`);
+      const text = r.events
+        .filter((e): e is Extract<HarnessEvent, { kind: "message" }> => e.kind === "message")
+        .map((e) => e.text)
+        .join("");
+      if (/NOGREP/i.test(text)) failures.push("pi bare run lacks grep - marker not applied");
+      if (!/\d/.test(text)) failures.push(`no count reported: ${text.slice(0, 150)}`);
+      if (
+        !/tools = \["read","bash","edit","write","grep","find","ls"\] \(profile\)/.test(r.stderr)
+      ) {
+        failures.push(`tools provenance missing: ${r.stderr.slice(0, 250)}`);
+      }
+    } else if (harness === "claude") {
+      const r = await runCli([harness, "--json", "--prompt", "Reply OK only."]);
+      if (!/tools = "all known \(already default\)" \(profile\)/.test(r.stderr)) {
+        failures.push(`claude emit-nothing provenance missing: ${r.stderr.slice(0, 250)}`);
+      }
+    } else {
+      // codex/muse: divergence line on tools
+      const r = await runCli([harness, "--json", "--prompt", "Reply OK only."]);
+      if (!/divergence: profile "tools" not expressible/.test(r.stderr)) {
+        failures.push(`tools divergence missing: ${r.stderr.slice(0, 250)}`);
+      }
+    }
+    return { durationMs: Date.now() - t0, exitCode: 0, eventCounts: {}, failures };
+  },
+};
+
 const SCENARIOS: Scenario[] = [
   baselineScenario,
   toolSelectionScenario,
@@ -660,6 +707,7 @@ const SCENARIOS: Scenario[] = [
   effortEffectScenario,
   resumeBypassScenario,
   timeoutScenario,
+  toolsEquivalenceScenario,
 ];
 
 // ---- CLI arg parsing ----
