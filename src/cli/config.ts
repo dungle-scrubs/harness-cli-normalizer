@@ -66,10 +66,13 @@ const KNOWN_KEYS = new Set([
   "maxSteps",
   "toolsets",
   "timeout",
+  // issue #41: question escalation (behavior instruction, not a turn
+  // option - it rides the prompt preamble, never a harness flag).
+  "escalateQuestions",
 ]);
 
 const LIST_KEYS = new Set(["tools", "excludeTools"]);
-const BOOL_KEYS = new Set(["autonomy", "write", "shell"]);
+const BOOL_KEYS = new Set(["autonomy", "write", "shell", "escalateQuestions"]);
 
 /** Parse + validate config text. Throws ConfigError with the offending key
  * named on any violation - never warns and continues. */

@@ -2,6 +2,7 @@ import type { HarnessEvent } from "../execution/events.js";
 import { nodeRunnerDeps } from "../execution/node-deps.js";
 import { KILL_GRACE_MS, redactArgv, streamTurn } from "../execution/stream-turn.js";
 import { buildLaunchArgv, buildResumeArgv } from "../interpretation/argv.js";
+import { composeEscalatedPrompt } from "../interpretation/question.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
 import {
   FloorExceededError,
@@ -220,8 +221,13 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     user?: Partial<ReturnType<typeof parseTurnOptions>>;
     project?: Partial<ReturnType<typeof parseTurnOptions>>;
   } = {};
-  if (extra.resume === undefined) {
-    const tiers = resolvedTiers;
+  // Config files load on EVERY run, launch or resume: the tiers feed the
+  // defaults profile on launch, and issue #41's escalateQuestions (a
+  // behavior instruction, not a turn option) resolves from them on resume
+  // too - otherwise a no-escalate session would flip its preamble on the
+  // answer turn. Resolution of TURN options stays launch-only.
+  const tiers = resolvedTiers;
+  {
     const { loadUserConfig, loadProjectConfig, ConfigError } = await import("./config.js");
     try {
       const loaded = loadUserConfig();
@@ -236,6 +242,8 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
       }
       throw configErr;
     }
+  }
+  if (extra.resume === undefined) {
     let resolved: ReturnType<typeof resolveEffectiveOptions>;
     try {
       resolved = resolveEffectiveOptions(h, { ...turnOpts, prompt } as never, tiers);
@@ -268,12 +276,39 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     }
   }
 
+  // issue #41: question-escalation precedence arg > project > user >
+  // default-true (a behavior instruction, not a turn option - the
+  // default lives OUTSIDE the profile on purpose, per the spec). It
+  // applies on LAUNCH AND RESUME alike: it shapes each turn's prompt
+  // preamble and event stream, never a session setting.
+  const projectEscalate = (resolvedTiers.project as { escalateQuestions?: boolean } | undefined)
+    ?.escalateQuestions;
+  const userEscalate = (resolvedTiers.user as { escalateQuestions?: boolean } | undefined)
+    ?.escalateQuestions;
+  const escalateQuestions =
+    turnOpts.escalateQuestions !== undefined
+      ? turnOpts.escalateQuestions
+      : projectEscalate !== undefined
+        ? projectEscalate
+        : userEscalate !== undefined
+          ? userEscalate
+          : true;
+  const escalateTier =
+    turnOpts.escalateQuestions !== undefined
+      ? "arg"
+      : projectEscalate !== undefined
+        ? "project-config"
+        : userEscalate !== undefined
+          ? "user-config"
+          : "default";
+
   const fullOpts = {
     ...effectiveTurnOpts,
-    prompt,
+    prompt: composeEscalatedPrompt(prompt, escalateQuestions),
     cwd: extra.cwd,
     env: extra.env,
     resume: extra.resume,
+    escalateQuestions,
     ...(passthrough.length > 0 ? { passthrough } : {}),
     ...(isExplicit ? { __explicitPrompt: true as const } : {}),
   } as Parameters<typeof streamTurn>[1] & {
@@ -287,20 +322,23 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   let preArgv: string[] | null = null;
   try {
     if (fullOpts.resume) {
-      // Resume never carries profile/config resolution (launch-only rule),
-      // so it builds from the raw turn options.
+      // Resume never carries TURN-option profile resolution (launch-only
+      // rule), so it builds from the raw turn options; hcn-owned behavior
+      // (escalateQuestions preamble, timeout budget) still applies.
       preArgv = buildResumeArgv(h, {
         ...(turnOpts as object),
-        prompt,
+        prompt: fullOpts.prompt,
         sessionId: fullOpts.resume,
         __explicitPrompt: isExplicit,
       } as never);
     } else {
       // Launch builds from the RESOLVED options so the spawn line and the
-      // real argv agree.
+      // real argv agree. The prompt here is the COMPOSED one (escalation
+      // preamble included) - redactArgv masks by position, so an argv
+      // built from the raw prompt would leak it into the spawn line.
       preArgv = buildLaunchArgv(h, {
         ...(effectiveTurnOpts as object),
-        prompt,
+        prompt: fullOpts.prompt,
         __explicitPrompt: isExplicit,
       } as never);
       const claudeSkillTokens = (effectiveTurnOpts as unknown as { __claudeSkillTokens?: string[] })
@@ -330,13 +368,18 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   // since buildLaunchArgv now respects __explicitPrompt.
 
   if (preArgv) {
-    const redacted = redactArgv(preArgv, prompt);
+    const redacted = redactArgv(preArgv, fullOpts.prompt);
     if (!wantJson) {
       process.stderr.write(`spawn: ${redacted.join(" ")}\n`);
     } else {
       // In JSON mode, diagnostics to stderr only
       process.stderr.write(`spawn: ${redacted.join(" ")}\n`);
     }
+    // issue #41: the escalation mode rides stderr as provenance, like
+    // every other resolution the turn depends on.
+    process.stderr.write(
+      `provenance: escalateQuestions = ${escalateQuestions} (${escalateTier})\n`,
+    );
   }
 
   // Delete HERDR_ENV before spawn
@@ -413,7 +456,7 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
         renderEvent(event, state);
       }
       if (event.kind === "done") {
-        if (event.cause === "clean") exitCode = 0;
+        if (event.cause === "clean" || event.cause === "awaiting-input") exitCode = 0;
         else exitCode = 1;
         // If failure class is rejected? But done.cause for rejected would be failed? Still 1 per mapping, but refusal before spawn is 2.
         // The RFC says limit/auth ->1, transport ->1, refusal ->2 (already handled). So done non-clean =>1.

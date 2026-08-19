@@ -4,6 +4,7 @@ const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
 const cyan = (s: string) => `\x1b[36m${s}\x1b[0m`;
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const red = (s: string) => `\x1b[31m${s}\x1b[0m`;
+const blue = (s: string) => `\x1b[34m${s}\x1b[0m`;
 const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`;
 
 export interface RenderState {
@@ -36,6 +37,15 @@ export const renderEvent = (event: HarnessEvent, state: RenderState): void => {
     case "limit":
       process.stdout.write(yellow(`\n  ⚠ limit: ${event.code} ${event.message}`));
       break;
+    case "question":
+      // issue #41: the structured question fields ARE the question - this
+      // render is a convenience view of them, not the contract.
+      process.stdout.write(blue(`\n  ? ${event.question}\n`));
+      for (const option of event.options) {
+        const mark = option === event.recommended ? "*" : " ";
+        process.stdout.write(blue(`    ${mark} ${option}\n`));
+      }
+      break;
     case "error":
       process.stdout.write(red(`\n  ✗ ${event.message}`));
       break;
@@ -54,7 +64,12 @@ export const renderEvent = (event: HarnessEvent, state: RenderState): void => {
       break;
     }
     case "done": {
-      const mark = event.cause === "clean" ? green("○ clean") : red(`○ ${event.cause}`);
+      const mark =
+        event.cause === "clean" || event.cause === "awaiting-input"
+          ? event.cause === "awaiting-input"
+            ? blue("○ awaiting input")
+            : green("○ clean")
+          : red(`○ ${event.cause}`);
       const tail = event.failure ? ` ${event.failure.class}: ${event.failure.message}` : "";
       process.stdout.write(`\n  ${mark} (exit ${event.exitCode ?? "none"})${tail}\n`);
       break;

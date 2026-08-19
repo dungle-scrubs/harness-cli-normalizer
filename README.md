@@ -102,8 +102,10 @@ The built-in profile pins the ratified defaults: effort `medium` (the only
 value in all four ladders), sandbox `workspace-write` (codex-only; reported
 as divergence elsewhere), discovery fully on, autonomy off. A dimension a
 harness cannot express is reported as divergence, never a silent skip and
-never a refusal. Resume turns bypass resolution entirely - a session keeps
-its own settings.
+never a refusal. Resume turns bypass turn-option resolution entirely - a
+session keeps its own settings. Question escalation (below) is the
+deliberate exception: it rides each turn's prompt, so it resolves on
+launch AND resume.
 
 User config (`~/.config/hcn/config.json`, `$XDG_CONFIG_HOME` respected):
 
@@ -128,6 +130,31 @@ arg exceeding it refuses with exit 2 naming both sets - never a silent
 clamp. An empty floor refuses every grant (the turn-everything-off
 workflow). Config parsing is hard-fail: unknown keys, malformed JSON, or a
 version mismatch exit 2 naming the offender.
+
+## Question escalation (issue #41)
+
+A headless worker can ask the CALLER's user when a genuine decision blocks
+progress, and the answer flows back via resume. `escalateQuestions`
+defaults ON (`--escalate-questions` / `--no-escalate-questions`, config
+key `escalateQuestions` in both tiers; precedence arg > project > user >
+default). It is a behavior instruction, not a turn option: no flag ever
+reaches the harness - the transport is a short protocol contract hcn
+prepends to the prompt. It is independent of autonomy by ratified design:
+autonomy covers interrupts the HARNESS raises (permission gates),
+escalateQuestions covers interrupts the MODEL raises (judgment gaps) -
+`--autonomy --escalate-questions` is "tools free, judgment supervised."
+
+Protocol: a worker that must ask ends its turn with a fenced `hcn-question`
+block (`{"question","options":[..],"recommended":..}`) as the last content
+of its final message. hcn detects it and emits a typed `question` event
+(structured-first: the fields ARE the question; prose renders from them);
+`done` carries cause `awaiting-input` with process exit 0 - asking is a
+successful turn. The caller escalates through its own question tool, then
+resumes with the answer: `hcn run <harness> --resume <id> --prompt "<answer>"`.
+Id continuity per harness: claude stable, pi/muse caller-assigned, codex
+minted (the identity event carries the id). With `--no-escalate-questions`
+the worker is instructed never to ask - it states the assumption it
+proceeded under and continues.
 
 Every resolved setting prints its provenance to stderr:
 
@@ -190,7 +217,7 @@ Every refusal names an alternative in `supported` and `message`, not only a nega
 ## Reference
 
 - Descriptors live in `src/knowledge/` (`claude-code.ts`, `codex.ts`, `pi.ts`, `muse.ts`), with shared types in `descriptor.ts`.
-- The normalized event surface is `HarnessEvent` in `src/execution/events.ts`: `identity`, `token`, `message`, `progress`, `tool`, `context`, `limit`, `error`, `failure`, `done` (with `done.failure`).
+- The normalized event surface is `HarnessEvent` in `src/execution/events.ts`: `identity`, `token`, `message`, `progress`, `tool`, `context`, `limit`, `error`, `failure`, `question` (issue #41), `done` (with `done.failure`; `done.cause` includes `awaiting-input`).
 - Narrow or override a descriptor's facts with `parseOverrides` (`src/knowledge/overrides.ts`). An override a harness cannot satisfy throws `OverrideRefusalError` instead of producing a broken argv. `limitMatchers`/`authMatchers` are now serializable `{pattern, flags, code/kind}` objects so they can be overridden from JSON; bad patterns are refused at load with file and harness named.
 - `DROPPABLE_KINDS` (`token`, `progress`, `context`) marks events safe to drop when you only need the full messages. `failure` is never droppable.
 
