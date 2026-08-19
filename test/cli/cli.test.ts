@@ -143,10 +143,18 @@ describe("harness-name validation", () => {
     expect(out.exitCode).toBe(2);
   });
 
-  test("session non-claude exits 2", async () => {
+  test("session on a harness without sessionMode exits 2 naming the supported set", async () => {
     const out = await captureDispatch(["session", "codex"]);
     expect(out.exitCode).toBe(2);
-    expect(out.stderr).toMatch(/claude/i);
+    expect(out.stderr).toMatch(/claude, pi/);
+  });
+
+  test("session pi passes the descriptor gate (issue #44)", async () => {
+    // pi declares a sessionMode now; the gate admits it. It will try to
+    // spawn a real process, so only assert the gate did not refuse.
+    const out = await captureDispatch(["session", "pi", "--help"]);
+    expect(out.exitCode).toBeUndefined();
+    expect(out.stdout).toContain("--escalate-questions");
   });
 });
 

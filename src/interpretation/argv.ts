@@ -164,7 +164,7 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
     throw new ArgvRefusalError({
       issue: "no-session-mode",
       harness: h.name,
-      supported: ["session is claude-only"],
+      supported: ["session is available where sessionMode is declared"],
     });
   }
   assertUsableSessionId(opts.sessionId);
@@ -172,8 +172,9 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
     h.bin,
     ...h.launch.baseFlags,
     ...h.sessionMode.flags,
-    h.sessionMode.idFlag,
-    opts.sessionId,
+    // idFlag null = the harness refuses unknown ids and mints its own
+    // (pi rpc); the caller-side sessionId stays a correlation handle.
+    ...(h.sessionMode.idFlag !== null ? [h.sessionMode.idFlag, opts.sessionId] : []),
   ];
   if (opts.model !== undefined) {
     const validated = validateModel(h, opts.model);

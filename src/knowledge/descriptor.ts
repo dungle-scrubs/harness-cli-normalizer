@@ -30,7 +30,7 @@ export type StreamingGranularity = "token" | "message" | "none";
 
 export type HarnessMode = "headless-turn" | "headless-session" | "interactive";
 
-export const SESSION_INPUT_KINDS = ["claude-sdk-user-message"] as const;
+export const SESSION_INPUT_KINDS = ["claude-sdk-user-message", "pi-rpc-prompt"] as const;
 export type SessionInputKind = (typeof SESSION_INPUT_KINDS)[number];
 
 export interface SessionInputContract {
@@ -241,11 +241,22 @@ export interface HarnessDescriptor {
   };
   /** Persistent headless session support: the exact flag set that opens one
    * lucid-owned process serving many turns, or null when the harness has no
-   * such mode. `idFlag` pins the caller-assigned session identity. */
+   * such mode. `idFlag` pins the caller-assigned session identity.
+   * `turnEnd` is the stdout record that delimits one turn (claude: the
+   * `result` record; pi rpc: `agent_settled`). `identityProbe`, when
+   * present, names a command the runner writes at spawn whose response
+   * carries the session id - pi rpc is identity-silent at startup (spike
+   * evidence: test/fixtures/pi-rpc-spike), so identity needs a round trip. */
   readonly sessionMode: {
     readonly flags: readonly string[];
-    readonly idFlag: string;
+    /** Pin an EXISTING session id; null when the harness only accepts
+     * caller ids that already exist (pi rpc: `--session` refuses unknown
+     * ids - spike evidence), so fresh sessions omit the flag and the
+     * harness mints the id, readable via `identityProbe`. */
+    readonly idFlag: string | null;
     readonly input: SessionInputContract;
+    readonly turnEnd: Readonly<Record<string, string>>;
+    readonly identityProbe: { readonly command: string } | null;
   } | null;
   /** Streaming is a property of the INVOCATION, not the harness: each pin
    * names the flag set that unlocks a granularity, checked in order, first
