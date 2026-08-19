@@ -1,0 +1,27 @@
+PASS startup emits no session/identity record
+PASS get_state returns a session id
+PASS session file does NOT exist before first turn
+PASS lifecycle contains agent_start
+PASS lifecycle contains turn_start
+PASS lifecycle contains message_start
+PASS lifecycle contains message_end
+PASS lifecycle contains turn_end
+PASS lifecycle contains agent_end
+PASS lifecycle contains agent_settled
+PASS response:prompt precedes agent_start
+PASS prompt accepted (success true)
+PASS SLEEP-DONE task completed
+PASS mid-stream prompt without streamingBehavior fails
+PASS failure names the remedy (streamingBehavior)
+PASS steer accepted
+PASS follow_up accepted
+PASS queue_update observed
+PASS steer delivered mid-run (BANANA present)
+PASS follow_up delivered after settle (CHERRY present)
+PASS follow_up caused a second agent cycle (>=2 agent_settled OR CHERRY after first settle)
+PASS sessionId stable across turns in one process
+PASS session file EXISTS after a completed turn
+PASS second turn recalls the first (SLEEP-DONE or sleep 2 mentioned)
+PASS stdin EOF exits clean rc=0
+
+25 passed, 0 failed
