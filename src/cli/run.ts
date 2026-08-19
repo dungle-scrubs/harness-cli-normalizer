@@ -4,11 +4,7 @@ import { KILL_GRACE_MS, redactArgv, streamTurn } from "../execution/stream-turn.
 import { buildLaunchArgv, buildResumeArgv } from "../interpretation/argv.js";
 import { composeEscalatedPrompt } from "../interpretation/question.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
-import {
-  FloorExceededError,
-  type ProvenanceEntry,
-  resolveEffectiveOptions,
-} from "../interpretation/resolve-options.js";
+import { FloorExceededError, resolveEffectiveOptions } from "../interpretation/resolve-options.js";
 import { recognizeNativeSpelling, supportedBy } from "../interpretation/support.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { parseRunExtra, parseTurnOptions, resolvePromptAsync } from "./args.js";
@@ -214,8 +210,6 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
 
   // Defaults profile + user config: LAUNCH-ONLY. A resumed session keeps
   // its own settings; the resolver never runs on resume paths.
-  let resolvedProvenance: readonly ProvenanceEntry[] = [];
-  let resolvedUnrenderable: readonly string[] = [];
   let effectiveTurnOpts: ReturnType<typeof parseTurnOptions> = turnOpts;
   const resolvedTiers: {
     user?: Partial<ReturnType<typeof parseTurnOptions>>;
@@ -256,8 +250,6 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
       throw resErr;
     }
     const { provenance, unrenderable } = resolved;
-    resolvedProvenance = provenance;
-    resolvedUnrenderable = unrenderable;
     const { prompt: _p, ...rest } = resolved.options as { prompt: string };
     effectiveTurnOpts = rest as ReturnType<typeof parseTurnOptions>;
     // Provenance is diagnostic data like the spawn line - stderr in BOTH
