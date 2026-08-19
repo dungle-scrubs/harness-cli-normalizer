@@ -114,6 +114,8 @@ Options:
   --autonomy / --no-autonomy
   --write / --no-write
   --shell / --no-shell
+  --escalate-questions / --no-escalate-questions
+                            (accepted; renders nothing - rides the run prompt)
   --max-steps <n>
   --no-tools, --no-instruction-files, --no-extensions, --no-skills
   --escalate-questions / --no-escalate-questions
