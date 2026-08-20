@@ -69,6 +69,13 @@ export interface TurnOptions {
   readonly write?: boolean;
   readonly shell?: boolean;
   readonly maxSteps?: number;
+  /** issue #48: replaces the harness's built-in system prompt (opt-in-only,
+   * no profile entry). claude/pi: flag-value (claude pairs the dynamic-section
+   * exclusion); codex: config-kv `instructions` (literal or path); muse:
+   * refuses with hint. */
+  readonly systemPrompt?: string;
+  /** issue #48: appends to the built-in prompt (claude/pi only). */
+  readonly appendSystemPrompt?: string;
   /** issue #41: question escalation - a BEHAVIOR INSTRUCTION, not a turn
    * option. It never renders into any harness argv; the CLI layer turns
    * it into the prompt preamble and arms question-block detection.

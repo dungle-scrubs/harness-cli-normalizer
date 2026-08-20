@@ -84,6 +84,12 @@ export const TURN_OPTION_KEYS = deepFreeze([
   "write",
   "shell",
   "maxSteps",
+  // issue #48 (ratified 2026-08-20): the payload-stripping dimensions.
+  // systemPrompt replaces the built-in prompt; appendSystemPrompt adds to
+  // it. Both are opt-in-only (arg/config, no profile entry) - a default
+  // that strips the payload changes every bare run's semantics.
+  "systemPrompt",
+  "appendSystemPrompt",
 ] as const);
 export type TurnOptionKey = (typeof TURN_OPTION_KEYS)[number];
 
@@ -101,8 +107,14 @@ export const DISCOVERY_FACETS = deepFreeze([
 export type DiscoveryFacet = (typeof DISCOVERY_FACETS)[number];
 
 export type OptionRender =
-  /** `--flag <value>` */
-  | { readonly kind: "flag-value"; readonly flag: string }
+  /** `--flag <value>`; `extraFlags` are fixed companion tokens emitted
+   *  before the value pair (claude's --system-prompt pairs with
+   *  --exclude-dynamic-system-prompt-sections - issue #48). */
+  | {
+      readonly kind: "flag-value";
+      readonly flag: string;
+      readonly extraFlags?: readonly string[];
+    }
   /** `-c key=value` - codex's config-override grammar. Permitted only for
    *  closed-vocabulary specs, so no value can need escaping. */
   | { readonly kind: "config-kv"; readonly flag: string; readonly key: string }
@@ -128,6 +140,10 @@ export type TurnOptionSpec =
   | (SpecBase & { readonly kind: "effort" })
   /** Open selector, CLEAN_SELECTOR-validated. */
   | (SpecBase & { readonly kind: "selector" })
+  /** Free-form prompt text (issue #48): systemPrompt / appendSystemPrompt.
+   * Values are prose, never a closed vocabulary - no validation beyond
+   * non-emptiness, rendering is verbatim. */
+  | (SpecBase & { readonly kind: "prompt-text" })
   /** `polarity: "disables"` emits the render when the caller asks for FALSE. */
   | (SpecBase & { readonly kind: "toggle"; readonly polarity: "enables" | "disables" })
   | (SpecBase & { readonly kind: "integer"; readonly min: number; readonly max: number })

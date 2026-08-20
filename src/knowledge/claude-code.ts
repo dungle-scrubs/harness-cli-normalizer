@@ -139,6 +139,24 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
   },
   turnOptions: {
     effort: { kind: "effort", render: { kind: "flag-value", flag: "--effort" } },
+    // issue #48, live-verified 2.1.235: --system-prompt replaces the built-in
+    // prompt; --exclude-dynamic-system-prompt-sections strips the dynamic
+    // sections (git state, directory listing) that ride even under a
+    // replacement. hcn pairs them - a payload-stripping replacement without
+    // the exclusion keeps injected sections. Verified live: the pair changes
+    // model behavior (NAKED-HAIKU probe vs BASELINE-OK).
+    systemPrompt: {
+      kind: "prompt-text",
+      render: {
+        kind: "flag-value",
+        flag: "--system-prompt",
+        extraFlags: ["--exclude-dynamic-system-prompt-sections"],
+      },
+    },
+    appendSystemPrompt: {
+      kind: "prompt-text",
+      render: { kind: "flag-value", flag: "--append-system-prompt" },
+    },
     discovery: {
       kind: "discovery",
       facets: {
