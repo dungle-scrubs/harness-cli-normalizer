@@ -18,6 +18,7 @@
 import { execFileSync, spawn } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import type { HarnessEvent } from "../src/execution/events.js";
+import { payloadStripScenario } from "./e2e-payload-strip.js";
 import {
   questionAskScenario,
   questionOffScenario,
@@ -873,6 +874,13 @@ const SESSION_SCENARIOS: Scenario[] = [
   },
 ];
 SCENARIOS.push(...SESSION_SCENARIOS);
+
+// issue #48: payload stripping - behavior-verified replacement
+SCENARIOS.push({
+  name: payloadStripScenario.name,
+  phases: ["all"],
+  run: async (harness) => payloadStripScenario.run(qRunCli, harness),
+});
 
 const qRunCli: import("./e2e-questions.js").RunCli = (args, env, cwd) =>
   cwd === undefined ? runCliEnv(args, env) : runCliIn(args, env, cwd);

@@ -227,17 +227,22 @@ export const renderTurnOptions = (
           supported: resumeSupported.length ? resumeSupported : ["(none)"],
         });
       }
-      // Reject config-kv for non-closed vocabulary
+      // Reject config-kv for open vocabularies. Exception (issue #48):
+      // prompt-text rides config-kv VERBATIM on codex - both a literal and
+      // a path are accepted (live-verified 0.146.1); no quoting, because
+      // codex's k=v split takes the rest of the token raw and both probed
+      // forms passed unquoted.
       if (
         (spec as unknown as SpecBase).render.kind === "config-kv" &&
         (spec as { kind: string }).kind !== "enum" &&
-        (spec as { kind: string }).kind !== "effort"
+        (spec as { kind: string }).kind !== "effort" &&
+        (spec as { kind: string }).kind !== "prompt-text"
       ) {
         throw new ArgvRefusalError({
           issue: "invalid-option-value",
           harness: h.name,
           option: key,
-          supported: ["config-kv only for enum and effort (closed vocabularies)"],
+          supported: ["config-kv only for enum, effort, and prompt-text (issue #48)"],
         });
       }
     }
@@ -315,6 +320,29 @@ export const renderTurnOptions = (
         let seq: string[];
         if (r.kind === "flag-value") seq = [r.flag, raw];
         else if (r.kind === "config-kv") seq = [r.flag, `${r.key}=${tomlQuote(raw)}`];
+        else if (r.kind === "flag-list") seq = [...r.flags];
+        else seq = [];
+        sequences.push(seq);
+        break;
+      }
+      case "prompt-text": {
+        // issue #48: free-form prompt prose (systemPrompt / appendSystemPrompt).
+        // No closed vocabulary - validate non-empty string, render verbatim.
+        // Values may be multi-line and may contain shell-hostile characters;
+        // they cross as single argv tokens, never through a shell.
+        if (typeof raw !== "string" || raw.trim() === "") {
+          throw new ArgvRefusalError({
+            issue: "invalid-option-value",
+            harness: h.name,
+            option: key,
+            supported: ["non-empty prompt text"],
+            detail: typeof raw === "string" ? "(empty)" : String(raw),
+          });
+        }
+        const r = effectiveRender!;
+        let seq: string[];
+        if (r.kind === "flag-value") seq = [...(r.extraFlags ?? []), r.flag, raw];
+        else if (r.kind === "config-kv") seq = [r.flag, `${r.key}=${raw}`];
         else if (r.kind === "flag-list") seq = [...r.flags];
         else seq = [];
         sequences.push(seq);

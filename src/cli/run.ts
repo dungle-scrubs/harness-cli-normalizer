@@ -265,6 +265,18 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
           `divergence: profile ${JSON.stringify(key)} not expressible on ${h.name}; harness default applies\n`,
         );
       }
+      // issue #48 (ratified): when claude's instruction-files isolation
+      // rides (the --setting-sources project spelling), surface its known
+      // cost as a divergence line - legal to use, priced in stderr.
+      if (
+        h.name === "claude" &&
+        (resolved.options as { discovery?: { instructionFiles?: boolean } }).discovery
+          ?.instructionFiles === false
+      ) {
+        process.stderr.write(
+          "divergence: setting-sources isolation also skips hooks, LSP and keychain reads on claude - weighed, not refused\n",
+        );
+      }
     }
   }
 

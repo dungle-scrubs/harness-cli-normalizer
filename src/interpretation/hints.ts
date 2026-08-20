@@ -29,6 +29,9 @@ const HINTS: Readonly<Record<string, Readonly<Record<string, string>>>> = deepFr
   codex: {
     write:
       "codex has no write toggle; use --sandbox read-only (config: sandbox_mode) so shell commands cannot write either",
+    // issue #48: the append half has no codex spelling.
+    appendSystemPrompt:
+      "codex has no append-to-prompt flag; -c instructions=<literal or path> REPLACES the whole prompt (both accepted, live-verified) - there is no additive form",
     shell:
       "codex has no shell toggle; disable the shell tool via config (-c features.shell_tool=false) or use --sandbox read-only",
     maxSteps:
@@ -65,6 +68,11 @@ const HINTS: Readonly<Record<string, Readonly<Record<string, string>>>> = deepFr
       "muse loads rules per workspace trust; --no-foreign-personal-context excludes foreign personal rules, and withholding --trust-workspace keeps workspace rules unloaded",
     "discovery.skills":
       "muse scopes skills by trust like rules; --no-foreign-personal-context drops foreign skills and untrusted workspaces stay unloaded - there is no unconditional skills-off switch",
+    // issue #48 (ratified 2026-08-20): muse cannot strip the payload at all.
+    systemPrompt:
+      "muse has no system-prompt surface; its built-in prompt always applies - there is no replacement or append spelling (structural: nothing to approximate with)",
+    appendSystemPrompt:
+      "muse has no system-prompt surface; its built-in prompt always applies - there is no replacement or append spelling (structural: nothing to approximate with)",
   },
 });
 
