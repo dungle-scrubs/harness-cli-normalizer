@@ -4,7 +4,7 @@ Usage: hcn <command> [options] [prompt]
 
 Commands:
   run <harness> [prompt]    One-shot headless turn (streamTurn)
-  session <harness>         Interactive session (openSession, Claude-only)
+  session <harness>         Interactive session (openSession, claude + pi)
   inspect <harness>         Descriptor / argv / capability inspection (no spawn)
   ls                        List harnesses with verifiedAgainst versions
   check                     Drift check (published version vs verifiedAgainst)
