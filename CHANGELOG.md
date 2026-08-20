@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.4](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.4.3...v0.4.4) (2026-08-20)
+
+
+### Changed
+
+* **deps-dev:** bump @biomejs/biome from 2.5.7 to 2.5.8 ([#50](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/50)) ([60ff1dc](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/60ff1dc82b8dd1c473a431c23e9dd819bd07e987))
+* top-level help lists session as claude + pi ([#51](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/51)) ([34399aa](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/34399aa69d6c1a6683564b5dfb5a3d8965972c82))
+
 ## [0.4.3](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.4.2...v0.4.3) (2026-08-19)
 
 
