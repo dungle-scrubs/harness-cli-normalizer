@@ -181,6 +181,9 @@ export const parseTurnOptions = (values: Record<string, unknown>): TurnOptions =
   else if (values["no-shell"] === true) opts.shell = false;
   if (values["escalate-questions"] === true) opts.escalateQuestions = true;
   else if (values["no-escalate-questions"] === true) opts.escalateQuestions = false;
+  if (values["system-prompt"] !== undefined) opts.systemPrompt = String(values["system-prompt"]);
+  if (values["append-system-prompt"] !== undefined)
+    opts.appendSystemPrompt = String(values["append-system-prompt"]);
 
   if (values["max-steps"] !== undefined) {
     const n = Number(values["max-steps"]);
@@ -281,6 +284,8 @@ const KNOWN_FLAGS = new Set([
   "--no-shell",
   "--escalate-questions",
   "--no-escalate-questions",
+  "--system-prompt",
+  "--append-system-prompt",
   "--max-steps",
   "--no-tools",
   "--no-instruction-files",
@@ -427,6 +432,8 @@ export const parseCommonFlags = (
       "no-shell": { type: "boolean" as const },
       "escalate-questions": { type: "boolean" as const },
       "no-escalate-questions": { type: "boolean" as const },
+      "system-prompt": { type: "string" as const },
+      "append-system-prompt": { type: "string" as const },
       "max-steps": { type: "string" as const },
       "no-tools": { type: "boolean" as const },
       "no-instruction-files": { type: "boolean" as const },

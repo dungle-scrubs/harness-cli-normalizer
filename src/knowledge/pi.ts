@@ -110,6 +110,17 @@ export const piCli: HarnessDescriptor = deepFreeze({
   turnOptions: {
     effort: { kind: "effort", render: { kind: "flag-value", flag: "--thinking" } },
     provider: { kind: "selector", render: { kind: "flag-value", flag: "--provider" } },
+    // issue #48, live-verified 0.84.2: pi's --system-prompt replaces the
+    // default coding-assistant prompt (PI-NAKED probe). No dynamic-section
+    // exclusion exists - pi injects no such sections into a replaced prompt.
+    systemPrompt: {
+      kind: "prompt-text",
+      render: { kind: "flag-value", flag: "--system-prompt" },
+    },
+    appendSystemPrompt: {
+      kind: "prompt-text",
+      render: { kind: "flag-value", flag: "--append-system-prompt" },
+    },
     discovery: {
       kind: "discovery",
       facets: {

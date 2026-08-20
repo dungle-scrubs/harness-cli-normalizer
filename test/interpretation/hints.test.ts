@@ -2,14 +2,16 @@
  * Hint curation (D8): every confirmed hint string is pinned here, so a
  * wording drift fails CI. The durable record is
  * test/fixtures/phase0/hints-confirmed.md (25 instances total: 3 shipped
- * in Phase 3 raise sites + 22 in the hints table).
+ * in Phase 3 raise sites + 22 in the hints table), plus the issue #48
+ * payload-stripping hints ratified 2026-08-20 (3 entries: muse systemPrompt,
+ * muse appendSystemPrompt, codex appendSystemPrompt).
  */
 import { describe, expect, it } from "vitest";
 import { allHints, hintFor } from "../../src/interpretation/hints.js";
 
 describe("hint table (confirmed instances)", () => {
-  it("carries exactly 24 entries (evidence file items 4-27)", () => {
-    expect(allHints().length).toBe(24);
+  it("carries exactly 27 entries (24 confirmed + 3 issue #48 ratified)", () => {
+    expect(allHints().length).toBe(27);
   });
 
   it("covers exactly the confirmed harness-dimension pairs", () => {
@@ -29,6 +31,7 @@ describe("hint table (confirmed instances)", () => {
         "codex/discovery.instructionFiles",
         "codex/discovery.skills",
         "codex/discovery.tools",
+        "codex/appendSystemPrompt",
         "codex/maxSteps",
         "codex/provider",
         "codex/shell",
@@ -36,8 +39,10 @@ describe("hint table (confirmed instances)", () => {
         "muse/discovery.instructionFiles",
         "muse/discovery.skills",
         "muse/discovery.tools",
+        "muse/appendSystemPrompt",
         "muse/provider",
         "muse/sandbox",
+        "muse/systemPrompt",
         "pi/maxSteps",
         "pi/sandbox",
         "pi/shell",

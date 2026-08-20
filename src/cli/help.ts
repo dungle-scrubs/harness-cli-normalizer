@@ -48,6 +48,12 @@ Options:
                             done cause "awaiting-input", exit 0)
   --no-escalate-questions   Worker never asks: it states the assumption it
                             proceeded under and continues
+  --system-prompt <text>    Replace the built-in system prompt (claude, pi:
+                            flag; codex: -c instructions=<text-or-path>;
+                            muse refuses. claude pairs the dynamic-section
+                            exclusion automatically. Opt-in; no default)
+  --append-system-prompt <text>
+                            Append to the built-in prompt (claude, pi only)
   --max-steps <n>           Max steps (muse, 1-10000)
   --timeout <seconds>       Wall-clock budget for the run (all harnesses,
                             hcn-enforced; 0 disables; no default)

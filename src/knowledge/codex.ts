@@ -106,6 +106,15 @@ export const codexCli: HarnessDescriptor = deepFreeze({
       kind: "effort",
       render: { kind: "config-kv", flag: "-c", key: "model_reasoning_effort" },
     },
+    // issue #48, live-verified 0.146.1 under --strict-config: the config key
+    // `instructions` accepts BOTH a literal string (LITERAL-OK probe) and a
+    // file path (FILE-OK probe); hcn passes the value verbatim and codex
+    // validates. `model_instructions` / `experimental_instructions_file`
+    // are refused by codex (probed) - wrong spellings, not alternates.
+    systemPrompt: {
+      kind: "prompt-text",
+      render: { kind: "config-kv", flag: "-c", key: "instructions" },
+    },
     sandbox: {
       kind: "enum",
       values: ["read-only", "workspace-write", "danger-full-access"],

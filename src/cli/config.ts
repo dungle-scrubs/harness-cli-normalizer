@@ -69,6 +69,10 @@ const KNOWN_KEYS = new Set([
   // issue #41: question escalation (behavior instruction, not a turn
   // option - it rides the prompt preamble, never a harness flag).
   "escalateQuestions",
+  // issue #48: payload-stripping dimensions (opt-in-only, no profile
+  // entry by ratification).
+  "systemPrompt",
+  "appendSystemPrompt",
 ]);
 
 const LIST_KEYS = new Set(["tools", "excludeTools"]);
