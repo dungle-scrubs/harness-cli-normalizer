@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  ArgvRefusalError,
   buildLaunchArgv,
   buildResumeArgv,
   buildSessionArgv,
@@ -93,6 +94,25 @@ describe("shared spawn-boundary guards", () => {
     expect(() =>
       buildResumeArgv(claudeCode, { sessionId: "../../../etc/passwd", prompt: "hi" }),
     ).toThrow(/session id/i);
+  });
+
+  test("a malformed resume id is a typed ArgvRefusalError, not a bare throw (F-01)", () => {
+    for (const build of [
+      () => buildResumeArgv(claudeCode, { sessionId: "../../etc/passwd", prompt: "hi" }),
+      () => buildSessionArgv(claudeCode, { sessionId: "--dangerously-skip-permissions" }),
+    ]) {
+      let caught: unknown;
+      try {
+        build();
+      } catch (e) {
+        caught = e;
+      }
+      expect(caught).toBeInstanceOf(ArgvRefusalError);
+      const err = caught as ArgvRefusalError;
+      expect(err.issue).toBe("invalid-option-value");
+      expect(err.harness).toBe("claude");
+      expect(err.supported[0]).toMatch(/session id/);
+    }
   });
 
   test("validated model and autonomy selections are inserted by the builder, never appended by callers", () => {

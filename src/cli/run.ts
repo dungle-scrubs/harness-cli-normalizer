@@ -1,8 +1,10 @@
 import type { HarnessEvent } from "../execution/events.js";
+import { failureFromRejected } from "../execution/failure.js";
 import { nodeRunnerDeps } from "../execution/node-deps.js";
 import { KILL_GRACE_MS, redactArgv, streamTurn } from "../execution/stream-turn.js";
 import { buildLaunchArgv, buildResumeArgv } from "../interpretation/argv.js";
 import { composeEscalatedPrompt } from "../interpretation/question.js";
+import type { RefusalIssue } from "../interpretation/refusal.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
 import { FloorExceededError, resolveEffectiveOptions } from "../interpretation/resolve-options.js";
 import { recognizeNativeSpelling, supportedBy } from "../interpretation/support.js";
@@ -10,6 +12,58 @@ import { defaultDescriptors } from "../knowledge/overrides.js";
 import { parseRunExtra, parseTurnOptions, resolvePromptAsync } from "./args.js";
 import { createRenderState, renderEvent, writeEventNdjson } from "./render.js";
 import { resolveHarness } from "./resolve-harness.js";
+
+/** One shape for every hcn-side refusal. Stderr keeps the prose (message,
+ * hint, support lists, usage pointer); under --json the same fields also
+ * ride stdout as a `failure` event plus a `done`, so a stream reader never
+ * meets an empty stream on exit 2. */
+interface Refusal {
+  readonly message: string;
+  readonly issue: RefusalIssue;
+  readonly option?: ArgvRefusalError["option"];
+  readonly facet?: ArgvRefusalError["facet"];
+  readonly supported?: readonly string[];
+  readonly supportedBy?: ArgvRefusalError["supportedBy"];
+  readonly hint?: string;
+  /** Plain stderr lines written after the structured ones. */
+  readonly trailer?: readonly string[];
+}
+
+const refusalOf = (err: ArgvRefusalError): Refusal => ({
+  message: err.message,
+  issue: err.issue,
+  option: err.option,
+  facet: err.facet,
+  supported: err.supported,
+  supportedBy: err.supportedBy,
+  hint: err.hint,
+});
+
+const refuse = (r: Refusal, json: boolean): void => {
+  process.stderr.write(`${r.message}\n`);
+  if (r.hint) process.stderr.write(`hint: ${r.hint}\n`);
+  if (r.supportedBy?.length) {
+    process.stderr.write(
+      `supported on: ${r.supportedBy.map((e) => `${e.harness} (${e.spelling})`).join(", ")}\n`,
+    );
+  }
+  if (r.supported?.length) process.stderr.write(`supported: ${r.supported.join(", ")}\n`);
+  for (const line of r.trailer ?? []) process.stderr.write(`${line}\n`);
+  if (json) {
+    const summary = failureFromRejected({
+      issue: r.issue,
+      option: r.option,
+      facet: r.facet,
+      supported: r.supported,
+      supportedBy: r.supportedBy,
+      hint: r.hint,
+      detail: r.message,
+    });
+    writeEventNdjson({ kind: "failure", ...summary });
+    writeEventNdjson({ kind: "done", exitCode: null, cause: "failed", failure: summary });
+  }
+  process.exitCode = 2;
+};
 
 export const run = async (harnessName: string, rawArgs: string[]): Promise<void> => {
   const h = resolveHarness(harnessName);
@@ -23,7 +77,10 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   const { parseCommonFlags, detectPositionalPromptInjection, splitPassthrough } = await import(
     "./args.js"
   );
-  const { passthrough } = splitPassthrough(rawArgs);
+  const { normalized, passthrough } = splitPassthrough(rawArgs);
+  // Decided before any refusal can fire: a refused --json run still owes
+  // the stream a failure and a done.
+  const wantJson = normalized.includes("--json");
   const injection = detectPositionalPromptInjection(rawArgs);
   if (injection) {
     const err = new ArgvRefusalError({
@@ -32,9 +89,7 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
       supported: ["prompt must not start with '-'"],
       detail: `it would be parsed as a flag by ${h.bin}`,
     });
-    process.stderr.write(`${err.message}\n`);
-    process.stderr.write(`supported: prompt must not start with '-'\n`);
-    process.exitCode = 2;
+    refuse(refusalOf(err), wantJson);
     return;
   }
   let parsed: ReturnType<typeof parseCommonFlags>;
@@ -77,19 +132,25 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
           : native.option.startsWith("discovery.")
             ? `--no-${native.option.split(".")[1] === "instructionFiles" ? "instruction-files" : native.option.split(".")[1]}`
             : `--${native.option}`;
-      process.stderr.write(
-        `unknown flag: ${rawFlag} is a native spelling (used by ${native.entries.map((e) => e.harness).join(", ")}) - use the normalized ${normalizedSpelling} flag instead\n`,
+      refuse(
+        {
+          message: `unknown flag: ${rawFlag} is a native spelling (used by ${native.entries.map((e) => e.harness).join(", ")}) - use the normalized ${normalizedSpelling} flag instead`,
+          issue: "invalid-option-value",
+          supportedBy: by,
+          trailer: ["Run 'hcn run --help' for usage."],
+        },
+        wantJson,
       );
-      if (by.length > 0) {
-        process.stderr.write(
-          `supported on: ${by.map((e) => `${e.harness} (${e.spelling})`).join(", ")}\n`,
-        );
-      }
-    } else {
-      process.stderr.write(`unknown flag: ${message}\n`);
+      return;
     }
-    process.stderr.write(`Run 'hcn run --help' for usage.\n`);
-    process.exitCode = 2;
+    refuse(
+      {
+        message: `unknown flag: ${message}`,
+        issue: "invalid-option-value",
+        trailer: ["Run 'hcn run --help' for usage."],
+      },
+      wantJson,
+    );
     return;
   }
 
@@ -98,17 +159,25 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   // positionals may contain prompt if not using flag; harness already consumed so first positional is prompt
   const positionalPrompt = positionals.length > 0 ? positionals[0] : undefined;
   if (positionals.length > 1) {
-    process.stderr.write(`too many positionals for run; expected one prompt\n`);
-    process.exitCode = 2;
+    refuse(
+      {
+        message: "too many positionals for run; expected one prompt",
+        issue: "invalid-option-value",
+      },
+      wantJson,
+    );
     return;
   }
   if (passthrough.length === 0 && rawArgs.includes("--")) {
-    process.stderr.write(`-- separator given but no passthrough tokens followed it\n`);
-    process.exitCode = 2;
+    refuse(
+      {
+        message: "-- separator given but no passthrough tokens followed it",
+        issue: "invalid-option-value",
+      },
+      wantJson,
+    );
     return;
   }
-
-  const wantJson = values.json === true;
 
   // Resolve prompt (async for --prompt-file -)
   let prompt: string;
@@ -123,20 +192,14 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     promptSource = resolved.source;
   } catch (err) {
     if (err instanceof ArgvRefusalError) {
-      process.stderr.write(`${err.message}\n`);
-      if (err.hint) process.stderr.write(`hint: ${err.hint}\n`);
-      if (err.supportedBy?.length) {
-        process.stderr.write(
-          `supported on: ${err.supportedBy.map((e) => `${e.harness} (${e.spelling})`).join(", ")}\n`,
-        );
-      }
-      if (err.supported.length) process.stderr.write(`supported: ${err.supported.join(", ")}\n`);
-      process.exitCode = 2;
+      refuse(refusalOf(err), wantJson);
       return;
     }
     if (err instanceof Error && (err as NodeJS.ErrnoException).code === "ENOENT") {
-      process.stderr.write(`prompt file not found: ${(err as Error).message}\n`);
-      process.exitCode = 2;
+      refuse(
+        { message: `prompt file not found: ${err.message}`, issue: "invalid-option-value" },
+        wantJson,
+      );
       return;
     }
     throw err;
@@ -148,15 +211,7 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     turnOpts = parseTurnOptions(values);
   } catch (err) {
     if (err instanceof ArgvRefusalError) {
-      process.stderr.write(`${err.message}\n`);
-      if (err.hint) process.stderr.write(`hint: ${err.hint}\n`);
-      if (err.supportedBy?.length) {
-        process.stderr.write(
-          `supported on: ${err.supportedBy.map((e) => `${e.harness} (${e.spelling})`).join(", ")}\n`,
-        );
-      }
-      if (err.supported.length) process.stderr.write(`supported: ${err.supported.join(", ")}\n`);
-      process.exitCode = 2;
+      refuse(refusalOf(err), wantJson);
       return;
     }
     throw err;
@@ -167,15 +222,7 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     extra = parseRunExtra(values);
   } catch (err) {
     if (err instanceof ArgvRefusalError) {
-      process.stderr.write(`${err.message}\n`);
-      if (err.hint) process.stderr.write(`hint: ${err.hint}\n`);
-      if (err.supportedBy?.length) {
-        process.stderr.write(
-          `supported on: ${err.supportedBy.map((e) => `${e.harness} (${e.spelling})`).join(", ")}\n`,
-        );
-      }
-      if (err.supported.length) process.stderr.write(`supported: ${err.supported.join(", ")}\n`);
-      process.exitCode = 2;
+      refuse(refusalOf(err), wantJson);
       return;
     }
     throw err;
@@ -199,9 +246,7 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
       (turnOpts as unknown as Record<string, unknown>).__claudeSkillTokens = claudeTokens;
     } catch (err) {
       if (err instanceof ArgvRefusalError) {
-        process.stderr.write(`${err.message}\n`);
-        if (err.supported.length) process.stderr.write(`supported: ${err.supported.join(", ")}\n`);
-        process.exitCode = 2;
+        refuse(refusalOf(err), wantJson);
         return;
       }
       throw err;
@@ -230,8 +275,10 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
       if (proj !== null) tiers.project = proj.config;
     } catch (configErr) {
       if (configErr instanceof ConfigError) {
-        process.stderr.write(`config error: ${(configErr as Error).message}\n`);
-        process.exitCode = 2;
+        refuse(
+          { message: `config error: ${configErr.message}`, issue: "invalid-option-value" },
+          wantJson,
+        );
         return;
       }
       throw configErr;
@@ -243,8 +290,7 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
       resolved = resolveEffectiveOptions(h, { ...turnOpts, prompt } as never, tiers);
     } catch (resErr) {
       if (resErr instanceof FloorExceededError) {
-        process.stderr.write(`${(resErr as Error).message}\n`);
-        process.exitCode = 2;
+        refuse({ message: resErr.message, issue: "invalid-tool-grant" }, wantJson);
         return;
       }
       throw resErr;
@@ -354,15 +400,7 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     _validated = true;
   } catch (err) {
     if (err instanceof ArgvRefusalError) {
-      process.stderr.write(`${err.message}\n`);
-      if (err.hint) process.stderr.write(`hint: ${err.hint}\n`);
-      if (err.supportedBy?.length) {
-        process.stderr.write(
-          `supported on: ${err.supportedBy.map((e) => `${e.harness} (${e.spelling})`).join(", ")}\n`,
-        );
-      }
-      if (err.supported.length) process.stderr.write(`supported: ${err.supported.join(", ")}\n`);
-      process.exitCode = 2;
+      refuse(refusalOf(err), wantJson);
       return;
     }
     throw err;

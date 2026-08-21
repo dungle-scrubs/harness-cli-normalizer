@@ -7,7 +7,7 @@
 import type { HarnessDescriptor, StreamingGranularity } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { ArgvRefusalError } from "./refusal.js";
-import { assertUsableSessionId } from "./session-id.js";
+import { assertUsableSessionId, SESSION_ID_MAX, SessionIdRefusalError } from "./session-id.js";
 import { renderSkillsSelection } from "./skills-selection.js";
 import { supportedBy } from "./support.js";
 import { renderToolSelection } from "./tool-selection.js";
@@ -143,8 +143,28 @@ export const buildLaunchArgv = (h: HarnessDescriptor, opts: LaunchOptions): stri
   ...turnTail(h, opts),
 ];
 
+/** A session id that fails the shape rule is a spawn-boundary refusal like
+ * any other: typed, so streamTurn turns it into failure + done and the CLI
+ * exits 2, instead of a bare SessionIdRefusalError escaping the runner. */
+const refuseUnusableSessionId = (h: HarnessDescriptor, sessionId: string): void => {
+  try {
+    assertUsableSessionId(sessionId);
+  } catch (e) {
+    if (!(e instanceof SessionIdRefusalError)) throw e;
+    throw new ArgvRefusalError({
+      issue: "invalid-option-value",
+      harness: h.name,
+      message: `${h.name} cannot resume ${e.message}`,
+      supported: [
+        `a session id of letters, digits, '.', '_', ':', '@', '-' only, starting with a letter or digit, at most ${SESSION_ID_MAX} chars`,
+      ],
+      detail: e.message,
+    });
+  }
+};
+
 export const buildResumeArgv = (h: HarnessDescriptor, opts: ResumeOptions): string[] => {
-  assertUsableSessionId(opts.sessionId);
+  refuseUnusableSessionId(h, opts.sessionId);
   // Subcommands lead, then the resume token and id, then the flags the
   // RESUME grammar accepts (never inherited launch flags - codex exec
   // resume rejects --sandbox). One shape serves both styles:
@@ -174,7 +194,7 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
       supported: ["session is available where sessionMode is declared"],
     });
   }
-  assertUsableSessionId(opts.sessionId);
+  refuseUnusableSessionId(h, opts.sessionId);
   const argv = [
     h.bin,
     ...h.launch.baseFlags,
