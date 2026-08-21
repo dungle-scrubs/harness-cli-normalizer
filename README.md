@@ -37,7 +37,7 @@ One-shot turn:
 ```bash
 hcn run claude "explain a monad in one sentence"
 hcn run codex "what is 2+2" --model gpt-5.6-sol
-hcn run pi "name three primes" --provider zai/glm-5.2
+hcn run pi "name three primes" --model zai/glm-5.2
 hcn run muse "say hi" --no-write
 ```
 
@@ -48,7 +48,7 @@ hcn run claude "say hi" --json | jq .
 hcn run claude "hi" --json | head -n 5  # abandonment-safe, no hanging handles
 ```
 
-Session (Claude-only):
+Session (claude, pi):
 
 ```bash
 hcn session claude
@@ -86,6 +86,12 @@ Flag table (maps to `TurnOptions` / `TurnRunOptions`):
 | `--cwd <path>` | `cwd` | Working directory |
 | `--env KEY=VAL` | `env` | Repeatable; `KEY=` deletes |
 | `--resume <uuid>` | `resume` | Resume session |
+| `--session-id <uuid>` | `resume` | Alias for `--resume`; UUID of session to resume or re-enter |
+| `--skills <a,b>` | `skills` | Skill allowlist; claude and pi (pi strict, claude via settings) |
+| `--timeout <seconds>` | `timeoutSeconds` | Wall-clock budget for the run (hcn-enforced; 0 disables; no default) |
+| `--escalate-questions` / `--no-escalate-questions` | `escalateQuestions` | Let worker ask when blocked (DEFAULT) / never ask, state assumption and continue |
+| `--system-prompt <text>` | `systemPrompt` | Replace built-in system prompt (claude, pi; codex uses -c instructions; muse refuses) |
+| `--append-system-prompt <text>` | `appendSystemPrompt` | Append to built-in prompt (claude, pi only) |
 | `--json` | output mode | NDJSON `HarnessEvent` to stdout |
 
 For development, `bun run demo claude "hi"` remains as a live-rendering alternative.
@@ -226,7 +232,7 @@ Every refusal names an alternative in `supported` and `message`, not only a nega
 ## Reference
 
 - Descriptors live in `src/knowledge/` (`claude-code.ts`, `codex.ts`, `pi.ts`, `muse.ts`), with shared types in `descriptor.ts`.
-- The normalized event surface is `HarnessEvent` in `src/execution/events.ts`: `identity`, `token`, `message`, `progress`, `tool`, `context`, `limit`, `error`, `failure`, `question` (issue #41), `done` (with `done.failure`; `done.cause` includes `awaiting-input`). Event kinds and failure classes are additive across releases; a consumer ignores a kind or class it does not recognize and still waits for `done`.
+- The normalized event surface is `HarnessEvent` in `src/execution/events.ts`: `identity`, `token`, `message`, `progress`, `tool`, `context` (reserved - emitted only when a harness exposes context-window usage on its stream; none does at this version), `limit`, `error`, `failure`, `question` (issue #41), `done` (with `done.failure`; `done.cause` includes `awaiting-input`). Event kinds and failure classes are additive across releases; a consumer ignores a kind or class it does not recognize and still waits for `done`.
 - Narrow or override a descriptor's facts with `parseOverrides` (`src/knowledge/overrides.ts`). An override a harness cannot satisfy throws `OverrideRefusalError` instead of producing a broken argv. `limitMatchers`/`authMatchers` are now serializable `{pattern, flags, code/kind}` objects so they can be overridden from JSON; bad patterns are refused at load with file and harness named.
 - `DROPPABLE_KINDS` (`token`, `progress`, `context`) marks events safe to drop when you only need the full messages. `failure` is never droppable.
 
@@ -241,7 +247,7 @@ pi, Muse); one-shot turns are normalized across all four with a ratified
 defaults profile, user and project config tiers, tool selection
 (include/exclude with floors and named toolsets), passthrough with native
 error labeling, and provenance on every resolved setting. Persistent
-sessions (`hcn session`) remain Claude-only. Drift detection runs weekly
+sessions (`hcn session`) are available for claude and pi. Drift detection runs weekly
 in CI for the three npm harnesses; Muse is `installed` and only checked
 locally via `muse --version`. Re-verifying a descriptor's capability
 claims against a new CLI version is a local, manual step

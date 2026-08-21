@@ -1,8 +1,9 @@
 # Contributing
 
-Thanks for your interest in `harness-cli-normalizer`. This library normalizes
+Thanks for your interest in `harness-cli-normalizer`. This CLI product (`hcn`) normalizes
 the differences between AI coding-agent CLIs (Claude Code, Codex, pi, Muse)
-into pure data descriptors plus interpretation and execution layers.
+into pure data descriptors plus interpretation and execution layers. The `hcn`
+binary is the product; internal library layers are not an install surface.
 
 ## Setup
 
