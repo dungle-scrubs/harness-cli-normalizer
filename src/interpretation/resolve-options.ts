@@ -130,6 +130,35 @@ export const resolveEffectiveOptions = (
   }
   const resolved: Record<string, unknown> = { ...effectiveArgs };
 
+  // Access exclusivity on codex: explicit --sandbox together with --access refuses.
+  if (h.name === "codex" && resolved.access !== undefined) {
+    const hasExplicitSandbox =
+      effectiveArgs.sandbox !== undefined || sourceTier("sandbox") !== undefined;
+    if (hasExplicitSandbox) {
+      throw new ArgvRefusalError({
+        issue: "mutually-exclusive-options",
+        harness: h.name,
+        option: "access",
+        supported: ["--access or --sandbox, not both on codex"],
+        detail: "mutual exclusion",
+      });
+    }
+  }
+  // Access vs tools exclusivity (preset allowlist vs filter) - any tier.
+  if (
+    resolved.access !== undefined &&
+    (resolved.tools !== undefined ||
+      (resolved as Record<string, unknown>).excludeTools !== undefined)
+  ) {
+    throw new ArgvRefusalError({
+      issue: "mutually-exclusive-options",
+      harness: h.name,
+      option: "access",
+      supported: ["--access is a preset allowlist, not a filter over --tools/--exclude-tools"],
+      detail: "mutual exclusion",
+    });
+  }
+
   // toolMap merge per harness per canonical (project > user)
   const rawToolMapUser = (tiers.user as { toolMap?: ToolMap } | undefined)?.toolMap;
   const rawToolMapProject = (tiers.project as { toolMap?: ToolMap } | undefined)?.toolMap;
@@ -281,6 +310,19 @@ export const resolveEffectiveOptions = (
     resolved[key] = value;
     const tier = sourceTier(key) ?? "user-config";
     provenance.push({ key, value, tier });
+  }
+
+  // Access divergence / fixup
+  if (resolved.access !== undefined && h.turnOptions.access === undefined) {
+    unrenderable.push("access");
+    for (let i = provenance.length - 1; i >= 0; i--)
+      if (provenance[i]?.key === "access") provenance.splice(i, 1);
+    provenance.push({ key: "access", value: resolved.access as string, tier: "harness" });
+    delete (resolved as Record<string, unknown>).access;
+  } else if (resolved.access !== undefined && !provenance.some((p) => p.key === "access")) {
+    const tier: ProvenanceTier =
+      effectiveArgs.access !== undefined ? "arg" : (sourceTier("access") ?? "user-config");
+    provenance.push({ key: "access", value: resolved.access as string, tier });
   }
 
   return {

@@ -177,6 +177,7 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
         },
       },
     },
+    access: { kind: "tool-preset" },
   },
   // Phase 0 fixtures: claude-tool-interplay.md. include is a permission
   // grant (Bash, Edit stay visible under --allowedTools Read); only the

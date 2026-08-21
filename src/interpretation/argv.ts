@@ -85,6 +85,7 @@ export interface TurnOptions {
   readonly __explicitPrompt?: boolean;
   /** toolMap extensible vocabulary per harness (issue toolMap) */
   readonly toolMap?: Readonly<Record<string, Readonly<Record<string, string>>>>;
+  readonly access?: "read" | "write";
 }
 
 export interface ResumeOptions extends TurnOptions {

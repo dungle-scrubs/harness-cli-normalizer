@@ -92,6 +92,7 @@ Flag table (maps to `TurnOptions` / `TurnRunOptions`):
 | `--escalate-questions` / `--no-escalate-questions` | `escalateQuestions` | Let worker ask when blocked (DEFAULT) / never ask, state assumption and continue |
 | `--system-prompt <text>` | `systemPrompt` | Replace built-in system prompt (claude, pi; codex uses -c instructions; muse refuses) |
 | `--append-system-prompt <text>` | `appendSystemPrompt` | Append to built-in prompt (claude, pi only) |
+| `--access <read|write>` | `access` | Access preset - read = read, grep, glob, list, web-fetch, web-search (canonical); write = no restriction; claude/pi via --tools (toolMap aware), codex via --sandbox, muse via --disable-write/--disable-shell; mutually exclusive with --tools/--exclude-tools and with --sandbox on codex; no default |
 | `--json` | output mode | NDJSON `HarnessEvent` to stdout |
 
 For development, `bun run demo claude "hi"` remains as a live-rendering alternative.
@@ -154,6 +155,19 @@ version mismatch exit 2 naming the offender.
 | web-search | WebSearch | - | - | category web |
 | subagent | Task | - | - | - |
 | skill | Skill | - | - | - |
+
+`--access` is a preset allowlist: `read` = `read, grep, glob, list, web-fetch, web-search` (canonical), `write` = no restriction.
+
+Rendering per harness:
+
+| harness | `read` renders | `write` renders |
+|---|---|---|
+| claude | `--allowedTools Read,Grep,Glob,WebFetch,WebSearch` + deny complement (toolMap aware) | nothing (harness default) |
+| pi | `--tools read,grep,find,ls` (+ web-search via toolMap) | nothing |
+| codex | `--sandbox read-only` | `--sandbox workspace-write` |
+| muse | `--disable-write --disable-shell` | nothing |
+
+`--access` together with `--tools` or `--exclude-tools` in the same run refuses `mutually-exclusive-options` (access is a preset allowlist, not a filter over one). `--access` together with an explicit `--sandbox` on codex refuses the same way.
 
 ## Question escalation (issue #41)
 

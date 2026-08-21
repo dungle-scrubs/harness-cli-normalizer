@@ -80,6 +80,7 @@ const KNOWN_KEYS = new Set([
   "systemPrompt",
   "appendSystemPrompt",
   "toolMap",
+  "access",
 ]);
 
 const LIST_KEYS = new Set(["tools", "excludeTools"]);
@@ -179,6 +180,13 @@ export const parseUserConfig = (text: string): Partial<TurnOptions> => {
         throw new ConfigError(
           'config key "timeout" must be a whole number of seconds, >= 0 (0 disables)',
         );
+      }
+      (out as Record<string, unknown>)[key] = value;
+      continue;
+    }
+    if (key === "access") {
+      if (value !== "read" && value !== "write") {
+        throw new ConfigError('config key "access" must be "read" or "write"');
       }
       (out as Record<string, unknown>)[key] = value;
       continue;

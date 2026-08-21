@@ -95,6 +95,7 @@ export const TURN_OPTION_KEYS = deepFreeze([
   // that strips the payload changes every bare run's semantics.
   "systemPrompt",
   "appendSystemPrompt",
+  "access",
 ] as const);
 export type TurnOptionKey = (typeof TURN_OPTION_KEYS)[number];
 
@@ -141,6 +142,17 @@ export type TurnOptionSpec =
       readonly values: readonly string[];
       readonly default?: string;
     })
+  /** Access preset: read/write dimension with per-harness rendering. */
+  | { readonly kind: "tool-preset" }
+  | {
+      readonly kind: "flag-value";
+      readonly flag: string;
+      readonly values: Readonly<Record<string, string>>;
+    }
+  | {
+      readonly kind: "flag-list-by-value";
+      readonly flags: Readonly<Record<string, readonly string[]>>;
+    }
   /** Ladder comes from vocabulary.efforts / effortsByModel, not from here. */
   | (SpecBase & { readonly kind: "effort" })
   /** Open selector, CLEAN_SELECTOR-validated. */
@@ -187,8 +199,14 @@ export const getOptionRender = (
   spec: TurnOptionSpec,
   phase: "launch" | "resume",
 ): OptionRender | null => {
-  if (spec.kind === "discovery") return null;
-  return resolveRender(spec, phase);
+  if (
+    spec.kind === "discovery" ||
+    spec.kind === "tool-preset" ||
+    spec.kind === "flag-value" ||
+    spec.kind === "flag-list-by-value"
+  )
+    return null;
+  return resolveRender(spec as SpecBase, phase);
 };
 
 export interface HarnessDescriptor {

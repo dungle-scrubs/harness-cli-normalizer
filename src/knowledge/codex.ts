@@ -122,6 +122,11 @@ export const codexCli: HarnessDescriptor = deepFreeze({
       render: { kind: "flag-value", flag: "--sandbox" },
       resumeRender: null,
     },
+    access: {
+      kind: "flag-value",
+      flag: "--sandbox",
+      values: { read: "read-only", write: "workspace-write" },
+    },
   },
   // Phase 0 fixtures: codex-tool-surface.md. No name lists anywhere -
   // not on the CLI, not in config.toml. Control is feature booleans

@@ -14,6 +14,7 @@ import { DISCOVERY_FACETS, resolveRender, TURN_OPTION_KEYS } from "../knowledge/
 import type { DiscoveryOptions, TurnOptions } from "./argv.js";
 import { hintFor } from "./hints.js";
 import { ArgvRefusalError } from "./refusal.js";
+import { renderToolSelection } from "./tool-selection.js";
 import { CLEAN_SELECTOR, resolveModel, validateEffort } from "./vocabulary.js";
 
 // TOML-quoted value for config-kv: JSON.stringify is sufficient for the
@@ -33,6 +34,30 @@ export const renderTurnOptions = (
   phase: "launch" | "resume",
 ): string[] => {
   const sequences: string[][] = [];
+
+  // Access mutual exclusivity: access preset vs explicit tool selection
+  const accessRaw = (opts as unknown as Record<string, unknown>).access as string | undefined;
+  if (accessRaw !== undefined) {
+    if (opts.tools !== undefined || opts.excludeTools !== undefined) {
+      throw new ArgvRefusalError({
+        issue: "mutually-exclusive-options",
+        harness: h.name,
+        option: "access",
+        supported: ["--access is a preset allowlist, not a filter over --tools/--exclude-tools"],
+        detail: "mutual exclusion",
+      });
+    }
+  }
+  // Validate access value early if present
+  if (accessRaw !== undefined && accessRaw !== "read" && accessRaw !== "write") {
+    throw new ArgvRefusalError({
+      issue: "invalid-option-value",
+      harness: h.name,
+      option: "access",
+      supported: ["read", "write"],
+      detail: String(accessRaw),
+    });
+  }
 
   for (const key of TURN_OPTION_KEYS) {
     const spec = h.turnOptions[key];
@@ -162,6 +187,86 @@ export const renderTurnOptions = (
           seq = [(effective as Extract<OptionRender, { kind: "flag-value" }>).flag, ""];
         else seq = [];
         sequences.push(seq);
+      }
+      continue;
+    }
+
+    // Access is opt-in-only, no profile default; handle per harness rendering.
+    if (key === "access") {
+      if (raw === undefined) continue;
+      if (spec === undefined) {
+        throw new ArgvRefusalError({
+          issue: "unsupported-option",
+          harness: h.name,
+          option: key,
+          supported: Object.keys(h.turnOptions).length ? Object.keys(h.turnOptions) : ["(none)"],
+          detail: String(raw),
+          hint: hintFor(h.name, key),
+        });
+      }
+      if (typeof raw !== "string" || (raw !== "read" && raw !== "write")) {
+        throw new ArgvRefusalError({
+          issue: "invalid-option-value",
+          harness: h.name,
+          option: key,
+          supported: ["read", "write"],
+          detail: String(raw),
+        });
+      }
+      // Discovery.tools off suppresses read preset grant (F-12 containment)
+      if (raw === "read" && (opts.discovery as DiscoveryOptions | undefined)?.tools === false) {
+        // Still respect the tool-preset skip - never re-enable tools when discovery turned them off.
+        if ((spec as { kind: string }).kind === "tool-preset") continue;
+      }
+      switch ((spec as { kind: string }).kind) {
+        case "tool-preset": {
+          if (raw === "write") break;
+          // read = canonical read subset, filtered to harness expressible names
+          const preset = ["read", "grep", "glob", "list", "web-fetch", "web-search"] as const;
+          const toolMapForHarness = (opts as { toolMap?: Record<string, Record<string, string>> })
+            .toolMap?.[h.name];
+          // Filter to harness-expressible canonicals (including toolMap overrides)
+          const filtered = (preset as readonly string[]).filter((c) => {
+            if (toolMapForHarness?.[c] !== undefined) return true;
+            if (h.tools.builtins.some((b) => b.canonical === c)) return true;
+            if (h.tools.categories.some((cat) => (cat.canonical as readonly string[]).includes(c)))
+              return true;
+            return false;
+          });
+          if (filtered.length === 0) break;
+          // Discovery off already handled above; otherwise render via tool-selection
+          const rendered = renderToolSelection(h, {
+            include: filtered as unknown as string[],
+            toolMap: toolMapForHarness,
+          });
+          if (rendered.tokens.length > 0) sequences.push([...rendered.tokens]);
+          break;
+        }
+        case "flag-value": {
+          const fv = spec as { kind: "flag-value"; flag: string; values: Record<string, string> };
+          const mapped = fv.values[raw];
+          if (mapped !== undefined) sequences.push([fv.flag, mapped]);
+          break;
+        }
+        case "flag-list-by-value": {
+          const fl = spec as {
+            kind: "flag-list-by-value";
+            flags: Record<string, readonly string[]>;
+          };
+          const list = fl.flags[raw] ?? [];
+          if (list.length > 0) sequences.push([...list]);
+          break;
+        }
+        default: {
+          const _exhaustive: never = spec as never;
+          throw new ArgvRefusalError({
+            issue: "invalid-option-value",
+            harness: h.name,
+            option: key,
+            supported: [],
+            detail: String(_exhaustive),
+          });
+        }
       }
       continue;
     }
@@ -430,6 +535,11 @@ export const renderTurnOptions = (
       case "discovery":
         // already handled
         break;
+      case "tool-preset":
+      case "flag-value":
+      case "flag-list-by-value":
+        // access-only kinds - handled above for key === "access"
+        break;
       default: {
         const _exhaustive: never = spec as never;
         throw new ArgvRefusalError({
@@ -443,10 +553,21 @@ export const renderTurnOptions = (
     }
   }
 
+  // Flag-level coalescing for --sandbox: one winner, last wins (access over profile)
+  const lastSandboxIdx = (() => {
+    let idx = -1;
+    for (let i = 0; i < sequences.length; i++) if (sequences[i]?.[0] === "--sandbox") idx = i;
+    return idx;
+  })();
+  const coalesced =
+    lastSandboxIdx === -1
+      ? sequences
+      : sequences.filter((s, i) => s[0] !== "--sandbox" || i === lastSandboxIdx);
+
   // De-duplication by exact token sequence, first occurrence winning
   const seen = new Set<string>();
   const deduped: string[][] = [];
-  for (const seq of sequences) {
+  for (const seq of coalesced) {
     const k = seq.join("\0");
     if (seen.has(k)) continue;
     seen.add(k);

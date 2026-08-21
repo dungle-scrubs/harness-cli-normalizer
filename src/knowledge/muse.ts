@@ -109,6 +109,10 @@ export const museCode: HarnessDescriptor = deepFreeze({
       max: 10000,
       render: { kind: "flag-value", flag: "--max-model-steps" },
     },
+    access: {
+      kind: "flag-list-by-value",
+      flags: { read: ["--disable-write", "--disable-shell"], write: [] },
+    },
   },
   // Phase 0 fixtures: muse-category-flags.md. No name lists; category
   // switches are enforcement gates - tools stay listed in the catalog but

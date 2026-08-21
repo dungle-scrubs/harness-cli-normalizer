@@ -154,6 +154,7 @@ export const piCli: HarnessDescriptor = deepFreeze({
         },
       },
     },
+    access: { kind: "tool-preset" },
   },
   // Phase 0 fixtures: pi-both-tool-flags.md. Both list flags legal at once;
   // exclude subtracts from include. --tools is strict over BUILT-INS but
