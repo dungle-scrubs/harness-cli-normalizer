@@ -5,6 +5,7 @@ import {
   detectLimitInLine,
 } from "../../src/interpretation/limits.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
+import { museCode } from "../../src/knowledge/muse.js";
 
 describe("detectLimit (claude)", () => {
   test("recognizes the real claude limit walls, scanning bottom-up, code only", () => {
@@ -47,5 +48,40 @@ describe("detectAuthFailure (claude)", () => {
     expect(detectAuthFailure(claudeCode, "Not logged in. Please run /login")).toBe("not-logged-in");
     expect(detectAuthFailure(claudeCode, "Invalid API key")).toBe("invalid-key");
     expect(detectAuthFailure(claudeCode, "You've hit your usage limit")).toBeNull();
+  });
+});
+
+describe("rate-limit 429 anchor", () => {
+  const positives = [
+    "HTTP 429",
+    "status 429",
+    "status: 429",
+    "status_code=429",
+    "statusCode: 429",
+    "code 429",
+    "error code: 429",
+    "429 Too Many Requests",
+    "Request failed with status code 429",
+  ] as const;
+
+  const negatives = [
+    "task_id d3665fd8-fd23-4297-ab53-4528fc517db3",
+    "read 4291 bytes from cache",
+    "elapsed 1429ms",
+    "port 4290",
+    "session 429abc",
+  ] as const;
+
+  test.each(positives)("positive %s is rate-limit", (line) => {
+    expect(detectLimitInLine(claudeCode, line)).toBe("rate-limit");
+  });
+
+  test.each(negatives)("negative %s is not rate-limit", (line) => {
+    expect(detectLimitInLine(claudeCode, line)).toBeNull();
+  });
+
+  test("shared matcher applies to every harness (muse)", () => {
+    expect(detectLimitInLine(museCode, "HTTP 429")).toBe("rate-limit");
+    expect(detectLimitInLine(museCode, "read 4291 bytes from cache")).toBeNull();
   });
 });

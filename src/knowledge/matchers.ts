@@ -20,7 +20,14 @@ export const SHARED_LIMIT_MATCHERS: ReadonlyArray<LimitMatcher> = [
     code: "quota",
   },
   // Rate-limit patterns are last so a line with both a usage wall and a 429 keeps usage-limit (first-match-wins, documented cost)
-  { pattern: "429", flags: "i", code: "rate-limit" },
+  // 429 only next to an HTTP status word: a bare digit run inside an id, a
+  // byte count, or a timing must never read as a wall. "429 Too Many
+  // Requests" is covered by the next matcher.
+  {
+    pattern: "\\b(?:HTTP|status(?:[_ ]?code)?|code)\\b\\W*[:=]?\\W*429\\b",
+    flags: "i",
+    code: "rate-limit",
+  },
   { pattern: "Too Many Requests", flags: "i", code: "rate-limit" },
   { pattern: "rate limit(?:ed|ing)?", flags: "i", code: "rate-limit" },
   { pattern: "Retry-After", flags: "i", code: "rate-limit" },

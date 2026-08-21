@@ -186,6 +186,23 @@ describe("structured boundary events (observability)", () => {
   });
 });
 
+describe("malformed resume id is a typed refusal (F-01)", () => {
+  test("bad resume yields failure rejected + done failed, never spawns", async () => {
+    const proc = new FakeProcess();
+    const d = deps(proc);
+    const turn = streamTurn(claudeCode, { prompt: "hi", resume: "../../etc/passwd" }, d);
+    const events = await collect(turn);
+    expect(events).toHaveLength(2);
+    expect(events[0]).toMatchObject({
+      kind: "failure",
+      class: "rejected",
+      issue: "invalid-option-value",
+    });
+    expect(events[1]).toMatchObject({ kind: "done", cause: "failed" });
+    expect(d.spawner.calls).toHaveLength(0);
+  });
+});
+
 describe("A-001 fixture replay (D-022)", () => {
   test("three turns of re-emitted init yield exactly one identity event", async () => {
     const { readFileSync } = await import("node:fs");
