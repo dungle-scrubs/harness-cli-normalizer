@@ -426,6 +426,14 @@ describe("flag mapping and validation", () => {
     expect(out2.exitCode).toBe(2);
   });
 
+  test("pi --no-tools does not re-enable tools via profile grant", async () => {
+    const out = await captureDispatch(["inspect", "pi", "--argv", "--prompt", "hi", "--no-tools"]);
+    const parsed: string[] = JSON.parse(out.stdout);
+    expect(parsed).toContain("-nt");
+    expect(parsed).not.toContain("--tools");
+    expect(out.stdout).not.toContain("--tools");
+  });
+
   test("env parsing", () => {
     const env = parseEnvEntries(["FOO=bar", "BAZ="]);
     expect(env?.FOO).toBe("bar");

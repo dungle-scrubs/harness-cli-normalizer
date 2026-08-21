@@ -295,3 +295,36 @@ describe("D13: tools all-known marker", () => {
     });
   });
 });
+
+describe("discovery.tools off suppresses all-known expansion", () => {
+  it("arg discovery.tools false skips profile tools and records provenance", () => {
+    const r = resolveEffectiveOptions(piCli, { ...base, discovery: { tools: false } }, undefined);
+    expect(r.options.tools).toBeUndefined();
+    expect(r.provenance).toContainEqual({
+      key: "tools",
+      value: "none (discovery.tools off)",
+      tier: "arg",
+    });
+  });
+
+  it("project discovery.tools false skips profile tools with project-config tier", () => {
+    const r = resolveEffectiveOptions(piCli, base, {
+      project: { discovery: { tools: false } } as unknown as TurnOptions,
+    });
+    expect(r.options.tools).toBeUndefined();
+    expect(r.provenance).toContainEqual({
+      key: "tools",
+      value: "none (discovery.tools off)",
+      tier: "project-config",
+    });
+  });
+
+  it("explicit tools from arg is not suppressed when discovery off", () => {
+    const r = resolveEffectiveOptions(
+      piCli,
+      { ...base, discovery: { tools: false }, tools: ["read"] },
+      undefined,
+    );
+    expect(r.options.tools).toEqual(["read"]);
+  });
+});
