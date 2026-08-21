@@ -50,6 +50,14 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
 
   if (!wantArgv) {
     // Pure descriptor dump
+    const { canonicalToolTable } = await import("../interpretation/tool-vocabulary.js");
+    const { defaultDescriptors } = await import("../knowledge/overrides.js");
+    const table = canonicalToolTable(defaultDescriptors());
+    const slice: Record<string, unknown> = {};
+    for (const [canonical, perHarness] of Object.entries(table)) {
+      const v = (perHarness as Record<string, unknown>)[h.name];
+      if (v !== undefined) slice[canonical] = v;
+    }
     const out = {
       name: h.name,
       bin: h.bin,
@@ -76,6 +84,7 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
       turnOptions: h.turnOptions,
       limitMatchers: h.limitMatchers,
       authMatchers: h.authMatchers,
+      toolVocabulary: slice,
     };
     process.stdout.write(`${JSON.stringify(out, null, 2)}\n`);
     return;
@@ -215,6 +224,15 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
   } catch (resErr) {
     if (resErr instanceof FloorExceededError) {
       process.stderr.write(`${(resErr as Error).message}\n`);
+      process.exitCode = 2;
+      return;
+    }
+    if (resErr instanceof ArgvRefusalError) {
+      process.stderr.write(`${(resErr as Error).message}\n`);
+      if ((resErr as ArgvRefusalError).supported.length)
+        process.stderr.write(`supported: ${(resErr as ArgvRefusalError).supported.join(", ")}\n`);
+      if ((resErr as ArgvRefusalError).hint)
+        process.stderr.write(`hint: ${(resErr as ArgvRefusalError).hint}\n`);
       process.exitCode = 2;
       return;
     }

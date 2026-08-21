@@ -75,8 +75,8 @@ Flag table (maps to `TurnOptions` / `TurnRunOptions`):
 | `--effort <value>` | `effort` | Validated via `validateEffort` |
 | `--sandbox <value>` | `sandbox` | Codex only |
 | `--provider <value>` | `provider` | pi only |
-| `--tools <a,b>` | `tools` | Per-tool allowlist; claude and pi (pi strict, claude via grant + deny-complement). A bare name matching a configured toolset expands to it |
-| `--exclude-tools <a,b>` | `excludeTools` | Complement over known tool names; mutually exclusive with `--tools` |
+| `--tools <a,b>` | `tools` | Canonical names (read, write, edit, shell, grep, glob, list, web-fetch, web-search, subagent, skill); `native:<name>` passes a harness-native or extension tool through. Per-tool allowlist; claude and pi (pi strict, claude via grant + deny-complement). A bare name matching a configured toolset expands to it |
+| `--exclude-tools <a,b>` | `excludeTools` | Canonical names (same vocabulary, `native:<name>` passthrough); complement over known tool names; mutually exclusive with `--tools` |
 | `-- <harness args>` | `passthrough` | Verbatim harness tokens; failures surface as labeled native errors (hcn exit 1, native exit code as data) |
 | `--autonomy` / `--no-autonomy` | `autonomy` | |
 | `--write` / `--no-write` | `write` | Muse |
@@ -126,7 +126,7 @@ repo) also carries tool floors and named toolsets:
 {
   "version": 1,
   "effort": "low",
-  "tools": ["read", "grep", "find", "ls"],
+  "tools": ["read", "grep", "glob", "list"],
   "toolsets": { "review": ["read", "grep"] }
 }
 ```
@@ -136,6 +136,24 @@ arg exceeding it refuses with exit 2 naming both sets - never a silent
 clamp. An empty floor refuses every grant (the turn-everything-off
 workflow). Config parsing is hard-fail: unknown keys, malformed JSON, or a
 version mismatch exit 2 naming the offender.
+
+### Tool names
+
+`--tools` and `--exclude-tools` accept canonical names only. Bare native names are not accepted; use `native:<name>` to pass a harness-native or extension tool through. The live table is printed by `hcn inspect <harness>` (`toolVocabulary`).
+
+| canonical | claude | pi | codex | muse |
+|---|---|---|---|---|
+| read | Read | read | - | - |
+| write | Write | write | - | category write |
+| edit | Edit | edit | - | category write |
+| shell | Bash | bash | - | category shell |
+| grep | Grep | grep | - | - |
+| glob | Glob | find | - | - |
+| list | - | ls | - | - |
+| web-fetch | WebFetch | - | - | category web |
+| web-search | WebSearch | - | - | category web |
+| subagent | Task | - | - | - |
+| skill | Skill | - | - | - |
 
 ## Question escalation (issue #41)
 

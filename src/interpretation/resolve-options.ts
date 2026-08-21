@@ -8,8 +8,11 @@
  * sandbox default already follows).
  */
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
+import { defaultDescriptors } from "../knowledge/overrides.js";
 import { DEFAULT_TURN_PROFILE, type ProfileKey } from "../knowledge/profile.js";
 import type { TurnOptions } from "./argv.js";
+import { ArgvRefusalError } from "./refusal.js";
+import { canonicalNames } from "./tool-vocabulary.js";
 
 export type ProvenanceTier = "arg" | "project-config" | "user-config" | "profile" | "harness";
 
@@ -128,6 +131,30 @@ export const resolveEffectiveOptions = (
 
   // D5 floor: a project toolset floor caps any arg grant; exceeding it is
   // a structured refusal naming both sets - never a silent clamp.
+  // Canonical validation: project tools floor members must be canonical names.
+  const allCanonical = canonicalNames(defaultDescriptors());
+  const validateCanonicalList = (list: readonly string[] | undefined, tier: string): void => {
+    if (!list) return;
+    for (const name of list) {
+      if (name.startsWith("native:")) continue;
+      if (!allCanonical.includes(name)) {
+        throw new ArgvRefusalError({
+          issue: "unknown-tool-name",
+          harness: h.name,
+          option: "tools",
+          supported: allCanonical as unknown as string[],
+          hint: "use native:<name> for an extension or MCP tool",
+          detail: `unknown tool name ${JSON.stringify(name)} in ${tier}`,
+        });
+      }
+    }
+  };
+  validateCanonicalList(tiers.project?.tools as readonly string[] | undefined, "project floor");
+  validateCanonicalList(tiers.user?.tools as readonly string[] | undefined, "user config");
+  // also validate toolset members are canonical (they expand into tools)
+  for (const set of Object.values(toolsets)) {
+    validateCanonicalList(set as readonly string[], "toolset");
+  }
   const floor = tiers.project?.tools;
   if (floor !== undefined && effectiveArgs.tools !== undefined) {
     const floorSet = new Set(floor);
@@ -186,7 +213,9 @@ export const resolveEffectiveOptions = (
         provenance.push({ key, value: "all known (already default)", tier: "profile" });
         continue;
       }
-      const expanded = h.tools.builtins.map((t) => t.name);
+      const expanded = h.tools.builtins
+        .filter((t) => t.canonical !== null)
+        .map((t) => t.canonical as string);
       resolved[key] = expanded;
       provenance.push({ key, value: expanded, tier: "profile" });
       continue;

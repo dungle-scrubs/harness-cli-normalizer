@@ -295,6 +295,10 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
         refuse({ message: resErr.message, issue: "invalid-tool-grant" }, wantJson);
         return;
       }
+      if (resErr instanceof ArgvRefusalError) {
+        refuse(refusalOf(resErr), wantJson);
+        return;
+      }
       throw resErr;
     }
     const { provenance, unrenderable } = resolved;
@@ -408,12 +412,12 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     // all refuses inside buildLaunchArgv below, so a throw here is left
     // to that path.
     const grant = (fullOpts.resume ? turnOpts : effectiveTurnOpts).tools;
-    if (grant !== undefined && grant.length > 0 && !h.tools.includeIsStrictAllowlist) {
+    if (grant !== undefined && grant.length > 0) {
       try {
         const { renderToolSelection } = await import("../interpretation/tool-selection.js");
-        const { unmapped } = renderToolSelection(h, { include: [...grant] });
-        if (unmapped.length > 0) {
-          process.stderr.write(`provenance: unmapped tools = ${JSON.stringify(unmapped)}\n`);
+        const { passthrough } = renderToolSelection(h, { include: [...grant] });
+        if (passthrough.length > 0) {
+          process.stderr.write(`provenance: native tools = ${JSON.stringify(passthrough)}\n`);
         }
       } catch {
         // refused below with the structured message

@@ -124,9 +124,19 @@ export const museCode: HarnessDescriptor = deepFreeze({
     composable: false,
     builtins: [],
     categories: [
-      { key: "write", disableFlag: "--disable-write", configKey: null },
-      { key: "shell", disableFlag: "--disable-shell", configKey: null },
-      { key: "web", disableFlag: "--disable-web-tools", configKey: null },
+      {
+        key: "write",
+        disableFlag: "--disable-write",
+        configKey: null,
+        canonical: ["write", "edit"],
+      },
+      { key: "shell", disableFlag: "--disable-shell", configKey: null, canonical: ["shell"] },
+      {
+        key: "web",
+        disableFlag: "--disable-web-tools",
+        configKey: null,
+        canonical: ["web-fetch", "web-search"],
+      },
     ],
     denySemantics: "policy-gate",
   },

@@ -32,10 +32,16 @@ Options:
   --effort <value>          Effort level (validated per harness/model)
   --sandbox <value>         Sandbox mode (codex only)
   --provider <value>        Provider (pi only)
-  --tools <a,b>             Tool grant allowlist (claude, pi; a bare name
-                            matching a configured toolset expands to it)
-  --exclude-tools <a,b>     Complement over known tools (claude, pi;
-                            mutually exclusive with --tools)
+  --tools <a,b>             Tool grant allowlist - canonical names (read, write,
+                            edit, shell, grep, glob, list, web-fetch,
+                            web-search, subagent, skill);
+                            'native:<name>' passes a harness-native or
+                            extension tool through (claude, pi; a bare
+                            name matching a configured toolset expands
+                            to it)
+  --exclude-tools <a,b>     Complement over known tools - canonical names
+                            (same vocabulary, native:<name> passthrough);
+                            mutually exclusive with --tools (claude, pi)
   --autonomy                Enable autonomy flag (claude/codex/muse)
   --no-autonomy             Disable autonomy
   --write                   Enable write (muse)
@@ -125,7 +131,10 @@ Options:
   --effort <value>          Effort
   --sandbox <value>         Sandbox
   --provider <value>        Provider
-  --tools <a,b>             Tools
+  --tools <a,b>             Tools - canonical names (read, write, edit,
+                            shell, grep, glob, list, web-fetch,
+                            web-search, subagent, skill);
+                            'native:<name>' passes through
   --autonomy / --no-autonomy
   --write / --no-write
   --shell / --no-shell

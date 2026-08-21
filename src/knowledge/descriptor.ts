@@ -405,11 +405,13 @@ export interface HarnessDescriptor {
     readonly builtins: ReadonlyArray<{
       readonly name: string;
       readonly defaultEnabled: boolean;
+      readonly canonical: string | null;
     }>;
     readonly categories: ReadonlyArray<{
       readonly key: "shell" | "write" | "web" | "exec" | "view-image";
       readonly disableFlag: string | null;
       readonly configKey: string | null;
+      readonly canonical: readonly string[];
     }>;
     readonly denySemantics: "remove-from-set" | "policy-gate" | "no-lists";
   };

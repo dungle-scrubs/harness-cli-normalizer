@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { FAILURE_CLASSES } from "../../src/execution/failure.js";
+import { canonicalNames } from "../../src/interpretation/tool-vocabulary.js";
+import { defaultDescriptors } from "../../src/knowledge/overrides.js";
 
 const readme = readFileSync(resolve(import.meta.dirname, "../../README.md"), "utf8");
 
@@ -49,6 +51,12 @@ describe("README contract", () => {
         readme.includes(`'${kind}'`) ||
         readme.includes(`\`${kind}\``);
       expect(present, `README missing HarnessEvent kind "${kind}"`).toBe(true);
+    }
+  });
+
+  it("lists every canonical tool name", () => {
+    for (const name of canonicalNames(defaultDescriptors())) {
+      expect(readme, `README missing canonical tool "${name}"`).toContain(name);
     }
   });
 });

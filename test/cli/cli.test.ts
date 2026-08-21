@@ -339,7 +339,7 @@ describe("flag mapping and validation", () => {
       "--prompt",
       "hi",
       "--tools",
-      "Read,Grep",
+      "read,grep",
     ]);
     expect(out.stdout).toContain("--allowedTools");
     const outPi = await captureDispatch([
@@ -349,7 +349,7 @@ describe("flag mapping and validation", () => {
       "--prompt",
       "hi",
       "--tools",
-      "read,bash",
+      "read,shell",
     ]);
     expect(outPi.exitCode).toBeUndefined();
     expect(outPi.stdout).toContain('"--tools","read,bash"');
@@ -360,7 +360,7 @@ describe("flag mapping and validation", () => {
       "--prompt",
       "hi",
       "--tools",
-      "Read",
+      "read",
     ]);
     expect(out2.exitCode).toBe(2);
   });

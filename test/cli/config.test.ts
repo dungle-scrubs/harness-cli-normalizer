@@ -41,8 +41,8 @@ describe("parseUserConfig", () => {
   });
 
   it("list and bool keys validate their shapes", () => {
-    expect(parseUserConfig('{"version":1,"tools":["read","bash"]}')).toEqual({
-      tools: ["read", "bash"],
+    expect(parseUserConfig('{"version":1,"tools":["read","shell"]}')).toEqual({
+      tools: ["read", "shell"],
     });
     expect(parseUserConfig('{"version":1,"autonomy":false}')).toEqual({ autonomy: false });
     expect(() => parseUserConfig('{"version":1,"autonomy":"yes"}')).toThrow(
