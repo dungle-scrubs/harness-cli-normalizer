@@ -141,6 +141,21 @@ export class FakeProcess implements SpawnedProcess {
     this.stdout.close();
     this.stderr.close();
   }
+
+  /** Model an async spawn failure: records the message, makes
+   * startupError() return it, writes `spawn failed: <message>` to
+   * stderr like the adapter does, and exits 127. */
+  private startupErrorMessage: string | null = null;
+
+  startupError(): string | null {
+    return this.startupErrorMessage;
+  }
+
+  failToStart(message: string): void {
+    this.startupErrorMessage = message;
+    this.stderr.push(`spawn failed: ${message}\n`);
+    this.exit(127);
+  }
 }
 
 export class FakeClock implements Clock {

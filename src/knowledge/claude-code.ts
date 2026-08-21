@@ -49,7 +49,10 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     // A-001: one process, many turns; `result` delimits turns; mid-turn sends
     // queue. --setting-sources project isolates the child from user-level
     // hooks (D-025). Token deltas require this exact output flag set.
+    // sessionMode.flags is the complete flag list after the binary, so -p
+    // lives here rather than being inherited from launch.baseFlags.
     flags: [
+      "-p",
       "--input-format",
       "stream-json",
       "--output-format",

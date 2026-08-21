@@ -1,0 +1,13 @@
+[
+  "pi",
+  "--session-id",
+  "01a022e3-9afb-7ce5-88f5-07ad0e9ac8fa",
+  "-p",
+  "--mode",
+  "json",
+  "--thinking",
+  "high",
+  "[prompt:43ch]",
+  "--tools",
+  "read,bash,edit,write,grep,find,ls"
+]

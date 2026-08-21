@@ -255,14 +255,16 @@ export interface HarnessDescriptor {
      * harness. */
     readonly onMissing: "error" | "create";
   };
-  /** Persistent headless session support: the exact flag set that opens one
-   * lucid-owned process serving many turns, or null when the harness has no
-   * such mode. `idFlag` pins the caller-assigned session identity.
-   * `turnEnd` is the stdout record that delimits one turn (claude: the
-   * `result` record; pi rpc: `agent_settled`). `identityProbe`, when
-   * present, names a command the runner writes at spawn whose response
-   * carries the session id - pi rpc is identity-silent at startup (spike
-   * evidence: test/fixtures/pi-rpc-spike), so identity needs a round trip. */
+  /** Persistent headless session support: the complete flag list that follows
+   * the binary to open one lucid-owned process serving many turns, or null
+   * when the harness has no such mode. This is the entire argv prefix after
+   * the binary - no launch flags are prepended. `idFlag` pins the
+   * caller-assigned session identity. `turnEnd` is the stdout record that
+   * delimits one turn (claude: the `result` record; pi rpc:
+   * `agent_settled`). `identityProbe`, when present, names a command the
+   * runner writes at spawn whose response carries the session id - pi rpc
+   * is identity-silent at startup (spike evidence:
+   * test/fixtures/pi-rpc-spike), so identity needs a round trip. */
   readonly sessionMode: {
     readonly flags: readonly string[];
     /** Pin an EXISTING session id; null when the harness only accepts

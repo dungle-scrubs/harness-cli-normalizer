@@ -124,6 +124,57 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
     throw err;
   }
 
+  // Mirror run.ts skills resolution (F-16): resolve names and build claude tokens
+  const rawSkills = (turnOpts as unknown as { skills?: string[] }).skills;
+  if (rawSkills !== undefined && rawSkills.length > 0) {
+    try {
+      const { resolveSkillNames, listKnownSkills } = await import("./skills-root.js");
+      const resolvedSkills = resolveSkillNames(rawSkills);
+      const claudeTokens: string[] = [];
+      if (h.name === "claude") {
+        const { claudeSkillOverridesArg } = await import("../interpretation/skills-selection.js");
+        claudeTokens.push(...claudeSkillOverridesArg(listKnownSkills(), resolvedSkills));
+      }
+      (turnOpts as unknown as Record<string, unknown>).skills = resolvedSkills;
+      (turnOpts as unknown as Record<string, unknown>).__claudeSkillTokens = claudeTokens;
+    } catch (err) {
+      if (err instanceof ArgvRefusalError) {
+        process.stderr.write(`${err.message}\n`);
+        if (err.supported.length) process.stderr.write(`supported: ${err.supported.join(", ")}\n`);
+        process.exitCode = 2;
+        return;
+      }
+      throw err;
+    }
+  }
+
+  // Resume previews from unresolved options, mirroring run.ts launch-only rule (F-15)
+  if (values.resume !== undefined || values["session-id"] !== undefined) {
+    const { buildResumeArgv } = await import("../interpretation/argv.js");
+    const resumeId = String(values.resume ?? values["session-id"]);
+    try {
+      const resumeOpts = {
+        ...(turnOpts as object),
+        prompt,
+        sessionId: resumeId,
+        ...(promptSource !== "positional" ? { __explicitPrompt: true as const } : {}),
+      } as Parameters<typeof buildResumeArgv>[1];
+      const resumeArgv = buildResumeArgv(h, resumeOpts);
+      const redactedResume = redactArgv(resumeArgv, prompt);
+      process.stdout.write(`${JSON.stringify(redactedResume)}\n`);
+      process.stderr.write(`argv: ${redactedResume.join(" ")}\n`);
+      return;
+    } catch (err) {
+      if (err instanceof ArgvRefusalError) {
+        process.stderr.write(`${err.message}\n`);
+        if (err.supported.length) process.stderr.write(`supported: ${err.supported.join(", ")}\n`);
+        process.exitCode = 2;
+        return;
+      }
+      throw err;
+    }
+  }
+
   // Inspect resolves exactly as a launch would: profile + user config,
   // launch-only semantics, so --argv previews the truth of a bare run.
   const { loadUserConfig, loadProjectConfig, ConfigError } = await import("./config.js");
@@ -165,6 +216,9 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
   let argv: string[];
   try {
     argv = buildLaunchArgv(h, fullOpts);
+    const claudeTokens = (effectiveRest as unknown as { __claudeSkillTokens?: string[] })
+      .__claudeSkillTokens;
+    if (claudeTokens !== undefined && claudeTokens.length > 0) argv.push(...claudeTokens);
   } catch (err) {
     if (err instanceof ArgvRefusalError) {
       process.stderr.write(`${err.message}\n`);
@@ -177,28 +231,6 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
 
   // Redact prompt for display, but keep structure
   const redacted = redactArgv(argv, prompt);
-  // Also handle --resume case: need to use buildResumeArgv if resume present
-  if (values.resume !== undefined || values["session-id"] !== undefined) {
-    // For inspect --argv with --resume, show resume argv
-    const { buildResumeArgv } = await import("../interpretation/argv.js");
-    const resumeId = String(values.resume ?? values["session-id"]);
-    try {
-      const resumeOpts = { ...fullOpts, sessionId: resumeId };
-      const resumeArgv = buildResumeArgv(h, resumeOpts);
-      const redactedResume = redactArgv(resumeArgv, prompt);
-      process.stdout.write(`${JSON.stringify(redactedResume)}\n`);
-      process.stderr.write(`argv: ${redactedResume.join(" ")}\n`);
-      return;
-    } catch (err) {
-      if (err instanceof ArgvRefusalError) {
-        process.stderr.write(`${err.message}\n`);
-        if (err.supported.length) process.stderr.write(`supported: ${err.supported.join(", ")}\n`);
-        process.exitCode = 2;
-        return;
-      }
-      throw err;
-    }
-  }
 
   process.stdout.write(`${JSON.stringify(redacted)}\n`);
   process.stderr.write(`argv: ${redacted.join(" ")}\n`);

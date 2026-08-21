@@ -18,7 +18,11 @@ export type ContentEvent =
   | { readonly kind: "message"; readonly role: string; readonly text: string }
   | { readonly kind: "tool"; readonly name: string; readonly input?: unknown }
   | { readonly kind: "progress"; readonly label: string }
-  | { readonly kind: "error"; readonly message: string };
+  /** `terminal: true` marks an error that ended the turn (a failed result
+   * record); the runner turns it into a task failure. Other errors are
+   * informational and the turn goes on. */
+  | { readonly kind: "error"; readonly message: string; readonly terminal?: boolean }
+  | { readonly kind: "budget"; readonly detail: string };
 
 /** Text of an array of `{type:"text", text}` content blocks. */
 const textOfBlocks = (content: unknown): string =>
@@ -70,7 +74,7 @@ const claude = (r: Record<string, unknown>): ContentEvent[] => {
     // error) - surface it so a streamTurn consumer sees the failure, not a
     // clean turn. (openSession handles result boundaries itself.)
     const sub = typeof r.subtype === "string" ? r.subtype : "result error";
-    events.push({ kind: "error", message: `turn failed: ${sub}` });
+    events.push({ kind: "error", message: `turn failed: ${sub}`, terminal: true });
   }
   return events;
 };
@@ -100,7 +104,7 @@ const codex = (r: Record<string, unknown>): ContentEvent[] => {
     return [{ kind: "message", role: "assistant", text: item.text }];
   }
   if (item.type === "error" && typeof item.message === "string") {
-    return [{ kind: "error", message: item.message }];
+    return [{ kind: "error", message: item.message, terminal: true }];
   }
   return [];
 };
@@ -127,7 +131,11 @@ const pi = (r: Record<string, unknown>): ContentEvent[] => {
       // exit). Without this the failure is invisible - a silent empty turn.
       if (message.stopReason === "error") {
         return [
-          { kind: "error", message: "pi turn ended with stopReason error (provider/auth failure)" },
+          {
+            kind: "error",
+            message: "pi turn ended with stopReason error (provider/auth failure)",
+            terminal: true,
+          },
         ];
       }
       const text = textOfBlocks(message.content);
@@ -171,7 +179,12 @@ const muse = (r: Record<string, unknown>): ContentEvent[] => {
     }
     if (payload.terminal === "failed") {
       const reason = typeof payload.reason === "string" ? payload.reason : "run failed";
-      return [{ kind: "error", message: `muse run failed: ${reason}` }];
+      // The muse reader is the muse-specific seam; no descriptor field
+      // carries budget phrasings yet, so the pattern lives here.
+      if (/did not reach a terminal state within \d+ step/i.test(reason)) {
+        return [{ kind: "budget", detail: reason }];
+      }
+      return [{ kind: "error", message: `muse run failed: ${reason}`, terminal: true }];
     }
   }
   return [];

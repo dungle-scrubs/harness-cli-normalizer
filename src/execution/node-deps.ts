@@ -157,6 +157,7 @@ const realSpawn = (argv: readonly string[], opts: SpawnOptions): SpawnedProcess 
     stdout: stdoutOutput === null ? emptyStream() : stdoutOutput.stream,
     stderr: stderrWithError(),
     exited,
+    startupError: () => spawnError?.message ?? null,
     disposeOutput: (): void => {
       if (outputDisposed) return;
       outputDisposed = true;

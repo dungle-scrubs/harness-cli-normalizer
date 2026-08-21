@@ -163,6 +163,23 @@ export const resolveEffectiveOptions = (
     // the emit-nothing rule, recorded in provenance. On a harness with
     // dormant built-ins (pi), it becomes the enabling include list.
     if (key === "tools" && value === "all-known") {
+      // --no-tools containment: a tier that switched discovery.tools off
+      // must not have the profile grant switch them back on (pi reads
+      // --tools as an enabling allowlist). The tier that turned tools off
+      // owns the skip.
+      const toolsOff = (o: Partial<TurnOptions> | undefined): boolean =>
+        o?.discovery?.tools === false;
+      const offTier: ProvenanceTier | undefined = toolsOff(effectiveArgs)
+        ? "arg"
+        : toolsOff(tiers.project)
+          ? "project-config"
+          : toolsOff(tiers.user)
+            ? "user-config"
+            : undefined;
+      if (offTier !== undefined) {
+        provenance.push({ key, value: "none (discovery.tools off)", tier: offTier });
+        continue;
+      }
       const enabled = h.tools.builtins.filter((t) => t.defaultEnabled).length;
       const all = h.tools.builtins.length;
       if (enabled === all) {

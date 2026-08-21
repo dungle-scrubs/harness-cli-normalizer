@@ -31,6 +31,7 @@ import {
   failureFromLimit,
   failureFromNative,
   failureFromRejected,
+  failureFromTask,
   failureFromTimeout,
   failureFromTransport,
   reduceFailures,
@@ -110,6 +111,10 @@ export interface TurnRunOptions extends LaunchOptions {
    * disarms detection. Applies on launch AND resume: it shapes each
    * turn's prompt and event stream, never a session setting. */
   readonly escalateQuestions?: boolean;
+  /** F-05: caller-requested stop. When aborted, the runner escalates
+   * SIGTERM then SIGKILL and classifies the exit as killed with no
+   * transport failure for the kill itself. */
+  readonly signal?: AbortSignal;
 }
 
 export async function* streamTurn(
@@ -229,6 +234,14 @@ export async function* streamTurn(
     ...(envKeys?.length ? { envKeys } : {}),
   });
 
+  // F-23: create-on-missing resume warns before spawn - the harness will
+  // accept any id and silently start a blank session, so the consumer
+  // must verify the id exists.
+  const resumeOnMissingCreate = effective.resume !== undefined && h.resume.onMissing === "create";
+  const resumeCreateWarning = resumeOnMissingCreate
+    ? `${h.name} creates a new session when ${effective.resume} is unknown; verify the id exists`
+    : null;
+
   let proc: SpawnedProcess;
   try {
     proc = deps.spawn(argv, {
@@ -248,6 +261,7 @@ export async function* streamTurn(
       cause: "crash",
       spawnError: message,
     });
+    if (resumeCreateWarning !== null) yield { kind: "error", message: resumeCreateWarning };
     yield { kind: "error", message: `spawn failed: ${message}` };
     yield { kind: "failure", ...failure };
     yield { kind: "done", exitCode: 127, cause: "failed", failure };
@@ -255,9 +269,13 @@ export async function* streamTurn(
   }
 
   const queue = new AsyncChannel<HarnessEvent>();
+  // F-23 warning is an early stream event, before any harness output
+  if (resumeCreateWarning !== null)
+    void queue.push({ kind: "error", message: resumeCreateWarning });
   const state = freshDecodeState(effective.resume ?? null);
   const stderrTail = new StderrTail();
   let killedByWatchdog = false;
+  let killedByAbort = false;
   let exited = false;
   let exitCode: number | null = null;
   let pipesOpenAtExit = false;
@@ -276,6 +294,21 @@ export async function* streamTurn(
       safeSignal("SIGKILL");
     }, KILL_GRACE_MS);
   };
+  let abortHandler: (() => void) | null = null;
+  if (opts.signal) {
+    const onAbort = (): void => {
+      if (killedByAbort) return;
+      killedByAbort = true;
+      escalate();
+    };
+    if (opts.signal.aborted) {
+      killedByAbort = true;
+      escalate();
+    } else {
+      opts.signal.addEventListener("abort", onAbort, { once: true });
+      abortHandler = onAbort;
+    }
+  }
 
   const failures: FailureSummary[] = [];
   const pushFailure = async (f: FailureSummary): Promise<void> => {
@@ -354,31 +387,72 @@ export async function* streamTurn(
 
   const pumpStdout = async (): Promise<void> => {
     const lines = new LineBuffer();
+    let identitySeen = false;
+    const droppableBuffer: HarnessEvent[] = [];
+    const BUFFER_CAP = 256;
+    const isDroppable = (kind: string): boolean =>
+      kind === "progress" || kind === "token" || kind === "context";
+    const flushDroppable = async (): Promise<void> => {
+      for (const e of droppableBuffer) await queue.push(e);
+      droppableBuffer.length = 0;
+    };
+    const handleEvent = async (event: HarnessEvent): Promise<void> => {
+      if (!identitySeen) {
+        if (event.kind === "identity") {
+          identitySeen = true;
+          await queue.push(event);
+          await flushDroppable();
+          return;
+        }
+        if (isDroppable(event.kind)) {
+          if (droppableBuffer.length >= BUFFER_CAP) droppableBuffer.shift();
+          droppableBuffer.push(event);
+          return;
+        }
+        // Lossless events other than identity flush the buffer before themselves
+        await flushDroppable();
+      }
+      if (event.kind === "failure") {
+        const { kind: _kind, ...summary } = event;
+        await pushFailure(summary);
+        return;
+      }
+      if (event.kind === "limit") {
+        // A wall decoded from stdout counts like one read on stderr: the
+        // turn's done must carry it, not only the limit event.
+        await queue.push(event);
+        await pushFailure(failureFromLimit(event.code));
+        return;
+      }
+      if (event.kind === "error") {
+        await queue.push(event);
+        if (event.terminal === true) await pushFailure(failureFromTask(event.message));
+        return;
+      }
+      if (escalateQuestions && event.kind === "message" && event.role === "assistant") {
+        lastAssistantText = event.text;
+      }
+      await queue.push(event);
+    };
     for await (const chunk of proc.stdout) {
       if (cancelled) break;
       // Any output chunk rearms the inactivity budget, but not the wall-clock deadline
       if (deps.stallMs !== undefined) rearm();
       for (const line of lines.push(chunk)) {
-        for (const event of decodeLine(h, line, state, opts.model ?? "")) {
-          if ((event as unknown as { kind: string }).kind === "failure") {
-            // Directly from decode's rate_limit_event handling - track for reduction
-            failures.push(event as unknown as FailureSummary);
-          }
-          if (escalateQuestions && event.kind === "message" && event.role === "assistant") {
-            lastAssistantText = event.text;
-          }
-          await queue.push(event);
+        for (const event of decodeLine(h, line, state, opts.model ?? "", granularity)) {
+          await handleEvent(event);
         }
       }
     }
     const rest = lines.flush();
     if (rest !== null && !cancelled) {
-      for (const event of decodeLine(h, rest, state, opts.model ?? "")) {
-        if ((event as unknown as { kind: string }).kind === "failure") {
-          failures.push(event as unknown as FailureSummary);
-        }
-        await queue.push(event);
+      for (const event of decodeLine(h, rest, state, opts.model ?? "", granularity)) {
+        await handleEvent(event);
       }
+    }
+    // Flush at exit if no identity ever arrived
+    if (!identitySeen && droppableBuffer.length > 0) {
+      await flushDroppable();
     }
   };
 
@@ -477,6 +551,24 @@ export async function* streamTurn(
   try {
     for await (const event of queue) yield event;
 
+    // F-04: a harness binary that is not installed surfaces as an
+    // async ENOENT. The adapter records it in startupError and resolves
+    // exited with 127 while appending `spawn failed:` to stderr. Treat
+    // it like the synchronous-throw branch: transport failure, retryable,
+    // done cause failed with the real exit code.
+    const startupMessage = proc.startupError?.() ?? null;
+    let startupFailed = false;
+    if (startupMessage !== null && failures.length === 0) {
+      const f = failureFromTransport(`spawn failed: ${startupMessage}`);
+      failures.push(f);
+      startupFailed = true;
+      // The stderr pump appends the spawn line to the tail but does not
+      // emit an error event for it; emit the error here to match the sync
+      // branch, and suppress the later tail-error path for this case.
+      yield { kind: "error", message: `spawn failed: ${startupMessage}` };
+      yield { kind: "failure", ...f };
+    }
+
     // Post-queue failure sources. Nonzero exit with no other failure and a
     // non-empty stderr tail is a NATIVE failure (D6): the harness rejected
     // its own arguments or crashed on them - verbatim stderr, native exit
@@ -484,6 +576,8 @@ export async function* streamTurn(
     // (a silent nonzero exit reads as an environment problem, not a
     // harness judgment).
     if (
+      !startupFailed &&
+      !killedByAbort &&
       failures.length === 0 &&
       exitCode !== 0 &&
       exitCode !== null &&
@@ -500,7 +594,7 @@ export async function* streamTurn(
       yield { kind: "failure", ...f };
     }
     // Stall watchdog also implies a transport failure if not already present
-    if (killedByWatchdog && failures.length === 0) {
+    if (killedByWatchdog && !killedByAbort && failures.length === 0) {
       // D11: a wall-clock deadline kill is a timeout, not a stall - the
       // run was not necessarily silent, it simply outlived its budget.
       const f =
@@ -513,19 +607,29 @@ export async function* streamTurn(
 
     let cause: ExitCause = state.limitSeen
       ? "limit"
-      : killedByWatchdog && exitCode !== 0
-        ? watchdogReason === "turn-deadline"
-          ? "killed" // D11: the run was killed on budget, not stalled
-          : "stall"
-        : exitCode === 0
-          ? asked
-            ? "awaiting-input" // issue #41: asking SUCCEEDED the turn
-            : "clean"
-          : exitCode === null
-            ? "killed"
-            : "crash";
+      : killedByAbort
+        ? "killed"
+        : killedByWatchdog && exitCode !== 0
+          ? watchdogReason === "turn-deadline"
+            ? "killed" // D11: the run was killed on budget, not stalled
+            : "stall"
+          : exitCode === 0
+            ? asked
+              ? "awaiting-input" // issue #41: asking SUCCEEDED the turn
+              : "clean"
+            : exitCode === null
+              ? "killed"
+              : startupFailed
+                ? "failed"
+                : "crash";
     const reduced = reduceFailures(failures);
     if (reduced && cause === "clean") cause = "failed";
+    // A work-verdict failure (the model ran out of steps, or ended its
+    // turn in error) is not a harness crash even when the process exits
+    // nonzero: the cause is failed and the real exit code rides along.
+    if ((reduced?.class === "budget" || reduced?.class === "task") && cause === "crash") {
+      cause = "failed";
+    }
     const tail = stderrTail.snapshot();
     log({
       event: "exit",
@@ -542,7 +646,9 @@ export async function* streamTurn(
     // A failure with captured stderr surfaces as a stream-level error, not
     // only in the exit log - so a crash from the real adapter's async spawn
     // failure carries the same error-event signal as the sync-throw path.
-    if ((cause === "crash" || cause === "killed") && tail.length > 0) {
+    // F-04: the startupError path already emitted the spawn error; do not
+    // duplicate it via the tail.
+    if (!startupFailed && (cause === "crash" || cause === "killed") && tail.length > 0) {
       yield { kind: "error", message: tail.join("\n").slice(0, 4096) };
     }
     terminalEventReached = true;
@@ -559,6 +665,7 @@ export async function* streamTurn(
       ...(reduced ? { failure: reduced } : {}),
     };
   } finally {
+    if (abortHandler !== null) opts.signal?.removeEventListener("abort", abortHandler);
     const abandoned = !terminalEventReached;
     cancelled = true;
     queue.close();

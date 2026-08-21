@@ -109,6 +109,15 @@ export const renderToolSelection = (
     const names = validateNames(h, selection.include!);
     const { mapped, unmapped } = resolveNames(h, names);
     if (!h.tools.includeIsStrictAllowlist) {
+      if (mapped.length === 0 && unmapped.length > 0) {
+        throw new ArgvRefusalError({
+          issue: "unknown-tool-name",
+          harness: h.name,
+          option: "tools",
+          supported: [`known tool names: ${h.tools.builtins.map((t) => t.name).join(", ")}`],
+          detail: `unknown tool name(s) ${unmapped.join(", ")}`,
+        });
+      }
       // claude: exact allowlist must reshape the visible set via the deny
       // complement (probe 2b). The include flag also carries the granted
       // names (curated + pass-throughs) so they skip approval prompts;

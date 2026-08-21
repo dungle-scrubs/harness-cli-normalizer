@@ -30,6 +30,15 @@ export const piCli: HarnessDescriptor = deepFreeze({
     // Caller-assigned: the same --session-id re-enters the session. Resume
     // carries the same structured-output flags launch does, or a resumed
     // turn would stream plain text the runner cannot decode.
+    // Verified 2026-08-21 on pi 0.84.2: a session id minted by `pi --mode rpc`
+    // via the get_state probe (01a022e3-9afb-7ce5-88f5-07ad0e9ac8fa) resumed
+    // after close through the one-shot grammar `pi --session-id <id> -p
+    // --mode json` (flag --session-id, extraFlags -p --mode json), exit 0,
+    // 207 lines, and the reply recalled the codeword "otter" (evidence at
+    // test/fixtures/pi-rpc-spike/06-resume-after-close/: rpc-turn.ndjson,
+    // resume.argv.json, resume.ndjson, README.md). If the resume had not
+    // recalled the codeword, this comment would say so and the descriptor
+    // would not be changed here.
     style: "flag",
     flag: "--session-id",
     aliases: [],

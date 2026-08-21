@@ -426,6 +426,14 @@ describe("flag mapping and validation", () => {
     expect(out2.exitCode).toBe(2);
   });
 
+  test("pi --no-tools does not re-enable tools via profile grant", async () => {
+    const out = await captureDispatch(["inspect", "pi", "--argv", "--prompt", "hi", "--no-tools"]);
+    const parsed: string[] = JSON.parse(out.stdout);
+    expect(parsed).toContain("-nt");
+    expect(parsed).not.toContain("--tools");
+    expect(out.stdout).not.toContain("--tools");
+  });
+
   test("env parsing", () => {
     const env = parseEnvEntries(["FOO=bar", "BAZ="]);
     expect(env?.FOO).toBe("bar");
@@ -586,6 +594,92 @@ describe("integration: built cli via spawnSync", () => {
   });
 });
 
+describe("F-16: inspect --skills previews an argv the run never uses", () => {
+  test("inspect resolves skill names and refuses unknowns, mirroring run", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "hcn-skills-"));
+    const skillName = "hcn";
+    const skillDir = join(dir, skillName);
+    const { mkdirSync } = await import("node:fs");
+    mkdirSync(skillDir, { recursive: true });
+    const prev = process.env.HCN_SKILLS_ROOT;
+    process.env.HCN_SKILLS_ROOT = dir;
+    try {
+      const ok = await captureDispatch([
+        "inspect",
+        "pi",
+        "--argv",
+        "--prompt",
+        "hi",
+        "--skills",
+        skillName,
+      ]);
+      expect(ok.exitCode === undefined || ok.exitCode === 0).toBe(true);
+      const parsed: string[] = JSON.parse(ok.stdout);
+      expect(parsed).toContain("-ns");
+      expect(parsed.join(" ")).toContain(join(dir, skillName));
+      const bad = await captureDispatch([
+        "inspect",
+        "pi",
+        "--argv",
+        "--prompt",
+        "hi",
+        "--skills",
+        "bogus-name",
+      ]);
+      expect(bad.exitCode).toBe(2);
+      expect(bad.stderr).toMatch(/unknown skill/i);
+      const okClaude = await captureDispatch([
+        "inspect",
+        "claude",
+        "--argv",
+        "--prompt",
+        "hi",
+        "--skills",
+        skillName,
+      ]);
+      expect(okClaude.exitCode === undefined || okClaude.exitCode === 0).toBe(true);
+      const parsedClaude: string[] = JSON.parse(okClaude.stdout);
+      expect(parsedClaude.join(" ")).toContain("--settings");
+      expect(parsedClaude.join(" ")).toContain("skillOverrides");
+      const badClaude = await captureDispatch([
+        "inspect",
+        "claude",
+        "--argv",
+        "--prompt",
+        "hi",
+        "--skills",
+        "bogus-name",
+      ]);
+      expect(badClaude.exitCode).toBe(2);
+    } finally {
+      if (prev === undefined) delete process.env.HCN_SKILLS_ROOT;
+      else process.env.HCN_SKILLS_ROOT = prev;
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("F-15: inspect --resume applies the profile; run --resume does not", () => {
+  test("inspect codex --argv --resume previews what run would spawn", async () => {
+    const resumeId = "11111111-2222-4333-8444-555555555555";
+    const out = await captureDispatch([
+      "inspect",
+      "codex",
+      "--argv",
+      "--resume",
+      resumeId,
+      "--prompt",
+      "hi",
+    ]);
+    expect(out.exitCode === undefined || out.exitCode === 0).toBe(true);
+    const parsed: string[] = JSON.parse(out.stdout);
+    // Resume grammar must not contain the launch-only --sandbox flag
+    expect(parsed.join(" ")).not.toContain("--sandbox");
+    expect(parsed).toContain("resume");
+    expect(parsed).toContain(resumeId);
+  });
+});
+
 describe("hcn run execution (human + json)", () => {
   test("run with unknown model refuses before spawn", async () => {
     const out = await captureDispatch(["run", "claude", "hi", "--model", "nope"]);
@@ -605,6 +699,73 @@ describe("hcn run execution (human + json)", () => {
     ]);
     expect(out.exitCode).toBe(2);
     expect(out.stderr).toMatch(/supported/i);
+  });
+
+  test("F-23 pi resume with unknown id refuses with invalid-option-value and path", async () => {
+    const tmpHome = mkdtempSync(join(tmpdir(), "hcn-home-"));
+    const tmpCwd = mkdtempSync(join(tmpdir(), "hcn-cwd-"));
+    const prevHome = process.env.HOME;
+    const prevHcn = process.env.HCN_CONFIG_DIR;
+    process.env.HOME = tmpHome;
+    process.env.HCN_CONFIG_DIR = mkdtempSync(join(tmpdir(), "hcn-cfg-"));
+    try {
+      const fakeId = "11111111-1111-4111-8111-111111111111";
+      const out = await captureDispatch(["run", "pi", "hi", "--resume", fakeId, "--cwd", tmpCwd]);
+      expect(out.exitCode).toBe(2);
+      expect(out.stderr).toContain(`no pi session ${fakeId} found at`);
+    } finally {
+      if (prevHome === undefined) delete process.env.HOME;
+      else process.env.HOME = prevHome;
+      if (prevHcn === undefined) delete process.env.HCN_CONFIG_DIR;
+      else process.env.HCN_CONFIG_DIR = prevHcn;
+      rmSync(tmpHome, { recursive: true, force: true });
+      rmSync(tmpCwd, { recursive: true, force: true });
+      const cfg = process.env.HCN_CONFIG_DIR;
+      if (cfg && cfg.startsWith(tmpdir())) {
+        try {
+          rmSync(cfg, { recursive: true, force: true });
+        } catch {}
+      }
+    }
+  });
+
+  test("F-23 pi resume with unknown id under --json emits NDJSON failure and done", async () => {
+    const tmpHome = mkdtempSync(join(tmpdir(), "hcn-home-"));
+    const tmpCwd = mkdtempSync(join(tmpdir(), "hcn-cwd-"));
+    const prevHome = process.env.HOME;
+    const prevHcn = process.env.HCN_CONFIG_DIR;
+    process.env.HOME = tmpHome;
+    process.env.HCN_CONFIG_DIR = mkdtempSync(join(tmpdir(), "hcn-cfg-"));
+    try {
+      const fakeId = "22222222-2222-4222-8222-222222222222";
+      const out = await captureDispatch([
+        "run",
+        "pi",
+        "hi",
+        "--resume",
+        fakeId,
+        "--cwd",
+        tmpCwd,
+        "--json",
+      ]);
+      expect(out.exitCode).toBe(2);
+      expect(out.stdout).toContain(`"kind":"failure"`);
+      expect(out.stdout).toContain(`"kind":"done"`);
+      expect(out.stdout).toContain(fakeId);
+    } finally {
+      if (prevHome === undefined) delete process.env.HOME;
+      else process.env.HOME = prevHome;
+      if (prevHcn === undefined) delete process.env.HCN_CONFIG_DIR;
+      else process.env.HCN_CONFIG_DIR = prevHcn;
+      rmSync(tmpHome, { recursive: true, force: true });
+      rmSync(tmpCwd, { recursive: true, force: true });
+      const cfg = process.env.HCN_CONFIG_DIR;
+      if (cfg && cfg.startsWith(tmpdir())) {
+        try {
+          rmSync(cfg, { recursive: true, force: true });
+        } catch {}
+      }
+    }
   });
 
   test("run respects HERDR_ENV deletion (env not leaked to child)", async () => {

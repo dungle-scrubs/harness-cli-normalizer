@@ -68,6 +68,7 @@ Options:
                             answer as the prompt; id continuity per
                             harness (claude stable, pi/muse caller-assigned,
                             codex minted via identity event)
+                            Note: pi and muse create a new session when the id is unknown - verify it exists
   --                        Passthrough: native harness args verbatim
                             (failures surface as labeled native errors)
   --json                    NDJSON HarnessEvent to stdout

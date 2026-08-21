@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import type { HarnessEvent } from "../execution/events.js";
 import { failureFromRejected } from "../execution/failure.js";
 import { nodeRunnerDeps } from "../execution/node-deps.js";
@@ -7,6 +8,7 @@ import { composeEscalatedPrompt } from "../interpretation/question.js";
 import type { RefusalIssue } from "../interpretation/refusal.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
 import { FloorExceededError, resolveEffectiveOptions } from "../interpretation/resolve-options.js";
+import { storePath } from "../interpretation/store.js";
 import { recognizeNativeSpelling, supportedBy } from "../interpretation/support.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { parseRunExtra, parseTurnOptions, resolvePromptAsync } from "./args.js";
@@ -422,6 +424,51 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     process.stderr.write(
       `provenance: escalateQuestions = ${escalateQuestions} (${escalateTier})\n`,
     );
+    // On a harness whose include flag is not a strict allowlist (claude),
+    // a name outside the curated set passes through ungated; say which
+    // ones so a wrong-case name is visible. A grant with no known name at
+    // all refuses inside buildLaunchArgv below, so a throw here is left
+    // to that path.
+    const grant = (fullOpts.resume ? turnOpts : effectiveTurnOpts).tools;
+    if (grant !== undefined && grant.length > 0 && !h.tools.includeIsStrictAllowlist) {
+      try {
+        const { renderToolSelection } = await import("../interpretation/tool-selection.js");
+        const { unmapped } = renderToolSelection(h, { include: [...grant] });
+        if (unmapped.length > 0) {
+          process.stderr.write(`provenance: unmapped tools = ${JSON.stringify(unmapped)}\n`);
+        }
+      } catch {
+        // refused below with the structured message
+      }
+    }
+  }
+
+  // A harness that creates a session when the id is unknown (pi, muse)
+  // would turn a stale --resume into a silent blank session. Refuse when
+  // the session store path does not exist; where the path cannot be
+  // computed, the runner's pre-spawn warning is the only guard.
+  if (fullOpts.resume !== undefined && h.resume.onMissing === "create") {
+    let path: string | null = null;
+    try {
+      path = storePath(h, {
+        home: process.env.HOME ?? process.env.USERPROFILE ?? "",
+        cwd: extra.cwd ?? process.cwd(),
+        sessionId: fullOpts.resume,
+      });
+    } catch {
+      path = null;
+    }
+    if (path !== null && !existsSync(path)) {
+      refuse(
+        {
+          message: `no ${h.name} session ${fullOpts.resume} found at ${path}`,
+          issue: "invalid-option-value",
+          supported: [`a session id that exists in ${h.name}'s store`],
+        },
+        wantJson,
+      );
+      return;
+    }
   }
 
   // Delete HERDR_ENV before spawn
@@ -460,10 +507,12 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     },
   };
 
+  const abortController = new AbortController();
   let interrupted = false;
   const onSig = async () => {
     if (interrupted) return;
     interrupted = true;
+    abortController.abort();
     if (lastProc) {
       try {
         wrappedDeps.signal(lastProc, "SIGTERM");
@@ -489,7 +538,7 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
 
   try {
     // streamTurn handles both launch and resume via TurnRunOptions
-    const events = streamTurn(h, fullOpts, wrappedDeps);
+    const events = streamTurn(h, { ...fullOpts, signal: abortController.signal }, wrappedDeps);
     for await (const event of events) {
       lastEvent = event;
       if (wantJson) {

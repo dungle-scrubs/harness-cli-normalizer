@@ -27,6 +27,8 @@ import { AsyncChannel } from "./channel.js";
 import { decodeParsed, freshDecodeState } from "./decode.js";
 import type { RunnerDeps, SpawnedProcess } from "./deps.js";
 import type { ExitCause, HarnessEvent } from "./events.js";
+import type { FailureSummary } from "./failure.js";
+import { failureFromAuth, failureFromLimit, reduceFailures } from "./failure.js";
 import { LineBuffer } from "./lines.js";
 import { KILL_GRACE_MS, PIPE_GRACE_MS, redactArgv, StderrTail } from "./stream-turn.js";
 
@@ -145,6 +147,7 @@ export const openSession = (
   let exitCode: number | null = null;
   let resultError = false;
   let turnLimitSeen = false;
+  let turnFailures: FailureSummary[] = [];
   let pumpError: unknown = null;
   // issue #44: the active turn's last assistant message (where the
   // hcn-question block lives) and whether the turn ended by asking.
@@ -175,14 +178,24 @@ export const openSession = (
     }
   };
 
+  /** A decoded failure event minus its kind: what done.failure carries. */
+  const summaryOf = (event: HarnessEvent & { kind: "failure" }): FailureSummary => {
+    const { kind: _kind, ...summary } = event;
+    return summary;
+  };
+
   const startTurn = (): void => {
     turnLimitSeen = false;
+    turnFailures = [];
     turnAsked = false;
     lastAssistantText = null;
     activeTurn = new AsyncChannel<HarnessEvent>();
     activeTurnId = `${opts.sessionId}:turn-${++turnCounter}`;
     log({ event: "turn_start", sessionId: opts.sessionId, turnId: activeTurnId });
-    for (const held of preTurnEvents.splice(0)) activeTurn.push(held);
+    for (const held of preTurnEvents.splice(0)) {
+      if (held.kind === "failure") turnFailures.push(summaryOf(held));
+      activeTurn.push(held);
+    }
     turnsChannel.push(activeTurn);
   };
 
@@ -224,6 +237,10 @@ export const openSession = (
     // in sessions) and the caller answers with the next send().
     emitQuestionIfAsked();
     if (turnAsked && done.cause === "clean") done = { ...done, cause: "awaiting-input" };
+    // Every failure was already emitted as an event through pushFailure;
+    // the turn's done carries the reduced summary, as streamTurn's does.
+    const reduced = reduceFailures(turnFailures);
+    if (reduced !== undefined) done = { ...done, failure: reduced };
     activeTurn.push(done);
     activeTurn.close();
     log({
@@ -265,6 +282,11 @@ export const openSession = (
     return Promise.resolve();
   };
 
+  const pushFailure = (f: FailureSummary): Promise<void> => {
+    turnFailures.push(f);
+    return routeEvent({ kind: "failure", ...f });
+  };
+
   const pumpStdout = async (): Promise<void> => {
     const lines = new LineBuffer();
     const matches = (
@@ -297,6 +319,7 @@ export const openSession = (
         const code = detectLimitInLine(h, line);
         if (code !== null) {
           await routeEvent({ kind: "limit", code, message: `limit wall detected (${code})` });
+          await pushFailure(failureFromLimit(code));
         }
         return;
       }
@@ -367,7 +390,10 @@ export const openSession = (
         // decodeParsed already surfaces the is_error case as an error event
         // (content.ts claude reader); routing the events is enough - we only
         // still track resultError here to classify the done cause.
-        for (const event of events) await routeEvent(event);
+        for (const event of events) {
+          if (event.kind === "failure") await pushFailure(summaryOf(event));
+          else await routeEvent(event);
+        }
         if (parsed.is_error === true) resultError = true;
         endTurn({
           kind: "done",
@@ -376,7 +402,10 @@ export const openSession = (
         });
         return;
       }
-      for (const event of events) await routeEvent(event);
+      for (const event of events) {
+        if (event.kind === "failure") await pushFailure(summaryOf(event));
+        else await routeEvent(event);
+      }
     };
     for await (const chunk of proc.stdout) {
       for (const line of lines.push(chunk)) await handleLine(line);
@@ -396,10 +425,12 @@ export const openSession = (
             code: limit,
             message: `limit wall detected (${limit})`,
           });
+          await pushFailure(failureFromLimit(limit));
           continue;
         }
         const auth = detectAuthFailureInLine(h, line);
         if (auth !== null) {
+          await pushFailure(failureFromAuth(auth));
           await routeEvent({ kind: "error", message: `auth wall: ${auth}` });
           continue;
         }
