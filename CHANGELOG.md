@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.5.0...v0.5.1) (2026-08-21)
+
+
+### Fixed
+
+* stale-resume guard resolves the cwd's real path before slugging the store ([#62](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/62)) ([13cd936](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/13cd9360f0c9c6db416bb870001710c665a30719))
+
 ## [0.5.0](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.4.6...v0.5.0) (2026-08-21)
 
 
