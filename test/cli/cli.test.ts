@@ -426,6 +426,13 @@ describe("flag mapping and validation", () => {
     expect(out2.exitCode).toBe(2);
   });
 
+  test("a bare pi run renders no --tools list, so extension and MCP tools survive", async () => {
+    const out = await captureDispatch(["inspect", "pi", "--argv", "--prompt", "hi"]);
+    const parsed: string[] = JSON.parse(out.stdout);
+    expect(parsed).not.toContain("--tools");
+    expect(out.stderr).toContain("a tools list would drop extension and MCP tools");
+  });
+
   test("pi --no-tools does not re-enable tools via profile grant", async () => {
     const out = await captureDispatch(["inspect", "pi", "--argv", "--prompt", "hi", "--no-tools"]);
     const parsed: string[] = JSON.parse(out.stdout);

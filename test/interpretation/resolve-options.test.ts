@@ -258,14 +258,19 @@ describe("round 2 ratifications (D9-D12)", () => {
 });
 
 describe("D13: tools all-known marker", () => {
-  it("pi expands to the enabling include (dormant trio on)", () => {
+  it("pi (strict allowlist) renders no profile tools list: a list would drop extension and MCP tools", () => {
     const r = resolveEffectiveOptions(piCli, base, undefined);
-    expect(r.options.tools).toEqual(["read", "shell", "edit", "write", "grep", "glob", "list"]);
+    expect(r.options.tools).toBeUndefined();
     expect(r.provenance).toContainEqual({
       key: "tools",
-      value: ["read", "shell", "edit", "write", "grep", "glob", "list"],
+      value: "none (a tools list would drop extension and MCP tools; harness default applies)",
       tier: "profile",
     });
+  });
+
+  it("an explicit grant on pi still renders", () => {
+    const r = resolveEffectiveOptions(piCli, { ...base, tools: ["read", "grep"] }, undefined);
+    expect(r.options.tools).toEqual(["read", "grep"]);
   });
 
   it("claude is already-everything: emit nothing, record in provenance", () => {
