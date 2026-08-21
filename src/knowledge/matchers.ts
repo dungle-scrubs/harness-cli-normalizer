@@ -4,7 +4,12 @@
  * or a provider 401 must classify no matter which CLI printed it. Each
  * descriptor spreads these after its harness-specific phrasings.
  */
-import type { AuthMatcher, LimitMatcher, TransportMatcher } from "./descriptor.js";
+import type {
+  AuthMatcher,
+  LimitMatcher,
+  TransportMatcher,
+  UnavailableMatcher,
+} from "./descriptor.js";
 
 export const SHARED_LIMIT_MATCHERS: ReadonlyArray<LimitMatcher> = [
   { pattern: "you'?ve hit your usage limit", flags: "i", code: "usage-limit" },
@@ -52,4 +57,15 @@ export const SHARED_TRANSPORT_MATCHERS: ReadonlyArray<TransportMatcher> = [
   { pattern: "bad gateway", flags: "i" },
   { pattern: "gateway time-?out", flags: "i" },
   { pattern: "\\b(?:HTTP|status(?:[_ ]?code)?|code)\\b\\W*[:=]?\\W*50[234]\\b", flags: "i" },
+];
+
+export const SHARED_UNAVAILABLE_MATCHERS: ReadonlyArray<UnavailableMatcher> = [
+  { pattern: "model_not_found", flags: "i" },
+  { pattern: "invalid model identifier", flags: "i" },
+  { pattern: "model[^.]{0,60}not found", flags: "i" },
+  { pattern: "no such model", flags: "i" },
+  { pattern: "unknown model", flags: "i" },
+  { pattern: "model[^.]{0,60}(?:is not|isn't) loaded", flags: "i" },
+  { pattern: "model[^.]{0,60}does not exist", flags: "i" },
+  { pattern: "not a valid (?:downloaded )?model", flags: "i" },
 ];

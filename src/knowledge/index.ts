@@ -16,6 +16,7 @@ export {
   SHARED_AUTH_MATCHERS,
   SHARED_LIMIT_MATCHERS,
   SHARED_TRANSPORT_MATCHERS,
+  SHARED_UNAVAILABLE_MATCHERS,
 } from "./matchers.js";
 export { museCode } from "./muse.js";
 export {

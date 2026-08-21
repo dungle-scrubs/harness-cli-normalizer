@@ -190,4 +190,30 @@ describe("failure classes via streamTurn", () => {
     expect(done.failure?.retryable).toBe(retryableOf("timeout"));
     expect(done.failure?.retryable).toBe(false);
   });
+
+  test("unavailable class and retryable", async () => {
+    const proc = new FakeProcess();
+    const d = deps(proc);
+    const turn = streamTurn(claudeCode, { prompt: "hi" }, d);
+    const msg = JSON.stringify({
+      type: "system",
+      subtype: "init",
+      session_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    });
+    proc.emitLine(msg);
+    // pi-model-unavailable style terminal error routed via failureFromTerminalError
+    // For claude we trigger via error terminal, for generic unavailable we use stderr tail path
+    // Use stderr unavailable phrasing on nonzero exit path
+    proc.emitStderr("model_not_found: Invalid model identifier");
+    proc.exit(1);
+    const events = await collect(turn);
+    const done = events.find((e) => e.kind === "done") as unknown as {
+      failure?: { class: string; retryable: boolean };
+    };
+    // unavailable is retryable; verify via direct retryableOf as well
+    expect(retryableOf("unavailable")).toBe(true);
+    // Stream path for unavailable via stderr tail after transport check
+    expect(done.failure?.class).toBe("unavailable");
+    expect(done.failure?.retryable).toBe(true);
+  });
 });
