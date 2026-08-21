@@ -152,3 +152,28 @@ describe("F-11: claude tool names silently unmapped", () => {
     expect(unmapped).toEqual(["grep", "find", "ls"]);
   });
 });
+
+describe("F-36: empty include list handling per harness", () => {
+  it("empty include on claudeCode emits no empty token and contains deny complement", () => {
+    const { tokens, unmapped } = renderToolSelection(claudeCode, { include: [] });
+    expect(tokens).not.toContain("");
+    expect(tokens.join(" ")).toContain("--disallowedTools");
+    expect(tokens.join(",")).not.toContain('""');
+    // should be deny complement over all known names
+    const expectedKnown = claudeCode.tools.builtins.map((t) => t.name).join(",");
+    expect(tokens).toEqual(["--disallowedTools", expectedKnown]);
+    expect(unmapped).toEqual([]);
+  });
+
+  it("empty include on piCli throws invalid-tool-grant", () => {
+    expect(() => renderToolSelection(piCli, { include: [] })).toThrow(
+      expect.objectContaining({ issue: "invalid-tool-grant" }),
+    );
+    try {
+      renderToolSelection(piCli, { include: [] });
+      expect.unreachable("should have thrown");
+    } catch (e) {
+      expect((e as { issue: string }).issue).toBe("invalid-tool-grant");
+    }
+  });
+});

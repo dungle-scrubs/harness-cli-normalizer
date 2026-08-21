@@ -74,6 +74,8 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
         modelFlag: h.vocabulary.modelFlag,
       },
       turnOptions: h.turnOptions,
+      limitMatchers: h.limitMatchers,
+      authMatchers: h.authMatchers,
     };
     process.stdout.write(`${JSON.stringify(out, null, 2)}\n`);
     return;
@@ -129,7 +131,7 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
   if (rawSkills !== undefined && rawSkills.length > 0) {
     try {
       const { resolveSkillNames, listKnownSkills } = await import("./skills-root.js");
-      const resolvedSkills = resolveSkillNames(rawSkills);
+      const resolvedSkills = resolveSkillNames(rawSkills, h.name);
       const claudeTokens: string[] = [];
       if (h.name === "claude") {
         const { claudeSkillOverridesArg } = await import("../interpretation/skills-selection.js");
@@ -150,6 +152,18 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
 
   // Resume previews from unresolved options, mirroring run.ts launch-only rule (F-15)
   if (values.resume !== undefined || values["session-id"] !== undefined) {
+    if (values.resume !== undefined && values["session-id"] !== undefined) {
+      const err = new ArgvRefusalError({
+        issue: "mutually-exclusive-options",
+        harness: h.name,
+        supported: ["--resume or --session-id, not both (--session-id is an alias for --resume)"],
+        detail: "both --resume and --session-id given",
+      });
+      process.stderr.write(`${err.message}\n`);
+      if (err.supported.length) process.stderr.write(`supported: ${err.supported.join(", ")}\n`);
+      process.exitCode = 2;
+      return;
+    }
     const { buildResumeArgv } = await import("../interpretation/argv.js");
     const resumeId = String(values.resume ?? values["session-id"]);
     try {
@@ -206,6 +220,8 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
     }
     throw resErr;
   }
+  const { writeProvenance } = await import("./provenance.js");
+  writeProvenance(h.name, resolved.provenance, resolved.unrenderable);
   const { prompt: _p, ...effectiveRest } = resolved.options as { prompt: string };
   const fullOpts = {
     ...(effectiveRest as object),
