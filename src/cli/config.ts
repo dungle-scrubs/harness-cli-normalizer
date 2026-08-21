@@ -20,6 +20,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import type { TurnOptions } from "../interpretation/argv.js";
+import { TOOL_SELECTOR } from "../interpretation/tool-selection.js";
+import { validateAccess } from "../interpretation/vocabulary.js";
 import { HARNESS_NAMES } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 
@@ -124,7 +126,7 @@ export const parseUserConfig = (text: string): Partial<TurnOptions> => {
         );
       }
       const toolMapObj = value as Record<string, unknown>;
-      const SEL = /^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$/;
+      const SEL = TOOL_SELECTOR;
       const descSet = defaultDescriptors();
       const harnessNames = HARNESS_NAMES as readonly string[];
       for (const [harness, inner] of Object.entries(toolMapObj)) {
@@ -142,8 +144,9 @@ export const parseUserConfig = (text: string): Partial<TurnOptions> => {
             }
           >
         )[harness];
-        const hasListOrCats =
+        const canTakeToolMap =
           desc && (desc.tools.includeFlag !== null || desc.tools.categories.length > 0);
+        const hasListOrCats = canTakeToolMap;
         if (!hasListOrCats) {
           throw new ConfigError(`unknown config key: ${JSON.stringify(`toolMap.${harness}`)}`);
         }
@@ -210,7 +213,8 @@ export const parseUserConfig = (text: string): Partial<TurnOptions> => {
       continue;
     }
     if (key === "access") {
-      if (value !== "read" && value !== "write") {
+      const v = validateAccess(String(value));
+      if (!v.ok) {
         throw new ConfigError('config key "access" must be "read" or "write"');
       }
       (out as Record<string, unknown>)[key] = value;

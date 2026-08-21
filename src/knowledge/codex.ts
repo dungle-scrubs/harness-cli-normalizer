@@ -126,6 +126,7 @@ export const codexCli: HarnessDescriptor = deepFreeze({
       kind: "flag-value",
       flag: "--sandbox",
       values: { read: "read-only", write: "workspace-write" },
+      render: { kind: "flag-value", flag: "--sandbox" },
     },
   },
   // Phase 0 fixtures: codex-tool-surface.md. No name lists anywhere -

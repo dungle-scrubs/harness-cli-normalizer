@@ -3,9 +3,19 @@
  */
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
+import { hintFor } from "./hints.js";
 import { ArgvRefusalError } from "./refusal.js";
-import { supportedBy } from "./support.js";
-import { canonicalNames, canonicalToolTable } from "./tool-vocabulary.js";
+import { supportedBy, supportedByCanonical } from "./support.js";
+import {
+  allCanonicalNames,
+  canonicalTable,
+  hasCounterpart,
+  NATIVE_PREFIX,
+  nativeFor,
+  parseToolSelector,
+  READ_PRESET,
+  validateCanonicalList,
+} from "./tool-vocabulary.js";
 
 export const TOOL_SELECTOR = /^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$/;
 
@@ -17,7 +27,6 @@ export interface ToolSelection {
 
 export interface RenderedToolSelection {
   readonly tokens: readonly string[];
-  readonly unmapped: readonly string[];
   readonly passthrough: readonly string[];
 }
 
@@ -40,6 +49,43 @@ const validateInnerName = (h: HarnessDescriptor, name: string, raw: readonly str
   }
 };
 
+const categoriesFor = (
+  h: HarnessDescriptor,
+  canonicals: readonly string[],
+  table: ReturnType<typeof canonicalTable>,
+): Set<string> => {
+  const cats = new Set<string>();
+  for (const c of canonicals) {
+    const val = table[c]?.[h.name];
+    if (val?.kind === "category") cats.add(val.key);
+  }
+  return cats;
+};
+
+export const renderAccessPreset = (
+  h: HarnessDescriptor,
+  access: "read" | "write",
+  opts: { toolMap?: Readonly<Record<string, string>> } = {},
+): string[] => {
+  if (access === "write") return [];
+  // read preset
+  const filtered = (READ_PRESET as readonly string[]).filter((c) => {
+    if (opts.toolMap?.[c] !== undefined) return true;
+    const table = canonicalTable(defaultDescriptors());
+    return table[c]?.[h.name] !== undefined;
+  });
+  if (filtered.length === 0) return [];
+  // For tool-preset harnesses, render via tool-selection include
+  const spec = h.turnOptions.access;
+  if (spec && spec.kind === "tool-preset") {
+    const rendered = renderToolSelection(h, { include: filtered, toolMap: opts.toolMap });
+    return [...rendered.tokens];
+  }
+  // For flag-value / flag-list-by-value harnesses, caller should handle via spec mapping;
+  // we return empty here so turn-options can map via spec values.
+  return [];
+};
+
 export const renderToolSelection = (
   h: HarnessDescriptor,
   selection: ToolSelection,
@@ -56,158 +102,109 @@ export const renderToolSelection = (
       detail: "mutual exclusion",
     });
   }
-  if (!hasInclude && !hasExclude) return { tokens: [], unmapped: [], passthrough: [] };
+  if (!hasInclude && !hasExclude) return { tokens: [], passthrough: [] };
 
-  // Helpers for canonical handling
-  const baseCanonical = canonicalNames(defaultDescriptors());
-  const table = canonicalToolTable(defaultDescriptors());
+  const set = defaultDescriptors();
+  const table = canonicalTable(set);
   const toolMap = selection.toolMap ?? {};
-  const allCanonical = [...new Set([...baseCanonical, ...Object.keys(toolMap)])].sort();
+  const allCanonical = allCanonicalNames(set, {
+    [h.name]: toolMap as unknown as Record<string, string>,
+  } as unknown as import("./tool-vocabulary.js").ToolMap);
 
   const splitSelection = (
     names: readonly string[],
   ): { canonical: string[]; passthrough: string[] } => {
     const canonical: string[] = [];
     const passthrough: string[] = [];
+    const setForValidate = new Set(allCanonical);
     for (const raw of names) {
-      if (raw.startsWith("native:")) {
-        const inner = raw.slice("native:".length);
-        validateInnerName(h, inner, names as unknown as string[]);
-        passthrough.push(inner);
+      const parsed = parseToolSelector(raw);
+      if (parsed.kind === "native") {
+        validateInnerName(h, parsed.name, names);
+        passthrough.push(parsed.name);
         continue;
       }
-      validateInnerName(h, raw, names as unknown as string[]);
-      if (!allCanonical.includes(raw)) {
+      validateInnerName(h, parsed.name, names);
+      if (!setForValidate.has(parsed.name)) {
         throw new ArgvRefusalError({
           issue: "unknown-tool-name",
           harness: h.name,
           option: "tools",
-          supported: allCanonical as unknown as string[],
+          supported: [...allCanonical],
           hint: "use native:<name> for an extension or MCP tool",
-          detail: `unknown tool name(s) ${raw}`,
+          detail: `unknown tool name(s) ${parsed.name}`,
         });
       }
-      canonical.push(raw);
+      canonical.push(parsed.name);
     }
     return { canonical, passthrough };
   };
 
-  const supportedByForCanonical = (canonical: string): { harness: string; spelling: string }[] => {
-    const entry = table[canonical];
-    if (!entry) return [];
-    const out: { harness: string; spelling: string }[] = [];
-    for (const [har, val] of Object.entries(entry)) {
-      if (val === undefined) continue;
-      const spelling = val.kind === "builtin" ? val.native : val.key;
-      out.push({ harness: har, spelling });
-    }
-    return out;
-  };
+  const isCodexShape = h.tools.includeFlag === null && h.tools.categories.length === 0;
+  const isCategoryShape = h.tools.includeFlag === null && h.tools.categories.length > 0;
 
-  const hasCounterpart = (canonical: string, harness: HarnessDescriptor): boolean => {
-    if (toolMap[canonical] !== undefined) return true;
-    const entry = table[canonical];
-    if (!entry) return false;
-    return entry[harness.name] !== undefined;
-  };
-
-  const nativeFor = (canonical: string, harness: HarnessDescriptor): string | undefined => {
-    if (toolMap[canonical] !== undefined) return toolMap[canonical];
-    const entry = table[canonical];
-    const val = entry?.[harness.name];
-    if (val?.kind === "builtin") return val.native;
-    return undefined;
-  };
-
-  // Codex and muse have no list flags
-  if (h.tools.includeFlag === null || h.tools.excludeFlag === null) {
-    if (h.name === "codex") {
-      throw new ArgvRefusalError({
-        issue: "unsupported-option",
-        harness: h.name,
-        option: hasInclude ? "tools" : "excludeTools",
-        supported: ["per-tool name lists"],
-        supportedBy: supportedBy(defaultDescriptors(), hasInclude ? "tools" : "excludeTools"),
-        hint: "nearest control on codex: category switches via config keys (features.shell_tool, web_search) or sandbox modes - see `hcn inspect codex`",
-      });
-    }
-    if (h.name === "muse") {
-      // muse category rendering
-      const names = hasInclude ? selection.include! : selection.exclude!;
-      const { canonical, passthrough } = splitSelection(names as readonly string[]);
-
-      // For exclude: inexpressible refuses
-      if (hasExclude) {
-        for (const c of canonical) {
-          if (!hasCounterpart(c, h)) {
-            throw new ArgvRefusalError({
-              issue: "unsupported-option",
-              harness: h.name,
-              option: "excludeTools",
-              supported: ["per-tool name lists"],
-              supportedBy: supportedByForCanonical(c),
-              hint: "nearest control on muse: category switches (--disable-write, --disable-shell, --disable-web-tools) gate tool execution per session",
-            });
-          }
-        }
-        // collect categories to disable
-        const cats = new Set<string>();
-        for (const c of canonical) {
-          const val = table[c]?.[h.name];
-          if (val?.kind === "category") cats.add(val.key);
-        }
-        const tokens: string[] = [];
-        for (const cat of h.tools.categories) {
-          if (cats.has(cat.key) && cat.disableFlag) tokens.push(cat.disableFlag);
-        }
-        return { tokens, unmapped: passthrough, passthrough };
-      }
-
-      // include path for muse: any canonical without counterpart refuses (A3)
-      for (const c of canonical) {
-        if (!hasCounterpart(c, h)) {
-          throw new ArgvRefusalError({
-            issue: "unsupported-option",
-            harness: h.name,
-            option: "tools",
-            supported: ["per-tool name lists"],
-            supportedBy: supportedByForCanonical(c),
-            hint: "nearest control on muse: category switches (--disable-write, --disable-shell, --disable-web-tools) gate tool execution per session",
-          });
-        }
-      }
-      if (canonical.length === 0) {
-        // empty include on muse: disable everything? treat as all disables?
-        // spec: empty include would deny everything, but muse case not listed
-        // We'll throw invalid-tool-grant as per pi? But for muse, includeFlag null path check above already?
-        // Empty include list = deny everything. For muse strict? We'll emit all disable flags
-        const tokens = h.tools.categories.map((c) => c.disableFlag).filter((f): f is string => !!f);
-        return { tokens, unmapped: passthrough, passthrough };
-      }
-      // Determine which categories are granted (canonical member present)
-      const grantedCats = new Set<string>();
-      for (const c of canonical) {
-        const val = table[c]?.[h.name];
-        if (val?.kind === "category") grantedCats.add(val.key);
-      }
-      const tokens: string[] = [];
-      for (const cat of h.tools.categories) {
-        if (!grantedCats.has(cat.key) && cat.disableFlag) tokens.push(cat.disableFlag);
-      }
-      // inexpressible names are no-op, already ignored for grants
-      return { tokens, unmapped: passthrough, passthrough };
-    }
-    // fallback generic refusal
-    const option = hasInclude ? "tools" : "excludeTools";
-    const by = supportedBy(defaultDescriptors(), option);
+  if (isCodexShape) {
     throw new ArgvRefusalError({
       issue: "unsupported-option",
       harness: h.name,
-      option,
+      option: hasInclude ? "tools" : "excludeTools",
       supported: ["per-tool name lists"],
-      supportedBy: by,
-      hint: "nearest control on muse: category switches (--disable-write, --disable-shell, --disable-web-tools) gate tool execution per session",
+      supportedBy: supportedBy(set, hasInclude ? "tools" : "excludeTools"),
+      hint:
+        hintFor(h.name, hasInclude ? "tools" : "excludeTools") ??
+        "nearest control on codex: category switches via config keys (features.shell_tool, web_search) or sandbox modes - see `hcn inspect codex`",
     });
+  }
+  if (isCategoryShape) {
+    const names = hasInclude ? selection.include! : selection.exclude!;
+    const { canonical, passthrough } = splitSelection(names);
+
+    if (hasExclude) {
+      // one helper replaces the three no-counterpart loops
+      for (const c of canonical) {
+        const has = toolMap[c] !== undefined || table[c]?.[h.name] !== undefined;
+        if (!has) {
+          throw new ArgvRefusalError({
+            issue: "unsupported-option",
+            harness: h.name,
+            option: "excludeTools",
+            supported: ["per-tool name lists"],
+            supportedBy: supportedByCanonical(set, c),
+            hint: hintFor(h.name, "excludeTools"),
+          });
+        }
+      }
+      const cats = categoriesFor(h, canonical, table);
+      const tokens: string[] = [];
+      for (const cat of h.tools.categories) {
+        if (cats.has(cat.key) && cat.disableFlag) tokens.push(cat.disableFlag);
+      }
+      return { tokens, passthrough };
+    }
+
+    for (const c of canonical) {
+      const has = toolMap[c] !== undefined || table[c]?.[h.name] !== undefined;
+      if (!has) {
+        throw new ArgvRefusalError({
+          issue: "unsupported-option",
+          harness: h.name,
+          option: "tools",
+          supported: ["per-tool name lists"],
+          supportedBy: supportedByCanonical(set, c),
+          hint: hintFor(h.name, "tools"),
+        });
+      }
+    }
+    if (canonical.length === 0) {
+      const tokens = h.tools.categories.map((c) => c.disableFlag).filter((f): f is string => !!f);
+      return { tokens, passthrough };
+    }
+    const grantedCats = categoriesFor(h, canonical, table);
+    const tokens: string[] = [];
+    for (const cat of h.tools.categories) {
+      if (!grantedCats.has(cat.key) && cat.disableFlag) tokens.push(cat.disableFlag);
+    }
+    return { tokens, passthrough };
   }
 
   // From here: h has list flags (claude, pi)
@@ -224,59 +221,74 @@ export const renderToolSelection = (
         });
       }
       const known = h.tools.builtins.map((t) => t.name);
-      return { tokens: [h.tools.excludeFlag, known.join(",")], unmapped: [], passthrough: [] };
+      return { tokens: [h.tools.excludeFlag!, known.join(",")], passthrough: [] };
     }
-    const { canonical, passthrough } = splitSelection(names as readonly string[]);
-    // check counterpart on this harness
+    const { canonical, passthrough } = splitSelection(names);
     for (const c of canonical) {
-      if (!hasCounterpart(c, h)) {
+      const has = toolMap[c] !== undefined || table[c]?.[h.name] !== undefined;
+      if (!has) {
         throw new ArgvRefusalError({
           issue: "unsupported-option",
           harness: h.name,
           option: "tools",
           supported: ["per-tool name lists"],
-          supportedBy: supportedByForCanonical(c),
+          supportedBy: supportedByCanonical(set, c),
           hint: `add toolMap.${h.name}.${c} to ~/.config/hcn/config.json or pass native:${c}`,
         });
       }
     }
-    const mapped = canonical.map((c) => nativeFor(c, h)!).filter(Boolean);
+    const mapped: string[] = [];
+    for (const c of canonical) {
+      let n: string | null = toolMap[c] ?? null;
+      if (n === null) {
+        const entry = table[c]?.[h.name];
+        if (entry?.kind === "builtin") n = entry.native;
+      }
+      if (n) mapped.push(n);
+    }
     if (!h.tools.includeIsStrictAllowlist) {
+      // claude's include flag pre-approves without restricting, so an exact allowlist renders as the deny complement
       const known = h.tools.builtins.map((t) => t.name);
       const excluded = known.filter((n) => !mapped.includes(n));
       const tokens: string[] = [h.tools.includeFlag!, [...mapped, ...passthrough].join(",")];
-      tokens.push(h.tools.excludeFlag!, excluded.join(","));
-      return { tokens, unmapped: passthrough, passthrough };
+      // only add exclude if needed? original pushed exclude even when? Keep original behavior: push excludeFlag excluded
+      if (excluded.length > 0 || passthrough.length > 0) {
+        tokens.push(h.tools.excludeFlag!, excluded.join(","));
+      } else {
+        // when all tools included, exclude nothing? but keep token? original pushed exclude always
+        tokens.push(h.tools.excludeFlag!, excluded.join(","));
+      }
+      return { tokens, passthrough };
     }
     return {
       tokens: [h.tools.includeFlag!, [...mapped, ...passthrough].join(",")],
-      unmapped: passthrough,
       passthrough,
     };
   }
 
   // exclude
   const names = selection.exclude!;
-  const { canonical, passthrough: excludedPassthrough } = splitSelection(
-    names as readonly string[],
-  );
+  const { canonical, passthrough: excludedPassthrough } = splitSelection(names);
   for (const c of canonical) {
-    if (!hasCounterpart(c, h)) {
+    const has = toolMap[c] !== undefined || table[c]?.[h.name] !== undefined;
+    if (!has) {
       throw new ArgvRefusalError({
         issue: "unsupported-option",
         harness: h.name,
         option: "excludeTools",
         supported: ["per-tool name lists"],
-        supportedBy: supportedByForCanonical(c),
+        supportedBy: supportedByCanonical(set, c),
         hint: `add toolMap.${h.name}.${c} to ~/.config/hcn/config.json or pass native:${c}`,
       });
     }
   }
   if (excludedPassthrough.length > 0) {
     if (!h.tools.includeIsStrictAllowlist) {
-      const mapped = canonical.map((c) => nativeFor(c, h)!);
+      const mapped = canonical.map(
+        (c) => toolMap[c] ?? (table[c]?.[h.name] as { native: string } | undefined)?.native ?? c,
+      );
       const tokens = [h.tools.excludeFlag!, [...mapped, ...excludedPassthrough].join(",")];
-      return { tokens, unmapped: excludedPassthrough, passthrough: excludedPassthrough };
+      return { tokens, passthrough: excludedPassthrough };
     }
     throw new ArgvRefusalError({
       issue: "unknown-tool-name",
@@ -286,11 +298,13 @@ export const renderToolSelection = (
       detail: `cannot exclude unknown name(s) ${excludedPassthrough.join(", ")}: the complement cannot be computed`,
     });
   }
-  const mapped = canonical.map((c) => nativeFor(c, h)!);
+  const mapped = canonical
+    .map((c) => toolMap[c] ?? (table[c]?.[h.name] as { native: string } | undefined)?.native ?? "")
+    .filter(Boolean);
   const known = h.tools.builtins.filter((t) => !mapped.includes(t.name));
   const kept = known.map((t) => t.name);
   if (!h.tools.includeIsStrictAllowlist) {
-    return { tokens: [h.tools.excludeFlag!, mapped.join(",")], unmapped: [], passthrough: [] };
+    return { tokens: [h.tools.excludeFlag!, mapped.join(",")], passthrough: [] };
   }
-  return { tokens: [h.tools.includeFlag!, kept.join(",")], unmapped: [], passthrough: [] };
+  return { tokens: [h.tools.includeFlag!, kept.join(",")], passthrough: [] };
 };

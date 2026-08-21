@@ -112,6 +112,7 @@ export const museCode: HarnessDescriptor = deepFreeze({
     access: {
       kind: "flag-list-by-value",
       flags: { read: ["--disable-write", "--disable-shell"], write: [] },
+      render: { kind: "flag-list", flags: ["--disable-write", "--disable-shell"] },
     },
   },
   // Phase 0 fixtures: muse-category-flags.md. No name lists; category

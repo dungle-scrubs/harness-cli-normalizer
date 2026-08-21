@@ -26,6 +26,21 @@ export const deepFreeze = <T>(value: T): T => {
   return value;
 };
 
+export const CANONICAL_TOOLS = deepFreeze([
+  "read",
+  "edit",
+  "write",
+  "shell",
+  "grep",
+  "glob",
+  "list",
+  "web-fetch",
+  "web-search",
+  "subagent",
+  "skill",
+] as const);
+export type CanonicalTool = (typeof CANONICAL_TOOLS)[number];
+
 export type StreamingGranularity = "token" | "message" | "none";
 
 export type HarnessMode = "headless-turn" | "headless-session" | "interactive";
@@ -143,16 +158,16 @@ export type TurnOptionSpec =
       readonly default?: string;
     })
   /** Access preset: read/write dimension with per-harness rendering. */
-  | { readonly kind: "tool-preset" }
-  | {
+  | (SpecBase & { readonly kind: "tool-preset" })
+  | (SpecBase & {
       readonly kind: "flag-value";
       readonly flag: string;
       readonly values: Readonly<Record<string, string>>;
-    }
-  | {
+    })
+  | (SpecBase & {
       readonly kind: "flag-list-by-value";
       readonly flags: Readonly<Record<string, readonly string[]>>;
-    }
+    })
   /** Ladder comes from vocabulary.efforts / effortsByModel, not from here. */
   | (SpecBase & { readonly kind: "effort" })
   /** Open selector, CLEAN_SELECTOR-validated. */
@@ -423,13 +438,13 @@ export interface HarnessDescriptor {
     readonly builtins: ReadonlyArray<{
       readonly name: string;
       readonly defaultEnabled: boolean;
-      readonly canonical: string | null;
+      readonly canonical: CanonicalTool | null;
     }>;
     readonly categories: ReadonlyArray<{
       readonly key: "shell" | "write" | "web" | "exec" | "view-image";
       readonly disableFlag: string | null;
       readonly configKey: string | null;
-      readonly canonical: readonly string[];
+      readonly canonical: readonly CanonicalTool[];
     }>;
     readonly denySemantics: "remove-from-set" | "policy-gate" | "no-lists";
   };

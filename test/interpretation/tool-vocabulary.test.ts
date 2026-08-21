@@ -85,22 +85,22 @@ describe("tool vocabulary", () => {
 
 describe("mergeToolMaps", () => {
   it("user adds pi.web-search, project adds pi.subagent, both survive", () => {
-    const { merged, tiers } = mergeToolMaps({
+    const merged = mergeToolMaps({
       user: { pi: { "web-search": "web_search" } },
       project: { pi: { subagent: "background_task" } },
     });
-    expect(merged.pi?.["web-search"]).toBe("web_search");
-    expect(merged.pi?.subagent).toBe("background_task");
-    expect(tiers.pi?.["web-search"]).toBe("user-config");
-    expect(tiers.pi?.subagent).toBe("project-config");
+    expect(merged.pi?.["web-search"]?.native).toBe("web_search");
+    expect(merged.pi?.subagent?.native).toBe("background_task");
+    expect(merged.pi?.["web-search"]?.tier).toBe("user-config");
+    expect(merged.pi?.subagent?.tier).toBe("project-config");
   });
 
   it("project overrides user on same key with tier project-config", () => {
-    const { merged, tiers } = mergeToolMaps({
+    const merged = mergeToolMaps({
       user: { pi: { "web-search": "web_search" } },
       project: { pi: { "web-search": "other_search" } },
     });
-    expect(merged.pi?.["web-search"]).toBe("other_search");
-    expect(tiers.pi?.["web-search"]).toBe("project-config");
+    expect(merged.pi?.["web-search"]?.native).toBe("other_search");
+    expect(merged.pi?.["web-search"]?.tier).toBe("project-config");
   });
 });

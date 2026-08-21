@@ -13,7 +13,8 @@ import { DEFAULT_TURN_PROFILE, type ProfileKey } from "../knowledge/profile.js";
 import type { TurnOptions } from "./argv.js";
 import { ArgvRefusalError } from "./refusal.js";
 import type { ToolMap } from "./tool-vocabulary.js";
-import { canonicalNames, mergeToolMaps } from "./tool-vocabulary.js";
+import { allCanonicalNames, mergeToolMaps, validateCanonicalList } from "./tool-vocabulary.js";
+import { validateAccess } from "./vocabulary.js";
 
 export type ProvenanceTier = "arg" | "project-config" | "user-config" | "profile" | "harness";
 
@@ -131,14 +132,17 @@ export const resolveEffectiveOptions = (
   const resolved: Record<string, unknown> = { ...effectiveArgs };
 
   // Validate access value before exclusivity so invalid reports invalid-option-value, not mutual exclusion.
-  if (resolved.access !== undefined && resolved.access !== "read" && resolved.access !== "write") {
-    throw new ArgvRefusalError({
-      issue: "invalid-option-value",
-      harness: h.name,
-      option: "access",
-      supported: ["read", "write"],
-      detail: String(resolved.access),
-    });
+  if (resolved.access !== undefined) {
+    const v = validateAccess(String(resolved.access));
+    if (!v.ok) {
+      throw new ArgvRefusalError({
+        issue: "invalid-option-value",
+        harness: h.name,
+        option: "access",
+        supported: ["read", "write"],
+        detail: String(resolved.access),
+      });
+    }
   }
   // Access exclusivity on codex: explicit --sandbox together with --access refuses.
   // Profile sandbox yields to access - only explicit sandbox counts.
@@ -175,57 +179,51 @@ export const resolveEffectiveOptions = (
   // toolMap merge per harness per canonical (project > user)
   const rawToolMapUser = (tiers.user as { toolMap?: ToolMap } | undefined)?.toolMap;
   const rawToolMapProject = (tiers.project as { toolMap?: ToolMap } | undefined)?.toolMap;
-  const { merged: mergedToolMap, tiers: toolMapTiers } = mergeToolMaps({
-    user: rawToolMapUser,
-    project: rawToolMapProject,
-  });
+  const mergedToolMap = mergeToolMaps({ user: rawToolMapUser, project: rawToolMapProject });
   if (Object.keys(mergedToolMap).length > 0) {
-    resolved.toolMap = mergedToolMap;
-    // provenance per harness per canonical for the current harness
+    // Convert mergedToolMap to legacy shape for resolved.toolMap consumers
+    const legacy: Record<string, Record<string, string>> = {};
+    for (const [harness, per] of Object.entries(mergedToolMap)) {
+      legacy[harness] = {};
+      for (const [canon, entry] of Object.entries(per as Record<string, { native: string }>)) {
+        legacy[harness]![canon] = entry.native;
+      }
+    }
+    resolved.toolMap = legacy as unknown as typeof resolved.toolMap;
     const harnessMap = mergedToolMap[h.name];
-    const harnessTiers = toolMapTiers[h.name];
-    if (harnessMap && harnessTiers) {
-      for (const [canonical, native] of Object.entries(harnessMap)) {
+    if (harnessMap) {
+      for (const [canonical, entry] of Object.entries(harnessMap)) {
         provenance.push({
           key: `tools.${canonical}`,
-          value: native,
-          tier: harnessTiers[canonical] as ProvenanceTier,
+          value: entry.native,
+          tier: entry.tier as ProvenanceTier,
         });
       }
     }
   }
 
-  // D5 floor: a project toolset floor caps any arg grant; exceeding it is
-  // a structured refusal naming both sets - never a silent clamp.
-  // Canonical validation: project tools floor members must be canonical names.
-  const baseCanonical = canonicalNames(defaultDescriptors());
-  const allToolMapCanonical = [
-    ...new Set([
-      ...Object.values(mergedToolMap).flatMap((m) => Object.keys(m as Record<string, string>)),
-    ]),
-  ];
-  const allCanonical = [...new Set([...baseCanonical, ...allToolMapCanonical])].sort();
-  const validateCanonicalList = (list: readonly string[] | undefined, tier: string): void => {
-    if (!list) return;
-    for (const name of list) {
-      if (name.startsWith("native:")) continue;
-      if (!allCanonical.includes(name)) {
-        throw new ArgvRefusalError({
-          issue: "unknown-tool-name",
-          harness: h.name,
-          option: "tools",
-          supported: allCanonical as unknown as string[],
-          hint: "use native:<name> for an extension or MCP tool",
-          detail: `unknown tool name ${JSON.stringify(name)} in ${tier}`,
-        });
-      }
-    }
+  // Lazy allCanonical build only when tools context present
+  const needsCanonical =
+    tiers.project?.tools !== undefined ||
+    tiers.user?.tools !== undefined ||
+    effectiveArgs.tools !== undefined ||
+    (effectiveArgs as unknown as Record<string, unknown>).excludeTools !== undefined ||
+    Object.keys(toolsets).length > 0 ||
+    tiers.project?.toolMap !== undefined ||
+    tiers.user?.toolMap !== undefined;
+  let allCanonical: readonly string[] | undefined;
+  const getAllCanonical = (): readonly string[] => {
+    if (allCanonical) return allCanonical;
+    allCanonical = allCanonicalNames(defaultDescriptors(), mergedToolMap as unknown as ToolMap);
+    return allCanonical;
   };
-  validateCanonicalList(tiers.project?.tools as readonly string[] | undefined, "project floor");
-  validateCanonicalList(tiers.user?.tools as readonly string[] | undefined, "user config");
-  // also validate toolset members are canonical (they expand into tools)
-  for (const set of Object.values(toolsets)) {
-    validateCanonicalList(set as readonly string[], "toolset");
+  if (needsCanonical) {
+    const ac = getAllCanonical();
+    validateCanonicalList(tiers.project?.tools as readonly string[] | undefined, ac, h.name);
+    validateCanonicalList(tiers.user?.tools as readonly string[] | undefined, ac, h.name);
+    for (const set of Object.values(toolsets)) {
+      validateCanonicalList(set as readonly string[], ac, h.name);
+    }
   }
   const floor = tiers.project?.tools;
   if (floor !== undefined && effectiveArgs.tools !== undefined) {

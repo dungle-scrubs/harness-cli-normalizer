@@ -156,6 +156,14 @@ version mismatch exit 2 naming the offender.
 | subagent | Task | - | - | - |
 | skill | Skill | - | - | - |
 
+`toolMap` extends the vocabulary per harness via config (`toolMap.<harness>.<canonical> = "<native>"`):
+
+```json
+{ "version": 1, "toolMap": { "pi": { "web-search": "web_search" }, "muse": { "write": "write_file" } } }
+```
+
+Precedence is `project > user`; a category-only harness (muse) refuses a `toolMap` key whose canonical is not in its categories, naming the key (e.g. `toolMap.muse.read`). A canonical name with no counterpart on the current harness refuses with `unsupported-option` and the hint `add toolMap.<harness>.<name> to ~/.config/hcn/config.json or pass native:<name>`. hcn cannot verify that a declared native name exists at run time; a wrong name reaches the harness as an unknown tool.
+
 `--access` is a preset allowlist: `read` = `read, grep, glob, list, web-fetch, web-search` (canonical), `write` = no restriction.
 
 Rendering per harness:
