@@ -12,7 +12,8 @@ import { defaultDescriptors } from "../knowledge/overrides.js";
 import { DEFAULT_TURN_PROFILE, type ProfileKey } from "../knowledge/profile.js";
 import type { TurnOptions } from "./argv.js";
 import { ArgvRefusalError } from "./refusal.js";
-import { canonicalNames } from "./tool-vocabulary.js";
+import type { ToolMap } from "./tool-vocabulary.js";
+import { canonicalNames, mergeToolMaps } from "./tool-vocabulary.js";
 
 export type ProvenanceTier = "arg" | "project-config" | "user-config" | "profile" | "harness";
 
@@ -129,10 +130,39 @@ export const resolveEffectiveOptions = (
   }
   const resolved: Record<string, unknown> = { ...effectiveArgs };
 
+  // toolMap merge per harness per canonical (project > user)
+  const rawToolMapUser = (tiers.user as { toolMap?: ToolMap } | undefined)?.toolMap;
+  const rawToolMapProject = (tiers.project as { toolMap?: ToolMap } | undefined)?.toolMap;
+  const { merged: mergedToolMap, tiers: toolMapTiers } = mergeToolMaps({
+    user: rawToolMapUser,
+    project: rawToolMapProject,
+  });
+  if (Object.keys(mergedToolMap).length > 0) {
+    resolved.toolMap = mergedToolMap;
+    // provenance per harness per canonical for the current harness
+    const harnessMap = mergedToolMap[h.name];
+    const harnessTiers = toolMapTiers[h.name];
+    if (harnessMap && harnessTiers) {
+      for (const [canonical, native] of Object.entries(harnessMap)) {
+        provenance.push({
+          key: `tools.${canonical}`,
+          value: native,
+          tier: harnessTiers[canonical] as ProvenanceTier,
+        });
+      }
+    }
+  }
+
   // D5 floor: a project toolset floor caps any arg grant; exceeding it is
   // a structured refusal naming both sets - never a silent clamp.
   // Canonical validation: project tools floor members must be canonical names.
-  const allCanonical = canonicalNames(defaultDescriptors());
+  const baseCanonical = canonicalNames(defaultDescriptors());
+  const allToolMapCanonical = [
+    ...new Set([
+      ...Object.values(mergedToolMap).flatMap((m) => Object.keys(m as Record<string, string>)),
+    ]),
+  ];
+  const allCanonical = [...new Set([...baseCanonical, ...allToolMapCanonical])].sort();
   const validateCanonicalList = (list: readonly string[] | undefined, tier: string): void => {
     if (!list) return;
     for (const name of list) {
@@ -242,6 +272,7 @@ export const resolveEffectiveOptions = (
   // (validated later by the same renderers as args).
   for (const [key, value] of Object.entries(config)) {
     if (key === "toolsets") continue; // expanded into args above, never a turn option
+    if (key === "toolMap") continue; // per-canonical provenance already emitted
     if (key in DEFAULT_TURN_PROFILE) continue;
     if (effectiveArgs[key as keyof TurnOptions] !== undefined) {
       provenance.push({ key, value: effectiveArgs[key as keyof TurnOptions], tier: "arg" });

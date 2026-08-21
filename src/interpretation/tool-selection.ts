@@ -12,6 +12,7 @@ export const TOOL_SELECTOR = /^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$/;
 export interface ToolSelection {
   readonly include?: readonly string[];
   readonly exclude?: readonly string[];
+  readonly toolMap?: Readonly<Record<string, string>>;
 }
 
 export interface RenderedToolSelection {
@@ -58,8 +59,10 @@ export const renderToolSelection = (
   if (!hasInclude && !hasExclude) return { tokens: [], unmapped: [], passthrough: [] };
 
   // Helpers for canonical handling
-  const allCanonical = canonicalNames(defaultDescriptors());
+  const baseCanonical = canonicalNames(defaultDescriptors());
   const table = canonicalToolTable(defaultDescriptors());
+  const toolMap = selection.toolMap ?? {};
+  const allCanonical = [...new Set([...baseCanonical, ...Object.keys(toolMap)])].sort();
 
   const splitSelection = (
     names: readonly string[],
@@ -102,12 +105,14 @@ export const renderToolSelection = (
   };
 
   const hasCounterpart = (canonical: string, harness: HarnessDescriptor): boolean => {
+    if (toolMap[canonical] !== undefined) return true;
     const entry = table[canonical];
     if (!entry) return false;
     return entry[harness.name] !== undefined;
   };
 
   const nativeFor = (canonical: string, harness: HarnessDescriptor): string | undefined => {
+    if (toolMap[canonical] !== undefined) return toolMap[canonical];
     const entry = table[canonical];
     const val = entry?.[harness.name];
     if (typeof val === "string") return val;
@@ -222,10 +227,7 @@ export const renderToolSelection = (
           option: "tools",
           supported: ["per-tool name lists"],
           supportedBy: supportedByForCanonical(c),
-          hint:
-            h.name === "codex"
-              ? "nearest control on codex: category switches via config keys (features.shell_tool, web_search) or sandbox modes - see `hcn inspect codex`"
-              : "nearest control on muse: category switches (--disable-write, --disable-shell, --disable-web-tools) gate tool execution per session",
+          hint: `add toolMap.${h.name}.${c} to ~/.config/hcn/config.json or pass native:${c}`,
         });
       }
     }
@@ -257,10 +259,7 @@ export const renderToolSelection = (
         option: "excludeTools",
         supported: ["per-tool name lists"],
         supportedBy: supportedByForCanonical(c),
-        hint:
-          h.name === "codex"
-            ? "nearest control on codex: category switches via config keys (features.shell_tool, web_search) or sandbox modes - see `hcn inspect codex`"
-            : "nearest control on muse: category switches (--disable-write, --disable-shell, --disable-web-tools) gate tool execution per session",
+        hint: `add toolMap.${h.name}.${c} to ~/.config/hcn/config.json or pass native:${c}`,
       });
     }
   }

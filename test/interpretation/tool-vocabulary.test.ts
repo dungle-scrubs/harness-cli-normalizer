@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { canonicalNames, canonicalToolTable } from "../../src/interpretation/tool-vocabulary.js";
+import {
+  canonicalNames,
+  canonicalToolTable,
+  mergeToolMaps,
+} from "../../src/interpretation/tool-vocabulary.js";
 import { defaultDescriptors } from "../../src/knowledge/overrides.js";
 
 describe("tool vocabulary", () => {
@@ -49,5 +53,27 @@ describe("tool vocabulary", () => {
     expectEntry("skill", { claude: "Skill" });
 
     expect(Object.keys(table).length).toBe(11);
+  });
+});
+
+describe("mergeToolMaps", () => {
+  it("user adds pi.web-search, project adds pi.subagent, both survive", () => {
+    const { merged, tiers } = mergeToolMaps({
+      user: { pi: { "web-search": "web_search" } },
+      project: { pi: { subagent: "background_task" } },
+    });
+    expect(merged.pi?.["web-search"]).toBe("web_search");
+    expect(merged.pi?.subagent).toBe("background_task");
+    expect(tiers.pi?.["web-search"]).toBe("user-config");
+    expect(tiers.pi?.subagent).toBe("project-config");
+  });
+
+  it("project overrides user on same key with tier project-config", () => {
+    const { merged, tiers } = mergeToolMaps({
+      user: { pi: { "web-search": "web_search" } },
+      project: { pi: { "web-search": "other_search" } },
+    });
+    expect(merged.pi?.["web-search"]).toBe("other_search");
+    expect(tiers.pi?.["web-search"]).toBe("project-config");
   });
 });

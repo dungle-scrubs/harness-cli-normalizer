@@ -516,6 +516,102 @@ describe("exit codes", () => {
   });
 });
 
+describe("toolMap inspect integration", () => {
+  test("inspect pi --argv with user toolMap renders native and prints provenance", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "hcn-toolmap-"));
+    writeFileSync(
+      join(dir, "config.json"),
+      JSON.stringify({ version: 1, toolMap: { pi: { "web-search": "web_search" } } }),
+    );
+    const prev = process.env.HCN_CONFIG_DIR;
+    process.env.HCN_CONFIG_DIR = dir;
+    try {
+      const out = await captureDispatch([
+        "inspect",
+        "pi",
+        "--argv",
+        "--prompt",
+        "hi",
+        "--tools",
+        "web-search",
+      ]);
+      expect(out.exitCode).toBeUndefined();
+      expect(out.stdout).toContain("web_search");
+      expect(out.stderr).toContain('tools.web-search = "web_search"');
+      expect(out.stderr).toContain("user-config");
+      const parsed = JSON.parse(out.stdout);
+      expect(parsed.join(" ")).toContain("--tools web_search");
+    } finally {
+      process.env.HCN_CONFIG_DIR = prev;
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("inspect pi JSON shows toolVocabulary entries with source", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "hcn-toolmap2-"));
+    writeFileSync(
+      join(dir, "config.json"),
+      JSON.stringify({ version: 1, toolMap: { pi: { "web-search": "web_search" } } }),
+    );
+    const prev = process.env.HCN_CONFIG_DIR;
+    process.env.HCN_CONFIG_DIR = dir;
+    try {
+      const out = await captureDispatch(["inspect", "pi"]);
+      const parsed = JSON.parse(out.stdout);
+      const ws = parsed.toolVocabulary["web-search"] as { native: string; source: string };
+      expect(ws.native).toBe("web_search");
+      expect(ws.source).toBe("user-config");
+      const read = parsed.toolVocabulary["read"] as { native: string; source: string };
+      expect(read.source).toBe("descriptor");
+    } finally {
+      process.env.HCN_CONFIG_DIR = prev;
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("project config overrides user config for same key", async () => {
+    const userDir = mkdtempSync(join(tmpdir(), "hcn-toolmap-u-"));
+    const projDir = mkdtempSync(join(tmpdir(), "hcn-toolmap-p-"));
+    writeFileSync(
+      join(userDir, "config.json"),
+      JSON.stringify({ version: 1, toolMap: { pi: { "web-search": "web_search" } } }),
+    );
+    mkdirSync(join(projDir, ".git"));
+    mkdirSync(join(projDir, ".hcn"));
+    writeFileSync(
+      join(projDir, ".hcn", "config.json"),
+      JSON.stringify({ version: 1, toolMap: { pi: { "web-search": "other_search" } } }),
+    );
+    const prev = process.env.HCN_CONFIG_DIR;
+    process.env.HCN_CONFIG_DIR = userDir;
+    const origCwd = process.cwd();
+    try {
+      process.chdir(projDir);
+      const out = await captureDispatch([
+        "inspect",
+        "pi",
+        "--argv",
+        "--prompt",
+        "hi",
+        "--tools",
+        "web-search",
+      ]);
+      expect(out.stdout).toContain("other_search");
+      expect(out.stderr).toContain("project-config");
+      const pure = await captureDispatch(["inspect", "pi"]);
+      const parsed = JSON.parse(pure.stdout);
+      expect((parsed.toolVocabulary["web-search"] as { source: string }).source).toBe(
+        "project-config",
+      );
+    } finally {
+      process.chdir(origCwd);
+      process.env.HCN_CONFIG_DIR = prev;
+      rmSync(userDir, { recursive: true, force: true });
+      rmSync(projDir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("help/version snapshot", () => {
   test("help output is stable", () => {
     expect(TOP_LEVEL_HELP).toContain("hcn <command>");

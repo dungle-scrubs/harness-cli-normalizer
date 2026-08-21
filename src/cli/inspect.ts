@@ -49,14 +49,60 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
   const wantArgv = values.argv === true;
 
   if (!wantArgv) {
-    // Pure descriptor dump
-    const { canonicalToolTable } = await import("../interpretation/tool-vocabulary.js");
+    // Pure descriptor dump with merged toolMap vocabulary
+    const { canonicalToolTable, mergeToolMaps } = await import(
+      "../interpretation/tool-vocabulary.js"
+    );
     const { defaultDescriptors } = await import("../knowledge/overrides.js");
+    const { loadUserConfig, loadProjectConfig, ConfigError } = await import("./config.js");
     const table = canonicalToolTable(defaultDescriptors());
+    // load merged toolMaps for source tracking
+    let rawUserMap: Record<string, Record<string, string>> | undefined;
+    let rawProjectMap: Record<string, Record<string, string>> | undefined;
+    try {
+      const u = loadUserConfig();
+      rawUserMap = (u?.config as { toolMap?: Record<string, Record<string, string>> } | undefined)
+        ?.toolMap;
+      const p = loadProjectConfig();
+      rawProjectMap = (
+        p?.config as { toolMap?: Record<string, Record<string, string>> } | undefined
+      )?.toolMap;
+    } catch (e) {
+      if (e instanceof ConfigError) {
+        process.stderr.write(`config error: ${(e as Error).message}\n`);
+        process.exitCode = 2;
+        return;
+      }
+      throw e;
+    }
+    const { merged, tiers: toolMapTiers } = mergeToolMaps({
+      user: rawUserMap,
+      project: rawProjectMap,
+    });
     const slice: Record<string, unknown> = {};
+    // descriptor entries
     for (const [canonical, perHarness] of Object.entries(table)) {
       const v = (perHarness as Record<string, unknown>)[h.name];
-      if (v !== undefined) slice[canonical] = v;
+      if (v !== undefined) {
+        const mapped = merged[h.name]?.[canonical];
+        if (mapped !== undefined) {
+          const src = toolMapTiers[h.name]?.[canonical] ?? "user-config";
+          slice[canonical] = { native: mapped, source: src };
+        } else {
+          const val =
+            typeof v === "string"
+              ? { native: v, source: "descriptor" }
+              : { ...v, source: "descriptor" };
+          slice[canonical] = val;
+        }
+      }
+    }
+    // toolMap-only entries (new canonicals)
+    for (const [canonical, native] of Object.entries(merged[h.name] ?? {})) {
+      if (slice[canonical] === undefined) {
+        const src = toolMapTiers[h.name]?.[canonical] ?? "user-config";
+        slice[canonical] = { native, source: src };
+      }
     }
     const out = {
       name: h.name,
@@ -257,6 +303,8 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
     if (err instanceof ArgvRefusalError) {
       process.stderr.write(`${err.message}\n`);
       if (err.supported.length) process.stderr.write(`supported: ${err.supported.join(", ")}\n`);
+      if ((err as ArgvRefusalError).hint)
+        process.stderr.write(`hint: ${(err as ArgvRefusalError).hint}\n`);
       process.exitCode = 2;
       return;
     }

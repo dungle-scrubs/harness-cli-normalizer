@@ -221,3 +221,46 @@ describe("F-36: empty include list handling per harness", () => {
     );
   });
 });
+
+describe("toolMap extensible vocabulary", () => {
+  it("with toolMap web-search on pi renders web_search", () => {
+    const { tokens } = renderToolSelection(piCli, {
+      include: ["web-search"],
+      toolMap: { "web-search": "web_search" },
+    });
+    expect(tokens).toEqual(["--tools", "web_search"]);
+  });
+
+  it("without toolMap web-search on pi refuses unsupported-option with hint naming toolMap.pi.web-search", () => {
+    try {
+      renderToolSelection(piCli, { include: ["web-search"] });
+      expect.unreachable();
+    } catch (e) {
+      const err = e as { issue: string; hint: string };
+      expect(err.issue).toBe("unsupported-option");
+      expect(err.hint).toContain("toolMap.pi.web-search");
+    }
+  });
+
+  it("native:web_search still passes through with provenance", () => {
+    const { tokens, passthrough } = renderToolSelection(piCli, {
+      include: ["native:web_search"],
+    });
+    expect(tokens).toEqual(["--tools", "web_search"]);
+    expect(passthrough).toEqual(["web_search"]);
+  });
+
+  it("shadowing entry wins over descriptor", () => {
+    const { tokens } = renderToolSelection(piCli, {
+      include: ["read"],
+      toolMap: { read: "my_read" },
+    });
+    expect(tokens).toEqual(["--tools", "my_read"]);
+  });
+
+  it("unknown everywhere still refuses unknown-tool-name", () => {
+    expect(() => renderToolSelection(piCli, { include: ["does-not-exist"] })).toThrow(
+      expect.objectContaining({ issue: "unknown-tool-name" }),
+    );
+  });
+});
