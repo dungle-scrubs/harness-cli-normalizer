@@ -1995,3 +1995,36 @@ re-measures against the release that carries PR #55 and PR #56.
   `authKind: "not-logged-in"`, retryable. Severity: major for Q1.
   Evidence: `test/fixtures/harnesses/pi-noauth.ndjson` and
   `pi-noauth.stderr`.
+
+## Addendum 3 - re-measure against 0.5.0 (2026-08-21, late)
+
+Live, on the installed 0.5.0 binary on air:
+
+- `hcn run <h> --json` on claude, codex, pi, muse: exit 0, `identity`
+  first, `done cause=clean` last, every stdout line JSON, events arrive as
+  they happen (2.7 s to 10.9 s spans), provenance on stderr only. pi
+  backgrounded with no stdin redirect: exit 0, no hang.
+- `question-roundtrip` (ask, resume with the answer, continue): claude,
+  codex, muse pass with the same session id on both turns. pi FAILED:
+  turn 2 exit 2, see F-73.
+- `delegate.ts` walk with a forced first route (`qwen3.6-27b@pi` on
+  lmstudio): stopped on the first route, see F-72.
+
+- F-72 `src/interpretation/content.ts` (pi reader) / failure classes.
+  LM Studio was reachable but did not have the requested model loaded;
+  pi reported `stopReason: error` with a 400 `model_not_found` body.
+  hcn classed it `task`, non-retryable, and `delegate.ts` stopped instead
+  of advancing to the next route. A provider that cannot serve this
+  model reached no verdict on the work; for a route walk it is
+  provider-unavailable. Open question for the owner: map provider 4xx
+  `model_not_found` / invalid-model replies to `transport` (retryable),
+  or add a retryable class for "this route cannot be served". Severity:
+  major for Q1.
+- F-73 `src/cli/run.ts` stale-resume guard (from F-23, 0.4.6). The guard
+  slugged the cwd as given; pi slugs the directory's real path. On macOS
+  a temp directory under `/var` is really `/private/var`, so the guard
+  computed a store path that does not exist and refused a valid resume
+  with exit 2. Reproduced with `hcn run pi --cwd <mkdtemp> --resume <id>`.
+  Fixed in `src/cli/resume-guard.ts` (real path before slugging) with a
+  symlink test. Severity: major for Q1 and Q2 (the question round trip on
+  pi broke whenever the caller used a temp cwd).

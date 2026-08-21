@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs";
 import type { HarnessEvent } from "../execution/events.js";
 import { nodeRunnerDeps } from "../execution/node-deps.js";
 import { KILL_GRACE_MS, redactArgv, streamTurn } from "../execution/stream-turn.js";
@@ -6,13 +5,13 @@ import { buildLaunchArgv, buildResumeArgv } from "../interpretation/argv.js";
 import { composeEscalatedPrompt } from "../interpretation/question.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
 import { FloorExceededError, resolveEffectiveOptions } from "../interpretation/resolve-options.js";
-import { storePath } from "../interpretation/store.js";
 import { recognizeNativeSpelling, supportedBy } from "../interpretation/support.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { parseRunExtra, parseTurnOptions, resolvePromptAsync } from "./args.js";
 import { refusalOf, refuse } from "./refuse.js";
 import { createRenderState, renderEvent, writeEventNdjson } from "./render.js";
 import { resolveHarness } from "./resolve-harness.js";
+import { resumeStore } from "./resume-guard.js";
 
 export const run = async (harnessName: string, rawArgs: string[]): Promise<void> => {
   const h = resolveHarness(harnessName);
@@ -377,17 +376,12 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   // the session store path does not exist; where the path cannot be
   // computed, the runner's pre-spawn warning is the only guard.
   if (fullOpts.resume !== undefined && h.resume.onMissing === "create") {
-    let path: string | null = null;
-    try {
-      path = storePath(h, {
-        home: process.env.HOME ?? process.env.USERPROFILE ?? "",
-        cwd: extra.cwd ?? process.cwd(),
-        sessionId: fullOpts.resume,
-      });
-    } catch {
-      path = null;
-    }
-    if (path !== null && !existsSync(path)) {
+    const { path, exists } = resumeStore(h, {
+      home: process.env.HOME ?? process.env.USERPROFILE ?? "",
+      cwd: extra.cwd ?? process.cwd(),
+      sessionId: fullOpts.resume,
+    });
+    if (path !== null && !exists) {
       refuse(
         {
           message: `no ${h.name} session ${fullOpts.resume} found at ${path}`,
