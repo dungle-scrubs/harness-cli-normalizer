@@ -4,11 +4,11 @@
  * caller threads (identity dedupe per D-022). Unparseable lines on a
  * structured stream are tolerated - scanned for walls, never fatal.
  */
-import { capabilitiesOf } from "../interpretation/capabilities.js";
+import { type CapabilityResult, capabilitiesOf } from "../interpretation/capabilities.js";
 import { contentEventsOf } from "../interpretation/content.js";
 import { decodeIdentity } from "../interpretation/identity.js";
 import { detectLimitInLine } from "../interpretation/limits.js";
-import type { HarnessDescriptor } from "../knowledge/descriptor.js";
+import type { HarnessDescriptor, StreamingGranularity } from "../knowledge/descriptor.js";
 import type { HarnessEvent } from "./events.js";
 import { failureFromBudget } from "./failure.js";
 
@@ -31,6 +31,7 @@ export const decodeLine = (
   line: string,
   state: DecodeState,
   model: string,
+  streaming?: StreamingGranularity,
 ): HarnessEvent[] => {
   let raw: unknown;
   try {
@@ -44,7 +45,7 @@ export const decodeLine = (
     }
     return [];
   }
-  return decodeParsed(h, raw, state, model);
+  return decodeParsed(h, raw, state, model, streaming);
 };
 
 /** The parsed-record half of decodeLine, for pumps that already parsed the
@@ -55,8 +56,16 @@ export const decodeParsed = (
   raw: unknown,
   state: DecodeState,
   model: string,
+  streaming?: StreamingGranularity,
 ): HarnessEvent[] => {
   const events: HarnessEvent[] = [];
+  // Streaming is a property of the spawned argv, not of the model, so the
+  // runner passes what streamingGranularityOf computed for it; the curated
+  // baseline supplies the rest. An unknown model stays unknown throughout.
+  const capabilities = (): CapabilityResult => {
+    const base = capabilitiesOf(h, model, "headless-turn");
+    return streaming !== undefined && base.source !== "unknown" ? { ...base, streaming } : base;
+  };
   const decoded = decodeIdentity(h, raw, state.lastSeenId, state.requestedId);
   if (decoded.sessionId !== null) state.lastSeenId = decoded.sessionId;
   if (decoded.identity !== null) {
@@ -64,13 +73,29 @@ export const decodeParsed = (
       kind: "identity",
       sessionId: decoded.identity,
       authority: h.identity.authority,
-      capabilities: capabilitiesOf(h, model, "headless-turn"),
+      capabilities: capabilities(),
     });
   } else if (decoded.outcome === "malformed" || decoded.outcome === "rotated") {
-    // The interpretation layer classified an identity anomaly; swallowing
-    // it would leave the runner waiting for an identity that already
-    // failed to arrive (or bind a rotated one).
-    events.push({ kind: "error", message: `identity ${decoded.outcome}` });
+    if (decoded.outcome === "rotated") {
+      const requested = state.requestedId ?? "unknown";
+      const announced = decoded.sessionId ?? "unknown";
+      events.push({
+        kind: "error",
+        message: `identity rotated: requested ${requested} but announced ${announced}`,
+      });
+      // The harness answered under a different id: hand the consumer the
+      // id it can actually resume, marked as minted by the harness.
+      if (decoded.sessionId !== null) {
+        events.push({
+          kind: "identity",
+          sessionId: decoded.sessionId,
+          authority: "harness-minted",
+          capabilities: capabilities(),
+        });
+      }
+    } else {
+      events.push({ kind: "error", message: `identity ${decoded.outcome}` });
+    }
   }
 
   // Content (message/token/tool/error/budget) is per-harness; identity

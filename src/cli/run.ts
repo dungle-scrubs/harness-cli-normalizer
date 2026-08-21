@@ -7,6 +7,7 @@ import { composeEscalatedPrompt } from "../interpretation/question.js";
 import type { RefusalIssue } from "../interpretation/refusal.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
 import { FloorExceededError, resolveEffectiveOptions } from "../interpretation/resolve-options.js";
+import { storePath } from "../interpretation/store.js";
 import { recognizeNativeSpelling, supportedBy } from "../interpretation/support.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { parseRunExtra, parseTurnOptions, resolvePromptAsync } from "./args.js";
@@ -441,6 +442,43 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     }
   }
 
+  // F-23 CLI pre-check: for harnesses that create on missing, verify
+  // the session store path exists before spawning - otherwise a stale id
+  // silently becomes a blank session. If storePath cannot be computed,
+  // keep only the library warning.
+  if (fullOpts.resume !== undefined && h.resume.onMissing === "create") {
+    try {
+      const home = process.env.HOME ?? process.env.USERPROFILE ?? "";
+      const cwdForStore = extra.cwd ?? process.cwd();
+      const path = storePath(h, { home, cwd: cwdForStore, sessionId: fullOpts.resume });
+      const { existsSync } = await import("node:fs");
+      if (!existsSync(path)) {
+        const detail = `no ${h.name} session ${fullOpts.resume} found at ${path}`;
+        const message = detail;
+        // Refusal path - exit 2, NDJSON under --json
+        process.stderr.write(`${message}\n`);
+        process.stderr.write(`supported: verify the session id exists and is for ${h.name}\n`);
+        if (wantJson) {
+          const failure = {
+            kind: "failure" as const,
+            class: "rejected" as const,
+            retryable: false,
+            message,
+            issue: "invalid-option-value" as const,
+          };
+          process.stdout.write(`${JSON.stringify(failure)}\n`);
+          process.stdout.write(
+            `${JSON.stringify({ kind: "done", exitCode: null, cause: "failed", failure })}\n`,
+          );
+        }
+        process.exitCode = 2;
+        return;
+      }
+    } catch {
+      // storePath cannot be computed or fs check failed - keep library warning only
+    }
+  }
+
   // Delete HERDR_ENV before spawn
   delete (process.env as Record<string, string | undefined>).HERDR_ENV;
 
@@ -477,10 +515,12 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     },
   };
 
+  const abortController = new AbortController();
   let interrupted = false;
   const onSig = async () => {
     if (interrupted) return;
     interrupted = true;
+    abortController.abort();
     if (lastProc) {
       try {
         wrappedDeps.signal(lastProc, "SIGTERM");
@@ -506,7 +546,7 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
 
   try {
     // streamTurn handles both launch and resume via TurnRunOptions
-    const events = streamTurn(h, fullOpts, wrappedDeps);
+    const events = streamTurn(h, { ...fullOpts, signal: abortController.signal }, wrappedDeps);
     for await (const event of events) {
       lastEvent = event;
       if (wantJson) {

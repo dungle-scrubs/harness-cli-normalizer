@@ -27,7 +27,10 @@ export const capabilitiesOf = (
   model: string,
   mode: HarnessMode,
 ): CapabilityResult => {
-  if (!resolveModel(h, model).curated) {
+  // F-09: an absent model means the harness default model (curated), not
+  // an unknown model. Only degrade when a model was explicitly given and is
+  // not curated.
+  if (model !== "" && !resolveModel(h, model).curated) {
     // Curated claims cover curated models only - an extensible registry's
     // unknown model still degrades here until runtime verification.
     // Degrade: no raw-image claims, no streaming claims - transcribe/hold.

@@ -701,6 +701,73 @@ describe("hcn run execution (human + json)", () => {
     expect(out.stderr).toMatch(/supported/i);
   });
 
+  test("F-23 pi resume with unknown id refuses with invalid-option-value and path", async () => {
+    const tmpHome = mkdtempSync(join(tmpdir(), "hcn-home-"));
+    const tmpCwd = mkdtempSync(join(tmpdir(), "hcn-cwd-"));
+    const prevHome = process.env.HOME;
+    const prevHcn = process.env.HCN_CONFIG_DIR;
+    process.env.HOME = tmpHome;
+    process.env.HCN_CONFIG_DIR = mkdtempSync(join(tmpdir(), "hcn-cfg-"));
+    try {
+      const fakeId = "11111111-1111-4111-8111-111111111111";
+      const out = await captureDispatch(["run", "pi", "hi", "--resume", fakeId, "--cwd", tmpCwd]);
+      expect(out.exitCode).toBe(2);
+      expect(out.stderr).toContain(`no pi session ${fakeId} found at`);
+    } finally {
+      if (prevHome === undefined) delete process.env.HOME;
+      else process.env.HOME = prevHome;
+      if (prevHcn === undefined) delete process.env.HCN_CONFIG_DIR;
+      else process.env.HCN_CONFIG_DIR = prevHcn;
+      rmSync(tmpHome, { recursive: true, force: true });
+      rmSync(tmpCwd, { recursive: true, force: true });
+      const cfg = process.env.HCN_CONFIG_DIR;
+      if (cfg && cfg.startsWith(tmpdir())) {
+        try {
+          rmSync(cfg, { recursive: true, force: true });
+        } catch {}
+      }
+    }
+  });
+
+  test("F-23 pi resume with unknown id under --json emits NDJSON failure and done", async () => {
+    const tmpHome = mkdtempSync(join(tmpdir(), "hcn-home-"));
+    const tmpCwd = mkdtempSync(join(tmpdir(), "hcn-cwd-"));
+    const prevHome = process.env.HOME;
+    const prevHcn = process.env.HCN_CONFIG_DIR;
+    process.env.HOME = tmpHome;
+    process.env.HCN_CONFIG_DIR = mkdtempSync(join(tmpdir(), "hcn-cfg-"));
+    try {
+      const fakeId = "22222222-2222-4222-8222-222222222222";
+      const out = await captureDispatch([
+        "run",
+        "pi",
+        "hi",
+        "--resume",
+        fakeId,
+        "--cwd",
+        tmpCwd,
+        "--json",
+      ]);
+      expect(out.exitCode).toBe(2);
+      expect(out.stdout).toContain(`"kind":"failure"`);
+      expect(out.stdout).toContain(`"kind":"done"`);
+      expect(out.stdout).toContain(fakeId);
+    } finally {
+      if (prevHome === undefined) delete process.env.HOME;
+      else process.env.HOME = prevHome;
+      if (prevHcn === undefined) delete process.env.HCN_CONFIG_DIR;
+      else process.env.HCN_CONFIG_DIR = prevHcn;
+      rmSync(tmpHome, { recursive: true, force: true });
+      rmSync(tmpCwd, { recursive: true, force: true });
+      const cfg = process.env.HCN_CONFIG_DIR;
+      if (cfg && cfg.startsWith(tmpdir())) {
+        try {
+          rmSync(cfg, { recursive: true, force: true });
+        } catch {}
+      }
+    }
+  });
+
   test("run respects HERDR_ENV deletion (env not leaked to child)", async () => {
     process.env.HERDR_ENV = "test";
     const out = await captureDispatch(["run", "claude", "hi", "--model", "nope"]);
