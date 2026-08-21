@@ -5,3 +5,4 @@
 {"t":"version","version":3,"hash":"sha256:0cc761ab4df02d028f15a96fcdb194e3223b6372e007e21c2506863bbad2cc60","path":"versions/s1/v3.html","seq":5,"at":"2026-08-19T09:44:26.853Z"}
 {"t":"review_resolved","seq":6,"at":"2026-08-19T09:47:26.677Z"}
 {"t":"agent_ack","id":"d921ef8c-9d02-4ff4-a4fd-91c984de7f9e","covers":6,"attendant":{"harness":"pi","sessionId":"01a013f4-8eef-7d11-bd1d-22e34a4cce52","cwd":"/Users/kevin/dev/harness-cli-normalizer"},"seq":7,"at":"2026-08-19T09:47:40.259Z"}
+{"t":"session_suspended","seq":8,"at":"2026-08-21T09:56:42.259Z"}

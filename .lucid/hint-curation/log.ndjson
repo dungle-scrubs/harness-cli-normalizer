@@ -1,2 +1,3 @@
 {"t":"session_opened","segment":1,"artifact":"hint-curation.html","version":1,"hash":"sha256:255c79daa814a4ba760c7cbeea0f3da2003ed626804da35853a9351b68f3a842","path":"versions/s1/v1.html","attendant":{"harness":"pi","sessionId":"01a013f4-8eef-7d11-bd1d-22e34a4cce52","cwd":"/Users/kevin/dev/harness-cli-normalizer"},"seq":1,"at":"2026-08-19T07:22:49.456Z"}
 {"t":"review_resolved","seq":2,"at":"2026-08-19T07:37:09.293Z"}
+{"t":"session_suspended","seq":3,"at":"2026-08-21T09:56:42.260Z"}
