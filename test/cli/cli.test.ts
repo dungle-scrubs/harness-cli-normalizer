@@ -622,4 +622,88 @@ describe("hcn run execution (human + json)", () => {
     delete process.env.HERDR_ENV;
     expect(after === undefined || after === "test").toBe(true);
   });
+
+  test("run refusal with --json writes failure+done NDJSON (unsupported-option)", async () => {
+    const out = await captureDispatch([
+      "run",
+      "codex",
+      "--json",
+      "--provider",
+      "zai/glm-5.2",
+      "--prompt",
+      "hi",
+    ]);
+    expect(out.exitCode).toBe(2);
+    const lines = out.stdout.trim().split("\n").filter(Boolean);
+    expect(lines).toHaveLength(2);
+    const failure = JSON.parse(lines[0]!);
+    expect(failure.kind).toBe("failure");
+    expect(failure.class).toBe("rejected");
+    expect(failure.retryable).toBe(false);
+    expect(failure.issue).toBe("unsupported-option");
+    expect(failure.supported ?? failure.supportedBy).toBeDefined();
+    const done = JSON.parse(lines[1]!);
+    expect(done.kind).toBe("done");
+    expect(done.cause).toBe("failed");
+    expect(done.exitCode).toBeNull();
+    expect(done.failure.class).toBe("rejected");
+  });
+
+  test("run unknown flag with --json (pre-parse) writes failure+done", async () => {
+    const out = await captureDispatch([
+      "run",
+      "claude",
+      "--json",
+      "--bogus-flag",
+      "--prompt",
+      "hi",
+    ]);
+    expect(out.exitCode).toBe(2);
+    const lines = out.stdout.trim().split("\n").filter(Boolean);
+    expect(lines).toHaveLength(2);
+    const failure = JSON.parse(lines[0]!);
+    expect(failure.kind).toBe("failure");
+    expect(failure.class).toBe("rejected");
+    expect(failure.issue).toBe("invalid-option-value");
+    const done = JSON.parse(lines[1]!);
+    expect(done.kind).toBe("done");
+    expect(done.cause).toBe("failed");
+    expect(done.failure.class).toBe("rejected");
+  });
+
+  test("run value refusal with --json via ArgvRefusalError writes rejected failure", async () => {
+    const out = await captureDispatch([
+      "run",
+      "claude",
+      "--json",
+      "--prompt",
+      "hi",
+      "--max-steps",
+      "0",
+    ]);
+    expect(out.exitCode).toBe(2);
+    const lines = out.stdout.trim().split("\n").filter(Boolean);
+    expect(lines).toHaveLength(2);
+    const failure = JSON.parse(lines[0]!);
+    expect(failure.kind).toBe("failure");
+    expect(failure.class).toBe("rejected");
+    expect(failure.issue).toBeDefined();
+    const done = JSON.parse(lines[1]!);
+    expect(done.kind).toBe("done");
+    expect(done.cause).toBe("failed");
+    expect(done.failure.issue).toBe(failure.issue);
+  });
+
+  test("run refusal without --json leaves stdout empty", async () => {
+    const out = await captureDispatch([
+      "run",
+      "codex",
+      "--provider",
+      "zai/glm-5.2",
+      "--prompt",
+      "hi",
+    ]);
+    expect(out.exitCode).toBe(2);
+    expect(out.stdout).toBe("");
+  });
 });
