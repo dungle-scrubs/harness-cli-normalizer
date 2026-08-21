@@ -154,6 +154,7 @@ const refuseUnusableSessionId = (h: HarnessDescriptor, sessionId: string): void 
     throw new ArgvRefusalError({
       issue: "invalid-option-value",
       harness: h.name,
+      message: `${h.name} cannot resume ${e.message}`,
       supported: [
         `a session id of letters, digits, '.', '_', ':', '@', '-' only, starting with a letter or digit, at most ${SESSION_ID_MAX} chars`,
       ],
