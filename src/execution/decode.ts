@@ -10,6 +10,7 @@ import { decodeIdentity } from "../interpretation/identity.js";
 import { detectLimitInLine } from "../interpretation/limits.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import type { HarnessEvent } from "./events.js";
+import { failureFromBudget } from "./failure.js";
 
 export interface DecodeState {
   lastSeenId: string | null;
@@ -72,9 +73,16 @@ export const decodeParsed = (
     events.push({ kind: "error", message: `identity ${decoded.outcome}` });
   }
 
-  // Content (message/token/tool/error) is per-harness; identity above is
-  // descriptor-driven. contentEventsOf dispatches by harness name.
-  for (const content of contentEventsOf(h.name, raw)) events.push(content);
+  // Content (message/token/tool/error/budget) is per-harness; identity
+  // above is descriptor-driven. contentEventsOf dispatches by harness
+  // name. budget is not a HarnessEvent kind and must not leak out.
+  for (const content of contentEventsOf(h.name, raw)) {
+    if (content.kind === "budget") {
+      events.push({ kind: "failure", ...failureFromBudget(content.detail) });
+    } else {
+      events.push(content);
+    }
+  }
 
   // claude's rate_limit_event: only non-"allowed" statuses are failures.
   // overageStatus is deliberately not classified - it is a separate

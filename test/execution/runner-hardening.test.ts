@@ -10,6 +10,7 @@ import {
 } from "../../src/execution/stream-turn.js";
 import { buildResumeArgv } from "../../src/interpretation/argv.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
+import { museCode } from "../../src/knowledge/muse.js";
 import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
 
 const sid = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
@@ -294,6 +295,67 @@ describe("M3.1 boundary-review regression pins", () => {
     });
     expect(events.at(-1)).toMatchObject({ kind: "done", exitCode: 127, cause: "failed" });
     expect((events.at(-1) as unknown as { failure?: unknown }).failure).toBeDefined();
+  });
+
+  test("a binary that is not installed (async ENOENT) is a retryable transport failure, not native", async () => {
+    const proc = new FakeProcess();
+    const spawner = fakeSpawner([proc]);
+    const sig = fakeSignal();
+    const clock = new FakeClock();
+    proc.failToStart("spawn claude ENOENT");
+    const events = await collect(
+      streamTurn(claudeCode, { prompt: "hi" }, { spawn: spawner.spawn, clock, signal: sig.signal }),
+    );
+    const failure = events.find((e) => e.kind === "failure");
+    expect(failure).toMatchObject({ kind: "failure", class: "transport", retryable: true });
+    expect((failure as unknown as { message: string }).message).toMatch(/spawn failed/);
+    expect(events.some((e) => (e as unknown as { class?: string }).class === "native")).toBe(false);
+    const done = events.at(-1);
+    expect(done).toMatchObject({ kind: "done", exitCode: 127, cause: "failed" });
+    expect((done as unknown as { failure?: { class: string } }).failure?.class).toBe("transport");
+    // event order: error before failure before done, matching sync branch
+    const errorIdx = events.findIndex((e) => e.kind === "error");
+    const failureIdx = events.findIndex((e) => e.kind === "failure");
+    const doneIdx = events.findIndex((e) => e.kind === "done");
+    expect(errorIdx).toBeGreaterThanOrEqual(0);
+    expect(failureIdx).toBeGreaterThan(errorIdx);
+    expect(doneIdx).toBeGreaterThan(failureIdx);
+    // error message contains spawn failed
+    expect((events[errorIdx] as unknown as { message: string }).message).toMatch(/spawn failed/);
+  });
+
+  test("a muse run that hits its step limit is a budget failure, not native", async () => {
+    const proc = new FakeProcess();
+    const spawner = fakeSpawner([proc]);
+    const sig = fakeSignal();
+    const clock = new FakeClock();
+    const turn = streamTurn(
+      museCode,
+      { prompt: "hi" },
+      { spawn: spawner.spawn, clock, signal: sig.signal },
+    );
+    // Mirror the exact outer record shape muse uses (see fixtures/muse.ndjson)
+    const line = JSON.stringify({
+      schema_version: 1,
+      id: "018f0000-0000-7000-8000-00000000c381",
+      stream: { kind: "session", id: "96a95c12-5616-4cda-a47f-9fdc7b542c7c" },
+      payload: {
+        kind: "run_terminal",
+        terminal: "failed",
+        reason: "model did not reach a terminal state within 40 step(s)",
+      },
+      payload_type: "run.terminal.completed",
+    });
+    proc.emitLine(line);
+    proc.exit(1);
+    const events = await collect(turn);
+    const failures = events.filter((e) => e.kind === "failure");
+    expect(failures).toHaveLength(1);
+    expect(failures[0]).toMatchObject({ kind: "failure", class: "budget", retryable: false });
+    expect(events.some((e) => (e as unknown as { class?: string }).class === "native")).toBe(false);
+    const done = events.at(-1);
+    expect(done).toMatchObject({ kind: "done", exitCode: 1, cause: "failed" });
+    expect((done as unknown as { failure?: { class: string } }).failure?.class).toBe("budget");
   });
 
   test("redaction keeps identifiers and masks content: session ids log verbatim, prompts never", () => {

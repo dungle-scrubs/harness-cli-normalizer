@@ -361,8 +361,8 @@ export async function* streamTurn(
       for (const line of lines.push(chunk)) {
         for (const event of decodeLine(h, line, state, opts.model ?? "")) {
           if ((event as unknown as { kind: string }).kind === "failure") {
-            // Directly from decode's rate_limit_event handling - track for reduction
-            failures.push(event as unknown as FailureSummary);
+            await pushFailure(event as unknown as FailureSummary);
+            continue;
           }
           if (escalateQuestions && event.kind === "message" && event.role === "assistant") {
             lastAssistantText = event.text;
@@ -375,7 +375,8 @@ export async function* streamTurn(
     if (rest !== null && !cancelled) {
       for (const event of decodeLine(h, rest, state, opts.model ?? "")) {
         if ((event as unknown as { kind: string }).kind === "failure") {
-          failures.push(event as unknown as FailureSummary);
+          await pushFailure(event as unknown as FailureSummary);
+          continue;
         }
         await queue.push(event);
       }
@@ -477,6 +478,24 @@ export async function* streamTurn(
   try {
     for await (const event of queue) yield event;
 
+    // F-04: a harness binary that is not installed surfaces as an
+    // async ENOENT. The adapter records it in startupError and resolves
+    // exited with 127 while appending `spawn failed:` to stderr. Treat
+    // it like the synchronous-throw branch: transport failure, retryable,
+    // done cause failed with the real exit code.
+    const startupMessage = proc.startupError?.() ?? null;
+    let startupFailed = false;
+    if (startupMessage !== null && failures.length === 0) {
+      const f = failureFromTransport(`spawn failed: ${startupMessage}`);
+      failures.push(f);
+      startupFailed = true;
+      // The stderr pump appends the spawn line to the tail but does not
+      // emit an error event for it; emit the error here to match the sync
+      // branch, and suppress the later tail-error path for this case.
+      yield { kind: "error", message: `spawn failed: ${startupMessage}` };
+      yield { kind: "failure", ...f };
+    }
+
     // Post-queue failure sources. Nonzero exit with no other failure and a
     // non-empty stderr tail is a NATIVE failure (D6): the harness rejected
     // its own arguments or crashed on them - verbatim stderr, native exit
@@ -484,6 +503,7 @@ export async function* streamTurn(
     // (a silent nonzero exit reads as an environment problem, not a
     // harness judgment).
     if (
+      !startupFailed &&
       failures.length === 0 &&
       exitCode !== 0 &&
       exitCode !== null &&
@@ -523,9 +543,15 @@ export async function* streamTurn(
             : "clean"
           : exitCode === null
             ? "killed"
-            : "crash";
+            : startupFailed
+              ? "failed"
+              : "crash";
     const reduced = reduceFailures(failures);
     if (reduced && cause === "clean") cause = "failed";
+    // F-69: a muse run that hit its step limit is a budget failure, not a
+    // harness crash. The decode already produced the failure; classify the
+    // nonzero exit as failed and preserve the real exit code.
+    if (reduced?.class === "budget" && cause === "crash") cause = "failed";
     const tail = stderrTail.snapshot();
     log({
       event: "exit",
@@ -542,7 +568,9 @@ export async function* streamTurn(
     // A failure with captured stderr surfaces as a stream-level error, not
     // only in the exit log - so a crash from the real adapter's async spawn
     // failure carries the same error-event signal as the sync-throw path.
-    if ((cause === "crash" || cause === "killed") && tail.length > 0) {
+    // F-04: the startupError path already emitted the spawn error; do not
+    // duplicate it via the tail.
+    if (!startupFailed && (cause === "crash" || cause === "killed") && tail.length > 0) {
       yield { kind: "error", message: tail.join("\n").slice(0, 4096) };
     }
     terminalEventReached = true;

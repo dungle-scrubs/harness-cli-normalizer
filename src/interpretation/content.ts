@@ -18,7 +18,8 @@ export type ContentEvent =
   | { readonly kind: "message"; readonly role: string; readonly text: string }
   | { readonly kind: "tool"; readonly name: string; readonly input?: unknown }
   | { readonly kind: "progress"; readonly label: string }
-  | { readonly kind: "error"; readonly message: string };
+  | { readonly kind: "error"; readonly message: string }
+  | { readonly kind: "budget"; readonly detail: string };
 
 /** Text of an array of `{type:"text", text}` content blocks. */
 const textOfBlocks = (content: unknown): string =>
@@ -171,6 +172,11 @@ const muse = (r: Record<string, unknown>): ContentEvent[] => {
     }
     if (payload.terminal === "failed") {
       const reason = typeof payload.reason === "string" ? payload.reason : "run failed";
+      // The muse reader is the muse-specific seam; no descriptor field
+      // carries budget phrasings yet, so the pattern lives here.
+      if (/did not reach a terminal state within \d+ step/i.test(reason)) {
+        return [{ kind: "budget", detail: reason }];
+      }
       return [{ kind: "error", message: `muse run failed: ${reason}` }];
     }
   }
