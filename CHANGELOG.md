@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.6](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.4.5...v0.4.6) (2026-08-21)
+
+
+### Fixed
+
+* readiness audit minors; pi provider-unavailable classified retryable ([#58](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/58)) ([195e55f](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/195e55fe95bf7c3829fb7f084fec393feddfc132))
+
 ## [0.4.5](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.4.4...v0.4.5) (2026-08-21)
 
 
