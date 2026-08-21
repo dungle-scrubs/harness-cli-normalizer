@@ -1,6 +1,6 @@
 /**
  * Injected runtime primitives (D-005): the execution layer never imports
- * child_process, never calls process.kill, and never reads a wall clock -
+ * child_process, never signals the process directly, and never reads a wall clock -
  * spawn, clock, and signalling arrive as data so Node/Bun is a real
  * portability boundary and tests run against fakes deterministically.
  */

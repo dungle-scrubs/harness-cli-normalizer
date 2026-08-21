@@ -107,6 +107,22 @@ export const renderToolSelection = (
 
   if (hasInclude) {
     const names = validateNames(h, selection.include!);
+    if (names.length === 0) {
+      // Empty include list = deny everything. On pi --tools "" has no
+      // defined meaning, so refuse; on claude emit the deny complement
+      // without an empty include token.
+      if (h.tools.includeIsStrictAllowlist || h.tools.excludeFlag === null) {
+        throw new ArgvRefusalError({
+          issue: "invalid-tool-grant",
+          harness: h.name,
+          option: "tools",
+          supported: ["non-empty tool list (empty include would deny everything)"],
+          detail: "empty include list",
+        });
+      }
+      const known = h.tools.builtins.map((t) => t.name);
+      return { tokens: [h.tools.excludeFlag, known.join(",")], unmapped: [] };
+    }
     const { mapped, unmapped } = resolveNames(h, names);
     if (!h.tools.includeIsStrictAllowlist) {
       if (mapped.length === 0 && unmapped.length > 0) {

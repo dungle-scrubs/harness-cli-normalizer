@@ -130,10 +130,14 @@ const pi = (r: Record<string, unknown>): ContentEvent[] => {
       // an expired minimax token: empty content, stopReason error, clean
       // exit). Without this the failure is invisible - a silent empty turn.
       if (message.stopReason === "error") {
+        const msg =
+          typeof message.errorMessage === "string"
+            ? `pi turn ended with stopReason error: ${message.errorMessage}`
+            : "pi turn ended with stopReason error (provider/auth failure)";
         return [
           {
             kind: "error",
-            message: "pi turn ended with stopReason error (provider/auth failure)",
+            message: msg,
             terminal: true,
           },
         ];

@@ -13,8 +13,14 @@
  * options or a different harness, not a different model.
  */
 
+import { detectAuthFailureInLine, detectTransportInLine } from "../interpretation/limits.js";
 import type { RefusalIssue } from "../interpretation/refusal.js";
-import type { AuthFailureKind, DiscoveryFacet, LimitCode } from "../knowledge/descriptor.js";
+import type {
+  AuthFailureKind,
+  DiscoveryFacet,
+  HarnessDescriptor,
+  LimitCode,
+} from "../knowledge/descriptor.js";
 
 export const FAILURE_CLASSES = Object.freeze([
   "rate-limit",
@@ -130,6 +136,16 @@ export const failureFromAuth = (kind: AuthFailureKind): FailureSummary => ({
   message: messageFor("auth", kind),
   authKind: kind,
 });
+
+/** A terminal error the harness reported on its stream: classify by what
+ * it says. An auth wall or a transport fault reached no verdict on the
+ * work (retryable); anything else is the model's own failure (task). */
+export const failureFromTerminalError = (h: HarnessDescriptor, message: string): FailureSummary => {
+  const auth = detectAuthFailureInLine(h, message);
+  if (auth !== null) return failureFromAuth(auth);
+  if (detectTransportInLine(message)) return failureFromTransport(message);
+  return failureFromTask(message);
+};
 
 export const failureFromTask = (detail?: string): FailureSummary => ({
   class: "task",

@@ -1976,3 +1976,22 @@ Workarounds the consumer would own even after the blockers are fixed:
 
 Both verdicts at `53c400a` stand as recorded above; the next readiness pass
 re-measures against the release that carries PR #55 and PR #56.
+
+## Addendum 2 - reported by Kevin after the majors merged (2026-08-21)
+
+- F-70 `src/interpretation/content.ts` (pi reader) / `src/execution/stream-turn.ts`.
+  pi against an unreachable local provider (nothing on 127.0.0.1:1234)
+  retries three times, ends each attempt with `stopReason: "error"`,
+  `errorMessage: "Connection error."`, and exits 0. hcn 0.4.3 ended the
+  turn as `timeout` when a `--timeout` was set; current main ends it as
+  `task` through the terminal-error rule. Both are non-retryable, so the
+  delegate walk stops on a provider that is merely down. Correct class:
+  `transport`, retryable. Severity: major for Q1. Evidence:
+  `test/fixtures/harnesses/pi-unreachable.ndjson`.
+- F-71 `src/knowledge/pi.ts` `authMatchers`. pi with no credentials for
+  the requested provider prints `No API key found for <provider>.` on
+  stderr and exits 1. No auth matcher recognizes the phrasing, so the
+  turn ends `native`, non-retryable. Correct class: `auth`,
+  `authKind: "not-logged-in"`, retryable. Severity: major for Q1.
+  Evidence: `test/fixtures/harnesses/pi-noauth.ndjson` and
+  `pi-noauth.stderr`.

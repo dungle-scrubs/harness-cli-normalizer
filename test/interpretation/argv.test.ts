@@ -6,6 +6,7 @@ import {
   buildSessionArgv,
 } from "../../src/interpretation/argv.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
+import { codexCli } from "../../src/knowledge/codex.js";
 import { piCli } from "../../src/knowledge/pi.js";
 
 describe("buildLaunchArgv (claude)", () => {
@@ -161,6 +162,27 @@ describe("shared spawn-boundary guards", () => {
     expect(() => buildLaunchArgv(claudeCode, { prompt: "hi", model: "gpt-5.6-sol" })).toThrow(
       /model/i,
     );
+  });
+});
+
+describe("buildSessionArgv refuses no-session-mode harnesses (F-48)", () => {
+  test("codex has no session mode - buildSessionArgv throws ArgvRefusalError no-session-mode", () => {
+    let caught: unknown;
+    try {
+      buildSessionArgv(codexCli, { sessionId: "eb04301d-8756-4a8b-ae3e-aac0e71f7265" });
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(ArgvRefusalError);
+    const err = caught as ArgvRefusalError;
+    expect(err.issue).toBe("no-session-mode");
+    expect(err.harness).toBe("codex");
+    expect(err.supported.length).toBeGreaterThan(0);
+    for (const name of err.supported) {
+      expect(typeof name).toBe("string");
+      expect(name.length).toBeGreaterThan(0);
+      expect(name).not.toContain(" ");
+    }
   });
 });
 

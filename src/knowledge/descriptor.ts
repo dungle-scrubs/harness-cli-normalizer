@@ -71,6 +71,11 @@ export interface AuthMatcher {
   readonly kind: AuthFailureKind;
 }
 
+export interface TransportMatcher {
+  readonly pattern: string;
+  readonly flags?: string;
+}
+
 /** The turn-option vocabulary is closed for the same reason `LimitCode` is:
  * a descriptor must not invent an option a consumer has no field for. Every
  * key here maps to a field on `TurnOptions`; adding a key without a consumer

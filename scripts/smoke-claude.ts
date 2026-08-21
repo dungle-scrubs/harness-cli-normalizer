@@ -120,8 +120,18 @@ try {
     "spawn-failure",
     collect(streamTurn(broken, { prompt: "hi" }, deps())),
   );
-  const done = events.at(-1);
-  const pass = done?.kind === "done" && done.cause === "crash" && done.exitCode === 127;
+  const done = events.at(-1) as unknown as
+    | {
+        kind: string;
+        exitCode: number | null;
+        failure?: { class: string; nativeExitCode?: number };
+      }
+    | undefined;
+  const pass =
+    done?.kind === "done" &&
+    done.exitCode === null &&
+    done.failure?.class === "native" &&
+    done.failure?.nativeExitCode === 127;
   record("error propagation (spawn failure)", pass, JSON.stringify(done));
 } catch (cause) {
   record("error propagation (spawn failure)", false, String(cause));

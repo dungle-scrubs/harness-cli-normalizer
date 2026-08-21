@@ -12,6 +12,7 @@ import { existsSync, readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
+import type { HarnessName } from "../knowledge/descriptor.js";
 
 export const skillsRoot = (): string =>
   process.env.HCN_SKILLS_ROOT ?? join(homedir(), ".agents", "skills");
@@ -30,16 +31,22 @@ export const listKnownSkills = (): string[] => {
   });
 };
 
-export const resolveSkillNames = (names: readonly string[]): string[] => {
+export const resolveSkillNames = (
+  names: readonly string[],
+  harness: HarnessName = "claude",
+): string[] => {
   const root = skillsRoot();
   const known = new Set(listKnownSkills());
   const unknown = names.filter((n) => !known.has(n));
   if (unknown.length > 0) {
     throw new ArgvRefusalError({
-      issue: "unknown-tool-name",
-      harness: "claude",
+      issue: "invalid-option-value",
+      harness,
       option: "skills",
-      supported: known.size > 0 ? [[...known].join(", ")] : ["(registry is empty)"],
+      supported:
+        known.size > 0
+          ? [`registry at ${root}`, [...known].join(", ")]
+          : [`registry at ${root} (empty)`],
       detail: `unknown skill name(s): ${unknown.join(", ")}`,
     });
   }

@@ -88,6 +88,33 @@ describe("streamTurn behaviors (M3.1 boxes)", () => {
     expect(events.find((e) => e.kind === "message")).toMatchObject({ text: "hello there" });
   });
 
+  test("turnTimeoutMs wall-clock budget escalates SIGTERM then SIGKILL and classifies timeout (F-19)", async () => {
+    const proc = new FakeProcess();
+    const sig = fakeSignal({ autoExit: false });
+    const clock = new FakeClock();
+    const spawner = fakeSpawner([proc]);
+    const pending = collect(
+      streamTurn(
+        claudeCode,
+        { prompt: "hi" },
+        { spawn: spawner.spawn, clock, signal: sig.signal, turnTimeoutMs: 100 },
+      ),
+    );
+    await Promise.resolve();
+    clock.advance(101);
+    await Promise.resolve();
+    expect(sig.sent.map((s) => s.sig)).toEqual(["SIGTERM"]);
+    clock.advance(5_000 + 1);
+    await Promise.resolve();
+    expect(sig.sent.map((s) => s.sig)).toEqual(["SIGTERM", "SIGKILL"]);
+    proc.exit(null);
+    const events = await pending;
+    const done = events.at(-1) as Extract<HarnessEvent, { kind: "done" }>;
+    expect(done).toMatchObject({ kind: "done", cause: "killed" });
+    expect(done.failure).toMatchObject({ class: "timeout" });
+    expect(done.failure?.retryable).toBe(false);
+  });
+
   test("stall watchdog fires for every granularity (M13)", async () => {
     // 0.2.0: stallMs now arms at every granularity, not only none
     const tokenProc = new FakeProcess();
@@ -294,6 +321,8 @@ describe("harness fixture replay (F-20)", () => {
     { file: "pi.ndjson", harness: "pi", exitCode: 0, nonError: true },
     { file: "pi-tool.ndjson", harness: "pi", exitCode: 0, nonError: true },
     { file: "pi-autherror.ndjson", harness: "pi", exitCode: 1, nonError: false },
+    { file: "pi-unreachable.ndjson", harness: "pi", exitCode: 0, nonError: false },
+    { file: "pi-noauth.ndjson", harness: "pi", exitCode: 1, nonError: false },
     { file: "muse.ndjson", harness: "muse", exitCode: 0, nonError: true },
     { file: "muse-tool.ndjson", harness: "muse", exitCode: 0, nonError: true },
     { file: "muse-readtool.ndjson", harness: "muse", exitCode: 0, nonError: true },
@@ -316,6 +345,15 @@ describe("harness fixture replay (F-20)", () => {
       for (const line of raw.split("\n")) {
         if (line.trim() !== "") proc.emitLine(line);
       }
+      if (file === "pi-noauth.ndjson") {
+        const stderrRaw = readFileSync(
+          join(import.meta.dirname, "../fixtures/harnesses", "pi-noauth.stderr"),
+          "utf8",
+        );
+        for (const line of stderrRaw.split("\n")) {
+          if (line.trim() !== "") proc.emitStderr(line);
+        }
+      }
       proc.exit(exitCode);
       const events = await collect(turn);
       expect(events.filter((e) => e.kind === "identity")).toHaveLength(1);
@@ -327,6 +365,57 @@ describe("harness fixture replay (F-20)", () => {
       expect(events.at(-1)?.kind).toBe("done");
     },
   );
+
+  test("pi-unreachable yields exactly one transport failure and failed done", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const { piCli } = await import("../../src/knowledge/pi.js");
+    const raw = readFileSync(
+      join(import.meta.dirname, "../fixtures/harnesses/pi-unreachable.ndjson"),
+      "utf8",
+    );
+    const proc = new FakeProcess();
+    const d = deps(proc);
+    const turn = streamTurn(piCli, { prompt: "hi" }, d);
+    for (const line of raw.split("\n")) if (line.trim() !== "") proc.emitLine(line);
+    proc.exit(0);
+    const events = await collect(turn);
+    const failures = events.filter((e) => e.kind === "failure");
+    expect(failures).toHaveLength(1);
+    expect(failures[0]).toMatchObject({ class: "transport", retryable: true });
+    const done = events.at(-1) as Extract<HarnessEvent, { kind: "done" }>;
+    expect(done.cause).toBe("failed");
+    expect(done.failure).toMatchObject({ class: "transport" });
+  });
+
+  test("pi-noauth yields auth not-logged-in failure and failed done", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const { piCli } = await import("../../src/knowledge/pi.js");
+    const raw = readFileSync(
+      join(import.meta.dirname, "../fixtures/harnesses/pi-noauth.ndjson"),
+      "utf8",
+    );
+    const stderrRaw = readFileSync(
+      join(import.meta.dirname, "../fixtures/harnesses/pi-noauth.stderr"),
+      "utf8",
+    );
+    const proc = new FakeProcess();
+    const d = deps(proc);
+    const turn = streamTurn(piCli, { prompt: "hi" }, d);
+    for (const line of raw.split("\n")) if (line.trim() !== "") proc.emitLine(line);
+    for (const line of stderrRaw.split("\n")) if (line.trim() !== "") proc.emitStderr(line);
+    proc.exit(1);
+    const events = await collect(turn);
+    const failure = events.find((e) => e.kind === "failure") as Extract<
+      HarnessEvent,
+      { kind: "failure" }
+    >;
+    expect(failure).toMatchObject({ class: "auth", authKind: "not-logged-in", retryable: true });
+    const done = events.at(-1) as Extract<HarnessEvent, { kind: "done" }>;
+    expect(done.cause).toBe("failed");
+    expect(done.failure).toMatchObject({ class: "auth" });
+  });
 
   test("inventory: every .ndjson in test/fixtures/harnesses is covered", async () => {
     const { readdirSync } = await import("node:fs");
@@ -468,5 +557,33 @@ describe("F-09 capabilities with no model use curated source and argv granularit
     expect(ids.some((i) => i.sessionId === announceB && i.authority === "harness-minted")).toBe(
       true,
     );
+  });
+
+  test("F-46 launch identity is harness-minted, resume identity is caller-assigned", async () => {
+    const sidLaunch = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
+    const initLaunch = JSON.stringify({ type: "system", subtype: "init", session_id: sidLaunch });
+    const procLaunch = new FakeProcess();
+    const dLaunch = deps(procLaunch);
+    const turnLaunch = streamTurn(claudeCode, { prompt: "hi" }, dLaunch);
+    procLaunch.emitLine(initLaunch);
+    procLaunch.exit(0);
+    const eventsLaunch = await collect(turnLaunch);
+    const idLaunch = eventsLaunch.find((e) => e.kind === "identity") as unknown as {
+      authority: string;
+    };
+    expect(idLaunch?.authority).toBe("harness-minted");
+
+    const sidResume = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    const initResume = JSON.stringify({ type: "system", subtype: "init", session_id: sidResume });
+    const procResume = new FakeProcess();
+    const dResume = deps(procResume);
+    const turnResume = streamTurn(claudeCode, { prompt: "hi", resume: sidResume }, dResume);
+    procResume.emitLine(initResume);
+    procResume.exit(0);
+    const eventsResume = await collect(turnResume);
+    const idResume = eventsResume.find((e) => e.kind === "identity") as unknown as {
+      authority: string;
+    };
+    expect(idResume?.authority).toBe("caller-assigned");
   });
 });

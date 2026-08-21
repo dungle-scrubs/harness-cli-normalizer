@@ -16,7 +16,11 @@ import {
   streamingGranularityOf,
 } from "../interpretation/argv.js";
 import { stdinPolicyOf } from "../interpretation/dimensions.js";
-import { detectAuthFailureInLine, detectLimitInLine } from "../interpretation/limits.js";
+import {
+  detectAuthFailureInLine,
+  detectLimitInLine,
+  detectTransportInLine,
+} from "../interpretation/limits.js";
 import { composeEscalatedPrompt, detectQuestionBlock } from "../interpretation/question.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
@@ -32,6 +36,7 @@ import {
   failureFromNative,
   failureFromRejected,
   failureFromTask,
+  failureFromTerminalError,
   failureFromTimeout,
   failureFromTransport,
   reduceFailures,
@@ -312,6 +317,9 @@ export async function* streamTurn(
 
   const failures: FailureSummary[] = [];
   const pushFailure = async (f: FailureSummary): Promise<void> => {
+    // Suppress a failure identical in class and message to the previous one
+    const prev = failures[failures.length - 1];
+    if (prev !== undefined && prev.class === f.class && prev.message === f.message) return;
     failures.push(f);
     await queue.push({ kind: "failure", ...f });
   };
@@ -426,7 +434,7 @@ export async function* streamTurn(
       }
       if (event.kind === "error") {
         await queue.push(event);
-        if (event.terminal === true) await pushFailure(failureFromTask(event.message));
+        if (event.terminal === true) await pushFailure(failureFromTerminalError(h, event.message));
         return;
       }
       if (escalateQuestions && event.kind === "message" && event.role === "assistant") {
@@ -468,6 +476,7 @@ export async function* streamTurn(
     if (detection === null) return;
     if ("malformed" in detection) {
       await queue.push({ kind: "error", message: detection.malformed });
+      await pushFailure(failureFromTask(`malformed hcn-question block: ${detection.malformed}`));
       return;
     }
     log({
@@ -585,10 +594,13 @@ export async function* streamTurn(
       !state.limitSeen
     ) {
       const tailForNative = stderrTail.snapshot();
+      const transportLine = tailForNative.find((line) => detectTransportInLine(line));
       const f =
-        tailForNative.length > 0
-          ? failureFromNative(exitCode, tailForNative)
-          : failureFromTransport(`nonzero exit ${exitCode}`);
+        transportLine !== undefined
+          ? failureFromTransport(transportLine)
+          : tailForNative.length > 0
+            ? failureFromNative(exitCode, tailForNative)
+            : failureFromTransport(`nonzero exit ${exitCode}`);
       failures.push(f);
       // Need to emit this failure before done, even though queue is closed
       yield { kind: "failure", ...f };
@@ -624,10 +636,10 @@ export async function* streamTurn(
                 : "crash";
     const reduced = reduceFailures(failures);
     if (reduced && cause === "clean") cause = "failed";
-    // A work-verdict failure (the model ran out of steps, or ended its
-    // turn in error) is not a harness crash even when the process exits
-    // nonzero: the cause is failed and the real exit code rides along.
-    if ((reduced?.class === "budget" || reduced?.class === "task") && cause === "crash") {
+    // A classified failure other than native on a nonzero exit is a failed
+    // turn, not a crash: the failure taxonomy already captured the reason.
+    // Crash stays for unclassified exits and native failures.
+    if (reduced && reduced.class !== "native" && cause === "crash") {
       cause = "failed";
     }
     const tail = stderrTail.snapshot();

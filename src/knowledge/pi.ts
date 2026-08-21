@@ -78,7 +78,10 @@ export const piCli: HarnessDescriptor = deepFreeze({
     announce: { match: { type: "session" }, idField: "id" },
   },
   limitMatchers: [...SHARED_LIMIT_MATCHERS],
-  authMatchers: [...SHARED_AUTH_MATCHERS],
+  authMatchers: [
+    { pattern: "No API key found for", flags: "i", kind: "not-logged-in" },
+    ...SHARED_AUTH_MATCHERS,
+  ],
   autonomy: null,
   vocabulary: {
     modelFlag: "--model",

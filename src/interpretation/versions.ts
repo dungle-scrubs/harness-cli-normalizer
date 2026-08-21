@@ -7,7 +7,7 @@
  * precedence.
  */
 
-export type VersionStatus = "ok" | "behind" | "ahead" | "unknown";
+export type VersionStatus = "ok" | "behind" | "ahead" | "unknown" | "drift";
 
 const parse = (v: string): number[] =>
   v

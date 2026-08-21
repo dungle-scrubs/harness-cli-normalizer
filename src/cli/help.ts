@@ -60,6 +60,8 @@ Options:
   --no-tools                Disable tools discovery facet
   --no-instruction-files    Disable instructionFiles discovery facet
   --no-extensions           Disable extensions discovery facet
+  --skills <a,b>            Skill allowlist (names resolved against $HCN_SKILLS_ROOT
+                            or ~/.agents/skills; pi loads, claude narrows)
   --no-skills               Disable skills discovery facet
   --cwd <path>              Working directory for spawn
   --env KEY=VAL             Environment (repeatable; KEY= deletes)
@@ -69,6 +71,7 @@ Options:
                             harness (claude stable, pi/muse caller-assigned,
                             codex minted via identity event)
                             Note: pi and muse create a new session when the id is unknown - verify it exists
+  --session-id <uuid>       Alias for --resume (mutually exclusive with --resume)
   --                        Passthrough: native harness args verbatim
                             (failures surface as labeled native errors)
   --json                    NDJSON HarnessEvent to stdout

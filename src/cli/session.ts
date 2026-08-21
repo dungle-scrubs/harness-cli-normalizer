@@ -3,6 +3,8 @@ import { createInterface } from "node:readline/promises";
 import { nodeRunnerDeps } from "../execution/node-deps.js";
 import { CLOSE_GRACE_MS, openSession } from "../execution/open-session.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
+import type { HarnessDescriptor } from "../knowledge/descriptor.js";
+import { defaultDescriptors } from "../knowledge/overrides.js";
 import { createRenderState, renderEvent } from "./render.js";
 import { resolveHarness } from "./resolve-harness.js";
 
@@ -12,9 +14,8 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   // session mode is available the moment its descriptor declares one.
   const h = resolveHarness(harnessName);
   if (h.sessionMode === null) {
-    const supported = ["claude", "codex", "pi", "muse"]
-      .map((name) => resolveHarness(name))
-      .filter((d) => d.sessionMode !== null)
+    const supported = Object.values(defaultDescriptors())
+      .filter((d): d is HarnessDescriptor => d !== undefined && d.sessionMode !== null)
       .map((d) => d.name);
     const err = new ArgvRefusalError({
       issue: "no-session-mode",

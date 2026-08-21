@@ -238,7 +238,7 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   if (rawSkills !== undefined && rawSkills.length > 0) {
     try {
       const { resolveSkillNames, listKnownSkills } = await import("./skills-root.js");
-      const resolvedSkills = resolveSkillNames(rawSkills);
+      const resolvedSkills = resolveSkillNames(rawSkills, h.name);
       const claudeTokens: string[] = [];
       if (h.name === "claude") {
         const { claudeSkillOverridesArg } = await import("../interpretation/skills-selection.js");
@@ -302,30 +302,8 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     effectiveTurnOpts = rest as ReturnType<typeof parseTurnOptions>;
     // Provenance is diagnostic data like the spawn line - stderr in BOTH
     // render modes, never stdout (stdout carries the NDJSON contract).
-    if (provenance.length > 0 || unrenderable.length > 0) {
-      for (const entry of provenance) {
-        process.stderr.write(
-          `provenance: ${entry.key} = ${JSON.stringify(entry.value)} (${entry.tier})\n`,
-        );
-      }
-      for (const key of unrenderable) {
-        process.stderr.write(
-          `divergence: profile ${JSON.stringify(key)} not expressible on ${h.name}; harness default applies\n`,
-        );
-      }
-      // issue #48 (ratified): when claude's instruction-files isolation
-      // rides (the --setting-sources project spelling), surface its known
-      // cost as a divergence line - legal to use, priced in stderr.
-      if (
-        h.name === "claude" &&
-        (resolved.options as { discovery?: { instructionFiles?: boolean } }).discovery
-          ?.instructionFiles === false
-      ) {
-        process.stderr.write(
-          "divergence: setting-sources isolation also skips hooks, LSP and keychain reads on claude - weighed, not refused\n",
-        );
-      }
-    }
+    const { writeProvenance } = await import("./provenance.js");
+    writeProvenance(h.name, provenance, unrenderable);
   }
 
   // issue #41: question-escalation precedence arg > project > user >
@@ -490,7 +468,7 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   const _currentProc: { signal: (sig: "SIGTERM" | "SIGKILL") => void } | null = null;
   // We'll need to track the spawned process via deps.signal; but streamTurn owns process handle.
   // Instead we intercept deps.signal via a wrapper that captures proc.
-  // Simpler: use deps directly and handle SIGINT by calling process.kill? But spec says via injected signal.
+  // Simpler: use deps directly and handle SIGINT via injected signal.
   // We'll create a wrapper deps where signal captures last proc.
   let lastProc: import("../execution/deps.js").SpawnedProcess | null = null;
   const originalSignal = deps.signal;
@@ -509,6 +487,7 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
 
   const abortController = new AbortController();
   let interrupted = false;
+  let escalationTimer: ReturnType<typeof setTimeout> | null = null;
   const onSig = async () => {
     if (interrupted) return;
     interrupted = true;
@@ -516,16 +495,15 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     if (lastProc) {
       try {
         wrappedDeps.signal(lastProc, "SIGTERM");
-        await new Promise<void>((resolve) => {
-          setTimeout(() => {
-            if (lastProc) {
-              try {
-                wrappedDeps.signal(lastProc, "SIGKILL");
-              } catch {}
-            }
-            resolve();
-          }, KILL_GRACE_MS);
-        });
+        escalationTimer = setTimeout(() => {
+          if (lastProc) {
+            try {
+              wrappedDeps.signal(lastProc, "SIGKILL");
+            } catch {}
+          }
+          escalationTimer = null;
+        }, KILL_GRACE_MS);
+        escalationTimer.unref?.();
       } catch {}
     }
   };
@@ -591,6 +569,10 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     process.off("SIGTERM", onSig);
     return;
   } finally {
+    if (escalationTimer !== null) {
+      clearTimeout(escalationTimer);
+      escalationTimer = null;
+    }
     process.off("SIGINT", onSig);
     process.off("SIGTERM", onSig);
   }

@@ -19,7 +19,20 @@ export interface ScenarioResultLite {
   exitCode: number | null;
   eventCounts: Record<string, number>;
   failures: string[];
+  sessionIds?: { turn1: string | null; turn2: string | null };
 }
+
+const eventCountsOf = (events: HarnessEvent[]): Record<string, number> => {
+  const counts: Record<string, number> = {};
+  for (const e of events) counts[e.kind] = (counts[e.kind] ?? 0) + 1;
+  return counts;
+};
+
+const mergeCounts = (...maps: Record<string, number>[]): Record<string, number> => {
+  const out: Record<string, number> = {};
+  for (const m of maps) for (const [k, v] of Object.entries(m)) out[k] = (out[k] ?? 0) + v;
+  return out;
+};
 
 /** The runner's CLI seam: spawn `hcn run`, collect NDJSON events + exit. */
 export type RunCli = (
@@ -81,7 +94,7 @@ export const questionAskScenario = {
     return {
       durationMs: Date.now() - t0,
       exitCode: r.exitCode,
-      eventCounts: {},
+      eventCounts: eventCountsOf(r.events),
       failures,
     };
   },
@@ -127,7 +140,7 @@ export const questionOffScenario = {
     return {
       durationMs: Date.now() - t0,
       exitCode: r.exitCode,
-      eventCounts: {},
+      eventCounts: eventCountsOf(r.events),
       failures,
     };
   },
@@ -192,7 +205,12 @@ export const questionPrecedenceScenario = {
     return {
       durationMs: Date.now() - t0,
       exitCode: proj.exitCode,
-      eventCounts: {},
+      eventCounts: mergeCounts(
+        eventCountsOf(proj.events),
+        eventCountsOf(arg.events),
+        eventCountsOf(user.events),
+        eventCountsOf(dflt.events),
+      ),
       failures,
     };
   },
@@ -224,7 +242,8 @@ export const questionRoundtripScenario = {
       return {
         durationMs: Date.now() - t0,
         exitCode: ask.exitCode,
-        eventCounts: {},
+        eventCounts: eventCountsOf(ask.events),
+        sessionIds: { turn1: null, turn2: null },
         failures: [`turn 1 asked no question: ${messagesOf(ask.events).slice(0, 200)}`],
       };
     }
@@ -245,7 +264,13 @@ export const questionRoundtripScenario = {
     // Turn 2: resume with the answer.
     if (sessionId === undefined) {
       failures.push("cannot resume without a session id");
-      return { durationMs: Date.now() - t0, exitCode: ask.exitCode, eventCounts: {}, failures };
+      return {
+        durationMs: Date.now() - t0,
+        exitCode: ask.exitCode,
+        eventCounts: eventCountsOf(ask.events),
+        sessionIds: { turn1: null, turn2: null },
+        failures,
+      };
     }
     const resume = await runCli(
       [
@@ -269,23 +294,23 @@ export const questionRoundtripScenario = {
     if (!finalText.toLowerCase().includes(answer)) {
       failures.push(`turn 2 does not reference the answer "${answer}": ${finalText.slice(0, 200)}`);
     }
-    // Id continuity: the resumed turn re-announces the SAME id on the
-    // id-stable harnesses (claude/pi/muse). Codex thread continuity is
-    // the resume mechanism itself; its resumed turn may re-announce the
-    // thread id (same id) - accept both announcement and none, since the
-    // behavioral reference above already proves the thread continued.
-    if (harness !== "codex") {
-      const identity2 = resume.events.find(
-        (e): e is Extract<HarnessEvent, { kind: "identity" }> => e.kind === "identity",
-      );
-      if (identity2 && identity2.sessionId !== sessionId) {
-        failures.push(`resumed id rotated: ${identity2.sessionId} != ${sessionId}`);
-      }
+    // Id continuity: every harness re-announces the SAME id on resume.
+    // Codex thread continuity is verified by the behavioral reference
+    // (answer propagation) and by the resumed identity matching the
+    // original thread id.
+    const identity2 = resume.events.find(
+      (e): e is Extract<HarnessEvent, { kind: "identity" }> => e.kind === "identity",
+    );
+    if (!identity2) {
+      failures.push(`turn 2 announced no identity (resume id unknown)`);
+    } else if (identity2.sessionId !== sessionId) {
+      failures.push(`resumed id rotated: ${identity2.sessionId} != ${sessionId}`);
     }
     return {
       durationMs: Date.now() - t0,
       exitCode: resume.exitCode,
-      eventCounts: {},
+      eventCounts: mergeCounts(eventCountsOf(ask.events), eventCountsOf(resume.events)),
+      sessionIds: { turn1: sessionId ?? null, turn2: identity2?.sessionId ?? null },
       failures,
     };
   },
