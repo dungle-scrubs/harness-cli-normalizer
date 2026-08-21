@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.4.6...v0.5.0) (2026-08-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* canonical tool vocabulary, toolMap config, native: passthrough, --access preset ([#60](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/60))
+
+### Added
+
+* canonical tool vocabulary, toolMap config, native: passthrough, --access preset ([#60](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/60)) ([194dbe9](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/194dbe97861696abc23ddb5786fdf9f296add1ec))
+
 ## [0.4.6](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.4.5...v0.4.6) (2026-08-21)
 
 
