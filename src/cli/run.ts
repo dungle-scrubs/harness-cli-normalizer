@@ -422,6 +422,23 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     process.stderr.write(
       `provenance: escalateQuestions = ${escalateQuestions} (${escalateTier})\n`,
     );
+    // On a harness whose include flag is not a strict allowlist (claude),
+    // a name outside the curated set passes through ungated; say which
+    // ones so a wrong-case name is visible. A grant with no known name at
+    // all refuses inside buildLaunchArgv below, so a throw here is left
+    // to that path.
+    const grant = (fullOpts.resume ? turnOpts : effectiveTurnOpts).tools;
+    if (grant !== undefined && grant.length > 0 && !h.tools.includeIsStrictAllowlist) {
+      try {
+        const { renderToolSelection } = await import("../interpretation/tool-selection.js");
+        const { unmapped } = renderToolSelection(h, { include: [...grant] });
+        if (unmapped.length > 0) {
+          process.stderr.write(`provenance: unmapped tools = ${JSON.stringify(unmapped)}\n`);
+        }
+      } catch {
+        // refused below with the structured message
+      }
+    }
   }
 
   // Delete HERDR_ENV before spawn

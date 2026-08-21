@@ -594,6 +594,92 @@ describe("integration: built cli via spawnSync", () => {
   });
 });
 
+describe("F-16: inspect --skills previews an argv the run never uses", () => {
+  test("inspect resolves skill names and refuses unknowns, mirroring run", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "hcn-skills-"));
+    const skillName = "hcn";
+    const skillDir = join(dir, skillName);
+    const { mkdirSync } = await import("node:fs");
+    mkdirSync(skillDir, { recursive: true });
+    const prev = process.env.HCN_SKILLS_ROOT;
+    process.env.HCN_SKILLS_ROOT = dir;
+    try {
+      const ok = await captureDispatch([
+        "inspect",
+        "pi",
+        "--argv",
+        "--prompt",
+        "hi",
+        "--skills",
+        skillName,
+      ]);
+      expect(ok.exitCode === undefined || ok.exitCode === 0).toBe(true);
+      const parsed: string[] = JSON.parse(ok.stdout);
+      expect(parsed).toContain("-ns");
+      expect(parsed.join(" ")).toContain(join(dir, skillName));
+      const bad = await captureDispatch([
+        "inspect",
+        "pi",
+        "--argv",
+        "--prompt",
+        "hi",
+        "--skills",
+        "bogus-name",
+      ]);
+      expect(bad.exitCode).toBe(2);
+      expect(bad.stderr).toMatch(/unknown skill/i);
+      const okClaude = await captureDispatch([
+        "inspect",
+        "claude",
+        "--argv",
+        "--prompt",
+        "hi",
+        "--skills",
+        skillName,
+      ]);
+      expect(okClaude.exitCode === undefined || okClaude.exitCode === 0).toBe(true);
+      const parsedClaude: string[] = JSON.parse(okClaude.stdout);
+      expect(parsedClaude.join(" ")).toContain("--settings");
+      expect(parsedClaude.join(" ")).toContain("skillOverrides");
+      const badClaude = await captureDispatch([
+        "inspect",
+        "claude",
+        "--argv",
+        "--prompt",
+        "hi",
+        "--skills",
+        "bogus-name",
+      ]);
+      expect(badClaude.exitCode).toBe(2);
+    } finally {
+      if (prev === undefined) delete process.env.HCN_SKILLS_ROOT;
+      else process.env.HCN_SKILLS_ROOT = prev;
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("F-15: inspect --resume applies the profile; run --resume does not", () => {
+  test("inspect codex --argv --resume previews what run would spawn", async () => {
+    const resumeId = "11111111-2222-4333-8444-555555555555";
+    const out = await captureDispatch([
+      "inspect",
+      "codex",
+      "--argv",
+      "--resume",
+      resumeId,
+      "--prompt",
+      "hi",
+    ]);
+    expect(out.exitCode === undefined || out.exitCode === 0).toBe(true);
+    const parsed: string[] = JSON.parse(out.stdout);
+    // Resume grammar must not contain the launch-only --sandbox flag
+    expect(parsed.join(" ")).not.toContain("--sandbox");
+    expect(parsed).toContain("resume");
+    expect(parsed).toContain(resumeId);
+  });
+});
+
 describe("hcn run execution (human + json)", () => {
   test("run with unknown model refuses before spawn", async () => {
     const out = await captureDispatch(["run", "claude", "hi", "--model", "nope"]);

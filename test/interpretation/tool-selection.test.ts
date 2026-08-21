@@ -128,3 +128,27 @@ describe("no-list harnesses refuse", () => {
     }
   });
 });
+
+describe("F-11: claude tool names silently unmapped", () => {
+  it("all-unmapped include on claude refuses with unknown-tool-name", () => {
+    expect(() =>
+      renderToolSelection(claudeCode, { include: ["read", "grep", "find", "ls"] }),
+    ).toThrow(expect.objectContaining({ issue: "unknown-tool-name" }));
+    try {
+      renderToolSelection(claudeCode, { include: ["read", "grep", "find", "ls"] });
+      expect.unreachable("should have refused");
+    } catch (e) {
+      const err = e as { supported: string[] };
+      expect(err.supported.join(" ")).toContain("Bash");
+    }
+  });
+
+  it("partially mapped include on claude keeps grant and reports unmapped", () => {
+    const { tokens, unmapped } = renderToolSelection(claudeCode, {
+      include: ["Read", "grep", "find", "ls"],
+    });
+    expect(tokens[0]).toBe("--allowedTools");
+    expect(tokens[1]).toBe("Read,grep,find,ls");
+    expect(unmapped).toEqual(["grep", "find", "ls"]);
+  });
+});
