@@ -13,7 +13,7 @@ describe("buildLaunchArgv (claude)", () => {
   test("places the positional prompt before --allowedTools", () => {
     const argv = buildLaunchArgv(claudeCode, {
       prompt: "summarize this repo",
-      tools: ["Read", "Grep"],
+      tools: ["read", "grep"],
     });
     const promptAt = argv.indexOf("summarize this repo");
     const toolsFlagAt = argv.indexOf("--allowedTools");
@@ -30,7 +30,7 @@ describe("buildLaunchArgv (claude)", () => {
 
   test("refuses an empty or blank tool grant instead of emitting --allowedTools ''", () => {
     expect(() => buildLaunchArgv(claudeCode, { prompt: "hi", tools: [""] })).toThrow(/tool/i);
-    expect(() => buildLaunchArgv(claudeCode, { prompt: "hi", tools: ["Read", "  "] })).toThrow(
+    expect(() => buildLaunchArgv(claudeCode, { prompt: "hi", tools: ["read", "  "] })).toThrow(
       /tool/i,
     );
   });
@@ -115,7 +115,7 @@ describe("shared spawn-boundary guards", () => {
 
   test("a comma inside one tool name is refused - it would silently split the grant", () => {
     expect(() =>
-      buildLaunchArgv(claudeCode, { prompt: "hi", tools: ["Read,Write", "Grep"] }),
+      buildLaunchArgv(claudeCode, { prompt: "hi", tools: ["read,write", "grep"] }),
     ).toThrow(/tool/i);
   });
 
@@ -149,7 +149,7 @@ describe("shared spawn-boundary guards", () => {
       prompt: "hi",
       model: "opus",
       autonomy: true,
-      tools: ["Read"],
+      tools: ["read"],
     });
     expect(argv[argv.indexOf("--model") + 1]).toBe("claude-opus-5");
     expect(argv).toContain("--dangerously-skip-permissions");
@@ -212,7 +212,7 @@ describe("pi resume argv matches captured fixture (F-26)", () => {
       sessionId,
       prompt,
       effort: "high",
-      tools: ["read", "bash", "edit", "write", "grep", "find", "ls"],
+      tools: ["read", "shell", "edit", "write", "grep", "glob", "list"],
     });
     expect(argv).toEqual(expected);
   });

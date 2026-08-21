@@ -174,14 +174,14 @@ describe("project tier (Phase 6)", () => {
     try {
       resolveEffectiveOptions(
         piCli,
-        { ...base, tools: ["read", "bash"] },
+        { ...base, tools: ["read", "shell"] },
         { project: { tools: [] } },
       );
       expect.unreachable();
     } catch (e) {
       const err = e as FloorExceededError;
       expect(err).toBeInstanceOf(FloorExceededError);
-      expect(err.excess).toEqual(["read", "bash"]);
+      expect(err.excess).toEqual(["read", "shell"]);
       expect(err.floor).toEqual([]);
     }
   });
@@ -191,21 +191,21 @@ describe("project tier (Phase 6)", () => {
       piCli,
       { ...base, tools: ["read"] },
       {
-        project: { tools: ["read", "grep", "find", "ls"] },
+        project: { tools: ["read", "grep", "glob", "list"] },
       },
     );
     expect(r.options.tools).toEqual(["read"]);
     try {
       resolveEffectiveOptions(
         piCli,
-        { ...base, tools: ["read", "bash"] },
+        { ...base, tools: ["read", "shell"] },
         {
           project: { tools: ["read", "grep"] },
         },
       );
       expect.unreachable();
     } catch (e) {
-      expect((e as FloorExceededError).excess).toEqual(["bash"]);
+      expect((e as FloorExceededError).excess).toEqual(["shell"]);
       expect((e as FloorExceededError).floor).toEqual(["read", "grep"]);
     }
   });
@@ -213,8 +213,8 @@ describe("project tier (Phase 6)", () => {
 
 describe("named toolsets (D5)", () => {
   const tiersWithSets = {
-    user: { toolsets: { review: ["read", "grep"], wide: ["read", "bash"] } },
-    project: { tools: ["read", "grep", "find", "ls"], toolsets: { review: ["read"] } },
+    user: { toolsets: { review: ["read", "grep"], wide: ["read", "shell"] } },
+    project: { tools: ["read", "grep", "glob", "list"], toolsets: { review: ["read"] } },
   } as never as ConfigTiers;
 
   it("a bare --tools name expands to the set, project winning name collisions", () => {
@@ -223,12 +223,12 @@ describe("named toolsets (D5)", () => {
   });
 
   it("expanded sets face the floor like literal lists", () => {
-    // user's "wide" = read,bash; floor lacks bash -> refuses naming bash
+    // user's "wide" = read,shell; floor lacks shell -> refuses naming shell
     try {
       resolveEffectiveOptions(piCli, { ...base, tools: ["wide"] }, tiersWithSets);
       expect.unreachable();
     } catch (e) {
-      expect((e as FloorExceededError).excess).toEqual(["bash"]);
+      expect((e as FloorExceededError).excess).toEqual(["shell"]);
     }
   });
 
@@ -260,10 +260,10 @@ describe("round 2 ratifications (D9-D12)", () => {
 describe("D13: tools all-known marker", () => {
   it("pi expands to the enabling include (dormant trio on)", () => {
     const r = resolveEffectiveOptions(piCli, base, undefined);
-    expect(r.options.tools).toEqual(["read", "bash", "edit", "write", "grep", "find", "ls"]);
+    expect(r.options.tools).toEqual(["read", "shell", "edit", "write", "grep", "glob", "list"]);
     expect(r.provenance).toContainEqual({
       key: "tools",
-      value: ["read", "bash", "edit", "write", "grep", "find", "ls"],
+      value: ["read", "shell", "edit", "write", "grep", "glob", "list"],
       tier: "profile",
     });
   });

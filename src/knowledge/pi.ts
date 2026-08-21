@@ -154,6 +154,7 @@ export const piCli: HarnessDescriptor = deepFreeze({
         },
       },
     },
+    access: { kind: "tool-preset", render: { kind: "flag-value", flag: "--tools" } },
   },
   // Phase 0 fixtures: pi-both-tool-flags.md. Both list flags legal at once;
   // exclude subtracts from include. --tools is strict over BUILT-INS but
@@ -166,13 +167,13 @@ export const piCli: HarnessDescriptor = deepFreeze({
     includeIsStrictAllowlist: true,
     composable: true,
     builtins: [
-      { name: "read", defaultEnabled: true },
-      { name: "bash", defaultEnabled: true },
-      { name: "edit", defaultEnabled: true },
-      { name: "write", defaultEnabled: true },
-      { name: "grep", defaultEnabled: false },
-      { name: "find", defaultEnabled: false },
-      { name: "ls", defaultEnabled: false },
+      { name: "read", defaultEnabled: true, canonical: "read" },
+      { name: "bash", defaultEnabled: true, canonical: "shell" },
+      { name: "edit", defaultEnabled: true, canonical: "edit" },
+      { name: "write", defaultEnabled: true, canonical: "write" },
+      { name: "grep", defaultEnabled: false, canonical: "grep" },
+      { name: "find", defaultEnabled: false, canonical: "glob" },
+      { name: "ls", defaultEnabled: false, canonical: "list" },
     ],
     categories: [],
     denySemantics: "remove-from-set",

@@ -220,6 +220,8 @@ export const parseTurnOptions = (values: Record<string, unknown>): TurnOptions =
   }
   if (hasDiscovery) (opts as Record<string, unknown>).discovery = discovery as DiscoveryOptions;
 
+  if (values.access !== undefined) opts.access = String(values.access);
+
   // prompt will be set by caller after resolvePrompt
   return opts as unknown as TurnOptions;
 };
@@ -284,6 +286,7 @@ const KNOWN_FLAGS = new Set([
   "--provider",
   "--tools",
   "--exclude-tools",
+  "--access",
   "--autonomy",
   "--no-autonomy",
   "--write",
@@ -320,6 +323,7 @@ const FLAGS_WITH_VALUE = new Set([
   "--provider",
   "--tools",
   "--exclude-tools",
+  "--access",
   "--max-steps",
   "--cwd",
   "--env",
@@ -443,6 +447,7 @@ export const parseCommonFlags = (
       "system-prompt": { type: "string" as const },
       "append-system-prompt": { type: "string" as const },
       "max-steps": { type: "string" as const },
+      access: { type: "string" as const },
       "no-tools": { type: "boolean" as const },
       "no-instruction-files": { type: "boolean" as const },
       "no-extensions": { type: "boolean" as const },

@@ -64,7 +64,7 @@ describe("refusals carry the structured fields (D8 order)", () => {
 
   it("tools on codex: support list plus a category-switch hint", () => {
     try {
-      buildLaunchArgv(codexCli, { prompt: "hi", tools: ["Read"] });
+      buildLaunchArgv(codexCli, { prompt: "hi", tools: ["read"] });
       expect.unreachable();
     } catch (e) {
       const r = e as ArgvRefusalError;
@@ -77,7 +77,7 @@ describe("refusals carry the structured fields (D8 order)", () => {
 
   it("tools on muse: support list plus a disable-flag hint", () => {
     try {
-      buildLaunchArgv(defaultDescriptors().muse as never, { prompt: "hi", tools: ["x"] });
+      buildLaunchArgv(defaultDescriptors().muse as never, { prompt: "hi", excludeTools: ["read"] });
       expect.unreachable();
     } catch (e) {
       const r = e as ArgvRefusalError;

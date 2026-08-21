@@ -27,6 +27,10 @@ const HINTS: Readonly<Record<string, Readonly<Record<string, string>>>> = deepFr
       "claude has no isolated instruction-file toggle; --setting-sources project isolates from user-level settings but also skips hooks, LSP and keychain reads - weigh that before using it as an approximation",
   },
   codex: {
+    tools:
+      "codex has no per-tool name lists; use --sandbox read-only for a read-only grant or category switches via config keys (features.shell_tool, web_search)",
+    excludeTools:
+      "codex has no per-tool name lists; use category switches via config keys (features.shell_tool) or --sandbox modes",
     write:
       "codex has no write toggle; use --sandbox read-only (config: sandbox_mode) so shell commands cannot write either",
     // issue #48: the append half has no codex spelling.
@@ -58,6 +62,10 @@ const HINTS: Readonly<Record<string, Readonly<Record<string, string>>>> = deepFr
       "pi has no step cap flag; bound the work in the prompt or impose a wall-clock timeout at the caller",
   },
   muse: {
+    tools:
+      "muse has no per-tool name lists; gate execution with --disable-write, --disable-shell, --disable-web-tools - there is no allowlist",
+    excludeTools:
+      "muse has no per-tool name lists; gate execution with --disable-write, --disable-shell, --disable-web-tools category switches",
     sandbox:
       "muse's sandbox is on by default and not selectable per-call; --disable-sandbox exists to turn it OFF, and exposure can be tuned with --disable-write, --disable-shell, --disable-web-tools - there is no mode selector",
     provider:

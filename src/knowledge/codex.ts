@@ -122,6 +122,12 @@ export const codexCli: HarnessDescriptor = deepFreeze({
       render: { kind: "flag-value", flag: "--sandbox" },
       resumeRender: null,
     },
+    access: {
+      kind: "flag-value",
+      flag: "--sandbox",
+      values: { read: "read-only", write: "workspace-write" },
+      render: { kind: "flag-value", flag: "--sandbox" },
+    },
   },
   // Phase 0 fixtures: codex-tool-surface.md. No name lists anywhere -
   // not on the CLI, not in config.toml. Control is feature booleans
@@ -136,10 +142,10 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     composable: false,
     builtins: [],
     categories: [
-      { key: "shell", disableFlag: null, configKey: "features.shell_tool" },
-      { key: "exec", disableFlag: null, configKey: "features.unified_exec" },
-      { key: "web", disableFlag: null, configKey: "web_search" },
-      { key: "view-image", disableFlag: null, configKey: "tools.view_image" },
+      { key: "shell", disableFlag: null, configKey: "features.shell_tool", canonical: [] },
+      { key: "exec", disableFlag: null, configKey: "features.unified_exec", canonical: [] },
+      { key: "web", disableFlag: null, configKey: "web_search", canonical: [] },
+      { key: "view-image", disableFlag: null, configKey: "tools.view_image", canonical: [] },
     ],
     denySemantics: "no-lists",
   },

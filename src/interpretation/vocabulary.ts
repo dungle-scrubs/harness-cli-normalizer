@@ -57,6 +57,11 @@ export const validateModel = (h: HarnessDescriptor, model: string): Validated =>
 /** Validate an effort against the ladder that applies to the pick: the
  * model's own ladder where the harness constrains per model (codex), else
  * the harness-wide ladder. */
+export const validateAccess = (value: string): Validated => {
+  if (value === "read" || value === "write") return { ok: true, id: value };
+  return { ok: false, reason: `unknown access ${JSON.stringify(value)}; accepted: read, write` };
+};
+
 export const validateEffort = (h: HarnessDescriptor, effort: string, model?: string): Validated => {
   let ladder = h.vocabulary.efforts;
   if (model !== undefined && h.vocabulary.effortsByModel !== undefined) {

@@ -14,7 +14,9 @@ import { DISCOVERY_FACETS, resolveRender, TURN_OPTION_KEYS } from "../knowledge/
 import type { DiscoveryOptions, TurnOptions } from "./argv.js";
 import { hintFor } from "./hints.js";
 import { ArgvRefusalError } from "./refusal.js";
-import { CLEAN_SELECTOR, resolveModel, validateEffort } from "./vocabulary.js";
+import { renderToolSelection } from "./tool-selection.js";
+import { READ_PRESET } from "./tool-vocabulary.js";
+import { CLEAN_SELECTOR, resolveModel, validateAccess, validateEffort } from "./vocabulary.js";
 
 // TOML-quoted value for config-kv: JSON.stringify is sufficient for the
 // closed vocabularies that may use it (enum, effort) - no value contains a
@@ -33,6 +35,20 @@ export const renderTurnOptions = (
   phase: "launch" | "resume",
 ): string[] => {
   const sequences: string[][] = [];
+
+  const accessRaw = opts.access;
+  if (accessRaw !== undefined) {
+    const v = validateAccess(accessRaw);
+    if (!v.ok) {
+      throw new ArgvRefusalError({
+        issue: "invalid-option-value",
+        harness: h.name,
+        option: "access",
+        supported: ["read", "write"],
+        detail: String(accessRaw),
+      });
+    }
+  }
 
   for (const key of TURN_OPTION_KEYS) {
     const spec = h.turnOptions[key];
@@ -166,9 +182,85 @@ export const renderTurnOptions = (
       continue;
     }
 
+    // Access is opt-in-only, no profile default; dispatch to tool-selection for the preset.
+    if (key === "access") {
+      if (raw === undefined) continue;
+      if (spec === undefined) {
+        throw new ArgvRefusalError({
+          issue: "unsupported-option",
+          harness: h.name,
+          option: key,
+          supported: Object.keys(h.turnOptions).length ? Object.keys(h.turnOptions) : ["(none)"],
+          detail: String(raw),
+          hint: hintFor(h.name, key),
+        });
+      }
+      const v = validateAccess(raw as string);
+      if (!v.ok) {
+        throw new ArgvRefusalError({
+          issue: "invalid-option-value",
+          harness: h.name,
+          option: key,
+          supported: ["read", "write"],
+          detail: String(raw),
+        });
+      }
+      // When discovery.tools is off, the read preset must not re-enable tools.
+      if (raw === "read" && opts.discovery?.tools === false) {
+        if (spec.kind === "tool-preset") continue;
+      }
+      switch (spec.kind) {
+        case "tool-preset": {
+          if (raw === "write") break;
+          const toolMapForHarness = (opts as { toolMap?: Record<string, Record<string, string>> })
+            .toolMap?.[h.name];
+          const filtered = (READ_PRESET as readonly string[]).filter((c) => {
+            if (toolMapForHarness?.[c] !== undefined) return true;
+            if (h.tools.builtins.some((b) => b.canonical === c)) return true;
+            if (h.tools.categories.some((cat) => (cat.canonical as readonly string[]).includes(c)))
+              return true;
+            return false;
+          });
+          if (filtered.length === 0) break;
+          const rendered = renderToolSelection(h, {
+            include: filtered as unknown as string[],
+            toolMap: toolMapForHarness,
+          });
+          if (rendered.tokens.length > 0) sequences.push([...rendered.tokens]);
+          break;
+        }
+        case "flag-value": {
+          const fv = spec as Extract<typeof spec, { kind: "flag-value" }>;
+          const mapped = fv.values[raw as string];
+          if (mapped !== undefined) sequences.push([fv.flag, mapped]);
+          break;
+        }
+        case "flag-list-by-value": {
+          const fl = spec as Extract<typeof spec, { kind: "flag-list-by-value" }>;
+          const list = fl.flags[raw as string] ?? [];
+          if (list.length > 0) sequences.push([...list]);
+          break;
+        }
+        default: {
+          const _exhaustive: never = spec as never;
+          throw new ArgvRefusalError({
+            issue: "invalid-option-value",
+            harness: h.name,
+            option: key,
+            supported: [],
+            detail: String(_exhaustive),
+          });
+        }
+      }
+      continue;
+    }
+
     // Non-discovery keys
-    // Handle enum default on launch
+    // Handle enum default on launch. An access preset already claimed the
+    // sandbox flag on harnesses that express access through it (codex);
+    // the enum default must not emit a second --sandbox.
     if (raw === undefined) {
+      if (key === "sandbox" && opts.access !== undefined) continue;
       if (
         spec !== undefined &&
         spec.kind === "enum" &&
@@ -429,6 +521,11 @@ export const renderTurnOptions = (
       }
       case "discovery":
         // already handled
+        break;
+      case "tool-preset":
+      case "flag-value":
+      case "flag-list-by-value":
+        // access-only kinds - handled above for key === "access"
         break;
       default: {
         const _exhaustive: never = spec as never;

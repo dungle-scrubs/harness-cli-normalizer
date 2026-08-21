@@ -32,10 +32,16 @@ Options:
   --effort <value>          Effort level (validated per harness/model)
   --sandbox <value>         Sandbox mode (codex only)
   --provider <value>        Provider (pi only)
-  --tools <a,b>             Tool grant allowlist (claude, pi; a bare name
-                            matching a configured toolset expands to it)
-  --exclude-tools <a,b>     Complement over known tools (claude, pi;
-                            mutually exclusive with --tools)
+  --tools <a,b>             Tool grant allowlist - canonical names (read, write,
+                            edit, shell, grep, glob, list, web-fetch,
+                            web-search, subagent, skill);
+                            'native:<name>' passes a harness-native or
+                            extension tool through (claude, pi; a bare
+                            name matching a configured toolset expands
+                            to it)
+  --exclude-tools <a,b>     Complement over known tools - canonical names
+                            (same vocabulary, native:<name> passthrough);
+                            mutually exclusive with --tools (claude, pi)
   --autonomy                Enable autonomy flag (claude/codex/muse)
   --no-autonomy             Disable autonomy
   --write                   Enable write (muse)
@@ -54,6 +60,13 @@ Options:
                             exclusion automatically. Opt-in; no default)
   --append-system-prompt <text>
                             Append to the built-in prompt (claude, pi only)
+  --access <read|write>     Access preset - read = read-only tool subset
+                            (canonical: read, grep, glob, list, web-fetch,
+                            web-search; claude/pi via --tools, codex via
+                            --sandbox read-only, muse via --disable-write
+                            --disable-shell); write = no restriction;
+                            mutually exclusive with --tools/--exclude-tools
+                            and with --sandbox on codex; no default
   --max-steps <n>           Max steps (muse, 1-10000)
   --timeout <seconds>       Wall-clock budget for the run (all harnesses,
                             hcn-enforced; 0 disables; no default)
@@ -83,8 +96,10 @@ Defaults with no flags:
   git root) > user config (~/.config/hcn/config.json) > built-in profile
   > harness default. The profile pins: effort medium, sandbox
   workspace-write (codex only; other harnesses report divergence),
-  discovery on, autonomy off, write/shell on. timeout and max-steps have
-  no default. Question escalation defaults ON (config key
+  discovery on, autonomy off, write/shell on. timeout, max-steps and
+  access have no default; harness default applies (access write emits
+  nothing on claude/pi/muse, --sandbox workspace-write on codex via
+  profile). toolMap is config-only (no flag) - canonical -> native mapping per harness. Question escalation defaults ON (config key
   "escalateQuestions"; it is a prompt preamble, never a harness flag).
   Provenance prints to stderr on every run; see
   'hcn inspect <harness>' for the resolved argv of a bare run.
@@ -125,7 +140,10 @@ Options:
   --effort <value>          Effort
   --sandbox <value>         Sandbox
   --provider <value>        Provider
-  --tools <a,b>             Tools
+  --tools <a,b>             Tools - canonical names (read, write, edit,
+                            shell, grep, glob, list, web-fetch,
+                            web-search, subagent, skill);
+                            'native:<name>' passes through
   --autonomy / --no-autonomy
   --write / --no-write
   --shell / --no-shell

@@ -2,7 +2,11 @@ import { redactArgv } from "../execution/stream-turn.js";
 import { buildLaunchArgv } from "../interpretation/argv.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
 import { FloorExceededError, resolveEffectiveOptions } from "../interpretation/resolve-options.js";
+import { canonicalTable, mergeToolMaps } from "../interpretation/tool-vocabulary.js";
+import { defaultDescriptors } from "../knowledge/overrides.js";
 import { parseTurnOptions, resolvePromptAsync } from "./args.js";
+import { ConfigError, loadProjectConfig, loadUserConfig } from "./config.js";
+import { refusalOf, refuse } from "./refuse.js";
 import { resolveHarness } from "./resolve-harness.js";
 
 export const inspect = async (harnessName: string, rawArgs: string[]): Promise<void> => {
@@ -48,8 +52,55 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
   const values = parsed.values as Record<string, unknown>;
   const wantArgv = values.argv === true;
 
+  // Load config once at top and reuse for both paths
+  let rawUserMap: Record<string, Record<string, string>> | undefined;
+  let rawProjectMap: Record<string, Record<string, string>> | undefined;
+  let loadedTiers: {
+    user?: import("../interpretation/argv.js").TurnOptions;
+    project?: import("../interpretation/argv.js").TurnOptions;
+  } = {};
+  try {
+    const u = loadUserConfig();
+    rawUserMap = (u?.config as { toolMap?: Record<string, Record<string, string>> } | undefined)
+      ?.toolMap;
+    if (u) loadedTiers = { ...loadedTiers, user: u.config as never };
+    const p = loadProjectConfig();
+    rawProjectMap = (p?.config as { toolMap?: Record<string, Record<string, string>> } | undefined)
+      ?.toolMap;
+    if (p) loadedTiers = { ...loadedTiers, project: p.config as never };
+  } catch (e) {
+    if (e instanceof ConfigError) {
+      process.stderr.write(`config error: ${(e as Error).message}\n`);
+      process.exitCode = 2;
+      return;
+    }
+    throw e;
+  }
+  const merged = mergeToolMaps({ user: rawUserMap, project: rawProjectMap });
+
   if (!wantArgv) {
-    // Pure descriptor dump
+    const table = canonicalTable(defaultDescriptors());
+    const slice: Record<string, unknown> = {};
+    const allCanonicalForInspect = [
+      ...new Set([...Object.keys(table), ...Object.keys(merged[h.name] ?? {})]),
+    ].sort();
+    for (const canonical of allCanonicalForInspect) {
+      const perHarness = table[canonical] as Record<string, unknown> | undefined;
+      const v = perHarness?.[h.name];
+      const mapped = merged[h.name]?.[canonical];
+      if (mapped !== undefined) {
+        slice[canonical] = { native: mapped.native, source: mapped.tier };
+      } else if (v !== undefined) {
+        const vv = v as { kind: string; native?: string; key?: string };
+        const val =
+          vv.kind === "builtin"
+            ? { native: vv.native, source: "descriptor" }
+            : { ...vv, source: "descriptor" };
+        slice[canonical] = val;
+      } else {
+        slice[canonical] = { native: null, source: "none" };
+      }
+    }
     const out = {
       name: h.name,
       bin: h.bin,
@@ -76,6 +127,7 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
       turnOptions: h.turnOptions,
       limitMatchers: h.limitMatchers,
       authMatchers: h.authMatchers,
+      toolVocabulary: slice,
     };
     process.stdout.write(`${JSON.stringify(out, null, 2)}\n`);
     return;
@@ -189,26 +241,13 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
     }
   }
 
-  // Inspect resolves exactly as a launch would: profile + user config,
-  // launch-only semantics, so --argv previews the truth of a bare run.
-  const { loadUserConfig, loadProjectConfig, ConfigError } = await import("./config.js");
+  // Reuse already-loaded config for argv preview
   const tiers: {
     user?: Partial<ReturnType<typeof parseTurnOptions>>;
     project?: Partial<ReturnType<typeof parseTurnOptions>>;
   } = {};
-  try {
-    const loaded = loadUserConfig();
-    if (loaded !== null) tiers.user = loaded.config;
-    const proj = loadProjectConfig();
-    if (proj !== null) tiers.project = proj.config;
-  } catch (configErr) {
-    if (configErr instanceof ConfigError) {
-      process.stderr.write(`config error: ${(configErr as Error).message}\n`);
-      process.exitCode = 2;
-      return;
-    }
-    throw configErr;
-  }
+  if (loadedTiers.user) tiers.user = loadedTiers.user as never;
+  if (loadedTiers.project) tiers.project = loadedTiers.project as never;
   let resolved: ReturnType<typeof resolveEffectiveOptions>;
   try {
     resolved = resolveEffectiveOptions(h, { ...turnOpts, prompt } as never, tiers);
@@ -216,6 +255,10 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
     if (resErr instanceof FloorExceededError) {
       process.stderr.write(`${(resErr as Error).message}\n`);
       process.exitCode = 2;
+      return;
+    }
+    if (resErr instanceof ArgvRefusalError) {
+      refuse(refusalOf(resErr as ArgvRefusalError), false);
       return;
     }
     throw resErr;
@@ -237,9 +280,7 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
     if (claudeTokens !== undefined && claudeTokens.length > 0) argv.push(...claudeTokens);
   } catch (err) {
     if (err instanceof ArgvRefusalError) {
-      process.stderr.write(`${err.message}\n`);
-      if (err.supported.length) process.stderr.write(`supported: ${err.supported.join(", ")}\n`);
-      process.exitCode = 2;
+      refuse(refusalOf(err as ArgvRefusalError), false);
       return;
     }
     throw err;

@@ -83,6 +83,9 @@ export interface TurnOptions {
   readonly escalateQuestions?: boolean;
   /** Internal: set by CLI when prompt came from --prompt/--prompt-file to bypass leading '-' guard */
   readonly __explicitPrompt?: boolean;
+  /** toolMap extensible vocabulary per harness (issue toolMap) */
+  readonly toolMap?: Readonly<Record<string, Readonly<Record<string, string>>>>;
+  readonly access?: "read" | "write";
 }
 
 export interface ResumeOptions extends TurnOptions {
@@ -124,9 +127,11 @@ const turnTail = (h: HarnessDescriptor, opts: TurnOptions): string[] => {
     tail.push(h.autonomy.flag);
   }
   if (opts.tools !== undefined || opts.excludeTools !== undefined) {
+    const perHarnessMap = opts.toolMap?.[h.name];
     const rendered = renderToolSelection(h, {
       include: opts.tools,
       exclude: opts.excludeTools,
+      toolMap: perHarnessMap,
     });
     tail.push(...rendered.tokens);
   }
