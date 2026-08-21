@@ -228,6 +228,53 @@ describe("session lifecycle events (observability)", () => {
   });
 });
 
+describe("F-24 session turn failures", () => {
+  test("a turn whose stderr carries a usage-limit line ends with failure then done with failure", async () => {
+    const proc = new FakeProcess();
+    const d = makeDeps(proc);
+    const session = openSession(claudeCode, { sessionId: sid }, d);
+    session.send("hi");
+    const turnsIter = session.turns[Symbol.asyncIterator]();
+    const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
+    proc.emitLine(init);
+    proc.emitStderr("You've hit your weekly limit · resets 2am");
+    await new Promise<void>((r) => setTimeout(r, 0));
+    proc.emitLine(result);
+    const events = await drainTurn(turn1);
+    const failure = events.find((e) => e.kind === "failure");
+    expect(failure).toMatchObject({ class: "usage-limit" });
+    // failure must appear before done
+    const failureIdx = events.findIndex((e) => e.kind === "failure");
+    const doneIdx = events.findIndex((e) => e.kind === "done");
+    expect(failureIdx).toBeGreaterThan(-1);
+    expect(doneIdx).toBeGreaterThan(failureIdx);
+    expect(events.at(-1)).toMatchObject({
+      kind: "done",
+      cause: "limit",
+      failure: expect.objectContaining({ class: "usage-limit" }),
+    });
+    await session.close();
+  });
+
+  test("a clean turn has no failure event and done.failure undefined", async () => {
+    const proc = new FakeProcess();
+    const d = makeDeps(proc);
+    const session = openSession(claudeCode, { sessionId: sid }, d);
+    session.send("hi");
+    const turnsIter = session.turns[Symbol.asyncIterator]();
+    const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
+    proc.emitLine(init);
+    proc.emitLine(result);
+    const events = await drainTurn(turn1);
+    expect(events.find((e) => e.kind === "failure")).toBeUndefined();
+    const done = events.at(-1) as Extract<HarnessEvent, { kind: "done" }>;
+    expect(done.kind).toBe("done");
+    expect(done.cause).toBe("clean");
+    expect(done.failure).toBeUndefined();
+    await session.close();
+  });
+});
+
 describe("result is_error is not double-emitted", () => {
   test("a claude result is_error yields exactly one error event through openSession", async () => {
     const proc = new FakeProcess();

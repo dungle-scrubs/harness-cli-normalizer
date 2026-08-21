@@ -197,7 +197,6 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
   refuseUnusableSessionId(h, opts.sessionId);
   const argv = [
     h.bin,
-    ...h.launch.baseFlags,
     ...h.sessionMode.flags,
     // idFlag null = the harness refuses unknown ids and mints its own
     // (pi rpc); the caller-side sessionId stays a correlation handle.

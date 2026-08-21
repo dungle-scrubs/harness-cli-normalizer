@@ -2,6 +2,9 @@ import { describe, expect, test } from "vitest";
 import type { HarnessEvent } from "../../src/execution/events.js";
 import { streamTurn } from "../../src/execution/stream-turn.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
+import { codexCli } from "../../src/knowledge/codex.js";
+import { museCode } from "../../src/knowledge/muse.js";
+import { piCli } from "../../src/knowledge/pi.js";
 import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
 
 const sid = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
@@ -162,6 +165,62 @@ describe("streamTurn behaviors (M3.1 boxes)", () => {
       class: "transport",
     });
   });
+
+  test("F-05 abort signal escalates SIGTERM and yields killed with no failure", async () => {
+    const proc = new FakeProcess();
+    const d = deps(proc);
+    // use non-autoExit so we can assert signal before exit
+    const sig = fakeSignal({ autoExit: false });
+    const controller = new AbortController();
+    const turn = collect(
+      streamTurn(
+        claudeCode,
+        { prompt: "hi", signal: controller.signal },
+        { ...d, signal: sig.signal },
+      ),
+    );
+    // driver aborts after spawn
+    // allow spawn to be recorded
+    await Promise.resolve();
+    controller.abort();
+    // abort should have signaled SIGTERM
+    expect(sig.sent.some((s) => s.sig === "SIGTERM")).toBe(true);
+    proc.exit(null);
+    const events = await turn;
+    const done = events.at(-1) as unknown as {
+      kind: string;
+      exitCode: number | null;
+      cause: string;
+      failure?: unknown;
+    };
+    expect(done).toMatchObject({ kind: "done", exitCode: null, cause: "killed" });
+    expect((done as unknown as { failure?: unknown }).failure).toBeUndefined();
+    expect(events.some((e) => e.kind === "failure")).toBe(false);
+  });
+
+  test("F-05 aborted nonzero exit 143 is killed not crash and no failure", async () => {
+    const proc = new FakeProcess();
+    const sig = fakeSignal({ autoExit: false });
+    const clock = new FakeClock();
+    const spawner = fakeSpawner([proc]);
+    const controller = new AbortController();
+    controller.abort();
+    const p = collect(
+      streamTurn(
+        claudeCode,
+        { prompt: "hi", signal: controller.signal },
+        { spawn: spawner.spawn, clock, signal: sig.signal },
+      ),
+    );
+    // already aborted at spawn time, should have sent SIGTERM immediately
+    expect(sig.sent.some((s) => s.sig === "SIGTERM")).toBe(true);
+    proc.exit(143);
+    const ev = await p;
+    const done = ev.at(-1) as unknown as { kind: string; cause: string; failure?: unknown };
+    expect(done.cause).toBe("killed");
+    expect((done as unknown as { failure?: unknown }).failure).toBeUndefined();
+    expect(ev.some((e) => e.kind === "failure")).toBe(false);
+  });
 });
 
 describe("structured boundary events (observability)", () => {
@@ -218,5 +277,196 @@ describe("A-001 fixture replay (D-022)", () => {
     const events = await collect(turn);
     expect(events.filter((e) => e.kind === "identity")).toHaveLength(1);
     expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+  });
+});
+
+describe("harness fixture replay (F-20)", () => {
+  const cases: Array<{
+    file: string;
+    harness: (typeof claudeCode)["name"];
+    exitCode: number;
+    nonError: boolean;
+  }> = [
+    { file: "claude.ndjson", harness: "claude", exitCode: 0, nonError: true },
+    { file: "codex.ndjson", harness: "codex", exitCode: 0, nonError: true },
+    { file: "codex-tool.ndjson", harness: "codex", exitCode: 0, nonError: true },
+    { file: "codex-filetool.ndjson", harness: "codex", exitCode: 0, nonError: true },
+    { file: "pi.ndjson", harness: "pi", exitCode: 0, nonError: true },
+    { file: "pi-tool.ndjson", harness: "pi", exitCode: 0, nonError: true },
+    { file: "pi-autherror.ndjson", harness: "pi", exitCode: 1, nonError: false },
+    { file: "muse.ndjson", harness: "muse", exitCode: 0, nonError: true },
+    { file: "muse-tool.ndjson", harness: "muse", exitCode: 0, nonError: true },
+    { file: "muse-readtool.ndjson", harness: "muse", exitCode: 0, nonError: true },
+  ];
+
+  test.each(cases)(
+    "replays $file with exactly one identity and a terminal done",
+    async ({ file, harness, exitCode, nonError }) => {
+      const { readFileSync } = await import("node:fs");
+      const { join } = await import("node:path");
+      const { codexCli } = await import("../../src/knowledge/codex.js");
+      const { piCli } = await import("../../src/knowledge/pi.js");
+      const { museCode } = await import("../../src/knowledge/muse.js");
+      const byName = { claude: claudeCode, codex: codexCli, pi: piCli, muse: museCode } as const;
+      const descriptor = byName[harness as keyof typeof byName];
+      const raw = readFileSync(join(import.meta.dirname, "../fixtures/harnesses", file), "utf8");
+      const proc = new FakeProcess();
+      const d = deps(proc);
+      const turn = streamTurn(descriptor, { prompt: "hi" }, d);
+      for (const line of raw.split("\n")) {
+        if (line.trim() !== "") proc.emitLine(line);
+      }
+      proc.exit(exitCode);
+      const events = await collect(turn);
+      expect(events.filter((e) => e.kind === "identity")).toHaveLength(1);
+      if (nonError) {
+        const hasContent = events.some((e) => e.kind === "message" || e.kind === "token");
+        expect(hasContent, `${file} should emit at least one message or token`).toBe(true);
+      }
+      expect(events.filter((e) => e.kind === "done")).toHaveLength(1);
+      expect(events.at(-1)?.kind).toBe("done");
+    },
+  );
+
+  test("inventory: every .ndjson in test/fixtures/harnesses is covered", async () => {
+    const { readdirSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const dir = join(import.meta.dirname, "../fixtures/harnesses");
+    const files = readdirSync(dir)
+      .filter((f) => f.endsWith(".ndjson"))
+      .sort();
+    const covered = new Set(cases.map((c) => c.file));
+    const uncovered = files.filter((f) => !covered.has(f));
+    expect(uncovered, `uncovered fixtures: ${uncovered.join(", ")}`).toEqual([]);
+    expect(files.length).toBe(cases.length);
+  });
+});
+
+describe("F-09 capabilities with no model use curated source and argv granularity", () => {
+  test("claude no model yields token and curated", async () => {
+    const proc = new FakeProcess();
+    const d = deps(proc);
+    const turn = streamTurn(claudeCode, { prompt: "hi" }, d);
+    proc.emitLine(init);
+    proc.emitLine(result);
+    proc.exit(0);
+    const events = await collect(turn);
+    const id = events.find((e) => e.kind === "identity") as unknown as {
+      kind: string;
+      capabilities: { streaming: string; source: string };
+    };
+    expect(id.capabilities.streaming).toBe("token");
+    expect(id.capabilities.source).toBe("curated");
+  });
+  test("pi no model yields token and curated", async () => {
+    const proc = new FakeProcess();
+    const d = deps(proc);
+    const turn = streamTurn(piCli, { prompt: "hi" }, d);
+    proc.emitLine(JSON.stringify({ type: "session", id: sid }));
+    proc.emitLine(
+      JSON.stringify({
+        type: "assistant",
+        message: { role: "assistant", content: [{ type: "text", text: "hi" }] },
+      }),
+    );
+    proc.exit(0);
+    const events = await collect(turn);
+    const id = events.find((e) => e.kind === "identity") as unknown as {
+      capabilities: { streaming: string; source: string };
+    };
+    expect(id?.capabilities.streaming).toBe("token");
+    expect(id?.capabilities.source).toBe("curated");
+  });
+  test("codex no model yields message and curated", async () => {
+    const proc = new FakeProcess();
+    const d = deps(proc);
+    const turn = streamTurn(codexCli, { prompt: "hi" }, d);
+    proc.emitLine(JSON.stringify({ type: "thread.started", thread_id: sid }));
+    proc.exit(0);
+    const events = await collect(turn);
+    const id = events.find((e) => e.kind === "identity") as unknown as {
+      capabilities: { streaming: string; source: string };
+    };
+    expect(id?.capabilities.streaming).toBe("message");
+    expect(id?.capabilities.source).toBe("curated");
+  });
+  test("muse no model yields token and curated", async () => {
+    const proc = new FakeProcess();
+    const d = deps(proc);
+    const turn = streamTurn(museCode, { prompt: "hi" }, d);
+    proc.emitLine(JSON.stringify({ stream: { id: sid } }));
+    proc.exit(0);
+    const events = await collect(turn);
+    const id = events.find((e) => e.kind === "identity") as unknown as {
+      capabilities: { streaming: string; source: string };
+    };
+    expect(id?.capabilities.streaming).toBe("token");
+    expect(id?.capabilities.source).toBe("curated");
+  });
+  test("unknown model still degrades to unknown", async () => {
+    const proc = new FakeProcess();
+    const d = deps(proc);
+    const turn = streamTurn(
+      piCli,
+      { prompt: "hi", model: "unknown-provider/unknown-model-xyz" },
+      d,
+    );
+    proc.emitLine(JSON.stringify({ type: "session", id: sid }));
+    proc.exit(0);
+    const events = await collect(turn);
+    const id = events.find((e) => e.kind === "identity") as unknown as {
+      capabilities: { streaming: string; source: string };
+    };
+    expect(id?.capabilities.source).toBe("unknown");
+    expect(id?.capabilities.streaming).toBe("none");
+  });
+
+  test("F-23 pi resume warns create-on-missing before spawn", async () => {
+    const resume = "11111111-1111-4111-8111-111111111111";
+    const proc = new FakeProcess();
+    const d = deps(proc);
+    const turn = streamTurn(piCli, { prompt: "hi", resume }, d);
+    proc.emitLine(JSON.stringify({ type: "session", id: resume }));
+    proc.exit(0);
+    const events = await collect(turn);
+    const firstError = events.find((e) => e.kind === "error") as unknown as
+      | { message: string }
+      | undefined;
+    expect(firstError?.message).toContain("pi creates a new session");
+    expect(firstError?.message).toContain(resume);
+    const museProc = new FakeProcess();
+    const museD = deps(museProc);
+    const museTurn = streamTurn(museCode, { prompt: "hi", resume }, museD);
+    museProc.emitLine(JSON.stringify({ stream: { id: resume } }));
+    museProc.exit(0);
+    const museEvents = await collect(museTurn);
+    const museFirst = museEvents.find((e) => e.kind === "error") as unknown as
+      | { message: string }
+      | undefined;
+    expect(museFirst?.message).toContain("muse creates a new session");
+  });
+
+  test("F-68 rotated resume emits error naming both ids and harness-minted identity", async () => {
+    const resumeA = "11111111-1111-4111-8111-111111111111";
+    const announceB = "22222222-2222-4222-8222-222222222222";
+    const proc = new FakeProcess();
+    const d = deps(proc);
+    const turn = streamTurn(piCli, { prompt: "hi", resume: resumeA }, d);
+    proc.emitLine(JSON.stringify({ type: "session", id: announceB }));
+    proc.exit(0);
+    const events = await collect(turn);
+    const errs = events.filter((e) => e.kind === "error") as unknown as Array<{
+      message: string;
+    }>;
+    const rotated = errs.find((e) => e.message.includes("rotated"));
+    expect(rotated?.message).toContain(resumeA);
+    expect(rotated?.message).toContain(announceB);
+    const ids = events.filter((e) => e.kind === "identity") as unknown as Array<{
+      sessionId: string;
+      authority: string;
+    }>;
+    expect(ids.some((i) => i.sessionId === announceB && i.authority === "harness-minted")).toBe(
+      true,
+    );
   });
 });

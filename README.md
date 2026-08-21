@@ -156,6 +156,11 @@ minted (the identity event carries the id). With `--no-escalate-questions`
 the worker is instructed never to ask - it states the assumption it
 proceeded under and continues.
 
+A turn that ends `awaiting-input` arms no answer timer: the process has
+exited, and the session id stays resumable for as long as the harness
+keeps the session. `hcn session` keeps the process alive while it waits
+and applies no idle budget of its own, so the caller owns any timeout.
+
 Every resolved setting prints its provenance to stderr:
 
 ```
@@ -186,10 +191,10 @@ its normalized spelling.
 Every failure - provider, work, transport, or refusal - arrives as a typed `failure` event and reduces to one self-sufficient summary on `done`:
 
 ```ts
-type FailureClass = "rate-limit" | "usage-limit" | "quota" | "auth" | "budget" | "task" | "transport" | "rejected";
-interface FailureSummary { class: FailureClass; retryable: boolean; message: string; code?: LimitCode; authKind?: AuthFailureKind; resetsAt?: number; issue?: RefusalIssue; option?: TurnOptionKey; facet?: DiscoveryFacet; supported?: readonly string[]; }
+type FailureClass = "rate-limit" | "usage-limit" | "quota" | "auth" | "budget" | "task" | "transport" | "rejected" | "native" | "timeout";
+interface FailureSummary { class: FailureClass; retryable: boolean; message: string; code?: LimitCode; authKind?: AuthFailureKind; resetsAt?: number; issue?: RefusalIssue; option?: TurnOptionKey; facet?: DiscoveryFacet; supported?: readonly string[]; supportedBy?: ReadonlyArray<{ harness: string; spelling: string }>; hint?: string; nativeExitCode?: number; }
 type HarnessEvent = ... | ({ kind: "failure" } & FailureSummary) | { kind: "done"; exitCode: number | null; cause: ExitCause; failure?: FailureSummary };
-type ExitCause = "clean" | "limit" | "crash" | "stall" | "killed" | "failed";
+type ExitCause = "clean" | "limit" | "crash" | "stall" | "killed" | "failed" | "awaiting-input";
 ```
 
 The canonical consumer check, identical for a deterministic router and an agent:
@@ -201,7 +206,11 @@ if (done.failure) {
 }
 ```
 
-`retryable` is `false` for `task`, `budget`, `rejected` and `true` for the rest. `rejected` is non-retryable across the whole model chain because the remedy is different options or a different harness.
+`retryable` is `false` for `task`, `budget`, `rejected`, `native`, `timeout` and `true` for the rest. `rejected` is non-retryable across the whole model chain because the remedy is different options or a different harness.
+
+`resetsAt` is present only when the harness reports a reset time (today:
+claude's `rate_limit_event`); a consumer treats its absence as unknown,
+not as "retry now".
 
 ## Refusals
 
@@ -217,7 +226,7 @@ Every refusal names an alternative in `supported` and `message`, not only a nega
 ## Reference
 
 - Descriptors live in `src/knowledge/` (`claude-code.ts`, `codex.ts`, `pi.ts`, `muse.ts`), with shared types in `descriptor.ts`.
-- The normalized event surface is `HarnessEvent` in `src/execution/events.ts`: `identity`, `token`, `message`, `progress`, `tool`, `context`, `limit`, `error`, `failure`, `question` (issue #41), `done` (with `done.failure`; `done.cause` includes `awaiting-input`).
+- The normalized event surface is `HarnessEvent` in `src/execution/events.ts`: `identity`, `token`, `message`, `progress`, `tool`, `context`, `limit`, `error`, `failure`, `question` (issue #41), `done` (with `done.failure`; `done.cause` includes `awaiting-input`). Event kinds and failure classes are additive across releases; a consumer ignores a kind or class it does not recognize and still waits for `done`.
 - Narrow or override a descriptor's facts with `parseOverrides` (`src/knowledge/overrides.ts`). An override a harness cannot satisfy throws `OverrideRefusalError` instead of producing a broken argv. `limitMatchers`/`authMatchers` are now serializable `{pattern, flags, code/kind}` objects so they can be overridden from JSON; bad patterns are refused at load with file and harness named.
 - `DROPPABLE_KINDS` (`token`, `progress`, `context`) marks events safe to drop when you only need the full messages. `failure` is never droppable.
 

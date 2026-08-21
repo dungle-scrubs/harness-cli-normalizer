@@ -16,6 +16,9 @@ export interface SpawnedProcess {
   /** Resolves with the exit code, or null when the process died to a
    * signal without one. */
   readonly exited: Promise<number | null>;
+  /** After `exited` settles, the spawn-time error message when the child
+   * never started (async ENOENT and the like), else null. */
+  readonly startupError?: () => string | null;
   /** Present when the spawner opened a writable stdin (session mode needs
    * it; one-shot turns close or inherit stdin instead). */
   readonly stdin?: {

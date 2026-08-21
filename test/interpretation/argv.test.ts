@@ -6,6 +6,7 @@ import {
   buildSessionArgv,
 } from "../../src/interpretation/argv.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
+import { piCli } from "../../src/knowledge/pi.js";
 
 describe("buildLaunchArgv (claude)", () => {
   test("places the positional prompt before --allowedTools", () => {
@@ -72,6 +73,33 @@ describe("buildSessionArgv (claude)", () => {
     expect(argv[argv.indexOf("--setting-sources") + 1]).toBe("project");
     expect(argv[argv.indexOf("--session-id") + 1]).toBe("eb04301d-8756-4a8b-ae3e-aac0e71f7265");
   });
+
+  test("pins the whole argv for claude (no extra flags)", () => {
+    const argv = buildSessionArgv(claudeCode, {
+      sessionId: "eb04301d-8756-4a8b-ae3e-aac0e71f7265",
+    });
+    expect(argv).toEqual([
+      "claude",
+      "-p",
+      "--input-format",
+      "stream-json",
+      "--output-format",
+      "stream-json",
+      "--include-partial-messages",
+      "--verbose",
+      "--setting-sources",
+      "project",
+      "--session-id",
+      "eb04301d-8756-4a8b-ae3e-aac0e71f7265",
+    ]);
+  });
+
+  test("pins the whole argv for pi as pi --mode rpc (no -p, no duplicated --mode)", () => {
+    const argv = buildSessionArgv(piCli, {
+      sessionId: "eb04301d-8756-4a8b-ae3e-aac0e71f7265",
+    });
+    expect(argv).toEqual(["pi", "--mode", "rpc"]);
+  });
 });
 
 describe("shared spawn-boundary guards", () => {
@@ -133,5 +161,37 @@ describe("shared spawn-boundary guards", () => {
     expect(() => buildLaunchArgv(claudeCode, { prompt: "hi", model: "gpt-5.6-sol" })).toThrow(
       /model/i,
     );
+  });
+});
+
+describe("pi resume argv matches captured fixture (F-26)", () => {
+  test("buildResumeArgv pi reproduces resume.argv.json with prompt substituted", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const { piCli } = await import("../../src/knowledge/pi.js");
+    const prompt = "Reply with only the codeword you were told.";
+    const sessionId = "01a022e3-9afb-7ce5-88f5-07ad0e9ac8fa";
+    // The captured argv carries --thinking high and --tools from the effective
+    // config at capture time (fixture README: hcn inspect pi --argv --resume
+    // <id> --prompt "..."); the interpretation test must include those to
+    // reproduce the fixture. Minimal buildResumeArgv without them would omit
+    // those flags.
+    const expectedRaw = JSON.parse(
+      readFileSync(
+        join(
+          import.meta.dirname,
+          "../fixtures/pi-rpc-spike/06-resume-after-close/resume.argv.json",
+        ),
+        "utf8",
+      ),
+    ) as string[];
+    const expected = expectedRaw.map((tok) => (tok === "[prompt:43ch]" ? prompt : tok));
+    const argv = buildResumeArgv(piCli, {
+      sessionId,
+      prompt,
+      effort: "high",
+      tools: ["read", "bash", "edit", "write", "grep", "find", "ls"],
+    });
+    expect(argv).toEqual(expected);
   });
 });

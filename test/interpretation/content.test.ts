@@ -145,3 +145,27 @@ describe("non-shell tool decoding (real fixtures)", () => {
     ).toEqual([{ kind: "tool", name: "write", input: { path: "y" } }]);
   });
 });
+
+describe("muse budget detection (F-69)", () => {
+  test("muse run_terminal failed with step-limit reason yields budget", () => {
+    const rec = {
+      payload: {
+        kind: "run_terminal",
+        terminal: "failed",
+        reason: "model did not reach a terminal state within 40 step(s)",
+      },
+    };
+    expect(contentEventsOf("muse", rec)).toEqual([
+      { kind: "budget", detail: "model did not reach a terminal state within 40 step(s)" },
+    ]);
+  });
+
+  test("muse run_terminal failed with another reason still yields error", () => {
+    const rec = {
+      payload: { kind: "run_terminal", terminal: "failed", reason: "something else broke" },
+    };
+    expect(contentEventsOf("muse", rec)).toEqual([
+      { kind: "error", message: "muse run failed: something else broke", terminal: true },
+    ]);
+  });
+});
