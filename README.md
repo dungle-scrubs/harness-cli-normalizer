@@ -164,6 +164,14 @@ version mismatch exit 2 naming the offender.
 
 Precedence is `project > user`; a category-only harness (muse) refuses a `toolMap` key whose canonical is not in its categories, naming the key (e.g. `toolMap.muse.read`). A canonical name with no counterpart on the current harness refuses with `unsupported-option` and the hint `add toolMap.<harness>.<name> to ~/.config/hcn/config.json or pass native:<name>`. hcn cannot verify that a declared native name exists at run time; a wrong name reaches the harness as an unknown tool.
 
+On pi, `--tools` is a strict allowlist: any rendered list - an explicit
+grant or `--access read` - drops the extension and MCP tools pi registered
+at run time (`web_search`, `background_task`, tool-proxy). A bare pi run
+therefore renders no list (the profile's all-known marker emits nothing on
+a strict-allowlist harness; pi's dormant `grep`, `find`, `ls` stay off
+unless granted). A pi grant that needs an extension tool names it through
+`toolMap` or `native:<name>`.
+
 `--access` is a preset allowlist: `read` = `read, grep, glob, list, web-fetch, web-search` (canonical), `write` = no restriction.
 
 Rendering per harness:

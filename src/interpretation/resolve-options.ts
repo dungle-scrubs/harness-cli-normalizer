@@ -270,8 +270,11 @@ export const resolveEffectiveOptions = (
     }
     // D13: the tools marker expands per descriptor. On a harness whose
     // default is already everything (claude), expansion emits nothing -
-    // the emit-nothing rule, recorded in provenance. On a harness with
-    // dormant built-ins (pi), it becomes the enabling include list.
+    // the emit-nothing rule, recorded in provenance. On a harness whose
+    // include flag is a strict allowlist (pi), a rendered list would drop
+    // every extension and MCP tool the harness registered at run time, so
+    // the marker emits nothing there too: the dormant built-ins stay off
+    // unless a caller grants them, and a worker keeps its extensions.
     if (key === "tools" && value === "all-known") {
       // --no-tools containment: a tier that switched discovery.tools off
       // must not have the profile grant switch them back on (pi reads
@@ -288,6 +291,14 @@ export const resolveEffectiveOptions = (
             : undefined;
       if (offTier !== undefined) {
         provenance.push({ key, value: "none (discovery.tools off)", tier: offTier });
+        continue;
+      }
+      if (h.tools.includeIsStrictAllowlist) {
+        provenance.push({
+          key,
+          value: "none (a tools list would drop extension and MCP tools; harness default applies)",
+          tier: "profile",
+        });
         continue;
       }
       const enabled = h.tools.builtins.filter((t) => t.defaultEnabled).length;
