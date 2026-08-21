@@ -31,6 +31,7 @@ import {
   failureFromLimit,
   failureFromNative,
   failureFromRejected,
+  failureFromTask,
   failureFromTimeout,
   failureFromTransport,
   reduceFailures,
@@ -386,32 +387,72 @@ export async function* streamTurn(
 
   const pumpStdout = async (): Promise<void> => {
     const lines = new LineBuffer();
+    let identitySeen = false;
+    const droppableBuffer: HarnessEvent[] = [];
+    const BUFFER_CAP = 256;
+    const isDroppable = (kind: string): boolean =>
+      kind === "progress" || kind === "token" || kind === "context";
+    const flushDroppable = async (): Promise<void> => {
+      for (const e of droppableBuffer) await queue.push(e);
+      droppableBuffer.length = 0;
+    };
+    const handleEvent = async (event: HarnessEvent): Promise<void> => {
+      if (!identitySeen) {
+        if (event.kind === "identity") {
+          identitySeen = true;
+          await queue.push(event);
+          await flushDroppable();
+          return;
+        }
+        if (isDroppable(event.kind)) {
+          if (droppableBuffer.length >= BUFFER_CAP) droppableBuffer.shift();
+          droppableBuffer.push(event);
+          return;
+        }
+        // Lossless events other than identity flush the buffer before themselves
+        await flushDroppable();
+      }
+      if (event.kind === "failure") {
+        const { kind: _kind, ...summary } = event;
+        await pushFailure(summary);
+        return;
+      }
+      if (event.kind === "limit") {
+        // A wall decoded from stdout counts like one read on stderr: the
+        // turn's done must carry it, not only the limit event.
+        await queue.push(event);
+        await pushFailure(failureFromLimit(event.code));
+        return;
+      }
+      if (event.kind === "error") {
+        await queue.push(event);
+        if (event.terminal === true) await pushFailure(failureFromTask(event.message));
+        return;
+      }
+      if (escalateQuestions && event.kind === "message" && event.role === "assistant") {
+        lastAssistantText = event.text;
+      }
+      await queue.push(event);
+    };
     for await (const chunk of proc.stdout) {
       if (cancelled) break;
       // Any output chunk rearms the inactivity budget, but not the wall-clock deadline
       if (deps.stallMs !== undefined) rearm();
       for (const line of lines.push(chunk)) {
         for (const event of decodeLine(h, line, state, opts.model ?? "", granularity)) {
-          if ((event as unknown as { kind: string }).kind === "failure") {
-            await pushFailure(event as unknown as FailureSummary);
-            continue;
-          }
-          if (escalateQuestions && event.kind === "message" && event.role === "assistant") {
-            lastAssistantText = event.text;
-          }
-          await queue.push(event);
+          await handleEvent(event);
         }
       }
     }
     const rest = lines.flush();
     if (rest !== null && !cancelled) {
       for (const event of decodeLine(h, rest, state, opts.model ?? "", granularity)) {
-        if ((event as unknown as { kind: string }).kind === "failure") {
-          await pushFailure(event as unknown as FailureSummary);
-          continue;
-        }
-        await queue.push(event);
+        await handleEvent(event);
       }
+    }
+    // Flush at exit if no identity ever arrived
+    if (!identitySeen && droppableBuffer.length > 0) {
+      await flushDroppable();
     }
   };
 

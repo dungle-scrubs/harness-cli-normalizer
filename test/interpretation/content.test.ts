@@ -165,7 +165,7 @@ describe("muse budget detection (F-69)", () => {
       payload: { kind: "run_terminal", terminal: "failed", reason: "something else broke" },
     };
     expect(contentEventsOf("muse", rec)).toEqual([
-      { kind: "error", message: "muse run failed: something else broke" },
+      { kind: "error", message: "muse run failed: something else broke", terminal: true },
     ]);
   });
 });

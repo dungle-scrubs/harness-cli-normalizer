@@ -15,6 +15,7 @@
  * concatenate both.
  */
 import type { CapabilityResult } from "../interpretation/capabilities.js";
+import type { LimitCode } from "../knowledge/descriptor.js";
 import type { FailureSummary } from "./failure.js";
 
 export type ExitCause =
@@ -49,8 +50,10 @@ export type HarnessEvent =
       readonly options: readonly string[];
       readonly recommended?: string;
     }
-  | { readonly kind: "limit"; readonly code: string; readonly message: string }
-  | { readonly kind: "error"; readonly message: string }
+  | { readonly kind: "limit"; readonly code: LimitCode; readonly message: string }
+  /** `terminal: true` marks an error that ended the turn; the matching
+   * `failure` (class task) follows it. */
+  | { readonly kind: "error"; readonly message: string; readonly terminal?: boolean }
   | ({ readonly kind: "failure" } & FailureSummary)
   | {
       readonly kind: "done";
