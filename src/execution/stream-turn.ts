@@ -20,6 +20,7 @@ import {
   detectAuthFailureInLine,
   detectLimitInLine,
   detectTransportInLine,
+  detectUnavailableInLine,
 } from "../interpretation/limits.js";
 import { composeEscalatedPrompt, detectQuestionBlock } from "../interpretation/question.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
@@ -39,6 +40,7 @@ import {
   failureFromTerminalError,
   failureFromTimeout,
   failureFromTransport,
+  failureFromUnavailable,
   reduceFailures,
 } from "./failure.js";
 import { LineBuffer } from "./lines.js";
@@ -595,12 +597,15 @@ export async function* streamTurn(
     ) {
       const tailForNative = stderrTail.snapshot();
       const transportLine = tailForNative.find((line) => detectTransportInLine(line));
+      const unavailableLine = tailForNative.find((line) => detectUnavailableInLine(line));
       const f =
         transportLine !== undefined
           ? failureFromTransport(transportLine)
-          : tailForNative.length > 0
-            ? failureFromNative(exitCode, tailForNative)
-            : failureFromTransport(`nonzero exit ${exitCode}`);
+          : unavailableLine !== undefined
+            ? failureFromUnavailable(unavailableLine)
+            : tailForNative.length > 0
+              ? failureFromNative(exitCode, tailForNative)
+              : failureFromTransport(`nonzero exit ${exitCode}`);
       failures.push(f);
       // Need to emit this failure before done, even though queue is closed
       yield { kind: "failure", ...f };

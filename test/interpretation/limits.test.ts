@@ -5,6 +5,7 @@ import {
   detectLimit,
   detectLimitInLine,
   detectTransportInLine,
+  detectUnavailableInLine,
 } from "../../src/interpretation/limits.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
@@ -215,5 +216,36 @@ describe("rate-limit 429 anchor", () => {
   test("shared matcher applies to every harness (muse)", () => {
     expect(detectLimitInLine(museCode, "HTTP 429")).toBe("rate-limit");
     expect(detectLimitInLine(museCode, "read 4291 bytes from cache")).toBeNull();
+  });
+});
+
+describe("detectUnavailableInLine", () => {
+  const positives: Array<{ line: string; desc: string }> = [
+    {
+      line: '400: {"message":"Invalid model identifier \\"unsloth/qwen3.6-27b-mlx\\". Please specify a valid downloaded model (e.g., qwen3.6-35b-a3b-ud-mlx, qwen3.8-27b-mlx, qwen/qwen3-vl-8b@4bit).","type":"invalid_request_error","param":"model","code":"model_not_found"}',
+      desc: "exact pi errorMessage with model_not_found",
+    },
+    { line: "model_not_found", desc: "model_not_found" },
+    { line: "Invalid model identifier", desc: "invalid model identifier" },
+    { line: "model xyz not found", desc: "model not found bounded" },
+    { line: "no such model", desc: "no such model" },
+    { line: "unknown model", desc: "unknown model" },
+    { line: "model foo is not loaded", desc: "model is not loaded" },
+    { line: "model foo isn't loaded", desc: "model isn't loaded" },
+    { line: "model foo does not exist", desc: "model does not exist" },
+    { line: "not a valid model", desc: "not a valid model" },
+    { line: "not a valid downloaded model", desc: "not a valid downloaded model" },
+    {
+      line: "the model said not found in file",
+      desc: "model said not found in file - bounded window",
+    },
+  ];
+  test.each(positives)("positive $desc: $line", ({ line }) => {
+    expect(detectUnavailableInLine(line)).toBe(true);
+  });
+
+  const negatives = ["model answered", "found 3 models"] as const;
+  test.each(negatives)("negative %s is not unavailable", (line) => {
+    expect(detectUnavailableInLine(line)).toBe(false);
   });
 });

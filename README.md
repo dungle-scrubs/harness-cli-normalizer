@@ -245,7 +245,7 @@ its normalized spelling.
 Every failure - provider, work, transport, or refusal - arrives as a typed `failure` event and reduces to one self-sufficient summary on `done`:
 
 ```ts
-type FailureClass = "rate-limit" | "usage-limit" | "quota" | "auth" | "budget" | "task" | "transport" | "rejected" | "native" | "timeout";
+type FailureClass = "rate-limit" | "usage-limit" | "quota" | "auth" | "budget" | "task" | "transport" | "unavailable" | "rejected" | "native" | "timeout";
 interface FailureSummary { class: FailureClass; retryable: boolean; message: string; code?: LimitCode; authKind?: AuthFailureKind; resetsAt?: number; issue?: RefusalIssue; option?: TurnOptionKey; facet?: DiscoveryFacet; supported?: readonly string[]; supportedBy?: ReadonlyArray<{ harness: string; spelling: string }>; hint?: string; nativeExitCode?: number; }
 type HarnessEvent = ... | ({ kind: "failure" } & FailureSummary) | { kind: "done"; exitCode: number | null; cause: ExitCause; failure?: FailureSummary };
 type ExitCause = "clean" | "limit" | "crash" | "stall" | "killed" | "failed" | "awaiting-input";
@@ -260,7 +260,7 @@ if (done.failure) {
 }
 ```
 
-`retryable` is `false` for `task`, `budget`, `rejected`, `native`, `timeout` and `true` for the rest. `rejected` is non-retryable across the whole model chain because the remedy is different options or a different harness.
+`retryable` is `false` for `task`, `budget`, `rejected`, `native`, `timeout` and `true` for the rest. `unavailable` is a provider that cannot serve the requested model or route (model not found, not loaded); retryable, route elsewhere. `rejected` is non-retryable across the whole model chain because the remedy is different options or a different harness.
 
 `resetsAt` is present only when the harness reports a reset time (today:
 claude's `rate_limit_event`); a consumer treats its absence as unknown,
