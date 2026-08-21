@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.5](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.4.4...v0.4.5) (2026-08-21)
+
+
+### Added
+
+* payload-stripping dimensions - systemPrompt / appendSystemPrompt ([#48](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/48)) ([#53](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/53)) ([53c400a](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/53c400a54258675077306a48ad973b0aba84d736))
+
+
+### Fixed
+
+* readiness audit blockers - typed resume refusal, anchored 429 matcher, JSON refusals ([#55](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/55)) ([0c2d873](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/0c2d873cc2b2ea84ba30044a04ce8a34df064ab5))
+* readiness audit majors - classification, resume, tools, sessions, previews, evidence ([#56](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/56)) ([4aa0a78](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/4aa0a78748fed2862aa4251f7813e82007167959))
+
 ## [0.4.4](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.4.3...v0.4.4) (2026-08-20)
 
 
