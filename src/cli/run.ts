@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import type { HarnessEvent } from "../execution/events.js";
 import { failureFromRejected } from "../execution/failure.js";
 import { nodeRunnerDeps } from "../execution/node-deps.js";
@@ -442,40 +443,31 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     }
   }
 
-  // F-23 CLI pre-check: for harnesses that create on missing, verify
-  // the session store path exists before spawning - otherwise a stale id
-  // silently becomes a blank session. If storePath cannot be computed,
-  // keep only the library warning.
+  // A harness that creates a session when the id is unknown (pi, muse)
+  // would turn a stale --resume into a silent blank session. Refuse when
+  // the session store path does not exist; where the path cannot be
+  // computed, the runner's pre-spawn warning is the only guard.
   if (fullOpts.resume !== undefined && h.resume.onMissing === "create") {
+    let path: string | null = null;
     try {
-      const home = process.env.HOME ?? process.env.USERPROFILE ?? "";
-      const cwdForStore = extra.cwd ?? process.cwd();
-      const path = storePath(h, { home, cwd: cwdForStore, sessionId: fullOpts.resume });
-      const { existsSync } = await import("node:fs");
-      if (!existsSync(path)) {
-        const detail = `no ${h.name} session ${fullOpts.resume} found at ${path}`;
-        const message = detail;
-        // Refusal path - exit 2, NDJSON under --json
-        process.stderr.write(`${message}\n`);
-        process.stderr.write(`supported: verify the session id exists and is for ${h.name}\n`);
-        if (wantJson) {
-          const failure = {
-            kind: "failure" as const,
-            class: "rejected" as const,
-            retryable: false,
-            message,
-            issue: "invalid-option-value" as const,
-          };
-          process.stdout.write(`${JSON.stringify(failure)}\n`);
-          process.stdout.write(
-            `${JSON.stringify({ kind: "done", exitCode: null, cause: "failed", failure })}\n`,
-          );
-        }
-        process.exitCode = 2;
-        return;
-      }
+      path = storePath(h, {
+        home: process.env.HOME ?? process.env.USERPROFILE ?? "",
+        cwd: extra.cwd ?? process.cwd(),
+        sessionId: fullOpts.resume,
+      });
     } catch {
-      // storePath cannot be computed or fs check failed - keep library warning only
+      path = null;
+    }
+    if (path !== null && !existsSync(path)) {
+      refuse(
+        {
+          message: `no ${h.name} session ${fullOpts.resume} found at ${path}`,
+          issue: "invalid-option-value",
+          supported: [`a session id that exists in ${h.name}'s store`],
+        },
+        wantJson,
+      );
+      return;
     }
   }
 

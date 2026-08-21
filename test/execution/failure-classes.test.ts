@@ -102,9 +102,28 @@ describe("failure classes via streamTurn", () => {
     expect(done.failure?.retryable).toBe(false);
   });
 
-  test.todo(
-    "task class has no producing path at this commit - task failures have no harness signal yet",
-  );
+  test("task class and retryable (claude result is_error)", async () => {
+    const proc = new FakeProcess();
+    const d = deps(proc);
+    const turn = streamTurn(claudeCode, { prompt: "hi" }, d);
+    proc.emitLine(
+      JSON.stringify({
+        type: "system",
+        subtype: "init",
+        session_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      }),
+    );
+    proc.emitLine(JSON.stringify({ type: "result", subtype: "error_max_turns", is_error: true }));
+    proc.exit(1);
+    const events = await collect(turn);
+    const done = events.find((e) => e.kind === "done") as unknown as {
+      cause: string;
+      failure?: { class: string; retryable: boolean };
+    };
+    expect(done.failure?.class).toBe("task");
+    expect(done.failure?.retryable).toBe(retryableOf("task"));
+    expect(done.cause).toBe("failed");
+  });
 
   test("transport class and retryable (spawn failure)", async () => {
     const proc = new FakeProcess();

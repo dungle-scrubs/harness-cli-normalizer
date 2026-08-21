@@ -624,10 +624,12 @@ export async function* streamTurn(
                 : "crash";
     const reduced = reduceFailures(failures);
     if (reduced && cause === "clean") cause = "failed";
-    // F-69: a muse run that hit its step limit is a budget failure, not a
-    // harness crash. The decode already produced the failure; classify the
-    // nonzero exit as failed and preserve the real exit code.
-    if (reduced?.class === "budget" && cause === "crash") cause = "failed";
+    // A work-verdict failure (the model ran out of steps, or ended its
+    // turn in error) is not a harness crash even when the process exits
+    // nonzero: the cause is failed and the real exit code rides along.
+    if ((reduced?.class === "budget" || reduced?.class === "task") && cause === "crash") {
+      cause = "failed";
+    }
     const tail = stderrTail.snapshot();
     log({
       event: "exit",
