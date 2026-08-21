@@ -23,9 +23,9 @@ import type {
   HarnessDescriptor,
   LimitCode,
   LimitMatcher,
-  TransportMatcher,
+  PhraseMatcher,
 } from "../knowledge/descriptor.js";
-import { SHARED_TRANSPORT_MATCHERS } from "../knowledge/matchers.js";
+import { SHARED_TRANSPORT_MATCHERS, SHARED_UNAVAILABLE_MATCHERS } from "../knowledge/matchers.js";
 
 /** Bottom-up batch scans stop after this many non-empty lines: the wall is
  * virtually always the last thing a dying turn printed, and an unbounded
@@ -155,29 +155,28 @@ export const detectAuthFailureInLine = (
 export const detectAuthFailure = (h: HarnessDescriptor, output: string): AuthFailureKind | null =>
   scanTail(output, compileAuthMatchers(h.authMatchers));
 
-const transportCache = new WeakMap<
-  ReadonlyArray<TransportMatcher>,
-  ReadonlyArray<readonly [RegExp, boolean]>
->();
+const phraseCache = new WeakMap<ReadonlyArray<PhraseMatcher>, ReadonlyArray<RegExp>>();
 
-const compileTransportMatchers = (
-  matchers: ReadonlyArray<TransportMatcher>,
-): ReadonlyArray<readonly [RegExp, boolean]> => {
-  const cached = transportCache.get(matchers);
+const compilePhraseMatchers = (matchers: ReadonlyArray<PhraseMatcher>): ReadonlyArray<RegExp> => {
+  const cached = phraseCache.get(matchers);
   if (cached !== undefined) return cached;
   if (matchers.length > MAX_MATCHERS_PER_KIND) {
     throw new Error(`more than ${MAX_MATCHERS_PER_KIND} matchers per harness per kind`);
   }
-  const compiled = matchers.map((m) => [validateAndCompile(m.pattern, m.flags), true] as const);
-  transportCache.set(matchers, compiled);
+  const compiled = matchers.map((m) => validateAndCompile(m.pattern, m.flags));
+  phraseCache.set(matchers, compiled);
   return compiled;
 };
 
-export const detectTransportInLine = (line: string): boolean => {
-  const compiled = compileTransportMatchers(SHARED_TRANSPORT_MATCHERS);
+const detectPhraseInLine = (matchers: ReadonlyArray<PhraseMatcher>, line: string): boolean => {
   const windowed = line.slice(0, WINDOW).trim();
-  for (const [re] of compiled) {
-    if (re.test(windowed)) return true;
-  }
-  return false;
+  return compilePhraseMatchers(matchers).some((re) => re.test(windowed));
 };
+
+/** A network or gateway fault between the harness and its provider. */
+export const detectTransportInLine = (line: string): boolean =>
+  detectPhraseInLine(SHARED_TRANSPORT_MATCHERS, line);
+
+/** A provider that answered but cannot serve the requested model. */
+export const detectUnavailableInLine = (line: string): boolean =>
+  detectPhraseInLine(SHARED_UNAVAILABLE_MATCHERS, line);

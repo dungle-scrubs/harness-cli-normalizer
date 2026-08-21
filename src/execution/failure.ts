@@ -13,7 +13,11 @@
  * options or a different harness, not a different model.
  */
 
-import { detectAuthFailureInLine, detectTransportInLine } from "../interpretation/limits.js";
+import {
+  detectAuthFailureInLine,
+  detectTransportInLine,
+  detectUnavailableInLine,
+} from "../interpretation/limits.js";
 import type { RefusalIssue } from "../interpretation/refusal.js";
 import type {
   AuthFailureKind,
@@ -30,6 +34,7 @@ export const FAILURE_CLASSES = Object.freeze([
   "budget",
   "task",
   "transport",
+  "unavailable",
   "rejected",
   "native",
   "timeout",
@@ -76,6 +81,8 @@ const messageFor = (cls: FailureClass, detail?: string): string => {
       return `Task failed${detail ? ` (${detail})` : ""} - surface to caller, do not auto-route`;
     case "transport":
       return `Transport failure${detail ? ` (${detail})` : ""} - retry or route to another provider`;
+    case "unavailable":
+      return `Provider cannot serve this route${detail ? ` (${detail})` : ""} - route to another model or provider`;
     case "rejected":
       return `Request rejected${detail ? ` (${detail})` : ""} - change options or harness`;
     case "timeout":
@@ -144,6 +151,7 @@ export const failureFromTerminalError = (h: HarnessDescriptor, message: string):
   const auth = detectAuthFailureInLine(h, message);
   if (auth !== null) return failureFromAuth(auth);
   if (detectTransportInLine(message)) return failureFromTransport(message);
+  if (detectUnavailableInLine(message)) return failureFromUnavailable(message);
   return failureFromTask(message);
 };
 
@@ -163,6 +171,12 @@ export const failureFromTransport = (detail?: string): FailureSummary => ({
   class: "transport",
   retryable: true,
   message: messageFor("transport", detail),
+});
+
+export const failureFromUnavailable = (detail?: string): FailureSummary => ({
+  class: "unavailable",
+  retryable: true,
+  message: messageFor("unavailable", detail),
 });
 
 export const failureFromRejected = (opts: {
@@ -194,6 +208,7 @@ const PRECEDENCE: Record<FailureClass, number> = {
   "rate-limit": 2,
   "usage-limit": 2,
   quota: 2,
+  unavailable: 2,
   budget: 3,
   task: 3,
   transport: 4,

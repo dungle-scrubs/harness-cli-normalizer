@@ -86,10 +86,15 @@ export interface AuthMatcher {
   readonly kind: AuthFailureKind;
 }
 
-export interface TransportMatcher {
+/** A bare phrase matcher for wall classes that carry no code of their own
+ * (transport faults, a provider that cannot serve the model): pattern and
+ * flags as data, compiled with the same bounds as the limit matchers. */
+export interface PhraseMatcher {
   readonly pattern: string;
   readonly flags?: string;
 }
+export type TransportMatcher = PhraseMatcher;
+export type UnavailableMatcher = PhraseMatcher;
 
 /** The turn-option vocabulary is closed for the same reason `LimitCode` is:
  * a descriptor must not invent an option a consumer has no field for. Every

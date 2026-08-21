@@ -95,4 +95,14 @@ describe("F-07 terminal error record ends clean", () => {
     expect(done?.cause).toBe("failed");
     expect(done?.failure?.class).toBe("task");
   });
+
+  test("reduceFailures precedence unavailable beats task", async () => {
+    const { reduceFailures, failureFromTask, failureFromUnavailable } = await import(
+      "../../src/execution/failure.js"
+    );
+    const unavailable = failureFromUnavailable("model_not_found");
+    const task = failureFromTask("some task error");
+    expect(reduceFailures([task, unavailable])?.class).toBe("unavailable");
+    expect(reduceFailures([unavailable, task])?.class).toBe("unavailable");
+  });
 });
