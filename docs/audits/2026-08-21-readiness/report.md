@@ -1962,10 +1962,17 @@ Workarounds the consumer would own even after the blockers are fixed:
   `SCRATCH/fix/runs/F01-muse.ndjson`, `SCRATCH/fix/runs/wrappers.md`.
   Not cross-family reviewed.
 
-## Fix status (2026-08-21)
+## Fix status (2026-08-21, end of day)
 
-Blockers F-01, F-02, F-03 are fixed on branch `fix/readiness-blockers`
-(three commits on top of `53c400a`; `pnpm check` green, 399 tests). F-01
-and F-02 were implemented by `muse-spark-1.2-contributor` via `hcn run
-muse` and tidied by hand; F-03 likewise, then consolidated into one
-`refuse` helper. Majors are unchanged.
+- Blockers F-01, F-02, F-03: fixed, merged in PR #55 (`0c2d873`).
+- Majors F-04 through F-26, F-68, F-69 (19 findings): fixed, merged in
+  PR #56 (`4aa0a78`). Gate green at 505 tests. Every fix was written by
+  `muse-spark-1.2-contributor` through `hcn run muse` in a git worktree,
+  then reviewed and tidied by hand before commit.
+- Skill documents named in F-13, F-14, F-17 (delegate, choose-model, hcn)
+  were updated in their own repositories the same day.
+- Minors (26) and notes (18): not addressed. They remain the open backlog
+  from this audit.
+
+Both verdicts at `53c400a` stand as recorded above; the next readiness pass
+re-measures against the release that carries PR #55 and PR #56.

@@ -23,3 +23,6 @@ delegating agent stops instead of falling back), F-12 (`--no-tools` on pi still
 ships the full profile tool grant), F-13 (README's failure taxonomy is wrong in
 both directions and the delegate and choose-model skills repeat it).
 Full report: `SCRATCH/audit/report.md`.
+
+Update, end of 2026-08-21: all three blockers (PR #55) and all 19 majors
+(PR #56) are fixed and merged to main. The 26 minors are still open.
