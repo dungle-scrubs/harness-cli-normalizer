@@ -4,6 +4,7 @@ import {
   detectAuthFailureInLine,
   detectLimit,
   detectLimitInLine,
+  detectTransportInLine,
 } from "../../src/interpretation/limits.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
@@ -148,6 +149,40 @@ describe("F-21: matcher coverage - one line per authMatcher entry", () => {
     expect(detectAuthFailureInLine(descriptor, line)).toBe(kind);
   });
 });
+describe("detectTransportInLine", () => {
+  const positives: Array<{ line: string; desc: string }> = [
+    { line: "Connection error.", desc: "connection error" },
+    { line: "connect ECONNREFUSED 127.0.0.1:1234", desc: "ECONNREFUSED" },
+    { line: "read ECONNRESET", desc: "ECONNRESET" },
+    { line: "getaddrinfo ENOTFOUND registry.npmjs.org", desc: "ENOTFOUND" },
+    { line: "query EAI_AGAIN example.com", desc: "EAI_AGAIN" },
+    { line: "connect ETIMEDOUT 1.2.3.4:443", desc: "ETIMEDOUT" },
+    { line: "fetch failed: network unreachable", desc: "fetch failed" },
+    { line: "socket hang up", desc: "socket hang up" },
+    { line: "network error while fetching", desc: "network error" },
+    { line: "HTTP 503 Service Unavailable", desc: "service unavailable" },
+    { line: "502 Bad Gateway", desc: "bad gateway via HTTP code" },
+    { line: "bad gateway", desc: "bad gateway" },
+    { line: "gateway time-out", desc: "gateway timeout" },
+    { line: "gateway timeout", desc: "gateway timeout no hyphen" },
+    { line: "HTTP 502 Bad Gateway", desc: "HTTP 502" },
+    { line: "status code 503", desc: "status code 503" },
+    { line: "code: 504", desc: "code 504" },
+  ];
+  test.each(positives)("positive $desc: $line", ({ line }) => {
+    expect(detectTransportInLine(line)).toBe(true);
+  });
+
+  const negatives = ["port 5020", "elapsed 502ms", "read 5030 bytes"] as const;
+  test.each(negatives)("negative %s is not transport", (line) => {
+    expect(detectTransportInLine(line)).toBe(false);
+  });
+
+  test("pi No API key found for google is not-logged-in", () => {
+    expect(detectAuthFailureInLine(piCli, "No API key found for google.")).toBe("not-logged-in");
+  });
+});
+
 describe("rate-limit 429 anchor", () => {
   const positives = [
     "HTTP 429",

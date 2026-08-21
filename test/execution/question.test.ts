@@ -107,7 +107,7 @@ describe("streamTurn question escalation (true mode, default)", () => {
     expect(spawnedPrompt?.endsWith("task")).toBe(true);
   });
 
-  test("a malformed block surfaces an error event and the turn stays clean", async () => {
+  test("a malformed block surfaces an error event and a task failure with failed cause (F-32)", async () => {
     const proc = new FakeProcess();
     const d = deps(proc);
     const turn = streamTurn(claudeCode, { prompt: "task" }, d);
@@ -118,7 +118,14 @@ describe("streamTurn question escalation (true mode, default)", () => {
     const events = await collect(turn);
     expect(events.find((e) => e.kind === "question")).toBeUndefined();
     expect(events.find((e) => e.kind === "error")?.message).toMatch(/"options" must be an array/);
-    expect(events.at(-1)).toEqual({ kind: "done", exitCode: 0, cause: "clean" });
+    const failure = events.find((e) => e.kind === "failure");
+    expect(failure).toMatchObject({ class: "task", retryable: false });
+    expect((failure as unknown as { message: string }).message).toMatch(
+      /malformed hcn-question block/,
+    );
+    const done = events.at(-1) as Extract<HarnessEvent, { kind: "done" }>;
+    expect(done).toMatchObject({ kind: "done", cause: "failed" });
+    expect(done.failure).toMatchObject({ class: "task" });
   });
 });
 

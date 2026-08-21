@@ -252,6 +252,14 @@ export const parseRunExtra = (
     extra.timeoutSeconds = n;
   }
   if (values.cwd !== undefined) extra.cwd = String(values.cwd);
+  if (values.resume !== undefined && values["session-id"] !== undefined) {
+    throw new ArgvRefusalError({
+      issue: "mutually-exclusive-options",
+      harness: "claude",
+      supported: ["--resume or --session-id, not both (--session-id is an alias for --resume)"],
+      detail: "both --resume and --session-id given",
+    });
+  }
   if (values.resume !== undefined) extra.resume = String(values.resume);
   if (values["session-id"] !== undefined) extra.resume = String(values["session-id"]);
   if (values.env !== undefined) {

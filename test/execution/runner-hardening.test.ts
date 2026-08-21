@@ -67,6 +67,28 @@ describe("M3.1 boundary-review regression pins", () => {
     expect(sig.sent[0]?.sig).toBe("SIGTERM");
   });
 
+  test("a wedged abandoned turn escalates SIGTERM then SIGKILL after KILL_GRACE_MS (F-44)", async () => {
+    const proc = new FakeProcess();
+    const spawner = fakeSpawner([proc]);
+    const sig = fakeSignal({ autoExit: false });
+    const clock = new FakeClock();
+    const iter = streamTurn(
+      claudeCode,
+      { prompt: "hi" },
+      { spawn: spawner.spawn, clock, signal: sig.signal },
+    )[Symbol.asyncIterator]();
+    proc.emitLine(init);
+    const first = await iter.next();
+    expect(first.value?.kind).toBe("identity");
+    const abandoning = iter.return?.();
+    await tick();
+    expect(sig.sent.map((s) => s.sig)).toEqual(["SIGTERM"]);
+    clock.advance(KILL_GRACE_MS + 1);
+    await tick();
+    expect(sig.sent.map((s) => s.sig)).toEqual(["SIGTERM", "SIGKILL"]);
+    await abandoning;
+  });
+
   test("high-water abandonment releases the blocked stdout producer before child exit", async () => {
     let reportBlocked!: (blocked: { readonly push: Promise<void> }) => void;
     const producerBlocked = new Promise<{ readonly push: Promise<void> }>((resolve) => {

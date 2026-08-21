@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, test } from "vitest";
@@ -866,5 +866,120 @@ describe("hcn run execution (human + json)", () => {
     ]);
     expect(out.exitCode).toBe(2);
     expect(out.stdout).toBe("");
+  });
+});
+
+describe("run --help documents --skills and --session-id", () => {
+  test("run --help output contains --skills <a,b> and --session-id <uuid>", async () => {
+    const out = await captureDispatch(["run", "--help"]);
+    expect(out.stdout).toContain("--skills <a,b>");
+    expect(out.stdout).toContain("--session-id <uuid>");
+  });
+});
+
+describe("run --resume vs --session-id mutual exclusion", () => {
+  test("run claude --resume <a> --session-id <b> --prompt hi exits 2 and names mutual exclusion", async () => {
+    const a = "11111111-1111-4111-8111-111111111111";
+    const b = "22222222-2222-4222-8222-222222222222";
+    const out = await captureDispatch([
+      "run",
+      "claude",
+      "--resume",
+      a,
+      "--session-id",
+      b,
+      "--prompt",
+      "hi",
+    ]);
+    expect(out.exitCode).toBe(2);
+    expect(out.stderr).toMatch(/mutually-exclusive|cannot combine|mutual/i);
+  });
+});
+
+describe("run --skills registry root and harness naming", () => {
+  test("run pi --skills bogus-name --prompt hi with empty registry exits 2 naming pi and registry root", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "hcn-skills-empty-"));
+    const prev = process.env.HCN_SKILLS_ROOT;
+    process.env.HCN_SKILLS_ROOT = dir;
+    try {
+      const out = await captureDispatch(["run", "pi", "--skills", "bogus-name", "--prompt", "hi"]);
+      expect(out.exitCode).toBe(2);
+      expect(out.stderr).toContain("pi");
+      expect(out.stderr).toContain(dir);
+      // should not misattribute to claude
+      expect(out.stderr).not.toMatch(/for claude\b/);
+    } finally {
+      if (prev === undefined) delete process.env.HCN_SKILLS_ROOT;
+      else process.env.HCN_SKILLS_ROOT = prev;
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("inspect provenance and descriptor matchers", () => {
+  test("inspect pi --argv --prompt hi stderr contains at least one provenance: line", async () => {
+    const out = await captureDispatch(["inspect", "pi", "--argv", "--prompt", "hi"]);
+    expect(out.exitCode === undefined || out.exitCode === 0).toBe(true);
+    expect(out.stderr).toMatch(/provenance:/);
+  });
+
+  test("inspect pi JSON output parses and has limitMatchers and authMatchers arrays", async () => {
+    const out = await captureDispatch(["inspect", "pi"]);
+    expect(out.exitCode === undefined || out.exitCode === 0).toBe(true);
+    const parsed = JSON.parse(out.stdout);
+    expect(Array.isArray(parsed.limitMatchers)).toBe(true);
+    expect(Array.isArray(parsed.authMatchers)).toBe(true);
+  });
+});
+
+describe("inspect with empty floor project config (F-36)", () => {
+  test("inspect claude --argv --prompt hi with tools:[] floor emits no empty token and contains deny complement", async () => {
+    const repo = mkdtempSync(join(tmpdir(), "hcn-floor-claude-"));
+    const emptyUser = mkdtempSync(join(tmpdir(), "hcn-floor-user-"));
+    const origCwd = process.cwd();
+    const prevHcn = process.env.HCN_CONFIG_DIR;
+    try {
+      mkdirSync(join(repo, ".git"), { recursive: true });
+      mkdirSync(join(repo, ".hcn"), { recursive: true });
+      writeFileSync(join(repo, ".hcn", "config.json"), JSON.stringify({ version: 1, tools: [] }));
+      process.env.HCN_CONFIG_DIR = emptyUser;
+      process.chdir(repo);
+      const out = await captureDispatch(["inspect", "claude", "--argv", "--prompt", "hi"]);
+      expect(out.exitCode === undefined || out.exitCode === 0).toBe(true);
+      const parsed: string[] = JSON.parse(out.stdout);
+      expect(parsed).not.toContain("");
+      expect(parsed.join(" ")).toContain("--disallowedTools");
+      // stdout JSON should not contain an empty string token either
+      expect(out.stdout).not.toContain('""');
+    } finally {
+      process.chdir(origCwd);
+      if (prevHcn === undefined) delete process.env.HCN_CONFIG_DIR;
+      else process.env.HCN_CONFIG_DIR = prevHcn;
+      rmSync(repo, { recursive: true, force: true });
+      rmSync(emptyUser, { recursive: true, force: true });
+    }
+  });
+
+  test("inspect pi --argv --prompt hi with tools:[] floor exits 2 with invalid-tool-grant", async () => {
+    const repo = mkdtempSync(join(tmpdir(), "hcn-floor-pi-"));
+    const emptyUser = mkdtempSync(join(tmpdir(), "hcn-floor-user2-"));
+    const origCwd = process.cwd();
+    const prevHcn = process.env.HCN_CONFIG_DIR;
+    try {
+      mkdirSync(join(repo, ".git"), { recursive: true });
+      mkdirSync(join(repo, ".hcn"), { recursive: true });
+      writeFileSync(join(repo, ".hcn", "config.json"), JSON.stringify({ version: 1, tools: [] }));
+      process.env.HCN_CONFIG_DIR = emptyUser;
+      process.chdir(repo);
+      const out = await captureDispatch(["inspect", "pi", "--argv", "--prompt", "hi"]);
+      expect(out.exitCode).toBe(2);
+      expect(out.stderr).toMatch(/invalid-tool-grant|empty include|tool grant for pi/i);
+    } finally {
+      process.chdir(origCwd);
+      if (prevHcn === undefined) delete process.env.HCN_CONFIG_DIR;
+      else process.env.HCN_CONFIG_DIR = prevHcn;
+      rmSync(repo, { recursive: true, force: true });
+      rmSync(emptyUser, { recursive: true, force: true });
+    }
   });
 });

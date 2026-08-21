@@ -115,6 +115,16 @@ describe("terminal-error detection (silent provider/auth failures)", () => {
     // No spurious message from the empty assistant content.
     expect(content.some((e) => e.kind === "message" && e.text !== "")).toBe(false);
   });
+
+  test("pi unreachable message_end carries Connection error and terminal true", () => {
+    const content = allContent("pi", fixture("pi-unreachable"));
+    const errors = content.filter((e) => e.kind === "error");
+    expect(errors.length).toBeGreaterThan(0);
+    const hasConnection = errors.some(
+      (e) => e.kind === "error" && e.message.includes("Connection error.") && e.terminal === true,
+    );
+    expect(hasConnection).toBe(true);
+  });
 });
 
 describe("non-shell tool decoding (real fixtures)", () => {

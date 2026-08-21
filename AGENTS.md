@@ -4,10 +4,11 @@ Shared, harness-independent guidance for any agent working in this repo.
 
 ## What this is
 
-A TypeScript library that normalizes the differences between AI coding-agent
+A CLI product (`hcn`) that normalizes the differences between AI coding-agent
 CLIs (Claude Code, Codex, pi, Muse) into one stable surface. Each harness is
 described as pure data; interpretation and execution layers consume those
-descriptors. The package is published to npm as `@dungle-scrubs/harness-cli-normalizer`
+descriptors. The `hcn` binary is the product; internal library layers are not an
+install surface. The package is published to npm as `@dungle-scrubs/harness-cli-normalizer`
 (`publishConfig.access: public`) and is source-public.
 
 ## Architecture - three layers, one-way dependencies

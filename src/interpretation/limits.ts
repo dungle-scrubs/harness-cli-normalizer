@@ -23,7 +23,9 @@ import type {
   HarnessDescriptor,
   LimitCode,
   LimitMatcher,
+  TransportMatcher,
 } from "../knowledge/descriptor.js";
+import { SHARED_TRANSPORT_MATCHERS } from "../knowledge/matchers.js";
 
 /** Bottom-up batch scans stop after this many non-empty lines: the wall is
  * virtually always the last thing a dying turn printed, and an unbounded
@@ -152,3 +154,30 @@ export const detectAuthFailureInLine = (
 
 export const detectAuthFailure = (h: HarnessDescriptor, output: string): AuthFailureKind | null =>
   scanTail(output, compileAuthMatchers(h.authMatchers));
+
+const transportCache = new WeakMap<
+  ReadonlyArray<TransportMatcher>,
+  ReadonlyArray<readonly [RegExp, boolean]>
+>();
+
+const compileTransportMatchers = (
+  matchers: ReadonlyArray<TransportMatcher>,
+): ReadonlyArray<readonly [RegExp, boolean]> => {
+  const cached = transportCache.get(matchers);
+  if (cached !== undefined) return cached;
+  if (matchers.length > MAX_MATCHERS_PER_KIND) {
+    throw new Error(`more than ${MAX_MATCHERS_PER_KIND} matchers per harness per kind`);
+  }
+  const compiled = matchers.map((m) => [validateAndCompile(m.pattern, m.flags), true] as const);
+  transportCache.set(matchers, compiled);
+  return compiled;
+};
+
+export const detectTransportInLine = (line: string): boolean => {
+  const compiled = compileTransportMatchers(SHARED_TRANSPORT_MATCHERS);
+  const windowed = line.slice(0, WINDOW).trim();
+  for (const [re] of compiled) {
+    if (re.test(windowed)) return true;
+  }
+  return false;
+};
