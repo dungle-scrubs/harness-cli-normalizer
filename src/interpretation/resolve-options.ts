@@ -130,7 +130,18 @@ export const resolveEffectiveOptions = (
   }
   const resolved: Record<string, unknown> = { ...effectiveArgs };
 
+  // Validate access value before exclusivity so invalid reports invalid-option-value, not mutual exclusion.
+  if (resolved.access !== undefined && resolved.access !== "read" && resolved.access !== "write") {
+    throw new ArgvRefusalError({
+      issue: "invalid-option-value",
+      harness: h.name,
+      option: "access",
+      supported: ["read", "write"],
+      detail: String(resolved.access),
+    });
+  }
   // Access exclusivity on codex: explicit --sandbox together with --access refuses.
+  // Profile sandbox yields to access - only explicit sandbox counts.
   if (h.name === "codex" && resolved.access !== undefined) {
     const hasExplicitSandbox =
       effectiveArgs.sandbox !== undefined || sourceTier("sandbox") !== undefined;
@@ -144,19 +155,21 @@ export const resolveEffectiveOptions = (
       });
     }
   }
-  // Access vs tools exclusivity (preset allowlist vs filter) - any tier.
-  if (
-    resolved.access !== undefined &&
-    (resolved.tools !== undefined ||
-      (resolved as Record<string, unknown>).excludeTools !== undefined)
-  ) {
-    throw new ArgvRefusalError({
-      issue: "mutually-exclusive-options",
-      harness: h.name,
-      option: "access",
-      supported: ["--access is a preset allowlist, not a filter over --tools/--exclude-tools"],
-      detail: "mutual exclusion",
-    });
+  // Access vs tools exclusivity: only explicit tools/excludeTools from args or config, never profile-derived.
+  if (resolved.access !== undefined) {
+    const explicitTools = effectiveArgs.tools !== undefined || sourceTier("tools") !== undefined;
+    const explicitExclude =
+      (effectiveArgs as unknown as Record<string, unknown>).excludeTools !== undefined ||
+      sourceTier("excludeTools") !== undefined;
+    if (explicitTools || explicitExclude) {
+      throw new ArgvRefusalError({
+        issue: "mutually-exclusive-options",
+        harness: h.name,
+        option: "access",
+        supported: ["--access is a preset allowlist, not a filter over --tools/--exclude-tools"],
+        detail: "mutual exclusion",
+      });
+    }
   }
 
   // toolMap merge per harness per canonical (project > user)
@@ -242,6 +255,19 @@ export const resolveEffectiveOptions = (
       // reported divergence, never a refusal and never silence.
       unrenderable.push(key);
       provenance.push({ key, value, tier: "harness" });
+      continue;
+    }
+    // When access is set, skip the all-known expansion (access is a preset allowlist, not a filter).
+    // Same shape as --no-tools skip; provenance owned by tier that set access.
+    if (key === "tools" && value === "all-known" && resolved.access !== undefined) {
+      const accessTier: ProvenanceTier =
+        effectiveArgs.access !== undefined ? "arg" : (sourceTier("access") ?? "user-config");
+      provenance.push({ key, value: "none (access preset)", tier: accessTier });
+      continue;
+    }
+    // Profile sandbox yields to access - when access is set, drop profile sandbox.
+    if (key === "sandbox" && resolved.access !== undefined) {
+      provenance.push({ key, value: `${String(value)} (access)`, tier: "harness" });
       continue;
     }
     // D13: the tools marker expands per descriptor. On a harness whose

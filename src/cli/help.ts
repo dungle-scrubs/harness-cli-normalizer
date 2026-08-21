@@ -99,7 +99,7 @@ Defaults with no flags:
   discovery on, autonomy off, write/shell on. timeout, max-steps and
   access have no default; harness default applies (access write emits
   nothing on claude/pi/muse, --sandbox workspace-write on codex via
-  profile). Question escalation defaults ON (config key
+  profile). toolMap is config-only (no flag) - canonical -> native mapping per harness. Question escalation defaults ON (config key
   "escalateQuestions"; it is a prompt preamble, never a harness flag).
   Provenance prints to stderr on every run; see
   'hcn inspect <harness>' for the resolved argv of a bare run.

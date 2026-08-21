@@ -20,6 +20,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import type { TurnOptions } from "../interpretation/argv.js";
+import { HARNESS_NAMES } from "../knowledge/descriptor.js";
+import { defaultDescriptors } from "../knowledge/overrides.js";
 
 const SCHEMA_VERSION = 1;
 
@@ -123,13 +125,26 @@ export const parseUserConfig = (text: string): Partial<TurnOptions> => {
       }
       const toolMapObj = value as Record<string, unknown>;
       const SEL = /^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$/;
-      const harnessNames = ["claude", "codex", "pi", "muse"] as const;
-      const noAllowlistHarnesses = new Set(["codex", "muse"]);
+      const descSet = defaultDescriptors();
+      const harnessNames = HARNESS_NAMES as readonly string[];
       for (const [harness, inner] of Object.entries(toolMapObj)) {
         if (!(harnessNames as readonly string[]).includes(harness)) {
           throw new ConfigError(`unknown config key: ${JSON.stringify(`toolMap.${harness}`)}`);
         }
-        if (noAllowlistHarnesses.has(harness)) {
+        const desc = (
+          descSet as Record<
+            string,
+            {
+              tools: {
+                includeFlag: string | null;
+                categories: readonly { canonical: readonly string[] }[];
+              };
+            }
+          >
+        )[harness];
+        const hasListOrCats =
+          desc && (desc.tools.includeFlag !== null || desc.tools.categories.length > 0);
+        if (!hasListOrCats) {
           throw new ConfigError(`unknown config key: ${JSON.stringify(`toolMap.${harness}`)}`);
         }
         if (typeof inner !== "object" || inner === null || Array.isArray(inner)) {
@@ -138,7 +153,17 @@ export const parseUserConfig = (text: string): Partial<TurnOptions> => {
           );
         }
         const innerObj = inner as Record<string, unknown>;
+        // For category-only harnesses (muse), only category-backed canonicals are valid (A4)
+        const isCategoryOnly = desc.tools.includeFlag === null && desc.tools.categories.length > 0;
+        const allowedForCategoryOnly = isCategoryOnly
+          ? new Set(desc.tools.categories.flatMap((c) => [...c.canonical]))
+          : null;
         for (const [canonical, nativeVal] of Object.entries(innerObj)) {
+          if (isCategoryOnly && allowedForCategoryOnly && !allowedForCategoryOnly.has(canonical)) {
+            throw new ConfigError(
+              `unknown config key: ${JSON.stringify(`toolMap.${harness}.${canonical}`)}`,
+            );
+          }
           if (!SEL.test(canonical)) {
             throw new ConfigError(
               `config key ${JSON.stringify(`toolMap.${harness}.${canonical}`)} must match ${SEL.source}`,

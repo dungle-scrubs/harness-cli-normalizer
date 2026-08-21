@@ -35,20 +35,8 @@ export const renderTurnOptions = (
 ): string[] => {
   const sequences: string[][] = [];
 
-  // Access mutual exclusivity: access preset vs explicit tool selection
+  // Access value validated in resolve-options (exclusivity also there against explicit inputs only).
   const accessRaw = (opts as unknown as Record<string, unknown>).access as string | undefined;
-  if (accessRaw !== undefined) {
-    if (opts.tools !== undefined || opts.excludeTools !== undefined) {
-      throw new ArgvRefusalError({
-        issue: "mutually-exclusive-options",
-        harness: h.name,
-        option: "access",
-        supported: ["--access is a preset allowlist, not a filter over --tools/--exclude-tools"],
-        detail: "mutual exclusion",
-      });
-    }
-  }
-  // Validate access value early if present
   if (accessRaw !== undefined && accessRaw !== "read" && accessRaw !== "write") {
     throw new ArgvRefusalError({
       issue: "invalid-option-value",
@@ -272,8 +260,11 @@ export const renderTurnOptions = (
     }
 
     // Non-discovery keys
-    // Handle enum default on launch
+    // Handle enum default on launch. An access preset already claimed the
+    // sandbox flag on harnesses that express access through it (codex);
+    // the enum default must not emit a second --sandbox.
     if (raw === undefined) {
+      if (key === "sandbox" && opts.access !== undefined) continue;
       if (
         spec !== undefined &&
         spec.kind === "enum" &&
@@ -553,21 +544,10 @@ export const renderTurnOptions = (
     }
   }
 
-  // Flag-level coalescing for --sandbox: one winner, last wins (access over profile)
-  const lastSandboxIdx = (() => {
-    let idx = -1;
-    for (let i = 0; i < sequences.length; i++) if (sequences[i]?.[0] === "--sandbox") idx = i;
-    return idx;
-  })();
-  const coalesced =
-    lastSandboxIdx === -1
-      ? sequences
-      : sequences.filter((s, i) => s[0] !== "--sandbox" || i === lastSandboxIdx);
-
   // De-duplication by exact token sequence, first occurrence winning
   const seen = new Set<string>();
   const deduped: string[][] = [];
-  for (const seq of coalesced) {
+  for (const seq of sequences) {
     const k = seq.join("\0");
     if (seen.has(k)) continue;
     seen.add(k);

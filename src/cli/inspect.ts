@@ -80,28 +80,26 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
       project: rawProjectMap,
     });
     const slice: Record<string, unknown> = {};
-    // descriptor entries
-    for (const [canonical, perHarness] of Object.entries(table)) {
-      const v = (perHarness as Record<string, unknown>)[h.name];
-      if (v !== undefined) {
-        const mapped = merged[h.name]?.[canonical];
-        if (mapped !== undefined) {
-          const src = toolMapTiers[h.name]?.[canonical] ?? "user-config";
-          slice[canonical] = { native: mapped, source: src };
-        } else {
-          const val =
-            typeof v === "string"
-              ? { native: v, source: "descriptor" }
-              : { ...v, source: "descriptor" };
-          slice[canonical] = val;
-        }
-      }
-    }
-    // toolMap-only entries (new canonicals)
-    for (const [canonical, native] of Object.entries(merged[h.name] ?? {})) {
-      if (slice[canonical] === undefined) {
+    // Print every canonical: ones with no counterpart get native null, source none (A6)
+    const allCanonicalForInspect = [
+      ...new Set([...Object.keys(table), ...Object.keys(merged[h.name] ?? {})]),
+    ].sort();
+    for (const canonical of allCanonicalForInspect) {
+      const perHarness = table[canonical] as Record<string, unknown> | undefined;
+      const v = perHarness?.[h.name];
+      const mapped = merged[h.name]?.[canonical];
+      if (mapped !== undefined) {
         const src = toolMapTiers[h.name]?.[canonical] ?? "user-config";
-        slice[canonical] = { native, source: src };
+        slice[canonical] = { native: mapped, source: src };
+      } else if (v !== undefined) {
+        const vv = v as { kind: string; native?: string; key?: string };
+        const val =
+          vv.kind === "builtin"
+            ? { native: vv.native, source: "descriptor" }
+            : { ...vv, source: "descriptor" };
+        slice[canonical] = val;
+      } else {
+        slice[canonical] = { native: null, source: "none" };
       }
     }
     const out = {

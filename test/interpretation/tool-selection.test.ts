@@ -114,9 +114,11 @@ describe("no-list harnesses refuse", () => {
     );
   });
 
-  it("muse exclude inexpressible refuses, include inexpressible is no-op", () => {
-    // include inexpressible on muse is accepted (no-op, renders disables)
-    expect(() => renderToolSelection(museCode, { include: ["read"] })).not.toThrow();
+  it("muse include of non-muse canonical refuses unsupported-option", () => {
+    // read has no muse counterpart (read, grep, glob, list, subagent, skill) - refuses
+    expect(() => renderToolSelection(museCode, { include: ["read"] })).toThrow(
+      expect.objectContaining({ issue: "unsupported-option" }),
+    );
     // exclude inexpressible on muse refuses
     expect(() => renderToolSelection(museCode, { exclude: ["read"] })).toThrow(
       expect.objectContaining({ issue: "unsupported-option" }),
@@ -124,6 +126,15 @@ describe("no-list harnesses refuse", () => {
     expect(() => renderToolSelection(museCode, { exclude: ["list"] })).toThrow(
       expect.objectContaining({ issue: "unsupported-option" }),
     );
+  });
+
+  it("muse include of category-backed name renders switches for absent categories", () => {
+    // write, edit, shell, web-fetch, web-search are category-backed and valid
+    const { tokens } = renderToolSelection(museCode, { include: ["write"] });
+    expect(tokens).not.toContain("--disable-write");
+    // only category-backed names together should render absent categories
+    const { tokens: tokens2 } = renderToolSelection(museCode, { include: ["write", "shell"] });
+    expect(tokens2).toContain("--disable-web-tools");
   });
 });
 
@@ -163,16 +174,14 @@ describe("canonical vocabulary", () => {
     }
   });
 
-  it("muse read,grep -> --disable-write --disable-shell --disable-web-tools", () => {
-    const { tokens } = renderToolSelection(museCode, { include: ["read", "grep"] });
-    expect(tokens).toContain("--disable-write");
-    expect(tokens).toContain("--disable-shell");
-    expect(tokens).toContain("--disable-web-tools");
-    expect(tokens.length).toBe(3);
+  it("muse read,grep include refuses as non-muse canonicals", () => {
+    expect(() => renderToolSelection(museCode, { include: ["read", "grep"] })).toThrow(
+      expect.objectContaining({ issue: "unsupported-option" }),
+    );
   });
 
-  it("muse read,shell -> --disable-write --disable-web-tools", () => {
-    const { tokens } = renderToolSelection(museCode, { include: ["read", "shell"] });
+  it("muse shell alone renders category switches", () => {
+    const { tokens } = renderToolSelection(museCode, { include: ["shell"] });
     expect(tokens).toContain("--disable-write");
     expect(tokens).toContain("--disable-web-tools");
     expect(tokens).not.toContain("--disable-shell");

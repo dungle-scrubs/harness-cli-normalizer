@@ -98,8 +98,8 @@ export const renderToolSelection = (
     const out: { harness: string; spelling: string }[] = [];
     for (const [har, val] of Object.entries(entry)) {
       if (val === undefined) continue;
-      const spelling = typeof val === "string" ? val : (val as { category: string }).category;
-      out.push({ harness: har, spelling: typeof val === "string" ? val : spelling });
+      const spelling = val.kind === "builtin" ? val.native : val.key;
+      out.push({ harness: har, spelling });
     }
     return out;
   };
@@ -115,7 +115,7 @@ export const renderToolSelection = (
     if (toolMap[canonical] !== undefined) return toolMap[canonical];
     const entry = table[canonical];
     const val = entry?.[harness.name];
-    if (typeof val === "string") return val;
+    if (val?.kind === "builtin") return val.native;
     return undefined;
   };
 
@@ -153,8 +153,8 @@ export const renderToolSelection = (
         // collect categories to disable
         const cats = new Set<string>();
         for (const c of canonical) {
-          const val = table[c]?.[h.name] as { category: string } | undefined;
-          if (val && typeof val === "object" && "category" in val) cats.add(val.category);
+          const val = table[c]?.[h.name];
+          if (val?.kind === "category") cats.add(val.key);
         }
         const tokens: string[] = [];
         for (const cat of h.tools.categories) {
@@ -163,10 +163,19 @@ export const renderToolSelection = (
         return { tokens, unmapped: passthrough, passthrough };
       }
 
-      // include path for muse: category switches based on absence
-      // Check if all canonical are inexpressible (no counterpart)
-      const hasExpressible = canonical.some((c) => hasCounterpart(c, h));
-      // If no canonical (empty?) handle below; otherwise compute disables
+      // include path for muse: any canonical without counterpart refuses (A3)
+      for (const c of canonical) {
+        if (!hasCounterpart(c, h)) {
+          throw new ArgvRefusalError({
+            issue: "unsupported-option",
+            harness: h.name,
+            option: "tools",
+            supported: ["per-tool name lists"],
+            supportedBy: supportedByForCanonical(c),
+            hint: "nearest control on muse: category switches (--disable-write, --disable-shell, --disable-web-tools) gate tool execution per session",
+          });
+        }
+      }
       if (canonical.length === 0) {
         // empty include on muse: disable everything? treat as all disables?
         // spec: empty include would deny everything, but muse case not listed
@@ -178,8 +187,8 @@ export const renderToolSelection = (
       // Determine which categories are granted (canonical member present)
       const grantedCats = new Set<string>();
       for (const c of canonical) {
-        const val = table[c]?.[h.name] as { category: string } | undefined;
-        if (val && typeof val === "object" && "category" in val) grantedCats.add(val.category);
+        const val = table[c]?.[h.name];
+        if (val?.kind === "category") grantedCats.add(val.key);
       }
       const tokens: string[] = [];
       for (const cat of h.tools.categories) {

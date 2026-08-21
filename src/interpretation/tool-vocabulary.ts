@@ -1,6 +1,19 @@
 import type { DescriptorSet } from "../knowledge/overrides.js";
 
-export type VocabularyEntry = string | { category: string };
+export const NATIVE_PREFIX = "native:" as const;
+
+export type VocabularyEntry =
+  | { kind: "builtin"; native: string }
+  | { kind: "category"; key: string };
+
+export const READ_PRESET = ["read", "grep", "glob", "list", "web-fetch", "web-search"] as const;
+
+export type ParsedSelector = { kind: "canonical"; name: string } | { kind: "native"; name: string };
+
+export const parseToolSelector = (raw: string): ParsedSelector =>
+  raw.startsWith(NATIVE_PREFIX)
+    ? { kind: "native", name: raw.slice(NATIVE_PREFIX.length) }
+    : { kind: "canonical", name: raw };
 
 export type ToolMap = Readonly<Record<string, Readonly<Record<string, string>>>>;
 
@@ -66,12 +79,12 @@ export const canonicalToolTable = (set: DescriptorSet): CanonicalTable => {
       if (!h) continue;
       const builtin = h.tools.builtins.find((b) => b.canonical === canonical);
       if (builtin) {
-        perHarness[h.name] = builtin.name;
+        perHarness[h.name] = { kind: "builtin", native: builtin.name };
         continue;
       }
       const cat = h.tools.categories.find((c) => c.canonical.includes(canonical));
       if (cat) {
-        perHarness[h.name] = { category: cat.key };
+        perHarness[h.name] = { kind: "category", key: cat.key };
       }
     }
     table[canonical] = perHarness;

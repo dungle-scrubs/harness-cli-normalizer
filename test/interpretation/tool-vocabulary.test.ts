@@ -40,17 +40,44 @@ describe("tool vocabulary", () => {
       }
     };
 
-    expectEntry("read", { claude: "Read", pi: "read" });
-    expectEntry("write", { claude: "Write", pi: "write", muse: { category: "write" } });
-    expectEntry("edit", { claude: "Edit", pi: "edit", muse: { category: "write" } });
-    expectEntry("shell", { claude: "Bash", pi: "bash", muse: { category: "shell" } });
-    expectEntry("grep", { claude: "Grep", pi: "grep" });
-    expectEntry("glob", { claude: "Glob", pi: "find" });
-    expectEntry("list", { pi: "ls" });
-    expectEntry("web-fetch", { claude: "WebFetch", muse: { category: "web" } });
-    expectEntry("web-search", { claude: "WebSearch", muse: { category: "web" } });
-    expectEntry("subagent", { claude: "Task" });
-    expectEntry("skill", { claude: "Skill" });
+    expectEntry("read", {
+      claude: { kind: "builtin", native: "Read" },
+      pi: { kind: "builtin", native: "read" },
+    });
+    expectEntry("write", {
+      claude: { kind: "builtin", native: "Write" },
+      pi: { kind: "builtin", native: "write" },
+      muse: { kind: "category", key: "write" },
+    });
+    expectEntry("edit", {
+      claude: { kind: "builtin", native: "Edit" },
+      pi: { kind: "builtin", native: "edit" },
+      muse: { kind: "category", key: "write" },
+    });
+    expectEntry("shell", {
+      claude: { kind: "builtin", native: "Bash" },
+      pi: { kind: "builtin", native: "bash" },
+      muse: { kind: "category", key: "shell" },
+    });
+    expectEntry("grep", {
+      claude: { kind: "builtin", native: "Grep" },
+      pi: { kind: "builtin", native: "grep" },
+    });
+    expectEntry("glob", {
+      claude: { kind: "builtin", native: "Glob" },
+      pi: { kind: "builtin", native: "find" },
+    });
+    expectEntry("list", { pi: { kind: "builtin", native: "ls" } });
+    expectEntry("web-fetch", {
+      claude: { kind: "builtin", native: "WebFetch" },
+      muse: { kind: "category", key: "web" },
+    });
+    expectEntry("web-search", {
+      claude: { kind: "builtin", native: "WebSearch" },
+      muse: { kind: "category", key: "web" },
+    });
+    expectEntry("subagent", { claude: { kind: "builtin", native: "Task" } });
+    expectEntry("skill", { claude: { kind: "builtin", native: "Skill" } });
 
     expect(Object.keys(table).length).toBe(11);
   });
