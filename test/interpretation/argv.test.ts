@@ -6,6 +6,7 @@ import {
   buildSessionArgv,
 } from "../../src/interpretation/argv.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
+import { piCli } from "../../src/knowledge/pi.js";
 
 describe("buildLaunchArgv (claude)", () => {
   test("places the positional prompt before --allowedTools", () => {
@@ -71,6 +72,33 @@ describe("buildSessionArgv (claude)", () => {
     expect(argv[argv.indexOf("--output-format") + 1]).toBe("stream-json");
     expect(argv[argv.indexOf("--setting-sources") + 1]).toBe("project");
     expect(argv[argv.indexOf("--session-id") + 1]).toBe("eb04301d-8756-4a8b-ae3e-aac0e71f7265");
+  });
+
+  test("pins the whole argv for claude (no extra flags)", () => {
+    const argv = buildSessionArgv(claudeCode, {
+      sessionId: "eb04301d-8756-4a8b-ae3e-aac0e71f7265",
+    });
+    expect(argv).toEqual([
+      "claude",
+      "-p",
+      "--input-format",
+      "stream-json",
+      "--output-format",
+      "stream-json",
+      "--include-partial-messages",
+      "--verbose",
+      "--setting-sources",
+      "project",
+      "--session-id",
+      "eb04301d-8756-4a8b-ae3e-aac0e71f7265",
+    ]);
+  });
+
+  test("pins the whole argv for pi as pi --mode rpc (no -p, no duplicated --mode)", () => {
+    const argv = buildSessionArgv(piCli, {
+      sessionId: "eb04301d-8756-4a8b-ae3e-aac0e71f7265",
+    });
+    expect(argv).toEqual(["pi", "--mode", "rpc"]);
   });
 });
 
