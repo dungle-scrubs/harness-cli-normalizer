@@ -220,3 +220,65 @@ describe("A-001 fixture replay (D-022)", () => {
     expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
   });
 });
+
+describe("harness fixture replay (F-20)", () => {
+  const cases: Array<{
+    file: string;
+    harness: (typeof claudeCode)["name"];
+    exitCode: number;
+    nonError: boolean;
+  }> = [
+    { file: "claude.ndjson", harness: "claude", exitCode: 0, nonError: true },
+    { file: "codex.ndjson", harness: "codex", exitCode: 0, nonError: true },
+    { file: "codex-tool.ndjson", harness: "codex", exitCode: 0, nonError: true },
+    { file: "codex-filetool.ndjson", harness: "codex", exitCode: 0, nonError: true },
+    { file: "pi.ndjson", harness: "pi", exitCode: 0, nonError: true },
+    { file: "pi-tool.ndjson", harness: "pi", exitCode: 0, nonError: true },
+    { file: "pi-autherror.ndjson", harness: "pi", exitCode: 1, nonError: false },
+    { file: "muse.ndjson", harness: "muse", exitCode: 0, nonError: true },
+    { file: "muse-tool.ndjson", harness: "muse", exitCode: 0, nonError: true },
+    { file: "muse-readtool.ndjson", harness: "muse", exitCode: 0, nonError: true },
+  ];
+
+  test.each(cases)(
+    "replays $file with exactly one identity and a terminal done",
+    async ({ file, harness, exitCode, nonError }) => {
+      const { readFileSync } = await import("node:fs");
+      const { join } = await import("node:path");
+      const { codexCli } = await import("../../src/knowledge/codex.js");
+      const { piCli } = await import("../../src/knowledge/pi.js");
+      const { museCode } = await import("../../src/knowledge/muse.js");
+      const byName = { claude: claudeCode, codex: codexCli, pi: piCli, muse: museCode } as const;
+      const descriptor = byName[harness as keyof typeof byName];
+      const raw = readFileSync(join(import.meta.dirname, "../fixtures/harnesses", file), "utf8");
+      const proc = new FakeProcess();
+      const d = deps(proc);
+      const turn = streamTurn(descriptor, { prompt: "hi" }, d);
+      for (const line of raw.split("\n")) {
+        if (line.trim() !== "") proc.emitLine(line);
+      }
+      proc.exit(exitCode);
+      const events = await collect(turn);
+      expect(events.filter((e) => e.kind === "identity")).toHaveLength(1);
+      if (nonError) {
+        const hasContent = events.some((e) => e.kind === "message" || e.kind === "token");
+        expect(hasContent, `${file} should emit at least one message or token`).toBe(true);
+      }
+      expect(events.filter((e) => e.kind === "done")).toHaveLength(1);
+      expect(events.at(-1)?.kind).toBe("done");
+    },
+  );
+
+  test("inventory: every .ndjson in test/fixtures/harnesses is covered", async () => {
+    const { readdirSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const dir = join(import.meta.dirname, "../fixtures/harnesses");
+    const files = readdirSync(dir)
+      .filter((f) => f.endsWith(".ndjson"))
+      .sort();
+    const covered = new Set(cases.map((c) => c.file));
+    const uncovered = files.filter((f) => !covered.has(f));
+    expect(uncovered, `uncovered fixtures: ${uncovered.join(", ")}`).toEqual([]);
+    expect(files.length).toBe(cases.length);
+  });
+});
