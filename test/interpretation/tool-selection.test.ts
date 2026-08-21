@@ -1,13 +1,5 @@
 /**
- * Tool-selection rendering, per D1-D3 and Phase 0 evidence:
- * - mutual exclusivity refuses (D1)
- * - exclude is the complement over all descriptor-known names, not the
- *   harness default (D2) - pi gains its off-by-default tools
- * - claude include renders grant + deny-complement (include is a permission
- *   grant, not a visibility filter); pi include renders directly (strict)
- * - unknown clean names pass through on include (D3 extensible rule) and
- *   are reported unmapped; unknown exclude on pi refuses (complement
- *   cannot be computed)
+ * Tool-selection rendering with canonical vocabulary.
  */
 import { describe, expect, it } from "vitest";
 import { buildLaunchArgv } from "../../src/interpretation/argv.js";
@@ -21,7 +13,7 @@ describe("D1: mutual exclusivity", () => {
   it("both flags in one call refuse with the structured issue", () => {
     for (const h of [claudeCode, piCli]) {
       try {
-        renderToolSelection(h, { include: ["read"], exclude: ["bash"] });
+        renderToolSelection(h, { include: ["read"], exclude: ["shell"] });
         expect.unreachable(`${h.name} should have refused`);
       } catch (e) {
         expect((e as { issue: string }).issue).toBe("mutually-exclusive-options");
@@ -31,42 +23,42 @@ describe("D1: mutual exclusivity", () => {
 
   it("through the full builder too", () => {
     expect(() =>
-      buildLaunchArgv(piCli, { prompt: "hi", tools: ["read"], excludeTools: ["bash"] }),
+      buildLaunchArgv(piCli, { prompt: "hi", tools: ["read"], excludeTools: ["shell"] }),
     ).toThrow(/exactly one/i);
   });
 });
 
 describe("D2: exclude is the complement over known names", () => {
-  it("pi exclude bash -> include of the other six, gaining grep/find/ls", () => {
-    const { tokens, unmapped } = renderToolSelection(piCli, { exclude: ["bash"] });
+  it("pi exclude shell -> include of the other six, gaining grep/glob/list", () => {
+    const { tokens, passthrough } = renderToolSelection(piCli, { exclude: ["shell"] });
     expect(tokens).toEqual(["--tools", "read,edit,write,grep,find,ls"]);
-    expect(unmapped).toEqual([]);
+    expect(passthrough).toEqual([]);
   });
 
   it("claude exclude emits the deny list directly", () => {
-    const { tokens } = renderToolSelection(claudeCode, { exclude: ["Bash"] });
+    const { tokens } = renderToolSelection(claudeCode, { exclude: ["shell"] });
     expect(tokens).toEqual(["--disallowedTools", "Bash"]);
   });
 
-  it("unknown exclude on pi refuses - the complement cannot be computed", () => {
+  it("unknown exclude on pi refuses", () => {
     expect(() => renderToolSelection(piCli, { exclude: ["no-such-tool"] })).toThrow(
-      /cannot compute a tool complement/i,
+      expect.objectContaining({ issue: "unknown-tool-name" }),
     );
   });
 
-  it("unknown exclude on claude passes through natively", () => {
-    const { tokens, unmapped } = renderToolSelection(claudeCode, {
-      exclude: ["Bash", "SomeExtTool"],
+  it("unknown exclude on claude via native passthrough passes through", () => {
+    const { tokens, passthrough } = renderToolSelection(claudeCode, {
+      exclude: ["shell", "native:SomeExtTool"],
     });
     expect(tokens).toEqual(["--disallowedTools", "Bash,SomeExtTool"]);
-    expect(unmapped).toEqual(["SomeExtTool"]);
+    expect(passthrough).toEqual(["SomeExtTool"]);
   });
 });
 
 describe("include rendering per harness asymmetry", () => {
   it("claude include renders grant + deny-complement (probe 2b)", () => {
-    const { tokens, unmapped } = renderToolSelection(claudeCode, {
-      include: ["Read", "Bash"],
+    const { tokens, passthrough } = renderToolSelection(claudeCode, {
+      include: ["read", "shell"],
     });
     expect(tokens[0]).toBe("--allowedTools");
     expect(tokens[1]).toBe("Read,Bash");
@@ -75,38 +67,36 @@ describe("include rendering per harness asymmetry", () => {
     expect(denied).not.toContain("Read");
     expect(denied).not.toContain("Bash");
     expect(denied).toContain("Edit");
-    expect(unmapped).toEqual([]);
+    expect(passthrough).toEqual([]);
   });
 
   it("pi include renders directly, strict over built-ins", () => {
-    const { tokens } = renderToolSelection(piCli, { include: ["read", "bash"] });
+    const { tokens } = renderToolSelection(piCli, { include: ["read", "shell"] });
     expect(tokens).toEqual(["--tools", "read,bash"]);
   });
 
-  it("unmapped include names ride along and are reported (D3)", () => {
-    const { tokens, unmapped } = renderToolSelection(piCli, {
-      include: ["read", "mcp__srv__x"],
+  it("native passthrough include names ride along and are reported", () => {
+    const { tokens, passthrough } = renderToolSelection(piCli, {
+      include: ["read", "native:mcp__srv__x"],
     });
     expect(tokens).toEqual(["--tools", "read,mcp__srv__x"]);
-    expect(unmapped).toEqual(["mcp__srv__x"]);
+    expect(passthrough).toEqual(["mcp__srv__x"]);
   });
 
-  it("claude include with an unmapped name keeps it out of the deny complement", () => {
-    const { tokens, unmapped } = renderToolSelection(claudeCode, {
-      include: ["Read", "ExtTool"],
+  it("claude include with a native passthrough keeps it out of the deny complement", () => {
+    const { tokens, passthrough } = renderToolSelection(claudeCode, {
+      include: ["read", "native:ExtTool"],
     });
-    // grant carries both; the deny complement is over known names only,
-    // so ExtTool is neither denied nor curated - reported unmapped.
     expect(tokens[1]).toBe("Read,ExtTool");
     expect((tokens[3] ?? "").split(",")).not.toContain("ExtTool");
-    expect(unmapped).toEqual(["ExtTool"]);
+    expect(passthrough).toEqual(["ExtTool"]);
   });
 });
 
 describe("name validation", () => {
   it("empty entries and commas inside names refuse", () => {
     expect(() => renderToolSelection(piCli, { include: ["read", ""] })).toThrow(/tool/i);
-    expect(() => renderToolSelection(piCli, { include: ["read,bash"] })).toThrow(/tool/i);
+    expect(() => renderToolSelection(piCli, { include: ["read,shell"] })).toThrow(/tool/i);
   });
 
   it("traversal-shaped names refuse", () => {
@@ -115,65 +105,171 @@ describe("name validation", () => {
 });
 
 describe("no-list harnesses refuse", () => {
-  it("codex and muse refuse include and exclude with unsupported-option", () => {
-    for (const h of [codexCli, museCode]) {
-      for (const sel of [{ include: ["x"] }, { exclude: ["x"] }] as const) {
-        try {
-          renderToolSelection(h, sel);
-          expect.unreachable(`${h.name} should have refused`);
-        } catch (e) {
-          expect((e as { issue: string }).issue).toBe("unsupported-option");
-        }
-      }
-    }
+  it("codex any include or exclude refuses unsupported-option", () => {
+    expect(() => renderToolSelection(codexCli, { include: ["read"] })).toThrow(
+      expect.objectContaining({ issue: "unsupported-option" }),
+    );
+    expect(() => renderToolSelection(codexCli, { exclude: ["read"] })).toThrow(
+      expect.objectContaining({ issue: "unsupported-option" }),
+    );
+  });
+
+  it("muse include of non-muse canonical refuses unsupported-option", () => {
+    // read has no muse counterpart (read, grep, glob, list, subagent, skill) - refuses
+    expect(() => renderToolSelection(museCode, { include: ["read"] })).toThrow(
+      expect.objectContaining({ issue: "unsupported-option" }),
+    );
+    // exclude inexpressible on muse refuses
+    expect(() => renderToolSelection(museCode, { exclude: ["read"] })).toThrow(
+      expect.objectContaining({ issue: "unsupported-option" }),
+    );
+    expect(() => renderToolSelection(museCode, { exclude: ["list"] })).toThrow(
+      expect.objectContaining({ issue: "unsupported-option" }),
+    );
+  });
+
+  it("muse include of category-backed name renders switches for absent categories", () => {
+    // write, edit, shell, web-fetch, web-search are category-backed and valid
+    const { tokens } = renderToolSelection(museCode, { include: ["write"] });
+    expect(tokens).not.toContain("--disable-write");
+    // only category-backed names together should render absent categories
+    const { tokens: tokens2 } = renderToolSelection(museCode, { include: ["write", "shell"] });
+    expect(tokens2).toContain("--disable-web-tools");
   });
 });
 
-describe("F-11: claude tool names silently unmapped", () => {
-  it("all-unmapped include on claude refuses with unknown-tool-name", () => {
-    expect(() =>
-      renderToolSelection(claudeCode, { include: ["read", "grep", "find", "ls"] }),
-    ).toThrow(expect.objectContaining({ issue: "unknown-tool-name" }));
+describe("canonical vocabulary", () => {
+  it("pi read,grep -> --tools read,grep", () => {
+    const { tokens } = renderToolSelection(piCli, { include: ["read", "grep"] });
+    expect(tokens).toEqual(["--tools", "read,grep"]);
+  });
+
+  it("claude read,grep -> Read,Grep plus deny complement", () => {
+    const { tokens } = renderToolSelection(claudeCode, { include: ["read", "grep"] });
+    expect(tokens[0]).toBe("--allowedTools");
+    expect(tokens[1]).toBe("Read,Grep");
+    expect(tokens[2]).toBe("--disallowedTools");
+  });
+
+  it("pi Read (native name) refuses unknown-tool-name listing canonical set", () => {
     try {
-      renderToolSelection(claudeCode, { include: ["read", "grep", "find", "ls"] });
-      expect.unreachable("should have refused");
+      renderToolSelection(piCli, { include: ["Read"] });
+      expect.unreachable();
     } catch (e) {
-      const err = e as { supported: string[] };
-      expect(err.supported.join(" ")).toContain("Bash");
+      const err = e as { issue: string; supported: string[]; hint: string };
+      expect(err.issue).toBe("unknown-tool-name");
+      expect(err.supported.join(",")).toContain("read");
+      expect(err.hint).toContain("native:");
     }
   });
 
-  it("partially mapped include on claude keeps grant and reports unmapped", () => {
-    const { tokens, unmapped } = renderToolSelection(claudeCode, {
-      include: ["Read", "grep", "find", "ls"],
+  it("claude list -> refuses unsupported-option naming pi in supportedBy", () => {
+    try {
+      renderToolSelection(claudeCode, { include: ["list"] });
+      expect.unreachable();
+    } catch (e) {
+      const err = e as { issue: string; supportedBy: { harness: string }[] };
+      expect(err.issue).toBe("unsupported-option");
+      expect(err.supportedBy.map((s) => s.harness)).toContain("pi");
+    }
+  });
+
+  it("muse read,grep include refuses as non-muse canonicals", () => {
+    expect(() => renderToolSelection(museCode, { include: ["read", "grep"] })).toThrow(
+      expect.objectContaining({ issue: "unsupported-option" }),
+    );
+  });
+
+  it("muse shell alone renders category switches", () => {
+    const { tokens } = renderToolSelection(museCode, { include: ["shell"] });
+    expect(tokens).toContain("--disable-write");
+    expect(tokens).toContain("--disable-web-tools");
+    expect(tokens).not.toContain("--disable-shell");
+  });
+
+  it("muse exclude web-search -> --disable-web-tools", () => {
+    const { tokens } = renderToolSelection(museCode, { exclude: ["web-search"] });
+    expect(tokens).toEqual(["--disable-web-tools"]);
+  });
+
+  it("native:web_search on pi passes through and lands in passthrough", () => {
+    const { tokens, passthrough } = renderToolSelection(piCli, { include: ["native:web_search"] });
+    expect(tokens).toEqual(["--tools", "web_search"]);
+    expect(passthrough).toEqual(["web_search"]);
+  });
+
+  it("mixed read,native:foo on pi -> --tools read,foo", () => {
+    const { tokens, passthrough } = renderToolSelection(piCli, {
+      include: ["read", "native:foo"],
     });
-    expect(tokens[0]).toBe("--allowedTools");
-    expect(tokens[1]).toBe("Read,grep,find,ls");
-    expect(unmapped).toEqual(["grep", "find", "ls"]);
+    expect(tokens).toEqual(["--tools", "read,foo"]);
+    expect(passthrough).toEqual(["foo"]);
+  });
+
+  it("all-native on claude and pi via native: still considered passthrough", () => {
+    const r1 = renderToolSelection(piCli, { include: ["native:foo", "native:bar"] });
+    expect(r1.tokens).toEqual(["--tools", "foo,bar"]);
+    expect(r1.passthrough).toEqual(["foo", "bar"]);
   });
 });
 
 describe("F-36: empty include list handling per harness", () => {
   it("empty include on claudeCode emits no empty token and contains deny complement", () => {
-    const { tokens, unmapped } = renderToolSelection(claudeCode, { include: [] });
+    const { tokens, passthrough } = renderToolSelection(claudeCode, { include: [] });
     expect(tokens).not.toContain("");
     expect(tokens.join(" ")).toContain("--disallowedTools");
     expect(tokens.join(",")).not.toContain('""');
-    // should be deny complement over all known names
     const expectedKnown = claudeCode.tools.builtins.map((t) => t.name).join(",");
     expect(tokens).toEqual(["--disallowedTools", expectedKnown]);
-    expect(unmapped).toEqual([]);
+    expect(passthrough).toEqual([]);
   });
 
   it("empty include on piCli throws invalid-tool-grant", () => {
     expect(() => renderToolSelection(piCli, { include: [] })).toThrow(
       expect.objectContaining({ issue: "invalid-tool-grant" }),
     );
+  });
+});
+
+describe("toolMap extensible vocabulary", () => {
+  it("with toolMap web-search on pi renders web_search", () => {
+    const { tokens } = renderToolSelection(piCli, {
+      include: ["web-search"],
+      toolMap: { "web-search": "web_search" },
+    });
+    expect(tokens).toEqual(["--tools", "web_search"]);
+  });
+
+  it("without toolMap web-search on pi refuses unsupported-option with hint naming toolMap.pi.web-search", () => {
     try {
-      renderToolSelection(piCli, { include: [] });
-      expect.unreachable("should have thrown");
+      renderToolSelection(piCli, { include: ["web-search"] });
+      expect.unreachable();
     } catch (e) {
-      expect((e as { issue: string }).issue).toBe("invalid-tool-grant");
+      const err = e as { issue: string; hint: string };
+      expect(err.issue).toBe("unsupported-option");
+      expect(err.hint).toContain("toolMap.pi.web-search");
     }
+  });
+
+  it("native:web_search still passes through with provenance", () => {
+    const { tokens, passthrough } = renderToolSelection(piCli, {
+      include: ["native:web_search"],
+    });
+    expect(tokens).toEqual(["--tools", "web_search"]);
+    expect(passthrough).toEqual(["web_search"]);
+  });
+
+  it("shadowing entry wins over descriptor", () => {
+    const { tokens } = renderToolSelection(piCli, {
+      include: ["read"],
+      toolMap: { read: "my_read" },
+    });
+    expect(tokens).toEqual(["--tools", "my_read"]);
+  });
+
+  it("unknown everywhere still refuses unknown-tool-name", () => {
+    expect(() => renderToolSelection(piCli, { include: ["does-not-exist"] })).toThrow(
+      expect.objectContaining({ issue: "unknown-tool-name" }),
+    );
   });
 });

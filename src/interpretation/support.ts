@@ -14,6 +14,8 @@
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import type { DescriptorSet } from "../knowledge/overrides.js";
 import type { RefusalOption } from "./refusal.js";
+import type { VocabularyEntry } from "./tool-vocabulary.js";
+import { canonicalTable } from "./tool-vocabulary.js";
 
 export interface SupportEntry {
   readonly harness: string;
@@ -23,6 +25,15 @@ export interface SupportEntry {
 
 const spellingOf = (h: HarnessDescriptor, option: RefusalOption): string | null => {
   switch (option) {
+    case "access": {
+      const spec = h.turnOptions.access;
+      if (spec === undefined) return null;
+      if (spec.kind === "flag-value") return spec.flag;
+      if (spec.kind === "flag-list-by-value") return Object.values(spec.flags)[0]?.[0] ?? null;
+      if (spec.kind === "tool-preset")
+        return h.tools.includeFlag ?? h.tools.excludeFlag ?? "--sandbox";
+      return null;
+    }
     case "tools":
       return h.tools.includeFlag;
     case "excludeTools":
@@ -65,6 +76,25 @@ export const supportedBy = (set: DescriptorSet, option: RefusalOption): readonly
     if (h === undefined) continue;
     const spelling = spellingOf(h, option);
     if (spelling !== null) out.push({ harness: h.name, spelling });
+  }
+  return out;
+};
+
+export const supportedByCanonical = (
+  set: DescriptorSet,
+  canonical: string,
+): readonly SupportEntry[] => {
+  const table = canonicalTable(set);
+  const entry = table[canonical];
+  if (!entry) return [];
+  const out: SupportEntry[] = [];
+  for (const [har, val] of Object.entries(entry)) {
+    if (val === undefined) continue;
+    const spelling =
+      (val as VocabularyEntry).kind === "builtin"
+        ? (val as { kind: "builtin"; native: string }).native
+        : (val as { kind: "category"; key: string }).key;
+    out.push({ harness: har, spelling });
   }
   return out;
 };

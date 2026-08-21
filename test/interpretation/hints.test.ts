@@ -10,8 +10,8 @@ import { describe, expect, it } from "vitest";
 import { allHints, hintFor } from "../../src/interpretation/hints.js";
 
 describe("hint table (confirmed instances)", () => {
-  it("carries exactly 27 entries (24 confirmed + 3 issue #48 ratified)", () => {
-    expect(allHints().length).toBe(27);
+  it("carries exactly 31 entries (24 confirmed + 3 issue #48 ratified + 4 tools)", () => {
+    expect(allHints().length).toBe(31);
   });
 
   it("covers exactly the confirmed harness-dimension pairs", () => {
@@ -32,17 +32,21 @@ describe("hint table (confirmed instances)", () => {
         "codex/discovery.skills",
         "codex/discovery.tools",
         "codex/appendSystemPrompt",
+        "codex/excludeTools",
         "codex/maxSteps",
         "codex/provider",
         "codex/shell",
+        "codex/tools",
         "codex/write",
         "muse/discovery.instructionFiles",
         "muse/discovery.skills",
         "muse/discovery.tools",
         "muse/appendSystemPrompt",
+        "muse/excludeTools",
         "muse/provider",
         "muse/sandbox",
         "muse/systemPrompt",
+        "muse/tools",
         "pi/maxSteps",
         "pi/sandbox",
         "pi/shell",
@@ -76,6 +80,6 @@ describe("hint table (confirmed instances)", () => {
   it("unknown pairs return undefined, never a wrong hint", () => {
     expect(hintFor("pi", "provider")).toBeUndefined(); // pi HAS provider
     expect(hintFor("codex", "sandbox")).toBeUndefined(); // codex HAS sandbox
-    expect(hintFor("muse", "tools")).toBeUndefined(); // that one is a Phase 3 raise-site hint
+    expect(hintFor("claude", "tools")).toBeUndefined(); // claude HAS tools
   });
 });

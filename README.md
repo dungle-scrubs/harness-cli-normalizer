@@ -75,8 +75,8 @@ Flag table (maps to `TurnOptions` / `TurnRunOptions`):
 | `--effort <value>` | `effort` | Validated via `validateEffort` |
 | `--sandbox <value>` | `sandbox` | Codex only |
 | `--provider <value>` | `provider` | pi only |
-| `--tools <a,b>` | `tools` | Per-tool allowlist; claude and pi (pi strict, claude via grant + deny-complement). A bare name matching a configured toolset expands to it |
-| `--exclude-tools <a,b>` | `excludeTools` | Complement over known tool names; mutually exclusive with `--tools` |
+| `--tools <a,b>` | `tools` | Canonical names (read, write, edit, shell, grep, glob, list, web-fetch, web-search, subagent, skill); `native:<name>` passes a harness-native or extension tool through. Per-tool allowlist; claude and pi (pi strict, claude via grant + deny-complement). A bare name matching a configured toolset expands to it |
+| `--exclude-tools <a,b>` | `excludeTools` | Canonical names (same vocabulary, `native:<name>` passthrough); complement over known tool names; mutually exclusive with `--tools` |
 | `-- <harness args>` | `passthrough` | Verbatim harness tokens; failures surface as labeled native errors (hcn exit 1, native exit code as data) |
 | `--autonomy` / `--no-autonomy` | `autonomy` | |
 | `--write` / `--no-write` | `write` | Muse |
@@ -92,6 +92,7 @@ Flag table (maps to `TurnOptions` / `TurnRunOptions`):
 | `--escalate-questions` / `--no-escalate-questions` | `escalateQuestions` | Let worker ask when blocked (DEFAULT) / never ask, state assumption and continue |
 | `--system-prompt <text>` | `systemPrompt` | Replace built-in system prompt (claude, pi; codex uses -c instructions; muse refuses) |
 | `--append-system-prompt <text>` | `appendSystemPrompt` | Append to built-in prompt (claude, pi only) |
+| `--access <read|write>` | `access` | Access preset - read = read, grep, glob, list, web-fetch, web-search (canonical); write = no restriction; claude/pi via --tools (toolMap aware), codex via --sandbox, muse via --disable-write/--disable-shell; mutually exclusive with --tools/--exclude-tools and with --sandbox on codex; no default |
 | `--json` | output mode | NDJSON `HarnessEvent` to stdout |
 
 For development, `bun run demo claude "hi"` remains as a live-rendering alternative.
@@ -126,7 +127,7 @@ repo) also carries tool floors and named toolsets:
 {
   "version": 1,
   "effort": "low",
-  "tools": ["read", "grep", "find", "ls"],
+  "tools": ["read", "grep", "glob", "list"],
   "toolsets": { "review": ["read", "grep"] }
 }
 ```
@@ -136,6 +137,45 @@ arg exceeding it refuses with exit 2 naming both sets - never a silent
 clamp. An empty floor refuses every grant (the turn-everything-off
 workflow). Config parsing is hard-fail: unknown keys, malformed JSON, or a
 version mismatch exit 2 naming the offender.
+
+### Tool names
+
+`--tools` and `--exclude-tools` accept canonical names only. Bare native names are not accepted; use `native:<name>` to pass a harness-native or extension tool through. The live table is printed by `hcn inspect <harness>` (`toolVocabulary`).
+
+| canonical | claude | pi | codex | muse |
+|---|---|---|---|---|
+| read | Read | read | - | - |
+| write | Write | write | - | category write |
+| edit | Edit | edit | - | category write |
+| shell | Bash | bash | - | category shell |
+| grep | Grep | grep | - | - |
+| glob | Glob | find | - | - |
+| list | - | ls | - | - |
+| web-fetch | WebFetch | - | - | category web |
+| web-search | WebSearch | - | - | category web |
+| subagent | Task | - | - | - |
+| skill | Skill | - | - | - |
+
+`toolMap` extends the vocabulary per harness via config (`toolMap.<harness>.<canonical> = "<native>"`):
+
+```json
+{ "version": 1, "toolMap": { "pi": { "web-search": "web_search" }, "muse": { "write": "write_file" } } }
+```
+
+Precedence is `project > user`; a category-only harness (muse) refuses a `toolMap` key whose canonical is not in its categories, naming the key (e.g. `toolMap.muse.read`). A canonical name with no counterpart on the current harness refuses with `unsupported-option` and the hint `add toolMap.<harness>.<name> to ~/.config/hcn/config.json or pass native:<name>`. hcn cannot verify that a declared native name exists at run time; a wrong name reaches the harness as an unknown tool.
+
+`--access` is a preset allowlist: `read` = `read, grep, glob, list, web-fetch, web-search` (canonical), `write` = no restriction.
+
+Rendering per harness:
+
+| harness | `read` renders | `write` renders |
+|---|---|---|
+| claude | `--allowedTools Read,Grep,Glob,WebFetch,WebSearch` + deny complement (toolMap aware) | nothing (harness default) |
+| pi | `--tools read,grep,find,ls` (+ web-search via toolMap) | nothing |
+| codex | `--sandbox read-only` | `--sandbox workspace-write` |
+| muse | `--disable-write --disable-shell` | nothing |
+
+`--access` together with `--tools` or `--exclude-tools` in the same run refuses `mutually-exclusive-options` (access is a preset allowlist, not a filter over one). `--access` together with an explicit `--sandbox` on codex refuses the same way.
 
 ## Question escalation (issue #41)
 

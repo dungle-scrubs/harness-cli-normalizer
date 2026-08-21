@@ -25,12 +25,14 @@ import { piCli } from "./pi.js";
 
 export type DescriptorSet = Partial<Record<HarnessName, HarnessDescriptor>>;
 
-export const defaultDescriptors = (): DescriptorSet => ({
+const SHARED_DESCRIPTORS: DescriptorSet = {
   claude: claudeCode,
   codex: codexCli,
   pi: piCli,
   muse: museCode,
-});
+};
+
+export const defaultDescriptors = (): DescriptorSet => SHARED_DESCRIPTORS;
 
 /** Tracks which descriptors were produced by an override file and what their
  * matcher counts are, so the execution layer can emit `matcherOverrides` on

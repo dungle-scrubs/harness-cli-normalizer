@@ -41,8 +41,8 @@ describe("parseUserConfig", () => {
   });
 
   it("list and bool keys validate their shapes", () => {
-    expect(parseUserConfig('{"version":1,"tools":["read","bash"]}')).toEqual({
-      tools: ["read", "bash"],
+    expect(parseUserConfig('{"version":1,"tools":["read","shell"]}')).toEqual({
+      tools: ["read", "shell"],
     });
     expect(parseUserConfig('{"version":1,"autonomy":false}')).toEqual({ autonomy: false });
     expect(() => parseUserConfig('{"version":1,"autonomy":"yes"}')).toThrow(
@@ -82,5 +82,47 @@ describe("round 2 keys (D11/D12)", () => {
 
   it("maxSteps remains a valid config key (D12)", () => {
     expect(parseUserConfig('{"version":1,"maxSteps":200}')).toEqual({ maxSteps: 200 });
+  });
+});
+
+describe("toolMap config tier", () => {
+  it("valid toolMap parses", () => {
+    expect(
+      parseUserConfig(
+        '{"version":1,"toolMap":{"pi":{"web-search":"web_search","subagent":"background_task"}}}',
+      ),
+    ).toEqual({
+      toolMap: { pi: { "web-search": "web_search", subagent: "background_task" } },
+    });
+  });
+
+  it("toolMap.codex refuses at load naming the key", () => {
+    expect(() =>
+      parseUserConfig('{"version":1,"toolMap":{"codex":{"web-search":"web_search"}}}'),
+    ).toThrow(/toolMap\.codex/);
+  });
+
+  it("toolMap.pi.web-search non-string refuses", () => {
+    expect(() => parseUserConfig('{"version":1,"toolMap":{"pi":{"web-search":5}}}')).toThrow(
+      /toolMap\.pi\.web-search/,
+    );
+  });
+
+  it("unknown harness key refuses", () => {
+    expect(() =>
+      parseUserConfig('{"version":1,"toolMap":{"unknownHarness":{"web-search":"web_search"}}}'),
+    ).toThrow(/toolMap\.unknownHarness/);
+  });
+
+  it("empty native string refuses", () => {
+    expect(() => parseUserConfig('{"version":1,"toolMap":{"pi":{"web-search":""}}}')).toThrow(
+      /toolMap\.pi\.web-search/,
+    );
+  });
+
+  it("invalid selector canonical refuses", () => {
+    expect(() => parseUserConfig('{"version":1,"toolMap":{"pi":{" bad":"web_search"}}}')).toThrow(
+      /toolMap\.pi/,
+    );
   });
 });

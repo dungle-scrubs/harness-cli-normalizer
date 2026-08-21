@@ -9,11 +9,21 @@
  * (key known, value type plausible); value legality (effort in ladder,
  * model in vocabulary) is enforced by the same renderers as args, so
  * config and CLI can never disagree about what is legal.
+ *
+ * toolMap: { pi: { "web-search": "web_search" } } - extensible canonical
+ * vocabulary per harness; unknown harness, harness with no allowlist
+ * (codex, muse), non-string/empty values, or invalid selector canonical
+ * keys hard-fail naming the key path. hcn cannot verify native names exist
+ * at run time; a wrong name reaches the harness as an unknown tool.
  */
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import type { TurnOptions } from "../interpretation/argv.js";
+import { TOOL_SELECTOR } from "../interpretation/tool-selection.js";
+import { validateAccess } from "../interpretation/vocabulary.js";
+import { HARNESS_NAMES } from "../knowledge/descriptor.js";
+import { defaultDescriptors } from "../knowledge/overrides.js";
 
 const SCHEMA_VERSION = 1;
 
@@ -73,6 +83,8 @@ const KNOWN_KEYS = new Set([
   // entry by ratification).
   "systemPrompt",
   "appendSystemPrompt",
+  "toolMap",
+  "access",
 ]);
 
 const LIST_KEYS = new Set(["tools", "excludeTools"]);
@@ -107,6 +119,74 @@ export const parseUserConfig = (text: string): Partial<TurnOptions> => {
     if (!KNOWN_KEYS.has(key)) {
       throw new ConfigError(`unknown config key: ${JSON.stringify(key)}`);
     }
+    if (key === "toolMap") {
+      if (typeof value !== "object" || value === null || Array.isArray(value)) {
+        throw new ConfigError(
+          'config key "toolMap" must be an object of harness -> canonical -> native',
+        );
+      }
+      const toolMapObj = value as Record<string, unknown>;
+      const SEL = TOOL_SELECTOR;
+      const descSet = defaultDescriptors();
+      const harnessNames = HARNESS_NAMES as readonly string[];
+      for (const [harness, inner] of Object.entries(toolMapObj)) {
+        if (!(harnessNames as readonly string[]).includes(harness)) {
+          throw new ConfigError(`unknown config key: ${JSON.stringify(`toolMap.${harness}`)}`);
+        }
+        const desc = (
+          descSet as Record<
+            string,
+            {
+              tools: {
+                includeFlag: string | null;
+                categories: readonly { canonical: readonly string[] }[];
+              };
+            }
+          >
+        )[harness];
+        const canTakeToolMap =
+          desc && (desc.tools.includeFlag !== null || desc.tools.categories.length > 0);
+        const hasListOrCats = canTakeToolMap;
+        if (!hasListOrCats) {
+          throw new ConfigError(`unknown config key: ${JSON.stringify(`toolMap.${harness}`)}`);
+        }
+        if (typeof inner !== "object" || inner === null || Array.isArray(inner)) {
+          throw new ConfigError(
+            `config key ${JSON.stringify(`toolMap.${harness}`)} must be an object of canonical -> native string`,
+          );
+        }
+        const innerObj = inner as Record<string, unknown>;
+        // For category-only harnesses (muse), only category-backed canonicals are valid (A4)
+        const isCategoryOnly = desc.tools.includeFlag === null && desc.tools.categories.length > 0;
+        const allowedForCategoryOnly = isCategoryOnly
+          ? new Set(desc.tools.categories.flatMap((c) => [...c.canonical]))
+          : null;
+        for (const [canonical, nativeVal] of Object.entries(innerObj)) {
+          if (isCategoryOnly && allowedForCategoryOnly && !allowedForCategoryOnly.has(canonical)) {
+            throw new ConfigError(
+              `unknown config key: ${JSON.stringify(`toolMap.${harness}.${canonical}`)}`,
+            );
+          }
+          if (!SEL.test(canonical)) {
+            throw new ConfigError(
+              `config key ${JSON.stringify(`toolMap.${harness}.${canonical}`)} must match ${SEL.source}`,
+            );
+          }
+          if (typeof nativeVal !== "string") {
+            throw new ConfigError(
+              `config key ${JSON.stringify(`toolMap.${harness}.${canonical}`)} must be a non-empty string, got ${typeof nativeVal}`,
+            );
+          }
+          if (nativeVal.trim() === "") {
+            throw new ConfigError(
+              `config key ${JSON.stringify(`toolMap.${harness}.${canonical}`)} must be a non-empty string`,
+            );
+          }
+        }
+      }
+      (out as Record<string, unknown>)[key] = value;
+      continue;
+    }
     if (key === "toolsets") {
       if (
         typeof value !== "object" ||
@@ -128,6 +208,14 @@ export const parseUserConfig = (text: string): Partial<TurnOptions> => {
         throw new ConfigError(
           'config key "timeout" must be a whole number of seconds, >= 0 (0 disables)',
         );
+      }
+      (out as Record<string, unknown>)[key] = value;
+      continue;
+    }
+    if (key === "access") {
+      const v = validateAccess(String(value));
+      if (!v.ok) {
+        throw new ConfigError('config key "access" must be "read" or "write"');
       }
       (out as Record<string, unknown>)[key] = value;
       continue;

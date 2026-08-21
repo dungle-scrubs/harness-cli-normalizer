@@ -8,8 +8,13 @@
  * sandbox default already follows).
  */
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
+import { defaultDescriptors } from "../knowledge/overrides.js";
 import { DEFAULT_TURN_PROFILE, type ProfileKey } from "../knowledge/profile.js";
 import type { TurnOptions } from "./argv.js";
+import { ArgvRefusalError } from "./refusal.js";
+import type { ToolMap } from "./tool-vocabulary.js";
+import { allCanonicalNames, mergeToolMaps, validateCanonicalList } from "./tool-vocabulary.js";
+import { validateAccess } from "./vocabulary.js";
 
 export type ProvenanceTier = "arg" | "project-config" | "user-config" | "profile" | "harness";
 
@@ -126,8 +131,100 @@ export const resolveEffectiveOptions = (
   }
   const resolved: Record<string, unknown> = { ...effectiveArgs };
 
-  // D5 floor: a project toolset floor caps any arg grant; exceeding it is
-  // a structured refusal naming both sets - never a silent clamp.
+  // Validate access value before exclusivity so invalid reports invalid-option-value, not mutual exclusion.
+  if (resolved.access !== undefined) {
+    const v = validateAccess(String(resolved.access));
+    if (!v.ok) {
+      throw new ArgvRefusalError({
+        issue: "invalid-option-value",
+        harness: h.name,
+        option: "access",
+        supported: ["read", "write"],
+        detail: String(resolved.access),
+      });
+    }
+  }
+  // Access exclusivity on codex: explicit --sandbox together with --access refuses.
+  // Profile sandbox yields to access - only explicit sandbox counts.
+  if (h.name === "codex" && resolved.access !== undefined) {
+    const hasExplicitSandbox =
+      effectiveArgs.sandbox !== undefined || sourceTier("sandbox") !== undefined;
+    if (hasExplicitSandbox) {
+      throw new ArgvRefusalError({
+        issue: "mutually-exclusive-options",
+        harness: h.name,
+        option: "access",
+        supported: ["--access or --sandbox, not both on codex"],
+        detail: "mutual exclusion",
+      });
+    }
+  }
+  // Access vs tools exclusivity: only explicit tools/excludeTools from args or config, never profile-derived.
+  if (resolved.access !== undefined) {
+    const explicitTools = effectiveArgs.tools !== undefined || sourceTier("tools") !== undefined;
+    const explicitExclude =
+      (effectiveArgs as unknown as Record<string, unknown>).excludeTools !== undefined ||
+      sourceTier("excludeTools") !== undefined;
+    if (explicitTools || explicitExclude) {
+      throw new ArgvRefusalError({
+        issue: "mutually-exclusive-options",
+        harness: h.name,
+        option: "access",
+        supported: ["--access is a preset allowlist, not a filter over --tools/--exclude-tools"],
+        detail: "mutual exclusion",
+      });
+    }
+  }
+
+  // toolMap merge per harness per canonical (project > user)
+  const rawToolMapUser = (tiers.user as { toolMap?: ToolMap } | undefined)?.toolMap;
+  const rawToolMapProject = (tiers.project as { toolMap?: ToolMap } | undefined)?.toolMap;
+  const mergedToolMap = mergeToolMaps({ user: rawToolMapUser, project: rawToolMapProject });
+  if (Object.keys(mergedToolMap).length > 0) {
+    // Convert mergedToolMap to legacy shape for resolved.toolMap consumers
+    const legacy: Record<string, Record<string, string>> = {};
+    for (const [harness, per] of Object.entries(mergedToolMap)) {
+      legacy[harness] = {};
+      for (const [canon, entry] of Object.entries(per as Record<string, { native: string }>)) {
+        legacy[harness]![canon] = entry.native;
+      }
+    }
+    resolved.toolMap = legacy as unknown as typeof resolved.toolMap;
+    const harnessMap = mergedToolMap[h.name];
+    if (harnessMap) {
+      for (const [canonical, entry] of Object.entries(harnessMap)) {
+        provenance.push({
+          key: `tools.${canonical}`,
+          value: entry.native,
+          tier: entry.tier as ProvenanceTier,
+        });
+      }
+    }
+  }
+
+  // Lazy allCanonical build only when tools context present
+  const needsCanonical =
+    tiers.project?.tools !== undefined ||
+    tiers.user?.tools !== undefined ||
+    effectiveArgs.tools !== undefined ||
+    (effectiveArgs as unknown as Record<string, unknown>).excludeTools !== undefined ||
+    Object.keys(toolsets).length > 0 ||
+    tiers.project?.toolMap !== undefined ||
+    tiers.user?.toolMap !== undefined;
+  let allCanonical: readonly string[] | undefined;
+  const getAllCanonical = (): readonly string[] => {
+    if (allCanonical) return allCanonical;
+    allCanonical = allCanonicalNames(defaultDescriptors(), mergedToolMap as unknown as ToolMap);
+    return allCanonical;
+  };
+  if (needsCanonical) {
+    const ac = getAllCanonical();
+    validateCanonicalList(tiers.project?.tools as readonly string[] | undefined, ac, h.name);
+    validateCanonicalList(tiers.user?.tools as readonly string[] | undefined, ac, h.name);
+    for (const set of Object.values(toolsets)) {
+      validateCanonicalList(set as readonly string[], ac, h.name);
+    }
+  }
   const floor = tiers.project?.tools;
   if (floor !== undefined && effectiveArgs.tools !== undefined) {
     const floorSet = new Set(floor);
@@ -158,6 +255,19 @@ export const resolveEffectiveOptions = (
       provenance.push({ key, value, tier: "harness" });
       continue;
     }
+    // When access is set, skip the all-known expansion (access is a preset allowlist, not a filter).
+    // Same shape as --no-tools skip; provenance owned by tier that set access.
+    if (key === "tools" && value === "all-known" && resolved.access !== undefined) {
+      const accessTier: ProvenanceTier =
+        effectiveArgs.access !== undefined ? "arg" : (sourceTier("access") ?? "user-config");
+      provenance.push({ key, value: "none (access preset)", tier: accessTier });
+      continue;
+    }
+    // Profile sandbox yields to access - when access is set, drop profile sandbox.
+    if (key === "sandbox" && resolved.access !== undefined) {
+      provenance.push({ key, value: `${String(value)} (access)`, tier: "harness" });
+      continue;
+    }
     // D13: the tools marker expands per descriptor. On a harness whose
     // default is already everything (claude), expansion emits nothing -
     // the emit-nothing rule, recorded in provenance. On a harness with
@@ -186,7 +296,9 @@ export const resolveEffectiveOptions = (
         provenance.push({ key, value: "all known (already default)", tier: "profile" });
         continue;
       }
-      const expanded = h.tools.builtins.map((t) => t.name);
+      const expanded = h.tools.builtins
+        .filter((t) => t.canonical !== null)
+        .map((t) => t.canonical as string);
       resolved[key] = expanded;
       provenance.push({ key, value: expanded, tier: "profile" });
       continue;
@@ -213,6 +325,7 @@ export const resolveEffectiveOptions = (
   // (validated later by the same renderers as args).
   for (const [key, value] of Object.entries(config)) {
     if (key === "toolsets") continue; // expanded into args above, never a turn option
+    if (key === "toolMap") continue; // per-canonical provenance already emitted
     if (key in DEFAULT_TURN_PROFILE) continue;
     if (effectiveArgs[key as keyof TurnOptions] !== undefined) {
       provenance.push({ key, value: effectiveArgs[key as keyof TurnOptions], tier: "arg" });
@@ -221,6 +334,19 @@ export const resolveEffectiveOptions = (
     resolved[key] = value;
     const tier = sourceTier(key) ?? "user-config";
     provenance.push({ key, value, tier });
+  }
+
+  // Access divergence / fixup
+  if (resolved.access !== undefined && h.turnOptions.access === undefined) {
+    unrenderable.push("access");
+    for (let i = provenance.length - 1; i >= 0; i--)
+      if (provenance[i]?.key === "access") provenance.splice(i, 1);
+    provenance.push({ key: "access", value: resolved.access as string, tier: "harness" });
+    delete (resolved as Record<string, unknown>).access;
+  } else if (resolved.access !== undefined && !provenance.some((p) => p.key === "access")) {
+    const tier: ProvenanceTier =
+      effectiveArgs.access !== undefined ? "arg" : (sourceTier("access") ?? "user-config");
+    provenance.push({ key: "access", value: resolved.access as string, tier });
   }
 
   return {

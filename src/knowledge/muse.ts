@@ -109,6 +109,11 @@ export const museCode: HarnessDescriptor = deepFreeze({
       max: 10000,
       render: { kind: "flag-value", flag: "--max-model-steps" },
     },
+    access: {
+      kind: "flag-list-by-value",
+      flags: { read: ["--disable-write", "--disable-shell"], write: [] },
+      render: { kind: "flag-list", flags: ["--disable-write", "--disable-shell"] },
+    },
   },
   // Phase 0 fixtures: muse-category-flags.md. No name lists; category
   // switches are enforcement gates - tools stay listed in the catalog but
@@ -124,9 +129,19 @@ export const museCode: HarnessDescriptor = deepFreeze({
     composable: false,
     builtins: [],
     categories: [
-      { key: "write", disableFlag: "--disable-write", configKey: null },
-      { key: "shell", disableFlag: "--disable-shell", configKey: null },
-      { key: "web", disableFlag: "--disable-web-tools", configKey: null },
+      {
+        key: "write",
+        disableFlag: "--disable-write",
+        configKey: null,
+        canonical: ["write", "edit"],
+      },
+      { key: "shell", disableFlag: "--disable-shell", configKey: null, canonical: ["shell"] },
+      {
+        key: "web",
+        disableFlag: "--disable-web-tools",
+        configKey: null,
+        canonical: ["web-fetch", "web-search"],
+      },
     ],
     denySemantics: "policy-gate",
   },
