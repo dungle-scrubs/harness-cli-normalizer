@@ -15,7 +15,7 @@ describe("normalizer / chat-protocol seam", () => {
       f.endsWith(".ts"),
     );
     expect(files.length).toBeGreaterThan(0);
-    const FORBIDDEN = /from\s+["'][^"']*(lucid|\/frames|chat-protocol|\/reducer)[^"']*["']/;
+    const FORBIDDEN = /["'][^"'\n]*(lucid|\/frames|chat-protocol|\/reducer)[^"'\n]*["']/;
     for (const file of files) {
       const source = readFileSync(join(dir, file), "utf8");
       expect(FORBIDDEN.test(source), `src/${file} imports across the chat seam`).toBe(false);

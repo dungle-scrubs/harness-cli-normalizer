@@ -4,8 +4,8 @@
  * It exposes openSession() and streamTurn(), which drive a CLI process via
  * injected {spawn, clock, signal} primitives and emit HarnessEvent values.
  * This module knows nothing about any chat protocol. Because it must run
- * identically on Node and Bun, it never imports child_process and never calls
- * process.kill directly outside the node-deps adapter - all process I/O and
+ * identically on Node and Bun, it never imports child_process and never
+ * signals the process directly outside the node-deps adapter - all process I/O and
  * signalling flows through the injected primitives.
  */
 export { AsyncChannel } from "./channel.js";

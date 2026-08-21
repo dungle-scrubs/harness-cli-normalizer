@@ -490,7 +490,7 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   const _currentProc: { signal: (sig: "SIGTERM" | "SIGKILL") => void } | null = null;
   // We'll need to track the spawned process via deps.signal; but streamTurn owns process handle.
   // Instead we intercept deps.signal via a wrapper that captures proc.
-  // Simpler: use deps directly and handle SIGINT by calling process.kill? But spec says via injected signal.
+  // Simpler: use deps directly and handle SIGINT via injected signal.
   // We'll create a wrapper deps where signal captures last proc.
   let lastProc: import("../execution/deps.js").SpawnedProcess | null = null;
   const originalSignal = deps.signal;

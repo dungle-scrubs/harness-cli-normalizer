@@ -188,10 +188,13 @@ export interface SessionOptions {
 
 export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): string[] => {
   if (!h.sessionMode) {
+    const supported = Object.values(defaultDescriptors())
+      .filter((d): d is HarnessDescriptor => d !== undefined && d.sessionMode !== null)
+      .map((d) => d.name);
     throw new ArgvRefusalError({
       issue: "no-session-mode",
       harness: h.name,
-      supported: ["session is available where sessionMode is declared"],
+      supported,
     });
   }
   refuseUnusableSessionId(h, opts.sessionId);
