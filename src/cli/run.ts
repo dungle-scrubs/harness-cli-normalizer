@@ -509,6 +509,7 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
 
   const abortController = new AbortController();
   let interrupted = false;
+  let escalationTimer: ReturnType<typeof setTimeout> | null = null;
   const onSig = async () => {
     if (interrupted) return;
     interrupted = true;
@@ -516,16 +517,15 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     if (lastProc) {
       try {
         wrappedDeps.signal(lastProc, "SIGTERM");
-        await new Promise<void>((resolve) => {
-          setTimeout(() => {
-            if (lastProc) {
-              try {
-                wrappedDeps.signal(lastProc, "SIGKILL");
-              } catch {}
-            }
-            resolve();
-          }, KILL_GRACE_MS);
-        });
+        escalationTimer = setTimeout(() => {
+          if (lastProc) {
+            try {
+              wrappedDeps.signal(lastProc, "SIGKILL");
+            } catch {}
+          }
+          escalationTimer = null;
+        }, KILL_GRACE_MS);
+        escalationTimer.unref?.();
       } catch {}
     }
   };
@@ -591,6 +591,10 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     process.off("SIGTERM", onSig);
     return;
   } finally {
+    if (escalationTimer !== null) {
+      clearTimeout(escalationTimer);
+      escalationTimer = null;
+    }
     process.off("SIGINT", onSig);
     process.off("SIGTERM", onSig);
   }

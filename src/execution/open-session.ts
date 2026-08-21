@@ -28,7 +28,7 @@ import { decodeParsed, freshDecodeState } from "./decode.js";
 import type { RunnerDeps, SpawnedProcess } from "./deps.js";
 import type { ExitCause, HarnessEvent } from "./events.js";
 import type { FailureSummary } from "./failure.js";
-import { failureFromAuth, failureFromLimit, reduceFailures } from "./failure.js";
+import { failureFromAuth, failureFromLimit, failureFromTask, reduceFailures } from "./failure.js";
 import { LineBuffer } from "./lines.js";
 import { KILL_GRACE_MS, PIPE_GRACE_MS, redactArgv, StderrTail } from "./stream-turn.js";
 
@@ -210,6 +210,9 @@ export const openSession = (
     if (detection === null) return;
     if ("malformed" in detection) {
       activeTurn?.push({ kind: "error", message: detection.malformed });
+      const failure = failureFromTask(`malformed hcn-question block: ${detection.malformed}`);
+      turnFailures.push(failure);
+      void activeTurn?.push({ kind: "failure", ...failure });
       return;
     }
     turnAsked = true;
@@ -240,7 +243,10 @@ export const openSession = (
     // Every failure was already emitted as an event through pushFailure;
     // the turn's done carries the reduced summary, as streamTurn's does.
     const reduced = reduceFailures(turnFailures);
-    if (reduced !== undefined) done = { ...done, failure: reduced };
+    if (reduced !== undefined) {
+      if (done.cause === "clean") done = { ...done, cause: "failed", failure: reduced };
+      else done = { ...done, failure: reduced };
+    }
     activeTurn.push(done);
     activeTurn.close();
     log({
@@ -351,7 +357,7 @@ export const openSession = (
               await routeEvent({
                 kind: "identity",
                 sessionId: announced,
-                authority: h.identity.authority,
+                authority: "harness-minted",
                 capabilities: capabilitiesOf(h, opts.model ?? "", "headless-session"),
               });
             }
@@ -361,7 +367,7 @@ export const openSession = (
               await routeEvent({
                 kind: "identity",
                 sessionId: announced,
-                authority: h.identity.authority,
+                authority: "caller-assigned",
                 capabilities: capabilitiesOf(h, opts.model ?? "", "headless-session"),
               });
             }

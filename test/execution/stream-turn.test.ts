@@ -88,6 +88,33 @@ describe("streamTurn behaviors (M3.1 boxes)", () => {
     expect(events.find((e) => e.kind === "message")).toMatchObject({ text: "hello there" });
   });
 
+  test("turnTimeoutMs wall-clock budget escalates SIGTERM then SIGKILL and classifies timeout (F-19)", async () => {
+    const proc = new FakeProcess();
+    const sig = fakeSignal({ autoExit: false });
+    const clock = new FakeClock();
+    const spawner = fakeSpawner([proc]);
+    const pending = collect(
+      streamTurn(
+        claudeCode,
+        { prompt: "hi" },
+        { spawn: spawner.spawn, clock, signal: sig.signal, turnTimeoutMs: 100 },
+      ),
+    );
+    await Promise.resolve();
+    clock.advance(101);
+    await Promise.resolve();
+    expect(sig.sent.map((s) => s.sig)).toEqual(["SIGTERM"]);
+    clock.advance(5_000 + 1);
+    await Promise.resolve();
+    expect(sig.sent.map((s) => s.sig)).toEqual(["SIGTERM", "SIGKILL"]);
+    proc.exit(null);
+    const events = await pending;
+    const done = events.at(-1) as Extract<HarnessEvent, { kind: "done" }>;
+    expect(done).toMatchObject({ kind: "done", cause: "killed" });
+    expect(done.failure).toMatchObject({ class: "timeout" });
+    expect(done.failure?.retryable).toBe(false);
+  });
+
   test("stall watchdog fires for every granularity (M13)", async () => {
     // 0.2.0: stallMs now arms at every granularity, not only none
     const tokenProc = new FakeProcess();
@@ -468,5 +495,33 @@ describe("F-09 capabilities with no model use curated source and argv granularit
     expect(ids.some((i) => i.sessionId === announceB && i.authority === "harness-minted")).toBe(
       true,
     );
+  });
+
+  test("F-46 launch identity is harness-minted, resume identity is caller-assigned", async () => {
+    const sidLaunch = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
+    const initLaunch = JSON.stringify({ type: "system", subtype: "init", session_id: sidLaunch });
+    const procLaunch = new FakeProcess();
+    const dLaunch = deps(procLaunch);
+    const turnLaunch = streamTurn(claudeCode, { prompt: "hi" }, dLaunch);
+    procLaunch.emitLine(initLaunch);
+    procLaunch.exit(0);
+    const eventsLaunch = await collect(turnLaunch);
+    const idLaunch = eventsLaunch.find((e) => e.kind === "identity") as unknown as {
+      authority: string;
+    };
+    expect(idLaunch?.authority).toBe("harness-minted");
+
+    const sidResume = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    const initResume = JSON.stringify({ type: "system", subtype: "init", session_id: sidResume });
+    const procResume = new FakeProcess();
+    const dResume = deps(procResume);
+    const turnResume = streamTurn(claudeCode, { prompt: "hi", resume: sidResume }, dResume);
+    procResume.emitLine(initResume);
+    procResume.exit(0);
+    const eventsResume = await collect(turnResume);
+    const idResume = eventsResume.find((e) => e.kind === "identity") as unknown as {
+      authority: string;
+    };
+    expect(idResume?.authority).toBe("caller-assigned");
   });
 });

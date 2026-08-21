@@ -468,6 +468,7 @@ export async function* streamTurn(
     if (detection === null) return;
     if ("malformed" in detection) {
       await queue.push({ kind: "error", message: detection.malformed });
+      await pushFailure(failureFromTask(`malformed hcn-question block: ${detection.malformed}`));
       return;
     }
     log({

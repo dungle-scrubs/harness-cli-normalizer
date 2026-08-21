@@ -69,10 +69,11 @@ export const decodeParsed = (
   const decoded = decodeIdentity(h, raw, state.lastSeenId, state.requestedId);
   if (decoded.sessionId !== null) state.lastSeenId = decoded.sessionId;
   if (decoded.identity !== null) {
+    const authority = state.requestedId !== null ? "caller-assigned" : "harness-minted";
     events.push({
       kind: "identity",
       sessionId: decoded.identity,
-      authority: h.identity.authority,
+      authority,
       capabilities: capabilities(),
     });
   } else if (decoded.outcome === "malformed" || decoded.outcome === "rotated") {

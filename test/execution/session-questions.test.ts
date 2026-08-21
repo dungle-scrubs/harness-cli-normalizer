@@ -128,7 +128,7 @@ describe("openSession question escalation - claude transport", () => {
     await session.close();
   });
 
-  test("malformed block surfaces an error event; turn stays clean", async () => {
+  test("malformed block surfaces an error event and task failure with failed cause (F-32)", async () => {
     const proc = new FakeProcess();
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
@@ -141,7 +141,14 @@ describe("openSession question escalation - claude transport", () => {
     const events1 = await drainTurn(turn1);
     expect(events1.find((e) => e.kind === "question")).toBeUndefined();
     expect(events1.find((e) => e.kind === "error")?.message).toMatch(/"options"/);
-    expect(events1.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+    const failure = events1.find((e) => e.kind === "failure");
+    expect(failure).toMatchObject({ class: "task", retryable: false });
+    expect((failure as unknown as { message: string }).message).toMatch(
+      /malformed hcn-question block/,
+    );
+    const done = events1.at(-1) as Extract<HarnessEvent, { kind: "done" }>;
+    expect(done).toMatchObject({ kind: "done", cause: "failed" });
+    expect(done.failure).toMatchObject({ class: "task" });
     await session.close();
   });
 
