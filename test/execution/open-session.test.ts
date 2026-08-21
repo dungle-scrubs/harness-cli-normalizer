@@ -294,3 +294,37 @@ describe("result is_error is not double-emitted", () => {
     await session.close();
   });
 });
+
+describe("pi session unreachable", () => {
+  test("a pi session turn whose stdout carries the unreachable message_end ends with transport failure", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const { piCli } = await import("../../src/knowledge/pi.js");
+    const raw = readFileSync(
+      join(import.meta.dirname, "../fixtures/harnesses/pi-unreachable.ndjson"),
+      "utf8",
+    );
+    const lines = raw.split("\n").filter((l) => l.trim() !== "");
+    // pick one message_end with stopReason error
+    const found = lines.find(
+      (l) => l.includes('"type":"message_end"') && l.includes('"stopReason":"error"'),
+    );
+    if (found === undefined) throw new Error("no unreachable line");
+    const unreachableLine = found;
+    const proc = new FakeProcess();
+    const d = makeDeps(proc);
+    // pi session uses rpc; need to handle identity probe - just emit unreachable line as turn content
+    const session = openSession(piCli, { sessionId: sid }, d);
+    session.send("hi");
+    const turnsIter = session.turns[Symbol.asyncIterator]();
+    const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
+    // feed session + agent start already handled by openSession's pump, but we emit the unreachable record
+    proc.emitLine(unreachableLine);
+    // end turn via agent_settled
+    proc.emitLine(JSON.stringify({ type: "agent_settled" }));
+    const events = await drainTurn(turn1);
+    const done = events.at(-1) as Extract<HarnessEvent, { kind: "done" }>;
+    expect(done.failure).toMatchObject({ class: "transport" });
+    await session.close();
+  });
+});

@@ -321,6 +321,8 @@ describe("harness fixture replay (F-20)", () => {
     { file: "pi.ndjson", harness: "pi", exitCode: 0, nonError: true },
     { file: "pi-tool.ndjson", harness: "pi", exitCode: 0, nonError: true },
     { file: "pi-autherror.ndjson", harness: "pi", exitCode: 1, nonError: false },
+    { file: "pi-unreachable.ndjson", harness: "pi", exitCode: 0, nonError: false },
+    { file: "pi-noauth.ndjson", harness: "pi", exitCode: 1, nonError: false },
     { file: "muse.ndjson", harness: "muse", exitCode: 0, nonError: true },
     { file: "muse-tool.ndjson", harness: "muse", exitCode: 0, nonError: true },
     { file: "muse-readtool.ndjson", harness: "muse", exitCode: 0, nonError: true },
@@ -343,6 +345,15 @@ describe("harness fixture replay (F-20)", () => {
       for (const line of raw.split("\n")) {
         if (line.trim() !== "") proc.emitLine(line);
       }
+      if (file === "pi-noauth.ndjson") {
+        const stderrRaw = readFileSync(
+          join(import.meta.dirname, "../fixtures/harnesses", "pi-noauth.stderr"),
+          "utf8",
+        );
+        for (const line of stderrRaw.split("\n")) {
+          if (line.trim() !== "") proc.emitStderr(line);
+        }
+      }
       proc.exit(exitCode);
       const events = await collect(turn);
       expect(events.filter((e) => e.kind === "identity")).toHaveLength(1);
@@ -354,6 +365,57 @@ describe("harness fixture replay (F-20)", () => {
       expect(events.at(-1)?.kind).toBe("done");
     },
   );
+
+  test("pi-unreachable yields exactly one transport failure and failed done", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const { piCli } = await import("../../src/knowledge/pi.js");
+    const raw = readFileSync(
+      join(import.meta.dirname, "../fixtures/harnesses/pi-unreachable.ndjson"),
+      "utf8",
+    );
+    const proc = new FakeProcess();
+    const d = deps(proc);
+    const turn = streamTurn(piCli, { prompt: "hi" }, d);
+    for (const line of raw.split("\n")) if (line.trim() !== "") proc.emitLine(line);
+    proc.exit(0);
+    const events = await collect(turn);
+    const failures = events.filter((e) => e.kind === "failure");
+    expect(failures).toHaveLength(1);
+    expect(failures[0]).toMatchObject({ class: "transport", retryable: true });
+    const done = events.at(-1) as Extract<HarnessEvent, { kind: "done" }>;
+    expect(done.cause).toBe("failed");
+    expect(done.failure).toMatchObject({ class: "transport" });
+  });
+
+  test("pi-noauth yields auth not-logged-in failure and failed done", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const { piCli } = await import("../../src/knowledge/pi.js");
+    const raw = readFileSync(
+      join(import.meta.dirname, "../fixtures/harnesses/pi-noauth.ndjson"),
+      "utf8",
+    );
+    const stderrRaw = readFileSync(
+      join(import.meta.dirname, "../fixtures/harnesses/pi-noauth.stderr"),
+      "utf8",
+    );
+    const proc = new FakeProcess();
+    const d = deps(proc);
+    const turn = streamTurn(piCli, { prompt: "hi" }, d);
+    for (const line of raw.split("\n")) if (line.trim() !== "") proc.emitLine(line);
+    for (const line of stderrRaw.split("\n")) if (line.trim() !== "") proc.emitStderr(line);
+    proc.exit(1);
+    const events = await collect(turn);
+    const failure = events.find((e) => e.kind === "failure") as Extract<
+      HarnessEvent,
+      { kind: "failure" }
+    >;
+    expect(failure).toMatchObject({ class: "auth", authKind: "not-logged-in", retryable: true });
+    const done = events.at(-1) as Extract<HarnessEvent, { kind: "done" }>;
+    expect(done.cause).toBe("failed");
+    expect(done.failure).toMatchObject({ class: "auth" });
+  });
 
   test("inventory: every .ndjson in test/fixtures/harnesses is covered", async () => {
     const { readdirSync } = await import("node:fs");

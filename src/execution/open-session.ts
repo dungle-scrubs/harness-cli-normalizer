@@ -15,7 +15,11 @@
  */
 import { buildSessionArgv } from "../interpretation/argv.js";
 import { capabilitiesOf } from "../interpretation/capabilities.js";
-import { detectAuthFailureInLine, detectLimitInLine } from "../interpretation/limits.js";
+import {
+  detectAuthFailureInLine,
+  detectLimitInLine,
+  detectTransportInLine,
+} from "../interpretation/limits.js";
 import { composeEscalatedPrompt, detectQuestionBlock } from "../interpretation/question.js";
 import {
   encodeSessionInput,
@@ -28,7 +32,14 @@ import { decodeParsed, freshDecodeState } from "./decode.js";
 import type { RunnerDeps, SpawnedProcess } from "./deps.js";
 import type { ExitCause, HarnessEvent } from "./events.js";
 import type { FailureSummary } from "./failure.js";
-import { failureFromAuth, failureFromLimit, failureFromTask, reduceFailures } from "./failure.js";
+import {
+  failureFromAuth,
+  failureFromLimit,
+  failureFromTask,
+  failureFromTerminalError,
+  failureFromTransport,
+  reduceFailures,
+} from "./failure.js";
 import { LineBuffer } from "./lines.js";
 import { KILL_GRACE_MS, PIPE_GRACE_MS, redactArgv, StderrTail } from "./stream-turn.js";
 
@@ -293,6 +304,15 @@ export const openSession = (
     return routeEvent({ kind: "failure", ...f });
   };
 
+  /** A decoded event other than a failure: a terminal error also records
+   * the failure it stands for, the way streamTurn does. */
+  const routeDecoded = async (event: HarnessEvent): Promise<void> => {
+    await routeEvent(event);
+    if (event.kind === "error" && event.terminal === true) {
+      await pushFailure(failureFromTerminalError(h, event.message));
+    }
+  };
+
   const pumpStdout = async (): Promise<void> => {
     const lines = new LineBuffer();
     const matches = (
@@ -398,7 +418,7 @@ export const openSession = (
         // still track resultError here to classify the done cause.
         for (const event of events) {
           if (event.kind === "failure") await pushFailure(summaryOf(event));
-          else await routeEvent(event);
+          else await routeDecoded(event);
         }
         if (parsed.is_error === true) resultError = true;
         endTurn({
@@ -410,7 +430,7 @@ export const openSession = (
       }
       for (const event of events) {
         if (event.kind === "failure") await pushFailure(summaryOf(event));
-        else await routeEvent(event);
+        else await routeDecoded(event);
       }
     };
     for await (const chunk of proc.stdout) {
