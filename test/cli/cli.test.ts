@@ -593,6 +593,20 @@ describe("hcn run execution (human + json)", () => {
     expect(out.stderr).toMatch(/supported/);
   });
 
+  test("run with malformed --resume refuses with exit 2", async () => {
+    const out = await captureDispatch([
+      "run",
+      "claude",
+      "--json",
+      "--resume",
+      "../../etc/passwd",
+      "--prompt",
+      "hi",
+    ]);
+    expect(out.exitCode).toBe(2);
+    expect(out.stderr).toMatch(/supported/i);
+  });
+
   test("run respects HERDR_ENV deletion (env not leaked to child)", async () => {
     process.env.HERDR_ENV = "test";
     const out = await captureDispatch(["run", "claude", "hi", "--model", "nope"]);
