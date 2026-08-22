@@ -199,7 +199,7 @@ Flag table (maps to `TurnOptions` / `TurnRunOptions`):
 | `--env KEY=VAL` | `env` | Repeatable; `KEY=` deletes |
 | `--resume <uuid>` | `resume` | Resume session |
 | `--session-id <uuid>` | `resume` | Alias for `--resume`; UUID of session to resume or re-enter |
-| `--skills <a,b>` | `skills` | Skill allowlist; claude and pi (pi strict, claude via settings) |
+| `--skills <a,b>` | `skills` | Skill allowlist; claude, pi and codex (pi strict via --skill, claude via --settings skillOverrides, codex via -c skills.config) |
 | `--timeout <seconds>` | `timeoutSeconds` | Wall-clock budget for the run (hcn-enforced; 0 disables; no default) |
 | `--escalate-questions` / `--no-escalate-questions` | `escalateQuestions` | Let worker ask when blocked (DEFAULT) / never ask, state assumption and continue |
 | `--system-prompt <text>` | `systemPrompt` | Replace built-in system prompt (claude, pi; codex uses -c instructions; muse refuses) |
