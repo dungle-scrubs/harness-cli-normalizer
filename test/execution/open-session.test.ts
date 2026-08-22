@@ -57,7 +57,7 @@ describe("openSession (claude, fake process)", () => {
     expect(d.spawner.calls[0]?.argv).toContain("--input-format");
     expect(d.spawner.calls[0]?.argv).toContain(sid);
 
-    const first = session.send("turn one prompt");
+    const first = session.send({ id: "s", text: "turn one prompt" });
     expect(first.disposition).toBe("started");
     expectClaudeUserWrite(proc, 0, "turn one prompt");
 
@@ -73,7 +73,7 @@ describe("openSession (claude, fake process)", () => {
     expect(events1.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
 
     // Second turn on the SAME process.
-    const second = session.send("turn two prompt");
+    const second = session.send({ id: "s", text: "turn two prompt" });
     expect(second.disposition).toBe("started");
     const turn2 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
     proc.emitLine(init); // A-001: init re-emitted per turn, same id - no new identity event
@@ -91,12 +91,12 @@ describe("openSession (claude, fake process)", () => {
     const proc = new FakeProcess();
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
-    session.send("first");
+    session.send({ id: "s", text: "first" });
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
 
     proc.emitLine(init);
-    const queued = session.send("second while busy");
+    const queued = session.send({ id: "s", text: "second while busy" });
     expect(queued.disposition).toBe("queued");
     // Nothing new on stdin yet - mid-turn writes would interleave.
     expect(proc.stdinLines).toHaveLength(1);
@@ -132,7 +132,7 @@ describe("openSession (claude, fake process)", () => {
 
     await session.close();
 
-    expect(() => session.send("too late")).toThrowError(SessionClosedError);
+    expect(() => session.send({ id: "s", text: "too late" })).toThrowError(SessionClosedError);
   });
 
   test("send after process death keeps the typed SessionClosedError contract", async () => {
@@ -143,7 +143,7 @@ describe("openSession (claude, fake process)", () => {
     proc.exit(0);
     await proc.exited;
 
-    expect(() => session.send("too late")).toThrowError(SessionClosedError);
+    expect(() => session.send({ id: "s", text: "too late" })).toThrowError(SessionClosedError);
   });
 
   test("an idle stdin write failure keeps the typed SessionClosedError contract", async () => {
@@ -152,7 +152,7 @@ describe("openSession (claude, fake process)", () => {
     const session = openSession(claudeCode, { sessionId: sid }, d);
     proc.stdin?.end();
 
-    expect(() => session.send("unwritable")).toThrowError(SessionClosedError);
+    expect(() => session.send({ id: "s", text: "unwritable" })).toThrowError(SessionClosedError);
     proc.exit(0);
     await session.close();
   });
@@ -161,7 +161,7 @@ describe("openSession (claude, fake process)", () => {
     const proc = new FakeProcess();
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
-    session.send("doomed turn");
+    session.send({ id: "s", text: "doomed turn" });
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
     proc.emitLine(init);
@@ -177,7 +177,7 @@ describe("slow consumer", () => {
     const proc = new FakeProcess();
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
-    session.send("burst turn");
+    session.send({ id: "s", text: "burst turn" });
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
 
@@ -210,7 +210,7 @@ describe("session lifecycle events (observability)", () => {
         log: (e) => logged.push(e),
       },
     );
-    session.send("hello");
+    session.send({ id: "s", text: "hello" });
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
     proc.emitLine(init);
@@ -233,7 +233,7 @@ describe("F-24 session turn failures", () => {
     const proc = new FakeProcess();
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
-    session.send("hi");
+    session.send({ id: "s", text: "hi" });
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
     proc.emitLine(init);
@@ -260,7 +260,7 @@ describe("F-24 session turn failures", () => {
     const proc = new FakeProcess();
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
-    session.send("hi");
+    session.send({ id: "s", text: "hi" });
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
     proc.emitLine(init);
@@ -280,7 +280,7 @@ describe("result is_error is not double-emitted", () => {
     const proc = new FakeProcess();
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
-    session.send("doomed");
+    session.send({ id: "s", text: "doomed" });
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
     proc.emitLine(init);
@@ -315,7 +315,7 @@ describe("pi session unreachable", () => {
     const d = makeDeps(proc);
     // pi session uses rpc; need to handle identity probe - just emit unreachable line as turn content
     const session = openSession(piCli, { sessionId: sid }, d);
-    session.send("hi");
+    session.send({ id: "s", text: "hi" });
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
     // feed session + agent start already handled by openSession's pump, but we emit the unreachable record
@@ -326,5 +326,70 @@ describe("pi session unreachable", () => {
     const done = events.at(-1) as Extract<HarnessEvent, { kind: "done" }>;
     expect(done.failure).toMatchObject({ class: "transport" });
     await session.close();
+  });
+});
+
+describe("T01: a send's id travels to the turn it opens and to the loss report", () => {
+  test("the turn a started send opens reports that send's id", async () => {
+    const proc = new FakeProcess();
+    const d = makeDeps(proc);
+    const session = openSession(claudeCode, { sessionId: sid }, d);
+
+    session.send({ id: "in-1", text: "hi" });
+    const turnsIter = session.turns[Symbol.asyncIterator]();
+    const turn1 = (await turnsIter.next()).value as { inputId?: string };
+    expect(turn1.inputId).toBe("in-1");
+
+    proc.emitLine(init);
+    proc.emitLine(result);
+    await drainTurn(turn1 as AsyncIterable<HarnessEvent>);
+    await session.close();
+  });
+
+  test("a queued send's id rides to the turn that consumes it at the boundary", async () => {
+    const proc = new FakeProcess();
+    const d = makeDeps(proc);
+    const session = openSession(claudeCode, { sessionId: sid }, d);
+
+    session.send({ id: "in-1", text: "first" });
+    const turnsIter = session.turns[Symbol.asyncIterator]();
+    const turn1 = (await turnsIter.next()).value as { inputId?: string };
+    expect(turn1.inputId).toBe("in-1");
+
+    proc.emitLine(init);
+    const queued = session.send({ id: "in-2", text: "second while busy" });
+    expect(queued.disposition).toBe("queued");
+    proc.emitLine(result);
+    await drainTurn(turn1 as AsyncIterable<HarnessEvent>);
+
+    const turn2 = (await turnsIter.next()).value as { inputId?: string };
+    expect(turn2.inputId).toBe("in-2");
+    proc.emitLine(result);
+    await drainTurn(turn2 as AsyncIterable<HarnessEvent>);
+    await session.close();
+  });
+
+  test("a session that dies with queued sends names the lost ids in the log", async () => {
+    const proc = new FakeProcess();
+    const spawner = fakeSpawner([proc]);
+    const sig = fakeSignal();
+    const clock = new FakeClock();
+    const logged: Record<string, unknown>[] = [];
+    const session = openSession(
+      claudeCode,
+      { sessionId: sid },
+      { spawn: spawner.spawn, clock, signal: sig.signal, log: (e) => logged.push(e) },
+    );
+
+    session.send({ id: "in-1", text: "first" });
+    const turnsIter = session.turns[Symbol.asyncIterator]();
+    const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
+    proc.emitLine(init);
+    session.send({ id: "in-2", text: "queued and doomed" });
+    proc.exit(1);
+    await drainTurn(turn1);
+
+    const dropped = logged.find((e) => e.event === "sends_dropped");
+    expect(dropped).toMatchObject({ count: 1, ids: ["in-2"] });
   });
 });

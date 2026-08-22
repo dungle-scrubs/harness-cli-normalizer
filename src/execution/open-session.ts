@@ -53,12 +53,29 @@ export interface SessionSendResult {
   readonly disposition: "started" | "queued";
 }
 
+/** One turn's event stream, tagged with the id of the send that opened it.
+ * `inputId` is present for every turn a consumer send opened, which today is
+ * every turn; a turn opened by anything else (none exists yet) omits it. */
+export interface SessionTurn extends AsyncIterable<HarnessEvent> {
+  readonly inputId?: string;
+  /** `${sessionId}:turn-${n}`, matching the runner's turn_start log. */
+  readonly turnId?: string;
+}
+
+/** A send's payload: the consumer's correlation id travels with the text
+ * from the moment it arrives to the turn it opens and, on death, to the
+ * loss report. */
+export interface SessionInput {
+  readonly id: string;
+  readonly text: string;
+}
+
 export interface SessionHandle {
   /** One inner iterable per turn, each ending in a turn-scoped `done`.
    * Breaking out of THIS iterable closes the session; breaking out of a
    * single turn's iterable only stops reading that turn. */
-  readonly turns: AsyncIterable<AsyncIterable<HarnessEvent>>;
-  send(text: string): SessionSendResult;
+  readonly turns: AsyncIterable<SessionTurn>;
+  send(input: SessionInput): SessionSendResult;
   close(): Promise<void>;
 }
 
@@ -142,7 +159,7 @@ export const openSession = (
     argv: redactArgv(argv),
   });
 
-  const turnsChannel = new AsyncChannel<AsyncIterable<HarnessEvent>>();
+  const turnsChannel = new AsyncChannel<SessionTurn>();
   const state = freshDecodeState(opts.sessionId);
   const escalateQuestions = opts.escalateQuestions !== false;
   const sessionInputMode = h.sessionMode;
@@ -150,7 +167,7 @@ export const openSession = (
   let turnCounter = 0;
   let activeTurn: AsyncChannel<HarnessEvent> | null = null;
   let activeTurnId = "";
-  const pendingSends: string[] = [];
+  const pendingSends: SessionInput[] = [];
   const preTurnEvents: HarnessEvent[] = [];
   let dead = false;
   let closing = false;
@@ -195,19 +212,24 @@ export const openSession = (
     return summary;
   };
 
-  const startTurn = (): void => {
+  const startTurn = (inputId?: string): void => {
     turnLimitSeen = false;
     turnFailures = [];
     turnAsked = false;
     lastAssistantText = null;
     activeTurn = new AsyncChannel<HarnessEvent>();
     activeTurnId = `${opts.sessionId}:turn-${++turnCounter}`;
+    // Tag the turn with the id of the send that opened it, so the consumer
+    // correlates a queued input to its turn by reading the tag, not by
+    // shadowing the runner's delivery order.
+    (activeTurn as { inputId?: string; turnId?: string }).inputId = inputId;
+    (activeTurn as { inputId?: string; turnId?: string }).turnId = activeTurnId;
     log({ event: "turn_start", sessionId: opts.sessionId, turnId: activeTurnId });
     for (const held of preTurnEvents.splice(0)) {
       if (held.kind === "failure") turnFailures.push(summaryOf(held));
       activeTurn.push(held);
     }
-    turnsChannel.push(activeTurn);
+    turnsChannel.push(activeTurn as SessionTurn);
   };
 
   /** issue #44: at a turn boundary, scan the last assistant message for
@@ -271,7 +293,7 @@ export const openSession = (
     // The boundary is the only legal delivery point for queued input.
     if (dead || closing) return;
     const next = pendingSends.shift();
-    if (next !== undefined && writeUser(next)) startTurn();
+    if (next !== undefined && writeUser(next.text)) startTurn(next.id);
   };
 
   const routeEvent = (event: HarnessEvent): Promise<void> => {
@@ -491,15 +513,17 @@ export const openSession = (
     if (pendingSends.length > 0) {
       // "queued" was an accepted disposition - the loss must be visible to
       // both the log and the consumer, never silent.
+      const droppedIds = pendingSends.map((s) => s.id);
       void routeEvent({
         kind: "error",
-        message: `${pendingSends.length} queued send(s) died with the session`,
+        message: `${pendingSends.length} queued send(s) died with the session: ${droppedIds.join(", ")}`,
       });
       log({
         event: "sends_dropped",
         sessionId: opts.sessionId,
         count: pendingSends.length,
-        lengths: pendingSends.map((s) => s.length),
+        ids: droppedIds,
+        lengths: pendingSends.map((s) => s.text.length),
       });
       pendingSends.length = 0;
     }
@@ -564,24 +588,26 @@ export const openSession = (
         if (!closing && !dead) void close();
       }
     })(),
-    send(text: string): SessionSendResult {
+    send(input: SessionInput): SessionSendResult {
       if (dead || closing) throw new SessionClosedError();
       if (activeTurn !== null) {
-        pendingSends.push(text);
+        pendingSends.push(input);
         log({
           event: "send",
           sessionId: opts.sessionId,
           turnId: activeTurnId,
+          inputId: input.id,
           disposition: "queued",
         });
         return { disposition: "queued" };
       }
-      if (!writeUser(text)) throw new SessionClosedError();
-      startTurn();
+      if (!writeUser(input.text)) throw new SessionClosedError();
+      startTurn(input.id);
       log({
         event: "send",
         sessionId: opts.sessionId,
         turnId: activeTurnId,
+        inputId: input.id,
         disposition: "started",
       });
       return { disposition: "started" };

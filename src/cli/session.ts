@@ -136,6 +136,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
 
   // Handle SIGINT to close session cleanly
   let closing = false;
+  let sendCount = 0;
   const doClose = async () => {
     if (closing) return;
     closing = true;
@@ -168,7 +169,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
       const trimmed = line.trim();
       if (trimmed === "" || trimmed === "exit") break;
 
-      const result = handle.send(line);
+      const result = handle.send({ id: `you-${++sendCount}`, text: line });
       if (result.disposition === "queued") {
         process.stderr.write(`disposition: queued (turn in progress)\n`);
       }
@@ -209,9 +210,10 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
             answer = a;
           }
         }
-        handle.send(
-          `The user answered the question: "${q.question}" with: ${answer}. Continue accordingly.`,
-        );
+        handle.send({
+          id: `you-${++sendCount}`,
+          text: `The user answered the question: "${q.question}" with: ${answer}. Continue accordingly.`,
+        });
         // Drain the answer turn BEFORE prompting again - the pump's
         // backpressure stalls the harness until the turn iterable is
         // consumed (verified live: menu answered, you-prompt rendered, no

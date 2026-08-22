@@ -48,7 +48,7 @@ describe("M3.2 boundary-review regression pins", () => {
     const proc = new FakeProcess();
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
-    session.send("hi");
+    session.send({ id: "s", text: "hi" });
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
     proc.emitLine(init);
@@ -65,7 +65,7 @@ describe("M3.2 boundary-review regression pins", () => {
     const proc = new FakeProcess();
     const d = makeDeps(proc, logged);
     const session = openSession(claudeCode, { sessionId: sid }, d);
-    session.send("hi");
+    session.send({ id: "s", text: "hi" });
     proc.emitStderr("Segmentation fault (core dumped)");
     await tick();
     proc.exit(139);
@@ -147,7 +147,7 @@ describe("M3.2 boundary-review regression pins", () => {
         signal: sig.signal,
       },
     );
-    session.send("hi");
+    session.send({ id: "s", text: "hi" });
     const turns = session.turns[Symbol.asyncIterator]();
     const turn = (await turns.next()).value as AsyncIterable<HarnessEvent>;
     const content = Array.from({ length: 1_100 }, (_, index) => ({
@@ -189,7 +189,7 @@ describe("M3.2 boundary-review regression pins", () => {
         signal: () => {},
       },
     );
-    session.send("hi");
+    session.send({ id: "s", text: "hi" });
     const turns = session.turns[Symbol.asyncIterator]();
     const turn = (await turns.next()).value as AsyncIterable<HarnessEvent>;
     proc.failStdout(new Error("synthetic session read failure"));
@@ -211,10 +211,12 @@ describe("M3.2 boundary-review regression pins", () => {
     const proc = new FakeProcess();
     const d = makeDeps(proc, logged);
     const session = openSession(claudeCode, { sessionId: sid }, d);
-    session.send("first");
+    session.send({ id: "s", text: "first" });
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
-    expect(session.send("second - accepted as queued").disposition).toBe("queued");
+    expect(session.send({ id: "s", text: "second - accepted as queued" }).disposition).toBe(
+      "queued",
+    );
     proc.emitLine(init);
     proc.exit(7); // dies before the boundary ever flushes the queue
     const events = await drainTurn(turn1);
@@ -228,7 +230,7 @@ describe("M3.2 boundary-review regression pins", () => {
     const proc = new FakeProcess();
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
-    session.send("doomed");
+    session.send({ id: "s", text: "doomed" });
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
     proc.emitLine(init);
@@ -247,7 +249,7 @@ describe("M3.2 boundary-review regression pins", () => {
     const proc = new FakeProcess();
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
-    session.send("hi");
+    session.send({ id: "s", text: "hi" });
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
     proc.emitLine(init);
@@ -324,7 +326,7 @@ describe("M3.2 boundary-review regression pins", () => {
     const proc = new FakeProcess();
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
-    session.send("hi");
+    session.send({ id: "s", text: "hi" });
     for await (const _turn of session.turns) {
       break; // consumer walks away from the whole session
     }
