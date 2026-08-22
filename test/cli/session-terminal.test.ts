@@ -18,8 +18,11 @@ const run = async (harness: string, args: string[]) => {
       err.push(String(chunk));
       return true;
     });
-  const before = process.exitCode;
-  process.exitCode = undefined;
+  // The command under test sets process.exitCode. Bun does not clear it when
+  // you assign undefined, so a leaked code fails the whole run with every
+  // test passing. Restore to 0, never to undefined.
+  const before = process.exitCode ?? 0;
+  process.exitCode = 0;
   try {
     await session(harness, args);
     return {
@@ -40,6 +43,7 @@ const run = async (harness: string, args: string[]) => {
     };
   } finally {
     process.exitCode = before;
+    if (process.exitCode === undefined) process.exitCode = 0;
     outSpy.mockRestore();
     errSpy.mockRestore();
   }
