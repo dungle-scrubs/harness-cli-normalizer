@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.5](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.5.4...v0.5.5) (2026-08-22)
+
+
+### Fixed
+
+* bound the stdout hop, and answer sends a broken command stream swallowed ([#70](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/70)) ([9566d48](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/9566d48d0157d70792b9df0fd35f2eea8c801048))
+
 ## [0.5.4](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.5.3...v0.5.4) (2026-08-22)
 
 
