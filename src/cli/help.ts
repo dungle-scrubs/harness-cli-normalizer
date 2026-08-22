@@ -138,6 +138,11 @@ Arguments:
 
 Options:
   --argv                    Preview argv that would be spawned
+  --capabilities            Print the capability record (vision, images,
+                            streaming, session, source) as one JSON line
+  --mode <mode>             Mode for --capabilities:
+                            headless-turn | headless-session | interactive
+                            (default headless-turn)
   --prompt <text>           Prompt for argv preview
   --prompt-file <path|->    Read prompt from file
   --model <id>              Model
