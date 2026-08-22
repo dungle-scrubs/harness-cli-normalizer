@@ -20,8 +20,9 @@ T09 and T10 were delegated to glm-5.3 in isolated worktrees; the rest ran
 inline. A cross-family review (muse) of the whole branch raised 4 blocking
 findings, all fixed in the final commit. Full gate green: 647 tests.
 
-Accepted follow-ups, not done here:
-- `writeEventNdjson` is still fire-and-forget, so the hcn-to-consumer
-  backpressure hop is unbounded in `hcn run --json` (RFC rule 8).
-- Consumer stdin errors are swallowed with no disposition for in-flight sends.
-- No test proves disposition ordering under backpressure.
+Accepted follow-ups, all closed on `fix/backpressure-and-stdin-errors`:
+- `writeEventNdjson` was fire-and-forget, so the hcn-to-consumer backpressure
+  hop was unbounded in `hcn run --json` (RFC rule 8). DONE.
+- Consumer stdin errors were swallowed with no disposition for in-flight
+  sends. DONE.
+- No test proved disposition ordering under backpressure. DONE.

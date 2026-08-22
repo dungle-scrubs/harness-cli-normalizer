@@ -81,6 +81,23 @@ export const renderEvent = (event: HarnessEvent, state: RenderState): void => {
   }
 };
 
-export const writeEventNdjson = (event: HarnessEvent): void => {
+/** Write one NDJSON event, reporting whether stdout took it immediately.
+ *
+ * `false` means the kernel buffer is full and the bytes are queued in the
+ * process. A caller streaming a turn MUST wait for `drain` before writing
+ * again (see `writeEventNdjsonAsync`); a caller writing one terminal pair on
+ * the way out may ignore it, because Node flushes pending stdout writes
+ * before it exits. */
+export const writeEventNdjson = (event: HarnessEvent): boolean =>
   process.stdout.write(`${JSON.stringify(event)}\n`);
+
+/** The streaming form: resolves once stdout has taken the line.
+ *
+ * Without this a slow reader is absorbed by the process rather than pushed
+ * back on: hcn keeps pulling from the harness and buffering, so memory grows
+ * with the turn instead of the harness being stalled. RFC-01 rule 8 names
+ * both hops; this is the hcn-to-consumer one. */
+export const writeEventNdjsonAsync = async (event: HarnessEvent): Promise<void> => {
+  if (writeEventNdjson(event)) return;
+  await new Promise<void>((resolve) => process.stdout.once("drain", resolve));
 };

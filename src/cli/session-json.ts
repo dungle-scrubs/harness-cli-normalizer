@@ -154,6 +154,17 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
   })();
 
   const rl = createInterface({ input: a.input ?? process.stdin });
+  // Ids accepted from stdin but not yet answered with a disposition. If the
+  // command stream itself fails, each is owed one: silence would leave the
+  // consumer waiting on an answer that can no longer arrive.
+  const unanswered = new Set<string>();
+  let stdinError: string | null = null;
+  const commandStream = (a.input ?? process.stdin) as {
+    on?: (event: string, listener: (err: NodeJS.ErrnoException) => void) => unknown;
+  };
+  commandStream.on?.("error", (err) => {
+    stdinError = err.code ?? err.message;
+  });
   const stdinPump = (async () => {
     for await (const line of rl) {
       if (line.trim() === "") continue;
@@ -177,12 +188,14 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
         text = composeAnswer(lastQuestion, cmd.text);
       }
       let sent: SessionSendResult;
+      unanswered.add(cmd.id);
       try {
         sent = a.handle.send({ id: cmd.id, text });
       } catch (err) {
         // A session the caller already closed, or one already dead: a
         // different remedy from a broken pipe, so a different reason.
         if (err instanceof SessionClosedError) {
+          unanswered.delete(cmd.id);
           await emit({
             kind: "disposition",
             id: cmd.id,
@@ -191,8 +204,10 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
           });
           continue;
         }
+        unanswered.delete(cmd.id);
         throw err;
       }
+      unanswered.delete(cmd.id);
       await emit({
         kind: "disposition",
         id: cmd.id,
@@ -201,14 +216,31 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
       });
     }
   })();
+  // A command stream that breaks is not a clean end of input, but it is also
+  // not a crash of this process: record it and close the session in order.
+  // The caught form is what the race waits on - the raw pump would reject
+  // straight out of runJsonSession.
+  const stdinDone = stdinPump.catch((err: unknown) => {
+    stdinError = err instanceof Error ? err.message : String(err);
+  });
 
   // Whichever ends first drives the close: a close/EOF from stdin, or the
   // session dying (the turns iterable ends). close() is idempotent; closing
   // the readline unblocks the stdin pump if the session died first.
-  await Promise.race([stdinPump, stdoutPump]);
+  await Promise.race([stdinDone, stdoutPump]);
   await a.handle.close();
   rl.close();
-  await Promise.allSettled([stdinPump, stdoutPump]);
+  await Promise.allSettled([stdinDone, stdoutPump]);
+
+  // A broken command stream is a fact the consumer needs, and every send it
+  // swallowed is owed its answer.
+  if (stdinError !== null) {
+    await emit({ kind: "error", message: `command stream failed: ${stdinError}` });
+  }
+  for (const id of unanswered) {
+    await emit({ kind: "disposition", id, disposition: "rejected", reason: "closed" });
+  }
+  unanswered.clear();
 
   // Every input the runner accepted as queued and then lost gets its own
   // rejection, before the terminal line (RFC S003).
