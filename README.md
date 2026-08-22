@@ -55,15 +55,126 @@ hcn session claude
 hcn session claude --model opus --session-id 550e8400-e29b-41d4-a716-446655440000
 ```
 
+### Machine session (`hcn session <harness> --json`)
+
+`--json` is the same session for a program instead of a human: NDJSON events
+on stdout, NDJSON commands on stdin, for a consumer that owns its own input
+timing (queue, fence, replay). Without `--json` the human REPL is unchanged.
+
+stdout is NDJSON only - no prompt, no rendered text. The first line is a
+`session` event, the last is one `closed` line. Each turn between them is a
+`turn` line, the harness's own `HarnessEvent` lines (the same kinds as
+`hcn run --json`; see "Reference"), and a turn-scoped `done` (`exitCode`
+null; a turn cut short by the harness dying carries the process exit code,
+equal to `closed.exitCode`). The four control events that frame the stream:
+
+```jsonl
+{"kind":"session","sessionId":"..","harness":"claude","hcn":"0.5.3","escalateQuestions":true}
+{"kind":"turn","turnId":"<sessionId>:turn-1","id":"in-1"}
+{"kind":"disposition","id":"in-1","disposition":"started"}
+{"kind":"closed","exitCode":0,"cause":"clean"}
+```
+
+- `session.sessionId` is the caller-side handle (the `--session-id` value,
+  or a random UUID). The `identity` event inside the first turn carries the
+  id the harness confirmed; on pi that is the harness-minted id.
+- `turn.id` is the id of the `send` that opened the turn.
+- `closed.cause` is one of `clean`, `limit`, `crash`, `stall`, `killed`.
+  `closed.failure` carries the reduced `FailureSummary` when the cause is
+  not clean and a failure was seen. `awaiting-input` ends a turn, never a
+  session.
+
+stdin carries one command per line (blank lines are ignored):
+
+```jsonl
+{"op":"send","id":"in-1","text":"explain a monad in one sentence"}
+{"op":"answer","id":"in-2","text":"prod"}
+{"op":"close"}
+```
+
+- Every well-formed `send`/`answer` gets exactly one `disposition` event,
+  in command order. `started`: no turn was open, the text was written, a
+  turn opened. `queued`: a turn was open, the text is held for the next
+  turn boundary. `rejected`: the text was not delivered and will not be.
+  Rejected reasons: `closed` (session closing or harness dead),
+  `no-open-question` (`answer` with no `awaiting-input` turn to answer),
+  `write-failed` (the harness's stdin pipe broke; a `closed` follows).
+- A queued send's id rides to the turn that consumes it: correlate by
+  reading `turn.id`, not by counting turns.
+- `answer` composes hcn's question-answer preamble
+  (`The user answered the question: "<q>" with: <text>. Continue accordingly.`)
+  around the text, so the consumer never re-derives it. A plain `send` after
+  a question opens a turn with no preamble: `answer` to answer, `send` to
+  change the subject.
+- End of stdin means `close`. A malformed line (not JSON, unknown `op`,
+  missing or empty `id`, non-string `text`) produces an `error` event, no
+disposition, and the session continues.
+
+Exit codes: 0 when `closed.cause` is `clean`; 1 otherwise; 2 for a refusal
+before the stream opens (invalid flag, no-session-mode harness, unknown
+model, provider off pi, bad `--stall`). A refusal still owes the stream its
+terminal pair: the prose goes to stderr, and stdout carries
+`{"kind":"failure",...}` then `{"kind":"closed","cause":"failed"}`. A spawn
+failure (harness binary missing) writes a `transport` failure and the same
+`closed`, exit 1. The exit code is always set after the terminal line is
+flushed, so a consumer reading to `closed` never loses it. If the consumer
+stops reading and stdout breaks (EPIPE), hcn closes the session - grace,
+then signal - and exits 1, rather than leaving the harness child running.
+
+Session flags on `--json`: `--stall <seconds>` is a per-turn inactivity
+budget - a turn that produces no output for the budget ends `done` with
+`cause: "stall"` and the session closes with `cause: "stall"`. `0`
+disables it; there is no default. `--provider` is pi only, validated the
+same way as on `hcn run` and refused elsewhere with exit 2. The other
+session flags (`--model`, `--session-id`, `--cwd`, `--escalate-questions` /
+`--no-escalate-questions`) behave as in the REPL.
+
+One send, then close (stdin EOF after the send lets the turn finish, then
+closes the session):
+
+```bash
+printf '%s\n' '{"op":"send","id":"in-1","text":"say hi"}' \
+  | hcn session claude --json | jq -c '{kind, disposition, cause}'
+```
+
+Driving it from a process that keeps the session open:
+
+```js
+import { spawn } from "node:child_process";
+import { createInterface } from "node:readline";
+
+const child = spawn("hcn", ["session", "claude", "--json"], {
+  stdio: ["pipe", "pipe", "inherit"],
+});
+child.stdin.write(`${JSON.stringify({ op: "send", id: "in-1", text: "say hi" })}\n`);
+
+const rl = createInterface({ input: child.stdout });
+for await (const line of rl) {
+  const ev = JSON.parse(line);
+  if (ev.kind === "message") console.log(ev.text);
+  if (ev.kind === "disposition") console.error(`in=${ev.id} ${ev.disposition}`);
+  if (ev.kind === "closed") console.error(`closed cause=${ev.cause} exit=${ev.exitCode}`);
+}
+```
+
 Inspection and drift (no spawn):
 
 ```bash
 hcn ls
 hcn inspect claude
 hcn inspect claude --argv --prompt "hi" --effort high
+hcn inspect claude --capabilities
+hcn inspect pi --capabilities --mode headless-session --model zai/glm-5.2
 hcn check
 hcn check --json
 ```
+
+`--capabilities` prints the capability record (`vision`, `images`,
+`streaming`, `session`, `source`, `confidence`) as one JSON line for the
+given `--mode` (`headless-turn` | `headless-session` | `interactive`;
+default `headless-turn`) and `--model` (absent = the harness default model;
+a model outside the vocabulary degrades to `source: "unknown"`). It is
+mutually exclusive with `--argv`.
 
 Flag table (maps to `TurnOptions` / `TurnRunOptions`):
 

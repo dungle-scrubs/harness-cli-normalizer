@@ -1,13 +1,18 @@
 import { redactArgv } from "../execution/stream-turn.js";
 import { buildLaunchArgv } from "../interpretation/argv.js";
+import { capabilitiesOf } from "../interpretation/capabilities.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
 import { FloorExceededError, resolveEffectiveOptions } from "../interpretation/resolve-options.js";
 import { canonicalTable, mergeToolMaps } from "../interpretation/tool-vocabulary.js";
+import type { HarnessMode } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { parseTurnOptions, resolvePromptAsync } from "./args.js";
 import { ConfigError, loadProjectConfig, loadUserConfig } from "./config.js";
+import { EXIT_REFUSAL } from "./exit-codes.js";
 import { refusalOf, refuse } from "./refuse.js";
 import { resolveHarness } from "./resolve-harness.js";
+
+const HARNESS_MODES = ["headless-turn", "headless-session", "interactive"] as const;
 
 export const inspect = async (harnessName: string, rawArgs: string[]): Promise<void> => {
   const h = resolveHarness(harnessName);
@@ -51,6 +56,27 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
 
   const values = parsed.values as Record<string, unknown>;
   const wantArgv = values.argv === true;
+
+  // --capabilities path: pure capability record, no spawn, no config, no prompt
+  if (values.capabilities === true) {
+    if (wantArgv) {
+      process.stderr.write(`--capabilities and --argv are mutually exclusive; pick one\n`);
+      process.exitCode = EXIT_REFUSAL;
+      return;
+    }
+    const mode = values.mode === undefined ? "headless-turn" : String(values.mode);
+    if (!(HARNESS_MODES as readonly string[]).includes(mode)) {
+      process.stderr.write(
+        `invalid --mode ${JSON.stringify(mode)}; supported: ${HARNESS_MODES.join(", ")}\n`,
+      );
+      process.exitCode = EXIT_REFUSAL;
+      return;
+    }
+    const model = values.model === undefined ? "" : String(values.model);
+    const caps = capabilitiesOf(h, model, mode as HarnessMode);
+    process.stdout.write(`${JSON.stringify(caps)}\n`);
+    return;
+  }
 
   // Load config once at top and reuse for both paths
   let rawUserMap: Record<string, Record<string, string>> | undefined;
