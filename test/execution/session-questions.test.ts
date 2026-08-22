@@ -72,7 +72,7 @@ describe("openSession question escalation - claude transport", () => {
     const proc = new FakeProcess();
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
-    session.send("task");
+    session.send({ id: "s", text: "task" });
     const turns = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turns.next()).value as AsyncIterable<HarnessEvent>;
 
@@ -93,7 +93,7 @@ describe("openSession question escalation - claude transport", () => {
     expect(events1.at(-1)).toEqual({ kind: "done", exitCode: null, cause: "awaiting-input" });
 
     // The answer is the next send on the SAME process - no respawn.
-    session.send("The user answered: production.");
+    session.send({ id: "s", text: "The user answered: production." });
     expect(d.spawner.calls).toHaveLength(1);
     const turn2 = (await turns.next()).value as AsyncIterable<HarnessEvent>;
     proc.emitLine(claudeInit);
@@ -109,7 +109,7 @@ describe("openSession question escalation - claude transport", () => {
     const proc = new FakeProcess();
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid, escalateQuestions: false }, d);
-    session.send("task");
+    session.send({ id: "s", text: "task" });
     const turns = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turns.next()).value as AsyncIterable<HarnessEvent>;
 
@@ -132,7 +132,7 @@ describe("openSession question escalation - claude transport", () => {
     const proc = new FakeProcess();
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
-    session.send("task");
+    session.send({ id: "s", text: "task" });
     const turns = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turns.next()).value as AsyncIterable<HarnessEvent>;
     proc.emitLine(claudeInit);
@@ -156,7 +156,7 @@ describe("openSession question escalation - claude transport", () => {
     const proc = new FakeProcess();
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
-    session.send(composeEscalatedPrompt("task", true, "session"));
+    session.send({ id: "s", text: composeEscalatedPrompt("task", true, "session") });
     const write = proc.stdinWrites[0] ?? "";
     expect(write.match(/\[hcn question protocol\]/g)).toHaveLength(1);
     await session.close();
@@ -179,7 +179,7 @@ describe("openSession question escalation - pi rpc transport", () => {
 
     // probe response announces the requested id -> identity event
     const turns = session.turns[Symbol.asyncIterator]();
-    session.send("task");
+    session.send({ id: "s", text: "task" });
     const turn1 = (await turns.next()).value as AsyncIterable<HarnessEvent>;
 
     proc.emitLine(piStateResp("hcn-identity"));
@@ -197,7 +197,7 @@ describe("openSession question escalation - pi rpc transport", () => {
     expect(events1.at(-1)).toEqual({ kind: "done", exitCode: null, cause: "awaiting-input" });
 
     // answer: next send is a prompt command on the same process
-    session.send("The user answered: production.");
+    session.send({ id: "s", text: "The user answered: production." });
     const lastWrite = proc.stdinWrites.at(-1) ?? "";
     expect(JSON.parse(lastWrite)).toMatchObject({
       type: "prompt",
@@ -217,7 +217,7 @@ describe("openSession question escalation - pi rpc transport", () => {
     const d = makeDeps(proc);
     const session = openSession(piCli, { sessionId: sid }, d);
     const turns = session.turns[Symbol.asyncIterator]();
-    session.send("task");
+    session.send({ id: "s", text: "task" });
     const turn1 = (await turns.next()).value as AsyncIterable<HarnessEvent>;
     const minted = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
     proc.emitLine(
@@ -244,7 +244,7 @@ describe("openSession question escalation - pi rpc transport", () => {
     const d = makeDeps(proc);
     const session = openSession(piCli, { sessionId: sid }, d);
     const turns = session.turns[Symbol.asyncIterator]();
-    session.send("task");
+    session.send({ id: "s", text: "task" });
     const turn1 = (await turns.next()).value as AsyncIterable<HarnessEvent>;
     proc.emitLine(piStateResp("hcn-identity"));
     proc.emitLine(
@@ -266,7 +266,7 @@ describe("openSession question escalation - pi rpc transport", () => {
     const proc = new FakeProcess();
     const d = makeDeps(proc);
     const session = openSession(piCli, { sessionId: sid, escalateQuestions: false }, d);
-    session.send("task");
+    session.send({ id: "s", text: "task" });
     const write = proc.stdinWrites.at(-1) ?? "";
     expect(JSON.parse(write).message).toContain("state the assumption");
     await session.close();

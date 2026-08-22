@@ -87,12 +87,12 @@ try {
   const session = openSession(claudeCode, { sessionId }, deps());
   const turnsIter = session.turns[Symbol.asyncIterator]();
 
-  session.send("Remember the codeword: pomegranate. Reply with only: OK");
+  session.send({ id: "s", text: "Remember the codeword: pomegranate. Reply with only: OK" });
   const turn1 = (await withTimeout("session turn1 start", turnsIter.next()))
     .value as AsyncIterable<HarnessEvent>;
   const events1 = await withTimeout("session turn1", collect(turn1));
 
-  session.send("Reply with only the codeword I gave you.");
+  session.send({ id: "s", text: "Reply with only the codeword I gave you." });
   const turn2 = (await withTimeout("session turn2 start", turnsIter.next()))
     .value as AsyncIterable<HarnessEvent>;
   const events2 = await withTimeout("session turn2", collect(turn2));

@@ -189,6 +189,9 @@ export const buildResumeArgv = (h: HarnessDescriptor, opts: ResumeOptions): stri
 export interface SessionOptions {
   readonly sessionId: string;
   readonly model?: string;
+  /** Provider selector (pi). A harness with no provider selector refuses,
+   * the same way a one-shot turn does. */
+  readonly provider?: string;
 }
 
 export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): string[] => {
@@ -222,6 +225,11 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
       });
     }
     argv.push(h.vocabulary.modelFlag, validated.id);
+  }
+  if (opts.provider !== undefined) {
+    // One dimension, rendered by the same code path a launch argv uses, so
+    // the flag spelling and the refusal (with supportedBy) stay identical.
+    argv.push(...renderTurnOptions(h, { provider: opts.provider } as TurnOptions, "launch"));
   }
   return argv;
 };

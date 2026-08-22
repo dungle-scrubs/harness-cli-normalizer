@@ -9,6 +9,9 @@ import { createRenderState, renderEvent } from "./render.js";
 import { resolveHarness } from "./resolve-harness.js";
 
 export const session = async (harnessName: string, rawArgs: string[]): Promise<void> => {
+  // Decided before any refusal can fire: a refused --json session still owes
+  // the stream a failure and a terminal `closed` (RFC-01 rule 3).
+  const jsonMode = rawArgs.includes("--json");
   // issue #44: the gate is the descriptor's sessionMode (claude stream-json,
   // pi --mode rpc), not a hardcoded name list - a harness that grows a
   // session mode is available the moment its descriptor declares one.
@@ -23,9 +26,8 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
       supported,
       detail: `session mode is available on ${supported.join(", ")}; ${harnessName} declares no persistent headless session`,
     });
-    process.stderr.write(`${err.message}\n`);
-    process.stderr.write(`supported: ${supported.join(", ")}\n`);
-    process.exitCode = 2;
+    const { refusalOf, refuse } = await import("./refuse.js");
+    refuse(refusalOf(err), jsonMode, "closed");
     return;
   }
 
@@ -42,6 +44,14 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     process.stderr.write(`unknown flag: ${message}\n`);
+    if (jsonMode) {
+      const { writeFailurePair } = await import("./refuse.js");
+      const { failureFromRejected } = await import("../execution/failure.js");
+      writeFailurePair(
+        failureFromRejected({ issue: "invalid-option-value", detail: `unknown flag: ${message}` }),
+        "closed",
+      );
+    }
     process.exitCode = 2;
     return;
   }
@@ -53,6 +63,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
     randomUUID();
   const model = values.model as string | undefined;
   const cwd = values.cwd as string | undefined;
+  const provider = values.provider as string | undefined;
 
   // issue #44: same precedence as hcn run - arg > project > user >
   // default-true. A behavior instruction, so it rides every send's
@@ -87,6 +98,17 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
             : "default";
   } catch (configErr) {
     process.stderr.write(`config error: ${(configErr as Error).message}\n`);
+    if (jsonMode) {
+      const { writeFailurePair } = await import("./refuse.js");
+      const { failureFromRejected } = await import("../execution/failure.js");
+      writeFailurePair(
+        failureFromRejected({
+          issue: "invalid-option-value",
+          detail: `config error: ${(configErr as Error).message}`,
+        }),
+        "closed",
+      );
+    }
     process.exitCode = 2;
     return;
   }
@@ -95,22 +117,89 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   // Validate sessionId shape? let openSession handle via assertUsableSessionId
   delete (process.env as Record<string, string | undefined>).HERDR_ENV;
 
-  const deps = nodeRunnerDeps();
-
-  let handle: ReturnType<typeof openSession>;
-  try {
-    handle = openSession(h, { sessionId, model, cwd, escalateQuestions }, deps);
-  } catch (err) {
-    if (err instanceof ArgvRefusalError) {
-      process.stderr.write(`${err.message}\n`);
-      if (err.supported.length) process.stderr.write(`supported: ${err.supported.join(", ")}\n`);
+  const wantJson = values.json === true;
+  // Opt-in per-turn inactivity budget. 0 disables; no default. A session turn
+  // can hang with the process alive, which no exit code reports.
+  const rawStall = values.stall as string | undefined;
+  let stallMs: number | undefined;
+  if (rawStall !== undefined) {
+    const seconds = Number(rawStall);
+    if (!Number.isFinite(seconds) || seconds < 0) {
+      process.stderr.write(`invalid --stall ${JSON.stringify(rawStall)}; expected seconds >= 0\n`);
+      if (jsonMode) {
+        const { writeFailurePair } = await import("./refuse.js");
+        const { failureFromRejected } = await import("../execution/failure.js");
+        writeFailurePair(
+          failureFromRejected({
+            issue: "invalid-option-value",
+            detail: `invalid --stall ${JSON.stringify(rawStall)}`,
+          }),
+          "closed",
+        );
+      }
       process.exitCode = 2;
       return;
     }
+    if (seconds > 0) stallMs = seconds * 1000;
+  }
+  const baseDeps = stallMs === undefined ? nodeRunnerDeps() : nodeRunnerDeps({ stallMs });
+  // Capture the runner's final exitCode/cause for the --json `closed` event.
+  const closeInfo = { exitCode: null as number | null, cause: "clean" };
+  const droppedIds: string[] = [];
+  const deps = wantJson
+    ? {
+        ...baseDeps,
+        log: (e: Record<string, unknown>) => {
+          if (e.event === "session_close") {
+            closeInfo.exitCode = (e.exitCode as number | null) ?? null;
+            closeInfo.cause = (e.cause as string) ?? "clean";
+          }
+          if (e.event === "sends_dropped" && Array.isArray(e.ids)) {
+            for (const id of e.ids as unknown[]) if (typeof id === "string") droppedIds.push(id);
+          }
+          baseDeps.log?.(e);
+        },
+      }
+    : baseDeps;
+
+  let handle: ReturnType<typeof openSession>;
+  try {
+    handle = openSession(h, { sessionId, model, cwd, escalateQuestions, provider }, deps);
+  } catch (err) {
+    if (err instanceof ArgvRefusalError) {
+      const { refusalOf, refuse } = await import("./refuse.js");
+      refuse(refusalOf(err), jsonMode, "closed");
+      return;
+    }
+    // S002: the harness binary is missing or would not start. A transport
+    // failure, not a refusal - exit 1, and the stream is still owed its pair.
     process.stderr.write(
       `could not open session: ${err instanceof Error ? err.message : String(err)}\n`,
     );
+    if (jsonMode) {
+      const { writeFailurePair } = await import("./refuse.js");
+      const { failureFromTransport } = await import("../execution/failure.js");
+      writeFailurePair(
+        failureFromTransport(err instanceof Error ? err.message : String(err)),
+        "closed",
+      );
+    }
     process.exitCode = 1;
+    return;
+  }
+
+  if (wantJson) {
+    const { runJsonSession } = await import("./session-json.js");
+    const { getVersion } = await import("./version.js");
+    process.exitCode = await runJsonSession({
+      handle,
+      sessionId,
+      harness: h.name,
+      hcnVersion: getVersion(),
+      escalateQuestions,
+      getCloseInfo: () => closeInfo,
+      getDroppedIds: () => droppedIds,
+    });
     return;
   }
 
@@ -136,6 +225,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
 
   // Handle SIGINT to close session cleanly
   let closing = false;
+  let sendCount = 0;
   const doClose = async () => {
     if (closing) return;
     closing = true;
@@ -168,7 +258,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
       const trimmed = line.trim();
       if (trimmed === "" || trimmed === "exit") break;
 
-      const result = handle.send(line);
+      const result = handle.send({ id: `you-${++sendCount}`, text: line });
       if (result.disposition === "queued") {
         process.stderr.write(`disposition: queued (turn in progress)\n`);
       }
@@ -209,9 +299,10 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
             answer = a;
           }
         }
-        handle.send(
-          `The user answered the question: "${q.question}" with: ${answer}. Continue accordingly.`,
-        );
+        handle.send({
+          id: `you-${++sendCount}`,
+          text: `The user answered the question: "${q.question}" with: ${answer}. Continue accordingly.`,
+        });
         // Drain the answer turn BEFORE prompting again - the pump's
         // backpressure stalls the harness until the turn iterable is
         // consumed (verified live: menu answered, you-prompt rendered, no

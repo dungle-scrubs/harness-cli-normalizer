@@ -111,7 +111,7 @@ const chat = async (h: HarnessDescriptor): Promise<void> => {
     while (true) {
       const line = (await rl.question(cyan("\nyou › "))).trim();
       if (line === "" || line === "exit") break;
-      session.send(line);
+      session.send({ id: `demo-${Date.now()}`, text: line });
       const turn = (await turns.next()).value as AsyncIterable<HarnessEvent> | undefined;
       if (turn === undefined) break;
       const state = { streamed: false };

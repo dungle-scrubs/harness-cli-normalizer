@@ -29,7 +29,7 @@ import {
 import type { HarnessDescriptor, SessionInputContract } from "../knowledge/descriptor.js";
 import { AsyncChannel } from "./channel.js";
 import { decodeParsed, freshDecodeState } from "./decode.js";
-import type { RunnerDeps, SpawnedProcess } from "./deps.js";
+import type { RunnerDeps, SpawnedProcess, TimerHandle } from "./deps.js";
 import type { ExitCause, HarnessEvent } from "./events.js";
 import type { FailureSummary } from "./failure.js";
 import {
@@ -50,15 +50,36 @@ export const CLOSE_GRACE_MS = 5_000;
 const PRETURN_MAX = 256;
 
 export interface SessionSendResult {
-  readonly disposition: "started" | "queued";
+  readonly disposition: "started" | "queued" | "rejected";
+  /** Present when rejected. `write-failed` is a broken stdin pipe, which is
+   * a different remedy from a session the caller already closed - the two
+   * must stay distinguishable. */
+  readonly reason?: "write-failed";
+}
+
+/** One turn's event stream, tagged with the id of the send that opened it.
+ * `inputId` is present for every turn a consumer send opened, which today is
+ * every turn; a turn opened by anything else (none exists yet) omits it. */
+export interface SessionTurn extends AsyncIterable<HarnessEvent> {
+  readonly inputId?: string;
+  /** `${sessionId}:turn-${n}`, matching the runner's turn_start log. */
+  readonly turnId?: string;
+}
+
+/** A send's payload: the consumer's correlation id travels with the text
+ * from the moment it arrives to the turn it opens and, on death, to the
+ * loss report. */
+export interface SessionInput {
+  readonly id: string;
+  readonly text: string;
 }
 
 export interface SessionHandle {
   /** One inner iterable per turn, each ending in a turn-scoped `done`.
    * Breaking out of THIS iterable closes the session; breaking out of a
    * single turn's iterable only stops reading that turn. */
-  readonly turns: AsyncIterable<AsyncIterable<HarnessEvent>>;
-  send(text: string): SessionSendResult;
+  readonly turns: AsyncIterable<SessionTurn>;
+  send(input: SessionInput): SessionSendResult;
   close(): Promise<void>;
 }
 
@@ -72,6 +93,8 @@ export interface OpenSessionOptions {
    * every send and arms block detection at turn end; false composes the
    * no-ask instruction and disarms detection. */
   readonly escalateQuestions?: boolean;
+  /** Provider selector (pi); refused on a harness without one. */
+  readonly provider?: string;
 }
 
 export class SessionClosedError extends Error {
@@ -99,6 +122,7 @@ export const openSession = (
   const argv = buildSessionArgv(h, {
     sessionId: opts.sessionId,
     ...(opts.model !== undefined ? { model: opts.model } : {}),
+    ...(opts.provider !== undefined ? { provider: opts.provider } : {}),
   });
   let sessionInput: SessionInputContract;
   try {
@@ -142,7 +166,7 @@ export const openSession = (
     argv: redactArgv(argv),
   });
 
-  const turnsChannel = new AsyncChannel<AsyncIterable<HarnessEvent>>();
+  const turnsChannel = new AsyncChannel<SessionTurn>();
   const state = freshDecodeState(opts.sessionId);
   const escalateQuestions = opts.escalateQuestions !== false;
   const sessionInputMode = h.sessionMode;
@@ -150,7 +174,7 @@ export const openSession = (
   let turnCounter = 0;
   let activeTurn: AsyncChannel<HarnessEvent> | null = null;
   let activeTurnId = "";
-  const pendingSends: string[] = [];
+  const pendingSends: SessionInput[] = [];
   const preTurnEvents: HarnessEvent[] = [];
   let dead = false;
   let closing = false;
@@ -174,6 +198,42 @@ export const openSession = (
     deps.clock.setTimeout(() => safeSignal("SIGKILL"), KILL_GRACE_MS);
   };
 
+  // Per-turn inactivity budget. A session turn can hang with the process
+  // alive and the pipes open, which no exit code reports; without this the
+  // consumer waits forever. Armed at turn start, rearmed on any output
+  // chunk, disarmed at turn end and at exit - the same discipline
+  // streamTurn uses, scoped to the turn rather than the process.
+  let stallTimer: TimerHandle | null = null;
+  let stalled = false;
+  const disarmStall = (): void => {
+    if (stallTimer !== null) deps.clock.clearTimeout(stallTimer);
+    stallTimer = null;
+  };
+  const rearmStall = (): void => {
+    if (deps.stallMs === undefined || activeTurn === null) return;
+    disarmStall();
+    stallTimer = deps.clock.setTimeout(() => {
+      // The turn may have ended between the timer firing and this callback
+      // running. Without this guard a clean turn that finished near the
+      // budget would be reported as a stall and the child signalled.
+      if (activeTurn === null) return;
+      stalled = true;
+      log({
+        event: "stall",
+        sessionId: opts.sessionId,
+        turnId: activeTurnId,
+        harness: h.name,
+        reason: "inactivity",
+        budgetMs: deps.stallMs,
+      });
+      // The turn is owed its own terminal event before the process dies;
+      // the exit path then closes the session with the same cause.
+      void pushFailure(failureFromTransport("stalled: inactivity"));
+      endTurn({ kind: "done", exitCode: null, cause: "stall" });
+      escalate();
+    }, deps.stallMs);
+  };
+
   const writeUser = (text: string): boolean => {
     try {
       stdin.write(
@@ -184,7 +244,13 @@ export const openSession = (
       );
       return true;
     } catch {
-      activeTurn?.push({ kind: "error", message: "send failed: session stdin is gone" });
+      // A broken stdin pipe ends the session: there is no way to drive the
+      // child any more. Surface it as its own event, stop accepting sends,
+      // and END the child - marking it dead here instead would suppress the
+      // very signal that stops it. The exit path then finalizes as usual.
+      void routeEvent({ kind: "error", message: "send failed: session stdin is gone" });
+      closing = true;
+      escalate();
       return false;
     }
   };
@@ -195,19 +261,25 @@ export const openSession = (
     return summary;
   };
 
-  const startTurn = (): void => {
+  const startTurn = (inputId?: string): void => {
     turnLimitSeen = false;
     turnFailures = [];
     turnAsked = false;
     lastAssistantText = null;
     activeTurn = new AsyncChannel<HarnessEvent>();
     activeTurnId = `${opts.sessionId}:turn-${++turnCounter}`;
+    // Tag the turn with the id of the send that opened it, so the consumer
+    // correlates a queued input to its turn by reading the tag, not by
+    // shadowing the runner's delivery order.
+    (activeTurn as { inputId?: string; turnId?: string }).inputId = inputId;
+    (activeTurn as { inputId?: string; turnId?: string }).turnId = activeTurnId;
     log({ event: "turn_start", sessionId: opts.sessionId, turnId: activeTurnId });
     for (const held of preTurnEvents.splice(0)) {
       if (held.kind === "failure") turnFailures.push(summaryOf(held));
       activeTurn.push(held);
     }
-    turnsChannel.push(activeTurn);
+    turnsChannel.push(activeTurn as SessionTurn);
+    rearmStall();
   };
 
   /** issue #44: at a turn boundary, scan the last assistant message for
@@ -246,6 +318,7 @@ export const openSession = (
 
   const endTurn = (done: HarnessEvent & { kind: "done" }): void => {
     if (activeTurn === null) return;
+    disarmStall();
     // Asking is a successful turn: the session semantic is "blocked on
     // answer, session alive" - the done stays TURN-scoped (exitCode null
     // in sessions) and the caller answers with the next send().
@@ -271,7 +344,21 @@ export const openSession = (
     // The boundary is the only legal delivery point for queued input.
     if (dead || closing) return;
     const next = pendingSends.shift();
-    if (next !== undefined && writeUser(next)) startTurn();
+    if (next === undefined) return;
+    if (writeUser(next.text)) {
+      startTurn(next.id);
+      return;
+    }
+    // The queue was shifted but the write failed: report the id that was
+    // accepted as queued and never delivered, instead of dropping it.
+    log({
+      event: "sends_dropped",
+      sessionId: opts.sessionId,
+      count: 1,
+      ids: [next.id],
+      reason: "write-failed",
+      lengths: [next.text.length],
+    });
   };
 
   const routeEvent = (event: HarnessEvent): Promise<void> => {
@@ -434,6 +521,7 @@ export const openSession = (
       }
     };
     for await (const chunk of proc.stdout) {
+      rearmStall();
       for (const line of lines.push(chunk)) await handleLine(line);
     }
     const rest = lines.flush();
@@ -443,6 +531,7 @@ export const openSession = (
   const pumpStderr = async (): Promise<void> => {
     const lines = new LineBuffer();
     for await (const chunk of proc.stderr) {
+      rearmStall();
       for (const line of lines.push(chunk)) {
         const limit = detectLimitInLine(h, line);
         if (limit !== null) {
@@ -478,28 +567,34 @@ export const openSession = (
   const finalize = (): void => {
     if (finalized) return;
     finalized = true;
-    const cause: ExitCause = state.limitSeen
-      ? "limit"
-      : exitCode === 0
-        ? "clean"
-        : exitCode === null
-          ? "killed"
-          : "crash";
+    // A stall killed the process on purpose, so the signal death it caused
+    // reports as "stall", not "killed".
+    const cause: ExitCause = stalled
+      ? "stall"
+      : state.limitSeen
+        ? "limit"
+        : exitCode === 0
+          ? "clean"
+          : exitCode === null
+            ? "killed"
+            : "crash";
     if (pumpError !== null) {
       void routeEvent({ kind: "error", message: `session pump failed: ${String(pumpError)}` });
     }
     if (pendingSends.length > 0) {
       // "queued" was an accepted disposition - the loss must be visible to
       // both the log and the consumer, never silent.
+      const droppedIds = pendingSends.map((s) => s.id);
       void routeEvent({
         kind: "error",
-        message: `${pendingSends.length} queued send(s) died with the session`,
+        message: `${pendingSends.length} queued send(s) died with the session: ${droppedIds.join(", ")}`,
       });
       log({
         event: "sends_dropped",
         sessionId: opts.sessionId,
         count: pendingSends.length,
-        lengths: pendingSends.map((s) => s.length),
+        ids: droppedIds,
+        lengths: pendingSends.map((s) => s.text.length),
       });
       pendingSends.length = 0;
     }
@@ -526,6 +621,8 @@ export const openSession = (
   void proc.exited.then((code) => {
     dead = true;
     exitCode = code;
+    // The process is gone: a later fire would flip a finished turn to stall.
+    disarmStall();
     // Pipes held open past exit (a grandchild) must not hang the session.
     const pipeGrace = deps.clock.setTimeout(() => {
       pipesOpenAtExit = true;
@@ -564,24 +661,36 @@ export const openSession = (
         if (!closing && !dead) void close();
       }
     })(),
-    send(text: string): SessionSendResult {
+    send(input: SessionInput): SessionSendResult {
       if (dead || closing) throw new SessionClosedError();
       if (activeTurn !== null) {
-        pendingSends.push(text);
+        pendingSends.push(input);
         log({
           event: "send",
           sessionId: opts.sessionId,
           turnId: activeTurnId,
+          inputId: input.id,
           disposition: "queued",
         });
         return { disposition: "queued" };
       }
-      if (!writeUser(text)) throw new SessionClosedError();
-      startTurn();
+      if (!writeUser(input.text)) {
+        log({
+          event: "send",
+          sessionId: opts.sessionId,
+          turnId: activeTurnId,
+          inputId: input.id,
+          disposition: "rejected",
+          reason: "write-failed",
+        });
+        return { disposition: "rejected", reason: "write-failed" };
+      }
+      startTurn(input.id);
       log({
         event: "send",
         sessionId: opts.sessionId,
         turnId: activeTurnId,
+        inputId: input.id,
         disposition: "started",
       });
       return { disposition: "started" };
