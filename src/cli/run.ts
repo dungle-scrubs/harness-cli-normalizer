@@ -9,7 +9,7 @@ import { recognizeNativeSpelling, supportedBy } from "../interpretation/support.
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { parseRunExtra, parseTurnOptions, resolvePromptAsync } from "./args.js";
 import { refusalOf, refuse } from "./refuse.js";
-import { createRenderState, renderEvent, writeEventNdjson } from "./render.js";
+import { createRenderState, renderEvent, writeEventNdjsonAsync } from "./render.js";
 import { resolveHarness } from "./resolve-harness.js";
 import { resumeStore } from "./resume-guard.js";
 
@@ -465,7 +465,9 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     for await (const event of events) {
       lastEvent = event;
       if (wantJson) {
-        writeEventNdjson(event);
+        // Await the write: a consumer that stops reading must stall the
+        // harness, not be absorbed into this process's memory.
+        await writeEventNdjsonAsync(event);
       } else {
         renderEvent(event, state);
       }

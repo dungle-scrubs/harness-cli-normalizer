@@ -339,3 +339,105 @@ describe("T04: answer wraps the preamble; no-open-question is refused", () => {
     ).toBe(true);
   });
 });
+
+describe("follow-ups: backpressure and a broken command stream", () => {
+  /** Like rig(), but stdout refuses every write until the test releases a
+   * drain. The default rig always accepts, which is why ordering under
+   * congestion could not be proven before. */
+  const congestedRig = () => {
+    const proc = new FakeProcess();
+    const spawner = fakeSpawner([proc]);
+    const closeInfo = { exitCode: null as number | null, cause: "clean" };
+    const handle = openSession(
+      claudeCode,
+      { sessionId: sid },
+      { spawn: spawner.spawn, clock: new FakeClock(), signal: fakeSignal().signal },
+    );
+    const input = new PassThrough();
+    const out: string[] = [];
+    let congested = true;
+    const waiters: Array<() => void> = [];
+    const done = runJsonSession({
+      handle,
+      sessionId: sid,
+      harness: "claude",
+      hcnVersion: "9.9.9",
+      escalateQuestions: true,
+      getCloseInfo: () => closeInfo,
+      input,
+      write: (line) => {
+        out.push(line);
+        return !congested;
+      },
+      onDrain: (fn) => waiters.push(fn),
+    });
+    const release = async () => {
+      congested = false;
+      while (waiters.length > 0) {
+        (waiters.shift() as () => void)();
+        await tick();
+      }
+    };
+    const events = () =>
+      out
+        .join("")
+        .trim()
+        .split("\n")
+        .filter(Boolean)
+        .map((l) => JSON.parse(l) as Record<string, unknown>);
+    return { proc, input, done, out, release, events };
+  };
+
+  test("every send gets exactly one disposition, in command order, while stdout is congested", async () => {
+    const r = congestedRig();
+
+    // Four commands arrive back to back while stdout refuses every write.
+    for (const id of ["a", "b", "c", "d"]) {
+      r.input.write(`${JSON.stringify({ op: "send", id, text: id })}\n`);
+    }
+    await tick();
+    await tick();
+
+    // The first opened a turn; the rest queued behind it.
+    r.proc.emitLine(init);
+    await tick();
+    await r.release();
+    r.proc.emitLine(result);
+    await tick();
+    r.input.end();
+    await r.done;
+    await r.release();
+
+    const dispositions = r.events().filter((e) => e.kind === "disposition");
+    // Exactly one per send, in the order the sends arrived - not merely
+    // "some dispositions appeared".
+    expect(dispositions.map((d) => d.id)).toEqual(["a", "b", "c", "d"]);
+    expect(dispositions[0]?.disposition).toBe("started");
+    for (const d of dispositions.slice(1)) expect(d.disposition).toBe("queued");
+    // Every line parsed on its own: a torn or interleaved write would have
+    // made that impossible.
+    expect(r.events().length).toBeGreaterThan(dispositions.length);
+  });
+
+  test("a command stream that breaks is reported, and its unanswered send is rejected", async () => {
+    const r = congestedRig();
+    await r.release();
+
+    // A send that the session accepts but never dispositions, because the
+    // command stream dies before the answer is written.
+    r.input.write(`${JSON.stringify({ op: "send", id: "in-1", text: "hi" })}\n`);
+    r.input.destroy(new Error("EPIPE from the consumer"));
+    await tick();
+    r.proc.emitLine(init);
+    r.proc.emitLine(result);
+    r.proc.exit(0);
+    await r.done;
+    await r.release();
+
+    const evs = r.events();
+    expect(
+      evs.some((e) => e.kind === "error" && String(e.message).includes("command stream failed")),
+    ).toBe(true);
+    expect(evs.at(-1)).toMatchObject({ kind: "closed" });
+  });
+});
