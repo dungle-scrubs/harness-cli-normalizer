@@ -95,7 +95,22 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   // Validate sessionId shape? let openSession handle via assertUsableSessionId
   delete (process.env as Record<string, string | undefined>).HERDR_ENV;
 
-  const deps = nodeRunnerDeps();
+  const wantJson = values.json === true;
+  const baseDeps = nodeRunnerDeps();
+  // Capture the runner's final exitCode/cause for the --json `closed` event.
+  const closeInfo = { exitCode: null as number | null, cause: "clean" };
+  const deps = wantJson
+    ? {
+        ...baseDeps,
+        log: (e: Record<string, unknown>) => {
+          if (e.event === "session_close") {
+            closeInfo.exitCode = (e.exitCode as number | null) ?? null;
+            closeInfo.cause = (e.cause as string) ?? "clean";
+          }
+          baseDeps.log?.(e);
+        },
+      }
+    : baseDeps;
 
   let handle: ReturnType<typeof openSession>;
   try {
@@ -111,6 +126,20 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
       `could not open session: ${err instanceof Error ? err.message : String(err)}\n`,
     );
     process.exitCode = 1;
+    return;
+  }
+
+  if (wantJson) {
+    const { runJsonSession } = await import("./session-json.js");
+    const { getVersion } = await import("./version.js");
+    process.exitCode = await runJsonSession({
+      handle,
+      sessionId,
+      harness: h.name,
+      hcnVersion: getVersion(),
+      escalateQuestions,
+      getCloseInfo: () => closeInfo,
+    });
     return;
   }
 
