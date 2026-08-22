@@ -226,10 +226,12 @@ tests green, and each is covered by a new test.
 
 4. **Distinct write-failure signal (findings F7).** `writeUser` failure
    stops being folded into `SessionClosedError`. `send` returns
-   `{ disposition: "rejected", reason: "write-failed" }` and the runner
-   pushes its own error event and moves the session to dead. `send` while
-   `dead || closing` still throws `SessionClosedError`, which the CLI maps
-   to `reason: "closed"`. Rationale: a broken pipe and a closed session are
+   `{ disposition: "rejected", reason: "write-failed" }`, the runner stops
+   accepting sends and signals the child, and the exit path finalizes as
+   usual. It must NOT mark the session dead at that point: the dead flag
+   suppresses the very signal that ends the child, so close would hang.
+   `send` after that throws `SessionClosedError`, which the CLI maps to
+   `reason: "closed"`. Rationale: a broken pipe and a closed session are
    different remedies; a consumer must tell them apart.
 
 5. **`closed.cause` producers (finding F3).** With items 2 and 4 in place,
@@ -494,8 +496,13 @@ S006 - answer with no open question (severity: warning)
 
 S007 - stdin write to the harness failed (severity: critical)
        Output: disposition rejected, reason: write-failed (the runner's new
-       signal, Execution-layer changes item 4), then the runner's error
-       event; the session moves to DEAD and a closed follows.
+       signal, Execution-layer changes item 4); the session stops accepting
+       sends, the child is signalled, and a closed follows.
+       The disposition's reason IS the signal on the wire. The runner also
+       raises an error event, but a write failure happens between turns and
+       the runner holds between-turn events for the next turn - which a
+       broken pipe means never comes - so that event is logged as dropped,
+       not delivered. A consumer branches on the reason, never on the error.
 ```
 
 Retry policy: hcn never retries. `closed.failure.retryable` tells the

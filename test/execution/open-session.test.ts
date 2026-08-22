@@ -146,13 +146,17 @@ describe("openSession (claude, fake process)", () => {
     expect(() => session.send({ id: "s", text: "too late" })).toThrowError(SessionClosedError);
   });
 
-  test("an idle stdin write failure keeps the typed SessionClosedError contract", async () => {
+  // Contract change (RFC-01 execution-layer item 4): a broken stdin pipe is
+  // no longer folded into SessionClosedError. A caller must tell "the pipe
+  // broke" apart from "you closed this session"; the remedies differ.
+  test("an idle stdin write failure rejects write-failed, not SessionClosedError", async () => {
     const proc = new FakeProcess({ exitOnStdinEnd: false });
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
     proc.stdin?.end();
 
-    expect(() => session.send({ id: "s", text: "unwritable" })).toThrowError(SessionClosedError);
+    const sent = session.send({ id: "s", text: "unwritable" });
+    expect(sent).toEqual({ disposition: "rejected", reason: "write-failed" });
     proc.exit(0);
     await session.close();
   });

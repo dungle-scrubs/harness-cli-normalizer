@@ -50,7 +50,11 @@ export const CLOSE_GRACE_MS = 5_000;
 const PRETURN_MAX = 256;
 
 export interface SessionSendResult {
-  readonly disposition: "started" | "queued";
+  readonly disposition: "started" | "queued" | "rejected";
+  /** Present when rejected. `write-failed` is a broken stdin pipe, which is
+   * a different remedy from a session the caller already closed - the two
+   * must stay distinguishable. */
+  readonly reason?: "write-failed";
 }
 
 /** One turn's event stream, tagged with the id of the send that opened it.
@@ -236,7 +240,13 @@ export const openSession = (
       );
       return true;
     } catch {
-      activeTurn?.push({ kind: "error", message: "send failed: session stdin is gone" });
+      // A broken stdin pipe ends the session: there is no way to drive the
+      // child any more. Surface it as its own event, stop accepting sends,
+      // and END the child - marking it dead here instead would suppress the
+      // very signal that stops it. The exit path then finalizes as usual.
+      void routeEvent({ kind: "error", message: "send failed: session stdin is gone" });
+      closing = true;
+      escalate();
       return false;
     }
   };
@@ -330,7 +340,21 @@ export const openSession = (
     // The boundary is the only legal delivery point for queued input.
     if (dead || closing) return;
     const next = pendingSends.shift();
-    if (next !== undefined && writeUser(next.text)) startTurn(next.id);
+    if (next === undefined) return;
+    if (writeUser(next.text)) {
+      startTurn(next.id);
+      return;
+    }
+    // The queue was shifted but the write failed: report the id that was
+    // accepted as queued and never delivered, instead of dropping it.
+    log({
+      event: "sends_dropped",
+      sessionId: opts.sessionId,
+      count: 1,
+      ids: [next.id],
+      reason: "write-failed",
+      lengths: [next.text.length],
+    });
   };
 
   const routeEvent = (event: HarnessEvent): Promise<void> => {
@@ -646,7 +670,17 @@ export const openSession = (
         });
         return { disposition: "queued" };
       }
-      if (!writeUser(input.text)) throw new SessionClosedError();
+      if (!writeUser(input.text)) {
+        log({
+          event: "send",
+          sessionId: opts.sessionId,
+          turnId: activeTurnId,
+          inputId: input.id,
+          disposition: "rejected",
+          reason: "write-failed",
+        });
+        return { disposition: "rejected", reason: "write-failed" };
+      }
       startTurn(input.id);
       log({
         event: "send",

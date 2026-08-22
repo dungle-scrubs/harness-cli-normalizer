@@ -31,8 +31,8 @@ const tick = () => new Promise<void>((r) => setTimeout(r, 0));
 /** Drive runJsonSession over a real openSession on a fake process. Returns
  * the parsed stdout events, the input stream to write commands to, and the
  * fake process to emit harness lines from. */
-const rig = () => {
-  const proc = new FakeProcess();
+const rig = (procOpts: { exitOnStdinEnd?: boolean } = {}) => {
+  const proc = new FakeProcess(procOpts);
   const spawner = fakeSpawner([proc]);
   const sig = fakeSignal();
   const clock = new FakeClock();
@@ -160,6 +160,33 @@ describe("T03: queued sends carry their id to the turn that consumes them", () =
     const turns = evs.filter((e) => e.kind === "turn");
     expect(turns[0]).toMatchObject({ id: "in-1" });
     expect(turns[1]).toMatchObject({ id: "in-2" });
+  });
+});
+
+describe("T07: write-failed is distinct from closed", () => {
+  test("a broken harness stdin rejects write-failed and the session ends", async () => {
+    // The child stays alive; only its input pipe is gone, so this is a
+    // broken pipe and not a dead session.
+    const r = rig({ exitOnStdinEnd: false });
+    await tick();
+    // The child's input pipe goes away between turns.
+    r.proc.stdin?.end();
+    r.send({ op: "send", id: "in-1", text: "unwritable" });
+    await tick();
+    r.input.end();
+    await r.done;
+
+    const evs = r.events();
+    const disp = evs.find((e) => e.kind === "disposition");
+    expect(disp).toMatchObject({ id: "in-1", disposition: "rejected", reason: "write-failed" });
+    // The disposition's reason IS the signal. The runner's own error event
+    // is raised between turns, and the runner holds between-turn events for
+    // the next turn; a broken pipe means no next turn, so that event is
+    // logged as dropped rather than delivered. The consumer is not left
+    // guessing: it has the reason and the closed event.
+    expect(evs.at(-1)).toMatchObject({ kind: "closed" });
+    // A send after the pipe broke reports closed, not write-failed again.
+    expect(evs.filter((e) => e.kind === "disposition")).toHaveLength(1);
   });
 });
 

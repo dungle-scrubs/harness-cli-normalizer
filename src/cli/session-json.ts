@@ -11,7 +11,11 @@
 import { createInterface } from "node:readline/promises";
 import type { HarnessEvent } from "../execution/events.js";
 import type { FailureSummary } from "../execution/failure.js";
-import { SessionClosedError, type SessionHandle } from "../execution/open-session.js";
+import {
+  SessionClosedError,
+  type SessionHandle,
+  type SessionSendResult,
+} from "../execution/open-session.js";
 
 /** What the CLI reads back after a close, captured from the runner's
  * `session_close` boundary log. */
@@ -139,10 +143,12 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
         }
         text = composeAnswer(lastQuestion, cmd.text);
       }
-      let disposition: "started" | "queued";
+      let sent: SessionSendResult;
       try {
-        disposition = a.handle.send({ id: cmd.id, text }).disposition;
+        sent = a.handle.send({ id: cmd.id, text });
       } catch (err) {
+        // A session the caller already closed, or one already dead: a
+        // different remedy from a broken pipe, so a different reason.
         if (err instanceof SessionClosedError) {
           await emit({
             kind: "disposition",
@@ -154,7 +160,12 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
         }
         throw err;
       }
-      await emit({ kind: "disposition", id: cmd.id, disposition });
+      await emit({
+        kind: "disposition",
+        id: cmd.id,
+        disposition: sent.disposition,
+        ...(sent.reason !== undefined ? { reason: sent.reason } : {}),
+      });
     }
   })();
 
