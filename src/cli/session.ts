@@ -145,6 +145,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   const baseDeps = stallMs === undefined ? nodeRunnerDeps() : nodeRunnerDeps({ stallMs });
   // Capture the runner's final exitCode/cause for the --json `closed` event.
   const closeInfo = { exitCode: null as number | null, cause: "clean" };
+  const droppedIds: string[] = [];
   const deps = wantJson
     ? {
         ...baseDeps,
@@ -152,6 +153,9 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
           if (e.event === "session_close") {
             closeInfo.exitCode = (e.exitCode as number | null) ?? null;
             closeInfo.cause = (e.cause as string) ?? "clean";
+          }
+          if (e.event === "sends_dropped" && Array.isArray(e.ids)) {
+            for (const id of e.ids as unknown[]) if (typeof id === "string") droppedIds.push(id);
           }
           baseDeps.log?.(e);
         },
@@ -194,6 +198,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
       hcnVersion: getVersion(),
       escalateQuestions,
       getCloseInfo: () => closeInfo,
+      getDroppedIds: () => droppedIds,
     });
     return;
   }

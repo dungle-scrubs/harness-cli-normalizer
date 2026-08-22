@@ -32,6 +32,9 @@ export interface JsonSessionArgs {
   readonly escalateQuestions: boolean;
   /** Read after close - the runner's final exitCode and cause. */
   readonly getCloseInfo: () => CloseInfo;
+  /** Read after close - ids the runner accepted as queued and never
+   * delivered. Each owes the consumer a rejection (RFC S003). */
+  readonly getDroppedIds?: () => readonly string[];
   /** Injected for tests; defaults to process.stdin / process.stdout. */
   readonly input?: NodeJS.ReadableStream;
   readonly write?: (line: string) => boolean;
@@ -95,8 +98,19 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
     chain = chain.then(
       () =>
         new Promise<void>((resolve) => {
-          if (rawWrite(`${JSON.stringify(event)}\n`)) resolve();
-          else onDrain(resolve);
+          // A broken stdout never drains. Writing into it would park this
+          // chain forever and the session would hang instead of closing.
+          if (consumerGone) {
+            resolve();
+            return;
+          }
+          try {
+            if (rawWrite(`${JSON.stringify(event)}\n`)) resolve();
+            else onDrain(resolve);
+          } catch {
+            consumerGone = true;
+            resolve();
+          }
         }),
     );
     return chain;
@@ -125,13 +139,16 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
         ...(turn.inputId !== undefined ? { id: turn.inputId } : {}),
       });
       for await (const ev of turn as AsyncIterable<HarnessEvent>) {
+        // Update the answer state BEFORE the event reaches the consumer. A
+        // consumer answers the moment it reads `done`, so setting this after
+        // the emit leaves a window where a valid answer is refused.
         if (ev.kind === "question") lastQuestion = ev.question;
-        await emit(ev);
         if (ev.kind === "done") {
           awaitingAnswer = ev.cause === "awaiting-input";
           if (ev.failure !== undefined) lastFailure = ev.failure;
         }
         if (ev.kind === "failure") lastFailure = ev;
+        await emit(ev);
       }
     }
   })();
@@ -192,6 +209,12 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
   await a.handle.close();
   rl.close();
   await Promise.allSettled([stdinPump, stdoutPump]);
+
+  // Every input the runner accepted as queued and then lost gets its own
+  // rejection, before the terminal line (RFC S003).
+  for (const id of a.getDroppedIds?.() ?? []) {
+    await emit({ kind: "disposition", id, disposition: "rejected", reason: "closed" });
+  }
 
   const info = a.getCloseInfo();
   await emit({

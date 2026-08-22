@@ -213,6 +213,10 @@ export const openSession = (
     if (deps.stallMs === undefined || activeTurn === null) return;
     disarmStall();
     stallTimer = deps.clock.setTimeout(() => {
+      // The turn may have ended between the timer firing and this callback
+      // running. Without this guard a clean turn that finished near the
+      // budget would be reported as a stall and the child signalled.
+      if (activeTurn === null) return;
       stalled = true;
       log({
         event: "stall",

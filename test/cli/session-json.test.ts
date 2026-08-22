@@ -190,6 +190,101 @@ describe("T07: write-failed is distinct from closed", () => {
   });
 });
 
+describe("branch review: fixes for the findings the cross-family review raised", () => {
+  test("F7: a queued send that dies with the session is rejected on the wire", async () => {
+    const proc = new FakeProcess();
+    const spawner = fakeSpawner([proc]);
+    const closeInfo = { exitCode: null as number | null, cause: "clean" };
+    const droppedIds: string[] = [];
+    const handle = openSession(
+      claudeCode,
+      { sessionId: sid },
+      {
+        spawn: spawner.spawn,
+        clock: new FakeClock(),
+        signal: fakeSignal().signal,
+        log: (e: Record<string, unknown>) => {
+          if (e.event === "session_close") {
+            closeInfo.exitCode = (e.exitCode as number | null) ?? null;
+            closeInfo.cause = (e.cause as string) ?? "clean";
+          }
+          if (e.event === "sends_dropped" && Array.isArray(e.ids)) {
+            for (const id of e.ids as unknown[]) if (typeof id === "string") droppedIds.push(id);
+          }
+        },
+      },
+    );
+    const input = new PassThrough();
+    const out: string[] = [];
+    const done = runJsonSession({
+      handle,
+      sessionId: sid,
+      harness: "claude",
+      hcnVersion: "9.9.9",
+      escalateQuestions: true,
+      getCloseInfo: () => closeInfo,
+      getDroppedIds: () => droppedIds,
+      input,
+      write: (line) => {
+        out.push(line);
+        return true;
+      },
+      onDrain: (fn) => fn(),
+    });
+
+    input.write(`${JSON.stringify({ op: "send", id: "in-1", text: "first" })}\n`);
+    await tick();
+    proc.emitLine(init);
+    input.write(`${JSON.stringify({ op: "send", id: "in-2", text: "queued and doomed" })}\n`);
+    await tick();
+    proc.exit(1); // dies before the boundary ever flushes in-2
+    await tick();
+    input.end();
+    await done;
+
+    const evs = out
+      .join("")
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((l) => JSON.parse(l));
+    const rejected = evs.find((e) => e.kind === "disposition" && e.disposition === "rejected");
+    expect(rejected).toMatchObject({ id: "in-2", reason: "closed" });
+    // The rejection lands before the terminal line, never after it.
+    expect(evs.indexOf(rejected)).toBeLessThan(evs.length - 1);
+    expect(evs.at(-1)).toMatchObject({ kind: "closed" });
+  });
+
+  // The window this closes is a microtask wide, so a stream-driven test
+  // cannot force it open. What is asserted here is the invariant that the
+  // reordering guarantees: the moment `done` is READABLE by the consumer,
+  // an answer is already accepted. The consumer answers as soon as it sees
+  // the line, which is exactly the sequence the review described.
+  test("F1: an answer is accepted as soon as done is on the wire", async () => {
+    const r = rig();
+    await tick();
+    r.send({ op: "send", id: "in-1", text: "ask me" });
+    await tick();
+    r.proc.emitLine(init);
+    r.proc.emitLine(question("Deploy where?", ["prod", "staging"]));
+    r.proc.emitLine(result);
+
+    // Answer the instant the done line is readable, not a tick later.
+    while (!r.events().some((e) => e.kind === "done")) await tick();
+    r.send({ op: "answer", id: "in-2", text: "prod" });
+    await tick();
+    r.proc.emitLine(init);
+    r.proc.emitLine(result);
+    await tick();
+    r.input.end();
+    await r.done;
+
+    const evs = r.events();
+    const answerDisp = evs.filter((e) => e.kind === "disposition")[1];
+    expect(answerDisp).toMatchObject({ id: "in-2", disposition: "started" });
+  });
+});
+
 describe("T04: answer wraps the preamble; no-open-question is refused", () => {
   test("answer after an awaiting-input turn opens a wrapped turn", async () => {
     const r = rig();
