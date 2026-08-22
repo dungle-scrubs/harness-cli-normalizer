@@ -9,6 +9,9 @@ import { createRenderState, renderEvent } from "./render.js";
 import { resolveHarness } from "./resolve-harness.js";
 
 export const session = async (harnessName: string, rawArgs: string[]): Promise<void> => {
+  // Decided before any refusal can fire: a refused --json session still owes
+  // the stream a failure and a terminal `closed` (RFC-01 rule 3).
+  const jsonMode = rawArgs.includes("--json");
   // issue #44: the gate is the descriptor's sessionMode (claude stream-json,
   // pi --mode rpc), not a hardcoded name list - a harness that grows a
   // session mode is available the moment its descriptor declares one.
@@ -23,9 +26,8 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
       supported,
       detail: `session mode is available on ${supported.join(", ")}; ${harnessName} declares no persistent headless session`,
     });
-    process.stderr.write(`${err.message}\n`);
-    process.stderr.write(`supported: ${supported.join(", ")}\n`);
-    process.exitCode = 2;
+    const { refusalOf, refuse } = await import("./refuse.js");
+    refuse(refusalOf(err), jsonMode, "closed");
     return;
   }
 
@@ -42,6 +44,14 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     process.stderr.write(`unknown flag: ${message}\n`);
+    if (jsonMode) {
+      const { writeFailurePair } = await import("./refuse.js");
+      const { failureFromRejected } = await import("../execution/failure.js");
+      writeFailurePair(
+        failureFromRejected({ issue: "invalid-option-value", detail: `unknown flag: ${message}` }),
+        "closed",
+      );
+    }
     process.exitCode = 2;
     return;
   }
@@ -88,6 +98,17 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
             : "default";
   } catch (configErr) {
     process.stderr.write(`config error: ${(configErr as Error).message}\n`);
+    if (jsonMode) {
+      const { writeFailurePair } = await import("./refuse.js");
+      const { failureFromRejected } = await import("../execution/failure.js");
+      writeFailurePair(
+        failureFromRejected({
+          issue: "invalid-option-value",
+          detail: `config error: ${(configErr as Error).message}`,
+        }),
+        "closed",
+      );
+    }
     process.exitCode = 2;
     return;
   }
@@ -105,6 +126,17 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
     const seconds = Number(rawStall);
     if (!Number.isFinite(seconds) || seconds < 0) {
       process.stderr.write(`invalid --stall ${JSON.stringify(rawStall)}; expected seconds >= 0\n`);
+      if (jsonMode) {
+        const { writeFailurePair } = await import("./refuse.js");
+        const { failureFromRejected } = await import("../execution/failure.js");
+        writeFailurePair(
+          failureFromRejected({
+            issue: "invalid-option-value",
+            detail: `invalid --stall ${JSON.stringify(rawStall)}`,
+          }),
+          "closed",
+        );
+      }
       process.exitCode = 2;
       return;
     }
@@ -131,14 +163,23 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
     handle = openSession(h, { sessionId, model, cwd, escalateQuestions, provider }, deps);
   } catch (err) {
     if (err instanceof ArgvRefusalError) {
-      process.stderr.write(`${err.message}\n`);
-      if (err.supported.length) process.stderr.write(`supported: ${err.supported.join(", ")}\n`);
-      process.exitCode = 2;
+      const { refusalOf, refuse } = await import("./refuse.js");
+      refuse(refusalOf(err), jsonMode, "closed");
       return;
     }
+    // S002: the harness binary is missing or would not start. A transport
+    // failure, not a refusal - exit 1, and the stream is still owed its pair.
     process.stderr.write(
       `could not open session: ${err instanceof Error ? err.message : String(err)}\n`,
     );
+    if (jsonMode) {
+      const { writeFailurePair } = await import("./refuse.js");
+      const { failureFromTransport } = await import("../execution/failure.js");
+      writeFailurePair(
+        failureFromTransport(err instanceof Error ? err.message : String(err)),
+        "closed",
+      );
+    }
     process.exitCode = 1;
     return;
   }

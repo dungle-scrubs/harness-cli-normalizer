@@ -72,6 +72,22 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
   const rawWrite = a.write ?? ((line: string) => process.stdout.write(line));
   const onDrain = a.onDrain ?? ((fn: () => void) => process.stdout.once("drain", fn));
 
+  // The consumer's read end can close mid-session (it died, or it stopped
+  // reading). The process-wide EPIPE guard in index.ts exits 0 immediately,
+  // which would strand the harness child with nobody to end it. For a
+  // machine session the right answer is to close the session - grace, then
+  // signal - and exit 1. Replacing the listener is deliberate: the global
+  // one runs first otherwise and the process is gone before we act.
+  let consumerGone = false;
+  if (a.write === undefined) {
+    process.stdout.removeAllListeners("error");
+    process.stdout.on("error", (err: NodeJS.ErrnoException) => {
+      if (err.code !== "EPIPE") return;
+      consumerGone = true;
+      void a.handle.close();
+    });
+  }
+
   // One serialized, drain-aware writer for both pumps: stdout never
   // interleaves two events and never buffers past the OS pipe.
   let chain: Promise<void> = Promise.resolve();
@@ -184,5 +200,8 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
     cause: info.cause,
     ...(info.cause !== "clean" && lastFailure !== undefined ? { failure: lastFailure } : {}),
   });
+  // A consumer that stopped reading gets exit 1 even on a clean harness exit:
+  // the session did not end the way the consumer asked for.
+  if (consumerGone) return 1;
   return info.cause === "clean" ? 0 : 1;
 };
