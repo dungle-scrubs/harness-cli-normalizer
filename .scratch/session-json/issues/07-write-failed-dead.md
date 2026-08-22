@@ -1,6 +1,6 @@
 # T07 - write-failed disposition and session death
 
-Status: open
+Status: done
 Blocked by: 02, 03
 
 ## What to build

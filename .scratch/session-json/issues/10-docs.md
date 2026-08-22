@@ -1,6 +1,6 @@
 # T10 - Document the machine session surface
 
-Status: open
+Status: done
 Blocked by: 02, 05, 06, 08, 09
 
 ## What to build

@@ -1,6 +1,6 @@
 # T08 - Terminal paths: refusal, spawn failure, EPIPE
 
-Status: open
+Status: done
 Blocked by: 02
 
 ## What to build

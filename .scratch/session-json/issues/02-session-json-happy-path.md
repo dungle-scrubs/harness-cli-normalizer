@@ -1,6 +1,6 @@
 # T02 - Tracer bullet: hcn session --json happy path
 
-Status: open
+Status: done
 Blocked by: 01
 
 ## What to build

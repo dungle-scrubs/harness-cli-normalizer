@@ -1,6 +1,6 @@
 # T09 - hcn inspect --capabilities and --mode
 
-Status: open
+Status: done
 Blocked by: none
 
 ## What to build

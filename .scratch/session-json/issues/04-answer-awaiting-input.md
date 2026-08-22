@@ -1,6 +1,6 @@
 # T04 - answer op and awaiting-input turns
 
-Status: open
+Status: done
 Blocked by: 02
 
 ## What to build

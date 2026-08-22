@@ -1,6 +1,6 @@
 # T05 - Stall watchdog and --stall
 
-Status: open
+Status: done
 Blocked by: 02
 
 ## What to build

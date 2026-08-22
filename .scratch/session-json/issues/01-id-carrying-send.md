@@ -1,6 +1,6 @@
 # T01 - Prefactor: id-carrying send in the session runner
 
-Status: open
+Status: done
 Blocked by: none
 
 ## What to build
