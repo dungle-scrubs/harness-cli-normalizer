@@ -117,6 +117,17 @@ Arguments:
   <harness>               claude | pi (others have no sessionMode)
 
 Options:
+  --json                    Machine surface: NDJSON events on stdout, NDJSON
+                            commands on stdin ({"op":"send","id":..,"text":..},
+                            "answer", "close"). Every send is answered with one
+                            disposition (started | queued | rejected); a queued
+                            send's id rides to the turn that consumes it. The
+                            stream opens with a session event and ends with a
+                            closed event. Exit 0 clean, 1 otherwise, 2 refusal.
+  --stall <seconds>         Per-turn inactivity budget; the turn ends and the
+                            session closes reporting a stall. 0 disables
+                            (default: no limit)
+  --provider <value>        Provider (pi only)
   --model <id>              Model for the session
   --session-id <uuid>       Session id (UUID, else random; re-enters an
                             existing session)

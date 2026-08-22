@@ -29,7 +29,7 @@ import {
 import type { HarnessDescriptor, SessionInputContract } from "../knowledge/descriptor.js";
 import { AsyncChannel } from "./channel.js";
 import { decodeParsed, freshDecodeState } from "./decode.js";
-import type { RunnerDeps, SpawnedProcess } from "./deps.js";
+import type { RunnerDeps, SpawnedProcess, TimerHandle } from "./deps.js";
 import type { ExitCause, HarnessEvent } from "./events.js";
 import type { FailureSummary } from "./failure.js";
 import {
@@ -89,6 +89,8 @@ export interface OpenSessionOptions {
    * every send and arms block detection at turn end; false composes the
    * no-ask instruction and disarms detection. */
   readonly escalateQuestions?: boolean;
+  /** Provider selector (pi); refused on a harness without one. */
+  readonly provider?: string;
 }
 
 export class SessionClosedError extends Error {
@@ -116,6 +118,7 @@ export const openSession = (
   const argv = buildSessionArgv(h, {
     sessionId: opts.sessionId,
     ...(opts.model !== undefined ? { model: opts.model } : {}),
+    ...(opts.provider !== undefined ? { provider: opts.provider } : {}),
   });
   let sessionInput: SessionInputContract;
   try {
@@ -191,6 +194,38 @@ export const openSession = (
     deps.clock.setTimeout(() => safeSignal("SIGKILL"), KILL_GRACE_MS);
   };
 
+  // Per-turn inactivity budget. A session turn can hang with the process
+  // alive and the pipes open, which no exit code reports; without this the
+  // consumer waits forever. Armed at turn start, rearmed on any output
+  // chunk, disarmed at turn end and at exit - the same discipline
+  // streamTurn uses, scoped to the turn rather than the process.
+  let stallTimer: TimerHandle | null = null;
+  let stalled = false;
+  const disarmStall = (): void => {
+    if (stallTimer !== null) deps.clock.clearTimeout(stallTimer);
+    stallTimer = null;
+  };
+  const rearmStall = (): void => {
+    if (deps.stallMs === undefined || activeTurn === null) return;
+    disarmStall();
+    stallTimer = deps.clock.setTimeout(() => {
+      stalled = true;
+      log({
+        event: "stall",
+        sessionId: opts.sessionId,
+        turnId: activeTurnId,
+        harness: h.name,
+        reason: "inactivity",
+        budgetMs: deps.stallMs,
+      });
+      // The turn is owed its own terminal event before the process dies;
+      // the exit path then closes the session with the same cause.
+      void pushFailure(failureFromTransport("stalled: inactivity"));
+      endTurn({ kind: "done", exitCode: null, cause: "stall" });
+      escalate();
+    }, deps.stallMs);
+  };
+
   const writeUser = (text: string): boolean => {
     try {
       stdin.write(
@@ -230,6 +265,7 @@ export const openSession = (
       activeTurn.push(held);
     }
     turnsChannel.push(activeTurn as SessionTurn);
+    rearmStall();
   };
 
   /** issue #44: at a turn boundary, scan the last assistant message for
@@ -268,6 +304,7 @@ export const openSession = (
 
   const endTurn = (done: HarnessEvent & { kind: "done" }): void => {
     if (activeTurn === null) return;
+    disarmStall();
     // Asking is a successful turn: the session semantic is "blocked on
     // answer, session alive" - the done stays TURN-scoped (exitCode null
     // in sessions) and the caller answers with the next send().
@@ -456,6 +493,7 @@ export const openSession = (
       }
     };
     for await (const chunk of proc.stdout) {
+      rearmStall();
       for (const line of lines.push(chunk)) await handleLine(line);
     }
     const rest = lines.flush();
@@ -465,6 +503,7 @@ export const openSession = (
   const pumpStderr = async (): Promise<void> => {
     const lines = new LineBuffer();
     for await (const chunk of proc.stderr) {
+      rearmStall();
       for (const line of lines.push(chunk)) {
         const limit = detectLimitInLine(h, line);
         if (limit !== null) {
@@ -500,13 +539,17 @@ export const openSession = (
   const finalize = (): void => {
     if (finalized) return;
     finalized = true;
-    const cause: ExitCause = state.limitSeen
-      ? "limit"
-      : exitCode === 0
-        ? "clean"
-        : exitCode === null
-          ? "killed"
-          : "crash";
+    // A stall killed the process on purpose, so the signal death it caused
+    // reports as "stall", not "killed".
+    const cause: ExitCause = stalled
+      ? "stall"
+      : state.limitSeen
+        ? "limit"
+        : exitCode === 0
+          ? "clean"
+          : exitCode === null
+            ? "killed"
+            : "crash";
     if (pumpError !== null) {
       void routeEvent({ kind: "error", message: `session pump failed: ${String(pumpError)}` });
     }
@@ -550,6 +593,8 @@ export const openSession = (
   void proc.exited.then((code) => {
     dead = true;
     exitCode = code;
+    // The process is gone: a later fire would flip a finished turn to stall.
+    disarmStall();
     // Pipes held open past exit (a grandchild) must not hang the session.
     const pipeGrace = deps.clock.setTimeout(() => {
       pipesOpenAtExit = true;

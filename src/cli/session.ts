@@ -53,6 +53,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
     randomUUID();
   const model = values.model as string | undefined;
   const cwd = values.cwd as string | undefined;
+  const provider = values.provider as string | undefined;
 
   // issue #44: same precedence as hcn run - arg > project > user >
   // default-true. A behavior instruction, so it rides every send's
@@ -96,7 +97,20 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   delete (process.env as Record<string, string | undefined>).HERDR_ENV;
 
   const wantJson = values.json === true;
-  const baseDeps = nodeRunnerDeps();
+  // Opt-in per-turn inactivity budget. 0 disables; no default. A session turn
+  // can hang with the process alive, which no exit code reports.
+  const rawStall = values.stall as string | undefined;
+  let stallMs: number | undefined;
+  if (rawStall !== undefined) {
+    const seconds = Number(rawStall);
+    if (!Number.isFinite(seconds) || seconds < 0) {
+      process.stderr.write(`invalid --stall ${JSON.stringify(rawStall)}; expected seconds >= 0\n`);
+      process.exitCode = 2;
+      return;
+    }
+    if (seconds > 0) stallMs = seconds * 1000;
+  }
+  const baseDeps = stallMs === undefined ? nodeRunnerDeps() : nodeRunnerDeps({ stallMs });
   // Capture the runner's final exitCode/cause for the --json `closed` event.
   const closeInfo = { exitCode: null as number | null, cause: "clean" };
   const deps = wantJson
@@ -114,7 +128,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
 
   let handle: ReturnType<typeof openSession>;
   try {
-    handle = openSession(h, { sessionId, model, cwd, escalateQuestions }, deps);
+    handle = openSession(h, { sessionId, model, cwd, escalateQuestions, provider }, deps);
   } catch (err) {
     if (err instanceof ArgvRefusalError) {
       process.stderr.write(`${err.message}\n`);

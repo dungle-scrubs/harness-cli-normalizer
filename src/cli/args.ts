@@ -310,6 +310,7 @@ const KNOWN_FLAGS = new Set([
   "--argv",
   "--capabilities",
   "--mode",
+  "--stall",
   "--help",
   "-h",
   "--version",
@@ -333,6 +334,7 @@ const FLAGS_WITH_VALUE = new Set([
   "--session-id",
   "--timeout",
   "--mode",
+  "--stall",
 ]);
 
 export const detectPositionalPromptInjection = (argv: string[]): string | null => {
@@ -464,6 +466,7 @@ export const parseCommonFlags = (
       argv: { type: "boolean" as const },
       capabilities: { type: "boolean" as const },
       mode: { type: "string" as const },
+      stall: { type: "string" as const },
       help: { type: "boolean" as const },
       version: { type: "boolean" as const },
     },
