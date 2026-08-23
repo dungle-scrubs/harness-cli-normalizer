@@ -119,6 +119,7 @@ export const piCli: HarnessDescriptor = deepFreeze({
     },
     session: true,
   },
+  escalation: { supported: true },
   turnOptions: {
     effort: { kind: "effort", render: { kind: "flag-value", flag: "--thinking" } },
     provider: { kind: "selector", render: { kind: "flag-value", flag: "--provider" } },

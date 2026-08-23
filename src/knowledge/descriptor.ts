@@ -407,6 +407,23 @@ export interface HarnessDescriptor {
     readonly streamingByMode: Readonly<Record<HarnessMode, StreamingGranularity>>;
     readonly session: boolean;
   };
+  /** Escalation provenance: whether this harness and model were observed to
+   * emit the structured hcn-question block when instructed, and when that
+   * observation was made. `supported` is documented as "this harness and
+   * model were observed to emit the structured block when instructed", NOT
+   * as "this harness can ask" - live probes show models ask unprompted, so
+   * a capability-to-ask name would be false. `observedOn` is optional;
+   * absence means no probe exists for this harness/model. Staleness is
+   * derived from version comparison at read time, not stored. */
+  readonly escalation: {
+    readonly supported: boolean;
+    readonly observedOn?: {
+      readonly harness: string;
+      readonly model: string;
+      readonly version: string;
+      readonly date: string;
+    };
+  };
   /** Per-call turn options this harness can express, keyed by the closed
    * `TurnOptionKey` vocabulary. Absent keys are unexpressible on this
    * harness; a call passing them must refuse. Discovery is a table of

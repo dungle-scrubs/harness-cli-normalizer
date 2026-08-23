@@ -11,7 +11,29 @@ import type {
   HarnessMode,
   StreamingGranularity,
 } from "../knowledge/descriptor.js";
+import { compareVersions } from "./versions.js";
 import { resolveModel } from "./vocabulary.js";
+
+export interface EscalationObservedOn {
+  readonly harness: string;
+  readonly model: string;
+  readonly version: string;
+  readonly date: string;
+}
+
+/**
+ * Escalation claim: whether this harness and model were observed to emit
+ * the structured hcn-question block when instructed, NOT "this harness can
+ * ask" - live probes show models ask unprompted, so capability-to-ask would
+ * be false.
+ */
+export interface EscalationClaim {
+  /** True when this harness and model were observed to emit the structured block when instructed. */
+  readonly supported: boolean;
+  readonly source: "runtime-verified" | "curated" | "unknown";
+  readonly confidence: "high" | "medium" | "none";
+  readonly observedOn?: EscalationObservedOn;
+}
 
 export interface CapabilityResult {
   readonly vision: boolean;
@@ -20,7 +42,33 @@ export interface CapabilityResult {
   readonly session: boolean;
   readonly source: "runtime-verified" | "curated" | "unknown";
   readonly confidence: "high" | "medium" | "none";
+  readonly escalation: EscalationClaim;
 }
+
+const escalationOf = (h: HarnessDescriptor): EscalationClaim => {
+  const obs = h.escalation.observedOn;
+  if (obs !== undefined) {
+    const cmp = compareVersions(obs.version, h.verifiedAgainst);
+    if (cmp < 0) {
+      return {
+        supported: true,
+        source: "runtime-verified",
+        confidence: "medium",
+        observedOn: obs,
+      };
+    }
+    return {
+      supported: true,
+      source: "runtime-verified",
+      confidence: "high",
+      observedOn: obs,
+    };
+  }
+  if (h.escalation.supported) {
+    return { supported: true, source: "curated", confidence: "medium" };
+  }
+  return { supported: false, source: "unknown", confidence: "none" };
+};
 
 export const capabilitiesOf = (
   h: HarnessDescriptor,
@@ -41,6 +89,7 @@ export const capabilitiesOf = (
       session: false,
       source: "unknown",
       confidence: "none",
+      escalation: { supported: false, source: "unknown", confidence: "none" },
     };
   }
   return {
@@ -50,5 +99,6 @@ export const capabilitiesOf = (
     session: h.capabilities.session,
     source: "curated",
     confidence: "medium",
+    escalation: escalationOf(h),
   };
 };

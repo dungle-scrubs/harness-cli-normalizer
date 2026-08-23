@@ -101,6 +101,7 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     },
     session: false,
   },
+  escalation: { supported: true },
   turnOptions: {
     effort: {
       kind: "effort",
