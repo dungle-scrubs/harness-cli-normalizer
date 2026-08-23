@@ -457,10 +457,11 @@ export interface HarnessDescriptor {
    * pi model registry, D-008). */
   /** Caller-directed skills allowlist surface (issue #38). pi: repeatable
    * load flag. claude: per-name "off" overrides via settings JSON.
-   * codex/muse: null (structural gap - trust/config scoped only). */
+   * codex: per-skill "off" via config-kv array (-c skills.config).
+   * muse: null (structural gap - trust/config scoped only). */
   readonly skills: {
     readonly loadFlag: string | null;
-    readonly overridesVia: "settings-skilloverrides" | null;
+    readonly overridesVia: "settings-skilloverrides" | "config-skills-array" | null;
   } | null;
   readonly tools: {
     readonly includeFlag: string | null;

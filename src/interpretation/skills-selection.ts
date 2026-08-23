@@ -10,7 +10,15 @@
  *   OFF - `--settings '{"skillOverrides":{"<name>":"off",...}}'` for every
  *   known skill except the picks. Known set comes from the caller's root
  *   listing (same source that resolved the names).
- * - codex/muse: refuse (structural) with the standard hint shape.
+ * - codex: per-skill disable via config-kv array `-c
+ *   skills.config=[{path="...", enabled=false}]` for every known skill
+ *   except the picks (complement-off, same inversion as claude). Uses
+ *   `path` selector rather than `name` because a skill's frontmatter
+ *   `name` need not equal its directory basename, and `path` is exact.
+ *   The path for skill <n> under root <root> is <root>/<n>/SKILL.md.
+ *   No global `skills.enabled` switch exists. Requires the known set
+ *   and the resolved picks (root derived from picks via dirname).
+ * - muse: refuse (structural) with the standard hint shape.
  */
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { ArgvRefusalError } from "./refusal.js";
@@ -18,6 +26,11 @@ import { ArgvRefusalError } from "./refusal.js";
 export const basenameOf = (p: string): string => {
   const i = p.lastIndexOf("/");
   return i === -1 ? p : p.slice(i + 1);
+};
+
+const dirnameOf = (p: string): string => {
+  const i = p.lastIndexOf("/");
+  return i === -1 ? "" : p.slice(0, i);
 };
 
 export const renderSkillsSelection = (
@@ -35,11 +48,9 @@ export const renderSkillsSelection = (
       supportedBy: [
         { harness: "pi", spelling: "--skill" },
         { harness: "claude", spelling: "skillOverrides" },
+        { harness: "codex", spelling: "-c skills.config" },
       ],
-      hint:
-        h.name === "codex"
-          ? "codex discovers skills from its own directory with no call-time surface - stage the skills into $CODEX_HOME/skills or pass their content in the prompt"
-          : "muse scopes skills by workspace trust with no per-skill surface - include the skill content in the prompt or use --trust-workspace for the whole registry",
+      hint: "muse scopes skills by workspace trust with no per-skill surface - include the skill content in the prompt or use --trust-workspace for the whole registry",
     });
   }
 
@@ -50,9 +61,9 @@ export const renderSkillsSelection = (
     return tokens;
   }
 
-  // claude: complement-off via settings JSON. Names are the skill dir
-  // basenames; unknown names in knownSkills would be turned off
-  // pointlessly, so the caller passes exactly the known set.
+  // claude and codex: complement-off via CLI layer (settings JSON / config
+  // array). The descriptor-level render returns [] and tokens append in
+  // stream-turn / CLI.
   return [];
 };
 
@@ -70,4 +81,31 @@ export const claudeSkillOverridesArg = (
   }
   const json = JSON.stringify({ skillOverrides: offs });
   return ["--settings", json];
+};
+
+/** Codex complement form: every known skill except the picks gets
+ * `{path="<root>/<name>/SKILL.md>", enabled=false}` via `-c
+ * skills.config=[...]`. Uses `path` (exact) over `name` because
+ * frontmatter name may diverge from directory basename. Root is derived
+ * from the picks' dirname (all picks share the same root); if picks is
+ * empty the complement cannot be rooted and we return [] (caller picks
+ * nothing - no integration point needs this, and the CLI layer never
+ * calls with empty picks). Empty complement returns [] (no flag). */
+export const codexSkillConfigArg = (
+  knownSkills: readonly string[],
+  pickedPaths: readonly string[],
+): string[] => {
+  const picks = new Set(pickedPaths.map(basenameOf));
+  // Derive root from first pick's dirname; all picks are under same root
+  // (skills-root guarantees this). Fall back to "" if no picks.
+  const root = pickedPaths.length > 0 ? dirnameOf(pickedPaths[0] as string) : "";
+  const entries: string[] = [];
+  for (const name of knownSkills) {
+    if (!picks.has(name)) {
+      const absPath = root ? `${root}/${name}/SKILL.md` : `${name}/SKILL.md`;
+      entries.push(`{path=${JSON.stringify(absPath)}, enabled=false}`);
+    }
+  }
+  if (entries.length === 0) return [];
+  return ["-c", `skills.config=[${entries.join(", ")}]`];
 };

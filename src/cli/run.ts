@@ -185,13 +185,16 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     try {
       const { resolveSkillNames, listKnownSkills } = await import("./skills-root.js");
       const resolvedSkills = resolveSkillNames(rawSkills, h.name);
-      const claudeTokens: string[] = [];
+      const skillTokens: string[] = [];
       if (h.name === "claude") {
         const { claudeSkillOverridesArg } = await import("../interpretation/skills-selection.js");
-        claudeTokens.push(...claudeSkillOverridesArg(listKnownSkills(), resolvedSkills));
+        skillTokens.push(...claudeSkillOverridesArg(listKnownSkills(), resolvedSkills));
+      } else if (h.name === "codex") {
+        const { codexSkillConfigArg } = await import("../interpretation/skills-selection.js");
+        skillTokens.push(...codexSkillConfigArg(listKnownSkills(), resolvedSkills));
       }
       (turnOpts as unknown as Record<string, unknown>).skills = resolvedSkills;
-      (turnOpts as unknown as Record<string, unknown>).__claudeSkillTokens = claudeTokens;
+      (turnOpts as unknown as Record<string, unknown>).__skillTokens = skillTokens;
     } catch (err) {
       if (err instanceof ArgvRefusalError) {
         refuse(refusalOf(err), wantJson);
@@ -316,10 +319,10 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
         prompt: fullOpts.prompt,
         __explicitPrompt: isExplicit,
       } as never);
-      const claudeSkillTokens = (effectiveTurnOpts as unknown as { __claudeSkillTokens?: string[] })
-        .__claudeSkillTokens;
-      if (claudeSkillTokens !== undefined && claudeSkillTokens.length > 0) {
-        preArgv.push(...claudeSkillTokens);
+      const skillTokens = (effectiveTurnOpts as unknown as { __skillTokens?: string[] })
+        .__skillTokens;
+      if (skillTokens !== undefined && skillTokens.length > 0) {
+        preArgv.push(...skillTokens);
       }
     }
     _validated = true;
