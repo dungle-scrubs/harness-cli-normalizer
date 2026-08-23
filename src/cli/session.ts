@@ -57,45 +57,96 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   }
 
   const values = parsed.values as Record<string, unknown>;
-  const sessionId =
-    (values["session-id"] as string | undefined) ??
-    (values.resume as string | undefined) ??
-    randomUUID();
+  // --resume and --session-id are aliases for one concept: resume an existing
+  // session. Passing both is refused, matching hcn run's parseRunExtra shape
+  // (src/cli/args.ts) rather than inventing a second parser.
+  if (values.resume !== undefined && values["session-id"] !== undefined) {
+    const { ArgvRefusalError: AliasError } = await import("../interpretation/refusal.js");
+    const err = new AliasError({
+      issue: "mutually-exclusive-options",
+      harness: h.name,
+      supported: ["--resume or --session-id, not both (--session-id is an alias for --resume)"],
+      detail: "both --resume and --session-id given",
+    });
+    const { refusalOf: aliasRefusalOf, refuse: aliasRefuse } = await import("./refuse.js");
+    aliasRefuse(aliasRefusalOf(err), jsonMode, "closed");
+    return;
+  }
+  const resumeId =
+    (values.resume as string | undefined) ?? (values["session-id"] as string | undefined);
+  // The two flags are aliases for "use this session". Whether that means
+  // RESUME is decided by the store, not by which spelling was typed: an id
+  // that exists is resumed (resumeFlag rendered), an id that does not exist
+  // names a fresh session (idFlag rendered). --resume on an id that does not
+  // exist is the one combination refused, below - a caller who said "resume"
+  // and would silently get a fresh conversation is issue #86 exactly.
+  const explicitResume = values.resume !== undefined;
+  // A caller-supplied id must be the shape this harness's store files
+  // sessions under (issue #95). hcn run already holds this line through
+  // parse-resume; session only checked the safe-filename rule, so "bogus"
+  // reached the harness, rode the session and identity events, and on a
+  // create-on-unknown harness became a real file nobody can find again.
+  if (resumeId !== undefined && !h.resume.idShape.test(resumeId)) {
+    const flag = explicitResume ? "--resume" : "--session-id";
+    const { refuse: shapeRefuse } = await import("./refuse.js");
+    shapeRefuse(
+      {
+        message: `${flag} ${JSON.stringify(resumeId.slice(0, 64))} is not a ${h.name} session id`,
+        issue: "invalid-option-value",
+        supported: [`a session id matching ${String(h.resume.idShape)}`],
+      },
+      jsonMode,
+      "closed",
+    );
+    return;
+  }
+  const sessionId = resumeId ?? randomUUID();
+  let isResume = false;
   const model = values.model as string | undefined;
   const cwd = values.cwd as string | undefined;
   const provider = values.provider as string | undefined;
 
-  // issue #44: same precedence as hcn run - arg > project > user >
-  // default-true. A behavior instruction, so it rides every send's
-  // preamble, never a harness flag.
-  const argEscalate =
-    values["escalate-questions"] === true
-      ? true
-      : values["no-escalate-questions"] === true
-        ? false
-        : undefined;
-  let escalateQuestions: boolean;
-  let escalateTier: "arg" | "project-config" | "user-config" | "default";
+  // question mode precedence arg > project > user > default (ask)
+  const rawArgMode = values.questions !== undefined ? String(values.questions) : undefined;
+  if (rawArgMode !== undefined && !["ask", "assume", "none"].includes(rawArgMode)) {
+    const { refuse, refusalOf } = await import("./refuse.js");
+    const { ArgvRefusalError } = await import("../interpretation/refusal.js");
+    refuse(
+      refusalOf(
+        new ArgvRefusalError({
+          issue: "invalid-option-value",
+          harness: h.name,
+          option: "questions",
+          supported: ["ask", "assume", "none"],
+          detail: rawArgMode,
+        }),
+      ),
+      jsonMode,
+      "closed",
+    );
+    return;
+  }
+  let questionMode: import("../interpretation/question.js").QuestionMode;
+  let questionTier: "arg" | "project-config" | "user-config" | "default";
   try {
     const { loadUserConfig, loadProjectConfig } = await import("./config.js");
-    const user = loadUserConfig()?.config as { escalateQuestions?: boolean } | undefined;
-    const project = loadProjectConfig()?.config as { escalateQuestions?: boolean } | undefined;
-    escalateQuestions =
-      argEscalate !== undefined
-        ? argEscalate
-        : project?.escalateQuestions !== undefined
-          ? project.escalateQuestions
-          : user?.escalateQuestions !== undefined
-            ? user.escalateQuestions
-            : true;
-    escalateTier =
-      argEscalate !== undefined
-        ? "arg"
-        : project?.escalateQuestions !== undefined
-          ? "project-config"
-          : user?.escalateQuestions !== undefined
-            ? "user-config"
-            : "default";
+    const user = loadUserConfig()?.config as { questions?: string } | undefined;
+    const project = loadProjectConfig()?.config as { questions?: string } | undefined;
+    const userMode = user?.questions;
+    const projectMode = project?.questions;
+    if (rawArgMode !== undefined) {
+      questionMode = rawArgMode as import("../interpretation/question.js").QuestionMode;
+      questionTier = "arg";
+    } else if (projectMode !== undefined) {
+      questionMode = projectMode as import("../interpretation/question.js").QuestionMode;
+      questionTier = "project-config";
+    } else if (userMode !== undefined) {
+      questionMode = userMode as import("../interpretation/question.js").QuestionMode;
+      questionTier = "user-config";
+    } else {
+      questionMode = "ask";
+      questionTier = "default";
+    }
   } catch (configErr) {
     process.stderr.write(`config error: ${(configErr as Error).message}\n`);
     if (jsonMode) {
@@ -112,9 +163,38 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
     process.exitCode = 2;
     return;
   }
-  process.stderr.write(`provenance: escalateQuestions = ${escalateQuestions} (${escalateTier})\n`);
+  process.stderr.write(`provenance: questions = ${questionMode} (${questionTier})\n`);
 
   // Validate sessionId shape? let openSession handle via assertUsableSessionId
+  // Unknown-id refusal reuses the run resume guard (src/cli/resume-guard.ts):
+  // harnesses that create on unknown (pi, muse with onMissing === "create")
+  // are refused before spawn with the same message shape hcn run uses.
+  // claude (onMissing === "error") refuses on its own; no store check.
+  if (resumeId !== undefined) {
+    const { resumeStore: checkResumeStore } = await import("./resume-guard.js");
+    const { path: storePath, exists } = checkResumeStore(h, {
+      home: process.env.HOME ?? process.env.USERPROFILE ?? "",
+      cwd: cwd ?? process.cwd(),
+      sessionId,
+    });
+    // Exists in the store: resume it, whichever alias was typed. Absent and the
+    // caller only named an id: a fresh session under that id, as before.
+    isResume = storePath !== null && exists;
+    if (explicitResume && storePath !== null && !exists) {
+      const { refuse: guardRefuse } = await import("./refuse.js");
+      guardRefuse(
+        {
+          message: `no ${h.name} session ${sessionId} found at ${storePath}`,
+          issue: "invalid-option-value",
+          supported: [`a session id that exists in ${h.name}'s store`],
+        },
+        jsonMode,
+        "closed",
+      );
+      return;
+    }
+  }
+
   delete (process.env as Record<string, string | undefined>).HERDR_ENV;
 
   const wantJson = values.json === true;
@@ -164,7 +244,11 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
 
   let handle: ReturnType<typeof openSession>;
   try {
-    handle = openSession(h, { sessionId, model, cwd, escalateQuestions, provider }, deps);
+    handle = openSession(
+      h,
+      { sessionId, model, cwd, questions: questionMode, provider, isResume },
+      deps,
+    );
   } catch (err) {
     if (err instanceof ArgvRefusalError) {
       const { refusalOf, refuse } = await import("./refuse.js");
@@ -196,7 +280,8 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
       sessionId,
       harness: h.name,
       hcnVersion: getVersion(),
-      escalateQuestions,
+      questions: questionMode,
+      origin: isResume ? "resumed" : "fresh",
       getCloseInfo: () => closeInfo,
       getDroppedIds: () => droppedIds,
     });
@@ -258,10 +343,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
       const trimmed = line.trim();
       if (trimmed === "" || trimmed === "exit") break;
 
-      const result = handle.send({ id: `you-${++sendCount}`, text: line });
-      if (result.disposition === "queued") {
-        process.stderr.write(`disposition: queued (turn in progress)\n`);
-      }
+      handle.send({ id: `you-${++sendCount}`, text: line });
 
       const turn = (await turns.next()).value as
         | AsyncIterable<import("../execution/events.js").HarnessEvent>

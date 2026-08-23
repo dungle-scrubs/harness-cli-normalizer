@@ -1,0 +1,4 @@
+{"type":"thread.started","thread_id":"01a02d2d-c429-7c03-a1f2-8bc9905d41ad"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"Which environment should `deploy-target.txt` name: `staging` or `production`? The directory does not provide enough evidence to choose safely."}}
+{"type":"turn.completed","usage":{"input_tokens":27708,"cached_input_tokens":11008,"cache_write_input_tokens":0,"output_tokens":72,"reasoning_output_tokens":36}}

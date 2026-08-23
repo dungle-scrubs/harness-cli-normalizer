@@ -39,7 +39,8 @@
     "smoke:all": "bun scripts/smoke-all.ts",
     "demo": "bun scripts/demo.ts",
     "smoke:seven": "bun scripts/smoke-seven.ts",
-    "check:versions": "bun scripts/check-versions.ts"
+    "check:versions": "bun scripts/check-versions.ts",
+    "smoke:questions": "bun scripts/smoke-questions.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.7",

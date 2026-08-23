@@ -47,7 +47,7 @@ describe("streamTurn happy path (claude, fake spawner)", () => {
       role: "assistant",
       text: "hello there",
     });
-    expect(events.at(-1)).toEqual({ kind: "done", exitCode: 0, cause: "clean" });
+    expect(events.at(-1)).toMatchObject({ kind: "done", exitCode: 0, cause: "clean" });
 
     // The spawned argv is the builder's, verbatim.
     expect(d.spawner.calls).toHaveLength(1);
@@ -159,7 +159,7 @@ describe("streamTurn behaviors (M3.1 boxes)", () => {
     proc.emitLine(init);
     proc.exit(null); // killed externally, no exit code
     const events = await collect(turn);
-    expect(events.at(-1)).toEqual({ kind: "done", exitCode: null, cause: "killed" });
+    expect(events.at(-1)).toMatchObject({ kind: "done", exitCode: null, cause: "killed" });
   });
 
   test("a harness that never announces identity still completes with done", async () => {

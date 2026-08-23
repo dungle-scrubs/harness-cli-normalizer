@@ -69,7 +69,7 @@ null; a turn cut short by the harness dying carries the process exit code,
 equal to `closed.exitCode`). The four control events that frame the stream:
 
 ```jsonl
-{"kind":"session","sessionId":"..","harness":"claude","hcn":"0.5.3","escalateQuestions":true}
+{"kind":"session","sessionId":"..","harness":"claude","hcn":"0.5.3","escalateQuestions":true,"origin":"fresh"}
 {"kind":"turn","turnId":"<sessionId>:turn-1","id":"in-1"}
 {"kind":"disposition","id":"in-1","disposition":"started"}
 {"kind":"closed","exitCode":0,"cause":"clean"}
@@ -78,6 +78,7 @@ equal to `closed.exitCode`). The four control events that frame the stream:
 - `session.sessionId` is the caller-side handle (the `--session-id` value,
   or a random UUID). The `identity` event inside the first turn carries the
   id the harness confirmed; on pi that is the harness-minted id.
+- `session.origin` is `fresh` for a new conversation or `resumed` when `--resume` (or its `--session-id` alias) continued a conversation that already exists in the harness store. A refused unknown-id resume emits no `session` event at all.
 - `turn.id` is the id of the `send` that opened the turn.
 - `closed.cause` is one of `clean`, `limit`, `crash`, `stall`, `killed`.
   `closed.failure` carries the reduced `FailureSummary` when the cause is

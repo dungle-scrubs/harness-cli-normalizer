@@ -37,7 +37,7 @@ const expectClaudeUserWrite = (proc: FakeProcess, index: number, text: string): 
           type: "text",
           // issue #44: escalation composes the SESSION preamble onto every
           // send by default; the raw text rides as the prompt's tail.
-          text: composeEscalatedPrompt(text, true, "session"),
+          text: composeEscalatedPrompt(text, "ask", "session"),
         },
       ],
     },
@@ -87,7 +87,7 @@ describe("openSession (claude, fake process)", () => {
     await session.close();
   });
 
-  test("send during a live turn is QUEUED to the next boundary, not delivered mid-turn (A-001)", async () => {
+  test("send during a live turn is passed to the harness immediately; the harness queues it (ADR 0007)", async () => {
     const proc = new FakeProcess();
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
@@ -96,16 +96,14 @@ describe("openSession (claude, fake process)", () => {
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
 
     proc.emitLine(init);
-    const queued = session.send({ id: "s", text: "second while busy" });
-    expect(queued.disposition).toBe("queued");
-    // Nothing new on stdin yet - mid-turn writes would interleave.
-    expect(proc.stdinLines).toHaveLength(1);
+    const second = session.send({ id: "s", text: "second while busy" });
+    expect(second.disposition).toBe("started");
+    // Passed through immediately - the harness decides what to do with it.
+    expect(proc.stdinLines).toHaveLength(2);
+    expectClaudeUserWrite(proc, 1, "second while busy");
 
     proc.emitLine(result);
     await drainTurn(turn1);
-    // The boundary flushed the queue: the second prompt is on stdin now.
-    expect(proc.stdinLines).toHaveLength(2);
-    expectClaudeUserWrite(proc, 1, "second while busy");
     const turn2 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
     proc.emitLine(result);
     await drainTurn(turn2);
@@ -350,7 +348,7 @@ describe("T01: a send's id travels to the turn it opens and to the loss report",
     await session.close();
   });
 
-  test("a queued send's id rides to the turn that consumes it at the boundary", async () => {
+  test("a send while busy hands the text to the harness; its id rides to the turn that consumes it at the boundary", async () => {
     const proc = new FakeProcess();
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
@@ -361,8 +359,10 @@ describe("T01: a send's id travels to the turn it opens and to the loss report",
     expect(turn1.inputId).toBe("in-1");
 
     proc.emitLine(init);
-    const queued = session.send({ id: "in-2", text: "second while busy" });
-    expect(queued.disposition).toBe("queued");
+    const second = session.send({ id: "in-2", text: "second while busy" });
+    expect(second.disposition).toBe("started");
+    // handed to harness immediately
+    expect(proc.stdinLines).toHaveLength(2);
     proc.emitLine(result);
     await drainTurn(turn1 as AsyncIterable<HarnessEvent>);
 
@@ -373,7 +373,7 @@ describe("T01: a send's id travels to the turn it opens and to the loss report",
     await session.close();
   });
 
-  test("a session that dies with queued sends names the lost ids in the log", async () => {
+  test("a session that dies with pending sends names the lost ids in the log", async () => {
     const proc = new FakeProcess();
     const spawner = fakeSpawner([proc]);
     const sig = fakeSignal();
@@ -389,7 +389,7 @@ describe("T01: a send's id travels to the turn it opens and to the loss report",
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
     proc.emitLine(init);
-    session.send({ id: "in-2", text: "queued and doomed" });
+    session.send({ id: "in-2", text: "pending and doomed" });
     proc.exit(1);
     await drainTurn(turn1);
 

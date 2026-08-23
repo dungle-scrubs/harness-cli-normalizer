@@ -1,26 +1,24 @@
 /**
  * openSession: the persistent headless session runner - ONE process, many
- * turns (A-001). `send` during idle writes a descriptor-encoded user record to
- * stdin and starts a turn; `send` during a live turn is QUEUED to the next
- * boundary (mid-turn stdin writes would interleave into the model's
- * context unpredictably - the harness itself queues, so we mirror its
- * disposition). `result` lines delimit turns; identity dedupe (D-022)
+ * turns (A-001). `send` writes a descriptor-encoded user record to stdin and starts a
+ * turn when idle or hands the text to the harness when a turn is live
+ * (the harness queues it). `result` lines delimit turns; identity dedupe (D-022)
  * spans the whole session. Lifecycle is bounded end to end: close() ends
  * stdin, escalates SIGTERM->SIGKILL if the child ignores EOF, and pipes
  * held open past exit close out after grace - a session can always be
- * ended. Queued sends that die with the session are surfaced, never
+ * ended. Pending sends that die with the session are surfaced, never
  * silently dropped. Structured lifecycle events (session open/close, turn
  * start/end, send dispositions, drops) are always-on evidence with
  * sessionId + turnId correlation.
  */
 import { buildSessionArgv } from "../interpretation/argv.js";
 import { capabilitiesOf } from "../interpretation/capabilities.js";
+import { detectAuthFailureInLine, detectLimitInLine } from "../interpretation/limits.js";
 import {
-  detectAuthFailureInLine,
-  detectLimitInLine,
-  detectTransportInLine,
-} from "../interpretation/limits.js";
-import { composeEscalatedPrompt, detectQuestionBlock } from "../interpretation/question.js";
+  composeEscalatedPrompt,
+  detectQuestionBlock,
+  type QuestionMode,
+} from "../interpretation/question.js";
 import {
   encodeSessionInput,
   resolveSessionInput,
@@ -30,7 +28,7 @@ import type { HarnessDescriptor, SessionInputContract } from "../knowledge/descr
 import { AsyncChannel } from "./channel.js";
 import { decodeParsed, freshDecodeState } from "./decode.js";
 import type { RunnerDeps, SpawnedProcess, TimerHandle } from "./deps.js";
-import type { ExitCause, HarnessEvent } from "./events.js";
+import type { EscalationDetection, ExitCause, HarnessEvent } from "./events.js";
 import type { FailureSummary } from "./failure.js";
 import {
   failureFromAuth,
@@ -50,7 +48,7 @@ export const CLOSE_GRACE_MS = 5_000;
 const PRETURN_MAX = 256;
 
 export interface SessionSendResult {
-  readonly disposition: "started" | "queued" | "rejected";
+  readonly disposition: "started" | "rejected";
   /** Present when rejected. `write-failed` is a broken stdin pipe, which is
    * a different remedy from a session the caller already closed - the two
    * must stay distinguishable. */
@@ -88,13 +86,13 @@ export interface OpenSessionOptions {
   readonly model?: string;
   /** Working directory for the spawned harness. */
   readonly cwd?: string;
-  /** issue #44: question escalation in session mode (behavior
-   * instruction, default true). True composes the session preamble onto
-   * every send and arms block detection at turn end; false composes the
-   * no-ask instruction and disarms detection. */
-  readonly escalateQuestions?: boolean;
+  /** question mode for session (ask/assume/none), default "ask" */
+  readonly questions?: QuestionMode;
   /** Provider selector (pi); refused on a harness without one. */
   readonly provider?: string;
+  /** True when resuming an existing conversation; controls which flag
+   * (resumeFlag vs idFlag) buildSessionArgv renders. */
+  readonly isResume?: boolean;
 }
 
 export class SessionClosedError extends Error {
@@ -123,6 +121,7 @@ export const openSession = (
     sessionId: opts.sessionId,
     ...(opts.model !== undefined ? { model: opts.model } : {}),
     ...(opts.provider !== undefined ? { provider: opts.provider } : {}),
+    ...(opts.isResume !== undefined ? { isResume: opts.isResume } : {}),
   });
   let sessionInput: SessionInputContract;
   try {
@@ -168,13 +167,21 @@ export const openSession = (
 
   const turnsChannel = new AsyncChannel<SessionTurn>();
   const state = freshDecodeState(opts.sessionId);
-  const escalateQuestions = opts.escalateQuestions !== false;
+  const questionMode: QuestionMode = opts.questions ?? "ask";
   const sessionInputMode = h.sessionMode;
   const stderrTail = new StderrTail();
   let turnCounter = 0;
   let activeTurn: AsyncChannel<HarnessEvent> | null = null;
   let activeTurnId = "";
-  const pendingSends: SessionInput[] = [];
+  const pendingIds: string[] = [];
+  const pendingLengths: number[] = [];
+  // close() waits here while a turn is open. Ending the child's stdin
+  // mid-turn is fatal on pi: rpc treats EOF as "finish up and exit", so the
+  // prompt it has buffered never runs and the turn ends clean with no
+  // output (issue #99). claude happens to drain a queued turn after EOF,
+  // which is why this was invisible there. The README promises that a close
+  // after a send lets the turn finish; this is what keeps that promise.
+  let turnSettled: (() => void) | null = null;
   const preTurnEvents: HarnessEvent[] = [];
   let dead = false;
   let closing = false;
@@ -188,6 +195,7 @@ export const openSession = (
   // hcn-question block lives) and whether the turn ended by asking.
   let lastAssistantText: string | null = null;
   let turnAsked = false;
+  let turnEscalationDetection: EscalationDetection = "none";
   let identityAnnounced = false;
 
   const safeSignal = (sig: "SIGTERM" | "SIGKILL"): void => {
@@ -237,10 +245,7 @@ export const openSession = (
   const writeUser = (text: string): boolean => {
     try {
       stdin.write(
-        encodeSessionInput(
-          sessionInput,
-          composeEscalatedPrompt(text, escalateQuestions, "session"),
-        ),
+        encodeSessionInput(sessionInput, composeEscalatedPrompt(text, questionMode, "session")),
       );
       return true;
     } catch {
@@ -265,11 +270,12 @@ export const openSession = (
     turnLimitSeen = false;
     turnFailures = [];
     turnAsked = false;
+    turnEscalationDetection = "none";
     lastAssistantText = null;
     activeTurn = new AsyncChannel<HarnessEvent>();
     activeTurnId = `${opts.sessionId}:turn-${++turnCounter}`;
     // Tag the turn with the id of the send that opened it, so the consumer
-    // correlates a queued input to its turn by reading the tag, not by
+    // correlates an input to its turn by reading the tag, not by
     // shadowing the runner's delivery order.
     (activeTurn as { inputId?: string; turnId?: string }).inputId = inputId;
     (activeTurn as { inputId?: string; turnId?: string }).turnId = activeTurnId;
@@ -288,16 +294,24 @@ export const openSession = (
    * turn stream right before its done; a malformed block surfaces as an
    * error event, never a silent no-op. */
   const emitQuestionIfAsked = (): void => {
-    if (!escalateQuestions || lastAssistantText === null) return;
+    if (questionMode !== "ask" || lastAssistantText === null) {
+      turnEscalationDetection = "none";
+      return;
+    }
     const detection = detectQuestionBlock(lastAssistantText);
-    if (detection === null) return;
+    if (detection === null) {
+      turnEscalationDetection = "none";
+      return;
+    }
     if ("malformed" in detection) {
+      turnEscalationDetection = "malformed";
       activeTurn?.push({ kind: "error", message: detection.malformed });
       const failure = failureFromTask(`malformed hcn-question block: ${detection.malformed}`);
       turnFailures.push(failure);
       void activeTurn?.push({ kind: "failure", ...failure });
       return;
     }
+    turnEscalationDetection = "block";
     turnAsked = true;
     log({
       event: "question",
@@ -316,7 +330,7 @@ export const openSession = (
     });
   };
 
-  const endTurn = (done: HarnessEvent & { kind: "done" }): void => {
+  const endTurn = (done: Omit<HarnessEvent & { kind: "done" }, "escalation">): void => {
     if (activeTurn === null) return;
     disarmStall();
     // Asking is a successful turn: the session semantic is "blocked on
@@ -324,41 +338,40 @@ export const openSession = (
     // in sessions) and the caller answers with the next send().
     emitQuestionIfAsked();
     if (turnAsked && done.cause === "clean") done = { ...done, cause: "awaiting-input" };
+    // RFC-01 every turn end carries the escalation record
+    let fullDone: HarnessEvent & { kind: "done" } = {
+      ...done,
+      escalation: { mode: questionMode, detection: turnEscalationDetection },
+    } as HarnessEvent & { kind: "done" };
     // Every failure was already emitted as an event through pushFailure;
     // the turn's done carries the reduced summary, as streamTurn's does.
     const reduced = reduceFailures(turnFailures);
     if (reduced !== undefined) {
-      if (done.cause === "clean") done = { ...done, cause: "failed", failure: reduced };
-      else done = { ...done, failure: reduced };
+      if (fullDone.cause === "clean") fullDone = { ...fullDone, cause: "failed", failure: reduced };
+      else fullDone = { ...fullDone, failure: reduced };
     }
-    activeTurn.push(done);
+    activeTurn.push(fullDone);
     activeTurn.close();
     log({
       event: "turn_end",
       sessionId: opts.sessionId,
       turnId: activeTurnId,
-      cause: done.cause,
+      cause: fullDone.cause,
     });
     activeTurn = null;
     resultError = false;
-    // The boundary is the only legal delivery point for queued input.
-    if (dead || closing) return;
-    const next = pendingSends.shift();
-    if (next === undefined) return;
-    if (writeUser(next.text)) {
-      startTurn(next.id);
-      return;
+    if (turnSettled !== null) {
+      const release = turnSettled;
+      turnSettled = null;
+      release();
     }
-    // The queue was shifted but the write failed: report the id that was
-    // accepted as queued and never delivered, instead of dropping it.
-    log({
-      event: "sends_dropped",
-      sessionId: opts.sessionId,
-      count: 1,
-      ids: [next.id],
-      reason: "write-failed",
-      lengths: [next.text.length],
-    });
+    if (dead || closing) return;
+    const nextId = pendingIds.shift();
+    if (nextId === undefined) return;
+    pendingLengths.shift();
+    // The text was already written to the harness when the send arrived;
+    // the id was held to correlate the next turn.
+    startTurn(nextId);
   };
 
   const routeEvent = (event: HarnessEvent): Promise<void> => {
@@ -366,7 +379,7 @@ export const openSession = (
       state.limitSeen = true;
       turnLimitSeen = true;
     }
-    if (escalateQuestions && event.kind === "message" && event.role === "assistant") {
+    if (questionMode === "ask" && event.kind === "message" && event.role === "assistant") {
       lastAssistantText = event.text;
     }
     if (activeTurn !== null) {
@@ -581,22 +594,22 @@ export const openSession = (
     if (pumpError !== null) {
       void routeEvent({ kind: "error", message: `session pump failed: ${String(pumpError)}` });
     }
-    if (pendingSends.length > 0) {
-      // "queued" was an accepted disposition - the loss must be visible to
-      // both the log and the consumer, never silent.
-      const droppedIds = pendingSends.map((s) => s.id);
+    if (pendingIds.length > 0) {
+      const droppedIds = [...pendingIds];
+      const droppedLengths = [...pendingLengths];
       void routeEvent({
         kind: "error",
-        message: `${pendingSends.length} queued send(s) died with the session: ${droppedIds.join(", ")}`,
+        message: `${pendingIds.length} pending send(s) died with the session: ${droppedIds.join(", ")}`,
       });
       log({
         event: "sends_dropped",
         sessionId: opts.sessionId,
-        count: pendingSends.length,
+        count: pendingIds.length,
         ids: droppedIds,
-        lengths: pendingSends.map((s) => s.text.length),
+        lengths: droppedLengths,
       });
-      pendingSends.length = 0;
+      pendingIds.length = 0;
+      pendingLengths.length = 0;
     }
     endTurn({ kind: "done", exitCode, cause });
     if (preTurnEvents.some((e) => e.kind !== "token" && e.kind !== "progress")) {
@@ -621,6 +634,12 @@ export const openSession = (
   void proc.exited.then((code) => {
     dead = true;
     exitCode = code;
+    // A close() waiting on an open turn must not outlive the child.
+    if (turnSettled !== null) {
+      const release = turnSettled;
+      turnSettled = null;
+      release();
+    }
     // The process is gone: a later fire would flip a finished turn to stall.
     disarmStall();
     // Pipes held open past exit (a grandchild) must not hang the session.
@@ -636,9 +655,22 @@ export const openSession = (
     });
   });
 
-  const close = async (): Promise<void> => {
+  // Two intents share this path and must not be conflated. A CLOSE is the
+  // consumer asking politely: an open turn gets to finish first, because
+  // the consumer is still there to receive it. ABANDONMENT is the consumer
+  // walking away from the turns iterable: nobody is left to receive a turn,
+  // so stdin ends at once and the child is reaped, not drained.
+  const close = async (drain = true): Promise<void> => {
     if (closing) return shutdown;
     closing = true;
+    // Let an open turn reach its end record before stdin goes away. The
+    // wait is bounded twice over: the stall watchdog ends a silent turn,
+    // and the grace below still escalates a child that never exits.
+    if (drain && activeTurn !== null && !dead) {
+      await new Promise<void>((resolve) => {
+        turnSettled = resolve;
+      });
+    }
     try {
       stdin.end();
     } catch {
@@ -658,22 +690,12 @@ export const openSession = (
       try {
         for await (const turn of turnsChannel) yield turn;
       } finally {
-        if (!closing && !dead) void close();
+        if (!closing && !dead) void close(false);
       }
     })(),
     send(input: SessionInput): SessionSendResult {
       if (dead || closing) throw new SessionClosedError();
-      if (activeTurn !== null) {
-        pendingSends.push(input);
-        log({
-          event: "send",
-          sessionId: opts.sessionId,
-          turnId: activeTurnId,
-          inputId: input.id,
-          disposition: "queued",
-        });
-        return { disposition: "queued" };
-      }
+      const wasBusy = activeTurn !== null;
       if (!writeUser(input.text)) {
         log({
           event: "send",
@@ -685,7 +707,12 @@ export const openSession = (
         });
         return { disposition: "rejected", reason: "write-failed" };
       }
-      startTurn(input.id);
+      if (wasBusy) {
+        pendingIds.push(input.id);
+        pendingLengths.push(input.text.length);
+      } else {
+        startTurn(input.id);
+      }
       log({
         event: "send",
         sessionId: opts.sessionId,

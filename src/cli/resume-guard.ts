@@ -1,4 +1,4 @@
-import { existsSync, realpathSync } from "node:fs";
+import { existsSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { storePath } from "../interpretation/store.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 
@@ -31,5 +31,29 @@ export const resumeStore = (
   } catch {
     path = null;
   }
-  return { path, exists: path !== null && existsSync(path) };
+  return { path, exists: path !== null && sessionExistsAt(path, opts.sessionId) };
+};
+
+/** A store template that resolves to a FILE names the session directly and
+ * existence is the file's. One that resolves to a DIRECTORY names where the
+ * harness files every session for this cwd, and the session is one entry in
+ * it whose name carries the id somewhere - pi writes `<timestamp>_<id>.jsonl`,
+ * so the id's position is not a template. Checking only that the directory
+ * exists reported every id as present once any session had ever run in the
+ * cwd, which made the guard pass unknown ids on pi and, once `origin` rode
+ * on it, reported a brand-new session as resumed. */
+const sessionExistsAt = (path: string, sessionId: string): boolean => {
+  if (!existsSync(path)) return false;
+  let isDir = false;
+  try {
+    isDir = statSync(path).isDirectory();
+  } catch {
+    return false;
+  }
+  if (!isDir) return true;
+  try {
+    return readdirSync(path).some((name) => name.includes(sessionId));
+  } catch {
+    return false;
+  }
 };

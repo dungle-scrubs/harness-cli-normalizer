@@ -22,14 +22,18 @@ import {
   detectTransportInLine,
   detectUnavailableInLine,
 } from "../interpretation/limits.js";
-import { composeEscalatedPrompt, detectQuestionBlock } from "../interpretation/question.js";
+import {
+  composeEscalatedPrompt,
+  detectQuestionBlock,
+  type QuestionMode,
+} from "../interpretation/question.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { matcherOverridesOf } from "../knowledge/overrides.js";
 import { AsyncChannel } from "./channel.js";
 import { decodeLine, freshDecodeState } from "./decode.js";
 import type { RunnerDeps, SpawnedProcess } from "./deps.js";
-import type { ExitCause, HarnessEvent } from "./events.js";
+import type { EscalationDetection, ExitCause, HarnessEvent } from "./events.js";
 import type { FailureSummary } from "./failure.js";
 import {
   failureFromAuth,
@@ -111,13 +115,9 @@ export interface TurnRunOptions extends LaunchOptions {
    * normalized argv. Wrong-harness flags here fail in the harness itself
    * and surface as native errors - hcn never validates them. */
   readonly passthrough?: readonly string[];
-  /** issue #41: question escalation (behavior instruction, NOT a turn
-   * option - no flag ever reaches the harness). True (the default when
-   * undefined) prepends the protocol preamble and arms question-block
-   * detection; false prepends the state-the-assumption instruction and
-   * disarms detection. Applies on launch AND resume: it shapes each
-   * turn's prompt and event stream, never a session setting. */
-  readonly escalateQuestions?: boolean;
+  /** question mode: which preamble to inject (ask/assume/none).
+   * Behavior instruction - never a harness flag. Defaults to "ask". */
+  readonly questions?: QuestionMode;
   /** F-05: caller-requested stop. When aborted, the runner escalates
    * SIGTERM then SIGKILL and classifies the exit as killed with no
    * transport failure for the kill itself. */
@@ -132,20 +132,17 @@ export async function* streamTurn(
   const turnId = deps.turnId ?? `turn-${++turnCounter}`;
   const log = deps.log ?? (() => {});
 
-  // issue #41: compose the escalation preamble onto the prompt (the
-  // transport IS the prompt - no harness has native question conveyance)
-  // and arm detection in the true mode. Composition is idempotent, so a
-  // caller that already composed (the CLI does, for spawn-line truth)
-  // never double-prepends.
-  const escalateQuestions = opts.escalateQuestions !== false;
+  // compose the preamble onto the prompt based on question mode.
+  const questionMode: QuestionMode = opts.questions ?? "ask";
   const effective: TurnRunOptions = {
     ...opts,
-    prompt: composeEscalatedPrompt(opts.prompt, escalateQuestions),
+    prompt: composeEscalatedPrompt(opts.prompt, questionMode),
   };
   // The turn's last assistant message - where the protocol says the
   // hcn-question block lives. Tracked only when detection is armed.
   let lastAssistantText: string | null = null;
   let asked = false;
+  let escalationDetection: EscalationDetection = "none";
 
   // Validate env before building argv so an invalid env is a refusal, not a spawn
   if (opts.env !== undefined) {
@@ -172,7 +169,13 @@ export async function* streamTurn(
           argv: redactArgv([], effective.prompt),
         });
         yield { kind: "failure", ...failure };
-        yield { kind: "done", exitCode: null, cause: "failed", failure };
+        yield {
+          kind: "done",
+          exitCode: null,
+          cause: "failed",
+          failure,
+          escalation: { mode: questionMode, detection: "none" },
+        };
         return;
       }
     }
@@ -223,7 +226,13 @@ export async function* streamTurn(
         argv: argvForLog,
       });
       yield { kind: "failure", ...failure };
-      yield { kind: "done", exitCode: null, cause: "failed", failure };
+      yield {
+        kind: "done",
+        exitCode: null,
+        cause: "failed",
+        failure,
+        escalation: { mode: questionMode, detection: "none" },
+      };
       return;
     }
     throw e;
@@ -271,7 +280,13 @@ export async function* streamTurn(
     if (resumeCreateWarning !== null) yield { kind: "error", message: resumeCreateWarning };
     yield { kind: "error", message: `spawn failed: ${message}` };
     yield { kind: "failure", ...failure };
-    yield { kind: "done", exitCode: 127, cause: "failed", failure };
+    yield {
+      kind: "done",
+      exitCode: 127,
+      cause: "failed",
+      failure,
+      escalation: { mode: questionMode, detection: "none" },
+    };
     return;
   }
 
@@ -439,7 +454,7 @@ export async function* streamTurn(
         if (event.terminal === true) await pushFailure(failureFromTerminalError(h, event.message));
         return;
       }
-      if (escalateQuestions && event.kind === "message" && event.role === "assistant") {
+      if (questionMode === "ask" && event.kind === "message" && event.role === "assistant") {
         lastAssistantText = event.text;
       }
       await queue.push(event);
@@ -469,18 +484,26 @@ export async function* streamTurn(
   /** issue #41: scan the last assistant message for the hcn-question
    * block. Structured-first - the block's fields become the event; no
    * prose parsing. Runs after the pumps settle (the last message is only
-   * last then) and only when detection is armed (escalateQuestions
-   * true). A malformed block surfaces as an error event, never a silent
+   * last then) and only when detection is armed (questions ask).
+   * A malformed block surfaces as an error event, never a silent
    * no-op. */
   const emitQuestionIfAsked = async (): Promise<void> => {
-    if (!escalateQuestions || lastAssistantText === null) return;
+    if (questionMode !== "ask" || lastAssistantText === null) {
+      escalationDetection = "none";
+      return;
+    }
     const detection = detectQuestionBlock(lastAssistantText);
-    if (detection === null) return;
+    if (detection === null) {
+      escalationDetection = "none";
+      return;
+    }
     if ("malformed" in detection) {
+      escalationDetection = "malformed";
       await queue.push({ kind: "error", message: detection.malformed });
       await pushFailure(failureFromTask(`malformed hcn-question block: ${detection.malformed}`));
       return;
     }
+    escalationDetection = "block";
     log({
       event: "question",
       turnId,
@@ -680,6 +703,7 @@ export async function* streamTurn(
       exitCode: nativeReduced ? null : exitCode,
       cause,
       ...(reduced ? { failure: reduced } : {}),
+      escalation: { mode: questionMode, detection: escalationDetection },
     };
   } finally {
     if (abortHandler !== null) opts.signal?.removeEventListener("abort", abortHandler);

@@ -25,9 +25,16 @@ export type ExitCause =
   | "stall"
   | "killed"
   | "failed"
-  /** issue #41: the turn ended by asking (escalateQuestions) - a
+  /** issue #41: the turn ended by asking (questions ask) - a
    * SUCCESSFUL turn (process exit 0); the caller resumes with the answer. */
   | "awaiting-input";
+
+export type EscalationMode = "ask" | "assume" | "none";
+export type EscalationDetection = "block" | "malformed" | "none";
+export interface EscalationRecord {
+  readonly mode: EscalationMode;
+  readonly detection: EscalationDetection;
+}
 
 export type HarnessEvent =
   | {
@@ -60,6 +67,7 @@ export type HarnessEvent =
       readonly exitCode: number | null;
       readonly cause: ExitCause;
       readonly failure?: FailureSummary;
+      readonly escalation: EscalationRecord;
     };
 
 export const DROPPABLE_KINDS = new Set(["token", "progress", "context"]);

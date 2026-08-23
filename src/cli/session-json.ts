@@ -4,7 +4,7 @@
  * with the control events (`session`, `turn`, `disposition`, `closed`) that
  * a program needs to drive a session it does not own the timing of. RFC-01.
  *
- * This owns the wire framing only. The turn lifecycle, the queue, and the id
+ * This owns the wire framing only. The turn lifecycle and the id
  * correlation live in `openSession`; this reads the id off the yielded turn
  * rather than shadowing the runner's delivery order.
  */
@@ -16,6 +16,7 @@ import {
   type SessionHandle,
   type SessionSendResult,
 } from "../execution/open-session.js";
+import type { QuestionMode } from "../interpretation/question.js";
 
 /** What the CLI reads back after a close, captured from the runner's
  * `session_close` boundary log. */
@@ -24,15 +25,18 @@ export interface CloseInfo {
   cause: string;
 }
 
+export type SessionOrigin = "fresh" | "resumed";
+
 export interface JsonSessionArgs {
   readonly handle: SessionHandle;
   readonly sessionId: string;
   readonly harness: string;
   readonly hcnVersion: string;
-  readonly escalateQuestions: boolean;
+  readonly questions?: QuestionMode;
+  readonly origin: SessionOrigin;
   /** Read after close - the runner's final exitCode and cause. */
   readonly getCloseInfo: () => CloseInfo;
-  /** Read after close - ids the runner accepted as queued and never
+  /** Read after close - ids the runner accepted and never
    * delivered. Each owes the consumer a rejection (RFC S003). */
   readonly getDroppedIds?: () => readonly string[];
   /** Injected for tests; defaults to process.stdin / process.stdout. */
@@ -116,12 +120,14 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
     return chain;
   };
 
+  const qMode: QuestionMode = a.questions ?? "ask";
   await emit({
     kind: "session",
     sessionId: a.sessionId,
     harness: a.harness,
     hcn: a.hcnVersion,
-    escalateQuestions: a.escalateQuestions,
+    questions: qMode,
+    origin: a.origin,
   });
 
   // Shared between the pumps: the last question asked, whether the last turn
@@ -242,7 +248,7 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
   }
   unanswered.clear();
 
-  // Every input the runner accepted as queued and then lost gets its own
+  // Every input the runner accepted and then lost gets its own
   // rejection, before the terminal line (RFC S003).
   for (const id of a.getDroppedIds?.() ?? []) {
     await emit({ kind: "disposition", id, disposition: "rejected", reason: "closed" });

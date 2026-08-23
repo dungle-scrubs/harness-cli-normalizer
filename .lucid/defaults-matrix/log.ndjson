@@ -1,2 +1,0 @@
-{"t":"session_opened","segment":1,"artifact":"defaults-matrix.html","version":1,"hash":"sha256:02550eb2b8c30f91d6fec2961d2533431639463c20e6985e66a210ca244f85e4","path":"versions/s1/v1.html","attendant":{"harness":"pi","sessionId":"01a013f4-8eef-7d11-bd1d-22e34a4cce52","cwd":"/Users/kevin/dev/harness-cli-normalizer","model":"glm-5.3","effort":"high"},"seq":1,"at":"2026-08-18T08:31:27.892Z"}
-{"t":"session_suspended","seq":2,"at":"2026-08-19T02:07:57.887Z"}

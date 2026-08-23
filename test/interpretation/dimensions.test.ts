@@ -3,6 +3,8 @@ import { capabilitiesOf } from "../../src/interpretation/capabilities.js";
 import { stdinPolicyOf, toolsFlagOf } from "../../src/interpretation/dimensions.js";
 import { isInteractive } from "../../src/interpretation/presence.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
+import { codexCli } from "../../src/knowledge/codex.js";
+import { piCli } from "../../src/knowledge/pi.js";
 
 describe("presence / isInteractive (claude)", () => {
   const sid = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
@@ -48,7 +50,29 @@ describe("capabilitiesOf (claude)", () => {
       session: true,
       source: "curated",
       confidence: "medium",
+      escalation: {
+        supported: true,
+        source: "runtime-verified",
+        confidence: "high",
+        observedOn: claudeCode.escalation.observedOn,
+      },
     });
+  });
+
+  test("a descriptor whose observation is behind verifiedAgainst reports lower confidence than one that is current", () => {
+    // codex observed 0.146.1 behind verified 0.147.0 -> medium; claude/pi/muse current-or-ahead -> high
+    const stale = capabilitiesOf(codexCli, "", "headless-turn");
+    const current = capabilitiesOf(claudeCode, "", "headless-turn");
+    const piCaps = capabilitiesOf(piCli, "", "headless-turn");
+    expect(stale.escalation.confidence).toBe("medium");
+    expect(stale.escalation.source).toBe("runtime-verified");
+    expect(current.escalation.confidence).toBe("high");
+    expect(current.escalation.source).toBe("runtime-verified");
+    expect(piCaps.escalation.confidence).toBe("high");
+    // stale is strictly lower than current
+    expect(["none", "medium", "high"].indexOf(stale.escalation.confidence)).toBeLessThan(
+      ["none", "medium", "high"].indexOf(current.escalation.confidence),
+    );
   });
 
   test("interactive mode narrows streaming to message granularity", () => {

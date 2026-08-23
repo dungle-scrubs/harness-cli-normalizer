@@ -91,6 +91,13 @@ export const museCode: HarnessDescriptor = deepFreeze({
     },
     session: false,
   },
+  // Escalation provenance transcribed from test/fixtures/phase7-questions/,
+  // committed 2026-08-19. `model` is empty because no fixture on that stream
+  // records a model id - absence of evidence, not an unset field.
+  escalation: {
+    supported: true,
+    observedOn: { harness: "muse", model: "", version: "0.2.1", date: "2026-08-19" },
+  },
   turnOptions: {
     effort: { kind: "effort", render: { kind: "flag-value", flag: "--reasoning-effort" } },
     write: {

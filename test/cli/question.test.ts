@@ -1,8 +1,5 @@
 /**
- * Issue #41 question escalation - CLI-layer unit tests: config parse of
- * escalateQuestions (default, both values, wrong type), arg override
- * parsing, tier precedence arg > project > user > default, and the
- * provenance line + help surface.
+ * Question mode tri-state --questions flag
  */
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
@@ -11,50 +8,68 @@ import { loadProjectConfig, loadUserConfig, parseUserConfig } from "../../src/cl
 import { exitCodeForCause } from "../../src/cli/exit-codes.js";
 import { RUN_HELP } from "../../src/cli/help.js";
 
-describe("escalateQuestions config parse", () => {
-  test("parses both values", () => {
-    expect(parseUserConfig('{"version":1,"escalateQuestions":true}')).toEqual({
-      escalateQuestions: true,
+describe("questions config parse", () => {
+  test("parses all three values via questions key", () => {
+    expect(parseUserConfig('{"version":1,"questions":"ask"}')).toEqual({
+      questions: "ask",
     });
-    expect(parseUserConfig('{"version":1,"escalateQuestions":false}')).toEqual({
-      escalateQuestions: false,
+    expect(parseUserConfig('{"version":1,"questions":"assume"}')).toEqual({
+      questions: "assume",
     });
+    expect(parseUserConfig('{"version":1,"questions":"none"}')).toEqual({
+      questions: "none",
+    });
+    expect(() => parseUserConfig('{"version":1,"escalateQuestions":"ask"}')).toThrow(
+      /unknown config key/,
+    );
   });
 
-  test("absent key means no config statement (default true lives outside the file)", () => {
+  test("absent key means no config statement (default ask lives outside the file)", () => {
     expect(parseUserConfig('{"version":1,"effort":"high"}')).toEqual({ effort: "high" });
   });
 
   test("wrong type refuses naming the key", () => {
-    expect(() => parseUserConfig('{"version":1,"escalateQuestions":"yes"}')).toThrow(
-      /"escalateQuestions" must be a boolean/,
+    expect(() => parseUserConfig('{"version":1,"questions":"yes"}')).toThrow(
+      /must be one of ask, assume, none/,
+    );
+    expect(() => parseUserConfig('{"version":1,"escalateQuestions":true}')).toThrow(
+      /unknown config key/,
+    );
+    expect(() => parseUserConfig('{"version":1,"questions":true}')).toThrow(
+      /must be one of ask, assume, none/,
     );
   });
 });
 
-describe("escalateQuestions arg parsing", () => {
-  test("--escalate-questions / --no-escalate-questions map onto the field", () => {
-    expect(
-      parseTurnOptions({ "escalate-questions": true } as Record<string, unknown>).escalateQuestions,
-    ).toBe(true);
-    expect(
-      parseTurnOptions({ "no-escalate-questions": true } as Record<string, unknown>)
-        .escalateQuestions,
-    ).toBe(false);
-    expect(parseTurnOptions({} as Record<string, unknown>).escalateQuestions).toBeUndefined();
+describe("questions arg parsing", () => {
+  test("--questions maps onto the field", () => {
+    expect(parseTurnOptions({ questions: "ask" } as Record<string, unknown>).questions).toBe("ask");
+    expect(parseTurnOptions({ questions: "assume" } as Record<string, unknown>).questions).toBe(
+      "assume",
+    );
+    expect(parseTurnOptions({ questions: "none" } as Record<string, unknown>).questions).toBe(
+      "none",
+    );
+    expect(parseTurnOptions({} as Record<string, unknown>).questions).toBeUndefined();
+  });
+
+  test("unrecognised value refuses with exit 2 listing valid values", () => {
+    expect(() => parseTurnOptions({ questions: "bad" } as Record<string, unknown>)).toThrow(
+      /ask.*assume.*none/,
+    );
   });
 });
 
-describe("escalateQuestions tier precedence (arg > project > user > default)", () => {
-  const userDir = mkdtempSync("/tmp/hcn-q-user-");
-  const repoDir = mkdtempSync("/tmp/hcn-q-repo-");
+describe("questions tier precedence (arg > project > user > default)", () => {
+  const userDir = mkdtempSync("/tmp/hcn-q-user2-");
+  const repoDir = mkdtempSync("/tmp/hcn-q-repo2-");
 
   test("user tier loads", () => {
-    writeFileSync(`${userDir}/config.json`, '{"version":1,"escalateQuestions":false}');
+    writeFileSync(`${userDir}/config.json`, '{"version":1,"questions":"assume"}');
     const prev = process.env.HCN_CONFIG_DIR;
     process.env.HCN_CONFIG_DIR = userDir;
     try {
-      expect(loadUserConfig()?.config.escalateQuestions).toBe(false);
+      expect(loadUserConfig()?.config.questions).toBe("assume");
     } finally {
       if (prev === undefined) delete process.env.HCN_CONFIG_DIR;
       else process.env.HCN_CONFIG_DIR = prev;
@@ -63,8 +78,8 @@ describe("escalateQuestions tier precedence (arg > project > user > default)", (
 
   test("project tier loads", () => {
     mkdirSync(`${repoDir}/.hcn`, { recursive: true });
-    writeFileSync(`${repoDir}/.hcn/config.json`, '{"version":1,"escalateQuestions":true}');
-    expect(loadProjectConfig(repoDir)?.config.escalateQuestions).toBe(true);
+    writeFileSync(`${repoDir}/.hcn/config.json`, '{"version":1,"questions":"ask"}');
+    expect(loadProjectConfig(repoDir)?.config.questions).toBe("ask");
   });
 });
 
@@ -75,10 +90,50 @@ describe("escalation surfaces", () => {
     expect(exitCodeForCause("failed")).toBe(1);
   });
 
-  test("run help documents both flags and the resume answer path", () => {
-    expect(RUN_HELP).toContain("--escalate-questions");
-    expect(RUN_HELP).toContain("--no-escalate-questions");
+  test("run help documents --questions and the resume answer path", () => {
+    expect(RUN_HELP).toContain("--questions");
+    expect(RUN_HELP).toContain("ask");
     expect(RUN_HELP).toContain("awaiting-input");
     expect(RUN_HELP).toMatch(/Resume session id.*question escalation/s);
+  });
+});
+
+describe("session control event carries only questions", () => {
+  test("session event has questions and no escalateQuestions field", async () => {
+    const { runJsonSession } = await import("../../src/cli/session-json.js");
+    const { Readable } = await import("node:stream");
+    const lines: string[] = [];
+    const turns = (async function* () {})();
+    const handle = {
+      turns,
+      send: () => ({ disposition: "started" as const }),
+      close: async () => {},
+    };
+    const input = Readable.from([]) as unknown as NodeJS.ReadableStream;
+    await runJsonSession({
+      handle: handle as never,
+      sessionId: "test-session-id",
+      harness: "claude",
+      hcnVersion: "0.0.0-test",
+      questions: "none",
+      origin: "fresh",
+      getCloseInfo: () => ({ exitCode: 0, cause: "clean" }),
+      input,
+      write: (line: string) => {
+        lines.push(line);
+        return true;
+      },
+    });
+    const sessionLine = lines.find((l) => {
+      try {
+        return (JSON.parse(l) as { kind: string }).kind === "session";
+      } catch {
+        return false;
+      }
+    });
+    expect(sessionLine).toBeDefined();
+    const evt = JSON.parse(sessionLine as string) as Record<string, unknown>;
+    expect(evt.questions).toBe("none");
+    expect(evt).not.toHaveProperty("escalateQuestions");
   });
 });

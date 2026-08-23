@@ -48,12 +48,12 @@ Options:
   --no-write                Disable write
   --shell                   Enable shell (muse)
   --no-shell                Disable shell
-  --escalate-questions      Let the worker ask the caller's user when a
-                            genuine decision blocks progress (DEFAULT;
-                            prompt-preamble transport, question event +
-                            done cause "awaiting-input", exit 0)
-  --no-escalate-questions   Worker never asks: it states the assumption it
-                            proceeded under and continues
+  --questions <ask|assume|none>
+                            Which preamble to inject: ask = escalation
+                            protocol (DEFAULT, question event +
+                            done cause "awaiting-input", exit 0), assume =
+                            never ask, state assumption, none = inject
+                            nothing
   --system-prompt <text>    Replace the built-in system prompt (claude, pi:
                             flag; codex: -c instructions=<text-or-path>;
                             muse refuses. claude pairs the dynamic-section
@@ -78,12 +78,15 @@ Options:
   --no-skills               Disable skills discovery facet
   --cwd <path>              Working directory for spawn
   --env KEY=VAL             Environment (repeatable; KEY= deletes)
-  --resume <uuid>           Resume session id (UUID). The answer path for
-                            question escalation: resume with the chosen
-                            answer as the prompt; id continuity per
+  --resume <uuid>           Resume session id (UUID). Continues the
+                            conversation where it left off. The answer
+                            path for question escalation: resume with the
+                            chosen answer as the prompt; id continuity per
                             harness (claude stable, pi/muse caller-assigned,
                             codex minted via identity event)
-                            Note: pi and muse create a new session when the id is unknown - verify it exists
+                            Note: hcn refuses an unknown id before spawn
+                            (exit 2) for harnesses that would otherwise
+                            create a fresh session silently (pi, muse)
   --session-id <uuid>       Alias for --resume (mutually exclusive with --resume)
   --                        Passthrough: native harness args verbatim
                             (failures surface as labeled native errors)
@@ -102,9 +105,8 @@ Defaults with no flags:
   profile). toolMap is config-only (no flag) - canonical -> native
   mapping per harness. A bare pi run renders no --tools list: pi's list
   is a strict allowlist and would drop extension and MCP tools; name
-  them through toolMap or native:<name> when you grant. Question
-  escalation defaults ON (config key
-  "escalateQuestions"; it is a prompt preamble, never a harness flag).
+  them through toolMap or native:<name> when you grant. Question mode defaults to ask (config keys
+  "questions"; prompt preamble, never a harness flag).
   Provenance prints to stderr on every run; see
   'hcn inspect <harness>' for the resolved argv of a bare run.
 `;
@@ -120,8 +122,9 @@ Options:
   --json                    Machine surface: NDJSON events on stdout, NDJSON
                             commands on stdin ({"op":"send","id":..,"text":..},
                             "answer", "close"). Every send is answered with one
-                            disposition (started | queued | rejected); a queued
-                            send's id rides to the turn that consumes it. The
+                            disposition (started | rejected); every send is
+                            handed to the harness, and the turn that consumes it
+                            carries its id. The
                             stream opens with a session event and ends with a
                             closed event. Exit 0 clean, 1 otherwise, 2 refusal.
   --stall <seconds>         Per-turn inactivity budget; the turn ends and the
@@ -129,12 +132,18 @@ Options:
                             (default: no limit)
   --provider <value>        Provider (pi only)
   --model <id>              Model for the session
-  --session-id <uuid>       Session id (UUID, else random; re-enters an
-                            existing session)
-  --escalate-questions      Worker may ask; question renders as a pickable
-                            menu, the answer flows back into the SAME live
-                            session (DEFAULT)
-  --no-escalate-questions   Worker never asks; states its assumption
+  --resume <uuid>           Resume session id (UUID). Continues the
+                            conversation where it left off. --session-id
+                            is an alias (mutually exclusive with --resume).
+                            If no id is given, a fresh session is started
+                            with a new id. hcn refuses an unknown id before
+                            spawn (exit 2) for harnesses that would otherwise
+                            create a fresh session silently (pi)
+  --session-id <uuid>       Alias for --resume (mutually exclusive with --resume)
+  --questions <ask|assume|none>
+                            Which preamble to inject: ask = worker may
+                            ask (DEFAULT, pickable menu), assume = never
+                            ask, none = inject nothing
   --cwd <path>              Working directory
   --help                    Show help
   --version                 Show version
@@ -167,11 +176,11 @@ Options:
   --autonomy / --no-autonomy
   --write / --no-write
   --shell / --no-shell
-  --escalate-questions / --no-escalate-questions
+  --questions <ask|assume|none>
                             (accepted; renders nothing - rides the run prompt)
   --max-steps <n>
   --no-tools, --no-instruction-files, --no-extensions, --no-skills
-  --escalate-questions / --no-escalate-questions
+  --questions <ask|assume|none>
                             Accepted; renders nothing in argv (the mode
                             rides the run prompt, not a harness flag)
   --cwd <path>

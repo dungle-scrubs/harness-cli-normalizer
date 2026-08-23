@@ -47,7 +47,15 @@ If and only if a genuine decision you cannot make defensibly blocks correct prog
 
 Say nothing after the block and stop generating. The caller's user will answer, and the answer arrives as the next user message in this session - continue from it. For every choice you can make defensibly yourself, do not ask - decide, act, and state the decision you made.`;
 
-/** Compose the transport preamble onto a prompt. `mode` selects the
+export type QuestionMode = "ask" | "assume" | "none";
+
+export const QUESTION_MODES: readonly QuestionMode[] = ["ask", "assume", "none"] as const;
+
+export const isQuestionMode = (value: string): value is QuestionMode =>
+  (QUESTION_MODES as readonly string[]).includes(value);
+
+/** Compose the transport preamble onto a prompt. `mode` selects which
+ * preamble to inject (ask/assume/none), and `channel` selects the
  * contract wording: "turn" (exit-and-resume transport, hcn run) or
  * "session" (live channel, hcn session). Idempotent: a prompt that
  * already carries any preamble passes through unchanged - a turn-mode
@@ -55,12 +63,14 @@ Say nothing after the block and stop generating. The caller's user will answer, 
  * both; the already-composed contract stands). */
 export const composeEscalatedPrompt = (
   prompt: string,
-  escalate: boolean,
-  mode: "turn" | "session" = "turn",
-): string =>
-  prompt.startsWith(QUESTION_PREAMBLE_MARKER)
-    ? prompt
-    : `${mode === "session" && escalate ? SESSION_ESCALATION_PREAMBLE : escalate ? ESCALATION_PREAMBLE : NO_ESCALATION_PREAMBLE}\n\n${prompt}`;
+  mode: QuestionMode,
+  channel: "turn" | "session" = "turn",
+): string => {
+  if (prompt.startsWith(QUESTION_PREAMBLE_MARKER)) return prompt;
+  if (mode === "none") return prompt;
+  if (mode === "assume") return `${NO_ESCALATION_PREAMBLE}\n\n${prompt}`;
+  return `${channel === "session" ? SESSION_ESCALATION_PREAMBLE : ESCALATION_PREAMBLE}\n\n${prompt}`;
+};
 
 /** The structured question a worker asks (the block's fields). */
 export interface QuestionBlock {

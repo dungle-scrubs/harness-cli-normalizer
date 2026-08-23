@@ -1,0 +1,10 @@
+{"kind":"session","sessionId":"07afca67-1514-41ff-abbc-4041caa273bc","harness":"claude","hcn":"0.5.5","escalateQuestions":true}
+{"kind":"disposition","id":"b","disposition":"started"}
+{"kind":"turn","turnId":"07afca67-1514-41ff-abbc-4041caa273bc:turn-1","id":"b"}
+{"kind":"identity","sessionId":"07afca67-1514-41ff-abbc-4041caa273bc","authority":"caller-assigned","capabilities":{"vision":true,"images":true,"streaming":"token","session":true,"source":"curated","confidence":"medium"}}
+{"kind":"progress","label":"status"}
+{"kind":"token","text":"p"}
+{"kind":"token","text":"omegranate"}
+{"kind":"message","role":"assistant","text":"pomegranate"}
+{"kind":"done","exitCode":null,"cause":"clean"}
+{"kind":"closed","exitCode":0,"cause":"clean"}

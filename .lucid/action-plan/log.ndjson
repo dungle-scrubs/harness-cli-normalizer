@@ -1,6 +1,0 @@
-{"t":"session_opened","segment":1,"artifact":"action-plan.html","version":1,"hash":"sha256:08cbcaa020bfe2f01c1633c56cbc7440b6851a4136a74cab850c33a796a29c3f","path":"versions/s1/v1.html","attendant":{"harness":"pi","sessionId":"01a013f4-8eef-7d11-bd1d-22e34a4cce52","cwd":"/Users/kevin/dev/harness-cli-normalizer","model":"glm-5.3","effort":"high"},"seq":1,"at":"2026-08-18T10:17:12.962Z"}
-{"t":"review_resolved","seq":2,"at":"2026-08-18T10:33:57.969Z"}
-{"t":"agent_ack","id":"1dc90bd7-0567-48a7-8d00-b78a14d791aa","covers":2,"attendant":{"harness":"pi","sessionId":"01a013f4-8eef-7d11-bd1d-22e34a4cce52","cwd":"/Users/kevin/dev/harness-cli-normalizer","model":"glm-5.3","effort":"high"},"seq":3,"at":"2026-08-18T10:35:06.416Z"}
-{"t":"session_suspended","seq":4,"at":"2026-08-19T02:07:57.884Z"}
-{"t":"session_resumed","segment":1,"seq":5,"at":"2026-08-19T07:19:27.941Z"}
-{"t":"session_suspended","seq":6,"at":"2026-08-21T09:56:42.259Z"}
