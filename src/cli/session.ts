@@ -268,10 +268,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
       const trimmed = line.trim();
       if (trimmed === "" || trimmed === "exit") break;
 
-      const result = handle.send({ id: `you-${++sendCount}`, text: line });
-      if (result.disposition === "queued") {
-        process.stderr.write(`disposition: queued (turn in progress)\n`);
-      }
+      handle.send({ id: `you-${++sendCount}`, text: line });
 
       const turn = (await turns.next()).value as
         | AsyncIterable<import("../execution/events.js").HarnessEvent>

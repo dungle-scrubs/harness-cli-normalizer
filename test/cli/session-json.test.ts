@@ -136,8 +136,8 @@ describe("T02: hcn session --json happy path", () => {
   });
 });
 
-describe("T03: queued sends carry their id to the turn that consumes them", () => {
-  test("second send while busy -> queued, then next turn carries in-2", async () => {
+describe("T03: sends during a turn are handed to the harness; the next turn carries the id", () => {
+  test("second send while busy -> started, then next turn carries in-2", async () => {
     const r = rig();
     await tick();
     r.send({ op: "send", id: "in-1", text: "first" });
@@ -145,7 +145,9 @@ describe("T03: queued sends carry their id to the turn that consumes them", () =
     r.proc.emitLine(init);
     r.send({ op: "send", id: "in-2", text: "second while busy" });
     await tick();
-    r.proc.emitLine(result); // ends turn 1; boundary flushes in-2
+    // second was handed to the harness immediately
+    expect(r.proc.stdinLines).toHaveLength(2);
+    r.proc.emitLine(result); // ends turn 1; harness had already received in-2
     await tick();
     r.proc.emitLine(init);
     r.proc.emitLine(result); // ends turn 2
@@ -156,7 +158,7 @@ describe("T03: queued sends carry their id to the turn that consumes them", () =
     const evs = r.events();
     const disps = evs.filter((e) => e.kind === "disposition");
     expect(disps[0]).toMatchObject({ id: "in-1", disposition: "started" });
-    expect(disps[1]).toMatchObject({ id: "in-2", disposition: "queued" });
+    expect(disps[1]).toMatchObject({ id: "in-2", disposition: "started" });
     const turns = evs.filter((e) => e.kind === "turn");
     expect(turns[0]).toMatchObject({ id: "in-1" });
     expect(turns[1]).toMatchObject({ id: "in-2" });
@@ -191,7 +193,7 @@ describe("T07: write-failed is distinct from closed", () => {
 });
 
 describe("branch review: fixes for the findings the cross-family review raised", () => {
-  test("F7: a queued send that dies with the session is rejected on the wire", async () => {
+  test("F7: a pending send that dies with the session is rejected on the wire", async () => {
     const proc = new FakeProcess();
     const spawner = fakeSpawner([proc]);
     const closeInfo = { exitCode: null as number | null, cause: "clean" };
@@ -235,7 +237,7 @@ describe("branch review: fixes for the findings the cross-family review raised",
     input.write(`${JSON.stringify({ op: "send", id: "in-1", text: "first" })}\n`);
     await tick();
     proc.emitLine(init);
-    input.write(`${JSON.stringify({ op: "send", id: "in-2", text: "queued and doomed" })}\n`);
+    input.write(`${JSON.stringify({ op: "send", id: "in-2", text: "pending and doomed" })}\n`);
     await tick();
     proc.exit(1); // dies before the boundary ever flushes in-2
     await tick();
@@ -398,7 +400,7 @@ describe("follow-ups: backpressure and a broken command stream", () => {
     await tick();
     await tick();
 
-    // The first opened a turn; the rest queued behind it.
+    // The first opened a turn; the rest were handed to the harness immediately.
     r.proc.emitLine(init);
     await tick();
     await r.release();
@@ -412,8 +414,7 @@ describe("follow-ups: backpressure and a broken command stream", () => {
     // Exactly one per send, in the order the sends arrived - not merely
     // "some dispositions appeared".
     expect(dispositions.map((d) => d.id)).toEqual(["a", "b", "c", "d"]);
-    expect(dispositions[0]?.disposition).toBe("started");
-    for (const d of dispositions.slice(1)) expect(d.disposition).toBe("queued");
+    for (const d of dispositions) expect(d.disposition).toBe("started");
     // Every line parsed on its own: a torn or interleaved write would have
     // made that impossible.
     expect(r.events().length).toBeGreaterThan(dispositions.length);

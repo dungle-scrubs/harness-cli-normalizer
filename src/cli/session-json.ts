@@ -4,7 +4,7 @@
  * with the control events (`session`, `turn`, `disposition`, `closed`) that
  * a program needs to drive a session it does not own the timing of. RFC-01.
  *
- * This owns the wire framing only. The turn lifecycle, the queue, and the id
+ * This owns the wire framing only. The turn lifecycle and the id
  * correlation live in `openSession`; this reads the id off the yielded turn
  * rather than shadowing the runner's delivery order.
  */
@@ -33,7 +33,7 @@ export interface JsonSessionArgs {
   readonly questions?: QuestionMode;
   /** Read after close - the runner's final exitCode and cause. */
   readonly getCloseInfo: () => CloseInfo;
-  /** Read after close - ids the runner accepted as queued and never
+  /** Read after close - ids the runner accepted and never
    * delivered. Each owes the consumer a rejection (RFC S003). */
   readonly getDroppedIds?: () => readonly string[];
   /** Injected for tests; defaults to process.stdin / process.stdout. */
@@ -244,7 +244,7 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
   }
   unanswered.clear();
 
-  // Every input the runner accepted as queued and then lost gets its own
+  // Every input the runner accepted and then lost gets its own
   // rejection, before the terminal line (RFC S003).
   for (const id of a.getDroppedIds?.() ?? []) {
     await emit({ kind: "disposition", id, disposition: "rejected", reason: "closed" });

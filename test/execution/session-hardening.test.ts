@@ -206,7 +206,7 @@ describe("M3.2 boundary-review regression pins", () => {
     expect(proc.stderr.activeReaderCount).toBe(0);
   });
 
-  test("queued sends that die with the session are surfaced, never silently dropped", async () => {
+  test("pending sends that die with the session are surfaced, never silently dropped", async () => {
     const logged: Record<string, unknown>[] = [];
     const proc = new FakeProcess();
     const d = makeDeps(proc, logged);
@@ -214,14 +214,14 @@ describe("M3.2 boundary-review regression pins", () => {
     session.send({ id: "s", text: "first" });
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
-    expect(session.send({ id: "s", text: "second - accepted as queued" }).disposition).toBe(
-      "queued",
-    );
+    expect(
+      session.send({ id: "s", text: "second - handed to harness while busy" }).disposition,
+    ).toBe("started");
     proc.emitLine(init);
-    proc.exit(7); // dies before the boundary ever flushes the queue
+    proc.exit(7); // dies with a pending send the harness had already received
     const events = await drainTurn(turn1);
     expect(events.find((e) => e.kind === "error")).toMatchObject({
-      message: expect.stringContaining("queued send"),
+      message: expect.stringContaining("pending send"),
     });
     expect(logged.find((e) => e.event === "sends_dropped")).toMatchObject({ count: 1 });
   });

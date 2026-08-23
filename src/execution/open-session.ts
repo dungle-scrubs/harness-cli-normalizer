@@ -1,25 +1,19 @@
 /**
  * openSession: the persistent headless session runner - ONE process, many
- * turns (A-001). `send` during idle writes a descriptor-encoded user record to
- * stdin and starts a turn; `send` during a live turn is QUEUED to the next
- * boundary (mid-turn stdin writes would interleave into the model's
- * context unpredictably - the harness itself queues, so we mirror its
- * disposition). `result` lines delimit turns; identity dedupe (D-022)
+ * turns (A-001). `send` writes a descriptor-encoded user record to stdin and starts a
+ * turn when idle or hands the text to the harness when a turn is live
+ * (the harness queues it). `result` lines delimit turns; identity dedupe (D-022)
  * spans the whole session. Lifecycle is bounded end to end: close() ends
  * stdin, escalates SIGTERM->SIGKILL if the child ignores EOF, and pipes
  * held open past exit close out after grace - a session can always be
- * ended. Queued sends that die with the session are surfaced, never
+ * ended. Pending sends that die with the session are surfaced, never
  * silently dropped. Structured lifecycle events (session open/close, turn
  * start/end, send dispositions, drops) are always-on evidence with
  * sessionId + turnId correlation.
  */
 import { buildSessionArgv } from "../interpretation/argv.js";
 import { capabilitiesOf } from "../interpretation/capabilities.js";
-import {
-  detectAuthFailureInLine,
-  detectLimitInLine,
-  detectTransportInLine,
-} from "../interpretation/limits.js";
+import { detectAuthFailureInLine, detectLimitInLine } from "../interpretation/limits.js";
 import {
   composeEscalatedPrompt,
   detectQuestionBlock,
@@ -54,7 +48,7 @@ export const CLOSE_GRACE_MS = 5_000;
 const PRETURN_MAX = 256;
 
 export interface SessionSendResult {
-  readonly disposition: "started" | "queued" | "rejected";
+  readonly disposition: "started" | "rejected";
   /** Present when rejected. `write-failed` is a broken stdin pipe, which is
    * a different remedy from a session the caller already closed - the two
    * must stay distinguishable. */
@@ -175,7 +169,8 @@ export const openSession = (
   let turnCounter = 0;
   let activeTurn: AsyncChannel<HarnessEvent> | null = null;
   let activeTurnId = "";
-  const pendingSends: SessionInput[] = [];
+  const pendingIds: string[] = [];
+  const pendingLengths: number[] = [];
   const preTurnEvents: HarnessEvent[] = [];
   let dead = false;
   let closing = false;
@@ -269,7 +264,7 @@ export const openSession = (
     activeTurn = new AsyncChannel<HarnessEvent>();
     activeTurnId = `${opts.sessionId}:turn-${++turnCounter}`;
     // Tag the turn with the id of the send that opened it, so the consumer
-    // correlates a queued input to its turn by reading the tag, not by
+    // correlates an input to its turn by reading the tag, not by
     // shadowing the runner's delivery order.
     (activeTurn as { inputId?: string; turnId?: string }).inputId = inputId;
     (activeTurn as { inputId?: string; turnId?: string }).turnId = activeTurnId;
@@ -354,24 +349,13 @@ export const openSession = (
     });
     activeTurn = null;
     resultError = false;
-    // The boundary is the only legal delivery point for queued input.
     if (dead || closing) return;
-    const next = pendingSends.shift();
-    if (next === undefined) return;
-    if (writeUser(next.text)) {
-      startTurn(next.id);
-      return;
-    }
-    // The queue was shifted but the write failed: report the id that was
-    // accepted as queued and never delivered, instead of dropping it.
-    log({
-      event: "sends_dropped",
-      sessionId: opts.sessionId,
-      count: 1,
-      ids: [next.id],
-      reason: "write-failed",
-      lengths: [next.text.length],
-    });
+    const nextId = pendingIds.shift();
+    if (nextId === undefined) return;
+    pendingLengths.shift();
+    // The text was already written to the harness when the send arrived;
+    // the id was held to correlate the next turn.
+    startTurn(nextId);
   };
 
   const routeEvent = (event: HarnessEvent): Promise<void> => {
@@ -594,22 +578,22 @@ export const openSession = (
     if (pumpError !== null) {
       void routeEvent({ kind: "error", message: `session pump failed: ${String(pumpError)}` });
     }
-    if (pendingSends.length > 0) {
-      // "queued" was an accepted disposition - the loss must be visible to
-      // both the log and the consumer, never silent.
-      const droppedIds = pendingSends.map((s) => s.id);
+    if (pendingIds.length > 0) {
+      const droppedIds = [...pendingIds];
+      const droppedLengths = [...pendingLengths];
       void routeEvent({
         kind: "error",
-        message: `${pendingSends.length} queued send(s) died with the session: ${droppedIds.join(", ")}`,
+        message: `${pendingIds.length} pending send(s) died with the session: ${droppedIds.join(", ")}`,
       });
       log({
         event: "sends_dropped",
         sessionId: opts.sessionId,
-        count: pendingSends.length,
+        count: pendingIds.length,
         ids: droppedIds,
-        lengths: pendingSends.map((s) => s.text.length),
+        lengths: droppedLengths,
       });
-      pendingSends.length = 0;
+      pendingIds.length = 0;
+      pendingLengths.length = 0;
     }
     endTurn({ kind: "done", exitCode, cause });
     if (preTurnEvents.some((e) => e.kind !== "token" && e.kind !== "progress")) {
@@ -676,17 +660,7 @@ export const openSession = (
     })(),
     send(input: SessionInput): SessionSendResult {
       if (dead || closing) throw new SessionClosedError();
-      if (activeTurn !== null) {
-        pendingSends.push(input);
-        log({
-          event: "send",
-          sessionId: opts.sessionId,
-          turnId: activeTurnId,
-          inputId: input.id,
-          disposition: "queued",
-        });
-        return { disposition: "queued" };
-      }
+      const wasBusy = activeTurn !== null;
       if (!writeUser(input.text)) {
         log({
           event: "send",
@@ -698,7 +672,12 @@ export const openSession = (
         });
         return { disposition: "rejected", reason: "write-failed" };
       }
-      startTurn(input.id);
+      if (wasBusy) {
+        pendingIds.push(input.id);
+        pendingLengths.push(input.text.length);
+      } else {
+        startTurn(input.id);
+      }
       log({
         event: "send",
         sessionId: opts.sessionId,
