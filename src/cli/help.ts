@@ -129,8 +129,11 @@ Options:
                             (default: no limit)
   --provider <value>        Provider (pi only)
   --model <id>              Model for the session
-  --session-id <uuid>       Session id (UUID, else random; re-enters an
-                            existing session)
+  --session-id <uuid>       Session id (UUID, else random). NAMES the session;
+                            it does not restore a prior conversation. --resume
+                            is accepted as an alias for the same id and also
+                            does not restore. To continue a conversation, use
+                            hcn run --resume <id> (issue #86)
   --escalate-questions      Worker may ask; question renders as a pickable
                             menu, the answer flows back into the SAME live
                             session (DEFAULT)
