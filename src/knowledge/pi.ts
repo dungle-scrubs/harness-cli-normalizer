@@ -55,10 +55,22 @@ export const piCli: HarnessDescriptor = deepFreeze({
   // slice remains the proven vertical (D-003); this entry is the second.
   sessionMode: {
     flags: ["--mode", "rpc"],
-    // `--session <id>` requires an EXISTING id ("No session found" on a
-    // fresh uuid - live-verified); fresh sessions omit it and pi mints
-    // the id, readable only through the get_state probe.
-    idFlag: null,
+    // pi has TWO flags with similar names and opposite unknown-id behaviour:
+    // `--session <path|id>` requires an EXISTING id (live-verified
+    // "No session found" on a fresh uuid) while `--session-id <id>` creates
+    // it if missing. Session mode uses `--session-id`, the flag the one-shot
+    // resume grammar also uses (resume.flag). That is why `idFlag` is
+    // `--session-id` here and not null - the earlier `idFlag: null` comment
+    // described `--session`, a different flag. Verified phase10
+    // (test/fixtures/phase10-pi-rpc-resume): a second `pi --mode rpc
+    // --session-id <id>` against the same id restored the codeword
+    // "pomegranate" (rpc-resume.ndjson), while the first established it
+    // and warned on stderr "creating a new session with that id"
+    // (rpc-establish.stderr.txt). An unknown id is therefore created with
+    // a stderr warning, which is what `resume.onMissing: "create"` already
+    // records for the one-shot grammar - no duplication in sessionMode.
+    idFlag: "--session-id",
+    resumeFlag: "--session-id",
     input: { kind: "pi-rpc-prompt" },
     turnEnd: { type: "agent_settled" },
     identityProbe: { command: "get_state" },

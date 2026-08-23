@@ -99,7 +99,13 @@ describe("buildSessionArgv (claude)", () => {
     const argv = buildSessionArgv(piCli, {
       sessionId: "eb04301d-8756-4a8b-ae3e-aac0e71f7265",
     });
-    expect(argv).toEqual(["pi", "--mode", "rpc"]);
+    expect(argv).toEqual([
+      "pi",
+      "--mode",
+      "rpc",
+      "--session-id",
+      "eb04301d-8756-4a8b-ae3e-aac0e71f7265",
+    ]);
   });
 });
 

@@ -51,6 +51,19 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     // hooks (D-025). Token deltas require this exact output flag set.
     // sessionMode.flags is the complete flag list after the binary, so -p
     // lives here rather than being inherited from launch.baseFlags.
+    // claude has two session-id flags with opposite unknown-id behaviour:
+    // `--session-id` NAMES a fresh session (creates if missing, silent) while
+    // `--resume` RESTORES an existing one (refuses unknown id, exit 1
+    // "No conversation found" - verified phase11,
+    // test/fixtures/phase11-claude-session-resume/resume-unknown-id.stderr.txt).
+    // `idFlag` is the naming flag (`--session-id`); `resumeFlag` is the
+    // restoring flag (`--resume`) - distinct as data so the renderer cannot
+    // pick the wrong one. Unknown-id behaviour reuses `resume.onMissing:
+    // "error"` as the single source; sessionMode does not restate it.
+    // Verified phase11 (test/fixtures/phase11-claude-session-resume):
+    // `session-id-establish.ndjson` creates with `--session-id`, and
+    // `resume-restores.ndjson` restores the same id with `--resume` and
+    // recalls codeword "pomegranate".
     flags: [
       "-p",
       "--input-format",
@@ -63,6 +76,7 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
       "project",
     ],
     idFlag: "--session-id",
+    resumeFlag: "--resume",
     input: { kind: "claude-sdk-user-message" },
     turnEnd: { type: "result" },
     identityProbe: null,
