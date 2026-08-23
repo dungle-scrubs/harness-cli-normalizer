@@ -136,12 +136,15 @@ export const codexCli: HarnessDescriptor = deepFreeze({
       render: { kind: "flag-value", flag: "--sandbox" },
     },
   },
-  // Phase 0 fixtures: codex-tool-surface.md. No name lists anywhere -
-  // not on the CLI, not in config.toml. Control is feature booleans
-  // (reachable per-call via -c key=value / --enable/--disable FEATURE),
-  // sandbox, and approval policy. MCP servers do have per-tool keys
-  // (mcp_servers.<id>.tools.<tool>) but built-ins do not.
-  skills: null,
+  // Tools: no built-in name lists; control is feature booleans
+  // (reachable per-call via -c key=value), sandbox, and approval policy.
+  // MCP servers do have per-tool keys (mcp_servers.<id>.tools.<tool>)
+  // but built-ins do not.
+  // Skills (verified 2026-08-22, codex 0.147.0, --strict-config probes):
+  // per-skill disable via config-kv array -c skills.config=[{path=...,
+  // enabled=false}] (selector path or name, validated per entry); also
+  // -c skills.bundled.enabled=false. No global skills.enabled switch.
+  skills: { loadFlag: null, overridesVia: "config-skills-array" },
   tools: {
     includeFlag: null,
     excludeFlag: null,

@@ -49,7 +49,7 @@ const HINTS: Readonly<Record<string, Readonly<Record<string, string>>>> = deepFr
     "discovery.extensions":
       "codex loads MCP servers and plugins from config; disable per-server with -c or codex mcp remove rather than a call-time toggle",
     "discovery.skills":
-      "codex discovers skills from its skills directory; no call-time toggle - remove or move the skill files instead",
+      'codex has no global skills-off switch (skills.enabled is not a key); disable per skill per call with -c skills.config=[{path=".../SKILL.md", enabled=false}] and bundled skills with -c skills.bundled.enabled=false',
   },
   pi: {
     sandbox:

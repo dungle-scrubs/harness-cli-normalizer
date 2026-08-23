@@ -210,13 +210,16 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
     try {
       const { resolveSkillNames, listKnownSkills } = await import("./skills-root.js");
       const resolvedSkills = resolveSkillNames(rawSkills, h.name);
-      const claudeTokens: string[] = [];
+      const skillTokens: string[] = [];
       if (h.name === "claude") {
         const { claudeSkillOverridesArg } = await import("../interpretation/skills-selection.js");
-        claudeTokens.push(...claudeSkillOverridesArg(listKnownSkills(), resolvedSkills));
+        skillTokens.push(...claudeSkillOverridesArg(listKnownSkills(), resolvedSkills));
+      } else if (h.name === "codex") {
+        const { codexSkillConfigArg } = await import("../interpretation/skills-selection.js");
+        skillTokens.push(...codexSkillConfigArg(listKnownSkills(), resolvedSkills));
       }
       (turnOpts as unknown as Record<string, unknown>).skills = resolvedSkills;
-      (turnOpts as unknown as Record<string, unknown>).__claudeSkillTokens = claudeTokens;
+      (turnOpts as unknown as Record<string, unknown>).__skillTokens = skillTokens;
     } catch (err) {
       if (err instanceof ArgvRefusalError) {
         process.stderr.write(`${err.message}\n`);
@@ -301,9 +304,8 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
   let argv: string[];
   try {
     argv = buildLaunchArgv(h, fullOpts);
-    const claudeTokens = (effectiveRest as unknown as { __claudeSkillTokens?: string[] })
-      .__claudeSkillTokens;
-    if (claudeTokens !== undefined && claudeTokens.length > 0) argv.push(...claudeTokens);
+    const skillTokens = (effectiveRest as unknown as { __skillTokens?: string[] }).__skillTokens;
+    if (skillTokens !== undefined && skillTokens.length > 0) argv.push(...skillTokens);
   } catch (err) {
     if (err instanceof ArgvRefusalError) {
       refuse(refusalOf(err as ArgvRefusalError), false);
