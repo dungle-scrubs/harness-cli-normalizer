@@ -61,6 +61,17 @@ labelled `NATIVE ERROR`, never confused with a refusal.
 **Escalation**: hcn's protocol for a model to ask its caller a question - a
 preamble in, a fenced block out. No harness offers a headless equivalent.
 
+## The scope test
+
+hcn **supervises one process at a time, and nothing wider.** A feature belongs
+when it normalizes a harness difference, or supervises one process hcn spawned
+for as long as that process runs. Anything tracking or storing state across
+process boundaries belongs to the caller, because only the caller knows what a
+unit of work is.
+
+Recorded as ADR 0007. `AGENTS.md` carries it as the test applied before adding
+functionality.
+
 ## What hcn normalizes
 
 These translate and decide nothing:
