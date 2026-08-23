@@ -404,7 +404,17 @@ describe("follow-ups: backpressure and a broken command stream", () => {
     await r.release();
     r.proc.emitLine(result);
     await tick();
+    // The queue delivers b, c, d one per turn boundary. close() now waits
+    // for an open turn to finish (issue #99), so the fake finishes each one
+    // the way a real harness would; the fake never exits on its own.
     r.input.end();
+    for (let i = 0; i < 3; i++) {
+      await tick();
+      await r.release();
+      r.proc.emitLine(result);
+      await tick();
+    }
+    r.proc.exit(0);
     await r.done;
     await r.release();
 

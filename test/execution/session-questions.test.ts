@@ -159,6 +159,9 @@ describe("openSession question escalation - claude transport", () => {
     session.send({ id: "s", text: composeEscalatedPrompt("task", true, "session") });
     const write = proc.stdinWrites[0] ?? "";
     expect(write.match(/\[hcn question protocol\]/g)).toHaveLength(1);
+    // The fake never ends the turn on its own; a real harness does. close()
+    // now waits for an open turn to finish (issue #99), so finish it.
+    proc.exit(0);
     await session.close();
   });
 });
@@ -269,6 +272,9 @@ describe("openSession question escalation - pi rpc transport", () => {
     session.send({ id: "s", text: "task" });
     const write = proc.stdinWrites.at(-1) ?? "";
     expect(JSON.parse(write).message).toContain("state the assumption");
+    // The fake never ends the turn on its own; a real harness does. close()
+    // now waits for an open turn to finish (issue #99), so finish it.
+    proc.exit(0);
     await session.close();
   });
 });
