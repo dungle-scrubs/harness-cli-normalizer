@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.6](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.5.5...v0.5.6) (2026-08-23)
+
+
+### Added
+
+* codex renders a per-skill allowlist, so --skills reaches three harnesses ([#102](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/102)) ([24ee0a8](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/24ee0a8015a3fe7dd3a930b923e2d5138f4037ba))
+* escalation reports its own confidence, and hcn session resumes a conversation ([#100](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/100)) ([a69dfa2](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/a69dfa2d894d8b047f29b7e838518972e59338c7))
+
 ## [0.5.5](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.5.4...v0.5.5) (2026-08-22)
 
 
