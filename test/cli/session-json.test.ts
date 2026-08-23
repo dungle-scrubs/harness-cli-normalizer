@@ -571,3 +571,34 @@ describe("session origin: fresh vs resumed, and refused resume emits no session"
     }
   });
 });
+
+describe("issue #95: a caller-supplied session id must match the harness's id shape", () => {
+  test("a non-UUID id is refused before spawn, exit 2, failure then closed on the stream", async () => {
+    const out: string[] = [];
+    const outSpy = vi
+      .spyOn(process.stdout, "write")
+      .mockImplementation((c: string | Uint8Array) => {
+        out.push(String(c));
+        return true;
+      });
+    const errSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const before = process.exitCode ?? 0;
+    process.exitCode = 0;
+    try {
+      await session("claude", ["--json", "--session-id", "bogus"]);
+      expect(process.exitCode).toBe(2);
+      const kinds = out
+        .join("")
+        .trim()
+        .split("\n")
+        .filter(Boolean)
+        .map((l) => (JSON.parse(l) as { kind: string }).kind);
+      // Refused before any spawn: no session event, only the failure pair.
+      expect(kinds).toEqual(["failure", "closed"]);
+    } finally {
+      process.exitCode = before;
+      outSpy.mockRestore();
+      errSpy.mockRestore();
+    }
+  });
+});

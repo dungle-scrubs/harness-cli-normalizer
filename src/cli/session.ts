@@ -81,6 +81,25 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   // exist is the one combination refused, below - a caller who said "resume"
   // and would silently get a fresh conversation is issue #86 exactly.
   const explicitResume = values.resume !== undefined;
+  // A caller-supplied id must be the shape this harness's store files
+  // sessions under (issue #95). hcn run already holds this line through
+  // parse-resume; session only checked the safe-filename rule, so "bogus"
+  // reached the harness, rode the session and identity events, and on a
+  // create-on-unknown harness became a real file nobody can find again.
+  if (resumeId !== undefined && !h.resume.idShape.test(resumeId)) {
+    const flag = explicitResume ? "--resume" : "--session-id";
+    const { refuse: shapeRefuse } = await import("./refuse.js");
+    shapeRefuse(
+      {
+        message: `${flag} ${JSON.stringify(resumeId.slice(0, 64))} is not a ${h.name} session id`,
+        issue: "invalid-option-value",
+        supported: [`a session id matching ${String(h.resume.idShape)}`],
+      },
+      jsonMode,
+      "closed",
+    );
+    return;
+  }
   const sessionId = resumeId ?? randomUUID();
   let isResume = false;
   const model = values.model as string | undefined;
