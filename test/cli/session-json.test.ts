@@ -1,8 +1,13 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { PassThrough } from "node:stream";
-import { describe, expect, test } from "vitest";
-import { runJsonSession } from "../../src/cli/session-json.js";
+import { describe, expect, test, vi } from "vitest";
+import { session } from "../../src/cli/session.js";
+import { runJsonSession, type SessionOrigin } from "../../src/cli/session-json.js";
 import { openSession } from "../../src/execution/open-session.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
+import { piCli } from "../../src/knowledge/pi.js";
 import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "../execution/fakes.js";
 
 const sid = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
@@ -31,7 +36,7 @@ const tick = () => new Promise<void>((r) => setTimeout(r, 0));
 /** Drive runJsonSession over a real openSession on a fake process. Returns
  * the parsed stdout events, the input stream to write commands to, and the
  * fake process to emit harness lines from. */
-const rig = (procOpts: { exitOnStdinEnd?: boolean } = {}) => {
+const rig = (procOpts: { exitOnStdinEnd?: boolean } = {}, origin: SessionOrigin = "fresh") => {
   const proc = new FakeProcess(procOpts);
   const spawner = fakeSpawner([proc]);
   const sig = fakeSignal();
@@ -60,6 +65,7 @@ const rig = (procOpts: { exitOnStdinEnd?: boolean } = {}) => {
     harness: "claude",
     hcnVersion: "9.9.9",
     questions: "ask",
+    origin,
     getCloseInfo: () => closeInfo,
     input,
     write: (line) => {
@@ -101,6 +107,7 @@ describe("T02: hcn session --json happy path", () => {
       harness: "claude",
       hcn: "9.9.9",
       questions: "ask",
+      origin: "fresh",
     });
     const disp = evs.find((e) => e.kind === "disposition");
     expect(disp).toMatchObject({ id: "in-1", disposition: "started" });
@@ -224,6 +231,7 @@ describe("branch review: fixes for the findings the cross-family review raised",
       harness: "claude",
       hcnVersion: "9.9.9",
       questions: "ask",
+      origin: "fresh",
       getCloseInfo: () => closeInfo,
       getDroppedIds: () => droppedIds,
       input,
@@ -365,6 +373,7 @@ describe("follow-ups: backpressure and a broken command stream", () => {
       harness: "claude",
       hcnVersion: "9.9.9",
       questions: "ask",
+      origin: "fresh",
       getCloseInfo: () => closeInfo,
       input,
       write: (line) => {
@@ -406,7 +415,17 @@ describe("follow-ups: backpressure and a broken command stream", () => {
     await r.release();
     r.proc.emitLine(result);
     await tick();
+    // The queue delivers b, c, d one per turn boundary. close() now waits
+    // for an open turn to finish (issue #99), so the fake finishes each one
+    // the way a real harness would; the fake never exits on its own.
     r.input.end();
+    for (let i = 0; i < 3; i++) {
+      await tick();
+      await r.release();
+      r.proc.emitLine(result);
+      await tick();
+    }
+    r.proc.exit(0);
     await r.done;
     await r.release();
 
@@ -440,5 +459,147 @@ describe("follow-ups: backpressure and a broken command stream", () => {
       evs.some((e) => e.kind === "error" && String(e.message).includes("command stream failed")),
     ).toBe(true);
     expect(evs.at(-1)).toMatchObject({ kind: "closed" });
+  });
+});
+
+describe("session origin: fresh vs resumed, and refused resume emits no session", () => {
+  test("fresh session reports origin fresh", async () => {
+    const r = rig({}, "fresh");
+    await tick();
+    r.send({ op: "send", id: "in-1", text: "hi" });
+    await tick();
+    r.proc.emitLine(init);
+    r.proc.emitLine(result);
+    await tick();
+    r.input.end();
+    await r.done;
+    const evs = r.events();
+    expect(evs[0]).toMatchObject({ kind: "session", origin: "fresh" });
+  });
+
+  test("resumed session reports origin resumed", async () => {
+    const r = rig({}, "resumed");
+    await tick();
+    r.send({ op: "send", id: "in-1", text: "hi" });
+    await tick();
+    r.proc.emitLine(init);
+    r.proc.emitLine(result);
+    await tick();
+    r.input.end();
+    await r.done;
+    const evs = r.events();
+    expect(evs[0]).toMatchObject({ kind: "session", origin: "resumed" });
+  });
+
+  test("a refused unknown-id resume emits no session event", async () => {
+    const tmpHome = mkdtempSync(`${tmpdir()}/hcn-home-`);
+    const tmpCwd = mkdtempSync(`${tmpdir()}/hcn-cwd-`);
+    const tmpCfg = mkdtempSync(`${tmpdir()}/hcn-cfg-`);
+    const prevHome = process.env.HOME;
+    const prevCfg = process.env.HCN_CONFIG_DIR;
+    process.env.HOME = tmpHome;
+    process.env.HCN_CONFIG_DIR = tmpCfg;
+    // Use pi (store-backed) so the guard checks the filesystem; claude's
+    // onMissing is "error" and would refuse via harness validation rather than
+    // the store check that the origin depends on.
+    const fakeId = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+    // Ensure store does NOT exist - fresh tmp dirs guarantee that.
+    const out: string[] = [];
+    const err: string[] = [];
+    const outSpy = vi
+      .spyOn(process.stdout, "write")
+      .mockImplementation((c: string | Uint8Array) => {
+        out.push(String(c));
+        return true;
+      });
+    const errSpy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation((c: string | Uint8Array) => {
+        err.push(String(c));
+        return true;
+      });
+    const before = process.exitCode ?? 0;
+    process.exitCode = 0;
+    try {
+      await session("pi", ["--json", "--resume", fakeId, "--cwd", tmpCwd]);
+      expect(process.exitCode).toBe(2);
+      const events = out
+        .join("")
+        .trim()
+        .split("\n")
+        .filter(Boolean)
+        .map((l) => {
+          try {
+            return JSON.parse(l) as Record<string, unknown>;
+          } catch {
+            return { raw: l };
+          }
+        });
+      expect(events.some((e) => e.kind === "session")).toBe(false);
+      expect(events[0]).toMatchObject({ kind: "failure" });
+      expect(events.at(-1)).toMatchObject({ kind: "closed" });
+      // Also verify the same store-path would be reported as fresh if we
+      // created it: file the session and check the complementary path reports
+      // resumed. Reuses the same tmp dirs rather than building a second fake.
+      const { resumeStore } = await import("../../src/cli/resume-guard.js");
+      const beforeCheck = resumeStore(piCli, { home: tmpHome, cwd: tmpCwd, sessionId: fakeId });
+      if (beforeCheck.path === null) throw new Error("expected store path");
+      const filed = beforeCheck.path;
+      // pi files a session as <timestamp>_<id>.jsonl inside the per-cwd dir;
+      // an empty dir is NOT a filed session (issue #99 follow-up).
+      mkdirSync(filed, { recursive: true });
+      writeFileSync(join(filed, `2026-08-23T00-00-00-000Z_${fakeId}.jsonl`), "");
+      out.length = 0;
+      err.length = 0;
+      // Verify the store helper now sees it - proves the fake is wired to the
+      // same path the refusal checked. Uses the guard's own resolved cwd so
+      // /tmp vs /private/tmp on macOS does not diverge.
+      const check = resumeStore(piCli, { home: tmpHome, cwd: tmpCwd, sessionId: fakeId });
+      expect(check.exists).toBe(true);
+      expect(check.path).toBe(filed);
+    } finally {
+      process.exitCode = before;
+      if (process.exitCode === undefined) process.exitCode = 0;
+      outSpy.mockRestore();
+      errSpy.mockRestore();
+      if (prevHome === undefined) delete process.env.HOME;
+      else process.env.HOME = prevHome;
+      if (prevCfg === undefined) delete process.env.HCN_CONFIG_DIR;
+      else process.env.HCN_CONFIG_DIR = prevCfg;
+      rmSync(tmpHome, { recursive: true, force: true });
+      rmSync(tmpCwd, { recursive: true, force: true });
+      rmSync(tmpCfg, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("issue #95: a caller-supplied session id must match the harness's id shape", () => {
+  test("a non-UUID id is refused before spawn, exit 2, failure then closed on the stream", async () => {
+    const out: string[] = [];
+    const outSpy = vi
+      .spyOn(process.stdout, "write")
+      .mockImplementation((c: string | Uint8Array) => {
+        out.push(String(c));
+        return true;
+      });
+    const errSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const before = process.exitCode ?? 0;
+    process.exitCode = 0;
+    try {
+      await session("claude", ["--json", "--session-id", "bogus"]);
+      expect(process.exitCode).toBe(2);
+      const kinds = out
+        .join("")
+        .trim()
+        .split("\n")
+        .filter(Boolean)
+        .map((l) => (JSON.parse(l) as { kind: string }).kind);
+      // Refused before any spawn: no session event, only the failure pair.
+      expect(kinds).toEqual(["failure", "closed"]);
+    } finally {
+      process.exitCode = before;
+      outSpy.mockRestore();
+      errSpy.mockRestore();
+    }
   });
 });

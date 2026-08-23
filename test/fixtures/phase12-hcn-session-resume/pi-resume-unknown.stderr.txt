@@ -1,0 +1,3 @@
+provenance: escalateQuestions = true (default)
+no pi session 4c5c14ae-fd13-4788-a4b9-f8a501c24fb7 found at /Users/kevin/.pi/sessions/--private-tmp-claude-501--Users-kevin-dev-harness-cli-normalizer-c8338134-6439-49b4-91ea-ae34d7ca797d-scratchpad-wt-98--
+supported: a session id that exists in pi's store

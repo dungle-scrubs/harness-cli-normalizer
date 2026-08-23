@@ -116,6 +116,7 @@ describe("session control event carries only questions", () => {
       harness: "claude",
       hcnVersion: "0.0.0-test",
       questions: "none",
+      origin: "fresh",
       getCloseInfo: () => ({ exitCode: 0, cause: "clean" }),
       input,
       write: (line: string) => {

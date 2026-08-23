@@ -192,6 +192,10 @@ export interface SessionOptions {
   /** Provider selector (pi). A harness with no provider selector refuses,
    * the same way a one-shot turn does. */
   readonly provider?: string;
+  /** True when this argv should resume an existing conversation, false for a
+   * fresh session. Controls which descriptor flag is rendered: resumeFlag
+   * vs idFlag. Only consumers that alias --resume/--session-id set this. */
+  readonly isResume?: boolean;
 }
 
 export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): string[] => {
@@ -206,13 +210,8 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
     });
   }
   refuseUnusableSessionId(h, opts.sessionId);
-  const argv = [
-    h.bin,
-    ...h.sessionMode.flags,
-    // idFlag null = the harness refuses unknown ids and mints its own
-    // (pi rpc); the caller-side sessionId stays a correlation handle.
-    ...(h.sessionMode.idFlag !== null ? [h.sessionMode.idFlag, opts.sessionId] : []),
-  ];
+  const flag = opts.isResume ? h.sessionMode.resumeFlag : h.sessionMode.idFlag;
+  const argv = [h.bin, ...h.sessionMode.flags, ...(flag !== null ? [flag, opts.sessionId] : [])];
   if (opts.model !== undefined) {
     const validated = validateModel(h, opts.model);
     if (!validated.ok) {

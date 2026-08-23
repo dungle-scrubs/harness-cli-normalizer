@@ -25,12 +25,15 @@ export interface CloseInfo {
   cause: string;
 }
 
+export type SessionOrigin = "fresh" | "resumed";
+
 export interface JsonSessionArgs {
   readonly handle: SessionHandle;
   readonly sessionId: string;
   readonly harness: string;
   readonly hcnVersion: string;
   readonly questions?: QuestionMode;
+  readonly origin: SessionOrigin;
   /** Read after close - the runner's final exitCode and cause. */
   readonly getCloseInfo: () => CloseInfo;
   /** Read after close - ids the runner accepted and never
@@ -124,6 +127,7 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
     harness: a.harness,
     hcn: a.hcnVersion,
     questions: qMode,
+    origin: a.origin,
   });
 
   // Shared between the pumps: the last question asked, whether the last turn

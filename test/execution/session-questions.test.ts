@@ -159,6 +159,9 @@ describe("openSession question escalation - claude transport", () => {
     session.send({ id: "s", text: composeEscalatedPrompt("task", "ask", "session") });
     const write = proc.stdinWrites[0] ?? "";
     expect(write.match(/\[hcn question protocol\]/g)).toHaveLength(1);
+    // The fake never ends the turn on its own; a real harness does. close()
+    // now waits for an open turn to finish (issue #99), so finish it.
+    proc.exit(0);
     await session.close();
   });
 });
@@ -219,21 +222,22 @@ describe("openSession question escalation - pi rpc transport", () => {
     const turns = session.turns[Symbol.asyncIterator]();
     session.send({ id: "s", text: "task" });
     const turn1 = (await turns.next()).value as AsyncIterable<HarnessEvent>;
-    const minted = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    // pi session mode now carries --session-id (caller-assigned, verified
+    // phase10 test/fixtures/phase10-pi-rpc-resume); the probe returning the
+    // same id the caller assigned announces that id, not a minted one. A
+    // different id would be an identity-rotation error.
     proc.emitLine(
       JSON.stringify({
         id: "hcn-identity",
         type: "response",
         command: "get_state",
         success: true,
-        data: { sessionId: minted },
+        data: { sessionId: sid },
       }),
     );
     proc.emitLine(piSettled);
     const events1 = await drainTurn(turn1);
-    // idFlag null: the minted id IS the identity (announced once), and a
-    // second probe response does not re-announce.
-    expect(events1.find((e) => e.kind === "identity")?.sessionId).toBe(minted);
+    expect(events1.find((e) => e.kind === "identity")?.sessionId).toBe(sid);
     expect(events1.filter((e) => e.kind === "identity")).toHaveLength(1);
     expect(events1.find((e) => e.kind === "error")).toBeUndefined();
     await session.close();
@@ -269,6 +273,9 @@ describe("openSession question escalation - pi rpc transport", () => {
     session.send({ id: "s", text: "task" });
     const write = proc.stdinWrites.at(-1) ?? "";
     expect(JSON.parse(write).message).toContain("state the assumption");
+    // The fake never ends the turn on its own; a real harness does. close()
+    // now waits for an open turn to finish (issue #99), so finish it.
+    proc.exit(0);
     await session.close();
   });
 });

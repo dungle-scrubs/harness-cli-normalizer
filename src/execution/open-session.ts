@@ -90,6 +90,9 @@ export interface OpenSessionOptions {
   readonly questions?: QuestionMode;
   /** Provider selector (pi); refused on a harness without one. */
   readonly provider?: string;
+  /** True when resuming an existing conversation; controls which flag
+   * (resumeFlag vs idFlag) buildSessionArgv renders. */
+  readonly isResume?: boolean;
 }
 
 export class SessionClosedError extends Error {
@@ -118,6 +121,7 @@ export const openSession = (
     sessionId: opts.sessionId,
     ...(opts.model !== undefined ? { model: opts.model } : {}),
     ...(opts.provider !== undefined ? { provider: opts.provider } : {}),
+    ...(opts.isResume !== undefined ? { isResume: opts.isResume } : {}),
   });
   let sessionInput: SessionInputContract;
   try {
@@ -171,6 +175,13 @@ export const openSession = (
   let activeTurnId = "";
   const pendingIds: string[] = [];
   const pendingLengths: number[] = [];
+  // close() waits here while a turn is open. Ending the child's stdin
+  // mid-turn is fatal on pi: rpc treats EOF as "finish up and exit", so the
+  // prompt it has buffered never runs and the turn ends clean with no
+  // output (issue #99). claude happens to drain a queued turn after EOF,
+  // which is why this was invisible there. The README promises that a close
+  // after a send lets the turn finish; this is what keeps that promise.
+  let turnSettled: (() => void) | null = null;
   const preTurnEvents: HarnessEvent[] = [];
   let dead = false;
   let closing = false;
@@ -349,6 +360,11 @@ export const openSession = (
     });
     activeTurn = null;
     resultError = false;
+    if (turnSettled !== null) {
+      const release = turnSettled;
+      turnSettled = null;
+      release();
+    }
     if (dead || closing) return;
     const nextId = pendingIds.shift();
     if (nextId === undefined) return;
@@ -618,6 +634,12 @@ export const openSession = (
   void proc.exited.then((code) => {
     dead = true;
     exitCode = code;
+    // A close() waiting on an open turn must not outlive the child.
+    if (turnSettled !== null) {
+      const release = turnSettled;
+      turnSettled = null;
+      release();
+    }
     // The process is gone: a later fire would flip a finished turn to stall.
     disarmStall();
     // Pipes held open past exit (a grandchild) must not hang the session.
@@ -633,9 +655,22 @@ export const openSession = (
     });
   });
 
-  const close = async (): Promise<void> => {
+  // Two intents share this path and must not be conflated. A CLOSE is the
+  // consumer asking politely: an open turn gets to finish first, because
+  // the consumer is still there to receive it. ABANDONMENT is the consumer
+  // walking away from the turns iterable: nobody is left to receive a turn,
+  // so stdin ends at once and the child is reaped, not drained.
+  const close = async (drain = true): Promise<void> => {
     if (closing) return shutdown;
     closing = true;
+    // Let an open turn reach its end record before stdin goes away. The
+    // wait is bounded twice over: the stall watchdog ends a silent turn,
+    // and the grace below still escalates a child that never exits.
+    if (drain && activeTurn !== null && !dead) {
+      await new Promise<void>((resolve) => {
+        turnSettled = resolve;
+      });
+    }
     try {
       stdin.end();
     } catch {
@@ -655,7 +690,7 @@ export const openSession = (
       try {
         for await (const turn of turnsChannel) yield turn;
       } finally {
-        if (!closing && !dead) void close();
+        if (!closing && !dead) void close(false);
       }
     })(),
     send(input: SessionInput): SessionSendResult {

@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, realpathSync, symlinkSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
@@ -17,6 +17,8 @@ describe("resumeStore resolves the cwd the harness actually slugged", () => {
     // pi files the session under the slug of the REAL directory.
     const filed = storePath(piCli, { home, cwd: realCwd, sessionId: id });
     mkdirSync(filed, { recursive: true });
+    // pi files the session as <timestamp>_<id>.jsonl inside that dir.
+    writeFileSync(join(filed, `2026-08-23T00-00-00-000Z_${id}.jsonl`), "");
 
     const viaLink = resumeStore(piCli, { home, cwd: linkCwd, sessionId: id });
     expect(viaLink.path).toBe(filed);

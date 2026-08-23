@@ -1,0 +1,8 @@
+{"kind":"session","sessionId":"ae729f5f-fa2a-4ca9-bd14-d9f7b8ccaad4","harness":"pi","hcn":"0.5.5","escalateQuestions":true,"origin":"fresh"}
+{"kind":"disposition","id":"a","disposition":"started"}
+{"kind":"turn","turnId":"ae729f5f-fa2a-4ca9-bd14-d9f7b8ccaad4:turn-1","id":"a"}
+{"kind":"identity","sessionId":"ae729f5f-fa2a-4ca9-bd14-d9f7b8ccaad4","authority":"caller-assigned","capabilities":{"vision":false,"images":false,"streaming":"token","session":true,"source":"curated","confidence":"medium"}}
+{"kind":"token","text":"OK"}
+{"kind":"message","role":"assistant","text":"OK"}
+{"kind":"done","exitCode":null,"cause":"clean"}
+{"kind":"closed","exitCode":0,"cause":"clean"}

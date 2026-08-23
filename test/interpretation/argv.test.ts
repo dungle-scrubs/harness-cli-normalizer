@@ -99,7 +99,13 @@ describe("buildSessionArgv (claude)", () => {
     const argv = buildSessionArgv(piCli, {
       sessionId: "eb04301d-8756-4a8b-ae3e-aac0e71f7265",
     });
-    expect(argv).toEqual(["pi", "--mode", "rpc"]);
+    expect(argv).toEqual([
+      "pi",
+      "--mode",
+      "rpc",
+      "--session-id",
+      "eb04301d-8756-4a8b-ae3e-aac0e71f7265",
+    ]);
   });
 });
 
@@ -215,5 +221,30 @@ describe("pi resume argv matches captured fixture (F-26)", () => {
       tools: ["read", "shell", "edit", "write", "grep", "glob", "list"],
     });
     expect(argv).toEqual(expected);
+  });
+});
+
+describe("buildSessionArgv resumeFlag vs idFlag (issue #97)", () => {
+  test("a resuming session argv for claude never contains --session-id", () => {
+    const id = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
+    const argv = buildSessionArgv(claudeCode, { sessionId: id, isResume: true });
+    expect(argv).toContain("--resume");
+    expect(argv).not.toContain("--session-id");
+    expect(argv[argv.indexOf("--resume") + 1]).toBe(id);
+  });
+
+  test("fresh session argv for claude still contains --session-id", () => {
+    const id = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
+    const fresh = buildSessionArgv(claudeCode, { sessionId: id });
+    expect(fresh).toContain("--session-id");
+    expect(fresh).not.toContain("--resume");
+  });
+
+  test("pi resume and fresh both use --session-id (same flag)", () => {
+    const id = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
+    const fresh = buildSessionArgv(piCli, { sessionId: id });
+    const resumed = buildSessionArgv(piCli, { sessionId: id, isResume: true });
+    expect(fresh).toContain("--session-id");
+    expect(resumed).toContain("--session-id");
   });
 });

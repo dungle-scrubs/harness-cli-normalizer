@@ -78,12 +78,15 @@ Options:
   --no-skills               Disable skills discovery facet
   --cwd <path>              Working directory for spawn
   --env KEY=VAL             Environment (repeatable; KEY= deletes)
-  --resume <uuid>           Resume session id (UUID). The answer path for
-                            question escalation: resume with the chosen
-                            answer as the prompt; id continuity per
+  --resume <uuid>           Resume session id (UUID). Continues the
+                            conversation where it left off. The answer
+                            path for question escalation: resume with the
+                            chosen answer as the prompt; id continuity per
                             harness (claude stable, pi/muse caller-assigned,
                             codex minted via identity event)
-                            Note: pi and muse create a new session when the id is unknown - verify it exists
+                            Note: hcn refuses an unknown id before spawn
+                            (exit 2) for harnesses that would otherwise
+                            create a fresh session silently (pi, muse)
   --session-id <uuid>       Alias for --resume (mutually exclusive with --resume)
   --                        Passthrough: native harness args verbatim
                             (failures surface as labeled native errors)
@@ -129,8 +132,14 @@ Options:
                             (default: no limit)
   --provider <value>        Provider (pi only)
   --model <id>              Model for the session
-  --session-id <uuid>       Session id (UUID, else random; re-enters an
-                            existing session)
+  --resume <uuid>           Resume session id (UUID). Continues the
+                            conversation where it left off. --session-id
+                            is an alias (mutually exclusive with --resume).
+                            If no id is given, a fresh session is started
+                            with a new id. hcn refuses an unknown id before
+                            spawn (exit 2) for harnesses that would otherwise
+                            create a fresh session silently (pi)
+  --session-id <uuid>       Alias for --resume (mutually exclusive with --resume)
   --questions <ask|assume|none>
                             Which preamble to inject: ask = worker may
                             ask (DEFAULT, pickable menu), assume = never
