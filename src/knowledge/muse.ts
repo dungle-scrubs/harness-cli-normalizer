@@ -91,6 +91,7 @@ export const museCode: HarnessDescriptor = deepFreeze({
     },
     session: false,
   },
+  escalation: { supported: true },
   turnOptions: {
     effort: { kind: "effort", render: { kind: "flag-value", flag: "--reasoning-effort" } },
     write: {

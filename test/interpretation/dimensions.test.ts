@@ -48,6 +48,7 @@ describe("capabilitiesOf (claude)", () => {
       session: true,
       source: "curated",
       confidence: "medium",
+      escalation: { supported: true, source: "curated", confidence: "medium" },
     });
   });
 

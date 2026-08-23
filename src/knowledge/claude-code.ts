@@ -140,6 +140,7 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     },
     session: true,
   },
+  escalation: { supported: true },
   turnOptions: {
     effort: { kind: "effort", render: { kind: "flag-value", flag: "--effort" } },
     // issue #48, live-verified 2.1.235: --system-prompt replaces the built-in
