@@ -69,7 +69,7 @@ describe("streamTurn question escalation (true mode, default)", () => {
     expect(events.map((e) => e.kind).indexOf("question")).toBeLessThan(
       events.map((e) => e.kind).lastIndexOf("done"),
     );
-    expect(events.at(-1)).toEqual({ kind: "done", exitCode: 0, cause: "awaiting-input" });
+    expect(events.at(-1)).toMatchObject({ kind: "done", exitCode: 0, cause: "awaiting-input" });
   });
 
   test("question event fires even when a later non-assistant message exists", async () => {
@@ -143,7 +143,7 @@ describe("streamTurn question escalation (false mode)", () => {
     proc.exit(0);
     const events = await collect(turn);
     expect(events.find((e) => e.kind === "question")).toBeUndefined();
-    expect(events.at(-1)).toEqual({ kind: "done", exitCode: 0, cause: "clean" });
+    expect(events.at(-1)).toMatchObject({ kind: "done", exitCode: 0, cause: "clean" });
     const argv = d.spawner.calls[0]?.argv ?? [];
     const spawnedPrompt = argv.find((a) => a.startsWith("[hcn question protocol]"));
     expect(spawnedPrompt).toBeDefined();
@@ -163,7 +163,7 @@ describe("streamTurn question escalation on resume", () => {
     proc.exit(0);
     const events = await collect(turn);
     expect(events.find((e) => e.kind === "question")).toBeUndefined();
-    expect(events.at(-1)).toEqual({ kind: "done", exitCode: 0, cause: "clean" });
+    expect(events.at(-1)).toMatchObject({ kind: "done", exitCode: 0, cause: "clean" });
     const argv = d.spawner.calls[0]?.argv ?? [];
     expect(argv).toContain("--resume");
     const spawnedPrompt = argv.find((a) => a.startsWith("[hcn question protocol]"));

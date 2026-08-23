@@ -170,7 +170,7 @@ describe("M3.2 boundary-review regression pins", () => {
     const events = await drainTurn(turn);
     expect(events.filter((event) => event.kind === "tool")).toHaveLength(1_100);
     expect(events.filter((event) => event.kind === "done")).toEqual([
-      { kind: "done", exitCode: 0, cause: "clean" },
+      { kind: "done", exitCode: 0, cause: "clean", escalation: { mode: "ask", detection: "none" } },
     ]);
     expect(proc.stdout.activeReaderCount).toBe(0);
     expect(proc.stderr.activeReaderCount).toBe(0);

@@ -90,7 +90,7 @@ describe("openSession question escalation - claude transport", () => {
       options: ["staging", "production"],
       recommended: "staging",
     });
-    expect(events1.at(-1)).toEqual({ kind: "done", exitCode: null, cause: "awaiting-input" });
+    expect(events1.at(-1)).toMatchObject({ kind: "done", exitCode: null, cause: "awaiting-input" });
 
     // The answer is the next send on the SAME process - no respawn.
     session.send({ id: "s", text: "The user answered: production." });
@@ -194,7 +194,7 @@ describe("openSession question escalation - pi rpc transport", () => {
       options: ["staging", "production"],
       recommended: "staging",
     });
-    expect(events1.at(-1)).toEqual({ kind: "done", exitCode: null, cause: "awaiting-input" });
+    expect(events1.at(-1)).toMatchObject({ kind: "done", exitCode: null, cause: "awaiting-input" });
 
     // answer: next send is a prompt command on the same process
     session.send({ id: "s", text: "The user answered: production." });

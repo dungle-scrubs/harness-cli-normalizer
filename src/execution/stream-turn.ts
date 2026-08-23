@@ -33,7 +33,7 @@ import { matcherOverridesOf } from "../knowledge/overrides.js";
 import { AsyncChannel } from "./channel.js";
 import { decodeLine, freshDecodeState } from "./decode.js";
 import type { RunnerDeps, SpawnedProcess } from "./deps.js";
-import type { ExitCause, HarnessEvent } from "./events.js";
+import type { EscalationDetection, ExitCause, HarnessEvent } from "./events.js";
 import type { FailureSummary } from "./failure.js";
 import {
   failureFromAuth,
@@ -142,6 +142,7 @@ export async function* streamTurn(
   // hcn-question block lives. Tracked only when detection is armed.
   let lastAssistantText: string | null = null;
   let asked = false;
+  let escalationDetection: EscalationDetection = "none";
 
   // Validate env before building argv so an invalid env is a refusal, not a spawn
   if (opts.env !== undefined) {
@@ -168,7 +169,13 @@ export async function* streamTurn(
           argv: redactArgv([], effective.prompt),
         });
         yield { kind: "failure", ...failure };
-        yield { kind: "done", exitCode: null, cause: "failed", failure };
+        yield {
+          kind: "done",
+          exitCode: null,
+          cause: "failed",
+          failure,
+          escalation: { mode: questionMode, detection: "none" },
+        };
         return;
       }
     }
@@ -219,7 +226,13 @@ export async function* streamTurn(
         argv: argvForLog,
       });
       yield { kind: "failure", ...failure };
-      yield { kind: "done", exitCode: null, cause: "failed", failure };
+      yield {
+        kind: "done",
+        exitCode: null,
+        cause: "failed",
+        failure,
+        escalation: { mode: questionMode, detection: "none" },
+      };
       return;
     }
     throw e;
@@ -267,7 +280,13 @@ export async function* streamTurn(
     if (resumeCreateWarning !== null) yield { kind: "error", message: resumeCreateWarning };
     yield { kind: "error", message: `spawn failed: ${message}` };
     yield { kind: "failure", ...failure };
-    yield { kind: "done", exitCode: 127, cause: "failed", failure };
+    yield {
+      kind: "done",
+      exitCode: 127,
+      cause: "failed",
+      failure,
+      escalation: { mode: questionMode, detection: "none" },
+    };
     return;
   }
 
@@ -469,14 +488,22 @@ export async function* streamTurn(
    * A malformed block surfaces as an error event, never a silent
    * no-op. */
   const emitQuestionIfAsked = async (): Promise<void> => {
-    if (questionMode !== "ask" || lastAssistantText === null) return;
+    if (questionMode !== "ask" || lastAssistantText === null) {
+      escalationDetection = "none";
+      return;
+    }
     const detection = detectQuestionBlock(lastAssistantText);
-    if (detection === null) return;
+    if (detection === null) {
+      escalationDetection = "none";
+      return;
+    }
     if ("malformed" in detection) {
+      escalationDetection = "malformed";
       await queue.push({ kind: "error", message: detection.malformed });
       await pushFailure(failureFromTask(`malformed hcn-question block: ${detection.malformed}`));
       return;
     }
+    escalationDetection = "block";
     log({
       event: "question",
       turnId,
@@ -676,6 +703,7 @@ export async function* streamTurn(
       exitCode: nativeReduced ? null : exitCode,
       cause,
       ...(reduced ? { failure: reduced } : {}),
+      escalation: { mode: questionMode, detection: escalationDetection },
     };
   } finally {
     if (abortHandler !== null) opts.signal?.removeEventListener("abort", abortHandler);

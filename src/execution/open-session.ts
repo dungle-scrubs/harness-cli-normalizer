@@ -34,7 +34,7 @@ import type { HarnessDescriptor, SessionInputContract } from "../knowledge/descr
 import { AsyncChannel } from "./channel.js";
 import { decodeParsed, freshDecodeState } from "./decode.js";
 import type { RunnerDeps, SpawnedProcess, TimerHandle } from "./deps.js";
-import type { ExitCause, HarnessEvent } from "./events.js";
+import type { EscalationDetection, ExitCause, HarnessEvent } from "./events.js";
 import type { FailureSummary } from "./failure.js";
 import {
   failureFromAuth,
@@ -189,6 +189,7 @@ export const openSession = (
   // hcn-question block lives) and whether the turn ended by asking.
   let lastAssistantText: string | null = null;
   let turnAsked = false;
+  let turnEscalationDetection: EscalationDetection = "none";
   let identityAnnounced = false;
 
   const safeSignal = (sig: "SIGTERM" | "SIGKILL"): void => {
@@ -263,6 +264,7 @@ export const openSession = (
     turnLimitSeen = false;
     turnFailures = [];
     turnAsked = false;
+    turnEscalationDetection = "none";
     lastAssistantText = null;
     activeTurn = new AsyncChannel<HarnessEvent>();
     activeTurnId = `${opts.sessionId}:turn-${++turnCounter}`;
@@ -286,16 +288,24 @@ export const openSession = (
    * turn stream right before its done; a malformed block surfaces as an
    * error event, never a silent no-op. */
   const emitQuestionIfAsked = (): void => {
-    if (questionMode !== "ask" || lastAssistantText === null) return;
+    if (questionMode !== "ask" || lastAssistantText === null) {
+      turnEscalationDetection = "none";
+      return;
+    }
     const detection = detectQuestionBlock(lastAssistantText);
-    if (detection === null) return;
+    if (detection === null) {
+      turnEscalationDetection = "none";
+      return;
+    }
     if ("malformed" in detection) {
+      turnEscalationDetection = "malformed";
       activeTurn?.push({ kind: "error", message: detection.malformed });
       const failure = failureFromTask(`malformed hcn-question block: ${detection.malformed}`);
       turnFailures.push(failure);
       void activeTurn?.push({ kind: "failure", ...failure });
       return;
     }
+    turnEscalationDetection = "block";
     turnAsked = true;
     log({
       event: "question",
@@ -314,7 +324,7 @@ export const openSession = (
     });
   };
 
-  const endTurn = (done: HarnessEvent & { kind: "done" }): void => {
+  const endTurn = (done: Omit<HarnessEvent & { kind: "done" }, "escalation">): void => {
     if (activeTurn === null) return;
     disarmStall();
     // Asking is a successful turn: the session semantic is "blocked on
@@ -322,20 +332,25 @@ export const openSession = (
     // in sessions) and the caller answers with the next send().
     emitQuestionIfAsked();
     if (turnAsked && done.cause === "clean") done = { ...done, cause: "awaiting-input" };
+    // RFC-01 every turn end carries the escalation record
+    let fullDone: HarnessEvent & { kind: "done" } = {
+      ...done,
+      escalation: { mode: questionMode, detection: turnEscalationDetection },
+    } as HarnessEvent & { kind: "done" };
     // Every failure was already emitted as an event through pushFailure;
     // the turn's done carries the reduced summary, as streamTurn's does.
     const reduced = reduceFailures(turnFailures);
     if (reduced !== undefined) {
-      if (done.cause === "clean") done = { ...done, cause: "failed", failure: reduced };
-      else done = { ...done, failure: reduced };
+      if (fullDone.cause === "clean") fullDone = { ...fullDone, cause: "failed", failure: reduced };
+      else fullDone = { ...fullDone, failure: reduced };
     }
-    activeTurn.push(done);
+    activeTurn.push(fullDone);
     activeTurn.close();
     log({
       event: "turn_end",
       sessionId: opts.sessionId,
       turnId: activeTurnId,
-      cause: done.cause,
+      cause: fullDone.cause,
     });
     activeTurn = null;
     resultError = false;
