@@ -3,7 +3,7 @@
 Does claude accept `--resume` alongside the session-mode flags, and does it
 restore context? Captured 2026-08-23 on `pro`, claude 2.1.240.
 
-Driver: `drive.mjs` writes one user message and holds stdin until the `result`
+Driver: `scripts/probe-claude-stream-session.mjs` writes one user message and holds stdin until the `result`
 event before closing, the same shape the pi probe needed.
 
 ## Answers

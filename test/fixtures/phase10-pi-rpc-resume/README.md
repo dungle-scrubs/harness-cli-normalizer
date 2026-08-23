@@ -5,7 +5,7 @@ that conversation into a live session? Captured 2026-08-23 on `pro`, pi 0.84.2.
 
 ## Answer: yes.
 
-Two rpc sessions, same `--session-id`, driven by `drive.mjs` - which writes one
+Two rpc sessions, same `--session-id`, driven by `scripts/probe-pi-rpc-session.mjs` - which writes one
 prompt and holds stdin until `agent_settled` before closing.
 
 - `rpc-establish.ndjson` - first session. 29 lines. Establishes the codeword

@@ -95,6 +95,9 @@ export interface OpenSessionOptions {
   readonly escalateQuestions?: boolean;
   /** Provider selector (pi); refused on a harness without one. */
   readonly provider?: string;
+  /** True when resuming an existing conversation; controls which flag
+   * (resumeFlag vs idFlag) buildSessionArgv renders. */
+  readonly isResume?: boolean;
 }
 
 export class SessionClosedError extends Error {
@@ -123,6 +126,7 @@ export const openSession = (
     sessionId: opts.sessionId,
     ...(opts.model !== undefined ? { model: opts.model } : {}),
     ...(opts.provider !== undefined ? { provider: opts.provider } : {}),
+    ...(opts.isResume !== undefined ? { isResume: opts.isResume } : {}),
   });
   let sessionInput: SessionInputContract;
   try {

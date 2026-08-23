@@ -57,10 +57,32 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   }
 
   const values = parsed.values as Record<string, unknown>;
-  const sessionId =
-    (values["session-id"] as string | undefined) ??
-    (values.resume as string | undefined) ??
-    randomUUID();
+  // --resume and --session-id are aliases for one concept: resume an existing
+  // session. Passing both is refused, matching hcn run's parseRunExtra shape
+  // (src/cli/args.ts) rather than inventing a second parser.
+  if (values.resume !== undefined && values["session-id"] !== undefined) {
+    const { ArgvRefusalError: AliasError } = await import("../interpretation/refusal.js");
+    const err = new AliasError({
+      issue: "mutually-exclusive-options",
+      harness: h.name,
+      supported: ["--resume or --session-id, not both (--session-id is an alias for --resume)"],
+      detail: "both --resume and --session-id given",
+    });
+    const { refusalOf: aliasRefusalOf, refuse: aliasRefuse } = await import("./refuse.js");
+    aliasRefuse(aliasRefusalOf(err), jsonMode, "closed");
+    return;
+  }
+  const resumeId =
+    (values.resume as string | undefined) ?? (values["session-id"] as string | undefined);
+  // The two flags are aliases for "use this session". Whether that means
+  // RESUME is decided by the store, not by which spelling was typed: an id
+  // that exists is resumed (resumeFlag rendered), an id that does not exist
+  // names a fresh session (idFlag rendered). --resume on an id that does not
+  // exist is the one combination refused, below - a caller who said "resume"
+  // and would silently get a fresh conversation is issue #86 exactly.
+  const explicitResume = values.resume !== undefined;
+  const sessionId = resumeId ?? randomUUID();
+  let isResume = false;
   const model = values.model as string | undefined;
   const cwd = values.cwd as string | undefined;
   const provider = values.provider as string | undefined;
@@ -115,6 +137,35 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   process.stderr.write(`provenance: escalateQuestions = ${escalateQuestions} (${escalateTier})\n`);
 
   // Validate sessionId shape? let openSession handle via assertUsableSessionId
+  // Unknown-id refusal reuses the run resume guard (src/cli/resume-guard.ts):
+  // harnesses that create on unknown (pi, muse with onMissing === "create")
+  // are refused before spawn with the same message shape hcn run uses.
+  // claude (onMissing === "error") refuses on its own; no store check.
+  if (resumeId !== undefined) {
+    const { resumeStore: checkResumeStore } = await import("./resume-guard.js");
+    const { path: storePath, exists } = checkResumeStore(h, {
+      home: process.env.HOME ?? process.env.USERPROFILE ?? "",
+      cwd: cwd ?? process.cwd(),
+      sessionId,
+    });
+    // Exists in the store: resume it, whichever alias was typed. Absent and the
+    // caller only named an id: a fresh session under that id, as before.
+    isResume = storePath !== null && exists;
+    if (explicitResume && storePath !== null && !exists) {
+      const { refuse: guardRefuse } = await import("./refuse.js");
+      guardRefuse(
+        {
+          message: `no ${h.name} session ${sessionId} found at ${storePath}`,
+          issue: "invalid-option-value",
+          supported: [`a session id that exists in ${h.name}'s store`],
+        },
+        jsonMode,
+        "closed",
+      );
+      return;
+    }
+  }
+
   delete (process.env as Record<string, string | undefined>).HERDR_ENV;
 
   const wantJson = values.json === true;
@@ -164,7 +215,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
 
   let handle: ReturnType<typeof openSession>;
   try {
-    handle = openSession(h, { sessionId, model, cwd, escalateQuestions, provider }, deps);
+    handle = openSession(h, { sessionId, model, cwd, escalateQuestions, provider, isResume }, deps);
   } catch (err) {
     if (err instanceof ArgvRefusalError) {
       const { refusalOf, refuse } = await import("./refuse.js");
