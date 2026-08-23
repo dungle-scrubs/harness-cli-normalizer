@@ -107,9 +107,9 @@ bun scripts/check-versions.ts       # compare descriptors to published versions
   (`feat:`, `fix:`, `perf:`, `refactor:`, `docs:`, `chore:`, `ci:`, `test:`).
   release-please reads these to cut releases and write `CHANGELOG.md`.
 - When a harness descriptor's facts are re-verified against a new CLI version,
-  bump `verifiedAgainst` and `versionSource` together and re-capture fixtures.
+  bump `verifiedAgainst` and `versionSource` together, update `escalation.observedOn` from the probe output, and re-capture fixtures.
   `verifiedAgainst` is the anchor for the harness-update pipeline; do not bump
-  it without re-running the capability tripwires locally (`bun run smoke:seven`).
+  it without re-running the capability tripwires locally (`bun run smoke:seven` and `bun run smoke:questions`) and transcribing their `observedOn` values into the descriptors.
 - Test fixtures under `test/fixtures/` are captured real harness output kept as
   evidence. They legitimately contain absolute paths and session metadata -
   do not scrub or "clean" them.

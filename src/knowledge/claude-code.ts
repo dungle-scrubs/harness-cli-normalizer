@@ -140,7 +140,13 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     },
     session: true,
   },
-  escalation: { supported: true },
+  // Escalation provenance transcribed from test/fixtures/phase7-questions/,
+  // committed 2026-08-19. `model` is empty because no fixture on that stream
+  // records a model id - absence of evidence, not an unset field.
+  escalation: {
+    supported: true,
+    observedOn: { harness: "claude", model: "", version: "2.1.235", date: "2026-08-19" },
+  },
   turnOptions: {
     effort: { kind: "effort", render: { kind: "flag-value", flag: "--effort" } },
     // issue #48, live-verified 2.1.235: --system-prompt replaces the built-in

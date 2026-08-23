@@ -101,7 +101,13 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     },
     session: false,
   },
-  escalation: { supported: true },
+  // Escalation provenance transcribed from test/fixtures/phase7-questions/,
+  // committed 2026-08-19. `model` is empty because no fixture on that stream
+  // records a model id - absence of evidence, not an unset field.
+  escalation: {
+    supported: true,
+    observedOn: { harness: "codex", model: "", version: "0.146.1", date: "2026-08-19" },
+  },
   turnOptions: {
     effort: {
       kind: "effort",
