@@ -248,6 +248,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
       harness: h.name,
       hcnVersion: getVersion(),
       escalateQuestions,
+      origin: isResume ? "resumed" : "fresh",
       getCloseInfo: () => closeInfo,
       getDroppedIds: () => droppedIds,
     });
