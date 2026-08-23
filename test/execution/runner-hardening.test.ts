@@ -178,7 +178,7 @@ describe("M3.1 boundary-review regression pins", () => {
 
     expect(events.filter((event) => event.kind === "token")).toHaveLength(500);
     expect(events.filter((event) => event.kind === "done")).toEqual([
-      { kind: "done", exitCode: 0, cause: "clean" },
+      { kind: "done", exitCode: 0, cause: "clean", escalation: { mode: "ask", detection: "none" } },
     ]);
   });
 
@@ -219,7 +219,7 @@ describe("M3.1 boundary-review regression pins", () => {
 
     expect(events.filter((event) => event.kind === "tool")).toHaveLength(1_100);
     expect(events.filter((event) => event.kind === "done")).toEqual([
-      { kind: "done", exitCode: 0, cause: "clean" },
+      { kind: "done", exitCode: 0, cause: "clean", escalation: { mode: "ask", detection: "none" } },
     ]);
   });
 

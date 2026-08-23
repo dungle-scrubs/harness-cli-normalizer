@@ -33,6 +33,31 @@ The dependency is one-way. The normalizer never imports chat/protocol types
 from any consumer (e.g. lucid). A non-lucid consumer can use the runner
 standalone.
 
+## Scope - the test a new feature must pass
+
+hcn does two jobs: it **normalizes** four harness interfaces, and it
+**supervises** one process while that process runs. `CONTEXT.md` says which
+existing code does which; ADR 0007 states the boundary.
+
+Before adding functionality, apply this test. A feature belongs when it either:
+
+1. **Normalizes** something the harnesses each do differently, expressing them in
+   one vocabulary and deciding nothing; or
+2. **Supervises one process** hcn itself spawned, for as long as it runs.
+
+A feature that tracks, correlates, or stores anything **across process
+boundaries** does not belong. That is the caller's job, because only the caller
+knows what a unit of work is.
+
+Two habits that follow:
+
+- **Check whether the harness already does it.** hcn built its own send queue on
+  top of two harnesses that both queue natively - claude mid-turn, pi via
+  `steer`/`follow_up`. Duplicating a capability is not normalizing it. Forward
+  the native mechanism, or write through and let the harness behave.
+- **A feature that fails the test is not necessarily wrong** - it may belong in
+  the caller. Say where it belongs rather than only that it does not belong here.
+
 ## Invariants - enforced by tests, not promised in comments
 
 These gates exist because the layer boundaries are load-bearing. Do not weaken
@@ -82,9 +107,9 @@ bun scripts/check-versions.ts       # compare descriptors to published versions
   (`feat:`, `fix:`, `perf:`, `refactor:`, `docs:`, `chore:`, `ci:`, `test:`).
   release-please reads these to cut releases and write `CHANGELOG.md`.
 - When a harness descriptor's facts are re-verified against a new CLI version,
-  bump `verifiedAgainst` and `versionSource` together and re-capture fixtures.
+  bump `verifiedAgainst` and `versionSource` together, update `escalation.observedOn` from the probe output, and re-capture fixtures.
   `verifiedAgainst` is the anchor for the harness-update pipeline; do not bump
-  it without re-running the capability tripwires locally (`bun run smoke:seven`).
+  it without re-running the capability tripwires locally (`bun run smoke:seven` and `bun run smoke:questions`) and transcribing their `observedOn` values into the descriptors.
 - Test fixtures under `test/fixtures/` are captured real harness output kept as
   evidence. They legitimately contain absolute paths and session metadata -
   do not scrub or "clean" them.

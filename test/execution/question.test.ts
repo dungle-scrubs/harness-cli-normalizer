@@ -69,7 +69,7 @@ describe("streamTurn question escalation (true mode, default)", () => {
     expect(events.map((e) => e.kind).indexOf("question")).toBeLessThan(
       events.map((e) => e.kind).lastIndexOf("done"),
     );
-    expect(events.at(-1)).toEqual({ kind: "done", exitCode: 0, cause: "awaiting-input" });
+    expect(events.at(-1)).toMatchObject({ kind: "done", exitCode: 0, cause: "awaiting-input" });
   });
 
   test("question event fires even when a later non-assistant message exists", async () => {
@@ -133,7 +133,7 @@ describe("streamTurn question escalation (false mode)", () => {
   test("no preamble block instruction, no detection, no question event", async () => {
     const proc = new FakeProcess();
     const d = deps(proc);
-    const turn = streamTurn(claudeCode, { prompt: "task", escalateQuestions: false }, d);
+    const turn = streamTurn(claudeCode, { prompt: "task", questions: "assume" }, d);
     proc.emitLine(init);
     // A worker that asks anyway (mode was false) must NOT produce a
     // question event - detection is disarmed; the turn is judged on its
@@ -143,7 +143,7 @@ describe("streamTurn question escalation (false mode)", () => {
     proc.exit(0);
     const events = await collect(turn);
     expect(events.find((e) => e.kind === "question")).toBeUndefined();
-    expect(events.at(-1)).toEqual({ kind: "done", exitCode: 0, cause: "clean" });
+    expect(events.at(-1)).toMatchObject({ kind: "done", exitCode: 0, cause: "clean" });
     const argv = d.spawner.calls[0]?.argv ?? [];
     const spawnedPrompt = argv.find((a) => a.startsWith("[hcn question protocol]"));
     expect(spawnedPrompt).toBeDefined();
@@ -163,7 +163,7 @@ describe("streamTurn question escalation on resume", () => {
     proc.exit(0);
     const events = await collect(turn);
     expect(events.find((e) => e.kind === "question")).toBeUndefined();
-    expect(events.at(-1)).toEqual({ kind: "done", exitCode: 0, cause: "clean" });
+    expect(events.at(-1)).toMatchObject({ kind: "done", exitCode: 0, cause: "clean" });
     const argv = d.spawner.calls[0]?.argv ?? [];
     expect(argv).toContain("--resume");
     const spawnedPrompt = argv.find((a) => a.startsWith("[hcn question protocol]"));
@@ -174,7 +174,7 @@ describe("streamTurn question escalation on resume", () => {
   test("double composition never happens (CLI composes, streamTurn sees composed)", async () => {
     const proc = new FakeProcess();
     const d = deps(proc);
-    const turn = streamTurn(claudeCode, { prompt: composeEscalatedPrompt("task", true) }, d);
+    const turn = streamTurn(claudeCode, { prompt: composeEscalatedPrompt("task", "ask") }, d);
     proc.emitLine(init);
     proc.emitLine(assistantWith("ok"));
     proc.emitLine(result);

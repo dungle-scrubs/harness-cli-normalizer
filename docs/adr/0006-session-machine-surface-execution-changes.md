@@ -1,0 +1,4 @@
+# Machine session surface carries ids through the runner and watches for stall
+
+`hcn session --json` moves four execution-layer facts so the wire contract never desyncs: `send` takes `{id, text}` and the id travels with the text through `pendingSends` and the yielded turn (not a CLI-side parallel FIFO, which loses correlation on a write failure at a turn boundary); `openSession` arms a per-turn stall watchdog that rearms on stdout or stderr and ends the turn `done cause=stall` then `closed cause=stall` (no default budget; `--stall 0` disables); a write failure is a distinct `write-failed` disposition that stops accepting sends and signals the child without marking the session dead first; and `closed.cause` is exactly `clean | limit | crash | stall | killed | failed` with `awaiting-input` never a `closed` cause.
+

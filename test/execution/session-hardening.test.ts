@@ -170,7 +170,7 @@ describe("M3.2 boundary-review regression pins", () => {
     const events = await drainTurn(turn);
     expect(events.filter((event) => event.kind === "tool")).toHaveLength(1_100);
     expect(events.filter((event) => event.kind === "done")).toEqual([
-      { kind: "done", exitCode: 0, cause: "clean" },
+      { kind: "done", exitCode: 0, cause: "clean", escalation: { mode: "ask", detection: "none" } },
     ]);
     expect(proc.stdout.activeReaderCount).toBe(0);
     expect(proc.stderr.activeReaderCount).toBe(0);
@@ -206,7 +206,7 @@ describe("M3.2 boundary-review regression pins", () => {
     expect(proc.stderr.activeReaderCount).toBe(0);
   });
 
-  test("queued sends that die with the session are surfaced, never silently dropped", async () => {
+  test("pending sends that die with the session are surfaced, never silently dropped", async () => {
     const logged: Record<string, unknown>[] = [];
     const proc = new FakeProcess();
     const d = makeDeps(proc, logged);
@@ -214,14 +214,14 @@ describe("M3.2 boundary-review regression pins", () => {
     session.send({ id: "s", text: "first" });
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
-    expect(session.send({ id: "s", text: "second - accepted as queued" }).disposition).toBe(
-      "queued",
-    );
+    expect(
+      session.send({ id: "s", text: "second - handed to harness while busy" }).disposition,
+    ).toBe("started");
     proc.emitLine(init);
-    proc.exit(7); // dies before the boundary ever flushes the queue
+    proc.exit(7); // dies with a pending send the harness had already received
     const events = await drainTurn(turn1);
     expect(events.find((e) => e.kind === "error")).toMatchObject({
-      message: expect.stringContaining("queued send"),
+      message: expect.stringContaining("pending send"),
     });
     expect(logged.find((e) => e.event === "sends_dropped")).toMatchObject({ count: 1 });
   });
@@ -332,5 +332,71 @@ describe("M3.2 boundary-review regression pins", () => {
     }
     await tick();
     expect(proc.stdinEnded).toBe(true); // close() ran
+  });
+});
+
+describe("issue #99: close() lets an open turn finish", () => {
+  const resultLine = JSON.stringify({
+    type: "result",
+    subtype: "success",
+    session_id: sid,
+    is_error: false,
+  });
+
+  test("close() during a turn waits for the turn end before ending stdin", async () => {
+    const proc = new FakeProcess();
+    const d = makeDeps(proc);
+    const session = openSession(claudeCode, { sessionId: sid }, d);
+    session.send({ id: "s", text: "hi" });
+    const turnsIter = session.turns[Symbol.asyncIterator]();
+    const turn = (await turnsIter.next()).value;
+    // Drain the turn concurrently, as a real consumer would.
+    const events: HarnessEvent[] = [];
+    const drained = (async () => {
+      for await (const e of turn) events.push(e);
+    })();
+    // Close arrives while the turn is open - the pi failure mode, where
+    // ending stdin here made the harness exit before running the prompt.
+    const closing = session.close();
+    await tick();
+    expect(proc.stdinEnded).toBe(false); // stdin still open: the turn is allowed to finish
+    proc.emitLine(resultLine);
+    await tick();
+    proc.exit(0);
+    await closing;
+    await drained;
+    expect(proc.stdinEnded).toBe(true);
+    expect(events.at(-1)?.kind).toBe("done"); // the turn completed, not truncated
+  });
+
+  test("close() with no open turn ends stdin at once", async () => {
+    const proc = new FakeProcess({ exitOnStdinEnd: true });
+    const d = makeDeps(proc);
+    const session = openSession(claudeCode, { sessionId: sid }, d);
+    await session.close();
+    expect(proc.stdinEnded).toBe(true);
+  });
+
+  test("close() waiting on a turn is released if the child dies", async () => {
+    const proc = new FakeProcess();
+    const d = makeDeps(proc);
+    const session = openSession(claudeCode, { sessionId: sid }, d);
+    session.send({ id: "s", text: "hi" });
+    await tick();
+    const closing = session.close();
+    await tick();
+    proc.exit(1); // child dies mid-turn; close must not hang
+    await closing;
+    expect(proc.stdinEnded).toBe(true);
+  });
+
+  test("abandoning the turns iterable still ends stdin at once - it does not drain", async () => {
+    const proc = new FakeProcess();
+    const d = makeDeps(proc);
+    const session = openSession(claudeCode, { sessionId: sid }, d);
+    session.send({ id: "s", text: "hi" });
+    for await (const _turn of session.turns) break;
+    await tick();
+    expect(proc.stdinEnded).toBe(true); // nobody is left to receive the turn
   });
 });

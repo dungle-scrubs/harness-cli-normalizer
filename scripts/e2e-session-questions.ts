@@ -112,7 +112,7 @@ export const sessionOffScenario = {
     const cwd = mkdtemp("/tmp/hcn-sess-off-");
     const r = await spawnSession(
       harness,
-      ["--no-escalate-questions", "--cwd", cwd],
+      ["--questions", "assume", "--cwd", cwd],
       [{ line: genuineDecisionTask }, { expect: /○ clean/, line: "exit" }],
       240_000,
     );
@@ -122,7 +122,7 @@ export const sessionOffScenario = {
     if (!/assum|defensib|safer|decision|default|chose|picking|proceed/i.test(r.stdout)) {
       failures.push(`no stated decision/assumption: ${r.stdout.slice(0, 400)}`);
     }
-    if (!/provenance: escalateQuestions = false \(arg\)/.test(r.stderr)) {
+    if (!/provenance: questions = assume \(arg\)/.test(r.stderr)) {
       failures.push(`arg provenance missing: ${r.stderr.slice(0, 200)}`);
     }
     return { durationMs: Date.now() - t0, exitCode: r.exitCode, eventCounts: {}, failures };

@@ -21,6 +21,7 @@ import type { HarnessEvent } from "../src/execution/events.js";
 import { payloadStripScenario } from "./e2e-payload-strip.js";
 import {
   questionAskScenario,
+  questionNoneScenario,
   questionOffScenario,
   questionPrecedenceScenario,
   questionRoundtripScenario,
@@ -911,6 +912,11 @@ const QUESTION_SCENARIOS: Scenario[] = [
     name: questionRoundtripScenario.name,
     phases: ["all"],
     run: async (harness) => questionRoundtripScenario.run(qRunCli, harness, mkdtempSync),
+  },
+  {
+    name: questionNoneScenario.name,
+    phases: ["all"],
+    run: async (harness) => questionNoneScenario.run(qRunCli, harness, mkdtempSync),
   },
 ];
 SCENARIOS.push(...QUESTION_SCENARIOS);

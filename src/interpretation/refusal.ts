@@ -35,6 +35,7 @@ export type RefusalOption =
   | "excludeTools"
   | "skills"
   | "autonomy"
+  | "questions"
   | `discovery.${string}`;
 
 /** One helper builds the message from the structured fields so message and
@@ -89,7 +90,7 @@ export const buildRefusalMessage = (
     case "no-autonomy-mode":
       return `${harness} has no unattended-run flag; ${supportedStr} - drop autonomy or route to a supporting harness (claude --dangerously-skip-permissions, codex/muse --yolo)`;
     case "no-session-mode":
-      return `${harness} declares no persistent headless session mode; ${supportedStr} - use streamTurn instead of openSession`;
+      return `${harness} declares no persistent headless session mode; ${supportedStr} - use hcn run --resume <id>`;
     default: {
       const exhaustive: never = issue;
       return `${exhaustive as string} for ${harness}${optionPart}${detailSuffix}; ${supportedStr}`;

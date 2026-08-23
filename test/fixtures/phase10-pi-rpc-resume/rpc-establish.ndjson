@@ -1,0 +1,29 @@
+{"type":"extension_ui_request","id":"bd50f3f4-eda8-41ec-bd11-09d7a2ab11d2","method":"setWidget","widgetKey":"bg-tasks-tui-capture"}
+{"type":"extension_ui_request","id":"930d0afe-1dca-44db-8afb-fa2ea0e8dc33","method":"setStatus","statusKey":"bg-tasks"}
+{"type":"extension_ui_request","id":"8a1cc189-d936-4cb4-b490-d80b1d8c6522","method":"setStatus","statusKey":"bg-tasks"}
+{"type":"extension_ui_request","id":"f7f56e52-e039-4d59-b1b3-8b2831f21b6a","method":"setWidget","widgetKey":"bg-tasks"}
+{"type":"extension_ui_request","id":"1f944fe5-2ff8-49a1-b605-829a704e4e72","method":"setWidget","widgetKey":"compact-transcript-tui"}
+{"type":"extension_ui_request","id":"ee920347-9561-4324-add9-4bbd3cb948b3","method":"setWidget","widgetKey":"bg-tasks"}
+{"type":"extension_ui_request","id":"bd78eeb9-277b-41da-bc39-f262473f895c","method":"setStatus","statusKey":"agents"}
+{"type":"extension_ui_request","id":"1eab0ae9-d462-45ea-be08-d0204ecf164a","method":"setStatus","statusKey":"agents"}
+{"type":"extension_ui_request","id":"07764cd1-642a-4825-86a6-f0662ed34800","method":"setStatus","statusKey":"agents"}
+{"type":"extension_ui_request","id":"0d799c0d-f5f8-49b6-81bb-79ad4769c2e3","method":"setStatus","statusKey":"agents"}
+{"type":"extension_ui_request","id":"eaeb2493-d47e-4757-b88b-23098fd64ef2","method":"setStatus","statusKey":"agents"}
+{"type":"extension_ui_request","id":"d71abea6-7589-4fa0-be86-9f4e53249362","method":"setStatus","statusKey":"agents"}
+{"type":"extension_ui_request","id":"cda2335d-6ebc-493a-8c9b-0c27761a732c","method":"notify","message":"MCP: tool-proxy connected (5 tools)","notifyType":"info"}
+{"id":"p","type":"response","command":"prompt","success":true}
+{"type":"agent_start"}
+{"type":"turn_start"}
+{"type":"message_start","message":{"role":"user","content":[{"type":"text","text":"Remember this codeword: pomegranate. Reply with only: OK"}],"timestamp":1787478087145}}
+{"type":"message_end","message":{"role":"user","content":[{"type":"text","text":"Remember this codeword: pomegranate. Reply with only: OK"}],"timestamp":1787478087145}}
+{"type":"message_start","message":{"role":"assistant","content":[],"api":"openai-completions","provider":"zai","model":"glm-5.3","usage":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"totalTokens":0,"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"total":0}},"stopReason":"pending","timestamp":1787478088454}}
+{"type":"message_update","usage":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"totalTokens":0,"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"total":0}},"assistantMessageEvent":{"type":"text_start","contentIndex":0}}
+{"type":"message_update","usage":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"totalTokens":0,"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"total":0}},"assistantMessageEvent":{"type":"text_delta","contentIndex":0,"delta":"OK"}}
+{"type":"message_update","usage":{"input":4847,"output":3,"cacheRead":0,"cacheWrite":0,"reasoning":0,"totalTokens":4850,"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"total":0}},"assistantMessageEvent":{"type":"text_end","contentIndex":0,"content":"OK"}}
+{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":"OK"}],"api":"openai-completions","provider":"zai","model":"glm-5.3","usage":{"input":4847,"output":3,"cacheRead":0,"cacheWrite":0,"reasoning":0,"totalTokens":4850,"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"total":0}},"stopReason":"stop","timestamp":1787478088454,"responseId":"2026082317412899179012fdee4536","rawStopReason":"stop"}}
+{"type":"entry_appended","entry":{"type":"custom","customType":"tasks-state","data":{"visible":true,"nextId":1,"activeTaskId":null},"id":"ae5a3ebd","parentId":"f3ac2b3d","timestamp":"2026-08-23T09:41:30.011Z"}}
+{"type":"turn_end","message":{"role":"assistant","content":[{"type":"text","text":"OK"}],"api":"openai-completions","provider":"zai","model":"glm-5.3","usage":{"input":4847,"output":3,"cacheRead":0,"cacheWrite":0,"reasoning":0,"totalTokens":4850,"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"total":0}},"stopReason":"stop","timestamp":1787478088454,"responseId":"2026082317412899179012fdee4536","rawStopReason":"stop"},"toolResults":[]}
+{"type":"agent_end","messages":[{"role":"user","content":[{"type":"text","text":"Remember this codeword: pomegranate. Reply with only: OK"}],"timestamp":1787478087145},{"role":"assistant","content":[{"type":"text","text":"OK"}],"api":"openai-completions","provider":"zai","model":"glm-5.3","usage":{"input":4847,"output":3,"cacheRead":0,"cacheWrite":0,"reasoning":0,"totalTokens":4850,"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"total":0}},"stopReason":"stop","timestamp":1787478088454,"responseId":"2026082317412899179012fdee4536","rawStopReason":"stop"}],"willRetry":false}
+{"type":"agent_settled"}
+{"type":"extension_ui_request","id":"a0a480c0-6d9d-4018-b10a-e54d0f56ac3e","method":"setStatus","statusKey":"agents"}
+{"type":"extension_ui_request","id":"d4be87cd-6896-460c-80f4-ca8c33837c37","method":"setStatus","statusKey":"summaries"}

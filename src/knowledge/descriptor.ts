@@ -52,6 +52,9 @@ export interface SessionInputContract {
   readonly kind: SessionInputKind;
 }
 
+export const SESSION_RESUME_FLAGS = ["--resume", "--session-id"] as const;
+export type SessionResumeFlag = (typeof SESSION_RESUME_FLAGS)[number];
+
 /** Consumers branch on these (session-limit: wait for reset; weekly-limit:
  * route elsewhere), so the vocabulary is closed - a descriptor cannot invent
  * a code a consumer has no arm for. */
@@ -302,19 +305,26 @@ export interface HarnessDescriptor {
    * the binary to open one lucid-owned process serving many turns, or null
    * when the harness has no such mode. This is the entire argv prefix after
    * the binary - no launch flags are prepended. `idFlag` pins the
-   * caller-assigned session identity. `turnEnd` is the stdout record that
-   * delimits one turn (claude: the `result` record; pi rpc:
-   * `agent_settled`). `identityProbe`, when present, names a command the
-   * runner writes at spawn whose response carries the session id - pi rpc
-   * is identity-silent at startup (spike evidence:
+   * caller-assigned session identity for a FRESH session (naming). `turnEnd`
+   * is the stdout record that delimits one turn (claude: the `result`
+   * record; pi rpc: `agent_settled`). `identityProbe`, when present, names
+   * a command the runner writes at spawn whose response carries the session
+   * id - pi rpc is identity-silent at startup (spike evidence:
    * test/fixtures/pi-rpc-spike), so identity needs a round trip. */
   readonly sessionMode: {
     readonly flags: readonly string[];
-    /** Pin an EXISTING session id; null when the harness only accepts
-     * caller ids that already exist (pi rpc: `--session` refuses unknown
-     * ids - spike evidence), so fresh sessions omit the flag and the
-     * harness mints the id, readable via `identityProbe`. */
-    readonly idFlag: string | null;
+    /** The flag that names a fresh session (caller-assigned identity at
+     * spawn). Null only when the harness mints the id itself. */
+    readonly idFlag: SessionResumeFlag | null;
+    /** The flag that carries an EXISTING session id to resume it in
+     * session mode, distinct from `idFlag` which names a fresh session.
+     * Closed vocabulary: pi reuses `--session-id` for both (verified
+     * phase10, test/fixtures/phase10-pi-rpc-resume); claude uses
+     * `--resume` to restore vs `--session-id` to name (verified phase11,
+     * test/fixtures/phase11-claude-session-resume). Unknown-id behavior
+     * is not duplicated here; it reuses `resume.onMissing` as the single
+     * source. */
+    readonly resumeFlag: SessionResumeFlag;
     readonly input: SessionInputContract;
     readonly turnEnd: Readonly<Record<string, string>>;
     readonly identityProbe: { readonly command: string } | null;
@@ -406,6 +416,23 @@ export interface HarnessDescriptor {
     readonly images: boolean;
     readonly streamingByMode: Readonly<Record<HarnessMode, StreamingGranularity>>;
     readonly session: boolean;
+  };
+  /** Escalation provenance: whether this harness and model were observed to
+   * emit the structured hcn-question block when instructed, and when that
+   * observation was made. `supported` is documented as "this harness and
+   * model were observed to emit the structured block when instructed", NOT
+   * as "this harness can ask" - live probes show models ask unprompted, so
+   * a capability-to-ask name would be false. `observedOn` is optional;
+   * absence means no probe exists for this harness/model. Staleness is
+   * derived from version comparison at read time, not stored. */
+  readonly escalation: {
+    readonly supported: boolean;
+    readonly observedOn?: {
+      readonly harness: string;
+      readonly model: string;
+      readonly version: string;
+      readonly date: string;
+    };
   };
   /** Per-call turn options this harness can express, keyed by the closed
    * `TurnOptionKey` vocabulary. Absent keys are unexpressible on this

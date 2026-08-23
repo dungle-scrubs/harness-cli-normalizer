@@ -27,6 +27,7 @@ const DIMENSION_TO_KEY = {
   stdin: "stdin",
   contextHook: "contextHook",
   capabilities: "capabilities",
+  escalation: "escalation",
   discoveryFlags: "turnOptions",
   authWalls: "authMatchers",
 } as const;
