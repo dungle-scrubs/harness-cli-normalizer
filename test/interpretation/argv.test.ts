@@ -248,3 +248,29 @@ describe("buildSessionArgv resumeFlag vs idFlag (issue #97)", () => {
     expect(resumed).toContain("--session-id");
   });
 });
+
+describe("codex sandbox on resume renders as -c sandbox_mode (spike A-001, issue #72)", () => {
+  const tid = "01a02f1a-ae41-7343-a9c8-e9241e75e073";
+
+  test("renders the config-kv spelling, never --sandbox, which resume rejects", () => {
+    const argv = buildResumeArgv(codexCli, { sessionId: tid, prompt: "hi", sandbox: "read-only" });
+    expect(argv).toContain("-c");
+    expect(argv).toContain('sandbox_mode="read-only"');
+    expect(argv).not.toContain("--sandbox");
+  });
+
+  test("is the same spelling the live spike proved enforced", () => {
+    // test/fixtures/phase13-codex-sandbox-resume/: a thread that wrote under
+    // workspace-write, resumed under -c sandbox_mode="read-only", could not
+    // write; resumed again under workspace-write, wrote. Enforced, not merely
+    // accepted - the descriptor's previous resumeRender: null understated it.
+    const ro = buildResumeArgv(codexCli, { sessionId: tid, prompt: "p", sandbox: "read-only" });
+    const rw = buildResumeArgv(codexCli, {
+      sessionId: tid,
+      prompt: "p",
+      sandbox: "workspace-write",
+    });
+    expect(ro.indexOf("-c")).toBeGreaterThan(ro.indexOf("resume"));
+    expect(rw).toContain('sandbox_mode="workspace-write"');
+  });
+});
