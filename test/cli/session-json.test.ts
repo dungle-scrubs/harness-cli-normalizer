@@ -1,5 +1,6 @@
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { describe, expect, test, vi } from "vitest";
 import { session } from "../../src/cli/session.js";
@@ -543,7 +544,10 @@ describe("session origin: fresh vs resumed, and refused resume emits no session"
       const beforeCheck = resumeStore(piCli, { home: tmpHome, cwd: tmpCwd, sessionId: fakeId });
       if (beforeCheck.path === null) throw new Error("expected store path");
       const filed = beforeCheck.path;
+      // pi files a session as <timestamp>_<id>.jsonl inside the per-cwd dir;
+      // an empty dir is NOT a filed session (issue #99 follow-up).
       mkdirSync(filed, { recursive: true });
+      writeFileSync(join(filed, `2026-08-23T00-00-00-000Z_${fakeId}.jsonl`), "");
       out.length = 0;
       err.length = 0;
       // Verify the store helper now sees it - proves the fake is wired to the

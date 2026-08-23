@@ -19,13 +19,24 @@ A fourth run, not captured, confirmed that `--session-id <unknown id>` still
 creates a fresh session (reply `FRESH`) - the path a first draft of this change
 broke by treating every `--session-id` as a resume.
 
-## pi - not provable here, and not because of resume
+## pi - proven, after two fixes
 
-`hcn session pi --json` runs a turn that produces no model output and ends
-`done clean`, on shipped `main` as well as this branch. pi creates its per-cwd
-directory and writes no session file. Filed as #99. Until that is fixed there
-is no pi session through hcn to resume into. pi's own rpc mode does resume -
-`../phase10-pi-rpc-resume/` proves it directly.
+| fixture | invocation | result |
+|---|---|---|
+| `pi-establish.ndjson` | `--session-id <new id>` | `origin: fresh`; assistant replies `OK` |
+| `pi-resume.ndjson` | `--resume <same id>` | `origin: resumed`; assistant replies `pomegranate` |
+| `pi-resume-unknown.ndjson` + `.stderr.txt` | `--resume <unknown id>` | refused before spawn, exit 2, `failure` then `closed` |
+
+Two defects stood in the way, neither about resume:
+
+1. `hcn session pi` ran no turn at all - hcn ended pi's stdin 4 ms after
+   writing the prompt, and pi's rpc treats EOF as "exit now". Fixed in #99:
+   `close()` lets an open turn finish.
+2. The resume guard treated pi's store as present for ANY id once the per-cwd
+   directory existed, because pi's store template names a directory, not a
+   file. pi files a session as `<timestamp>_<id>.jsonl` inside it. The guard
+   now looks for the id in that directory. Before this fix the establish run
+   reported `origin: resumed` on a brand-new session.
 
 ## How "resume" is decided
 
