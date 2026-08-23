@@ -127,7 +127,16 @@ export const codexCli: HarnessDescriptor = deepFreeze({
       values: ["read-only", "workspace-write", "danger-full-access"],
       default: "workspace-write",
       render: { kind: "flag-value", flag: "--sandbox" },
-      resumeRender: null,
+      // Spike A-001, resolved 2026-08-23 on 0.147.0 (issue #72): `codex exec
+      // resume` still rejects --sandbox, but `-c sandbox_mode=<mode>` on the
+      // resume grammar is ENFORCED, not merely accepted. A thread that wrote
+      // a file under workspace-write was resumed under -c sandbox_mode=
+      // "read-only" and could not write (model reported BLOCKED, no file);
+      // the same thread resumed under workspace-write wrote again. So the
+      // sandbox dimension is expressible on resume through the config-kv
+      // spelling, and a resumed turn no longer silently runs wider than the
+      // caller asked.
+      resumeRender: { kind: "config-kv", flag: "-c", key: "sandbox_mode" },
     },
     access: {
       kind: "flag-value",
