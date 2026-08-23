@@ -105,10 +105,10 @@ describe("openSession question escalation - claude transport", () => {
     await session.close();
   });
 
-  test("escalateQuestions false: no-ask preamble, detection disarmed", async () => {
+  test("questions assume: no-ask preamble, detection disarmed", async () => {
     const proc = new FakeProcess();
     const d = makeDeps(proc);
-    const session = openSession(claudeCode, { sessionId: sid, escalateQuestions: false }, d);
+    const session = openSession(claudeCode, { sessionId: sid, questions: "assume" }, d);
     session.send({ id: "s", text: "task" });
     const turns = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turns.next()).value as AsyncIterable<HarnessEvent>;
@@ -156,7 +156,7 @@ describe("openSession question escalation - claude transport", () => {
     const proc = new FakeProcess();
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
-    session.send({ id: "s", text: composeEscalatedPrompt("task", true, "session") });
+    session.send({ id: "s", text: composeEscalatedPrompt("task", "ask", "session") });
     const write = proc.stdinWrites[0] ?? "";
     expect(write.match(/\[hcn question protocol\]/g)).toHaveLength(1);
     await session.close();
@@ -262,10 +262,10 @@ describe("openSession question escalation - pi rpc transport", () => {
     await session.close();
   });
 
-  test("escalateQuestions false: no-ask preamble rides the prompt command", async () => {
+  test("questions assume: no-ask preamble rides the prompt command", async () => {
     const proc = new FakeProcess();
     const d = makeDeps(proc);
-    const session = openSession(piCli, { sessionId: sid, escalateQuestions: false }, d);
+    const session = openSession(piCli, { sessionId: sid, questions: "assume" }, d);
     session.send({ id: "s", text: "task" });
     const write = proc.stdinWrites.at(-1) ?? "";
     expect(JSON.parse(write).message).toContain("state the assumption");

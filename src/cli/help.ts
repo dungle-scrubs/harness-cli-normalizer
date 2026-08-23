@@ -48,12 +48,12 @@ Options:
   --no-write                Disable write
   --shell                   Enable shell (muse)
   --no-shell                Disable shell
-  --escalate-questions      Let the worker ask the caller's user when a
-                            genuine decision blocks progress (DEFAULT;
-                            prompt-preamble transport, question event +
-                            done cause "awaiting-input", exit 0)
-  --no-escalate-questions   Worker never asks: it states the assumption it
-                            proceeded under and continues
+  --questions <ask|assume|none>
+                            Which preamble to inject: ask = escalation
+                            protocol (DEFAULT, question event +
+                            done cause "awaiting-input", exit 0), assume =
+                            never ask, state assumption, none = inject
+                            nothing
   --system-prompt <text>    Replace the built-in system prompt (claude, pi:
                             flag; codex: -c instructions=<text-or-path>;
                             muse refuses. claude pairs the dynamic-section
@@ -102,9 +102,8 @@ Defaults with no flags:
   profile). toolMap is config-only (no flag) - canonical -> native
   mapping per harness. A bare pi run renders no --tools list: pi's list
   is a strict allowlist and would drop extension and MCP tools; name
-  them through toolMap or native:<name> when you grant. Question
-  escalation defaults ON (config key
-  "escalateQuestions"; it is a prompt preamble, never a harness flag).
+  them through toolMap or native:<name> when you grant. Question mode defaults to ask (config keys
+  "questions"; prompt preamble, never a harness flag).
   Provenance prints to stderr on every run; see
   'hcn inspect <harness>' for the resolved argv of a bare run.
 `;
@@ -131,10 +130,10 @@ Options:
   --model <id>              Model for the session
   --session-id <uuid>       Session id (UUID, else random; re-enters an
                             existing session)
-  --escalate-questions      Worker may ask; question renders as a pickable
-                            menu, the answer flows back into the SAME live
-                            session (DEFAULT)
-  --no-escalate-questions   Worker never asks; states its assumption
+  --questions <ask|assume|none>
+                            Which preamble to inject: ask = worker may
+                            ask (DEFAULT, pickable menu), assume = never
+                            ask, none = inject nothing
   --cwd <path>              Working directory
   --help                    Show help
   --version                 Show version
@@ -167,11 +166,11 @@ Options:
   --autonomy / --no-autonomy
   --write / --no-write
   --shell / --no-shell
-  --escalate-questions / --no-escalate-questions
+  --questions <ask|assume|none>
                             (accepted; renders nothing - rides the run prompt)
   --max-steps <n>
   --no-tools, --no-instruction-files, --no-extensions, --no-skills
-  --escalate-questions / --no-escalate-questions
+  --questions <ask|assume|none>
                             Accepted; renders nothing in argv (the mode
                             rides the run prompt, not a harness flag)
   --cwd <path>

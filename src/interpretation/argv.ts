@@ -76,11 +76,11 @@ export interface TurnOptions {
   readonly systemPrompt?: string;
   /** issue #48: appends to the built-in prompt (claude/pi only). */
   readonly appendSystemPrompt?: string;
-  /** issue #41: question escalation - a BEHAVIOR INSTRUCTION, not a turn
-   * option. It never renders into any harness argv; the CLI layer turns
-   * it into the prompt preamble and arms question-block detection.
-   * Undefined means the default: true. */
-  readonly escalateQuestions?: boolean;
+  /** question mode: which preamble hcn injects (ask/assume/none).
+   * A BEHAVIOR INSTRUCTION, not a turn option. It never renders into any
+   * harness argv; the CLI layer turns it into the prompt preamble and
+   * arms question-block detection. Undefined means the default: "ask". */
+  readonly questions?: import("./question.js").QuestionMode;
   /** Internal: set by CLI when prompt came from --prompt/--prompt-file to bypass leading '-' guard */
   readonly __explicitPrompt?: boolean;
   /** toolMap extensible vocabulary per harness (issue toolMap) */

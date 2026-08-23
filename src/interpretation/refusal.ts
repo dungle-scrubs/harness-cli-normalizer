@@ -35,6 +35,7 @@ export type RefusalOption =
   | "excludeTools"
   | "skills"
   | "autonomy"
+  | "questions"
   | `discovery.${string}`;
 
 /** One helper builds the message from the structured fields so message and

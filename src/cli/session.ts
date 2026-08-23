@@ -65,37 +65,47 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   const cwd = values.cwd as string | undefined;
   const provider = values.provider as string | undefined;
 
-  // issue #44: same precedence as hcn run - arg > project > user >
-  // default-true. A behavior instruction, so it rides every send's
-  // preamble, never a harness flag.
-  const argEscalate =
-    values["escalate-questions"] === true
-      ? true
-      : values["no-escalate-questions"] === true
-        ? false
-        : undefined;
-  let escalateQuestions: boolean;
-  let escalateTier: "arg" | "project-config" | "user-config" | "default";
+  // question mode precedence arg > project > user > default (ask)
+  const rawArgMode = values.questions !== undefined ? String(values.questions) : undefined;
+  if (rawArgMode !== undefined && !["ask", "assume", "none"].includes(rawArgMode)) {
+    const { refuse, refusalOf } = await import("./refuse.js");
+    const { ArgvRefusalError } = await import("../interpretation/refusal.js");
+    refuse(
+      refusalOf(
+        new ArgvRefusalError({
+          issue: "invalid-option-value",
+          harness: h.name,
+          option: "questions",
+          supported: ["ask", "assume", "none"],
+          detail: rawArgMode,
+        }),
+      ),
+      jsonMode,
+      "closed",
+    );
+    return;
+  }
+  let questionMode: import("../interpretation/question.js").QuestionMode;
+  let questionTier: "arg" | "project-config" | "user-config" | "default";
   try {
     const { loadUserConfig, loadProjectConfig } = await import("./config.js");
-    const user = loadUserConfig()?.config as { escalateQuestions?: boolean } | undefined;
-    const project = loadProjectConfig()?.config as { escalateQuestions?: boolean } | undefined;
-    escalateQuestions =
-      argEscalate !== undefined
-        ? argEscalate
-        : project?.escalateQuestions !== undefined
-          ? project.escalateQuestions
-          : user?.escalateQuestions !== undefined
-            ? user.escalateQuestions
-            : true;
-    escalateTier =
-      argEscalate !== undefined
-        ? "arg"
-        : project?.escalateQuestions !== undefined
-          ? "project-config"
-          : user?.escalateQuestions !== undefined
-            ? "user-config"
-            : "default";
+    const user = loadUserConfig()?.config as { questions?: string } | undefined;
+    const project = loadProjectConfig()?.config as { questions?: string } | undefined;
+    const userMode = user?.questions;
+    const projectMode = project?.questions;
+    if (rawArgMode !== undefined) {
+      questionMode = rawArgMode as import("../interpretation/question.js").QuestionMode;
+      questionTier = "arg";
+    } else if (projectMode !== undefined) {
+      questionMode = projectMode as import("../interpretation/question.js").QuestionMode;
+      questionTier = "project-config";
+    } else if (userMode !== undefined) {
+      questionMode = userMode as import("../interpretation/question.js").QuestionMode;
+      questionTier = "user-config";
+    } else {
+      questionMode = "ask";
+      questionTier = "default";
+    }
   } catch (configErr) {
     process.stderr.write(`config error: ${(configErr as Error).message}\n`);
     if (jsonMode) {
@@ -112,7 +122,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
     process.exitCode = 2;
     return;
   }
-  process.stderr.write(`provenance: escalateQuestions = ${escalateQuestions} (${escalateTier})\n`);
+  process.stderr.write(`provenance: questions = ${questionMode} (${questionTier})\n`);
 
   // Validate sessionId shape? let openSession handle via assertUsableSessionId
   delete (process.env as Record<string, string | undefined>).HERDR_ENV;
@@ -164,7 +174,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
 
   let handle: ReturnType<typeof openSession>;
   try {
-    handle = openSession(h, { sessionId, model, cwd, escalateQuestions, provider }, deps);
+    handle = openSession(h, { sessionId, model, cwd, questions: questionMode, provider }, deps);
   } catch (err) {
     if (err instanceof ArgvRefusalError) {
       const { refusalOf, refuse } = await import("./refuse.js");
@@ -196,7 +206,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
       sessionId,
       harness: h.name,
       hcnVersion: getVersion(),
-      escalateQuestions,
+      questions: questionMode,
       getCloseInfo: () => closeInfo,
       getDroppedIds: () => droppedIds,
     });

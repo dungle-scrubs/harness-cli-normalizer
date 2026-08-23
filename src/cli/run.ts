@@ -209,9 +209,9 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     project?: Partial<ReturnType<typeof parseTurnOptions>>;
   } = {};
   // Config files load on EVERY run, launch or resume: the tiers feed the
-  // defaults profile on launch, and issue #41's escalateQuestions (a
+  // defaults profile on launch, and issue #41's questions (a
   // behavior instruction, not a turn option) resolves from them on resume
-  // too - otherwise a no-escalate session would flip its preamble on the
+  // too - otherwise a no-ask session would flip its preamble on the
   // answer turn. Resolution of TURN options stays launch-only.
   const tiers = resolvedTiers;
   {
@@ -256,39 +256,34 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     writeProvenance(h.name, provenance, unrenderable);
   }
 
-  // issue #41: question-escalation precedence arg > project > user >
-  // default-true (a behavior instruction, not a turn option - the
-  // default lives OUTSIDE the profile on purpose, per the spec). It
-  // applies on LAUNCH AND RESUME alike: it shapes each turn's prompt
-  // preamble and event stream, never a session setting.
-  const projectEscalate = (resolvedTiers.project as { escalateQuestions?: boolean } | undefined)
-    ?.escalateQuestions;
-  const userEscalate = (resolvedTiers.user as { escalateQuestions?: boolean } | undefined)
-    ?.escalateQuestions;
-  const escalateQuestions =
-    turnOpts.escalateQuestions !== undefined
-      ? turnOpts.escalateQuestions
-      : projectEscalate !== undefined
-        ? projectEscalate
-        : userEscalate !== undefined
-          ? userEscalate
-          : true;
-  const escalateTier =
-    turnOpts.escalateQuestions !== undefined
+  // question mode precedence arg > project > user > default (ask)
+  const projectQuestions = (resolvedTiers.project as { questions?: string } | undefined)?.questions;
+  const userQuestions = (resolvedTiers.user as { questions?: string } | undefined)?.questions;
+  const rawMode = (turnOpts as { questions?: string }).questions;
+  const questionMode =
+    rawMode !== undefined
+      ? (rawMode as import("../interpretation/question.js").QuestionMode)
+      : projectQuestions !== undefined
+        ? (projectQuestions as import("../interpretation/question.js").QuestionMode)
+        : userQuestions !== undefined
+          ? (userQuestions as import("../interpretation/question.js").QuestionMode)
+          : ("ask" as const);
+  const questionTier =
+    rawMode !== undefined
       ? "arg"
-      : projectEscalate !== undefined
+      : projectQuestions !== undefined
         ? "project-config"
-        : userEscalate !== undefined
+        : userQuestions !== undefined
           ? "user-config"
           : "default";
 
   const fullOpts = {
     ...effectiveTurnOpts,
-    prompt: composeEscalatedPrompt(prompt, escalateQuestions),
+    prompt: composeEscalatedPrompt(prompt, questionMode),
     cwd: extra.cwd,
     env: extra.env,
     resume: extra.resume,
-    escalateQuestions,
+    questions: questionMode,
     ...(passthrough.length > 0 ? { passthrough } : {}),
     ...(isExplicit ? { __explicitPrompt: true as const } : {}),
   } as Parameters<typeof streamTurn>[1] & {
@@ -304,7 +299,7 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     if (fullOpts.resume) {
       // Resume never carries TURN-option profile resolution (launch-only
       // rule), so it builds from the raw turn options; hcn-owned behavior
-      // (escalateQuestions preamble, timeout budget) still applies.
+      // (questions preamble, timeout budget) still applies.
       preArgv = buildResumeArgv(h, {
         ...(turnOpts as object),
         prompt: fullOpts.prompt,
@@ -349,9 +344,7 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     }
     // issue #41: the escalation mode rides stderr as provenance, like
     // every other resolution the turn depends on.
-    process.stderr.write(
-      `provenance: escalateQuestions = ${escalateQuestions} (${escalateTier})\n`,
-    );
+    process.stderr.write(`provenance: questions = ${questionMode} (${questionTier})\n`);
     // On a harness whose include flag is not a strict allowlist (claude),
     // a name outside the curated set passes through ungated; say which
     // ones so a wrong-case name is visible. A grant with no known name at

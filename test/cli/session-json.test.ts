@@ -59,7 +59,7 @@ const rig = (procOpts: { exitOnStdinEnd?: boolean } = {}) => {
     sessionId: sid,
     harness: "claude",
     hcnVersion: "9.9.9",
-    escalateQuestions: true,
+    questions: "ask",
     getCloseInfo: () => closeInfo,
     input,
     write: (line) => {
@@ -100,7 +100,7 @@ describe("T02: hcn session --json happy path", () => {
       sessionId: sid,
       harness: "claude",
       hcn: "9.9.9",
-      escalateQuestions: true,
+      questions: "ask",
     });
     const disp = evs.find((e) => e.kind === "disposition");
     expect(disp).toMatchObject({ id: "in-1", disposition: "started" });
@@ -221,7 +221,7 @@ describe("branch review: fixes for the findings the cross-family review raised",
       sessionId: sid,
       harness: "claude",
       hcnVersion: "9.9.9",
-      escalateQuestions: true,
+      questions: "ask",
       getCloseInfo: () => closeInfo,
       getDroppedIds: () => droppedIds,
       input,
@@ -362,7 +362,7 @@ describe("follow-ups: backpressure and a broken command stream", () => {
       sessionId: sid,
       harness: "claude",
       hcnVersion: "9.9.9",
-      escalateQuestions: true,
+      questions: "ask",
       getCloseInfo: () => closeInfo,
       input,
       write: (line) => {

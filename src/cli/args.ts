@@ -179,8 +179,19 @@ export const parseTurnOptions = (values: Record<string, unknown>): TurnOptions =
   else if (values["no-write"] === true) opts.write = false;
   if (values.shell === true) opts.shell = true;
   else if (values["no-shell"] === true) opts.shell = false;
-  if (values["escalate-questions"] === true) opts.escalateQuestions = true;
-  else if (values["no-escalate-questions"] === true) opts.escalateQuestions = false;
+  if (values.questions !== undefined) {
+    const v = String(values.questions);
+    if (!["ask", "assume", "none"].includes(v)) {
+      throw new ArgvRefusalError({
+        issue: "invalid-option-value",
+        harness: "claude",
+        option: "questions",
+        supported: ["ask", "assume", "none"],
+        detail: v,
+      });
+    }
+    (opts as Record<string, unknown>).questions = v;
+  }
   if (values["system-prompt"] !== undefined) opts.systemPrompt = String(values["system-prompt"]);
   if (values["append-system-prompt"] !== undefined)
     opts.appendSystemPrompt = String(values["append-system-prompt"]);
@@ -293,8 +304,7 @@ const KNOWN_FLAGS = new Set([
   "--no-write",
   "--shell",
   "--no-shell",
-  "--escalate-questions",
-  "--no-escalate-questions",
+  "--questions",
   "--system-prompt",
   "--append-system-prompt",
   "--max-steps",
@@ -335,6 +345,7 @@ const FLAGS_WITH_VALUE = new Set([
   "--timeout",
   "--mode",
   "--stall",
+  "--questions",
 ]);
 
 export const detectPositionalPromptInjection = (argv: string[]): string | null => {
@@ -447,8 +458,7 @@ export const parseCommonFlags = (
       "no-write": { type: "boolean" as const },
       shell: { type: "boolean" as const },
       "no-shell": { type: "boolean" as const },
-      "escalate-questions": { type: "boolean" as const },
-      "no-escalate-questions": { type: "boolean" as const },
+      questions: { type: "string" as const },
       "system-prompt": { type: "string" as const },
       "append-system-prompt": { type: "string" as const },
       "max-steps": { type: "string" as const },

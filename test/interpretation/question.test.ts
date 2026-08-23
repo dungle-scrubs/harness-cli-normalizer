@@ -15,19 +15,31 @@ import {
 } from "../../src/interpretation/question.js";
 
 describe("composeEscalatedPrompt", () => {
-  test("true mode prepends the protocol contract", () => {
-    const composed = composeEscalatedPrompt("do the task", true);
+  test("ask mode prepends the protocol contract", () => {
+    const composed = composeEscalatedPrompt("do the task", "ask");
     expect(composed.startsWith(QUESTION_PREAMBLE_MARKER)).toBe(true);
     expect(composed.endsWith("do the task")).toBe(true);
     expect(composed).toContain("hcn-question");
     expect(composed).toContain("recommended");
   });
 
-  test("false mode prepends the state-the-assumption instruction", () => {
-    const composed = composeEscalatedPrompt("do the task", false);
+  test("ask session mode uses session preamble", () => {
+    const composed = composeEscalatedPrompt("do the task", "ask", "session");
+    expect(composed.startsWith(QUESTION_PREAMBLE_MARKER)).toBe(true);
+    expect(composed).toContain("persistent session");
+    expect(composed).toContain("hcn-question");
+  });
+
+  test("assume mode prepends the state-the-assumption instruction", () => {
+    const composed = composeEscalatedPrompt("do the task", "assume");
     expect(composed.startsWith(QUESTION_PREAMBLE_MARKER)).toBe(true);
     expect(composed).toContain("state the assumption");
     expect(composed).not.toContain("```hcn-question");
+  });
+
+  test("none mode injects nothing", () => {
+    const composed = composeEscalatedPrompt("do the task", "none");
+    expect(composed).toBe("do the task");
   });
 
   test("both preambles keep asking separate from permission", () => {
@@ -41,9 +53,17 @@ describe("composeEscalatedPrompt", () => {
   });
 
   test("composition is idempotent", () => {
-    const once = composeEscalatedPrompt("do the task", true);
-    expect(composeEscalatedPrompt(once, true)).toBe(once);
-    expect(composeEscalatedPrompt(once, false)).toBe(once);
+    const once = composeEscalatedPrompt("do the task", "ask");
+    expect(composeEscalatedPrompt(once, "ask")).toBe(once);
+    expect(composeEscalatedPrompt(once, "assume")).toBe(once);
+    expect(composeEscalatedPrompt(once, "none")).toBe(once);
+  });
+
+  test("marker passthrough still short-circuits all three modes", () => {
+    const marked = `${QUESTION_PREAMBLE_MARKER} already composed`;
+    expect(composeEscalatedPrompt(marked, "ask")).toBe(marked);
+    expect(composeEscalatedPrompt(marked, "assume")).toBe(marked);
+    expect(composeEscalatedPrompt(marked, "none")).toBe(marked);
   });
 });
 

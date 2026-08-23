@@ -133,7 +133,7 @@ describe("streamTurn question escalation (false mode)", () => {
   test("no preamble block instruction, no detection, no question event", async () => {
     const proc = new FakeProcess();
     const d = deps(proc);
-    const turn = streamTurn(claudeCode, { prompt: "task", escalateQuestions: false }, d);
+    const turn = streamTurn(claudeCode, { prompt: "task", questions: "assume" }, d);
     proc.emitLine(init);
     // A worker that asks anyway (mode was false) must NOT produce a
     // question event - detection is disarmed; the turn is judged on its
@@ -174,7 +174,7 @@ describe("streamTurn question escalation on resume", () => {
   test("double composition never happens (CLI composes, streamTurn sees composed)", async () => {
     const proc = new FakeProcess();
     const d = deps(proc);
-    const turn = streamTurn(claudeCode, { prompt: composeEscalatedPrompt("task", true) }, d);
+    const turn = streamTurn(claudeCode, { prompt: composeEscalatedPrompt("task", "ask") }, d);
     proc.emitLine(init);
     proc.emitLine(assistantWith("ok"));
     proc.emitLine(result);

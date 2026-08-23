@@ -37,7 +37,7 @@ const expectClaudeUserWrite = (proc: FakeProcess, index: number, text: string): 
           type: "text",
           // issue #44: escalation composes the SESSION preamble onto every
           // send by default; the raw text rides as the prompt's tail.
-          text: composeEscalatedPrompt(text, true, "session"),
+          text: composeEscalatedPrompt(text, "ask", "session"),
         },
       ],
     },

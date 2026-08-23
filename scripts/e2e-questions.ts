@@ -6,7 +6,7 @@
  *
  *  1. question-ask       - genuine decision -> question event fields ->
  *                          exit 0, done awaiting-input
- *  2. question-off       - false mode -> assumption stated, no block, no
+ *  2. question-assume    - assume mode -> assumption stated, no block, no
  *                          question event, clean
  *  3. question-precedence- project false vs user true vs arg override
  *  4. question-roundtrip - ask -> resume with the answer -> completion
@@ -105,7 +105,7 @@ export const questionAskScenario = {
  * block, no question event, clean done. The file landing in the cwd is
  * the "continued" evidence. */
 export const questionOffScenario = {
-  name: "question-off",
+  name: "question-assume",
   run: async (
     runCli: RunCli,
     harness: string,
@@ -115,7 +115,7 @@ export const questionOffScenario = {
     const t0 = Date.now();
     const cwd = mkdtemp("/tmp/hcn-q-off-");
     const r = await runCli(
-      [harness, "--json", "--no-escalate-questions", "--cwd", cwd, "--prompt", genuineDecisionTask],
+      [harness, "--json", "--questions", "assume", "--cwd", cwd, "--prompt", genuineDecisionTask],
       {},
       cwd,
     );
@@ -134,7 +134,7 @@ export const questionOffScenario = {
     ) {
       failures.push(`no stated decision/assumption: ${messagesOf(r.events).slice(0, 150)}`);
     }
-    if (!/provenance: escalateQuestions = false \(arg\)/.test(r.stderr)) {
+    if (!/provenance: questions = assume \(arg\)/.test(r.stderr)) {
       failures.push(`arg provenance missing: ${r.stderr.slice(0, 200)}`);
     }
     return {
@@ -164,32 +164,32 @@ export const questionPrecedenceScenario = {
     const failures: string[] = [];
     const t0 = Date.now();
     const userDir = mkdtemp("/tmp/hcn-q-user-");
-    fs.writeFileSync(`${userDir}/config.json`, '{"version":1,"escalateQuestions":true}');
+    fs.writeFileSync(`${userDir}/config.json`, '{"version":1,"questions":"ask"}');
     const repo = mkdtemp("/tmp/hcn-q-repo-");
     gitInit(repo);
     fs.mkdirSync(`${repo}/.hcn`, { recursive: true });
-    fs.writeFileSync(`${repo}/.hcn/config.json`, '{"version":1,"escalateQuestions":false}');
+    fs.writeFileSync(`${repo}/.hcn/config.json`, '{"version":1,"questions":"assume"}');
 
     const env = { HCN_CONFIG_DIR: userDir };
     // project false beats user true
     const proj = await runCli([harness, "--json", "--prompt", "Reply OK only."], env, repo);
-    if (!/provenance: escalateQuestions = false \(project-config\)/.test(proj.stderr)) {
+    if (!/provenance: questions = assume \(project-config\)/.test(proj.stderr)) {
       failures.push(`project tier not winning: ${proj.stderr.slice(0, 250)}`);
     }
     // arg wins over both
     const arg = await runCli(
-      [harness, "--json", "--escalate-questions", "--prompt", "Reply OK only."],
+      [harness, "--json", "--questions", "ask", "--prompt", "Reply OK only."],
       env,
       repo,
     );
-    if (!/provenance: escalateQuestions = true \(arg\)/.test(arg.stderr)) {
+    if (!/provenance: questions = ask \(arg\)/.test(arg.stderr)) {
       failures.push(`arg tier not winning: ${arg.stderr.slice(0, 250)}`);
     }
     // user tier when no project statement
     const noProj = mkdtemp("/tmp/hcn-q-noproj-");
     gitInit(noProj);
     const user = await runCli([harness, "--json", "--prompt", "Reply OK only."], env, noProj);
-    if (!/provenance: escalateQuestions = true \(user-config\)/.test(user.stderr)) {
+    if (!/provenance: questions = ask \(user-config\)/.test(user.stderr)) {
       failures.push(`user tier not applied: ${user.stderr.slice(0, 250)}`);
     }
     // default when nothing states it
@@ -199,7 +199,7 @@ export const questionPrecedenceScenario = {
       { HCN_CONFIG_DIR: emptyUser },
       noProj,
     );
-    if (!/provenance: escalateQuestions = true \(default\)/.test(dflt.stderr)) {
+    if (!/provenance: questions = ask \(default\)/.test(dflt.stderr)) {
       failures.push(`default not applied: ${dflt.stderr.slice(0, 250)}`);
     }
     return {
@@ -315,3 +315,36 @@ export const questionRoundtripScenario = {
     };
   },
 };
+/** (5) none mode: no preamble injected, no question event even with genuine task */
+export const questionNoneScenario = {
+  name: "question-none",
+  run: async (
+    runCli: RunCli,
+    harness: string,
+    mkdtemp: (p: string) => string,
+  ): Promise<ScenarioResultLite> => {
+    const failures: string[] = [];
+    const t0 = Date.now();
+    const cwd = mkdtemp("/tmp/hcn-q-none-");
+    const r = await runCli(
+      [harness, "--json", "--questions", "none", "--cwd", cwd, "--prompt", genuineDecisionTask],
+      {},
+      cwd,
+    );
+    const done = doneOf(r.events);
+    if (questionOf(r.events)) failures.push("question event fired in none mode");
+    if (!done) failures.push("no done event");
+    if (!/provenance: questions = none \(arg\)/.test(r.stderr)) {
+      failures.push(`none provenance missing: ${r.stderr.slice(0, 200)}`);
+    }
+    return {
+      durationMs: Date.now() - t0,
+      exitCode: r.exitCode,
+      eventCounts: eventCountsOf(r.events),
+      failures,
+    };
+  },
+};
+
+// Back-compat alias
+export const questionAssumeScenario = questionOffScenario;

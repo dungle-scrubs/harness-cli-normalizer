@@ -76,9 +76,8 @@ const KNOWN_KEYS = new Set([
   "maxSteps",
   "toolsets",
   "timeout",
-  // issue #41: question escalation (behavior instruction, not a turn
-  // option - it rides the prompt preamble, never a harness flag).
-  "escalateQuestions",
+  // question mode: ask|assume|none (behavior instruction, not a turn option)
+  "questions",
   // issue #48: payload-stripping dimensions (opt-in-only, no profile
   // entry by ratification).
   "systemPrompt",
@@ -88,7 +87,8 @@ const KNOWN_KEYS = new Set([
 ]);
 
 const LIST_KEYS = new Set(["tools", "excludeTools"]);
-const BOOL_KEYS = new Set(["autonomy", "write", "shell", "escalateQuestions"]);
+const BOOL_KEYS = new Set(["autonomy", "write", "shell"]);
+const QUESTIONS_VALUES = new Set(["ask", "assume", "none"]);
 
 /** Parse + validate config text. Throws ConfigError with the offending key
  * named on any violation - never warns and continues. */
@@ -225,6 +225,15 @@ export const parseUserConfig = (text: string): Partial<TurnOptions> => {
         throw new ConfigError(`config key ${JSON.stringify(key)} must be an array of strings`);
       }
       (out as Record<string, unknown>)[key] = value;
+      continue;
+    }
+    if (key === "questions") {
+      if (typeof value !== "string" || !QUESTIONS_VALUES.has(value)) {
+        throw new ConfigError(
+          `config key ${JSON.stringify(key)} must be one of ${[...QUESTIONS_VALUES].join(", ")}`,
+        );
+      }
+      (out as Record<string, unknown>).questions = value;
       continue;
     }
     if (BOOL_KEYS.has(key)) {

@@ -154,7 +154,7 @@ describe("harness-name validation", () => {
     // spawn a real process, so only assert the gate did not refuse.
     const out = await captureDispatch(["session", "pi", "--help"]);
     expect(out.exitCode).toBeUndefined();
-    expect(out.stdout).toContain("--escalate-questions");
+    expect(out.stdout).toContain("--questions");
   });
 });
 

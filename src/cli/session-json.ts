@@ -16,6 +16,7 @@ import {
   type SessionHandle,
   type SessionSendResult,
 } from "../execution/open-session.js";
+import type { QuestionMode } from "../interpretation/question.js";
 
 /** What the CLI reads back after a close, captured from the runner's
  * `session_close` boundary log. */
@@ -29,7 +30,7 @@ export interface JsonSessionArgs {
   readonly sessionId: string;
   readonly harness: string;
   readonly hcnVersion: string;
-  readonly escalateQuestions: boolean;
+  readonly questions?: QuestionMode;
   /** Read after close - the runner's final exitCode and cause. */
   readonly getCloseInfo: () => CloseInfo;
   /** Read after close - ids the runner accepted as queued and never
@@ -116,12 +117,13 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
     return chain;
   };
 
+  const qMode: QuestionMode = a.questions ?? "ask";
   await emit({
     kind: "session",
     sessionId: a.sessionId,
     harness: a.harness,
     hcn: a.hcnVersion,
-    escalateQuestions: a.escalateQuestions,
+    questions: qMode,
   });
 
   // Shared between the pumps: the last question asked, whether the last turn

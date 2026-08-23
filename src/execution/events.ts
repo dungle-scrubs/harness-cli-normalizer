@@ -25,7 +25,7 @@ export type ExitCause =
   | "stall"
   | "killed"
   | "failed"
-  /** issue #41: the turn ended by asking (escalateQuestions) - a
+  /** issue #41: the turn ended by asking (questions ask) - a
    * SUCCESSFUL turn (process exit 0); the caller resumes with the answer. */
   | "awaiting-input";
 

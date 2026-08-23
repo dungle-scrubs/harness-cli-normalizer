@@ -20,7 +20,11 @@ import {
   detectLimitInLine,
   detectTransportInLine,
 } from "../interpretation/limits.js";
-import { composeEscalatedPrompt, detectQuestionBlock } from "../interpretation/question.js";
+import {
+  composeEscalatedPrompt,
+  detectQuestionBlock,
+  type QuestionMode,
+} from "../interpretation/question.js";
 import {
   encodeSessionInput,
   resolveSessionInput,
@@ -88,11 +92,8 @@ export interface OpenSessionOptions {
   readonly model?: string;
   /** Working directory for the spawned harness. */
   readonly cwd?: string;
-  /** issue #44: question escalation in session mode (behavior
-   * instruction, default true). True composes the session preamble onto
-   * every send and arms block detection at turn end; false composes the
-   * no-ask instruction and disarms detection. */
-  readonly escalateQuestions?: boolean;
+  /** question mode for session (ask/assume/none), default "ask" */
+  readonly questions?: QuestionMode;
   /** Provider selector (pi); refused on a harness without one. */
   readonly provider?: string;
 }
@@ -168,7 +169,7 @@ export const openSession = (
 
   const turnsChannel = new AsyncChannel<SessionTurn>();
   const state = freshDecodeState(opts.sessionId);
-  const escalateQuestions = opts.escalateQuestions !== false;
+  const questionMode: QuestionMode = opts.questions ?? "ask";
   const sessionInputMode = h.sessionMode;
   const stderrTail = new StderrTail();
   let turnCounter = 0;
@@ -237,10 +238,7 @@ export const openSession = (
   const writeUser = (text: string): boolean => {
     try {
       stdin.write(
-        encodeSessionInput(
-          sessionInput,
-          composeEscalatedPrompt(text, escalateQuestions, "session"),
-        ),
+        encodeSessionInput(sessionInput, composeEscalatedPrompt(text, questionMode, "session")),
       );
       return true;
     } catch {
@@ -288,7 +286,7 @@ export const openSession = (
    * turn stream right before its done; a malformed block surfaces as an
    * error event, never a silent no-op. */
   const emitQuestionIfAsked = (): void => {
-    if (!escalateQuestions || lastAssistantText === null) return;
+    if (questionMode !== "ask" || lastAssistantText === null) return;
     const detection = detectQuestionBlock(lastAssistantText);
     if (detection === null) return;
     if ("malformed" in detection) {
@@ -366,7 +364,7 @@ export const openSession = (
       state.limitSeen = true;
       turnLimitSeen = true;
     }
-    if (escalateQuestions && event.kind === "message" && event.role === "assistant") {
+    if (questionMode === "ask" && event.kind === "message" && event.role === "assistant") {
       lastAssistantText = event.text;
     }
     if (activeTurn !== null) {
