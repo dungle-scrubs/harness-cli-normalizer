@@ -60,8 +60,19 @@ describe("capabilitiesOf (claude)", () => {
   });
 
   test("a descriptor whose observation is behind verifiedAgainst reports lower confidence than one that is current", () => {
-    // codex observed 0.146.1 behind verified 0.147.0 -> medium; claude/pi/muse current-or-ahead -> high
-    const stale = capabilitiesOf(codexCli, "", "headless-turn");
+    // A constructed stale descriptor (observation one version behind
+    // verifiedAgainst) -> medium; the real descriptors are current -> high.
+    // Built from codex rather than pinned to it so a verifiedAgainst bump
+    // does not silently change what this test exercises.
+    const staleCodex = {
+      ...codexCli,
+      verifiedAgainst: "0.147.0",
+      escalation: {
+        supported: true,
+        observedOn: { harness: "codex", model: "", version: "0.146.1", date: "2026-08-19" },
+      },
+    };
+    const stale = capabilitiesOf(staleCodex, "", "headless-turn");
     const current = capabilitiesOf(claudeCode, "", "headless-turn");
     const piCaps = capabilitiesOf(piCli, "", "headless-turn");
     expect(stale.escalation.confidence).toBe("medium");

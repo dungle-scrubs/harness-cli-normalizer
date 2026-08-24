@@ -14,8 +14,7 @@
     "hcn": "./dist/cli.js"
   },
   "files": [
-    "dist",
-    "src"
+    "dist"
   ],
   "sideEffects": false,
   "publishConfig": {
@@ -40,6 +39,7 @@
     "demo": "bun scripts/demo.ts",
     "smoke:seven": "bun scripts/smoke-seven.ts",
     "check:versions": "bun scripts/check-versions.ts",
+    "check:harnesses": "bun scripts/check-harnesses.ts",
     "smoke:questions": "bun scripts/smoke-questions.ts"
   },
   "devDependencies": {

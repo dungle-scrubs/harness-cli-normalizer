@@ -39,8 +39,8 @@ assert.ok(pack, "npm pack returned no package result");
 
 const files = new Set(pack.files.map(({ path }) => path));
 // CLI-only surface (Phase 7): the bin is the product. No root export, no
-// library subpaths, no d.ts entry points - src/ ships for reading, dist/
-// for running.
+// library subpaths, no d.ts entry points, no src/ - dist/ is the whole
+// package.
 for (const required of [
   "dist/cli.js",
   "dist/cli/index.js",
@@ -61,7 +61,7 @@ assert.ok(
 assert.ok(files.has("dist/cli.js"), "dist/cli.js must be packed");
 assert.ok(files.has("dist/cli/index.js"), "dist/cli/index.js must be packed");
 
-for (const forbiddenPrefix of [".plans/", "scripts/", "test/"]) {
+for (const forbiddenPrefix of [".plans/", "scripts/", "src/", "test/"]) {
   assert.equal(
     [...files].some((path) => path.startsWith(forbiddenPrefix)),
     false,
