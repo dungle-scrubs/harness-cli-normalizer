@@ -14,8 +14,7 @@
     "hcn": "./dist/cli.js"
   },
   "files": [
-    "dist",
-    "src"
+    "dist"
   ],
   "sideEffects": false,
   "publishConfig": {
