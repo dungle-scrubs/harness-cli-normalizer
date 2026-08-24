@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.7](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.5.6...v0.5.7) (2026-08-23)
+
+
+### Added
+
+* codex expresses the sandbox on resume through -c sandbox_mode ([#106](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/106)) ([2c9a9f2](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/2c9a9f2bfa31dc874d26d162d14cf4c8b34f9f5d))
+
+
+### Fixed
+
+* the resume guard searches a nested store, so muse resumes again ([#104](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/104)) ([8f0e6a0](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/8f0e6a0b4a43c2a5d684defea68d7d172de0dab5))
+
 ## [0.5.6](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.5.5...v0.5.6) (2026-08-23)
 
 
