@@ -1,6 +1,6 @@
 /**
  * The muse descriptor: facts about the `muse` CLI as data, verified against
- * Muse Code 0.1.0 and lucid v1's registry. Descriptor groundwork only
+ * Muse Code 0.2.1 and lucid v1's registry. Descriptor groundwork only
  * (D-003). The v1 scars this encodes: headless re-entry is `muse exec
  * --session-id <id>` (the positional `muse resume <id>` is the INTERACTIVE
  * picker - recognized when pasted, never built), and `muse exec` exits 0
@@ -13,7 +13,7 @@ import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
 export const museCode: HarnessDescriptor = deepFreeze({
   name: "muse",
   bin: "muse",
-  verifiedAgainst: "0.1.0",
+  verifiedAgainst: "0.2.1",
   // No npm package - `hcn check` falls back to `muse --version` locally and
   // is skipped in CI where the binary is absent, so this harness is exempt
   // from automated drift detection (see README Version-pinning and drift).
@@ -96,7 +96,7 @@ export const museCode: HarnessDescriptor = deepFreeze({
   // records a model id - absence of evidence, not an unset field.
   escalation: {
     supported: true,
-    observedOn: { harness: "muse", model: "", version: "0.2.1", date: "2026-08-19" },
+    observedOn: { harness: "muse", model: "", version: "0.2.1", date: "2026-08-24" },
   },
   turnOptions: {
     effort: { kind: "effort", render: { kind: "flag-value", flag: "--reasoning-effort" } },

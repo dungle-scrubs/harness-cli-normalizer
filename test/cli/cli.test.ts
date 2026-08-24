@@ -10,6 +10,10 @@ import { dispatch } from "../../src/cli/index.js";
 import { ls } from "../../src/cli/ls.js";
 import { resolveHarness } from "../../src/cli/resolve-harness.js";
 import { getVersion } from "../../src/cli/version.js";
+import { claudeCode } from "../../src/knowledge/claude-code.js";
+import { codexCli } from "../../src/knowledge/codex.js";
+import { museCode } from "../../src/knowledge/muse.js";
+import { piCli } from "../../src/knowledge/pi.js";
 
 // Helper to capture stdout/stderr and exitCode for dispatch
 const captureDispatch = async (
@@ -93,10 +97,12 @@ describe("hcn version and help", () => {
 describe("hcn ls", () => {
   test("lists claude@, codex@, pi@, muse@ with versionSource", async () => {
     const out = await captureDispatch(["ls"]);
-    expect(out.stdout).toContain("claude@2.1.233");
-    expect(out.stdout).toContain("codex@0.147.0");
-    expect(out.stdout).toContain("pi@0.84.2");
-    expect(out.stdout).toContain("muse@0.1.0");
+    // Versions come from the descriptors so a verifiedAgainst bump does not
+    // break this test - the claim is "ls prints name@verifiedAgainst".
+    expect(out.stdout).toContain(`claude@${claudeCode.verifiedAgainst}`);
+    expect(out.stdout).toContain(`codex@${codexCli.verifiedAgainst}`);
+    expect(out.stdout).toContain(`pi@${piCli.verifiedAgainst}`);
+    expect(out.stdout).toContain(`muse@${museCode.verifiedAgainst}`);
     expect(out.stdout).toContain("npm:");
     expect(out.stdout).toContain("installed:");
     expect(out.exitCode === undefined || out.exitCode === 0).toBe(true);
@@ -163,7 +169,7 @@ describe("hcn inspect (pure)", () => {
     const out = await captureDispatch(["inspect", "claude"]);
     const parsed = JSON.parse(out.stdout);
     expect(parsed.bin).toBe("claude");
-    expect(parsed.verifiedAgainst).toBe("2.1.233");
+    expect(parsed.verifiedAgainst).toBe(claudeCode.verifiedAgainst);
     expect(parsed.launch.streamFlags).toContain("--output-format");
     expect(parsed.resume.flag).toBe("--resume");
     expect(parsed.vocabulary.models).toContain("claude-opus-5");

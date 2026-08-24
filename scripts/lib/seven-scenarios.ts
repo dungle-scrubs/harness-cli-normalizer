@@ -193,7 +193,11 @@ const killResume = async (h: HarnessDescriptor): Promise<Cell> => {
   // Needs resumability, NOT a persistent session mode - every harness here
   // resumes, so every harness can be killed mid-turn and resumed.
   const first = await collect(
-    streamTurn(h, opts(h, { prompt: "Remember: otter. Reply OK" }), nodeRunnerDeps()),
+    streamTurn(
+      h,
+      opts(h, { prompt: "Remember the codeword: otter. Reply with only: OK" }),
+      nodeRunnerDeps(),
+    ),
   );
   const sid = idOf(first);
   if (sid === null) return { status: "fail", detail: "no id" };
@@ -216,7 +220,10 @@ const killResume = async (h: HarnessDescriptor): Promise<Cell> => {
   const resumed = await collect(
     streamTurn(
       h,
-      opts(h, { prompt: "Reply with only the word from before.", resume: sid }),
+      // "the codeword", not "the word from before": muse reads the vaguer
+      // phrase as its own previous reply ("OK") even though the session
+      // context is carried - resume-continuity's phrasing recalls reliably.
+      opts(h, { prompt: "Reply with only the codeword.", resume: sid }),
       nodeRunnerDeps(),
     ),
   );

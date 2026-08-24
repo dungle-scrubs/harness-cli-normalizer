@@ -98,8 +98,12 @@ describe("per-harness tool-call decoding (real CLI fixtures)", () => {
     const content = allContent("muse", fixture("muse-tool"));
     const tools = content.filter((e) => e.kind === "tool");
     expect(tools.length).toBeGreaterThanOrEqual(1);
-    expect(tools[0]).toMatchObject({ kind: "tool", name: "bash" });
-    if (tools[0]?.kind === "tool") expect(String(tools[0].input)).toContain("echo");
+    // muse 0.2.1 can reject a tool call on a schema mismatch before the
+    // model retries; rejected results carry no tool_name and decode to the
+    // "tool" fallback. The named event is the claim, not its position.
+    const named = tools.find((t) => t.kind === "tool" && t.name === "bash");
+    expect(named).toMatchObject({ kind: "tool", name: "bash" });
+    if (named?.kind === "tool") expect(String(named.input)).toContain("echo");
   });
 });
 

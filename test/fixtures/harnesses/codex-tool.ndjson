@@ -1,8 +1,7 @@
-{"type":"thread.started","thread_id":"019fee5a-b3fd-7cf3-91f9-95b96c5323c5"}
+{"type":"thread.started","thread_id":"01a03138-8c69-7f03-a05f-11b36b5f21bf"}
 {"type":"turn.started"}
-{"type":"item.completed","item":{"id":"item_0","type":"error","message":"Skill descriptions were shortened to fit the skills context budget. Codex can still see every skill, but some descriptions are shorter. Disable unused skills or plugins to leave more room for the rest."}}
-{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"I’ll run the command and report the exact output."}}
-{"type":"item.started","item":{"id":"item_2","type":"command_execution","command":"/bin/zsh -lc 'echo tooltest'","aggregated_output":"","exit_code":null,"status":"in_progress"}}
-{"type":"item.completed","item":{"id":"item_2","type":"command_execution","command":"/bin/zsh -lc 'echo tooltest'","aggregated_output":"tooltest\n","exit_code":0,"status":"completed"}}
-{"type":"item.completed","item":{"id":"item_3","type":"agent_message","text":"`tooltest`"}}
-{"type":"turn.completed","usage":{"input_tokens":51306,"cached_input_tokens":36352,"cache_write_input_tokens":0,"output_tokens":80,"reasoning_output_tokens":0}}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"I’ll run the command and return its exact stdout."}}
+{"type":"item.started","item":{"id":"item_1","type":"command_execution","command":"/bin/zsh -lc 'echo tooltest'","aggregated_output":"","exit_code":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_1","type":"command_execution","command":"/bin/zsh -lc 'echo tooltest'","aggregated_output":"tooltest\n","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_2","type":"agent_message","text":"tooltest"}}
+{"type":"turn.completed","usage":{"input_tokens":55522,"cached_input_tokens":22016,"cache_write_input_tokens":0,"output_tokens":116,"reasoning_output_tokens":0}}
