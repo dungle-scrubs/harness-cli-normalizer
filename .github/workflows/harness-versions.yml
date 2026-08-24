@@ -1,8 +1,8 @@
 # Harness-update detector (the free, no-inference, no-credential half of the
 # pipeline). Weekly, it compares each descriptor's verifiedAgainst to the
 # latest published version and, if any harness is behind, opens/updates a
-# single tracking issue. The credentialed capability tripwires (smoke:seven)
-# are NOT run here - they need inference and run locally.
+# single tracking issue. The live re-verification (check:harnesses) is NOT
+# run here - it needs installed, authenticated CLIs and runs locally.
 name: harness-version-check
 
 on:
@@ -46,7 +46,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh label create harness-update --color FBCA04 --description "A harness CLI shipped a new version" --force
-          BODY="$(printf 'A newer harness version has shipped; the descriptor is unverified for it.\n\n```\n%s\n```\n\nNext (local, not CI): run `bun run smoke:seven` against the new version to re-run the capability tripwires; if a claim flipped, update the descriptor + capture the new fixtures, bump `verifiedAgainst`/`versionSource`, and open a PR.' "${{ steps.check.outputs.report }}")"
+          BODY="$(printf 'A newer harness version has shipped; the descriptor is unverified for it.\n\n```\n%s\n```\n\nNext (local, not CI): install the new version and run `bun run check:harnesses`. It reports pass or fail per descriptor claim; on a full pass, `--bump` writes `verifiedAgainst`. Then re-capture fixtures and open a PR.' "${{ steps.check.outputs.report }}")"
           EXISTING="$(gh issue list --label harness-update --state open --json number --jq '.[0].number // empty')"
           if [ -n "$EXISTING" ]; then
             gh issue comment "$EXISTING" --body "$BODY"

@@ -409,9 +409,12 @@ defaults profile, user and project config tiers, tool selection
 error labeling, and provenance on every resolved setting. Persistent
 sessions (`hcn session`) are available for claude and pi. Drift detection runs weekly
 in CI for the three npm harnesses; Muse is `installed` and only checked
-locally via `muse --version`. Re-verifying a descriptor's capability
-claims against a new CLI version is a local, manual step
-(`bun run smoke:seven`) plus fixture re-capture, not CI. Authentication
+locally via `muse --version`. Re-verifying a descriptor's claims against
+a new CLI version is local, not CI: `bun run check:harnesses` runs the
+seven scenarios and the escalation probe against each installed CLI that
+differs from its `verifiedAgainst`, reports pass or fail per claim, and
+with `--bump` writes the new version into the descriptor. Fixture
+re-capture stays manual. Authentication
 and usage-limit signals are parsed from each harness's stream, but hcn
 never holds or ships credentials; each harness authenticates under the
 end user's own session.
