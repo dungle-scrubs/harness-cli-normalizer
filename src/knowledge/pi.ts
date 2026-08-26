@@ -174,6 +174,20 @@ export const piCli: HarnessDescriptor = deepFreeze({
       },
     },
     access: { kind: "tool-preset", render: { kind: "flag-value", flag: "--tools" } },
+    // pi ships no built-in persistent-memory capability (verified 0.84.3 -
+    // evidence: test/fixtures/memory-dimension/pi-absence-probes.txt:
+    // no memory tool or feature; sessions are files resumed explicitly,
+    // which is session persistence, not context memory). The memory-off
+    // state is therefore vacuously true - the render is an EMPTY flag
+    // list: memory:false emits nothing because pi already runs memory-off,
+    // and memory:true is a no-op for the same reason. A user-installed
+    // memory extension is runtime-registered and outside descriptor
+    // scope (same stance as MCP tools).
+    memory: {
+      kind: "toggle",
+      polarity: "disables",
+      render: { kind: "flag-list", flags: [] },
+    },
   },
   // Phase 0 fixtures: pi-both-tool-flags.md. Both list flags legal at once;
   // exclude subtracts from include. --tools is strict over BUILT-INS but

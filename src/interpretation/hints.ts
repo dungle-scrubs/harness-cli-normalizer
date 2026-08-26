@@ -62,6 +62,8 @@ const HINTS: Readonly<Record<string, Readonly<Record<string, string>>>> = deepFr
       "pi has no step cap flag; bound the work in the prompt or impose a wall-clock timeout at the caller",
   },
   muse: {
+    memory:
+      "muse cannot turn its memory off: add_memory/edit_memory persist to ~/.local/share/muse/memory with no CLI flag or config key (verified 0.2.1) - keep muse out of memory-sensitive runs or re-probe after a version bump",
     tools:
       "muse has no per-tool name lists; gate execution with --disable-write, --disable-shell, --disable-web-tools - there is no allowlist",
     excludeTools:

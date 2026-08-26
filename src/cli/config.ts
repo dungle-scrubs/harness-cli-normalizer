@@ -73,6 +73,9 @@ const KNOWN_KEYS = new Set([
   "autonomy",
   "write",
   "shell",
+  // persistent-memory dimension (ratified 2026-08-26): false = the bare
+  // run feeds no cross-session memory into context.
+  "memory",
   "maxSteps",
   "toolsets",
   "timeout",
@@ -87,7 +90,7 @@ const KNOWN_KEYS = new Set([
 ]);
 
 const LIST_KEYS = new Set(["tools", "excludeTools"]);
-const BOOL_KEYS = new Set(["autonomy", "write", "shell"]);
+const BOOL_KEYS = new Set(["autonomy", "write", "shell", "memory"]);
 const QUESTIONS_VALUES = new Set(["ask", "assume", "none"]);
 
 /** Parse + validate config text. Throws ConfigError with the offending key

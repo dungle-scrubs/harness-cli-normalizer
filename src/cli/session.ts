@@ -128,10 +128,18 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   }
   let questionMode: import("../interpretation/question.js").QuestionMode;
   let questionTier: "arg" | "project-config" | "user-config" | "default";
+  // The config tiers feed question mode AND the memory dimension - one
+  // load, two resolutions (arg > project > user > default).
+  let userCfg: { questions?: string; memory?: boolean } | undefined;
+  let projectCfg: { questions?: string; memory?: boolean } | undefined;
   try {
     const { loadUserConfig, loadProjectConfig } = await import("./config.js");
-    const user = loadUserConfig()?.config as { questions?: string } | undefined;
-    const project = loadProjectConfig()?.config as { questions?: string } | undefined;
+    userCfg = loadUserConfig()?.config as { questions?: string; memory?: boolean } | undefined;
+    projectCfg = loadProjectConfig()?.config as
+      | { questions?: string; memory?: boolean }
+      | undefined;
+    const user = userCfg;
+    const project = projectCfg;
     const userMode = user?.questions;
     const projectMode = project?.questions;
     if (rawArgMode !== undefined) {
@@ -164,6 +172,26 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
     return;
   }
   process.stderr.write(`provenance: questions = ${questionMode} (${questionTier})\n`);
+
+  // memory resolution (ratified 2026-08-26): arg > project > user > profile
+  // default (false - sessions spawn memory-off like bare runs). Divergence
+  // on a harness without a memory spec is reported, never refused (no
+  // session-mode harness lacks one today; the guard stays generic).
+  const memoryArg =
+    values.memory === true ? true : values["no-memory"] === true ? false : undefined;
+  const { resolveSessionMemory } = await import("../interpretation/resolve-options.js");
+  const { memory, tier: memoryTier } = resolveSessionMemory(memoryArg, {
+    user: userCfg,
+    project: projectCfg,
+  });
+  const memoryExpressible = h.turnOptions.memory !== undefined;
+  if (memoryExpressible) {
+    process.stderr.write(`provenance: memory = ${memory} (${memoryTier})\n`);
+  } else {
+    process.stderr.write(
+      `divergence: profile "memory" not expressible on ${h.name}; harness default applies\n`,
+    );
+  }
 
   // Validate sessionId shape? let openSession handle via assertUsableSessionId
   // Unknown-id refusal reuses the run resume guard (src/cli/resume-guard.ts):
@@ -246,7 +274,15 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   try {
     handle = openSession(
       h,
-      { sessionId, model, cwd, questions: questionMode, provider, isResume },
+      {
+        sessionId,
+        model,
+        cwd,
+        questions: questionMode,
+        provider,
+        isResume,
+        ...(memoryExpressible ? { memory: memory as boolean } : {}),
+      },
       deps,
     );
   } catch (err) {

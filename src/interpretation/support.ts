@@ -11,7 +11,7 @@
  * argument rather than importing the defaults, so override sets work.
  */
 
-import type { HarnessDescriptor } from "../knowledge/descriptor.js";
+import type { HarnessDescriptor, OptionRender } from "../knowledge/descriptor.js";
 import type { DescriptorSet } from "../knowledge/overrides.js";
 import type { RefusalOption } from "./refusal.js";
 import type { VocabularyEntry } from "./tool-vocabulary.js";
@@ -40,6 +40,17 @@ const spellingOf = (h: HarnessDescriptor, option: RefusalOption): string | null 
       return h.tools.excludeFlag;
     case "autonomy":
       return h.autonomy?.flag ?? null;
+    case "memory": {
+      const spec = h.turnOptions.memory;
+      if (spec === undefined) return null;
+      const r = (spec as { readonly render: OptionRender }).render;
+      // The env render kind is not an argv flag - the caller-visible
+      // spelling is the assignment itself.
+      if (r.kind === "env") return `${r.name}=${r.value}`;
+      const flags = r.kind === "flag-list" ? r.flags : [];
+      // pi: vacuous support - no built-in memory, nothing to disable.
+      return flags.length > 0 ? flags.join(" ") : "(no built-in memory - already off)";
+    }
     case "effort":
     case "sandbox":
     case "provider":
@@ -117,6 +128,7 @@ export const recognizeNativeSpelling = (
     "provider",
     "write",
     "shell",
+    "memory",
     "maxSteps",
   ];
   for (const option of candidates) {

@@ -11,7 +11,7 @@
  * start/end, send dispositions, drops) are always-on evidence with
  * sessionId + turnId correlation.
  */
-import { buildSessionArgv } from "../interpretation/argv.js";
+import { buildSessionArgv, buildTurnEnv } from "../interpretation/argv.js";
 import { capabilitiesOf } from "../interpretation/capabilities.js";
 import { detectAuthFailureInLine, detectLimitInLine } from "../interpretation/limits.js";
 import {
@@ -93,6 +93,14 @@ export interface OpenSessionOptions {
   /** True when resuming an existing conversation; controls which flag
    * (resumeFlag vs idFlag) buildSessionArgv renders. */
   readonly isResume?: boolean;
+  /** Persistent-memory dimension (ratified 2026-08-26): the session spawn
+   * honors it the way a one-shot launch does - false renders the
+   * descriptor's disable (claude: CLAUDE_CODE_DISABLE_AUTO_MEMORY env var;
+   * pi: nothing, no built-in memory). Undefined means the caller made no
+   * memory decision; openSession adds no env overlay then. Resumed
+   * sessions get it too - it is a spawn property, not a turn option, so
+   * the launch-only rule never silently re-enables memory on a session. */
+  readonly memory?: boolean;
 }
 
 export class SessionClosedError extends Error {
@@ -137,6 +145,12 @@ export const openSession = (
     throw cause;
   }
 
+  // Descriptor-derived spawn env (claude's memory disable) - same merge
+  // rule as streamTurn: rendered at spawn, reported in the open log line.
+  const turnEnv =
+    opts.memory !== undefined ? buildTurnEnv(h, { memory: opts.memory }, "launch") : {};
+  const envKeys = Object.keys(turnEnv).length > 0 ? Object.keys(turnEnv) : undefined;
+
   let proc: SpawnedProcess;
   try {
     // A session needs a writable stdin regardless of the descriptor's
@@ -144,6 +158,7 @@ export const openSession = (
     proc = deps.spawn(argv, {
       stdin: "pipe",
       ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
+      ...(envKeys !== undefined ? { env: turnEnv } : {}),
     });
   } catch (cause) {
     log({ event: "session_spawn_failed", sessionId: opts.sessionId, harness: h.name });
@@ -163,6 +178,7 @@ export const openSession = (
     sessionId: opts.sessionId,
     harness: h.name,
     argv: redactArgv(argv),
+    ...(envKeys !== undefined ? { envKeys } : {}),
   });
 
   const turnsChannel = new AsyncChannel<SessionTurn>();

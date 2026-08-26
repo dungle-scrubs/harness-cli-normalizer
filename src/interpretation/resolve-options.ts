@@ -61,6 +61,9 @@ const EXPRESSIBLE: Readonly<Record<ProfileKey, (h: HarnessDescriptor) => boolean
   autonomy: () => true,
   write: () => true,
   shell: () => true,
+  // memory:false must render on claude/codex; pi's vacuous empty render
+  // makes it expressible there too. muse (no spec) reports divergence.
+  memory: (h) => h.turnOptions.memory !== undefined,
   tools: (h) => h.tools.includeFlag !== null || h.tools.excludeFlag !== null,
 };
 
@@ -81,6 +84,30 @@ const effectiveConfig = (tiers: ConfigTiers): Readonly<Partial<TurnOptions>> => 
   ...(tiers.user ?? {}),
   ...(tiers.project ?? {}),
 });
+
+/** Memory precedence for SESSION spawns (ratified 2026-08-26): sessions
+ * resolve the memory dimension like a bare launch does - arg > project >
+ * user > profile default false - because the decision is made once at
+ * spawn, not per turn. Pure so the precedence is unit-pinnable; the
+ * session CLI reports the tier and passes the value to openSession. */
+export interface MemoryResolution {
+  readonly memory: boolean;
+  readonly tier: "arg" | "project-config" | "user-config" | "profile";
+}
+
+export const resolveSessionMemory = (
+  arg: boolean | undefined,
+  tiers: {
+    readonly user?: Readonly<{ memory?: boolean }>;
+    readonly project?: Readonly<{ memory?: boolean }>;
+  },
+): MemoryResolution => {
+  if (arg !== undefined) return { memory: arg, tier: "arg" };
+  if (tiers.project?.memory !== undefined)
+    return { memory: tiers.project.memory, tier: "project-config" };
+  if (tiers.user?.memory !== undefined) return { memory: tiers.user.memory, tier: "user-config" };
+  return { memory: false, tier: "profile" };
+};
 
 /** Resolve the effective options for a LAUNCH. `args` is what the caller
  * passed explicitly (highest tier); `userConfig` the parsed config file;
