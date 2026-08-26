@@ -1,0 +1,27 @@
+OpenAI Codex v0.149.1
+--------
+workdir: /Users/kevin/dev/harness-cli-normalizer/test/fixtures/memory-dimension
+model: gpt-5.6-sol
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR] (network access enabled)
+reasoning effort: medium
+reasoning summaries: none
+session id: 01a038cc-5a54-7332-8967-f3646b75aef5
+--------
+user
+reply with just: ok
+hook: SessionStart
+hook: SessionStart
+hook: SessionStart
+hook: SessionStart Completed
+hook: SessionStart Completed
+hook: SessionStart Completed
+codex
+ok
+hook: Stop
+hook: Stop Completed
+tokens used
+12,450
+ok
+exit: 0

@@ -1,0 +1,5 @@
+# hcn run pi spawn line (default profile, memory off):
+# spawn: pi -p --mode json --thinking medium [prompt:960ch]
+# Byte-identical to a run with no memory dimension set: pi has no
+# built-in memory capability, the memory:false render is vacuous.
+# Model replied "ok", done cause clean. 2026-08-26, pi 0.84.3.

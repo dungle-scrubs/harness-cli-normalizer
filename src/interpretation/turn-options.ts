@@ -11,9 +11,11 @@
  */
 import type { HarnessDescriptor, OptionRender, SpecBase } from "../knowledge/descriptor.js";
 import { DISCOVERY_FACETS, resolveRender, TURN_OPTION_KEYS } from "../knowledge/descriptor.js";
+import { defaultDescriptors } from "../knowledge/overrides.js";
 import type { DiscoveryOptions, TurnOptions } from "./argv.js";
 import { hintFor } from "./hints.js";
 import { ArgvRefusalError } from "./refusal.js";
+import { supportedBy } from "./support.js";
 import { renderToolSelection } from "./tool-selection.js";
 import { READ_PRESET } from "./tool-vocabulary.js";
 import { CLEAN_SELECTOR, resolveModel, validateAccess, validateEffort } from "./vocabulary.js";
@@ -28,13 +30,23 @@ const isPlainObject = (v: unknown): v is Record<string, unknown> =>
 
 /** Render turn options for a given phase, in TURN_OPTION_KEYS order and with
  * discovery facets in DISCOVERY_FACETS order, de-duplicating by exact token
- * sequence (first wins) so claude's two facets sharing one flag emit once. */
+ * sequence (first wins) so claude's two facets sharing one flag emit once.
+ * Returns argv tokens AND descriptor-derived spawn-env assignments (the
+ * `env` render kind contributes no tokens - the execution layer merges
+ * `env` over the caller's env at spawn, so a descriptor-derived disable
+ * wins over a contradicting caller-set variable). */
+export interface RenderedTurnOptions {
+  readonly tokens: string[];
+  readonly env: Record<string, string>;
+}
+
 export const renderTurnOptions = (
   h: HarnessDescriptor,
   opts: TurnOptions,
   phase: "launch" | "resume",
-): string[] => {
+): RenderedTurnOptions => {
   const sequences: string[][] = [];
+  const env: Record<string, string> = {};
 
   const accessRaw = opts.access;
   if (accessRaw !== undefined) {
@@ -295,6 +307,9 @@ export const renderTurnOptions = (
         supported: Object.keys(h.turnOptions).length ? Object.keys(h.turnOptions) : ["(none)"],
         detail: String(raw),
         hint: hintFor(h.name, key),
+        // D7: derive the cross-harness support list at raise time so a
+        // descriptor edit can never leave this refusal stale.
+        supportedBy: supportedBy(defaultDescriptors(), key),
       });
     }
 
@@ -483,6 +498,12 @@ export const renderTurnOptions = (
         else if (spec.polarity === "enables" && raw === true) shouldEmit = true;
         if (!shouldEmit) break;
         const r = effectiveRender!;
+        // The env render kind contributes no argv tokens; the assignment
+        // travels in the return shape for the execution layer to merge.
+        if (r.kind === "env") {
+          env[r.name] = r.value;
+          break;
+        }
         let seq: string[];
         if (r.kind === "flag-list") seq = [...r.flags];
         else if (r.kind === "flag-value") seq = [r.flag, String(raw)];
@@ -549,5 +570,5 @@ export const renderTurnOptions = (
     seen.add(k);
     deduped.push(seq);
   }
-  return deduped.flat();
+  return { tokens: deduped.flat(), env };
 };

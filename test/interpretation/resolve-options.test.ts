@@ -122,7 +122,7 @@ describe("skip-and-report (unrenderable profile dimensions)", () => {
 });
 
 describe("profile data", () => {
-  it("contains exactly the four ratified dimensions", () => {
+  it("contains exactly the ratified dimensions", () => {
     expect(Object.keys(DEFAULT_TURN_PROFILE)).toEqual([
       "effort",
       "sandbox",
@@ -130,6 +130,7 @@ describe("profile data", () => {
       "autonomy",
       "write",
       "shell",
+      "memory",
       "tools",
     ]);
     expect(DEFAULT_TURN_PROFILE.effort).toBe("medium");

@@ -179,6 +179,8 @@ export const parseTurnOptions = (values: Record<string, unknown>): TurnOptions =
   else if (values["no-write"] === true) opts.write = false;
   if (values.shell === true) opts.shell = true;
   else if (values["no-shell"] === true) opts.shell = false;
+  if (values.memory === true) opts.memory = true;
+  else if (values["no-memory"] === true) opts.memory = false;
   if (values.questions !== undefined) {
     const v = String(values.questions);
     if (!["ask", "assume", "none"].includes(v)) {
@@ -304,6 +306,8 @@ const KNOWN_FLAGS = new Set([
   "--no-write",
   "--shell",
   "--no-shell",
+  "--memory",
+  "--no-memory",
   "--questions",
   "--system-prompt",
   "--append-system-prompt",
@@ -458,6 +462,8 @@ export const parseCommonFlags = (
       "no-write": { type: "boolean" as const },
       shell: { type: "boolean" as const },
       "no-shell": { type: "boolean" as const },
+      memory: { type: "boolean" as const },
+      "no-memory": { type: "boolean" as const },
       questions: { type: "string" as const },
       "system-prompt": { type: "string" as const },
       "append-system-prompt": { type: "string" as const },

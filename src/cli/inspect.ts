@@ -1,5 +1,5 @@
 import { redactArgv } from "../execution/stream-turn.js";
-import { buildLaunchArgv } from "../interpretation/argv.js";
+import { buildLaunchArgv, buildResumeArgv, buildTurnEnv } from "../interpretation/argv.js";
 import { capabilitiesOf } from "../interpretation/capabilities.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
 import { FloorExceededError, resolveEffectiveOptions } from "../interpretation/resolve-options.js";
@@ -245,7 +245,6 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
       process.exitCode = 2;
       return;
     }
-    const { buildResumeArgv } = await import("../interpretation/argv.js");
     const resumeId = String(values.resume ?? values["session-id"]);
     try {
       const resumeOpts = {
@@ -258,6 +257,14 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
       const redactedResume = redactArgv(resumeArgv, prompt);
       process.stdout.write(`${JSON.stringify(redactedResume)}\n`);
       process.stderr.write(`argv: ${redactedResume.join(" ")}\n`);
+      const resumeEnv = buildTurnEnv(h, resumeOpts, "resume");
+      if (Object.keys(resumeEnv).length > 0) {
+        process.stderr.write(
+          `env: ${Object.entries(resumeEnv)
+            .map(([k, v]) => `${k}=${v}`)
+            .join(" ")}\n`,
+        );
+      }
       return;
     } catch (err) {
       if (err instanceof ArgvRefusalError) {
@@ -316,6 +323,17 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
 
   // Redact prompt for display, but keep structure
   const redacted = redactArgv(argv, prompt);
+
+  // Env-kind renders (claude's memory disable) never appear in argv; the
+  // preview owes them a line or the spawn would carry an invisible option.
+  const turnEnv = buildTurnEnv(h, fullOpts as never, "launch");
+  if (Object.keys(turnEnv).length > 0) {
+    process.stderr.write(
+      `env: ${Object.entries(turnEnv)
+        .map(([k, v]) => `${k}=${v}`)
+        .join(" ")}\n`,
+    );
+  }
 
   process.stdout.write(`${JSON.stringify(redacted)}\n`);
   process.stderr.write(`argv: ${redacted.join(" ")}\n`);

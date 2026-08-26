@@ -144,6 +144,21 @@ export const codexCli: HarnessDescriptor = deepFreeze({
       values: { read: "read-only", write: "workspace-write" },
       render: { kind: "flag-value", flag: "--sandbox" },
     },
+    // Persistent memories (feature `memories`, stable, on by default on
+    // 0.149.1 - evidence: test/fixtures/memory-dimension/; state lives in
+    // ~/.codex/memories/ + memories_1.sqlite) are disabled per-call with
+    // the feature flag. Verified live 0.149.1: `codex features list`
+    // reports memories stable+true; -c features.memories=false flips it to
+    // false; both `codex exec --disable memories` and `codex exec resume
+    // --disable memories` exit 0, so the resume grammar accepts the same
+    // spelling (resumeRender omitted). `codex features disable memories`
+    // is the persistent config.toml form - NOT the per-call surface hcn
+    // renders.
+    memory: {
+      kind: "toggle",
+      polarity: "disables",
+      render: { kind: "flag-list", flags: ["--disable", "memories"] },
+    },
   },
   // Tools: no built-in name lists; control is feature booleans
   // (reachable per-call via -c key=value), sandbox, and approval policy.

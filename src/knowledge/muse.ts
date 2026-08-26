@@ -100,6 +100,17 @@ export const museCode: HarnessDescriptor = deepFreeze({
   },
   turnOptions: {
     effort: { kind: "effort", render: { kind: "flag-value", flag: "--reasoning-effort" } },
+    // MEMORY GAP (watched, verified absent on 0.2.1 - evidence:
+    // test/fixtures/memory-dimension/muse-absence-probes.txt): muse ships
+    // add_memory/edit_memory tools persisting to ~/.local/share/muse/
+    // memory/projects, with no CLI disable flag (category flags cover only
+    // write/shell/web) and no documented settings key - memory cannot be
+    // turned off per-call. No spec here means an explicit memory:false
+    // REFUSES (unsupported-option) and the profile default reports
+    // divergence. Re-probe `muse --help` for a memory category flag on
+    // every version bump; if one lands, add a toggle spec here and the
+    // divergence disappears. Enterprise config planes (muse config
+    // validate --plane policy) are unverified for memory gating.
     write: {
       kind: "toggle",
       polarity: "disables",

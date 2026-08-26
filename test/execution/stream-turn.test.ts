@@ -610,3 +610,49 @@ describe("F-09 capabilities with no model use curated source and argv granularit
     expect(idResume?.authority).toBe("caller-assigned");
   });
 });
+
+describe("descriptor-derived spawn env (memory dimension, ratified 2026-08-26)", () => {
+  test("claude memory:false spawns with the env var merged OVER the caller env", async () => {
+    const proc = new FakeProcess();
+    const d = deps(proc);
+    const turn = streamTurn(
+      claudeCode,
+      {
+        prompt: "hi",
+        memory: false,
+        env: { FOO: "bar", CLAUDE_CODE_DISABLE_AUTO_MEMORY: "0" },
+      },
+      d,
+    );
+    proc.exit(0);
+    await collect(turn);
+    const call = d.spawner.calls[0];
+    expect(call).toBeDefined();
+    expect(call?.opts.env).toEqual({
+      FOO: "bar",
+      // the descriptor-derived disable beats the contradicting raw variable
+      CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1",
+    });
+  });
+
+  test("claude memory unset spawns with no env overlay at all", async () => {
+    const proc = new FakeProcess();
+    const d = deps(proc);
+    const turn = streamTurn(claudeCode, { prompt: "hi" }, d);
+    proc.exit(0);
+    await collect(turn);
+    expect(d.spawner.calls[0]?.opts.env).toBeUndefined();
+  });
+
+  test("codex memory:false renders into argv (nothing in env)", async () => {
+    const proc = new FakeProcess();
+    const d = deps(proc);
+    const turn = streamTurn(codexCli, { prompt: "hi", memory: false }, d);
+    proc.exit(0);
+    await collect(turn);
+    const call = d.spawner.calls[0];
+    expect(call?.argv).toContain("--disable");
+    expect(call?.argv[call.argv.indexOf("--disable") + 1]).toBe("memories");
+    expect(call?.opts.env).toBeUndefined();
+  });
+});

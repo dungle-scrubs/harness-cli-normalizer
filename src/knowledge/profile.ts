@@ -34,6 +34,14 @@ export const DEFAULT_TURN_PROFILE = deepFreeze({
   // provenance.
   write: true,
   shell: true,
+  // Ratified 2026-08-26: persistent memory OFF. A bare hcn run does not
+  // feed the harness's cross-session memory into context - reproducible,
+  // private-by-default turns. claude renders an env var, codex a feature
+  // flag, pi nothing (no built-in memory); muse cannot express it and
+  // reports divergence (its memory tools stay on - the documented
+  // exception, see the muse descriptor's MEMORY GAP note). Callers opt
+  // back in per-run with --memory or a config tier.
+  memory: false,
   // D13, ratified: equivalent-as-possible tool defaults. The marker
   // expands per descriptor at resolve time - pi gains its dormant
   // grep/find/ls; claude emits nothing (already everything); codex/muse

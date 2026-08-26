@@ -397,3 +397,23 @@ describe("T01: a send's id travels to the turn it opens and to the loss report",
     expect(dropped).toMatchObject({ count: 1, ids: ["in-2"] });
   });
 });
+
+describe("openSession memory dimension (ratified 2026-08-26)", () => {
+  test("memory:false spawns the claude session with the disable env var", async () => {
+    const proc = new FakeProcess();
+    const d = makeDeps(proc);
+    openSession(claudeCode, { sessionId: sid, memory: false }, d);
+    expect(d.spawner.calls[0]?.opts.env).toEqual({ CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1" });
+    await new Promise((r) => setTimeout(r, 0));
+  });
+
+  test("memory:true (opt back in) and undefined spawn with no env overlay", async () => {
+    for (const memory of [true, undefined] as const) {
+      const proc = new FakeProcess();
+      const d = makeDeps(proc);
+      openSession(claudeCode, { sessionId: sid, ...(memory !== undefined ? { memory } : {}) }, d);
+      expect(d.spawner.calls[0]?.opts.env).toBeUndefined();
+      await new Promise((r) => setTimeout(r, 0));
+    }
+  });
+});

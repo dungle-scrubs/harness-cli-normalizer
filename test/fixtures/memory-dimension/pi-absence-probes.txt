@@ -1,0 +1,9 @@
+# pi 0.84.3 absence probes, 2026-08-26:
+# 1. `pi --help` - no memory flags, no memory feature.
+# 2. Package docs searched - no built-in memory capability. Session
+#    persistence (--session/--session-id, explicit resume) is session
+#    storage, not cross-session context memory.
+# 3. The session_recall tool seen on this machine is a user-installed
+#    extension (~/.pi/extensions/session-memory), not a pi built-in.
+# Conclusion: pi has no built-in persistent memory; memory:false is
+# vacuously true (empty render, nothing emitted).
