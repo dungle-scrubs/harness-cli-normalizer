@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.5.7...v0.6.0) (2026-08-29)
+
+
+### Added
+
+* hcn session gains --effort, validated per harness/model ([#112](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/112)) ([6dfd31c](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/6dfd31ca2c1aff64eebb0cc15a1d50d6d6e4a2d3))
+
 ## [0.5.7](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.5.6...v0.5.7) (2026-08-23)
 
 
