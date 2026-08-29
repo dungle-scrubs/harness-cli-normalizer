@@ -90,6 +90,11 @@ export interface OpenSessionOptions {
   readonly questions?: QuestionMode;
   /** Provider selector (pi); refused on a harness without one. */
   readonly provider?: string;
+  /** Effort level for the session spawn, validated per harness/model the
+   * way a one-shot launch validates it. Undefined means the caller made
+   * no effort decision: the session runs at the harness's own default
+   * effort (sessions carry no profile entry). */
+  readonly effort?: string;
   /** True when resuming an existing conversation; controls which flag
    * (resumeFlag vs idFlag) buildSessionArgv renders. */
   readonly isResume?: boolean;
@@ -120,6 +125,7 @@ export const openSession = (
   const argv = buildSessionArgv(h, {
     sessionId: opts.sessionId,
     ...(opts.model !== undefined ? { model: opts.model } : {}),
+    ...(opts.effort !== undefined ? { effort: opts.effort } : {}),
     ...(opts.provider !== undefined ? { provider: opts.provider } : {}),
     ...(opts.isResume !== undefined ? { isResume: opts.isResume } : {}),
   });

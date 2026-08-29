@@ -53,6 +53,7 @@ Session (claude, pi):
 ```bash
 hcn session claude
 hcn session claude --model opus --session-id 550e8400-e29b-41d4-a716-446655440000
+hcn session pi --effort high
 ```
 
 ### Machine session (`hcn session <harness> --json`)
@@ -113,7 +114,7 @@ disposition, and the session continues.
 
 Exit codes: 0 when `closed.cause` is `clean`; 1 otherwise; 2 for a refusal
 before the stream opens (invalid flag, no-session-mode harness, unknown
-model, provider off pi, bad `--stall`). A refusal still owes the stream its
+model, unknown effort, provider off pi, bad `--stall`). A refusal still owes the stream its
 terminal pair: the prose goes to stderr, and stdout carries
 `{"kind":"failure",...}` then `{"kind":"closed","cause":"failed"}`. A spawn
 failure (harness binary missing) writes a `transport` failure and the same
@@ -126,7 +127,11 @@ Session flags on `--json`: `--stall <seconds>` is a per-turn inactivity
 budget - a turn that produces no output for the budget ends `done` with
 `cause: "stall"` and the session closes with `cause: "stall"`. `0`
 disables it; there is no default. `--provider` is pi only, validated the
-same way as on `hcn run` and refused elsewhere with exit 2. The other
+same way as on `hcn run` and refused elsewhere with exit 2. `--effort <v>`
+sets the effort for the session spawn, validated against the ladder that
+applies to the picked `--model` exactly as on `hcn run` (claude `--effort`,
+pi `--thinking`); a session without it runs at the harness's own default
+- no profile effort is pinned onto sessions. The other
 session flags (`--model`, `--session-id`, `--cwd`, `--escalate-questions` /
 `--no-escalate-questions`) behave as in the REPL.
 

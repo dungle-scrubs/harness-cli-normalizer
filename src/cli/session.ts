@@ -105,6 +105,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   const model = values.model as string | undefined;
   const cwd = values.cwd as string | undefined;
   const provider = values.provider as string | undefined;
+  const effort = values.effort as string | undefined;
 
   // question mode precedence arg > project > user > default (ask)
   const rawArgMode = values.questions !== undefined ? String(values.questions) : undefined;
@@ -246,7 +247,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   try {
     handle = openSession(
       h,
-      { sessionId, model, cwd, questions: questionMode, provider, isResume },
+      { sessionId, model, cwd, questions: questionMode, provider, effort, isResume },
       deps,
     );
   } catch (err) {
