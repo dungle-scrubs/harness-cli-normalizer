@@ -189,6 +189,12 @@ export const buildResumeArgv = (h: HarnessDescriptor, opts: ResumeOptions): stri
 export interface SessionOptions {
   readonly sessionId: string;
   readonly model?: string;
+  /** Effort level, validated against the ladder that applies to the pick
+   * (the model's own ladder where the harness constrains per model, else
+   * the harness-wide one) - the same validation a one-shot turn applies.
+   * No profile entry: a session without --effort runs at the harness's
+   * own default effort, never a pinned one. */
+  readonly effort?: string;
   /** Provider selector (pi). A harness with no provider selector refuses,
    * the same way a one-shot turn does. */
   readonly provider?: string;
@@ -225,10 +231,24 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
     }
     argv.push(h.vocabulary.modelFlag, validated.id);
   }
-  if (opts.provider !== undefined) {
-    // One dimension, rendered by the same code path a launch argv uses, so
-    // the flag spelling and the refusal (with supportedBy) stay identical.
-    argv.push(...renderTurnOptions(h, { provider: opts.provider } as TurnOptions, "launch"));
+  if (opts.provider !== undefined || opts.effort !== undefined) {
+    // Both dimensions render through the same code path a launch argv uses,
+    // so the flag spelling and the refusal (with supportedBy) stay
+    // identical. The model rides along INERT for rendering - it is not a
+    // turnOptions key - but effort validation reads it, so a per-model
+    // effort ladder (effortsByModel) constrains the session spawn exactly
+    // as it constrains a one-shot turn.
+    argv.push(
+      ...renderTurnOptions(
+        h,
+        {
+          ...(opts.effort !== undefined ? { effort: opts.effort } : {}),
+          ...(opts.provider !== undefined ? { provider: opts.provider } : {}),
+          ...(opts.model !== undefined ? { model: opts.model } : {}),
+        } as TurnOptions,
+        "launch",
+      ),
+    );
   }
   return argv;
 };

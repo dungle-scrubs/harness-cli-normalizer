@@ -155,6 +155,9 @@ describe("harness-name validation", () => {
     const out = await captureDispatch(["session", "pi", "--help"]);
     expect(out.exitCode).toBeUndefined();
     expect(out.stdout).toContain("--questions");
+    // the session surface carries the effort dimension (validated per
+    // harness/model, like the run surface)
+    expect(out.stdout).toContain("--effort <value>");
   });
 });
 

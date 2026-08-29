@@ -88,3 +88,27 @@ describe("T08: a refused --json session still owes the stream its terminal pair"
     expect(r.events.at(-1)).toMatchObject({ kind: "closed", cause: "failed" });
   });
 });
+
+describe("session --effort (validated per harness/model like a one-shot turn)", () => {
+  test("an off-ladder effort writes failure + closed and exits 2, naming the ladder", async () => {
+    const r = await run("claude", ["--json", "--effort", "bogus"]);
+    expect(r.exitCode).toBe(2);
+    expect(r.events[0]).toMatchObject({ kind: "failure", class: "rejected" });
+    expect(r.events.at(-1)).toMatchObject({ kind: "closed", cause: "failed" });
+    expect(r.stderr).toContain('unknown effort for claude "bogus"');
+    expect(r.stderr).toContain("supported: low, medium, high, xhigh, max");
+  });
+
+  test("the same refusal without --json writes prose and exits 2", async () => {
+    const r = await run("claude", ["--effort", "bogus"]);
+    expect(r.exitCode).toBe(2);
+    expect(r.events).toHaveLength(0);
+    expect(r.stderr).toContain('unknown effort for claude "bogus"');
+  });
+
+  test("the ladder is the harness's own: claude refuses pi's 'off'", async () => {
+    const claudeRefusal = await run("claude", ["--effort", "off"]);
+    expect(claudeRefusal.exitCode).toBe(2);
+    expect(claudeRefusal.stderr).toContain("supported: low, medium, high, xhigh, max");
+  });
+});

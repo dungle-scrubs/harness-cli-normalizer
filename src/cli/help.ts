@@ -132,6 +132,9 @@ Options:
                             (default: no limit)
   --provider <value>        Provider (pi only)
   --model <id>              Model for the session
+  --effort <value>          Effort level for the session spawn (validated
+                            per harness/model; no default - the harness's
+                            own effort applies without the flag)
   --resume <uuid>           Resume session id (UUID). Continues the
                             conversation where it left off. --session-id
                             is an alias (mutually exclusive with --resume).

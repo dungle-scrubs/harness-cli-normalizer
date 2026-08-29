@@ -109,6 +109,63 @@ describe("buildSessionArgv (claude)", () => {
   });
 });
 
+describe("buildSessionArgv effort", () => {
+  test("claude renders the validated effort after the session id", () => {
+    const argv = buildSessionArgv(claudeCode, {
+      sessionId: "eb04301d-8756-4a8b-ae3e-aac0e71f7265",
+      effort: "high",
+    });
+    expect(argv[argv.indexOf("--effort") + 1]).toBe("high");
+    expect(argv.indexOf("--effort")).toBeGreaterThan(
+      argv.indexOf("eb04301d-8756-4a8b-ae3e-aac0e71f7265"),
+    );
+  });
+
+  test("pi renders effort through its own flag (--thinking), its own ladder (off)", () => {
+    const argv = buildSessionArgv(piCli, {
+      sessionId: "eb04301d-8756-4a8b-ae3e-aac0e71f7265",
+      effort: "off",
+    });
+    expect(argv[argv.indexOf("--thinking") + 1]).toBe("off");
+  });
+
+  test("model and effort ride together: model flag first, effort validated after", () => {
+    const argv = buildSessionArgv(claudeCode, {
+      sessionId: "eb04301d-8756-4a8b-ae3e-aac0e71f7265",
+      model: "opus",
+      effort: "high",
+    });
+    expect(argv[argv.indexOf("--model") + 1]).toBe("claude-opus-5");
+    expect(argv[argv.indexOf("--effort") + 1]).toBe("high");
+    expect(argv.indexOf("--model")).toBeLessThan(argv.indexOf("--effort"));
+  });
+
+  test("an off-ladder effort refuses with the harness ladder as the supported list", () => {
+    let caught: unknown;
+    try {
+      buildSessionArgv(claudeCode, {
+        sessionId: "eb04301d-8756-4a8b-ae3e-aac0e71f7265",
+        effort: "off",
+      });
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(ArgvRefusalError);
+    const err = caught as ArgvRefusalError;
+    expect(err.issue).toBe("unknown-effort");
+    expect(err.supported).toEqual(["low", "medium", "high", "xhigh", "max"]);
+  });
+
+  test("effort and provider render in TURN_OPTION_KEYS order (effort first)", () => {
+    const argv = buildSessionArgv(piCli, {
+      sessionId: "eb04301d-8756-4a8b-ae3e-aac0e71f7265",
+      effort: "high",
+      provider: "lmstudio",
+    });
+    expect(argv.indexOf("--thinking")).toBeLessThan(argv.indexOf("--provider"));
+  });
+});
+
 describe("shared spawn-boundary guards", () => {
   test("buildResumeArgv refuses a flag-shaped prompt exactly like buildLaunchArgv", () => {
     expect(() =>
