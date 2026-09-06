@@ -144,17 +144,22 @@ export const resolveEffectiveOptions = (
       });
     }
   }
-  // Access exclusivity on codex: explicit --sandbox together with --access refuses.
-  // Profile sandbox yields to access - only explicit sandbox counts.
-  if (h.name === "codex" && resolved.access !== undefined) {
-    const hasExplicitSandbox =
-      effectiveArgs.sandbox !== undefined || sourceTier("sandbox") !== undefined;
-    if (hasExplicitSandbox) {
+  // The access preset displaces the turn option its spec claims (codex:
+  // sandbox). An explicit value of that option alongside access refuses;
+  // the profile default yields silently in the profile loop below. Read
+  // from the descriptor, so no harness name appears here.
+  const accessSpec = h.turnOptions.access;
+  const claimed = accessSpec?.kind === "access" ? accessSpec.claims : undefined;
+  if (claimed !== undefined && resolved.access !== undefined) {
+    const hasExplicit =
+      effectiveArgs[claimed as keyof TurnOptions] !== undefined ||
+      sourceTier(claimed) !== undefined;
+    if (hasExplicit) {
       throw new ArgvRefusalError({
         issue: "mutually-exclusive-options",
         harness: h.name,
         option: "access",
-        supported: ["--access or --sandbox, not both on codex"],
+        supported: [`--access or --${claimed}, not both on ${h.name}`],
         detail: "mutual exclusion",
       });
     }
@@ -263,8 +268,8 @@ export const resolveEffectiveOptions = (
       provenance.push({ key, value: "none (access preset)", tier: accessTier });
       continue;
     }
-    // Profile sandbox yields to access - when access is set, drop profile sandbox.
-    if (key === "sandbox" && resolved.access !== undefined) {
+    // The claimed option's profile default yields to a set access preset.
+    if (key === claimed && resolved.access !== undefined) {
       provenance.push({ key, value: `${String(value)} (access)`, tier: "harness" });
       continue;
     }

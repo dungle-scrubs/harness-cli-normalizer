@@ -81,6 +81,11 @@ export type SkillsOverridesVia = (typeof SKILLS_OVERRIDES_VIA)[number];
 export const VERSION_SOURCE_KINDS = deepFreeze(["npm", "installed"] as const);
 export type VersionSourceKind = (typeof VERSION_SOURCE_KINDS)[number];
 
+/** The access preset's value vocabulary: `read` narrows to the read-only
+ * tool subset, `write` is no restriction. */
+export const ACCESS_VALUES = deepFreeze(["read", "write"] as const);
+export type AccessValue = (typeof ACCESS_VALUES)[number];
+
 export const SESSION_INPUT_KINDS = ["claude-sdk-user-message", "pi-rpc-prompt"] as const;
 export type SessionInputKind = (typeof SESSION_INPUT_KINDS)[number];
 
@@ -194,6 +199,12 @@ export interface SpecBase {
   readonly resumeRender?: OptionRender | null;
 }
 
+/** How one access value renders on one harness (RFC-02 change 3): the
+ * marker for "render the read preset through the tool list", null for
+ * "emit nothing", or a phase-aware render carrying the harness value it
+ * maps to (codex: `read` is `--sandbox read-only`). */
+export type AccessRender = "tool-preset" | null | (SpecBase & { readonly value?: string });
+
 export type TurnOptionSpec =
   /** Closed value vocabulary. `default` renders on LAUNCH ONLY. */
   | (SpecBase & {
@@ -201,17 +212,15 @@ export type TurnOptionSpec =
       readonly values: readonly string[];
       readonly default?: string;
     })
-  /** Access preset: read/write dimension with per-harness rendering. */
-  | (SpecBase & { readonly kind: "tool-preset" })
-  | (SpecBase & {
-      readonly kind: "flag-value";
-      readonly flag: string;
-      readonly values: Readonly<Record<string, string>>;
-    })
-  | (SpecBase & {
-      readonly kind: "flag-list-by-value";
-      readonly flags: Readonly<Record<string, readonly string[]>>;
-    })
+  /** The access preset: one kind on every harness that expresses it, a
+   *  render per value, and `claims` naming the turn option the preset
+   *  displaces when set (codex: sandbox) so exclusivity is data, not a
+   *  harness name. */
+  | {
+      readonly kind: "access";
+      readonly renders: Readonly<Record<AccessValue, AccessRender>>;
+      readonly claims?: TurnOptionKey;
+    }
   /** Ladder comes from vocabulary.efforts / effortsByModel, not from here. */
   | (SpecBase & { readonly kind: "effort" })
   /** Open selector, CLEAN_SELECTOR-validated. */
@@ -275,30 +284,6 @@ export const tokensFor = (
       return exhaustive;
     }
   }
-};
-
-/** Alias for `resolveRender` with the resume-only null semantics made
- * explicit in the name; useful for tests asserting the "omitted => same as
- * render, null => unexpressible" contract. */
-export const resolveResumeRender = (spec: SpecBase): OptionRender | null =>
-  resolveRender(spec, "resume");
-
-/** Like `resolveRender` but for a `TurnOptionSpec` that may be a `discovery`
- * table. Returns null for an unexpressible resume, the spec's render for
- * non-discovery specs, and for discovery returns the spec itself (facets are
- * resolved per-facet via `resolveRender`). */
-export const getOptionRender = (
-  spec: TurnOptionSpec,
-  phase: "launch" | "resume",
-): OptionRender | null => {
-  if (
-    spec.kind === "discovery" ||
-    spec.kind === "tool-preset" ||
-    spec.kind === "flag-value" ||
-    spec.kind === "flag-list-by-value"
-  )
-    return null;
-  return resolveRender(spec as SpecBase, phase);
 };
 
 export interface HarnessDescriptor {

@@ -138,11 +138,16 @@ export const codexCli: HarnessDescriptor = deepFreeze({
       // caller asked.
       resumeRender: { kind: "config-kv", flag: "-c", key: "sandbox_mode" },
     },
+    // The preset maps onto the sandbox dimension and therefore CLAIMS it:
+    // an explicit --sandbox alongside --access refuses, and the profile's
+    // sandbox default yields. Data here, not a harness-name branch.
     access: {
-      kind: "flag-value",
-      flag: "--sandbox",
-      values: { read: "read-only", write: "workspace-write" },
-      render: { kind: "flag-value", flag: "--sandbox" },
+      kind: "access",
+      claims: "sandbox",
+      renders: {
+        read: { render: { kind: "flag-value", flag: "--sandbox" }, value: "read-only" },
+        write: { render: { kind: "flag-value", flag: "--sandbox" }, value: "workspace-write" },
+      },
     },
   },
   // Tools: no built-in name lists; control is feature booleans

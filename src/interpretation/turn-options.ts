@@ -13,18 +13,20 @@
  * knowledge layer (RFC-02 change 1): every arm here validates its value,
  * resolves the render for the phase, and calls it.
  */
-import type { HarnessDescriptor, SpecBase } from "../knowledge/descriptor.js";
+import type { AccessValue, HarnessDescriptor, SpecBase } from "../knowledge/descriptor.js";
 import {
+  ACCESS_VALUES,
   DISCOVERY_FACETS,
   resolveRender,
   TURN_OPTION_KEYS,
   tokensFor,
 } from "../knowledge/descriptor.js";
+import { defaultDescriptors } from "../knowledge/overrides.js";
 import type { DiscoveryOptions, TurnOptions } from "./argv.js";
 import { hintFor } from "./hints.js";
 import { ArgvRefusalError } from "./refusal.js";
 import { renderToolSelection } from "./tool-selection.js";
-import { READ_PRESET } from "./tool-vocabulary.js";
+import { canonicalTable, hasCounterpart, READ_PRESET } from "./tool-vocabulary.js";
 import { CLEAN_SELECTOR, resolveModel, validateAccess, validateEffort } from "./vocabulary.js";
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> =>
@@ -39,20 +41,10 @@ export const renderTurnOptions = (
   phase: "launch" | "resume",
 ): string[] => {
   const sequences: string[][] = [];
-
-  const accessRaw = opts.access;
-  if (accessRaw !== undefined) {
-    const v = validateAccess(accessRaw);
-    if (!v.ok) {
-      throw new ArgvRefusalError({
-        issue: "invalid-option-value",
-        harness: h.name,
-        option: "access",
-        supported: ["read", "write"],
-        detail: String(accessRaw),
-      });
-    }
-  }
+  // The turn option the access preset displaces when set (codex: sandbox),
+  // read from the descriptor so no arm below branches on a harness name.
+  const accessSpec = h.turnOptions.access;
+  const claimed = accessSpec?.kind === "access" ? accessSpec.claims : undefined;
 
   for (const key of TURN_OPTION_KEYS) {
     const spec = h.turnOptions[key];
@@ -164,10 +156,12 @@ export const renderTurnOptions = (
       continue;
     }
 
-    // Access is opt-in-only, no profile default; dispatch to tool-selection for the preset.
+    // Access is opt-in-only, no profile default. One arm for every harness:
+    // the descriptor says whether a value renders through the tool list, a
+    // phase-aware render, or nothing at all.
     if (key === "access") {
       if (raw === undefined) continue;
-      if (spec === undefined) {
+      if (spec === undefined || spec.kind !== "access") {
         throw new ArgvRefusalError({
           issue: "unsupported-option",
           harness: h.name,
@@ -177,72 +171,59 @@ export const renderTurnOptions = (
           hint: hintFor(h.name, key),
         });
       }
-      const v = validateAccess(raw as string);
+      // The resume path builds from unresolved options, so the value is
+      // checked here as well as in option resolution - one rule, two gates.
+      const v = validateAccess(String(raw));
       if (!v.ok) {
         throw new ArgvRefusalError({
           issue: "invalid-option-value",
           harness: h.name,
           option: key,
-          supported: ["read", "write"],
+          supported: [...ACCESS_VALUES],
           detail: String(raw),
         });
       }
-      // When discovery.tools is off, the read preset must not re-enable tools.
-      if (raw === "read" && opts.discovery?.tools === false) {
-        if (spec.kind === "tool-preset") continue;
+      const value = v.id as AccessValue;
+      const target = spec.renders[value];
+      if (target === null) continue;
+      if (target === "tool-preset") {
+        // The read preset rides the tool list. When discovery.tools is off,
+        // it must not switch tools back on; write is no restriction.
+        if (value !== "read" || opts.discovery?.tools === false) continue;
+        const toolMapForHarness = opts.toolMap?.[h.name];
+        const table = canonicalTable(defaultDescriptors());
+        const filtered = (READ_PRESET as readonly string[]).filter((c) =>
+          hasCounterpart(
+            table,
+            c,
+            h.name,
+            toolMapForHarness === undefined ? undefined : { [h.name]: toolMapForHarness },
+          ),
+        );
+        if (filtered.length === 0) continue;
+        const rendered = renderToolSelection(h, { include: filtered, toolMap: toolMapForHarness });
+        if (rendered.tokens.length > 0) sequences.push([...rendered.tokens]);
+        continue;
       }
-      switch (spec.kind) {
-        case "tool-preset": {
-          if (raw === "write") break;
-          const toolMapForHarness = (opts as { toolMap?: Record<string, Record<string, string>> })
-            .toolMap?.[h.name];
-          const filtered = (READ_PRESET as readonly string[]).filter((c) => {
-            if (toolMapForHarness?.[c] !== undefined) return true;
-            if (h.tools.builtins.some((b) => b.canonical === c)) return true;
-            if (h.tools.categories.some((cat) => (cat.canonical as readonly string[]).includes(c)))
-              return true;
-            return false;
-          });
-          if (filtered.length === 0) break;
-          const rendered = renderToolSelection(h, {
-            include: filtered as unknown as string[],
-            toolMap: toolMapForHarness,
-          });
-          if (rendered.tokens.length > 0) sequences.push([...rendered.tokens]);
-          break;
-        }
-        case "flag-value": {
-          const fv = spec as Extract<typeof spec, { kind: "flag-value" }>;
-          const mapped = fv.values[raw as string];
-          if (mapped !== undefined) sequences.push([fv.flag, mapped]);
-          break;
-        }
-        case "flag-list-by-value": {
-          const fl = spec as Extract<typeof spec, { kind: "flag-list-by-value" }>;
-          const list = fl.flags[raw as string] ?? [];
-          if (list.length > 0) sequences.push([...list]);
-          break;
-        }
-        default: {
-          const _exhaustive: never = spec as never;
-          throw new ArgvRefusalError({
-            issue: "invalid-option-value",
-            harness: h.name,
-            option: key,
-            supported: [],
-            detail: String(_exhaustive),
-          });
-        }
+      const render = resolveRender(target, phase);
+      if (render === null) {
+        throw new ArgvRefusalError({
+          issue: "unsupported-on-resume",
+          harness: h.name,
+          option: key,
+          supported: ["re-launch with --access, or resume without it"],
+        });
       }
+      sequences.push([...tokensFor(render, target.value)]);
       continue;
     }
 
     // Non-discovery keys
-    // Handle enum default on launch. An access preset already claimed the
-    // sandbox flag on harnesses that express access through it (codex);
-    // the enum default must not emit a second --sandbox.
+    // Handle enum default on launch. A set access preset displaces the
+    // option it claims (codex: sandbox), so that option's default must not
+    // emit a second flag beside the preset's.
     if (raw === undefined) {
-      if (key === "sandbox" && opts.access !== undefined) continue;
+      if (key === claimed && opts.access !== undefined) continue;
       if (
         spec !== undefined &&
         spec.kind === "enum" &&
@@ -270,15 +251,8 @@ export const renderTurnOptions = (
     }
 
     // From here every spec carries a render: the discovery table and the
-    // access kinds were handled above and left the loop with `continue`.
-    if (
-      spec.kind === "discovery" ||
-      spec.kind === "tool-preset" ||
-      spec.kind === "flag-value" ||
-      spec.kind === "flag-list-by-value"
-    ) {
-      continue;
-    }
+    // access spec were handled above and left the loop with `continue`.
+    if (spec.kind === "discovery" || spec.kind === "access") continue;
 
     // Check resumeRender null => unsupported-on-resume
     const render = resolveRender(spec, phase);
@@ -287,8 +261,12 @@ export const renderTurnOptions = (
         const s = h.turnOptions[k];
         if (!s) return false;
         if (s.kind === "discovery") return Object.keys(s.facets).length > 0;
-        if (s.kind === "tool-preset" || s.kind === "flag-value" || s.kind === "flag-list-by-value")
-          return resolveRender(s as SpecBase, "resume") !== null;
+        if (s.kind === "access") {
+          const read = s.renders.read;
+          return (
+            read === "tool-preset" || (read !== null && resolveRender(read, "resume") !== null)
+          );
+        }
         return resolveRender(s, "resume") !== null;
       }) as string[];
       throw new ArgvRefusalError({

@@ -4,7 +4,11 @@
  * prompt before tool grants) and the spawn-boundary refusals live here so
  * no caller re-derives them.
  */
-import type { HarnessDescriptor, StreamingGranularity } from "../knowledge/descriptor.js";
+import type {
+  AccessValue,
+  HarnessDescriptor,
+  StreamingGranularity,
+} from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { ArgvRefusalError } from "./refusal.js";
 import { assertUsableSessionId, SESSION_ID_MAX, SessionIdRefusalError } from "./session-id.js";
@@ -85,7 +89,7 @@ export interface TurnOptions {
   readonly __explicitPrompt?: boolean;
   /** toolMap extensible vocabulary per harness (issue toolMap) */
   readonly toolMap?: Readonly<Record<string, Readonly<Record<string, string>>>>;
-  readonly access?: "read" | "write";
+  readonly access?: AccessValue;
 }
 
 export interface ResumeOptions extends TurnOptions {

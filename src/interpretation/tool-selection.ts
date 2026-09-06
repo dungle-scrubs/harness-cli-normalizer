@@ -13,7 +13,6 @@ import {
   NATIVE_PREFIX,
   nativeFor,
   parseToolSelector,
-  READ_PRESET,
   validateCanonicalList,
 } from "./tool-vocabulary.js";
 import { CLEAN_SELECTOR } from "./vocabulary.js";
@@ -59,30 +58,6 @@ const categoriesFor = (
     if (val?.kind === "category") cats.add(val.key);
   }
   return cats;
-};
-
-export const renderAccessPreset = (
-  h: HarnessDescriptor,
-  access: "read" | "write",
-  opts: { toolMap?: Readonly<Record<string, string>> } = {},
-): string[] => {
-  if (access === "write") return [];
-  // read preset
-  const filtered = (READ_PRESET as readonly string[]).filter((c) => {
-    if (opts.toolMap?.[c] !== undefined) return true;
-    const table = canonicalTable(defaultDescriptors());
-    return table[c]?.[h.name] !== undefined;
-  });
-  if (filtered.length === 0) return [];
-  // For tool-preset harnesses, render via tool-selection include
-  const spec = h.turnOptions.access;
-  if (spec && spec.kind === "tool-preset") {
-    const rendered = renderToolSelection(h, { include: filtered, toolMap: opts.toolMap });
-    return [...rendered.tokens];
-  }
-  // For flag-value / flag-list-by-value harnesses, caller should handle via spec mapping;
-  // we return empty here so turn-options can map via spec values.
-  return [];
 };
 
 export const renderToolSelection = (

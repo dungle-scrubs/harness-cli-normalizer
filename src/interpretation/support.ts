@@ -27,12 +27,11 @@ const spellingOf = (h: HarnessDescriptor, option: RefusalOption): string | null 
   switch (option) {
     case "access": {
       const spec = h.turnOptions.access;
-      if (spec === undefined) return null;
-      if (spec.kind === "flag-value") return spec.flag;
-      if (spec.kind === "flag-list-by-value") return Object.values(spec.flags)[0]?.[0] ?? null;
-      if (spec.kind === "tool-preset")
-        return h.tools.includeFlag ?? h.tools.excludeFlag ?? "--sandbox";
-      return null;
+      if (spec === undefined || spec.kind !== "access") return null;
+      const read = spec.renders.read;
+      if (read === "tool-preset") return h.tools.includeFlag ?? h.tools.excludeFlag ?? null;
+      if (read === null) return null;
+      return read.render.kind === "flag-list" ? (read.render.flags[0] ?? null) : read.render.flag;
     }
     case "tools":
       return h.tools.includeFlag;
