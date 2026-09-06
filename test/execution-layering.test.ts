@@ -4,9 +4,11 @@ import { createScanner, SyntaxKind } from "typescript/unstable/ast";
 import { describe, expect, test } from "vitest";
 
 /**
- * Claude's persistent-session input vocabulary belongs to its knowledge
- * descriptor and interpretation encoder. Execution may dispatch a closed
- * contract kind, but must not own Claude's `user` protocol value.
+ * A harness's persistent-session wire vocabulary belongs to its knowledge
+ * descriptor and the interpretation encoder/decoder (ADR 0005, RFC-02
+ * change 4). Execution dispatches on closed contract kinds and must own
+ * none of the protocol literals: claude's `user` record type, and pi
+ * rpc's command and response vocabulary including hcn's own marker ids.
  */
 describe("execution layer dual-runtime invariant", () => {
   test("no execution source except node-deps.ts imports node:child_process or calls process.kill (Bun lane parity)", () => {
@@ -29,8 +31,20 @@ describe("execution layer dual-runtime invariant", () => {
   });
 });
 
+/** Literals that belong to a harness's session protocol, not to execution. */
+const PROTOCOL_LITERALS = new Set([
+  "user",
+  "response",
+  "get_state",
+  "prompt",
+  "agent_settled",
+  "result",
+  "hcn-identity",
+  "hcn-send",
+]);
+
 describe("execution layer protocol ownership", () => {
-  test("no execution source contains Claude's session-input protocol value", () => {
+  test("no execution source contains a session-protocol literal", () => {
     const dir = join(import.meta.dirname, "../src/execution");
     const files = readdirSync(dir, { recursive: true, encoding: "utf8" }).filter((file) =>
       file.endsWith(".ts"),
@@ -45,7 +59,7 @@ describe("execution layer protocol ownership", () => {
         if (
           (token === SyntaxKind.StringLiteral ||
             token === SyntaxKind.NoSubstitutionTemplateLiteral) &&
-          scanner.getTokenValue() === "user"
+          PROTOCOL_LITERALS.has(scanner.getTokenValue())
         ) {
           violations.push(scanner.getTokenStart());
         }

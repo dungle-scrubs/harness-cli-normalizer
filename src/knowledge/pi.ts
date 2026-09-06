@@ -74,7 +74,7 @@ export const piCli: HarnessDescriptor = deepFreeze({
     resumeFlag: "--session-id",
     input: { kind: "pi-rpc-prompt" },
     turnEnd: { type: "agent_settled" },
-    identityProbe: { command: "get_state" },
+    identityProbe: { command: "get_state", responseIdField: "data.sessionId" },
   },
   output: {
     // pi -p prints plain text; --mode json emits structured v3 records

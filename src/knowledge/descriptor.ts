@@ -380,7 +380,11 @@ export interface HarnessDescriptor {
     readonly resumeFlag: SessionResumeFlag;
     readonly input: SessionInputContract;
     readonly turnEnd: Readonly<Record<string, string>>;
-    readonly identityProbe: { readonly command: string } | null;
+    /** The command the runner writes at spawn to learn the session id, and
+     * the dot-path to that id in the response (pi rpc: `get_state`,
+     * `data.sessionId`). Encoded and decoded in interpretation
+     * (session-input.ts); execution holds no field names (ADR 0005). */
+    readonly identityProbe: { readonly command: string; readonly responseIdField: string } | null;
   } | null;
   /** Streaming is a property of the INVOCATION, not the harness: each pin
    * names the flag set that unlocks a granularity, checked in order, first

@@ -20,6 +20,8 @@ import {
   type QuestionMode,
 } from "../interpretation/question.js";
 import {
+  decodeSessionRecord,
+  encodeIdentityProbe,
   encodeSessionInput,
   resolveSessionInput,
   SessionInputRefusalError,
@@ -422,26 +424,48 @@ export const openSession = (
     }
   };
 
+  /** The probe answered: bind the announced id under the descriptor's
+   * authority, or surface a rotation. */
+  const announceIdentity = async (announced: string): Promise<void> => {
+    if (identityAnnounced) return;
+    if (sessionInputMode?.idFlag === null) {
+      // Harness-MINTED identity (pi rpc: `--session` refuses unknown ids,
+      // so fresh sessions omit the flag). The minted id IS the identity;
+      // opts.sessionId stays the caller-side handle.
+      identityAnnounced = true;
+      state.lastSeenId = announced;
+      await routeEvent({
+        kind: "identity",
+        sessionId: announced,
+        authority: "harness-minted",
+        capabilities: capabilitiesOf(h, opts.model ?? "", "headless-session"),
+      });
+      return;
+    }
+    if (announced === opts.sessionId) {
+      identityAnnounced = true;
+      await routeEvent({
+        kind: "identity",
+        sessionId: announced,
+        authority: "caller-assigned",
+        capabilities: capabilitiesOf(h, opts.model ?? "", "headless-session"),
+      });
+      return;
+    }
+    await routeEvent({
+      kind: "error",
+      message: `identity rotated: session announced ${JSON.stringify(announced)} but ${opts.sessionId} was requested`,
+    });
+  };
+
   const pumpStdout = async (): Promise<void> => {
     const lines = new LineBuffer();
-    const matches = (
-      record: Record<string, unknown>,
-      spec: Readonly<Record<string, string>>,
-    ): boolean => {
-      for (const [key, expected] of Object.entries(spec)) {
-        if (record[key] !== expected) return false;
-      }
-      return true;
-    };
-    // issue #44: pi rpc is identity-silent at startup; the probe round
-    // trip is the only way to read the id (spike fixtures). The response
-    // echoes our marker id, so it cannot be confused with a user-visible
-    // get_state response.
-    if (sessionInputMode?.identityProbe !== null && sessionInputMode !== null) {
+    // issue #44: a harness that is identity-silent at startup gets the
+    // probe its descriptor declares; interpretation encodes it (ADR 0005).
+    const probe = encodeIdentityProbe(h);
+    if (probe !== null) {
       try {
-        stdin.write(
-          `${JSON.stringify({ id: "hcn-identity", type: sessionInputMode.identityProbe.command })}\n`,
-        );
+        stdin.write(probe);
       } catch {
         // stdin already gone; the exited handler will surface the death.
       }
@@ -458,88 +482,48 @@ export const openSession = (
         }
         return;
       }
-      // pi rpc bookkeeping: the probe response announces identity; a
-      // failed command response is a surfaced error, never a silent drop
-      // (spike: mid-stream prompts fail with success:false naming the
-      // remedy - hcn never sends those, but any other failure shows here).
-      if (parsed.type === "response") {
-        if (
-          parsed.id === "hcn-identity" &&
-          typeof parsed.command === "string" &&
-          parsed.command === sessionInputMode?.identityProbe?.command &&
-          parsed.success === true
-        ) {
-          const data = parsed.data as Record<string, unknown> | undefined;
-          const announced = data?.sessionId;
-          if (typeof announced !== "string") {
-            await routeEvent({
-              kind: "error",
-              message: "identity probe response carried no sessionId",
-            });
-          } else if (sessionInputMode.idFlag === null) {
-            // Harness-MINTED identity (pi rpc: `--session` refuses unknown
-            // ids, so fresh sessions omit the flag). The minted id IS the
-            // identity; opts.sessionId stays the caller-side handle.
-            if (!identityAnnounced) {
-              identityAnnounced = true;
-              state.lastSeenId = announced;
-              await routeEvent({
-                kind: "identity",
-                sessionId: announced,
-                authority: "harness-minted",
-                capabilities: capabilitiesOf(h, opts.model ?? "", "headless-session"),
-              });
-            }
-          } else if (announced === opts.sessionId) {
-            if (!identityAnnounced) {
-              identityAnnounced = true;
-              await routeEvent({
-                kind: "identity",
-                sessionId: announced,
-                authority: "caller-assigned",
-                capabilities: capabilitiesOf(h, opts.model ?? "", "headless-session"),
-              });
-            }
-          } else {
-            await routeEvent({
-              kind: "error",
-              message: `identity rotated: session announced ${JSON.stringify(announced)} but ${opts.sessionId} was requested`,
-            });
+      // Interpretation says what the record means; this runner only routes
+      // on the kind (ADR 0005: no harness field names here).
+      const record = decodeSessionRecord(h, parsed);
+      switch (record.kind) {
+        case "identity":
+          await announceIdentity(record.sessionId);
+          return;
+        case "probe-failed":
+        case "command-failed":
+          await routeEvent({ kind: "error", message: record.message });
+          return;
+        case "ignored":
+          return;
+        case "turn-end": {
+          // The turn-end record still feeds identity dedupe (claude includes
+          // session_id on result - a rotation announced there must not be
+          // missed) and content decoding, which already surfaces a failed
+          // result as an error event; the flag here only classifies the
+          // done cause.
+          for (const event of decodeParsed(h, parsed, state, opts.model ?? "")) {
+            if (event.kind === "failure") await pushFailure(summaryOf(event));
+            else await routeDecoded(event);
+          }
+          if (record.isError) resultError = true;
+          endTurn({
+            kind: "done",
+            exitCode: null,
+            cause: turnLimitSeen ? "limit" : resultError ? "crash" : "clean",
+          });
+          return;
+        }
+        case "content": {
+          for (const event of decodeParsed(h, parsed, state, opts.model ?? "")) {
+            if (event.kind === "failure") await pushFailure(summaryOf(event));
+            else await routeDecoded(event);
           }
           return;
         }
-        if (parsed.success === false) {
-          await routeEvent({
-            kind: "error",
-            message: `rpc command failed: ${JSON.stringify(parsed.command)} - ${JSON.stringify(parsed.error ?? "unknown error")}`,
-          });
+        default: {
+          const exhaustive: never = record;
+          return exhaustive;
         }
-        return;
-      }
-      // The turn-end record still feeds identity dedupe (claude includes
-      // session_id on result - a rotation announced there must not be
-      // missed).
-      const events = decodeParsed(h, parsed, state, opts.model ?? "");
-      const isTurnEnd = sessionInputMode !== null && matches(parsed, sessionInputMode.turnEnd);
-      if (isTurnEnd) {
-        // decodeParsed already surfaces the is_error case as an error event
-        // (content.ts claude reader); routing the events is enough - we only
-        // still track resultError here to classify the done cause.
-        for (const event of events) {
-          if (event.kind === "failure") await pushFailure(summaryOf(event));
-          else await routeDecoded(event);
-        }
-        if (parsed.is_error === true) resultError = true;
-        endTurn({
-          kind: "done",
-          exitCode: null,
-          cause: turnLimitSeen ? "limit" : resultError ? "crash" : "clean",
-        });
-        return;
-      }
-      for (const event of events) {
-        if (event.kind === "failure") await pushFailure(summaryOf(event));
-        else await routeDecoded(event);
       }
     };
     for await (const chunk of proc.stdout) {
