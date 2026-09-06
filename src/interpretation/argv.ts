@@ -15,6 +15,7 @@ import { assertUsableSessionId, SESSION_ID_MAX, SessionIdRefusalError } from "./
 import { renderSkillsSelection } from "./skills-selection.js";
 import { supportedBy } from "./support.js";
 import { renderToolSelection } from "./tool-selection.js";
+import type { ToolMap } from "./tool-vocabulary.js";
 import { renderTurnOptions } from "./turn-options.js";
 import { validateModel } from "./vocabulary.js";
 
@@ -87,8 +88,9 @@ export interface TurnOptions {
   readonly questions?: import("./question.js").QuestionMode;
   /** Internal: set by CLI when prompt came from --prompt/--prompt-file to bypass leading '-' guard */
   readonly __explicitPrompt?: boolean;
-  /** toolMap extensible vocabulary per harness (issue toolMap) */
-  readonly toolMap?: Readonly<Record<string, Readonly<Record<string, string>>>>;
+  /** The merged toolMap (every harness, native plus tier), the one shape
+   * past option resolution (RFC-02 change 8). */
+  readonly toolMap?: ToolMap;
   readonly access?: AccessValue;
 }
 
@@ -131,11 +133,10 @@ const turnTail = (h: HarnessDescriptor, opts: TurnOptions): string[] => {
     tail.push(h.autonomy.flag);
   }
   if (opts.tools !== undefined || opts.excludeTools !== undefined) {
-    const perHarnessMap = opts.toolMap?.[h.name];
     const rendered = renderToolSelection(h, {
       include: opts.tools,
       exclude: opts.excludeTools,
-      toolMap: perHarnessMap,
+      toolMap: opts.toolMap,
     });
     tail.push(...rendered.tokens);
   }

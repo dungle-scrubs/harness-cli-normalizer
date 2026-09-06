@@ -41,9 +41,10 @@ const SNAPSHOT = join(import.meta.dirname, "argv-corpus.snapshot.json");
 const modelFor = (h: HarnessDescriptor): string =>
   h.name === "claude" ? "sonnet" : (h.vocabulary.models[0] as string);
 
+/** The merged shape a turn option carries (RFC-02 change 8). */
 const TOOL_MAP = {
-  pi: { "web-search": "web_search" },
-  muse: { "web-search": "web_search" },
+  pi: { "web-search": { native: "web_search", tier: "user-config" } },
+  muse: { "web-search": { native: "web_search", tier: "user-config" } },
 } as const;
 
 /** Turn-option cases, one per dimension at a non-default value. */

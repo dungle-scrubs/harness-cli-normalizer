@@ -20,6 +20,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import type { TurnOptions } from "../interpretation/argv.js";
+import type { ConfigTier } from "../interpretation/resolve-options.js";
 import { CLEAN_SELECTOR, validateAccess } from "../interpretation/vocabulary.js";
 import { HARNESS_NAMES } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
@@ -91,7 +92,7 @@ const QUESTIONS_VALUES = new Set(["ask", "assume", "none"]);
 
 /** Parse + validate config text. Throws ConfigError with the offending key
  * named on any violation - never warns and continues. */
-export const parseUserConfig = (text: string): Partial<TurnOptions> => {
+export const parseUserConfig = (text: string): ConfigTier => {
   let raw: unknown;
   try {
     raw = JSON.parse(text);
@@ -249,24 +250,24 @@ export const parseUserConfig = (text: string): Partial<TurnOptions> => {
     }
     (out as Record<string, unknown>)[key] = value;
   }
-  return out as Partial<TurnOptions>;
+  return out as ConfigTier;
 };
 
 /** Load the user config if the file exists; absent file is an empty config
  * (no tiers engaged), unreadable or invalid file is a hard error. */
-export const loadUserConfig = (): { config: Partial<TurnOptions>; path: string } | null =>
+export const loadUserConfig = (): { config: ConfigTier; path: string } | null =>
   loadConfigAt(userConfigPath());
 
 /** Load the project config (git-root auto-discovery, ratified A). */
 export const loadProjectConfig = (
   startDir?: string,
-): { config: Partial<TurnOptions>; path: string } | null => {
+): { config: ConfigTier; path: string } | null => {
   const path = projectConfigPath(startDir);
   if (path === null) return null;
   return loadConfigAt(path);
 };
 
-const loadConfigAt = (path: string): { config: Partial<TurnOptions>; path: string } | null => {
+const loadConfigAt = (path: string): { config: ConfigTier; path: string } | null => {
   let text: string;
   try {
     text = readFileSync(path, "utf8");

@@ -4,7 +4,11 @@ import { KILL_GRACE_MS, redactArgv, streamTurn } from "../execution/stream-turn.
 import { buildLaunchArgv, buildResumeArgv } from "../interpretation/argv.js";
 import { composeEscalatedPrompt } from "../interpretation/question.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
-import { FloorExceededError, resolveEffectiveOptions } from "../interpretation/resolve-options.js";
+import {
+  type ConfigTier,
+  FloorExceededError,
+  resolveEffectiveOptions,
+} from "../interpretation/resolve-options.js";
 import { recognizeNativeSpelling, supportedBy } from "../interpretation/support.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { parseRunExtra, parseTurnOptions, resolvePromptAsync } from "./args.js";
@@ -207,10 +211,7 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   // Defaults profile + user config: LAUNCH-ONLY. A resumed session keeps
   // its own settings; the resolver never runs on resume paths.
   let effectiveTurnOpts: ReturnType<typeof parseTurnOptions> = turnOpts;
-  const resolvedTiers: {
-    user?: Partial<ReturnType<typeof parseTurnOptions>>;
-    project?: Partial<ReturnType<typeof parseTurnOptions>>;
-  } = {};
+  const resolvedTiers: { user?: ConfigTier; project?: ConfigTier } = {};
   // Config files load on EVERY run, launch or resume: the tiers feed the
   // defaults profile on launch, and issue #41's questions (a
   // behavior instruction, not a turn option) resolves from them on resume

@@ -4541,7 +4541,10 @@
           "options": {
             "toolMap": {
               "pi": {
-                "web-search": "ws_project"
+                "web-search": {
+                  "native": "ws_project",
+                  "tier": "project-config"
+                }
               }
             },
             "effort": "medium"
@@ -5179,7 +5182,10 @@
           "options": {
             "toolMap": {
               "pi": {
-                "web-search": "ws_project"
+                "web-search": {
+                  "native": "ws_project",
+                  "tier": "project-config"
+                }
               }
             },
             "effort": "medium",
@@ -5914,7 +5920,10 @@
           "options": {
             "toolMap": {
               "pi": {
-                "web-search": "ws_project"
+                "web-search": {
+                  "native": "ws_project",
+                  "tier": "project-config"
+                }
               }
             },
             "effort": "medium"
@@ -6656,7 +6665,10 @@
           "options": {
             "toolMap": {
               "pi": {
-                "web-search": "ws_project"
+                "web-search": {
+                  "native": "ws_project",
+                  "tier": "project-config"
+                }
               }
             },
             "effort": "medium"

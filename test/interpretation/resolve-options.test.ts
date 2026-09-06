@@ -314,7 +314,7 @@ describe("discovery.tools off suppresses all-known expansion", () => {
 
   it("project discovery.tools false skips profile tools with project-config tier", () => {
     const r = resolveEffectiveOptions(piCli, base, {
-      project: { discovery: { tools: false } } as unknown as TurnOptions,
+      project: { discovery: { tools: false } },
     });
     expect(r.options.tools).toBeUndefined();
     expect(r.provenance).toContainEqual({

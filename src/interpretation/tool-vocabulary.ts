@@ -1,3 +1,13 @@
+/**
+ * The canonical tool vocabulary and the toolMap that extends it.
+ *
+ * One toolMap shape (RFC-02 change 8): a config file carries the raw
+ * shape, harness -> canonical -> native, and `mergeToolMaps` folds the
+ * tiers into the one shape everything downstream reads, harness ->
+ * canonical -> the native name plus the tier that set it. Tool selection
+ * and the access preset call `hasCounterpart` and `nativeFor` instead of
+ * restating them.
+ */
 import type { DescriptorSet } from "../knowledge/overrides.js";
 import { ArgvRefusalError } from "./refusal.js";
 
@@ -16,20 +26,27 @@ export const parseToolSelector = (raw: string): ParsedSelector =>
     ? { kind: "native", name: raw.slice(NATIVE_PREFIX.length) }
     : { kind: "canonical", name: raw };
 
-export type ToolMap = Readonly<Record<string, Readonly<Record<string, string>>>>;
+/** The raw shape a config file carries: harness -> canonical -> native. */
+export type ToolMapConfig = Readonly<Record<string, Readonly<Record<string, string>>>>;
 
 export type ToolMapTier = "user-config" | "project-config";
 
-export type MergedToolMap = Readonly<
-  Record<string, Readonly<Record<string, { native: string; tier: ToolMapTier }>>>
->;
+export interface ToolMapEntry {
+  readonly native: string;
+  readonly tier: ToolMapTier;
+}
+
+/** The one shape past the merge: harness -> canonical -> native plus the
+ * tier that set it. Carried on the turn options and read by every
+ * consumer. */
+export type ToolMap = Readonly<Record<string, Readonly<Record<string, ToolMapEntry>>>>;
 
 /** Pure merge per harness per canonical: project > user. */
 export const mergeToolMaps = (tiers: {
-  readonly user?: ToolMap;
-  readonly project?: ToolMap;
-}): MergedToolMap => {
-  const merged: Record<string, Record<string, { native: string; tier: ToolMapTier }>> = {};
+  readonly user?: ToolMapConfig;
+  readonly project?: ToolMapConfig;
+}): ToolMap => {
+  const merged: Record<string, Record<string, ToolMapEntry>> = {};
   const harnesses = new Set<string>([
     ...Object.keys(tiers.user ?? {}),
     ...Object.keys(tiers.project ?? {}),
@@ -41,12 +58,14 @@ export const mergeToolMaps = (tiers: {
       ...Object.keys(userEntries),
       ...Object.keys(projectEntries),
     ]);
-    const perHarness: Record<string, { native: string; tier: ToolMapTier }> = {};
+    const perHarness: Record<string, ToolMapEntry> = {};
     for (const c of canonicals) {
-      if (projectEntries[c] !== undefined) {
-        perHarness[c] = { native: projectEntries[c] as string, tier: "project-config" };
-      } else if (userEntries[c] !== undefined) {
-        perHarness[c] = { native: userEntries[c] as string, tier: "user-config" };
+      const project = projectEntries[c];
+      const user = userEntries[c];
+      if (project !== undefined) {
+        perHarness[c] = { native: project, tier: "project-config" };
+      } else if (user !== undefined) {
+        perHarness[c] = { native: user, tier: "user-config" };
       }
     }
     if (Object.keys(perHarness).length > 0) {
@@ -99,65 +118,41 @@ export const canonicalTable = (set: DescriptorSet): CanonicalTable => {
   return frozen;
 };
 
-// Backwards compat alias
-export const canonicalToolTable = canonicalTable;
-
 export const canonicalNames = (set: DescriptorSet): readonly string[] => {
   const table = canonicalTable(set);
   return Object.keys(table).sort();
 };
 
-export const allCanonicalNames = (
-  set: DescriptorSet,
-  toolMap?: ToolMap | MergedToolMap,
-): readonly string[] => {
+/** Every canonical name: the descriptors' plus every name a toolMap adds. */
+export const allCanonicalNames = (set: DescriptorSet, toolMap?: ToolMap): readonly string[] => {
   const base = canonicalNames(set);
-  const extra = toolMap
-    ? Object.values(toolMap).flatMap((m) => Object.keys(m as Record<string, unknown>))
-    : [];
+  const extra = toolMap ? Object.values(toolMap).flatMap((m) => Object.keys(m)) : [];
   return [...new Set([...base, ...extra])].sort();
 };
 
+/** Whether `harnessName` can express `canonical`: through its toolMap
+ * entry, a built-in, or a category. */
 export const hasCounterpart = (
   table: CanonicalTable,
   canonical: string,
   harnessName: string,
-  toolMap?: MergedToolMap | ToolMap,
-): boolean => {
-  if (toolMap) {
-    const hm = (toolMap as MergedToolMap)[harnessName];
-    if (hm && (hm as Record<string, unknown>)[canonical] !== undefined) {
-      const v = (hm as Record<string, unknown>)[canonical] as unknown;
-      if (typeof v === "object" && v !== null && "native" in (v as Record<string, unknown>))
-        return true;
-      if (typeof v === "string") return true;
-    }
-  }
-  const entry = table[canonical];
-  if (!entry) return false;
-  return entry[harnessName] !== undefined;
-};
+  toolMap?: ToolMap,
+): boolean =>
+  toolMap?.[harnessName]?.[canonical] !== undefined ||
+  table[canonical]?.[harnessName] !== undefined;
 
+/** The native name `harnessName` lists `canonical` under: the toolMap
+ * entry wins, then the built-in; a category has no name-list spelling. */
 export const nativeFor = (
   table: CanonicalTable,
   canonical: string,
   harnessName: string,
-  toolMap?: MergedToolMap | ToolMap,
+  toolMap?: ToolMap,
 ): string | null => {
-  if (toolMap) {
-    const hm = (toolMap as Record<string, Record<string, unknown>>)[harnessName];
-    const val = hm?.[canonical];
-    if (val !== undefined) {
-      if (typeof val === "object" && val !== null && "native" in (val as Record<string, unknown>)) {
-        return (val as { native: string }).native;
-      }
-      if (typeof val === "string") return val as string;
-    }
-  }
-  const entry = table[canonical];
-  const v = entry?.[harnessName];
-  if (v?.kind === "builtin") return v.native;
-  return null;
+  const mapped = toolMap?.[harnessName]?.[canonical];
+  if (mapped !== undefined) return mapped.native;
+  const entry = table[canonical]?.[harnessName];
+  return entry?.kind === "builtin" ? entry.native : null;
 };
 
 export const validateCanonicalList = (

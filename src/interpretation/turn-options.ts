@@ -190,18 +190,12 @@ export const renderTurnOptions = (
         // The read preset rides the tool list. When discovery.tools is off,
         // it must not switch tools back on; write is no restriction.
         if (value !== "read" || opts.discovery?.tools === false) continue;
-        const toolMapForHarness = opts.toolMap?.[h.name];
         const table = canonicalTable(defaultDescriptors());
         const filtered = (READ_PRESET as readonly string[]).filter((c) =>
-          hasCounterpart(
-            table,
-            c,
-            h.name,
-            toolMapForHarness === undefined ? undefined : { [h.name]: toolMapForHarness },
-          ),
+          hasCounterpart(table, c, h.name, opts.toolMap),
         );
         if (filtered.length === 0) continue;
-        const rendered = renderToolSelection(h, { include: filtered, toolMap: toolMapForHarness });
+        const rendered = renderToolSelection(h, { include: filtered, toolMap: opts.toolMap });
         if (rendered.tokens.length > 0) sequences.push([...rendered.tokens]);
         continue;
       }

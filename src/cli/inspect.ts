@@ -2,7 +2,11 @@ import { redactArgv } from "../execution/stream-turn.js";
 import { buildLaunchArgv } from "../interpretation/argv.js";
 import { capabilitiesOf } from "../interpretation/capabilities.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
-import { FloorExceededError, resolveEffectiveOptions } from "../interpretation/resolve-options.js";
+import {
+  type ConfigTier,
+  FloorExceededError,
+  resolveEffectiveOptions,
+} from "../interpretation/resolve-options.js";
 import { canonicalTable, mergeToolMaps } from "../interpretation/tool-vocabulary.js";
 import { HARNESS_MODES, type HarnessMode } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
@@ -79,19 +83,16 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
   // Load config once at top and reuse for both paths
   let rawUserMap: Record<string, Record<string, string>> | undefined;
   let rawProjectMap: Record<string, Record<string, string>> | undefined;
-  let loadedTiers: {
-    user?: import("../interpretation/argv.js").TurnOptions;
-    project?: import("../interpretation/argv.js").TurnOptions;
-  } = {};
+  let loadedTiers: { user?: ConfigTier; project?: ConfigTier } = {};
   try {
     const u = loadUserConfig();
     rawUserMap = (u?.config as { toolMap?: Record<string, Record<string, string>> } | undefined)
       ?.toolMap;
-    if (u) loadedTiers = { ...loadedTiers, user: u.config as never };
+    if (u) loadedTiers = { ...loadedTiers, user: u.config };
     const p = loadProjectConfig();
     rawProjectMap = (p?.config as { toolMap?: Record<string, Record<string, string>> } | undefined)
       ?.toolMap;
-    if (p) loadedTiers = { ...loadedTiers, project: p.config as never };
+    if (p) loadedTiers = { ...loadedTiers, project: p.config };
   } catch (e) {
     if (e instanceof ConfigError) {
       process.stderr.write(`config error: ${(e as Error).message}\n`);
@@ -269,12 +270,9 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
   }
 
   // Reuse already-loaded config for argv preview
-  const tiers: {
-    user?: Partial<ReturnType<typeof parseTurnOptions>>;
-    project?: Partial<ReturnType<typeof parseTurnOptions>>;
-  } = {};
-  if (loadedTiers.user) tiers.user = loadedTiers.user as never;
-  if (loadedTiers.project) tiers.project = loadedTiers.project as never;
+  const tiers: { user?: ConfigTier; project?: ConfigTier } = {};
+  if (loadedTiers.user) tiers.user = loadedTiers.user;
+  if (loadedTiers.project) tiers.project = loadedTiers.project;
   let resolved: ReturnType<typeof resolveEffectiveOptions>;
   try {
     resolved = resolveEffectiveOptions(h, { ...turnOpts, prompt } as never, tiers);
