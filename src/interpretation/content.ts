@@ -10,7 +10,7 @@
  * payload-discriminated records - for the flat match/field spec that
  * identity decoding uses.)
  */
-import type { HarnessName } from "../knowledge/descriptor.js";
+import type { HarnessName, LimitCode } from "../knowledge/descriptor.js";
 import { asRecord } from "./shape.js";
 
 export type ContentEvent =
@@ -22,7 +22,16 @@ export type ContentEvent =
    * record); the runner turns it into a task failure. Other errors are
    * informational and the turn goes on. */
   | { readonly kind: "error"; readonly message: string; readonly terminal?: boolean }
-  | { readonly kind: "budget"; readonly detail: string };
+  | { readonly kind: "budget"; readonly detail: string }
+  /** A structured limit record on the stream (claude's rate_limit_event);
+   * the runner turns it into a limit-class failure. `resetsAt` is epoch
+   * milliseconds when the harness reported one. */
+  | {
+      readonly kind: "limit";
+      readonly code: LimitCode;
+      readonly detail: string;
+      readonly resetsAt?: number;
+    };
 
 /** Text of an array of `{type:"text", text}` content blocks. */
 const textOfBlocks = (content: unknown): string =>
@@ -75,6 +84,24 @@ const claude = (r: Record<string, unknown>): ContentEvent[] => {
     // clean turn. (openSession handles result boundaries itself.)
     const sub = typeof r.subtype === "string" ? r.subtype : "result error";
     events.push({ kind: "error", message: `turn failed: ${sub}`, terminal: true });
+  } else if (r.type === "rate_limit_event") {
+    // Only non-"allowed" statuses are limits. overageStatus is deliberately
+    // not classified - it is a separate billing signal, not a rate limit.
+    // resetsAt arrives in seconds; the event carries milliseconds. No wall
+    // clock is read.
+    const info = asRecord(r.rate_limit_info);
+    const status = info?.status;
+    if (status !== undefined && status !== "allowed") {
+      const raw = info?.resetsAt;
+      const resetsAt =
+        typeof raw === "number" && Number.isFinite(raw) && raw > 0 ? raw * 1000 : undefined;
+      events.push({
+        kind: "limit",
+        code: "rate-limit",
+        detail: `rate_limit_event status=${String(status)}`,
+        ...(resetsAt !== undefined ? { resetsAt } : {}),
+      });
+    }
   }
   return events;
 };

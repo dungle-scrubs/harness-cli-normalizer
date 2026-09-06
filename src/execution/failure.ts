@@ -122,7 +122,13 @@ export const failureFromNative = (
   nativeExitCode: nativeExitCode ?? undefined,
 });
 
-export const failureFromLimit = (code: LimitCode): FailureSummary => {
+/** A limit, from a wall phrasing (detail defaults to the code) or from a
+ * structured record that names its status and, sometimes, a reset time. */
+export const failureFromLimit = (
+  code: LimitCode,
+  detail: string = code,
+  resetsAt?: number,
+): FailureSummary => {
   const cls: FailureClass =
     code === "rate-limit"
       ? "rate-limit"
@@ -132,8 +138,9 @@ export const failureFromLimit = (code: LimitCode): FailureSummary => {
   return {
     class: cls,
     retryable: retryableOf(cls),
-    message: messageFor(cls, code),
-    code: code as LimitCode,
+    message: messageFor(cls, detail),
+    code,
+    ...(resetsAt !== undefined ? { resetsAt } : {}),
   };
 };
 

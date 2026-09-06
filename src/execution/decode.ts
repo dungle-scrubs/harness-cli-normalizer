@@ -10,7 +10,7 @@ import { decodeIdentity } from "../interpretation/identity.js";
 import { detectLimitInLine } from "../interpretation/limits.js";
 import type { HarnessDescriptor, StreamingGranularity } from "../knowledge/descriptor.js";
 import type { HarnessEvent } from "./events.js";
-import { failureFromBudget } from "./failure.js";
+import { failureFromBudget, failureFromLimit } from "./failure.js";
 
 export interface DecodeState {
   lastSeenId: string | null;
@@ -99,46 +99,20 @@ export const decodeParsed = (
     }
   }
 
-  // Content (message/token/tool/error/budget) is per-harness; identity
-  // above is descriptor-driven. contentEventsOf dispatches by harness
-  // name. budget is not a HarnessEvent kind and must not leak out.
+  // Content (message/token/tool/error/budget/limit) is per-harness;
+  // identity above is descriptor-driven. contentEventsOf dispatches by
+  // harness name inside interpretation. budget and limit are not
+  // HarnessEvent kinds of their own here: both become failures.
   for (const content of contentEventsOf(h.name, raw)) {
     if (content.kind === "budget") {
       events.push({ kind: "failure", ...failureFromBudget(content.detail) });
+    } else if (content.kind === "limit") {
+      events.push({
+        kind: "failure",
+        ...failureFromLimit(content.code, content.detail, content.resetsAt),
+      });
     } else {
       events.push(content);
-    }
-  }
-
-  // claude's rate_limit_event: only non-"allowed" statuses are failures.
-  // overageStatus is deliberately not classified - it is a separate
-  // billing signal, not a rate limit.
-  if (h.name === "claude" && typeof (raw as Record<string, unknown>).type === "string") {
-    const rec = raw as Record<string, unknown>;
-    if (rec.type === "rate_limit_event") {
-      const info = rec.rate_limit_info as Record<string, unknown> | undefined;
-      const status = info?.status as string | undefined;
-      if (status !== undefined && status !== "allowed") {
-        const rawResets = info?.resetsAt;
-        let resetsAt: number | undefined;
-        if (typeof rawResets === "number" && Number.isFinite(rawResets) && rawResets > 0) {
-          // Arithmetic conversion: resetsAt is seconds, we need milliseconds. No wall clock read.
-          resetsAt = rawResets * 1000;
-          if (!Number.isFinite(resetsAt) || resetsAt <= 0) resetsAt = undefined;
-        }
-        // Push a failure event directly - this is a structured record, not a wall scan
-        const failure: import("./failure.js").FailureSummary = {
-          class: "rate-limit",
-          retryable: true,
-          message: `Rate limit hit (rate_limit_event status=${status}) - retry after backoff or route to another provider`,
-          code: "rate-limit" as const,
-          ...(resetsAt !== undefined ? { resetsAt } : {}),
-        };
-        events.push({
-          kind: "failure",
-          ...failure,
-        } as unknown as import("./events.js").HarnessEvent);
-      }
     }
   }
   return events;
