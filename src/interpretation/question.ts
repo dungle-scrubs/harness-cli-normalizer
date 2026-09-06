@@ -47,6 +47,12 @@ If and only if a genuine decision you cannot make defensibly blocks correct prog
 
 Say nothing after the block and stop generating. The caller's user will answer, and the answer arrives as the next user message in this session - continue from it. For every choice you can make defensibly yourself, do not ask - decide, act, and state the decision you made.`;
 
+/** The wrapper hcn composes around the user's answer to an escalated
+ * question, so a consumer never re-derives it (RFC-01; the README quotes
+ * the exact text). One owner for both session surfaces. */
+export const composeAnswer = (question: string, answer: string): string =>
+  `The user answered the question: "${question}" with: ${answer}. Continue accordingly.`;
+
 export type QuestionMode = "ask" | "assume" | "none";
 
 export const QUESTION_MODES: readonly QuestionMode[] = ["ask", "assume", "none"] as const;

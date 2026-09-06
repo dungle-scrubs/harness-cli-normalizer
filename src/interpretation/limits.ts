@@ -32,11 +32,6 @@ import {
   SHARED_UNAVAILABLE_MATCHERS,
 } from "../knowledge/matchers.js";
 
-/** Bottom-up batch scans stop after this many non-empty lines: the wall is
- * virtually always the last thing a dying turn printed, and an unbounded
- * scan over an accumulating session buffer is O(turns x output). */
-const BATCH_SCAN_MAX_LINES = 200;
-
 /** The pattern bounds live with the matchers in the knowledge layer
  * (compileMatcher); this is the per-line input window. */
 const WINDOW = 4096;
@@ -89,39 +84,15 @@ const scanLine = <Code>(
   return null;
 };
 
-const scanTail = <Code>(
-  output: string,
-  matchers: ReadonlyArray<readonly [RegExp, Code]>,
-): Code | null => {
-  let end = output.length;
-  let scanned = 0;
-  while (end > 0 && scanned < BATCH_SCAN_MAX_LINES) {
-    const start = output.lastIndexOf("\n", end - 1);
-    const line = output.slice(start + 1, end).trim();
-    end = start;
-    if (line === "") continue;
-    scanned++;
-    const code = scanLine(line, matchers);
-    if (code !== null) return code;
-  }
-  return null;
-};
-
-/** Per-line entry point for streaming readers: O(1) per line, no rescans. */
+/** Per-line entry point for streaming readers: O(1) per line, no rescans.
+ * Both runners feed lines as they arrive; there is no batch form. */
 export const detectLimitInLine = (h: HarnessDescriptor, line: string): LimitCode | null =>
   scanLine(line.trim(), compileLimitMatchers(h.limitMatchers));
-
-/** Batch convenience over a turn's tail, bounded and bottom-up. */
-export const detectLimit = (h: HarnessDescriptor, output: string): LimitCode | null =>
-  scanTail(output, compileLimitMatchers(h.limitMatchers));
 
 export const detectAuthFailureInLine = (
   h: HarnessDescriptor,
   line: string,
 ): AuthFailureKind | null => scanLine(line.trim(), compileAuthMatchers(h.authMatchers));
-
-export const detectAuthFailure = (h: HarnessDescriptor, output: string): AuthFailureKind | null =>
-  scanTail(output, compileAuthMatchers(h.authMatchers));
 
 const phraseCache = new WeakMap<ReadonlyArray<PhraseMatcher>, ReadonlyArray<RegExp>>();
 

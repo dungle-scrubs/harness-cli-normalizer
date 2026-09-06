@@ -33,7 +33,12 @@ import { matcherOverridesOf } from "../knowledge/overrides.js";
 import { AsyncChannel } from "./channel.js";
 import { decodeLine, freshDecodeState } from "./decode.js";
 import type { RunnerDeps, SpawnedProcess } from "./deps.js";
-import type { EscalationDetection, ExitCause, HarnessEvent } from "./events.js";
+import {
+  DROPPABLE_KINDS,
+  type EscalationDetection,
+  type ExitCause,
+  type HarnessEvent,
+} from "./events.js";
 import type { FailureSummary } from "./failure.js";
 import {
   failureFromAuth,
@@ -414,8 +419,6 @@ export async function* streamTurn(
     let identitySeen = false;
     const droppableBuffer: HarnessEvent[] = [];
     const BUFFER_CAP = 256;
-    const isDroppable = (kind: string): boolean =>
-      kind === "progress" || kind === "token" || kind === "context";
     const flushDroppable = async (): Promise<void> => {
       for (const e of droppableBuffer) await queue.push(e);
       droppableBuffer.length = 0;
@@ -428,7 +431,7 @@ export async function* streamTurn(
           await flushDroppable();
           return;
         }
-        if (isDroppable(event.kind)) {
+        if (DROPPABLE_KINDS.has(event.kind)) {
           if (droppableBuffer.length >= BUFFER_CAP) droppableBuffer.shift();
           droppableBuffer.push(event);
           return;

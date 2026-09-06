@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { nodeRunnerDeps } from "../execution/node-deps.js";
 import { CLOSE_GRACE_MS, openSession } from "../execution/open-session.js";
+import { composeAnswer } from "../interpretation/question.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
@@ -382,10 +383,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
             answer = a;
           }
         }
-        handle.send({
-          id: `you-${++sendCount}`,
-          text: `The user answered the question: "${q.question}" with: ${answer}. Continue accordingly.`,
-        });
+        handle.send({ id: `you-${++sendCount}`, text: composeAnswer(q.question, answer) });
         // Drain the answer turn BEFORE prompting again - the pump's
         // backpressure stalls the harness until the turn iterable is
         // consumed (verified live: menu answered, you-prompt rendered, no

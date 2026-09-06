@@ -43,8 +43,10 @@ export const encodeSessionInput = (input: SessionInputContract, text: string): s
       })}\n`;
     case "pi-rpc-prompt":
       // Verified against pi 0.84.2 rpc (spike fixtures): a prompt command
-      // while idle; hcn never writes mid-run (it queues sends itself), so
-      // no streamingBehavior field is ever needed.
+      // while idle. hcn keeps no queue (ADR 0007) and writes a send when it
+      // arrives; pi refuses a bare prompt mid-run with success:false (spike
+      // fixture 05), so a mid-turn send would need streamingBehavior - a
+      // pending change, not expressed here yet.
       return `${JSON.stringify({ id: "hcn-send", type: "prompt", message: text })}\n`;
   }
 };

@@ -28,7 +28,12 @@ import type { HarnessDescriptor, SessionInputContract } from "../knowledge/descr
 import { AsyncChannel } from "./channel.js";
 import { decodeParsed, freshDecodeState } from "./decode.js";
 import type { RunnerDeps, SpawnedProcess, TimerHandle } from "./deps.js";
-import type { EscalationDetection, ExitCause, HarnessEvent } from "./events.js";
+import {
+  DROPPABLE_KINDS,
+  type EscalationDetection,
+  type ExitCause,
+  type HarnessEvent,
+} from "./events.js";
 import type { FailureSummary } from "./failure.js";
 import {
   failureFromAuth,
@@ -397,9 +402,7 @@ export const openSession = (
     // droppable events go first, then oldest.
     preTurnEvents.push(event);
     if (preTurnEvents.length > PRETURN_MAX) {
-      const droppableAt = preTurnEvents.findIndex(
-        (e) => e.kind === "token" || e.kind === "progress" || e.kind === "context",
-      );
+      const droppableAt = preTurnEvents.findIndex((e) => DROPPABLE_KINDS.has(e.kind));
       preTurnEvents.splice(droppableAt === -1 ? 0 : droppableAt, 1);
     }
     return Promise.resolve();
@@ -618,7 +621,7 @@ export const openSession = (
       pendingLengths.length = 0;
     }
     endTurn({ kind: "done", exitCode, cause });
-    if (preTurnEvents.some((e) => e.kind !== "token" && e.kind !== "progress")) {
+    if (preTurnEvents.some((e) => !DROPPABLE_KINDS.has(e.kind))) {
       log({
         event: "preturn_events_dropped",
         sessionId: opts.sessionId,
