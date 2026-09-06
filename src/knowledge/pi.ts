@@ -22,7 +22,6 @@ export const piCli: HarnessDescriptor = deepFreeze({
     baseFlags: ["-p", "--mode", "json"],
     subcommands: [],
     promptStyle: "positional",
-    toolsFlag: null,
     streamFlags: [],
     idFlag: "--session-id",
   },
@@ -188,7 +187,6 @@ export const piCli: HarnessDescriptor = deepFreeze({
     includeFlag: "--tools",
     excludeFlag: "--exclude-tools",
     includeIsStrictAllowlist: true,
-    composable: true,
     builtins: [
       { name: "read", defaultEnabled: true, canonical: "read" },
       { name: "bash", defaultEnabled: true, canonical: "shell" },

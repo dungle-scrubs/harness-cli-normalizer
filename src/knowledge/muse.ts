@@ -24,7 +24,6 @@ export const museCode: HarnessDescriptor = deepFreeze({
     baseFlags: ["exec", "--json"],
     subcommands: ["exec"],
     promptStyle: "positional",
-    toolsFlag: null,
     streamFlags: [],
     idFlag: "--session-id",
   },
@@ -137,7 +136,6 @@ export const museCode: HarnessDescriptor = deepFreeze({
     includeFlag: null,
     excludeFlag: null,
     includeIsStrictAllowlist: false,
-    composable: false,
     builtins: [],
     categories: [
       {

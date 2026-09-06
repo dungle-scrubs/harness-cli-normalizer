@@ -135,7 +135,7 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
         subcommands: h.launch.subcommands,
         streamFlags: h.launch.streamFlags,
         promptStyle: h.launch.promptStyle,
-        toolsFlag: h.launch.toolsFlag,
+        toolsFlag: h.tools.includeFlag,
         idFlag: h.launch.idFlag,
       },
       resume: h.resume,

@@ -15,7 +15,6 @@ import {
   type LaunchOptions,
   streamingGranularityOf,
 } from "../interpretation/argv.js";
-import { stdinPolicyOf } from "../interpretation/dimensions.js";
 import {
   detectAuthFailureInLine,
   detectLimitInLine,
@@ -265,7 +264,7 @@ export async function* streamTurn(
   let proc: SpawnedProcess;
   try {
     proc = deps.spawn(argv, {
-      stdin: stdinPolicyOf(h) === "close-required" ? "close" : "inherit",
+      stdin: h.stdin === "close-required" ? "close" : "inherit",
       ...(effective.cwd !== undefined ? { cwd: effective.cwd } : {}),
       ...(effective.env !== undefined ? { env: effective.env } : {}),
     });

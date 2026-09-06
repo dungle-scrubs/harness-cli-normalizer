@@ -23,7 +23,6 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     baseFlags: ["exec", "--json", "--skip-git-repo-check"],
     subcommands: ["exec"],
     promptStyle: "positional",
-    toolsFlag: null,
     streamFlags: [],
     // Codex mints its own thread id; there is nothing to assign at launch.
     idFlag: null,
@@ -174,7 +173,6 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     includeFlag: null,
     excludeFlag: null,
     includeIsStrictAllowlist: false,
-    composable: false,
     builtins: [],
     categories: [
       { key: "shell", disableFlag: null, configKey: "features.shell_tool", canonical: [] },

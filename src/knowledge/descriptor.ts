@@ -321,7 +321,6 @@ export interface HarnessDescriptor {
      * `workspace-write` into subcommands. */
     readonly subcommands: readonly string[];
     readonly promptStyle: "positional";
-    readonly toolsFlag: string | null;
     readonly streamFlags: readonly string[];
     /** The flag that pins a caller-assigned id at LAUNCH (spawn-time
      * assignment; the execution layer consumes it), or null when the
@@ -499,8 +498,7 @@ export interface HarnessDescriptor {
    * the claude asymmetry: claude's include flag pre-approves without
    * restricting the visible set, so an exact allowlist must render as a
    * disallow-complement there; pi's include IS strict (over built-ins).
-   * `composable`: both flags legal at once (pi: exclude subtracts from
-   * include). `builtins`: curated names + default-enabled state - grep/find/
+   * `builtins`: curated names + default-enabled state - grep/find/
    * ls ship off on pi, everything ships on elsewhere. `categories`:
    * non-list switches (muse disable flags, codex config booleans).
    * `denySemantics`: whether a deny removes the tool from the model-visible
@@ -521,7 +519,6 @@ export interface HarnessDescriptor {
     readonly includeFlag: string | null;
     readonly excludeFlag: string | null;
     readonly includeIsStrictAllowlist: boolean;
-    readonly composable: boolean;
     readonly builtins: ReadonlyArray<{
       readonly name: string;
       readonly defaultEnabled: boolean;

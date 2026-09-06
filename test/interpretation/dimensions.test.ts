@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vitest";
 import { capabilitiesOf } from "../../src/interpretation/capabilities.js";
-import { stdinPolicyOf, toolsFlagOf } from "../../src/interpretation/dimensions.js";
 import { isInteractive } from "../../src/interpretation/presence.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
@@ -22,9 +21,9 @@ describe("presence / isInteractive (claude)", () => {
 
 describe("flag dimensions (claude)", () => {
   test("stdin policy and tools flag come from descriptor data", () => {
-    expect(stdinPolicyOf(claudeCode)).toBe("inherit");
-    expect(toolsFlagOf(claudeCode)).toBe("--allowedTools");
-    // Provider and discovery flags now live in turnOptions, not dimensions.ts
+    expect(claudeCode.stdin).toBe("inherit");
+    expect(claudeCode.tools.includeFlag).toBe("--allowedTools");
+    // Provider and discovery flags live in turnOptions
     expect(claudeCode.turnOptions.effort).toEqual({
       kind: "effort",
       render: { kind: "flag-value", flag: "--effort" },
@@ -91,7 +90,7 @@ describe("capabilitiesOf (claude)", () => {
 describe("stdin close-required policy (pi-shaped descriptors)", () => {
   test("a descriptor declaring close-required reports it - backgrounded spawns must close stdin", () => {
     const piShaped = { ...claudeCode, stdin: "close-required" as const };
-    expect(stdinPolicyOf(piShaped)).toBe("close-required");
+    expect(piShaped.stdin).toBe("close-required");
   });
 });
 
