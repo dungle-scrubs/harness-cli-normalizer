@@ -5,7 +5,8 @@ import {
   openSession,
   SessionSpawnError,
 } from "../../src/execution/open-session.js";
-import { KILL_GRACE_MS, PIPE_GRACE_MS } from "../../src/execution/stream-turn.js";
+import { PIPE_GRACE_MS } from "../../src/execution/stream-turn.js";
+import { KILL_GRACE_MS } from "../../src/execution/supervisor.js";
 import { SessionInputRefusalError } from "../../src/interpretation/session-input.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import type { HarnessDescriptor } from "../../src/knowledge/descriptor.js";

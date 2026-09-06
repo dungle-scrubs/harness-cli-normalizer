@@ -1,7 +1,8 @@
 import type { SpawnedProcess, SpawnOptions } from "../execution/deps.js";
 import type { HarnessEvent } from "../execution/events.js";
 import { nodeRunnerDeps } from "../execution/node-deps.js";
-import { KILL_GRACE_MS, streamTurn } from "../execution/stream-turn.js";
+import { streamTurn } from "../execution/stream-turn.js";
+import { KILL_GRACE_MS } from "../execution/supervisor.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
 import { EXIT_FAILURE, exitCodeForCause } from "./exit-codes.js";
 import { planTurn, writePlanDiagnostics } from "./plan-turn.js";

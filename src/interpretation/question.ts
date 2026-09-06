@@ -158,6 +158,46 @@ const parseBlock = (body: string): QuestionDetection => {
   };
 };
 
+/** What a turn's close found, recorded on `done` (RFC-01). */
+export type QuestionDetectionKind = "block" | "malformed" | "none";
+
+/** The typed question event a detected block becomes: the fields ARE the
+ * question; prose renders from them downstream. */
+export interface QuestionEvent {
+  readonly kind: "question";
+  readonly question: string;
+  readonly options: readonly string[];
+  readonly recommended?: string;
+}
+
+/** The one place a detected block becomes a question event (RFC-02
+ * change 5). Both runners call it at turn close with the last assistant
+ * message: detection is armed only in `ask` mode; a malformed block names
+ * its malformation and is never a silent no-op. */
+export const questionEventOf = (
+  lastAssistantText: string | null,
+  mode: QuestionMode,
+):
+  | { readonly detection: "none" }
+  | { readonly detection: "malformed"; readonly malformed: string }
+  | { readonly detection: "block"; readonly event: QuestionEvent } => {
+  if (mode !== "ask" || lastAssistantText === null) return { detection: "none" };
+  const detected = detectQuestionBlock(lastAssistantText);
+  if (detected === null) return { detection: "none" };
+  if ("malformed" in detected) return { detection: "malformed", malformed: detected.malformed };
+  return {
+    detection: "block",
+    event: {
+      kind: "question",
+      question: detected.block.question,
+      options: detected.block.options,
+      ...(detected.block.recommended !== undefined
+        ? { recommended: detected.block.recommended }
+        : {}),
+    },
+  };
+};
+
 /** Detect the hcn-question block in a message text. The LAST block wins
  * (the protocol makes the block the turn's final content; a corrected
  * re-emit supersedes an earlier one). An empty candidate body (a bare
