@@ -103,6 +103,14 @@ bun scripts/check-versions.ts       # compare descriptors to published versions
 
 ## Conventions
 
+- Whenever hcn is updated, audit the hcn skill at
+  `~/.agents/skills/hcn/SKILL.md` and its references and verification scripts
+  against the updated CLI. Edit the source in
+  `~/dev/skills/skills/vendor/hcn/` so flags, defaults, harness support, examples,
+  and event contracts reflect the update. Before calling the work complete,
+  run `scripts/check-claims.sh` against the updated binary and
+  `scripts/check-claims.test.sh` from that skill directory; report any remaining
+  mismatch or blocker.
 - Commits follow [Conventional Commits](https://www.conventionalcommits.org/)
   (`feat:`, `fix:`, `perf:`, `refactor:`, `docs:`, `chore:`, `ci:`, `test:`).
   release-please reads these to cut releases and write `CHANGELOG.md`.
