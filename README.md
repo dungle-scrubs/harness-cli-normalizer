@@ -95,14 +95,15 @@ stdin carries one command per line (blank lines are ignored):
 ```
 
 - Every well-formed `send`/`answer` gets exactly one `disposition` event,
-  in command order. `started`: no turn was open, the text was written, a
-  turn opened. `queued`: a turn was open, the text is held for the next
-  turn boundary. `rejected`: the text was not delivered and will not be.
+  in command order. `started`: the text was written to the harness. When
+  no turn was open, a turn opened; when one was, the harness holds the
+  text natively and the next turn consumes it (hcn keeps no queue of its
+  own - ADR 0007). `rejected`: the text was not delivered and will not be.
   Rejected reasons: `closed` (session closing or harness dead),
   `no-open-question` (`answer` with no `awaiting-input` turn to answer),
   `write-failed` (the harness's stdin pipe broke; a `closed` follows).
-- A queued send's id rides to the turn that consumes it: correlate by
-  reading `turn.id`, not by counting turns.
+- A send's id rides to the turn it opens: correlate by reading `turn.id`,
+  not by counting turns.
 - `answer` composes hcn's question-answer preamble
   (`The user answered the question: "<q>" with: <text>. Continue accordingly.`)
   around the text, so the consumer never re-derives it. A plain `send` after
