@@ -2,6 +2,7 @@ import { capabilitiesOf } from "../interpretation/capabilities.js";
 import { canonicalTable, mergeToolMaps } from "../interpretation/tool-vocabulary.js";
 import { HARNESS_MODES, type HarnessMode } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
+import { splitPassthrough } from "./args.js";
 import { ConfigError, loadProjectConfig, loadUserConfig } from "./config.js";
 import { EXIT_REFUSAL } from "./exit-codes.js";
 import { planTurn, writePlanDiagnostics } from "./plan-turn.js";
@@ -10,8 +11,9 @@ import { resolveHarness } from "./resolve-harness.js";
 
 export const inspect = async (harnessName: string, rawArgs: string[]): Promise<void> => {
   const h = resolveHarness(harnessName);
+  const { normalized } = splitPassthrough(rawArgs);
 
-  if (rawArgs.includes("--help") || rawArgs.includes("-h")) {
+  if (normalized.includes("--help") || normalized.includes("-h")) {
     const { INSPECT_HELP } = await import("./help.js");
     process.stdout.write(INSPECT_HELP);
     return;
@@ -20,17 +22,13 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
   // --argv: the preview is the plan the run command would spawn from, so
   // the two agree by construction (RFC-02 change 10). Refusals go through
   // the shared refuse path like every other command's.
-  if (rawArgs.includes("--argv")) {
-    if (rawArgs.includes("--capabilities")) {
+  if (normalized.includes("--argv")) {
+    if (normalized.includes("--capabilities")) {
       process.stderr.write(`--capabilities and --argv are mutually exclusive; pick one\n`);
       process.exitCode = EXIT_REFUSAL;
       return;
     }
-    const outcome = await planTurn(
-      h,
-      rawArgs.filter((a) => a !== "--argv"),
-      { command: "inspect" },
-    );
+    const outcome = await planTurn(h, rawArgs, { command: "inspect" });
     if (outcome.kind === "refusal") {
       refuse(outcome.refusal, false);
       return;
@@ -40,6 +38,7 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
     return;
   }
 
+  // --capabilities path: pure capability record, no spawn, no config, no prompt
   const { parseCommonFlags } = await import("./args.js");
   let parsed: ReturnType<typeof parseCommonFlags>;
   try {
@@ -58,7 +57,6 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
   }
   const values = parsed.values as Record<string, unknown>;
 
-  // --capabilities path: pure capability record, no spawn, no config, no prompt
   if (values.capabilities === true) {
     const mode = values.mode === undefined ? "headless-turn" : String(values.mode);
     if (!(HARNESS_MODES as readonly string[]).includes(mode)) {

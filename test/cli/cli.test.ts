@@ -169,6 +169,20 @@ describe("harness-name validation", () => {
 });
 
 describe("hcn inspect (pure)", () => {
+  test("argv preview preserves native --argv tokens after the separator", async () => {
+    const out = await captureDispatch([
+      "inspect",
+      "codex",
+      "--argv",
+      "--questions",
+      "none",
+      "hi",
+      "--",
+      "--argv",
+    ]);
+    expect(out.exitCode).toBeUndefined();
+    expect(JSON.parse(out.stdout).slice(-2)).toEqual(["--", "--argv"]);
+  });
   test("inspect claude shows bin, verifiedAgainst, launch.streamFlags, resume.flag, vocabulary.models", async () => {
     const out = await captureDispatch(["inspect", "claude"]);
     const parsed = JSON.parse(out.stdout);
