@@ -15,7 +15,7 @@
  * classification, question detection at close - are the turn supervisor's
  * (RFC-02 change 5), composed once per session and begun per turn. This
  * runner owns only what is particular to sessions: turn delimiting, the
- * send queue's correlation, and the close-versus-abandon distinction.
+ * send correlation, and the close-versus-abandon distinction.
  */
 import { buildSessionArgv } from "../interpretation/argv.js";
 import { capabilitiesOf } from "../interpretation/capabilities.js";
