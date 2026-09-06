@@ -533,7 +533,7 @@
           "workspace-write",
           "hi",
           "--model",
-          "gpt-5.6-sol"
+          "gpt-6-astra"
         ]
       },
       "effort-high": {
@@ -561,7 +561,7 @@
           "workspace-write",
           "hi",
           "--model",
-          "gpt-5.6-sol"
+          "gpt-6-astra"
         ]
       },
       "effort-unknown": {
@@ -585,12 +585,13 @@
           "issue": "unknown-model",
           "harness": "codex",
           "supported": [
+            "gpt-6-astra",
             "gpt-5.6-sol",
             "gpt-5.6-terra",
             "gpt-5.6-luna",
             "gpt-5.5"
           ],
-          "message": "unknown codex model \"no-such-model\"; supported: gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.5 - use one of the supported models"
+          "message": "unknown codex model \"no-such-model\"; supported: gpt-6-astra, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.5 - use one of the supported models"
         }
       },
       "sandbox-read-only": {
@@ -2562,7 +2563,7 @@
           "--skip-git-repo-check",
           "hi",
           "--model",
-          "gpt-5.6-sol"
+          "gpt-6-astra"
         ]
       },
       "effort-high": {
@@ -2590,7 +2591,7 @@
           "model_reasoning_effort=\"high\"",
           "hi",
           "--model",
-          "gpt-5.6-sol"
+          "gpt-6-astra"
         ]
       },
       "effort-unknown": {
@@ -2614,12 +2615,13 @@
           "issue": "unknown-model",
           "harness": "codex",
           "supported": [
+            "gpt-6-astra",
             "gpt-5.6-sol",
             "gpt-5.6-terra",
             "gpt-5.6-luna",
             "gpt-5.5"
           ],
-          "message": "unknown codex model \"no-such-model\"; supported: gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.5 - use one of the supported models"
+          "message": "unknown codex model \"no-such-model\"; supported: gpt-6-astra, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.5 - use one of the supported models"
         }
       },
       "sandbox-read-only": {
