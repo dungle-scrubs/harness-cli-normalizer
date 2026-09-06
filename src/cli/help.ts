@@ -74,7 +74,7 @@ Options:
   --no-instruction-files    Disable instructionFiles discovery facet
   --no-extensions           Disable extensions discovery facet
   --skills <a,b>            Skill allowlist (names resolved against $HCN_SKILLS_ROOT
-                            or ~/.agents/skills; pi loads, claude narrows)
+                            or ~/.agents/skills; pi loads, claude and codex narrow)
   --no-skills               Disable skills discovery facet
   --cwd <path>              Working directory for spawn
   --env KEY=VAL             Environment (repeatable; KEY= deletes)

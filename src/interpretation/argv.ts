@@ -12,7 +12,7 @@ import type {
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { ArgvRefusalError } from "./refusal.js";
 import { assertUsableSessionId, SESSION_ID_MAX, SessionIdRefusalError } from "./session-id.js";
-import { renderSkillsSelection } from "./skills-selection.js";
+import { renderSkillsSelection, type SkillsSelection } from "./skills-selection.js";
 import { supportedBy } from "./support.js";
 import { renderToolSelection } from "./tool-selection.js";
 import type { ToolMap } from "./tool-vocabulary.js";
@@ -60,11 +60,11 @@ export interface TurnOptions {
   readonly prompt: string;
   readonly tools?: readonly string[];
   readonly excludeTools?: readonly string[];
-  /** Caller-directed skills allowlist: resolved absolute paths, one per
-   * skill. Rendering: pi loads each via --skill with discovery off;
-   * claude turns off the complement via skillOverrides settings; codex
-   * and muse refuse (structural - no per-skill surface). */
-  readonly skills?: readonly string[];
+  /** Caller-directed skills allowlist: the resolved picks and the
+   * registry's known names. Rendered per descriptor by
+   * renderSkillsSelection (pi loads each pick with discovery off; claude
+   * and codex turn the complement off); muse refuses. */
+  readonly skills?: SkillsSelection;
   readonly model?: string;
   readonly autonomy?: boolean;
   readonly effort?: string;
@@ -140,7 +140,7 @@ const turnTail = (h: HarnessDescriptor, opts: TurnOptions): string[] => {
     });
     tail.push(...rendered.tokens);
   }
-  if (opts.skills !== undefined && opts.skills.length > 0) {
+  if (opts.skills !== undefined) {
     tail.push(...renderSkillsSelection(h, opts.skills));
   }
   return tail;

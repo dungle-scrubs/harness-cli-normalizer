@@ -50,9 +50,7 @@ const fieldPaths = (value: unknown, prefix: string, depth: number, into: Set<str
 
 /** Fields whose consumer lands in a later RFC-02 ticket. Each entry names
  * the ticket that removes it; an entry that outlives its ticket is drift. */
-const PENDING: Readonly<Record<string, string>> = {
-  "skills.overridesVia": "#124 skills rendering is descriptor-driven",
-};
+const PENDING: Readonly<Record<string, string>> = {};
 
 describe("every descriptor field has a consumer outside the knowledge layer", () => {
   const paths = new Set<string>();

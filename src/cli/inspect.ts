@@ -203,22 +203,17 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
     throw err;
   }
 
-  // Mirror run.ts skills resolution (F-16): resolve names and build claude tokens
-  const rawSkills = (turnOpts as unknown as { skills?: string[] }).skills;
-  if (rawSkills !== undefined && rawSkills.length > 0) {
+  // Mirror run.ts skills resolution (F-16): names resolve against the
+  // registry; the descriptor renders them (RFC-02 change 2).
+  const { skillNames, ...turnOptsSansNames } = turnOpts;
+  turnOpts = turnOptsSansNames;
+  if (skillNames !== undefined && skillNames.length > 0) {
     try {
       const { resolveSkillNames, listKnownSkills } = await import("./skills-root.js");
-      const resolvedSkills = resolveSkillNames(rawSkills, h.name);
-      const skillTokens: string[] = [];
-      if (h.name === "claude") {
-        const { claudeSkillOverridesArg } = await import("../interpretation/skills-selection.js");
-        skillTokens.push(...claudeSkillOverridesArg(listKnownSkills(), resolvedSkills));
-      } else if (h.name === "codex") {
-        const { codexSkillConfigArg } = await import("../interpretation/skills-selection.js");
-        skillTokens.push(...codexSkillConfigArg(listKnownSkills(), resolvedSkills));
-      }
-      (turnOpts as unknown as Record<string, unknown>).skills = resolvedSkills;
-      (turnOpts as unknown as Record<string, unknown>).__skillTokens = skillTokens;
+      turnOpts = {
+        ...turnOpts,
+        skills: { picks: resolveSkillNames(skillNames, h.name), known: listKnownSkills() },
+      };
     } catch (err) {
       if (err instanceof ArgvRefusalError) {
         process.stderr.write(`${err.message}\n`);
@@ -300,8 +295,6 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
   let argv: string[];
   try {
     argv = buildLaunchArgv(h, fullOpts);
-    const skillTokens = (effectiveRest as unknown as { __skillTokens?: string[] }).__skillTokens;
-    if (skillTokens !== undefined && skillTokens.length > 0) argv.push(...skillTokens);
   } catch (err) {
     if (err instanceof ArgvRefusalError) {
       refuse(refusalOf(err as ArgvRefusalError), false);

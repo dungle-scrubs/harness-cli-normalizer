@@ -182,23 +182,18 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
 
   const isExplicit = promptSource !== "positional";
 
-  // issue #38: resolve --skills names against the caller's registry root,
-  // then hand the harness its native rendering (pi loads; claude narrows).
-  const rawSkills = (turnOpts as unknown as { skills?: string[] }).skills;
-  if (rawSkills !== undefined && rawSkills.length > 0) {
+  // issue #38: resolve --skills names against the caller's registry root.
+  // The registry listing is the CLI's (an fs read); the rendering is the
+  // descriptor's, through renderSkillsSelection (RFC-02 change 2).
+  const { skillNames, ...turnOptsSansNames } = turnOpts;
+  turnOpts = turnOptsSansNames;
+  if (skillNames !== undefined && skillNames.length > 0) {
     try {
       const { resolveSkillNames, listKnownSkills } = await import("./skills-root.js");
-      const resolvedSkills = resolveSkillNames(rawSkills, h.name);
-      const skillTokens: string[] = [];
-      if (h.name === "claude") {
-        const { claudeSkillOverridesArg } = await import("../interpretation/skills-selection.js");
-        skillTokens.push(...claudeSkillOverridesArg(listKnownSkills(), resolvedSkills));
-      } else if (h.name === "codex") {
-        const { codexSkillConfigArg } = await import("../interpretation/skills-selection.js");
-        skillTokens.push(...codexSkillConfigArg(listKnownSkills(), resolvedSkills));
-      }
-      (turnOpts as unknown as Record<string, unknown>).skills = resolvedSkills;
-      (turnOpts as unknown as Record<string, unknown>).__skillTokens = skillTokens;
+      turnOpts = {
+        ...turnOpts,
+        skills: { picks: resolveSkillNames(skillNames, h.name), known: listKnownSkills() },
+      };
     } catch (err) {
       if (err instanceof ArgvRefusalError) {
         refuse(refusalOf(err), wantJson);
@@ -320,11 +315,6 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
         prompt: fullOpts.prompt,
         __explicitPrompt: isExplicit,
       } as never);
-      const skillTokens = (effectiveTurnOpts as unknown as { __skillTokens?: string[] })
-        .__skillTokens;
-      if (skillTokens !== undefined && skillTokens.length > 0) {
-        preArgv.push(...skillTokens);
-      }
     }
     _validated = true;
   } catch (err) {

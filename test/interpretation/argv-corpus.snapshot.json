@@ -421,7 +421,9 @@
           "--output-format",
           "stream-json",
           "--verbose",
-          "--include-partial-messages"
+          "--include-partial-messages",
+          "--settings",
+          "{\"skillOverrides\":{\"other\":\"off\"}}"
         ]
       },
       "autonomy": {
@@ -920,7 +922,9 @@
           "--skip-git-repo-check",
           "--sandbox",
           "workspace-write",
-          "hi"
+          "hi",
+          "-c",
+          "skills.config=[{path=\"/registry/other/SKILL.md\", enabled=false}]"
         ]
       },
       "autonomy": {
@@ -1759,16 +1763,16 @@
           ],
           "supportedBy": [
             {
-              "harness": "pi",
-              "spelling": "--skill"
-            },
-            {
               "harness": "claude",
               "spelling": "skillOverrides"
             },
             {
               "harness": "codex",
               "spelling": "-c skills.config"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--skill"
             }
           ],
           "hint": "muse scopes skills by workspace trust with no per-skill surface - include the skill content in the prompt or use --trust-workspace for the whole registry",
@@ -2262,7 +2266,9 @@
           "--output-format",
           "stream-json",
           "--verbose",
-          "--include-partial-messages"
+          "--include-partial-messages",
+          "--settings",
+          "{\"skillOverrides\":{\"other\":\"off\"}}"
         ]
       },
       "autonomy": {
@@ -2771,7 +2777,9 @@
           "0199a4c5-1111-2222-3333-444455556666",
           "--json",
           "--skip-git-repo-check",
-          "hi"
+          "hi",
+          "-c",
+          "skills.config=[{path=\"/registry/other/SKILL.md\", enabled=false}]"
         ]
       },
       "autonomy": {
@@ -3682,16 +3690,16 @@
           ],
           "supportedBy": [
             {
-              "harness": "pi",
-              "spelling": "--skill"
-            },
-            {
               "harness": "claude",
               "spelling": "skillOverrides"
             },
             {
               "harness": "codex",
               "spelling": "-c skills.config"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--skill"
             }
           ],
           "hint": "muse scopes skills by workspace trust with no per-skill surface - include the skill content in the prompt or use --trust-workspace for the whole registry",

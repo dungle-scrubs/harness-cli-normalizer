@@ -37,6 +37,18 @@ const spellingOf = (h: HarnessDescriptor, option: RefusalOption): string | null 
       return h.tools.includeFlag;
     case "excludeTools":
       return h.tools.excludeFlag;
+    case "skills": {
+      if (h.skills === null) return null;
+      if (h.skills.loadFlag !== null) return h.skills.loadFlag;
+      switch (h.skills.overridesVia) {
+        case "settings-skilloverrides":
+          return "skillOverrides";
+        case "config-skills-array":
+          return "-c skills.config";
+        default:
+          return null;
+      }
+    }
     case "autonomy":
       return h.autonomy?.flag ?? null;
     case "effort":

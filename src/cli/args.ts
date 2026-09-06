@@ -148,10 +148,14 @@ export const resolvePromptAsync = async (args: {
   return { prompt: content, source: "prompt-file" };
 };
 
+/** Parsed turn options plus the skill names as typed, which the command
+ * resolves against the registry before they become a turn option. */
+export type ParsedTurnOptions = TurnOptions & { readonly skillNames?: readonly string[] };
+
 /**
  * Build TurnOptions from parsed flag values. Shared between run and inspect --argv.
  */
-export const parseTurnOptions = (values: Record<string, unknown>): TurnOptions => {
+export const parseTurnOptions = (values: Record<string, unknown>): ParsedTurnOptions => {
   const opts: Record<string, unknown> = {};
 
   if (values.model !== undefined) opts.model = values.model;
@@ -167,9 +171,10 @@ export const parseTurnOptions = (values: Record<string, unknown>): TurnOptions =
     opts.excludeTools = raw.length === 0 ? [] : raw.split(",").map((s) => s.trim());
   }
   if (values.skills !== undefined) {
+    // Names as typed; the command resolves them against the registry and
+    // builds the skills turn option (picks plus known names) from them.
     const raw = String(values.skills);
-    (opts as Record<string, unknown>).skills =
-      raw.length === 0 ? [] : raw.split(",").map((s) => s.trim());
+    opts.skillNames = raw.length === 0 ? [] : raw.split(",").map((s) => s.trim());
   }
   if (values.autonomy === true) opts.autonomy = true;
   else if (values["no-autonomy"] === true) opts.autonomy = false;
@@ -234,7 +239,7 @@ export const parseTurnOptions = (values: Record<string, unknown>): TurnOptions =
   if (values.access !== undefined) opts.access = String(values.access);
 
   // prompt will be set by caller after resolvePrompt
-  return opts as unknown as TurnOptions;
+  return opts as unknown as ParsedTurnOptions;
 };
 
 export const parseRunExtra = (
