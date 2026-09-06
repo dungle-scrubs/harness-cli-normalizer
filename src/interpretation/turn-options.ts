@@ -8,20 +8,24 @@
  * it must refuse - is a distinct responsibility with its own vocabulary.
  * Folding it into argv.ts would make the largest interpretation file the
  * place two unrelated questions are answered.
+ *
+ * The render-to-tokens rule itself has one owner, `tokensFor` in the
+ * knowledge layer (RFC-02 change 1): every arm here validates its value,
+ * resolves the render for the phase, and calls it.
  */
-import type { HarnessDescriptor, OptionRender, SpecBase } from "../knowledge/descriptor.js";
-import { DISCOVERY_FACETS, resolveRender, TURN_OPTION_KEYS } from "../knowledge/descriptor.js";
+import type { HarnessDescriptor, SpecBase } from "../knowledge/descriptor.js";
+import {
+  DISCOVERY_FACETS,
+  resolveRender,
+  TURN_OPTION_KEYS,
+  tokensFor,
+} from "../knowledge/descriptor.js";
 import type { DiscoveryOptions, TurnOptions } from "./argv.js";
 import { hintFor } from "./hints.js";
 import { ArgvRefusalError } from "./refusal.js";
 import { renderToolSelection } from "./tool-selection.js";
 import { READ_PRESET } from "./tool-vocabulary.js";
 import { CLEAN_SELECTOR, resolveModel, validateAccess, validateEffort } from "./vocabulary.js";
-
-// TOML-quoted value for config-kv: JSON.stringify is sufficient for the
-// closed vocabularies that may use it (enum, effort) - no value contains a
-// quote that would need escaping beyond JSON's.
-const tomlQuote = (value: string): string => JSON.stringify(value);
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
@@ -109,16 +113,11 @@ export const renderTurnOptions = (
       for (const facet of DISCOVERY_FACETS) {
         const val = discObj[facet];
         if (val === undefined) continue;
-        // Polarity handling: disables emits on false, enables emits on true
         const facetSpec = spec.facets[facet];
         if (facetSpec === undefined) {
-          // If caller asked to disable (false for disables, true for enables) but facet not declared, refuse
-          // But if caller passed true for a disables facet, it's a no-op, not a refusal
-          // So only refuse when the caller's value would have emitted
-          // For all current descriptors polarity is disables, so false would emit -> refuse
-          // For safety, check wouldEmit logic
-          // If val would not emit anyway, skip
-          // Determine wouldEmit: if facetSpec undefined, we cannot know polarity, so treat false as intended disable -> refuse
+          // A facet the descriptor does not declare cannot be expressed.
+          // Only a value that would have emitted refuses: every current
+          // facet has "disables" polarity, so false would emit.
           if (val === false) {
             const supportedFacets = Object.keys(spec.facets);
             throw new ArgvRefusalError({
@@ -132,26 +131,15 @@ export const renderTurnOptions = (
           }
           continue;
         }
-        // Determine if this value should emit
-        let shouldEmit = false;
-        if (facetSpec.polarity === "disables" && val === false) shouldEmit = true;
-        else if (facetSpec.polarity === "enables" && val === true) shouldEmit = true;
-        else {
-          // true for disables or false for enables => no-op
-          continue;
-        }
+        // Polarity: disables emits on false, enables emits on true.
+        const shouldEmit =
+          (facetSpec.polarity === "disables" && val === false) ||
+          (facetSpec.polarity === "enables" && val === true);
         if (!shouldEmit) continue;
-        // Check resumeRender refusal
         const effective = resolveRender(facetSpec, phase);
         if (effective === null) {
           const resumeSupported = Object.entries(spec.facets)
-            .filter(
-              ([, v]) =>
-                resolveRender(
-                  v as unknown as import("../knowledge/descriptor.js").SpecBase,
-                  "resume",
-                ) !== null,
-            )
+            .filter(([, v]) => resolveRender(v as SpecBase, "resume") !== null)
             .map(([k]) => k);
           throw new ArgvRefusalError({
             issue: "unsupported-on-resume",
@@ -161,8 +149,8 @@ export const renderTurnOptions = (
             supported: resumeSupported.length ? resumeSupported : ["(none resume)"],
           });
         }
-        // Reject config-kv for discovery (only closed vocab, discovery is not)
-        if ((effective as OptionRender).kind === "config-kv") {
+        // Discovery is not a closed vocabulary, so config-kv cannot carry it.
+        if (effective.kind === "config-kv") {
           throw new ArgvRefusalError({
             issue: "invalid-option-value",
             harness: h.name,
@@ -171,13 +159,7 @@ export const renderTurnOptions = (
             supported: ["flag-list only for discovery"],
           });
         }
-        let seq: string[];
-        if ((effective as OptionRender).kind === "flag-list")
-          seq = [...(effective as Extract<OptionRender, { kind: "flag-list" }>).flags];
-        else if ((effective as OptionRender).kind === "flag-value")
-          seq = [(effective as Extract<OptionRender, { kind: "flag-value" }>).flag, ""];
-        else seq = [];
-        sequences.push(seq);
+        sequences.push([...tokensFor(effective)]);
       }
       continue;
     }
@@ -267,21 +249,10 @@ export const renderTurnOptions = (
         spec.default !== undefined &&
         phase === "launch"
       ) {
-        const effective = resolveRender(spec as unknown as SpecBase, phase);
+        const effective = resolveRender(spec, phase);
         if (effective === null) continue; // should not happen for launch
         // config-kv is allowed for enum (closed vocab) - no rejection needed here
-        let seq: string[];
-        if ((effective as OptionRender).kind === "flag-value")
-          seq = [(effective as Extract<OptionRender, { kind: "flag-value" }>).flag, spec.default];
-        else if ((effective as OptionRender).kind === "config-kv")
-          seq = [
-            (effective as Extract<OptionRender, { kind: "config-kv" }>).flag,
-            `${(effective as Extract<OptionRender, { kind: "config-kv" }>).key}=${tomlQuote(spec.default)}`,
-          ];
-        else if ((effective as OptionRender).kind === "flag-list")
-          seq = [...(effective as Extract<OptionRender, { kind: "flag-list" }>).flags];
-        else seq = [];
-        sequences.push(seq);
+        sequences.push([...tokensFor(effective, spec.default)]);
       }
       continue;
     }
@@ -298,54 +269,55 @@ export const renderTurnOptions = (
       });
     }
 
-    // Check resumeRender null => unsupported-on-resume
-    // For discovery we handled per-facet; for others check spec
-    if ((spec as { kind: string }).kind !== "discovery") {
-      const effective = resolveRender(spec as unknown as SpecBase, phase);
-      if (effective === null) {
-        const resumeSupported = TURN_OPTION_KEYS.filter((k) => {
-          const s = h.turnOptions[k];
-          if (!s) return false;
-          if ((s as { kind: string }).kind === "discovery") {
-            const facets = (s as unknown as { facets: Record<string, unknown> }).facets;
-            return Object.keys(facets).length > 0;
-          }
-          return resolveRender(s as unknown as SpecBase, "resume") !== null;
-        }) as string[];
-        throw new ArgvRefusalError({
-          issue: "unsupported-on-resume",
-          harness: h.name,
-          option: key,
-          supported: resumeSupported.length ? resumeSupported : ["(none)"],
-        });
-      }
-      // Reject config-kv for open vocabularies. Exception (issue #48):
-      // prompt-text rides config-kv VERBATIM on codex - both a literal and
-      // a path are accepted (live-verified 0.146.1); no quoting, because
-      // codex's k=v split takes the rest of the token raw and both probed
-      // forms passed unquoted.
-      if (
-        (spec as unknown as SpecBase).render.kind === "config-kv" &&
-        (spec as { kind: string }).kind !== "enum" &&
-        (spec as { kind: string }).kind !== "effort" &&
-        (spec as { kind: string }).kind !== "prompt-text"
-      ) {
-        throw new ArgvRefusalError({
-          issue: "invalid-option-value",
-          harness: h.name,
-          option: key,
-          supported: ["config-kv only for enum, effort, and prompt-text (issue #48)"],
-        });
-      }
+    // From here every spec carries a render: the discovery table and the
+    // access kinds were handled above and left the loop with `continue`.
+    if (
+      spec.kind === "discovery" ||
+      spec.kind === "tool-preset" ||
+      spec.kind === "flag-value" ||
+      spec.kind === "flag-list-by-value"
+    ) {
+      continue;
     }
 
-    // Per-kind validation and token generation
-    const effectiveRender =
-      (spec as { kind: string }).kind === "discovery"
-        ? null
-        : resolveRender(spec as unknown as SpecBase, phase);
-    // effectiveRender already checked for null
+    // Check resumeRender null => unsupported-on-resume
+    const render = resolveRender(spec, phase);
+    if (render === null) {
+      const resumeSupported = TURN_OPTION_KEYS.filter((k) => {
+        const s = h.turnOptions[k];
+        if (!s) return false;
+        if (s.kind === "discovery") return Object.keys(s.facets).length > 0;
+        if (s.kind === "tool-preset" || s.kind === "flag-value" || s.kind === "flag-list-by-value")
+          return resolveRender(s as SpecBase, "resume") !== null;
+        return resolveRender(s, "resume") !== null;
+      }) as string[];
+      throw new ArgvRefusalError({
+        issue: "unsupported-on-resume",
+        harness: h.name,
+        option: key,
+        supported: resumeSupported.length ? resumeSupported : ["(none)"],
+      });
+    }
+    // Reject config-kv for open vocabularies. Exception (issue #48):
+    // prompt-text rides config-kv VERBATIM on codex - both a literal and
+    // a path are accepted (live-verified 0.146.1); no quoting, because
+    // codex's k=v split takes the rest of the token raw and both probed
+    // forms passed unquoted.
+    if (
+      spec.render.kind === "config-kv" &&
+      spec.kind !== "enum" &&
+      spec.kind !== "effort" &&
+      spec.kind !== "prompt-text"
+    ) {
+      throw new ArgvRefusalError({
+        issue: "invalid-option-value",
+        harness: h.name,
+        option: key,
+        supported: ["config-kv only for enum, effort, and prompt-text (issue #48)"],
+      });
+    }
 
+    // Per-kind validation; token generation is tokensFor's alone.
     switch (spec.kind) {
       case "effort": {
         if (typeof raw !== "string") {
@@ -380,13 +352,7 @@ export const renderTurnOptions = (
             detail: raw,
           });
         }
-        const r = effectiveRender!;
-        let seq: string[];
-        if (r.kind === "flag-value") seq = [r.flag, raw];
-        else if (r.kind === "config-kv") seq = [r.flag, `${r.key}=${tomlQuote(raw)}`];
-        else if (r.kind === "flag-list") seq = [...r.flags];
-        else seq = [];
-        sequences.push(seq);
+        sequences.push([...tokensFor(render, raw)]);
         break;
       }
       case "enum": {
@@ -408,13 +374,7 @@ export const renderTurnOptions = (
             detail: raw,
           });
         }
-        const r = effectiveRender!;
-        let seq: string[];
-        if (r.kind === "flag-value") seq = [r.flag, raw];
-        else if (r.kind === "config-kv") seq = [r.flag, `${r.key}=${tomlQuote(raw)}`];
-        else if (r.kind === "flag-list") seq = [...r.flags];
-        else seq = [];
-        sequences.push(seq);
+        sequences.push([...tokensFor(render, raw)]);
         break;
       }
       case "prompt-text": {
@@ -431,13 +391,7 @@ export const renderTurnOptions = (
             detail: typeof raw === "string" ? "(empty)" : String(raw),
           });
         }
-        const r = effectiveRender!;
-        let seq: string[];
-        if (r.kind === "flag-value") seq = [...(r.extraFlags ?? []), r.flag, raw];
-        else if (r.kind === "config-kv") seq = [r.flag, `${r.key}=${raw}`];
-        else if (r.kind === "flag-list") seq = [...r.flags];
-        else seq = [];
-        sequences.push(seq);
+        sequences.push([...tokensFor(render, raw, "verbatim")]);
         break;
       }
       case "selector": {
@@ -459,13 +413,7 @@ export const renderTurnOptions = (
             detail: raw,
           });
         }
-        const r = effectiveRender!;
-        let seq: string[];
-        if (r.kind === "flag-value") seq = [r.flag, raw];
-        else if (r.kind === "config-kv") seq = [r.flag, `${r.key}=${tomlQuote(raw)}`];
-        else if (r.kind === "flag-list") seq = [...r.flags];
-        else seq = [];
-        sequences.push(seq);
+        sequences.push([...tokensFor(render, raw)]);
         break;
       }
       case "toggle": {
@@ -478,17 +426,11 @@ export const renderTurnOptions = (
             detail: String(raw),
           });
         }
-        let shouldEmit = false;
-        if (spec.polarity === "disables" && raw === false) shouldEmit = true;
-        else if (spec.polarity === "enables" && raw === true) shouldEmit = true;
+        const shouldEmit =
+          (spec.polarity === "disables" && raw === false) ||
+          (spec.polarity === "enables" && raw === true);
         if (!shouldEmit) break;
-        const r = effectiveRender!;
-        let seq: string[];
-        if (r.kind === "flag-list") seq = [...r.flags];
-        else if (r.kind === "flag-value") seq = [r.flag, String(raw)];
-        else if (r.kind === "config-kv") seq = [r.flag, `${r.key}=${tomlQuote(String(raw))}`];
-        else seq = [];
-        sequences.push(seq);
+        sequences.push([...tokensFor(render, String(raw))]);
         break;
       }
       case "integer": {
@@ -510,25 +452,11 @@ export const renderTurnOptions = (
             detail: String(raw),
           });
         }
-        const r = effectiveRender!;
-        let seq: string[];
-        if (r.kind === "flag-value") seq = [r.flag, String(raw)];
-        else if (r.kind === "config-kv") seq = [r.flag, `${r.key}=${tomlQuote(String(raw))}`];
-        else if (r.kind === "flag-list") seq = [...r.flags];
-        else seq = [];
-        sequences.push(seq);
+        sequences.push([...tokensFor(render, String(raw))]);
         break;
       }
-      case "discovery":
-        // already handled
-        break;
-      case "tool-preset":
-      case "flag-value":
-      case "flag-list-by-value":
-        // access-only kinds - handled above for key === "access"
-        break;
       default: {
-        const _exhaustive: never = spec as never;
+        const _exhaustive: never = spec;
         throw new ArgvRefusalError({
           issue: "invalid-option-value",
           harness: h.name,

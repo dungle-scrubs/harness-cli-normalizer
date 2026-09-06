@@ -208,6 +208,39 @@ export const resolveRender = (spec: SpecBase, phase: "launch" | "resume"): Optio
   return spec.resumeRender ?? spec.render;
 };
 
+export type Quoting = "toml" | "verbatim";
+
+/** The argv tokens one resolved render produces for one value - the only
+ * place a render kind becomes tokens (RFC-02 change 1). `toml` quoting is
+ * `JSON.stringify`, sufficient for the closed vocabularies that ride
+ * config-kv; `verbatim` passes prose (prompt text) and bare TOML literals
+ * through unchanged. A flag-value or config-kv render with no value is a
+ * descriptor error, never an empty token. */
+export const tokensFor = (
+  render: OptionRender,
+  value?: string,
+  quoting: Quoting = "toml",
+): readonly string[] => {
+  switch (render.kind) {
+    case "flag-value":
+      if (value === undefined) {
+        throw new Error(`render ${render.flag} needs a value and none was given`);
+      }
+      return [...(render.extraFlags ?? []), render.flag, value];
+    case "config-kv":
+      if (value === undefined) {
+        throw new Error(`render ${render.flag} ${render.key} needs a value and none was given`);
+      }
+      return [render.flag, `${render.key}=${quoting === "toml" ? JSON.stringify(value) : value}`];
+    case "flag-list":
+      return [...render.flags];
+    default: {
+      const exhaustive: never = render;
+      return exhaustive;
+    }
+  }
+};
+
 /** Alias for `resolveRender` with the resume-only null semantics made
  * explicit in the name; useful for tests asserting the "omitted => same as
  * render, null => unexpressible" contract. */
