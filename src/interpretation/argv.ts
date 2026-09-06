@@ -191,6 +191,26 @@ export const buildResumeArgv = (h: HarnessDescriptor, opts: ResumeOptions): stri
   ];
 };
 
+/** What a spawn needs beyond the turn options: the session to resume, if
+ * any, and the raw passthrough tail (ADR 0003). */
+export interface SpawnArgvOptions extends TurnOptions {
+  readonly resume?: string;
+  readonly passthrough?: readonly string[];
+}
+
+/** The argv a turn spawns: launch or resume per `resume`, then the
+ * passthrough tail after a bare separator. One owner, so the CLI's preview
+ * and the runner's spawn agree by construction (RFC-02 change 10). */
+export const buildSpawnArgv = (h: HarnessDescriptor, opts: SpawnArgvOptions): string[] => {
+  const base =
+    opts.resume === undefined
+      ? buildLaunchArgv(h, opts)
+      : buildResumeArgv(h, { ...opts, sessionId: opts.resume });
+  return opts.passthrough !== undefined && opts.passthrough.length > 0
+    ? [...base, "--", ...opts.passthrough]
+    : base;
+};
+
 export interface SessionOptions {
   readonly sessionId: string;
   readonly model?: string;

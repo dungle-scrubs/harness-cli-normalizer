@@ -235,6 +235,21 @@ export const parseTurnOptions = (values: Record<string, unknown>): ParsedTurnOpt
   return opts as unknown as ParsedTurnOptions;
 };
 
+/** `--resume` and `--session-id` are aliases for one session id; both at
+ * once refuses. The one check every command calls (run, inspect, session). */
+export const resumeIdOf = (values: Record<string, unknown>): string | undefined => {
+  if (values.resume !== undefined && values["session-id"] !== undefined) {
+    throw new ArgvRefusalError({
+      issue: "mutually-exclusive-options",
+      supported: ["--resume or --session-id, not both (--session-id is an alias for --resume)"],
+      detail: "both --resume and --session-id given",
+    });
+  }
+  if (values.resume !== undefined) return String(values.resume);
+  if (values["session-id"] !== undefined) return String(values["session-id"]);
+  return undefined;
+};
+
 export const parseRunExtra = (
   values: Record<string, unknown>,
 ): {
@@ -262,15 +277,8 @@ export const parseRunExtra = (
     extra.timeoutSeconds = n;
   }
   if (values.cwd !== undefined) extra.cwd = String(values.cwd);
-  if (values.resume !== undefined && values["session-id"] !== undefined) {
-    throw new ArgvRefusalError({
-      issue: "mutually-exclusive-options",
-      supported: ["--resume or --session-id, not both (--session-id is an alias for --resume)"],
-      detail: "both --resume and --session-id given",
-    });
-  }
-  if (values.resume !== undefined) extra.resume = String(values.resume);
-  if (values["session-id"] !== undefined) extra.resume = String(values["session-id"]);
+  const resume = resumeIdOf(values);
+  if (resume !== undefined) extra.resume = resume;
   if (values.env !== undefined) {
     // parseArgs with multiple:true gives string[] ; else string
     const list = values.env as string | string[];

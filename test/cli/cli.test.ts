@@ -7,6 +7,13 @@ import { parseEnvEntries, parseTurnOptions } from "../../src/cli/args.js";
 import { exitCodeForCause } from "../../src/cli/exit-codes.js";
 import { INSPECT_HELP, RUN_HELP, TOP_LEVEL_HELP } from "../../src/cli/help.js";
 import { dispatch } from "../../src/cli/index.js";
+import { composeEscalatedPrompt } from "../../src/interpretation/question.js";
+
+/** The preview redacts the COMPOSED prompt - what run spawns - so its
+ * label reports the composed length (RFC-02 change 10). */
+const promptLabel = (raw: string): string =>
+  `[prompt:${composeEscalatedPrompt(raw, "ask").length}ch]`;
+
 import { ls } from "../../src/cli/ls.js";
 import { resolveHarness } from "../../src/cli/resolve-harness.js";
 import { getVersion } from "../../src/cli/version.js";
@@ -182,7 +189,7 @@ describe("hcn inspect (pure)", () => {
 });
 
 describe("hcn inspect --argv (argv preview + redaction)", () => {
-  test("previews argv with prompt redacted as [prompt:2ch]", async () => {
+  test("previews argv with the composed prompt redacted by length", async () => {
     const out = await captureDispatch([
       "inspect",
       "claude",
@@ -192,12 +199,12 @@ describe("hcn inspect --argv (argv preview + redaction)", () => {
       "--effort",
       "high",
     ]);
-    expect(out.stdout).toContain("[prompt:2ch]");
+    expect(out.stdout).toContain(promptLabel("hi"));
     expect(out.stdout).not.toContain('"hi"');
     // Check order: effort flag before prompt redacted?
     const parsed: string[] = JSON.parse(out.stdout);
     const effortAt = parsed.indexOf("--effort");
-    const promptAt = parsed.indexOf("[prompt:2ch]");
+    const promptAt = parsed.indexOf(promptLabel("hi"));
     expect(effortAt).toBeGreaterThan(-1);
     expect(promptAt).toBeGreaterThan(-1);
     expect(effortAt).toBeLessThan(promptAt);
@@ -265,7 +272,7 @@ describe("hcn inspect --argv (argv preview + redaction)", () => {
   test("--prompt '-bad' explicit form bypasses flag-injection and succeeds", async () => {
     const out = await captureDispatch(["inspect", "claude", "--argv", "--prompt", "-bad"]);
     expect(out.exitCode === undefined || out.exitCode === 0).toBe(true);
-    expect(out.stdout).toContain("[prompt:4ch]");
+    expect(out.stdout).toContain(promptLabel("-bad"));
   });
 
   test("--prompt vs positional mutual exclusion errors when both given", async () => {
@@ -459,7 +466,7 @@ describe("prompt sources", () => {
     writeFileSync(file, "from file", "utf8");
     try {
       const out = await captureDispatch(["inspect", "claude", "--argv", "--prompt-file", file]);
-      expect(out.stdout).toContain("[prompt:9ch]");
+      expect(out.stdout).toContain(promptLabel("from file"));
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

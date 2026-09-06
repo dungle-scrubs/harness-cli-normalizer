@@ -1,6 +1,7 @@
 import type { FailureSummary } from "../execution/failure.js";
 import { failureFromRejected } from "../execution/failure.js";
 import type { ArgvRefusalError, RefusalIssue } from "../interpretation/refusal.js";
+import { EXIT_REFUSAL } from "./exit-codes.js";
 import { writeEventNdjson } from "./render.js";
 
 export interface Refusal {
@@ -65,5 +66,5 @@ export const refuse = (r: Refusal, json: boolean, terminal: "done" | "closed" = 
       terminal,
     );
   }
-  process.exitCode = 2;
+  process.exitCode = EXIT_REFUSAL;
 };

@@ -44,7 +44,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
     return;
   }
 
-  const { parseCommonFlags } = await import("./args.js");
+  const { parseCommonFlags, resumeIdOf } = await import("./args.js");
   let parsed: ReturnType<typeof parseCommonFlags>;
   try {
     parsed = parseCommonFlags(rawArgs);
@@ -64,23 +64,17 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   }
 
   const values = parsed.values as Record<string, unknown>;
-  // --resume and --session-id are aliases for one concept: resume an existing
-  // session. Passing both is refused, matching hcn run's parseRunExtra shape
-  // (src/cli/args.ts) rather than inventing a second parser.
-  if (values.resume !== undefined && values["session-id"] !== undefined) {
-    const { ArgvRefusalError: AliasError } = await import("../interpretation/refusal.js");
-    const err = new AliasError({
-      issue: "mutually-exclusive-options",
-      harness: h.name,
-      supported: ["--resume or --session-id, not both (--session-id is an alias for --resume)"],
-      detail: "both --resume and --session-id given",
-    });
-    const { refusalOf: aliasRefusalOf, refuse: aliasRefuse } = await import("./refuse.js");
-    aliasRefuse(aliasRefusalOf(err), jsonMode, "closed");
+  // --resume and --session-id are aliases for one concept; the one check
+  // every command calls decides whether both were given.
+  let resumeId: string | undefined;
+  try {
+    resumeId = resumeIdOf(values);
+  } catch (err) {
+    if (!(err instanceof ArgvRefusalError)) throw err;
+    const { refusalOf, refuse } = await import("./refuse.js");
+    refuse(refusalOf(err), jsonMode, "closed");
     return;
   }
-  const resumeId =
-    (values.resume as string | undefined) ?? (values["session-id"] as string | undefined);
   // The two flags are aliases for "use this session". Whether that means
   // RESUME is decided by the store, not by which spelling was typed: an id
   // that exists is resumed (resumeFlag rendered), an id that does not exist

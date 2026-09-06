@@ -10,8 +10,7 @@
  * pumps before it returns.
  */
 import {
-  buildLaunchArgv,
-  buildResumeArgv,
+  buildSpawnArgv,
   type LaunchOptions,
   streamingGranularityOf,
 } from "../interpretation/argv.js";
@@ -188,13 +187,7 @@ export async function* streamTurn(
   let argv: string[];
   let granularity: import("../knowledge/descriptor.js").StreamingGranularity;
   try {
-    argv =
-      effective.resume === undefined
-        ? buildLaunchArgv(h, effective)
-        : buildResumeArgv(h, { ...effective, sessionId: effective.resume });
-    if (effective.passthrough !== undefined && effective.passthrough.length > 0) {
-      argv = [...argv, "--", ...effective.passthrough];
-    }
+    argv = buildSpawnArgv(h, effective);
     granularity = streamingGranularityOf(h, argv);
   } catch (e) {
     if (e instanceof ArgvRefusalError) {
