@@ -49,7 +49,6 @@ export const parseEnvEntries = (
     if (eq === -1) {
       throw new ArgvRefusalError({
         issue: "invalid-env",
-        harness: "claude",
         supported: ["KEY=VAL"],
         detail: entry,
       });
@@ -59,7 +58,6 @@ export const parseEnvEntries = (
     if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key) || value.includes("\0") || key.includes("\0")) {
       throw new ArgvRefusalError({
         issue: "invalid-env",
-        harness: "claude",
         supported: ["keys must match ^[A-Za-z_][A-Za-z0-9_]*$ and contain no NUL"],
         detail: entry,
       });
@@ -82,7 +80,6 @@ export const resolvePrompt = (args: {
   if (count === 0) {
     throw new ArgvRefusalError({
       issue: "invalid-option-value",
-      harness: "claude",
       supported: ["provide prompt via positional, --prompt, or --prompt-file"],
       detail: "missing prompt",
     });
@@ -90,7 +87,6 @@ export const resolvePrompt = (args: {
   if (count > 1) {
     throw new ArgvRefusalError({
       issue: "invalid-option-value",
-      harness: "claude",
       supported: ["use one of positional, --prompt, or --prompt-file"],
       detail: "mutual exclusion",
     });
@@ -122,7 +118,6 @@ export const resolvePromptAsync = async (args: {
   if (count === 0) {
     throw new ArgvRefusalError({
       issue: "invalid-option-value",
-      harness: "claude",
       supported: ["provide prompt via positional, --prompt, or --prompt-file"],
       detail: "missing prompt",
     });
@@ -130,7 +125,6 @@ export const resolvePromptAsync = async (args: {
   if (count > 1) {
     throw new ArgvRefusalError({
       issue: "invalid-option-value",
-      harness: "claude",
       supported: ["use one of positional, --prompt, or --prompt-file"],
       detail: "mutual exclusion",
     });
@@ -189,7 +183,6 @@ export const parseTurnOptions = (values: Record<string, unknown>): ParsedTurnOpt
     if (!["ask", "assume", "none"].includes(v)) {
       throw new ArgvRefusalError({
         issue: "invalid-option-value",
-        harness: "claude",
         option: "questions",
         supported: ["ask", "assume", "none"],
         detail: v,
@@ -206,7 +199,6 @@ export const parseTurnOptions = (values: Record<string, unknown>): ParsedTurnOpt
     if (!Number.isFinite(n)) {
       throw new ArgvRefusalError({
         issue: "invalid-option-value",
-        harness: "claude",
         option: "maxSteps",
         supported: ["integer 1-10000"],
         detail: String(values["max-steps"]),
@@ -261,8 +253,7 @@ export const parseRunExtra = (
     if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
       throw new ArgvRefusalError({
         issue: "invalid-option-value",
-        harness: "claude",
-        option: "maxSteps",
+        option: "timeout",
         supported: ["whole seconds, >= 0 (0 disables)"],
         detail: String(values.timeout),
       });
@@ -273,7 +264,6 @@ export const parseRunExtra = (
   if (values.resume !== undefined && values["session-id"] !== undefined) {
     throw new ArgvRefusalError({
       issue: "mutually-exclusive-options",
-      harness: "claude",
       supported: ["--resume or --session-id, not both (--session-id is an alias for --resume)"],
       detail: "both --resume and --session-id given",
     });

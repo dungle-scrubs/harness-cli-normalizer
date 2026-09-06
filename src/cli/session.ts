@@ -23,7 +23,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
       .map((d) => d.name);
     const err = new ArgvRefusalError({
       issue: "no-session-mode",
-      harness: harnessName as "claude",
+      harness: h.name,
       supported,
       detail: `session mode is available on ${supported.join(", ")}; ${harnessName} declares no persistent headless session`,
     });

@@ -31,10 +31,7 @@ export const listKnownSkills = (): string[] => {
   });
 };
 
-export const resolveSkillNames = (
-  names: readonly string[],
-  harness: HarnessName = "claude",
-): string[] => {
+export const resolveSkillNames = (names: readonly string[], harness: HarnessName): string[] => {
   const root = skillsRoot();
   const known = new Set(listKnownSkills());
   const unknown = names.filter((n) => !known.has(n));
