@@ -7,6 +7,7 @@ import { ArgvRefusalError } from "../interpretation/refusal.js";
 import {
   type ConfigTier,
   FloorExceededError,
+  resolveBehavior,
   resolveEffectiveOptions,
 } from "../interpretation/resolve-options.js";
 import { recognizeNativeSpelling, supportedBy } from "../interpretation/support.js";
@@ -255,26 +256,14 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     writeProvenance(h.name, provenance, unrenderable);
   }
 
-  // question mode precedence arg > project > user > default (ask)
-  const projectQuestions = (resolvedTiers.project as { questions?: string } | undefined)?.questions;
-  const userQuestions = (resolvedTiers.user as { questions?: string } | undefined)?.questions;
-  const rawMode = (turnOpts as { questions?: string }).questions;
-  const questionMode =
-    rawMode !== undefined
-      ? (rawMode as import("../interpretation/question.js").QuestionMode)
-      : projectQuestions !== undefined
-        ? (projectQuestions as import("../interpretation/question.js").QuestionMode)
-        : userQuestions !== undefined
-          ? (userQuestions as import("../interpretation/question.js").QuestionMode)
-          : ("ask" as const);
-  const questionTier =
-    rawMode !== undefined
-      ? "arg"
-      : projectQuestions !== undefined
-        ? "project-config"
-        : userQuestions !== undefined
-          ? "user-config"
-          : "default";
+  // hcn-owned behaviour resolves on every path, resume included, through
+  // the one owner of its precedence (RFC-02 change 6).
+  const behavior = resolveBehavior(
+    { questions: turnOpts.questions, timeoutSeconds: extra.timeoutSeconds },
+    resolvedTiers,
+  );
+  const questionMode = behavior.questions.value;
+  const questionTier = behavior.questions.tier;
 
   const fullOpts = {
     ...effectiveTurnOpts,
@@ -384,13 +373,9 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   // Delete HERDR_ENV before spawn
   delete (process.env as Record<string, string | undefined>).HERDR_ENV;
 
-  // D11: opt-in wall-clock budget. Precedence arg > project > user (no
-  // profile entry by ratification). 0 = explicit disable.
-  const timeoutSeconds =
-    extra.timeoutSeconds !== undefined
-      ? extra.timeoutSeconds
-      : ((resolvedTiers?.project as { timeout?: number } | undefined)?.timeout ??
-        (resolvedTiers?.user as { timeout?: number } | undefined)?.timeout);
+  // D11: opt-in wall-clock budget (no profile entry by ratification);
+  // 0 = explicit disable.
+  const timeoutSeconds = behavior.timeoutSeconds.value;
   const deps =
     timeoutSeconds !== undefined && timeoutSeconds > 0
       ? nodeRunnerDeps({ turnTimeoutMs: timeoutSeconds * 1000 })

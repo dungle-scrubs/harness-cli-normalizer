@@ -2,8 +2,14 @@ import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { nodeRunnerDeps } from "../execution/node-deps.js";
 import { CLOSE_GRACE_MS, openSession } from "../execution/open-session.js";
-import { composeAnswer } from "../interpretation/question.js";
+import {
+  composeAnswer,
+  isQuestionMode,
+  QUESTION_MODES,
+  type QuestionMode,
+} from "../interpretation/question.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
+import type { BehaviorTier } from "../interpretation/resolve-options.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { createRenderState, renderEvent } from "./render.js";
@@ -108,18 +114,18 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   const provider = values.provider as string | undefined;
   const effort = values.effort as string | undefined;
 
-  // question mode precedence arg > project > user > default (ask)
+  // question mode: the arg is validated through the one predicate, then
+  // precedence resolves through the one owner (RFC-02 change 6).
   const rawArgMode = values.questions !== undefined ? String(values.questions) : undefined;
-  if (rawArgMode !== undefined && !["ask", "assume", "none"].includes(rawArgMode)) {
+  if (rawArgMode !== undefined && !isQuestionMode(rawArgMode)) {
     const { refuse, refusalOf } = await import("./refuse.js");
-    const { ArgvRefusalError } = await import("../interpretation/refusal.js");
     refuse(
       refusalOf(
         new ArgvRefusalError({
           issue: "invalid-option-value",
           harness: h.name,
           option: "questions",
-          supported: ["ask", "assume", "none"],
+          supported: [...QUESTION_MODES],
           detail: rawArgMode,
         }),
       ),
@@ -128,27 +134,19 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
     );
     return;
   }
-  let questionMode: import("../interpretation/question.js").QuestionMode;
-  let questionTier: "arg" | "project-config" | "user-config" | "default";
+  let questionMode: QuestionMode;
+  let questionTier: BehaviorTier;
   try {
     const { loadUserConfig, loadProjectConfig } = await import("./config.js");
-    const user = loadUserConfig()?.config as { questions?: string } | undefined;
-    const project = loadProjectConfig()?.config as { questions?: string } | undefined;
-    const userMode = user?.questions;
-    const projectMode = project?.questions;
-    if (rawArgMode !== undefined) {
-      questionMode = rawArgMode as import("../interpretation/question.js").QuestionMode;
-      questionTier = "arg";
-    } else if (projectMode !== undefined) {
-      questionMode = projectMode as import("../interpretation/question.js").QuestionMode;
-      questionTier = "project-config";
-    } else if (userMode !== undefined) {
-      questionMode = userMode as import("../interpretation/question.js").QuestionMode;
-      questionTier = "user-config";
-    } else {
-      questionMode = "ask";
-      questionTier = "default";
-    }
+    const { resolveBehavior } = await import("../interpretation/resolve-options.js");
+    const behavior = resolveBehavior(
+      {
+        questions: rawArgMode !== undefined && isQuestionMode(rawArgMode) ? rawArgMode : undefined,
+      },
+      { user: loadUserConfig()?.config, project: loadProjectConfig()?.config },
+    );
+    questionMode = behavior.questions.value;
+    questionTier = behavior.questions.tier;
   } catch (configErr) {
     process.stderr.write(`config error: ${(configErr as Error).message}\n`);
     if (jsonMode) {

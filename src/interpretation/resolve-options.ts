@@ -11,6 +11,7 @@ import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { DEFAULT_TURN_PROFILE, type ProfileKey } from "../knowledge/profile.js";
 import type { TurnOptions } from "./argv.js";
+import type { QuestionMode } from "./question.js";
 import { ArgvRefusalError } from "./refusal.js";
 import type { ToolMapConfig } from "./tool-vocabulary.js";
 import { allCanonicalNames, mergeToolMaps, validateCanonicalList } from "./tool-vocabulary.js";
@@ -82,6 +83,47 @@ export interface ConfigTiers {
    * arg grant exceeding it refuses, naming both sets (D5). */
   readonly project?: ConfigTier;
 }
+
+/** Where a resolved behaviour value came from; `default` is hcn's own. */
+export type BehaviorTier = "arg" | "project-config" | "user-config" | "default";
+
+/** The hcn-owned behaviour instructions a run resolves on every path,
+ * launch, resume, and session alike (RFC-02 change 6): question mode,
+ * which rides the prompt rather than the argv, and the wall-clock
+ * timeout hcn enforces itself. Neither is a turn option, so the
+ * launch-only turn-option resolver never sees them. */
+export interface ResolvedBehavior {
+  readonly questions: { readonly value: QuestionMode; readonly tier: BehaviorTier };
+  readonly timeoutSeconds: { readonly value: number | undefined; readonly tier: BehaviorTier };
+}
+
+/** Precedence arg > project > user > default, with the tier the
+ * provenance line prints. Timeout 0 is an explicit disable. */
+export const resolveBehavior = (
+  args: { readonly questions?: QuestionMode; readonly timeoutSeconds?: number },
+  tiers: ConfigTiers,
+): ResolvedBehavior => {
+  const pick = <T>(
+    arg: T | undefined,
+    project: T | undefined,
+    user: T | undefined,
+    fallback: T,
+  ): { readonly value: T; readonly tier: BehaviorTier } => {
+    if (arg !== undefined) return { value: arg, tier: "arg" };
+    if (project !== undefined) return { value: project, tier: "project-config" };
+    if (user !== undefined) return { value: user, tier: "user-config" };
+    return { value: fallback, tier: "default" };
+  };
+  return {
+    questions: pick(args.questions, tiers.project?.questions, tiers.user?.questions, "ask"),
+    timeoutSeconds: pick(
+      args.timeoutSeconds,
+      tiers.project?.timeout,
+      tiers.user?.timeout,
+      undefined,
+    ),
+  };
+};
 
 /** Merge semantics (gap 1, resolved): config keys are scalars and lists in
  * schema v1 - there is nothing to deep-merge INTO - so precedence is whole-

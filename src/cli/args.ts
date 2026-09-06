@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import type { DiscoveryOptions, TurnOptions } from "../interpretation/argv.js";
+import { isQuestionMode, QUESTION_MODES } from "../interpretation/question.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
 
 export type ParsedPromptSource =
@@ -180,15 +181,15 @@ export const parseTurnOptions = (values: Record<string, unknown>): ParsedTurnOpt
   else if (values["no-shell"] === true) opts.shell = false;
   if (values.questions !== undefined) {
     const v = String(values.questions);
-    if (!["ask", "assume", "none"].includes(v)) {
+    if (!isQuestionMode(v)) {
       throw new ArgvRefusalError({
         issue: "invalid-option-value",
         option: "questions",
-        supported: ["ask", "assume", "none"],
+        supported: [...QUESTION_MODES],
         detail: v,
       });
     }
-    (opts as Record<string, unknown>).questions = v;
+    opts.questions = v;
   }
   if (values["system-prompt"] !== undefined) opts.systemPrompt = String(values["system-prompt"]);
   if (values["append-system-prompt"] !== undefined)

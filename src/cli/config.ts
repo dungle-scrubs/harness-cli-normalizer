@@ -20,6 +20,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import type { TurnOptions } from "../interpretation/argv.js";
+import { isQuestionMode, QUESTION_MODES } from "../interpretation/question.js";
 import type { ConfigTier } from "../interpretation/resolve-options.js";
 import { CLEAN_SELECTOR, validateAccess } from "../interpretation/vocabulary.js";
 import { HARNESS_NAMES } from "../knowledge/descriptor.js";
@@ -88,7 +89,6 @@ const KNOWN_KEYS = new Set([
 
 const LIST_KEYS = new Set(["tools", "excludeTools"]);
 const BOOL_KEYS = new Set(["autonomy", "write", "shell"]);
-const QUESTIONS_VALUES = new Set(["ask", "assume", "none"]);
 
 /** Parse + validate config text. Throws ConfigError with the offending key
  * named on any violation - never warns and continues. */
@@ -228,9 +228,9 @@ export const parseUserConfig = (text: string): ConfigTier => {
       continue;
     }
     if (key === "questions") {
-      if (typeof value !== "string" || !QUESTIONS_VALUES.has(value)) {
+      if (typeof value !== "string" || !isQuestionMode(value)) {
         throw new ConfigError(
-          `config key ${JSON.stringify(key)} must be one of ${[...QUESTIONS_VALUES].join(", ")}`,
+          `config key ${JSON.stringify(key)} must be one of ${QUESTION_MODES.join(", ")}`,
         );
       }
       (out as Record<string, unknown>).questions = value;
