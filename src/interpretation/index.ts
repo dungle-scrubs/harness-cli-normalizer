@@ -10,7 +10,6 @@
 export * from "./argv.js";
 export * from "./capabilities.js";
 export * from "./context.js";
-export * from "./dimensions.js";
 export * from "./identity.js";
 export * from "./limits.js";
 export * from "./parse-resume.js";

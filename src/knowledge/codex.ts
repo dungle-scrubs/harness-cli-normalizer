@@ -23,7 +23,6 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     baseFlags: ["exec", "--json", "--skip-git-repo-check"],
     subcommands: ["exec"],
     promptStyle: "positional",
-    toolsFlag: null,
     streamFlags: [],
     // Codex mints its own thread id; there is nothing to assign at launch.
     idFlag: null,
@@ -62,11 +61,13 @@ export const codexCli: HarnessDescriptor = deepFreeze({
   autonomy: { flag: "--yolo" },
   vocabulary: {
     modelFlag: "--model",
-    models: ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5"],
+    models: ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5"],
     aliases: {},
     efforts: ["minimal", "low", "medium", "high", "xhigh", "max"],
     // Codex constrains ladders per model generation (v1 registry).
     effortsByModel: {
+      // https://developers.openai.com/api/docs/models/gpt-6-astra (2026-09-06).
+      "gpt-6-astra": ["low", "medium", "high", "xhigh", "max"],
       "gpt-5.5": ["minimal", "low", "medium", "high"],
       "gpt-5.6-sol": ["medium", "high", "xhigh", "max"],
       "gpt-5.6-terra": ["medium", "high", "xhigh", "max"],
@@ -109,6 +110,14 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     observedOn: { harness: "codex", model: "", version: "0.146.1", date: "2026-08-19" },
   },
   turnOptions: {
+    // Codex config reference; accepted as an integer on CLI 0.153.4.
+    // Native compaction uses this window; hcn does not count request tokens.
+    contextWindow: {
+      kind: "integer",
+      min: 1,
+      max: 272000,
+      render: { kind: "config-kv", flag: "-c", key: "model_context_window" },
+    },
     effort: {
       kind: "effort",
       render: { kind: "config-kv", flag: "-c", key: "model_reasoning_effort" },
@@ -138,11 +147,27 @@ export const codexCli: HarnessDescriptor = deepFreeze({
       // caller asked.
       resumeRender: { kind: "config-kv", flag: "-c", key: "sandbox_mode" },
     },
+    // The preset maps onto the sandbox dimension and therefore CLAIMS it:
+    // an explicit --sandbox alongside --access refuses, and the profile's
+    // sandbox default yields. Data here, not a harness-name branch.
+    // On resume the preset rides the same config-kv spelling the sandbox
+    // dimension uses (issue #72 evidence above): `codex exec resume`
+    // rejects --sandbox, and -c sandbox_mode is enforced there.
     access: {
-      kind: "flag-value",
-      flag: "--sandbox",
-      values: { read: "read-only", write: "workspace-write" },
-      render: { kind: "flag-value", flag: "--sandbox" },
+      kind: "access",
+      claims: "sandbox",
+      renders: {
+        read: {
+          render: { kind: "flag-value", flag: "--sandbox" },
+          resumeRender: { kind: "config-kv", flag: "-c", key: "sandbox_mode" },
+          value: "read-only",
+        },
+        write: {
+          render: { kind: "flag-value", flag: "--sandbox" },
+          resumeRender: { kind: "config-kv", flag: "-c", key: "sandbox_mode" },
+          value: "workspace-write",
+        },
+      },
     },
   },
   // Tools: no built-in name lists; control is feature booleans
@@ -158,7 +183,6 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     includeFlag: null,
     excludeFlag: null,
     includeIsStrictAllowlist: false,
-    composable: false,
     builtins: [],
     categories: [
       { key: "shell", disableFlag: null, configKey: "features.shell_tool", canonical: [] },

@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!spikes", "!docs", "!.plans", "!.lucid", "!.e2e"]
+    "includes": ["**", "!spikes", "!docs", "!.plans", "!.lucid", "!.e2e", "!**/*.snapshot.json"]
   },
   "formatter": {
     "enabled": true,

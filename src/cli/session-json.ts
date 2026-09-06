@@ -16,7 +16,7 @@ import {
   type SessionHandle,
   type SessionSendResult,
 } from "../execution/open-session.js";
-import type { QuestionMode } from "../interpretation/question.js";
+import { composeAnswer, type QuestionMode } from "../interpretation/question.js";
 
 /** What the CLI reads back after a close, captured from the runner's
  * `session_close` boundary log. */
@@ -69,11 +69,6 @@ const parseCommand = (line: string): ParsedCommand => {
   }
   return { malformed: `unknown op ${JSON.stringify(rec.op)}` };
 };
-
-/** The answer wrapper hcn composes so a consumer never re-derives it
- * (RFC-01: the preamble is normalizer knowledge). */
-const composeAnswer = (question: string, answer: string): string =>
-  `The user answered the question: "${question}" with: ${answer}. Continue accordingly.`;
 
 export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
   const rawWrite = a.write ?? ((line: string) => process.stdout.write(line));

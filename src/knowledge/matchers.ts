@@ -11,6 +11,41 @@ import type {
   UnavailableMatcher,
 } from "./descriptor.js";
 
+/** Bounds on a matcher, enforced wherever one is compiled - the limits
+ * scanner and the override loader alike (RFC-02 change 9). They keep a
+ * crafted override file from DoS'ing the compiler or the scanner; the
+ * input window, not pattern analysis, is the backtracking bound. */
+export const MAX_PATTERN_LENGTH = 200;
+export const MAX_MATCHERS_PER_KIND = 64;
+/** The only flags a matcher may carry. `g` and `y` are stateful and
+ * would make `test()` order-dependent. */
+export const MATCHER_FLAGS = "imsu";
+
+/** Compile one matcher under the bounds. Throws a plain Error naming the
+ * violated bound; loaders wrap it in their own refusal type. */
+export const compileMatcher = (pattern: string, flags: string | undefined): RegExp => {
+  const f = flags ?? "i";
+  if (pattern.length > MAX_PATTERN_LENGTH) {
+    throw new Error(`pattern over ${MAX_PATTERN_LENGTH} characters`);
+  }
+  if (pattern.length === 0) {
+    throw new Error("pattern must not be empty");
+  }
+  if (f.includes("g") || f.includes("y")) {
+    throw new Error(`flags must not contain g or y (got ${JSON.stringify(f)})`);
+  }
+  for (const ch of f) {
+    if (!MATCHER_FLAGS.includes(ch)) {
+      throw new Error(`flag ${JSON.stringify(ch)} outside ${MATCHER_FLAGS}`);
+    }
+  }
+  try {
+    return new RegExp(pattern, f);
+  } catch (e) {
+    throw new Error(`uncompilable pattern ${JSON.stringify(pattern)}: ${(e as Error).message}`);
+  }
+};
+
 export const SHARED_LIMIT_MATCHERS: ReadonlyArray<LimitMatcher> = [
   { pattern: "you'?ve hit your usage limit", flags: "i", code: "usage-limit" },
   { pattern: "usage limit (?:reached|exceeded)", flags: "i", code: "usage-limit" },

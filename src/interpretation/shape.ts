@@ -7,6 +7,16 @@
 export const asRecord = (value: unknown): Record<string, unknown> | null =>
   typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
 
+export const readPath = (record: Record<string, unknown>, path: string): unknown => {
+  let cursor: unknown = record;
+  for (const segment of path.split(".")) {
+    const inner = asRecord(cursor);
+    if (inner === null) return undefined;
+    cursor = inner[segment];
+  }
+  return cursor;
+};
+
 /**
  * Split a command line into shell words: whitespace separates, single or
  * double quotes group (so a flag inside quoted prompt text stays part of

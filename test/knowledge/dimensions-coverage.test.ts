@@ -1,44 +1,54 @@
 import { describe, expect, test } from "vitest";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
+import { codexCli } from "../../src/knowledge/codex.js";
+import type { HarnessDescriptor } from "../../src/knowledge/descriptor.js";
+import { museCode } from "../../src/knowledge/muse.js";
+import { piCli } from "../../src/knowledge/pi.js";
 
 /**
- * Gate 2->3 guard: every dimension of the PLAN.md 3.1 table has an owner on
- * the descriptor, and no dimension can be added or dropped unnoticed - the
- * key set is asserted exactly, so a descriptor change must update this map
- * of table dimension -> owning key.
+ * Gate 2->3 guard, re-anchored (RFC-02 change 7): the key set every
+ * descriptor carries is exactly the HarnessDescriptor type's keys. The
+ * list below is checked against the type in both directions at typecheck
+ * time - `satisfies` refuses a key the type lacks, and `complete` refuses
+ * a type key the list lacks - so a descriptor change cannot add or drop a
+ * key unnoticed. Whether a key has a consumer is
+ * descriptor-consumers.test.ts's job.
  */
-const DIMENSION_TO_KEY = {
-  sessionId: "identity",
-  resume: "resume",
-  resumeLast: "resumeLast",
-  provider: "turnOptions",
-  effort: "turnOptions",
-  model: "vocabulary",
-  autonomy: "autonomy",
-  tools: "tools",
-  skillsAllowlist: "skills",
-  output: "output",
-  sessionMode: "sessionMode",
-  storePath: "store",
-  presence: "presence",
-  parseResume: "resume",
-  argvOrder: "launch",
-  limitMatchers: "limitMatchers",
-  stdin: "stdin",
-  contextHook: "contextHook",
-  capabilities: "capabilities",
-  escalation: "escalation",
-  discoveryFlags: "turnOptions",
-  authWalls: "authMatchers",
-} as const;
+const DESCRIPTOR_KEYS = [
+  "name",
+  "bin",
+  "verifiedAgainst",
+  "versionSource",
+  "launch",
+  "resume",
+  "sessionMode",
+  "output",
+  "identity",
+  "limitMatchers",
+  "authMatchers",
+  "autonomy",
+  "vocabulary",
+  "store",
+  "contextHook",
+  "resumeLast",
+  "stdin",
+  "presence",
+  "capabilities",
+  "escalation",
+  "turnOptions",
+  "skills",
+  "tools",
+] as const satisfies readonly (keyof HarnessDescriptor)[];
 
-describe("descriptor dimension coverage (PLAN.md 3.1)", () => {
-  test("the descriptor's key set is exactly the owners of the table dimensions", () => {
-    const owningKeys = new Set<string>(Object.values(DIMENSION_TO_KEY));
-    const metaKeys = new Set(["name", "bin", "verifiedAgainst", "versionSource"]);
-    const actual = Object.keys(claudeCode)
-      .filter((k) => !metaKeys.has(k))
-      .sort();
-    expect(actual).toEqual([...owningKeys].sort());
+type Missing = Exclude<keyof HarnessDescriptor, (typeof DESCRIPTOR_KEYS)[number]>;
+const complete: Missing extends never ? true : false = true;
+
+describe("descriptor key coverage", () => {
+  test("every descriptor carries exactly the type's keys", () => {
+    expect(complete).toBe(true);
+    const expected = [...DESCRIPTOR_KEYS].sort();
+    for (const h of [claudeCode, codexCli, piCli, museCode]) {
+      expect(Object.keys(h).sort()).toEqual(expected);
+    }
   });
 });

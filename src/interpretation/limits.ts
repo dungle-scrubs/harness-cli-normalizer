@@ -25,18 +25,15 @@ import type {
   LimitMatcher,
   PhraseMatcher,
 } from "../knowledge/descriptor.js";
-import { SHARED_TRANSPORT_MATCHERS, SHARED_UNAVAILABLE_MATCHERS } from "../knowledge/matchers.js";
+import {
+  compileMatcher,
+  MAX_MATCHERS_PER_KIND,
+  SHARED_TRANSPORT_MATCHERS,
+  SHARED_UNAVAILABLE_MATCHERS,
+} from "../knowledge/matchers.js";
 
-/** Bottom-up batch scans stop after this many non-empty lines: the wall is
- * virtually always the last thing a dying turn printed, and an unbounded
- * scan over an accumulating session buffer is O(turns x output). */
-const BATCH_SCAN_MAX_LINES = 200;
-
-/** Max pattern length and max matchers per harness per kind - load-bearing
- * bounds that prevent a crafted override file from DoS'ing the matcher
- * compiler or the scanner. */
-const MAX_PATTERN_LENGTH = 200;
-const MAX_MATCHERS_PER_KIND = 64;
+/** The pattern bounds live with the matchers in the knowledge layer
+ * (compileMatcher); this is the per-line input window. */
 const WINDOW = 4096;
 
 // WeakMap cache: same matcher array instance reuses identical RegExp objects
@@ -49,24 +46,6 @@ const authCache = new WeakMap<
   ReadonlyArray<readonly [RegExp, AuthFailureKind]>
 >();
 
-const validateAndCompile = (pattern: string, flags: string | undefined): RegExp => {
-  const f = flags ?? "i";
-  if (pattern.length > MAX_PATTERN_LENGTH) {
-    throw new Error(`pattern over ${MAX_PATTERN_LENGTH} characters`);
-  }
-  if (f.includes("g") || f.includes("y")) {
-    throw new Error(`flags must not contain g or y (got ${JSON.stringify(f)})`);
-  }
-  for (const ch of f) {
-    if (!"imsu".includes(ch)) throw new Error(`flag ${JSON.stringify(ch)} outside imsu`);
-  }
-  try {
-    return new RegExp(pattern, f);
-  } catch (e) {
-    throw new Error(`uncompilable pattern ${JSON.stringify(pattern)}: ${(e as Error).message}`);
-  }
-};
-
 export const compileLimitMatchers = (
   matchers: ReadonlyArray<LimitMatcher>,
 ): ReadonlyArray<readonly [RegExp, LimitCode]> => {
@@ -75,7 +54,7 @@ export const compileLimitMatchers = (
   if (matchers.length > MAX_MATCHERS_PER_KIND) {
     throw new Error(`more than ${MAX_MATCHERS_PER_KIND} matchers per harness per kind`);
   }
-  const compiled = matchers.map((m) => [validateAndCompile(m.pattern, m.flags), m.code] as const);
+  const compiled = matchers.map((m) => [compileMatcher(m.pattern, m.flags), m.code] as const);
   limitCache.set(matchers, compiled);
   return compiled;
 };
@@ -88,25 +67,9 @@ export const compileAuthMatchers = (
   if (matchers.length > MAX_MATCHERS_PER_KIND) {
     throw new Error(`more than ${MAX_MATCHERS_PER_KIND} matchers per harness per kind`);
   }
-  const compiled = matchers.map((m) => [validateAndCompile(m.pattern, m.flags), m.kind] as const);
+  const compiled = matchers.map((m) => [compileMatcher(m.pattern, m.flags), m.kind] as const);
   authCache.set(matchers, compiled);
   return compiled;
-};
-
-// Generic alias for tests that call compileMatchers directly
-export const compileMatchers = <T extends LimitMatcher | AuthMatcher>(
-  matchers: ReadonlyArray<T>,
-): ReadonlyArray<readonly [RegExp, unknown]> => {
-  // Dispatch based on first element's shape - limit has code, auth has kind
-  if (matchers.length === 0) return [];
-  const first = matchers[0] as unknown as Record<string, unknown>;
-  if ("code" in first)
-    return compileLimitMatchers(
-      matchers as unknown as ReadonlyArray<LimitMatcher>,
-    ) as unknown as ReadonlyArray<readonly [RegExp, unknown]>;
-  return compileAuthMatchers(
-    matchers as unknown as ReadonlyArray<AuthMatcher>,
-  ) as unknown as ReadonlyArray<readonly [RegExp, unknown]>;
 };
 
 const scanLine = <Code>(
@@ -121,39 +84,15 @@ const scanLine = <Code>(
   return null;
 };
 
-const scanTail = <Code>(
-  output: string,
-  matchers: ReadonlyArray<readonly [RegExp, Code]>,
-): Code | null => {
-  let end = output.length;
-  let scanned = 0;
-  while (end > 0 && scanned < BATCH_SCAN_MAX_LINES) {
-    const start = output.lastIndexOf("\n", end - 1);
-    const line = output.slice(start + 1, end).trim();
-    end = start;
-    if (line === "") continue;
-    scanned++;
-    const code = scanLine(line, matchers);
-    if (code !== null) return code;
-  }
-  return null;
-};
-
-/** Per-line entry point for streaming readers: O(1) per line, no rescans. */
+/** Per-line entry point for streaming readers: O(1) per line, no rescans.
+ * Both runners feed lines as they arrive; there is no batch form. */
 export const detectLimitInLine = (h: HarnessDescriptor, line: string): LimitCode | null =>
   scanLine(line.trim(), compileLimitMatchers(h.limitMatchers));
-
-/** Batch convenience over a turn's tail, bounded and bottom-up. */
-export const detectLimit = (h: HarnessDescriptor, output: string): LimitCode | null =>
-  scanTail(output, compileLimitMatchers(h.limitMatchers));
 
 export const detectAuthFailureInLine = (
   h: HarnessDescriptor,
   line: string,
 ): AuthFailureKind | null => scanLine(line.trim(), compileAuthMatchers(h.authMatchers));
-
-export const detectAuthFailure = (h: HarnessDescriptor, output: string): AuthFailureKind | null =>
-  scanTail(output, compileAuthMatchers(h.authMatchers));
 
 const phraseCache = new WeakMap<ReadonlyArray<PhraseMatcher>, ReadonlyArray<RegExp>>();
 
@@ -163,7 +102,7 @@ const compilePhraseMatchers = (matchers: ReadonlyArray<PhraseMatcher>): Readonly
   if (matchers.length > MAX_MATCHERS_PER_KIND) {
     throw new Error(`more than ${MAX_MATCHERS_PER_KIND} matchers per harness per kind`);
   }
-  const compiled = matchers.map((m) => validateAndCompile(m.pattern, m.flags));
+  const compiled = matchers.map((m) => compileMatcher(m.pattern, m.flags));
   phraseCache.set(matchers, compiled);
   return compiled;
 };

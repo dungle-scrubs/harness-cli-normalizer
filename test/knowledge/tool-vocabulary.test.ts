@@ -26,22 +26,12 @@ describe("tools field: shape invariants", () => {
       }
     }
   });
-
-  it("composable requires both flags", () => {
-    for (const h of ALL) {
-      if (h.tools.composable) {
-        expect(h.tools.includeFlag).not.toBeNull();
-        expect(h.tools.excludeFlag).not.toBeNull();
-      }
-    }
-  });
 });
 
 describe("claude tool surface (claude-tool-interplay.md)", () => {
   it("has both list flags, patterns allowed, deny removes from set", () => {
     expect(claudeCode.tools.includeFlag).toBe("--allowedTools");
     expect(claudeCode.tools.excludeFlag).toBe("--disallowedTools");
-    expect(claudeCode.tools.composable).toBe(true);
     expect(claudeCode.tools.denySemantics).toBe("remove-from-set");
   });
 
@@ -75,7 +65,6 @@ describe("pi tool surface (pi-both-tool-flags.md)", () => {
     expect(piCli.tools.includeFlag).toBe("--tools");
     expect(piCli.tools.excludeFlag).toBe("--exclude-tools");
     expect(piCli.tools.includeIsStrictAllowlist).toBe(true);
-    expect(piCli.tools.composable).toBe(true);
     expect(piCli.tools.denySemantics).toBe("remove-from-set");
   });
 

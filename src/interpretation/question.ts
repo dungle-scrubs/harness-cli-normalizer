@@ -47,6 +47,12 @@ If and only if a genuine decision you cannot make defensibly blocks correct prog
 
 Say nothing after the block and stop generating. The caller's user will answer, and the answer arrives as the next user message in this session - continue from it. For every choice you can make defensibly yourself, do not ask - decide, act, and state the decision you made.`;
 
+/** The wrapper hcn composes around the user's answer to an escalated
+ * question, so a consumer never re-derives it (RFC-01; the README quotes
+ * the exact text). One owner for both session surfaces. */
+export const composeAnswer = (question: string, answer: string): string =>
+  `The user answered the question: "${question}" with: ${answer}. Continue accordingly.`;
+
 export type QuestionMode = "ask" | "assume" | "none";
 
 export const QUESTION_MODES: readonly QuestionMode[] = ["ask", "assume", "none"] as const;
@@ -148,6 +154,46 @@ const parseBlock = (body: string): QuestionDetection => {
       question,
       options,
       ...(recommended !== undefined ? { recommended } : {}),
+    },
+  };
+};
+
+/** What a turn's close found, recorded on `done` (RFC-01). */
+export type QuestionDetectionKind = "block" | "malformed" | "none";
+
+/** The typed question event a detected block becomes: the fields ARE the
+ * question; prose renders from them downstream. */
+export interface QuestionEvent {
+  readonly kind: "question";
+  readonly question: string;
+  readonly options: readonly string[];
+  readonly recommended?: string;
+}
+
+/** The one place a detected block becomes a question event (RFC-02
+ * change 5). Both runners call it at turn close with the last assistant
+ * message: detection is armed only in `ask` mode; a malformed block names
+ * its malformation and is never a silent no-op. */
+export const questionEventOf = (
+  lastAssistantText: string | null,
+  mode: QuestionMode,
+):
+  | { readonly detection: "none" }
+  | { readonly detection: "malformed"; readonly malformed: string }
+  | { readonly detection: "block"; readonly event: QuestionEvent } => {
+  if (mode !== "ask" || lastAssistantText === null) return { detection: "none" };
+  const detected = detectQuestionBlock(lastAssistantText);
+  if (detected === null) return { detection: "none" };
+  if ("malformed" in detected) return { detection: "malformed", malformed: detected.malformed };
+  return {
+    detection: "block",
+    event: {
+      kind: "question",
+      question: detected.block.question,
+      options: detected.block.options,
+      ...(detected.block.recommended !== undefined
+        ? { recommended: detected.block.recommended }
+        : {}),
     },
   };
 };

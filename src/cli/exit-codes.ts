@@ -9,5 +9,3 @@ export const exitCodeForCause = (cause: ExitCause): number => {
   // All non-clean causes are failures that should be exit 1, except refusal is already handled separately
   return EXIT_FAILURE;
 };
-
-export const exitCodeForRefusal = (): number => EXIT_REFUSAL;

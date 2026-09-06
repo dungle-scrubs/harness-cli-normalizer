@@ -17,7 +17,7 @@ import { piCli } from "../../src/knowledge/pi.js";
 import { DEFAULT_TURN_PROFILE } from "../../src/knowledge/profile.js";
 
 const opts = (extra: Record<string, unknown>) =>
-  ({ prompt: "task", __explicitPrompt: true, ...extra }) as never;
+  ({ prompt: { text: "task", explicit: true }, ...extra }) as never;
 
 describe("systemPrompt render per harness", () => {
   test("claude: flag-value with the dynamic-section exclusion companion", () => {

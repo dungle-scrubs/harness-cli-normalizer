@@ -230,15 +230,18 @@ const killResume = async (h: HarnessDescriptor): Promise<Cell> => {
   };
 };
 
-// 7. error-propagation: an unspawnable binary yields error + crash 127.
+// 7. error-propagation: a missing binary yields a transport failure and exit 127.
 const errorProp = async (h: HarnessDescriptor): Promise<Cell> => {
   const broken = { ...h, bin: "definitely-not-real-xyz" };
   const events = await collect(streamTurn(broken, opts(h), nodeRunnerDeps()));
   const done = events.at(-1);
   const ok =
     done?.kind === "done" &&
-    done.cause === "crash" &&
+    done.cause === "failed" &&
     done.exitCode === 127 &&
+    done.failure?.class === "transport" &&
+    done.failure.retryable === true &&
+    events.some((e) => e.kind === "failure" && e.class === "transport") &&
     events.some((e) => e.kind === "error");
   return {
     status: ok ? "pass" : "fail",

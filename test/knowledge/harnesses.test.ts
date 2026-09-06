@@ -5,7 +5,6 @@ import {
   streamingGranularityOf,
 } from "../../src/interpretation/argv.js";
 import { capabilitiesOf } from "../../src/interpretation/capabilities.js";
-import { stdinPolicyOf } from "../../src/interpretation/dimensions.js";
 import { decodeIdentity } from "../../src/interpretation/identity.js";
 import { parseResumeCommand } from "../../src/interpretation/parse-resume.js";
 import { isInteractive } from "../../src/interpretation/presence.js";
@@ -73,7 +72,7 @@ describe("pi descriptor (v1 scars)", () => {
       kind: "effort",
       render: { kind: "flag-value", flag: "--thinking" },
     });
-    expect(stdinPolicyOf(piCli)).toBe("close-required");
+    expect(piCli.stdin).toBe("close-required");
   });
 
   test("the model registry is runtime-extensible: unknown models validate for argv, but capabilities degrade", () => {

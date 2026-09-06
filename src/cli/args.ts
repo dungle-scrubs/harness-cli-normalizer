@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import type { DiscoveryOptions, TurnOptions } from "../interpretation/argv.js";
+import { isQuestionMode, QUESTION_MODES } from "../interpretation/question.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
 
 export type ParsedPromptSource =
@@ -49,7 +50,6 @@ export const parseEnvEntries = (
     if (eq === -1) {
       throw new ArgvRefusalError({
         issue: "invalid-env",
-        harness: "claude",
         supported: ["KEY=VAL"],
         detail: entry,
       });
@@ -59,7 +59,6 @@ export const parseEnvEntries = (
     if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key) || value.includes("\0") || key.includes("\0")) {
       throw new ArgvRefusalError({
         issue: "invalid-env",
-        harness: "claude",
         supported: ["keys must match ^[A-Za-z_][A-Za-z0-9_]*$ and contain no NUL"],
         detail: entry,
       });
@@ -82,7 +81,6 @@ export const resolvePrompt = (args: {
   if (count === 0) {
     throw new ArgvRefusalError({
       issue: "invalid-option-value",
-      harness: "claude",
       supported: ["provide prompt via positional, --prompt, or --prompt-file"],
       detail: "missing prompt",
     });
@@ -90,7 +88,6 @@ export const resolvePrompt = (args: {
   if (count > 1) {
     throw new ArgvRefusalError({
       issue: "invalid-option-value",
-      harness: "claude",
       supported: ["use one of positional, --prompt, or --prompt-file"],
       detail: "mutual exclusion",
     });
@@ -122,7 +119,6 @@ export const resolvePromptAsync = async (args: {
   if (count === 0) {
     throw new ArgvRefusalError({
       issue: "invalid-option-value",
-      harness: "claude",
       supported: ["provide prompt via positional, --prompt, or --prompt-file"],
       detail: "missing prompt",
     });
@@ -130,7 +126,6 @@ export const resolvePromptAsync = async (args: {
   if (count > 1) {
     throw new ArgvRefusalError({
       issue: "invalid-option-value",
-      harness: "claude",
       supported: ["use one of positional, --prompt, or --prompt-file"],
       detail: "mutual exclusion",
     });
@@ -148,15 +143,20 @@ export const resolvePromptAsync = async (args: {
   return { prompt: content, source: "prompt-file" };
 };
 
+/** Parsed turn options plus the skill names as typed, which the command
+ * resolves against the registry before they become a turn option. */
+export type ParsedTurnOptions = TurnOptions & { readonly skillNames?: readonly string[] };
+
 /**
  * Build TurnOptions from parsed flag values. Shared between run and inspect --argv.
  */
-export const parseTurnOptions = (values: Record<string, unknown>): TurnOptions => {
+export const parseTurnOptions = (values: Record<string, unknown>): ParsedTurnOptions => {
   const opts: Record<string, unknown> = {};
 
   if (values.model !== undefined) opts.model = values.model;
   if (values.effort !== undefined) opts.effort = values.effort;
   if (values.sandbox !== undefined) opts.sandbox = values.sandbox;
+  if (values["context-window"] !== undefined) opts.contextWindow = Number(values["context-window"]);
   if (values.provider !== undefined) opts.provider = values.provider;
   if (values.tools !== undefined) {
     const raw = String(values.tools);
@@ -167,9 +167,10 @@ export const parseTurnOptions = (values: Record<string, unknown>): TurnOptions =
     opts.excludeTools = raw.length === 0 ? [] : raw.split(",").map((s) => s.trim());
   }
   if (values.skills !== undefined) {
+    // Names as typed; the command resolves them against the registry and
+    // builds the skills turn option (picks plus known names) from them.
     const raw = String(values.skills);
-    (opts as Record<string, unknown>).skills =
-      raw.length === 0 ? [] : raw.split(",").map((s) => s.trim());
+    opts.skillNames = raw.length === 0 ? [] : raw.split(",").map((s) => s.trim());
   }
   if (values.autonomy === true) opts.autonomy = true;
   else if (values["no-autonomy"] === true) opts.autonomy = false;
@@ -181,16 +182,15 @@ export const parseTurnOptions = (values: Record<string, unknown>): TurnOptions =
   else if (values["no-shell"] === true) opts.shell = false;
   if (values.questions !== undefined) {
     const v = String(values.questions);
-    if (!["ask", "assume", "none"].includes(v)) {
+    if (!isQuestionMode(v)) {
       throw new ArgvRefusalError({
         issue: "invalid-option-value",
-        harness: "claude",
         option: "questions",
-        supported: ["ask", "assume", "none"],
+        supported: [...QUESTION_MODES],
         detail: v,
       });
     }
-    (opts as Record<string, unknown>).questions = v;
+    opts.questions = v;
   }
   if (values["system-prompt"] !== undefined) opts.systemPrompt = String(values["system-prompt"]);
   if (values["append-system-prompt"] !== undefined)
@@ -201,7 +201,6 @@ export const parseTurnOptions = (values: Record<string, unknown>): TurnOptions =
     if (!Number.isFinite(n)) {
       throw new ArgvRefusalError({
         issue: "invalid-option-value",
-        harness: "claude",
         option: "maxSteps",
         supported: ["integer 1-10000"],
         detail: String(values["max-steps"]),
@@ -234,7 +233,22 @@ export const parseTurnOptions = (values: Record<string, unknown>): TurnOptions =
   if (values.access !== undefined) opts.access = String(values.access);
 
   // prompt will be set by caller after resolvePrompt
-  return opts as unknown as TurnOptions;
+  return opts as unknown as ParsedTurnOptions;
+};
+
+/** `--resume` and `--session-id` are aliases for one session id; both at
+ * once refuses. The one check every command calls (run, inspect, session). */
+export const resumeIdOf = (values: Record<string, unknown>): string | undefined => {
+  if (values.resume !== undefined && values["session-id"] !== undefined) {
+    throw new ArgvRefusalError({
+      issue: "mutually-exclusive-options",
+      supported: ["--resume or --session-id, not both (--session-id is an alias for --resume)"],
+      detail: "both --resume and --session-id given",
+    });
+  }
+  if (values.resume !== undefined) return String(values.resume);
+  if (values["session-id"] !== undefined) return String(values["session-id"]);
+  return undefined;
 };
 
 export const parseRunExtra = (
@@ -256,8 +270,7 @@ export const parseRunExtra = (
     if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
       throw new ArgvRefusalError({
         issue: "invalid-option-value",
-        harness: "claude",
-        option: "maxSteps",
+        option: "timeout",
         supported: ["whole seconds, >= 0 (0 disables)"],
         detail: String(values.timeout),
       });
@@ -265,16 +278,8 @@ export const parseRunExtra = (
     extra.timeoutSeconds = n;
   }
   if (values.cwd !== undefined) extra.cwd = String(values.cwd);
-  if (values.resume !== undefined && values["session-id"] !== undefined) {
-    throw new ArgvRefusalError({
-      issue: "mutually-exclusive-options",
-      harness: "claude",
-      supported: ["--resume or --session-id, not both (--session-id is an alias for --resume)"],
-      detail: "both --resume and --session-id given",
-    });
-  }
-  if (values.resume !== undefined) extra.resume = String(values.resume);
-  if (values["session-id"] !== undefined) extra.resume = String(values["session-id"]);
+  const resume = resumeIdOf(values);
+  if (resume !== undefined) extra.resume = resume;
   if (values.env !== undefined) {
     // parseArgs with multiple:true gives string[] ; else string
     const list = values.env as string | string[];
@@ -294,6 +299,7 @@ const KNOWN_FLAGS = new Set([
   "--model",
   "--effort",
   "--sandbox",
+  "--context-window",
   "--provider",
   "--tools",
   "--exclude-tools",
@@ -333,6 +339,7 @@ const FLAGS_WITH_VALUE = new Set([
   "--model",
   "--effort",
   "--sandbox",
+  "--context-window",
   "--provider",
   "--tools",
   "--exclude-tools",
@@ -448,6 +455,7 @@ export const parseCommonFlags = (
       model: { type: "string" as const },
       effort: { type: "string" as const },
       sandbox: { type: "string" as const },
+      "context-window": { type: "string" as const },
       provider: { type: "string" as const },
       tools: { type: "string" as const },
       "exclude-tools": { type: "string" as const },

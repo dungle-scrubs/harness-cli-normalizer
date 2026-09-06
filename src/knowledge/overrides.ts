@@ -20,6 +20,7 @@ import {
   type HarnessName,
   SESSION_INPUT_KINDS,
 } from "./descriptor.js";
+import { compileMatcher, MAX_MATCHERS_PER_KIND } from "./matchers.js";
 import { museCode } from "./muse.js";
 import { piCli } from "./pi.js";
 
@@ -159,36 +160,12 @@ const validateMatcherPattern = (
   path: string,
   harness: string,
 ): void => {
-  const f = flags ?? "i";
-  if (pattern.length > 200) {
-    throw new OverrideRefusalError(
-      path,
-      `pattern over 200 characters: ${JSON.stringify(pattern.slice(0, 40))}`,
-      harness,
-    );
-  }
-  if (pattern.length === 0) {
-    throw new OverrideRefusalError(path, `pattern must not be empty`, harness);
-  }
-  if (f.includes("g") || f.includes("y")) {
-    throw new OverrideRefusalError(
-      path,
-      `flags must not contain g or y (got ${JSON.stringify(f)})`,
-      harness,
-    );
-  }
-  for (const ch of f) {
-    if (!"imsu".includes(ch))
-      throw new OverrideRefusalError(path, `flag ${JSON.stringify(ch)} outside imsu`, harness);
-  }
+  // One compiler and one set of bounds, shared with the limits scanner
+  // (RFC-02 change 9); this loader only wraps the refusal.
   try {
-    new RegExp(pattern, f);
+    compileMatcher(pattern, flags);
   } catch (e) {
-    throw new OverrideRefusalError(
-      path,
-      `uncompilable pattern ${JSON.stringify(pattern)}: ${(e as Error).message}`,
-      harness,
-    );
+    throw new OverrideRefusalError(path, (e as Error).message, harness);
   }
 };
 
@@ -196,8 +173,12 @@ const validateMatchers = (desc: HarnessDescriptor, path: string, harness: string
   const limitMatchers = (desc as unknown as { limitMatchers: readonly unknown[] }).limitMatchers;
   const authMatchers = (desc as unknown as { authMatchers: readonly unknown[] }).authMatchers;
   if (Array.isArray(limitMatchers)) {
-    if (limitMatchers.length > 64) {
-      throw new OverrideRefusalError(path, `more than 64 limit matchers`, harness);
+    if (limitMatchers.length > MAX_MATCHERS_PER_KIND) {
+      throw new OverrideRefusalError(
+        path,
+        `more than ${MAX_MATCHERS_PER_KIND} limit matchers`,
+        harness,
+      );
     }
     for (const m of limitMatchers) {
       if (!isPlain(m as unknown as Record<string, unknown>)) {
@@ -211,8 +192,12 @@ const validateMatchers = (desc: HarnessDescriptor, path: string, harness: string
     }
   }
   if (Array.isArray(authMatchers)) {
-    if (authMatchers.length > 64) {
-      throw new OverrideRefusalError(path, `more than 64 auth matchers`, harness);
+    if (authMatchers.length > MAX_MATCHERS_PER_KIND) {
+      throw new OverrideRefusalError(
+        path,
+        `more than ${MAX_MATCHERS_PER_KIND} auth matchers`,
+        harness,
+      );
     }
     for (const m of authMatchers) {
       if (!isPlain(m as unknown as Record<string, unknown>)) {

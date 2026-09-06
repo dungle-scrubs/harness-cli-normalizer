@@ -95,14 +95,15 @@ stdin carries one command per line (blank lines are ignored):
 ```
 
 - Every well-formed `send`/`answer` gets exactly one `disposition` event,
-  in command order. `started`: no turn was open, the text was written, a
-  turn opened. `queued`: a turn was open, the text is held for the next
-  turn boundary. `rejected`: the text was not delivered and will not be.
+  in command order. `started`: the text was written to the harness. When
+  no turn was open, a turn opened; when one was, the harness holds the
+  text natively and the next turn consumes it (hcn keeps no queue of its
+  own - ADR 0007). `rejected`: the text was not delivered and will not be.
   Rejected reasons: `closed` (session closing or harness dead),
   `no-open-question` (`answer` with no `awaiting-input` turn to answer),
   `write-failed` (the harness's stdin pipe broke; a `closed` follows).
-- A queued send's id rides to the turn that consumes it: correlate by
-  reading `turn.id`, not by counting turns.
+- A send's id rides to the turn it opens: correlate by reading `turn.id`,
+  not by counting turns.
 - `answer` composes hcn's question-answer preamble
   (`The user answered the question: "<q>" with: <text>. Continue accordingly.`)
   around the text, so the consumer never re-derives it. A plain `send` after
@@ -191,6 +192,7 @@ Flag table (maps to `TurnOptions` / `TurnRunOptions`):
 | `--model <id>` | `model` | Validated via `validateModel` |
 | `--effort <value>` | `effort` | Validated via `validateEffort` |
 | `--sandbox <value>` | `sandbox` | Codex only |
+| `--context-window <tokens>` | `contextWindow` | Codex, integer 1-272000; launch default 272000 |
 | `--provider <value>` | `provider` | pi only |
 | `--tools <a,b>` | `tools` | Canonical names (read, write, edit, shell, grep, glob, list, web-fetch, web-search, subagent, skill); `native:<name>` passes a harness-native or extension tool through. Per-tool allowlist; claude and pi (pi strict, claude via grant + deny-complement). A bare name matching a configured toolset expands to it |
 | `--exclude-tools <a,b>` | `excludeTools` | Canonical names (same vocabulary, `native:<name>` passthrough); complement over known tool names; mutually exclusive with `--tools` |
@@ -224,7 +226,8 @@ args  >  .hcn/config.json (git root, auto-discovered)  >  ~/.config/hcn/config.j
 
 The built-in profile pins the ratified defaults: effort `medium` (the only
 value in all four ladders), sandbox `workspace-write` (codex-only; reported
-as divergence elsewhere), discovery fully on, autonomy off. A dimension a
+as divergence elsewhere), context window `272000` (codex-only; divergence
+elsewhere), discovery fully on, autonomy off. A dimension a
 harness cannot express is reported as divergence, never a silent skip and
 never a refusal. Resume turns bypass turn-option resolution entirely - a
 session keeps its own settings. Question escalation (below) is the
@@ -236,6 +239,15 @@ User config (`~/.config/hcn/config.json`, `$XDG_CONFIG_HOME` respected):
 ```json
 { "version": 1, "effort": "high" }
 ```
+
+Codex callers can set `"contextWindow": 100000` in either config file or
+pass `--context-window 100000`. The range is 1-272000 tokens. hcn renders
+the numeric Codex override `-c model_context_window=272000` for a bare
+launch. Resume applies only an explicit flag, without profile or config
+defaults. Codex owns automatic compaction; this setting is not a hard
+per-request token or billing limit. A large prompt or tool result can
+exceed the configured window before compaction. Native arguments after
+`--` can also override it. See the [Codex config reference](https://developers.openai.com/codex/config-reference).
 
 Project config (`.hcn/config.json` at the git root, code-reviewed with the
 repo) also carries tool floors and named toolsets:

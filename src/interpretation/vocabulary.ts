@@ -5,7 +5,7 @@
  * actionable without reading the descriptor. Resolution lives in ONE place
  * (resolveModel) so validation and capability claims cannot drift.
  */
-import type { HarnessDescriptor } from "../knowledge/descriptor.js";
+import { ACCESS_VALUES, type HarnessDescriptor } from "../knowledge/descriptor.js";
 
 export type Validated = { readonly ok: true; readonly id: string } | ValidationRefusal;
 
@@ -14,10 +14,11 @@ export interface ValidationRefusal {
   readonly reason: string;
 }
 
-/** The selector grammar an extensible registry still demands: pi documents
- * models as provider/id[:thinking], so word characters plus the few real
- * separators - never whitespace, shell metacharacters, or control/format
- * characters, and bounded like session ids. */
+/** The one selector grammar for model ids, tool names, and toolMap keys
+ * (RFC-02 change 9): pi documents models as provider/id[:thinking], so
+ * word characters plus the few real separators - never whitespace, shell
+ * metacharacters, or control/format characters, and bounded like session
+ * ids. */
 export const CLEAN_SELECTOR = /^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$/;
 
 export interface ResolvedModel {
@@ -54,14 +55,18 @@ export const validateModel = (h: HarnessDescriptor, model: string): Validated =>
   };
 };
 
+/** The access preset takes one of the closed ACCESS_VALUES. */
+export const validateAccess = (value: string): Validated => {
+  if ((ACCESS_VALUES as readonly string[]).includes(value)) return { ok: true, id: value };
+  return {
+    ok: false,
+    reason: `unknown access ${JSON.stringify(value)}; accepted: ${ACCESS_VALUES.join(", ")}`,
+  };
+};
+
 /** Validate an effort against the ladder that applies to the pick: the
  * model's own ladder where the harness constrains per model (codex), else
  * the harness-wide ladder. */
-export const validateAccess = (value: string): Validated => {
-  if (value === "read" || value === "write") return { ok: true, id: value };
-  return { ok: false, reason: `unknown access ${JSON.stringify(value)}; accepted: read, write` };
-};
-
 export const validateEffort = (h: HarnessDescriptor, effort: string, model?: string): Validated => {
   let ladder = h.vocabulary.efforts;
   if (model !== undefined && h.vocabulary.effortsByModel !== undefined) {

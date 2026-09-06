@@ -103,7 +103,7 @@ const messageFor = (cls: FailureClass, detail?: string): string => {
 }; /** D11: the run outlived its caller-set wall-clock budget. */
 export const failureFromTimeout = (): FailureSummary => ({
   class: "timeout",
-  retryable: false,
+  retryable: retryableOf("timeout"),
   message: messageFor("timeout"),
 });
 
@@ -114,7 +114,7 @@ export const failureFromNative = (
   stderrTail: readonly string[],
 ): FailureSummary => ({
   class: "native",
-  retryable: false,
+  retryable: retryableOf("native"),
   message: messageFor(
     "native",
     stderrTail.slice(-3).join(" | ").slice(0, 512) || `exit ${nativeExitCode}`,
@@ -122,7 +122,13 @@ export const failureFromNative = (
   nativeExitCode: nativeExitCode ?? undefined,
 });
 
-export const failureFromLimit = (code: LimitCode): FailureSummary => {
+/** A limit, from a wall phrasing (detail defaults to the code) or from a
+ * structured record that names its status and, sometimes, a reset time. */
+export const failureFromLimit = (
+  code: LimitCode,
+  detail: string = code,
+  resetsAt?: number,
+): FailureSummary => {
   const cls: FailureClass =
     code === "rate-limit"
       ? "rate-limit"
@@ -132,14 +138,15 @@ export const failureFromLimit = (code: LimitCode): FailureSummary => {
   return {
     class: cls,
     retryable: retryableOf(cls),
-    message: messageFor(cls, code),
-    code: code as LimitCode,
+    message: messageFor(cls, detail),
+    code,
+    ...(resetsAt !== undefined ? { resetsAt } : {}),
   };
 };
 
 export const failureFromAuth = (kind: AuthFailureKind): FailureSummary => ({
   class: "auth",
-  retryable: true,
+  retryable: retryableOf("auth"),
   message: messageFor("auth", kind),
   authKind: kind,
 });
@@ -157,25 +164,25 @@ export const failureFromTerminalError = (h: HarnessDescriptor, message: string):
 
 export const failureFromTask = (detail?: string): FailureSummary => ({
   class: "task",
-  retryable: false,
+  retryable: retryableOf("task"),
   message: messageFor("task", detail),
 });
 
 export const failureFromBudget = (detail?: string): FailureSummary => ({
   class: "budget",
-  retryable: false,
+  retryable: retryableOf("budget"),
   message: messageFor("budget", detail),
 });
 
 export const failureFromTransport = (detail?: string): FailureSummary => ({
   class: "transport",
-  retryable: true,
+  retryable: retryableOf("transport"),
   message: messageFor("transport", detail),
 });
 
 export const failureFromUnavailable = (detail?: string): FailureSummary => ({
   class: "unavailable",
-  retryable: true,
+  retryable: retryableOf("unavailable"),
   message: messageFor("unavailable", detail),
 });
 
@@ -189,7 +196,7 @@ export const failureFromRejected = (opts: {
   detail?: string;
 }): FailureSummary => ({
   class: "rejected",
-  retryable: false,
+  retryable: retryableOf("rejected"),
   // D8: hint first, support list second - prose order matches the
   // structured fields so an agent scanning the message hits the
   // stay-on-harness suggestion before the switch temptation.

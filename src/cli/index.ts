@@ -2,10 +2,12 @@
 import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { HARNESS_NAMES } from "../knowledge/descriptor.js";
 import { TOP_LEVEL_HELP } from "./help.js";
 import { getVersion } from "./version.js";
 
-const SUPPORTED = ["claude", "codex", "pi", "muse"] as const;
+/** The one harness list, read from the descriptor vocabulary. */
+const SUPPORTED: readonly string[] = HARNESS_NAMES;
 
 // Prevent EPIPE crashes when piped to head/grep -q (e.g., hcn ls | head, hcn run --json | head)
 process.stdout.on("error", (err) => {

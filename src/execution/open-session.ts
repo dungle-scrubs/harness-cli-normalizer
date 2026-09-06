@@ -10,36 +10,43 @@
  * silently dropped. Structured lifecycle events (session open/close, turn
  * start/end, send dispositions, drops) are always-on evidence with
  * sessionId + turnId correlation.
+ *
+ * The supervising policies - stall clock, signal escalation, stderr
+ * classification, question detection at close - are the turn supervisor's
+ * (RFC-02 change 5), composed once per session and begun per turn. This
+ * runner owns only what is particular to sessions: turn delimiting, the
+ * send correlation, and the close-versus-abandon distinction.
  */
 import { buildSessionArgv } from "../interpretation/argv.js";
 import { capabilitiesOf } from "../interpretation/capabilities.js";
-import { detectAuthFailureInLine, detectLimitInLine } from "../interpretation/limits.js";
+import { composeEscalatedPrompt, type QuestionMode } from "../interpretation/question.js";
 import {
-  composeEscalatedPrompt,
-  detectQuestionBlock,
-  type QuestionMode,
-} from "../interpretation/question.js";
-import {
+  decodeSessionRecord,
+  encodeIdentityProbe,
   encodeSessionInput,
   resolveSessionInput,
   SessionInputRefusalError,
 } from "../interpretation/session-input.js";
 import type { HarnessDescriptor, SessionInputContract } from "../knowledge/descriptor.js";
 import { AsyncChannel } from "./channel.js";
-import { decodeParsed, freshDecodeState } from "./decode.js";
-import type { RunnerDeps, SpawnedProcess, TimerHandle } from "./deps.js";
-import type { EscalationDetection, ExitCause, HarnessEvent } from "./events.js";
+import { decodeLine, decodeParsed, freshDecodeState } from "./decode.js";
+import type { RunnerDeps, SpawnedProcess } from "./deps.js";
+import {
+  DROPPABLE_KINDS,
+  type EscalationDetection,
+  type ExitCause,
+  type HarnessEvent,
+} from "./events.js";
 import type { FailureSummary } from "./failure.js";
 import {
-  failureFromAuth,
   failureFromLimit,
-  failureFromTask,
   failureFromTerminalError,
   failureFromTransport,
   reduceFailures,
 } from "./failure.js";
 import { LineBuffer } from "./lines.js";
-import { KILL_GRACE_MS, PIPE_GRACE_MS, redactArgv, StderrTail } from "./stream-turn.js";
+import { PIPE_GRACE_MS, redactArgv } from "./stream-turn.js";
+import { StderrTail, superviseTurn } from "./supervisor.js";
 
 /** Grace after stdin EOF before concluding the child will not exit on its
  * own and escalating signals. */
@@ -197,40 +204,26 @@ export const openSession = (
   let turnLimitSeen = false;
   let turnFailures: FailureSummary[] = [];
   let pumpError: unknown = null;
-  // issue #44: the active turn's last assistant message (where the
-  // hcn-question block lives) and whether the turn ended by asking.
-  let lastAssistantText: string | null = null;
+  // issue #44: whether the active turn ended by asking, and what its close
+  // detected.
   let turnAsked = false;
   let turnEscalationDetection: EscalationDetection = "none";
   let identityAnnounced = false;
-
-  const safeSignal = (sig: "SIGTERM" | "SIGKILL"): void => {
-    if (!dead) deps.signal(proc, sig);
-  };
-  const escalate = (): void => {
-    safeSignal("SIGTERM");
-    deps.clock.setTimeout(() => safeSignal("SIGKILL"), KILL_GRACE_MS);
-  };
-
-  // Per-turn inactivity budget. A session turn can hang with the process
-  // alive and the pipes open, which no exit code reports; without this the
-  // consumer waits forever. Armed at turn start, rearmed on any output
-  // chunk, disarmed at turn end and at exit - the same discipline
-  // streamTurn uses, scoped to the turn rather than the process.
-  let stallTimer: TimerHandle | null = null;
+  // A stall killed the process on purpose, so the signal death it caused
+  // reports as "stall", not "killed".
   let stalled = false;
-  const disarmStall = (): void => {
-    if (stallTimer !== null) deps.clock.clearTimeout(stallTimer);
-    stallTimer = null;
-  };
-  const rearmStall = (): void => {
-    if (deps.stallMs === undefined || activeTurn === null) return;
-    disarmStall();
-    stallTimer = deps.clock.setTimeout(() => {
-      // The turn may have ended between the timer firing and this callback
-      // running. Without this guard a clean turn that finished near the
-      // budget would be reported as a stall and the child signalled.
-      if (activeTurn === null) return;
+
+  // The supervisor spans the session; each turn begins and ends on it. A
+  // session turn can hang with the process alive and the pipes open, which
+  // no exit code reports; the stall clock is what bounds that wait.
+  const sup = superviseTurn(h, questionMode, {
+    clock: deps.clock,
+    stallMs: deps.stallMs,
+    signal: (sig) => deps.signal(proc, sig),
+    emit: (event) => routeEvent(event),
+    fail: (summary) => pushFailure(summary),
+    tail: stderrTail,
+    onStall: () => {
       stalled = true;
       log({
         event: "stall",
@@ -244,9 +237,17 @@ export const openSession = (
       // the exit path then closes the session with the same cause.
       void pushFailure(failureFromTransport("stalled: inactivity"));
       endTurn({ kind: "done", exitCode: null, cause: "stall" });
-      escalate();
-    }, deps.stallMs);
-  };
+    },
+    onQuestion: (options) => {
+      log({
+        event: "question",
+        sessionId: opts.sessionId,
+        turnId: activeTurnId,
+        harness: h.name,
+        options,
+      });
+    },
+  });
 
   const writeUser = (text: string): boolean => {
     try {
@@ -261,7 +262,7 @@ export const openSession = (
       // very signal that stops it. The exit path then finalizes as usual.
       void routeEvent({ kind: "error", message: "send failed: session stdin is gone" });
       closing = true;
-      escalate();
+      sup.escalate();
       return false;
     }
   };
@@ -277,7 +278,6 @@ export const openSession = (
     turnFailures = [];
     turnAsked = false;
     turnEscalationDetection = "none";
-    lastAssistantText = null;
     activeTurn = new AsyncChannel<HarnessEvent>();
     activeTurnId = `${opts.sessionId}:turn-${++turnCounter}`;
     // Tag the turn with the id of the send that opened it, so the consumer
@@ -291,58 +291,21 @@ export const openSession = (
       activeTurn.push(held);
     }
     turnsChannel.push(activeTurn as SessionTurn);
-    rearmStall();
-  };
-
-  /** issue #44: at a turn boundary, scan the last assistant message for
-   * the hcn-question block - same structured-first discipline and
-   * last-message rule as streamTurn. The question event lands in the
-   * turn stream right before its done; a malformed block surfaces as an
-   * error event, never a silent no-op. */
-  const emitQuestionIfAsked = (): void => {
-    if (questionMode !== "ask" || lastAssistantText === null) {
-      turnEscalationDetection = "none";
-      return;
-    }
-    const detection = detectQuestionBlock(lastAssistantText);
-    if (detection === null) {
-      turnEscalationDetection = "none";
-      return;
-    }
-    if ("malformed" in detection) {
-      turnEscalationDetection = "malformed";
-      activeTurn?.push({ kind: "error", message: detection.malformed });
-      const failure = failureFromTask(`malformed hcn-question block: ${detection.malformed}`);
-      turnFailures.push(failure);
-      void activeTurn?.push({ kind: "failure", ...failure });
-      return;
-    }
-    turnEscalationDetection = "block";
-    turnAsked = true;
-    log({
-      event: "question",
-      sessionId: opts.sessionId,
-      turnId: activeTurnId,
-      harness: h.name,
-      options: detection.block.options.length,
-    });
-    activeTurn?.push({
-      kind: "question",
-      question: detection.block.question,
-      options: detection.block.options,
-      ...(detection.block.recommended !== undefined
-        ? { recommended: detection.block.recommended }
-        : {}),
-    });
+    sup.beginTurn();
   };
 
   const endTurn = (done: Omit<HarnessEvent & { kind: "done" }, "escalation">): void => {
     if (activeTurn === null) return;
-    disarmStall();
-    // Asking is a successful turn: the session semantic is "blocked on
-    // answer, session alive" - the done stays TURN-scoped (exitCode null
-    // in sessions) and the caller answers with the next send().
-    emitQuestionIfAsked();
+    sup.disarm();
+    // issue #44: the supervisor scans the last assistant message for the
+    // hcn-question block; the question event lands in the turn stream
+    // right before its done. Asking is a successful turn: the session
+    // semantic is "blocked on answer, session alive" - the done stays
+    // TURN-scoped (exitCode null in sessions) and the caller answers with
+    // the next send().
+    const close = sup.close();
+    turnEscalationDetection = close.detection;
+    turnAsked = close.asked;
     if (turnAsked && done.cause === "clean") done = { ...done, cause: "awaiting-input" };
     // RFC-01 every turn end carries the escalation record
     let fullDone: HarnessEvent & { kind: "done" } = {
@@ -385,9 +348,7 @@ export const openSession = (
       state.limitSeen = true;
       turnLimitSeen = true;
     }
-    if (questionMode === "ask" && event.kind === "message" && event.role === "assistant") {
-      lastAssistantText = event.text;
-    }
+    sup.noteEvent(event);
     if (activeTurn !== null) {
       // Awaited by the pumps: past the channel's high water mark this
       // blocks the pump, so OS pipe backpressure reaches the child.
@@ -397,9 +358,7 @@ export const openSession = (
     // droppable events go first, then oldest.
     preTurnEvents.push(event);
     if (preTurnEvents.length > PRETURN_MAX) {
-      const droppableAt = preTurnEvents.findIndex(
-        (e) => e.kind === "token" || e.kind === "progress" || e.kind === "context",
-      );
+      const droppableAt = preTurnEvents.findIndex((e) => DROPPABLE_KINDS.has(e.kind));
       preTurnEvents.splice(droppableAt === -1 ? 0 : droppableAt, 1);
     }
     return Promise.resolve();
@@ -410,35 +369,63 @@ export const openSession = (
     return routeEvent({ kind: "failure", ...f });
   };
 
-  /** A decoded event other than a failure: a terminal error also records
-   * the failure it stands for, the way streamTurn does. */
+  /** A decoded event other than a failure: a limit also records the
+   * failure it stands for, and so does a terminal error, the way
+   * streamTurn does. */
   const routeDecoded = async (event: HarnessEvent): Promise<void> => {
+    if (event.kind === "failure") {
+      await pushFailure(summaryOf(event));
+      return;
+    }
     await routeEvent(event);
+    if (event.kind === "limit") await pushFailure(failureFromLimit(event.code));
     if (event.kind === "error" && event.terminal === true) {
       await pushFailure(failureFromTerminalError(h, event.message));
     }
   };
 
+  /** The probe answered: bind the announced id under the descriptor's
+   * authority, or surface a rotation. */
+  const announceIdentity = async (announced: string): Promise<void> => {
+    if (identityAnnounced) return;
+    if (sessionInputMode?.idFlag === null) {
+      // Harness-MINTED identity (pi rpc: `--session` refuses unknown ids,
+      // so fresh sessions omit the flag). The minted id IS the identity;
+      // opts.sessionId stays the caller-side handle.
+      identityAnnounced = true;
+      state.lastSeenId = announced;
+      await routeEvent({
+        kind: "identity",
+        sessionId: announced,
+        authority: "harness-minted",
+        capabilities: capabilitiesOf(h, opts.model ?? "", "headless-session"),
+      });
+      return;
+    }
+    if (announced === opts.sessionId) {
+      identityAnnounced = true;
+      await routeEvent({
+        kind: "identity",
+        sessionId: announced,
+        authority: "caller-assigned",
+        capabilities: capabilitiesOf(h, opts.model ?? "", "headless-session"),
+      });
+      return;
+    }
+    await routeEvent({
+      kind: "error",
+      message: `identity rotated: session announced ${JSON.stringify(announced)} but ${opts.sessionId} was requested`,
+    });
+  };
+
   const pumpStdout = async (): Promise<void> => {
     const lines = new LineBuffer();
-    const matches = (
-      record: Record<string, unknown>,
-      spec: Readonly<Record<string, string>>,
-    ): boolean => {
-      for (const [key, expected] of Object.entries(spec)) {
-        if (record[key] !== expected) return false;
-      }
-      return true;
-    };
-    // issue #44: pi rpc is identity-silent at startup; the probe round
-    // trip is the only way to read the id (spike fixtures). The response
-    // echoes our marker id, so it cannot be confused with a user-visible
-    // get_state response.
-    if (sessionInputMode?.identityProbe !== null && sessionInputMode !== null) {
+    // issue #44: a harness that is identity-silent at startup gets the
+    // probe its descriptor declares; interpretation encodes it (ADR 0005).
+    const probe = encodeIdentityProbe(h);
+    if (probe !== null) {
       try {
-        stdin.write(
-          `${JSON.stringify({ id: "hcn-identity", type: sessionInputMode.identityProbe.command })}\n`,
-        );
+        stdin.write(probe);
       } catch {
         // stdin already gone; the exited handler will surface the death.
       }
@@ -448,99 +435,57 @@ export const openSession = (
       try {
         parsed = JSON.parse(line) as Record<string, unknown>;
       } catch {
-        const code = detectLimitInLine(h, line);
-        if (code !== null) {
-          await routeEvent({ kind: "limit", code, message: `limit wall detected (${code})` });
-          await pushFailure(failureFromLimit(code));
+        // Not a record: the shared decoder reads the one signal a plain
+        // line can carry (a wall) and nothing else.
+        for (const event of decodeLine(h, line, state, opts.model ?? "")) {
+          await routeDecoded(event);
         }
         return;
       }
-      // pi rpc bookkeeping: the probe response announces identity; a
-      // failed command response is a surfaced error, never a silent drop
-      // (spike: mid-stream prompts fail with success:false naming the
-      // remedy - hcn never sends those, but any other failure shows here).
-      if (parsed.type === "response") {
-        if (
-          parsed.id === "hcn-identity" &&
-          typeof parsed.command === "string" &&
-          parsed.command === sessionInputMode?.identityProbe?.command &&
-          parsed.success === true
-        ) {
-          const data = parsed.data as Record<string, unknown> | undefined;
-          const announced = data?.sessionId;
-          if (typeof announced !== "string") {
-            await routeEvent({
-              kind: "error",
-              message: "identity probe response carried no sessionId",
-            });
-          } else if (sessionInputMode.idFlag === null) {
-            // Harness-MINTED identity (pi rpc: `--session` refuses unknown
-            // ids, so fresh sessions omit the flag). The minted id IS the
-            // identity; opts.sessionId stays the caller-side handle.
-            if (!identityAnnounced) {
-              identityAnnounced = true;
-              state.lastSeenId = announced;
-              await routeEvent({
-                kind: "identity",
-                sessionId: announced,
-                authority: "harness-minted",
-                capabilities: capabilitiesOf(h, opts.model ?? "", "headless-session"),
-              });
-            }
-          } else if (announced === opts.sessionId) {
-            if (!identityAnnounced) {
-              identityAnnounced = true;
-              await routeEvent({
-                kind: "identity",
-                sessionId: announced,
-                authority: "caller-assigned",
-                capabilities: capabilitiesOf(h, opts.model ?? "", "headless-session"),
-              });
-            }
-          } else {
-            await routeEvent({
-              kind: "error",
-              message: `identity rotated: session announced ${JSON.stringify(announced)} but ${opts.sessionId} was requested`,
-            });
+      // Interpretation says what the record means; this runner only routes
+      // on the kind (ADR 0005: no harness field names here).
+      const record = decodeSessionRecord(h, parsed);
+      switch (record.kind) {
+        case "identity":
+          await announceIdentity(record.sessionId);
+          return;
+        case "probe-failed":
+        case "command-failed":
+          await routeEvent({ kind: "error", message: record.message });
+          return;
+        case "ignored":
+          return;
+        case "turn-end": {
+          // The turn-end record still feeds identity dedupe (claude includes
+          // session_id on result - a rotation announced there must not be
+          // missed) and content decoding, which already surfaces a failed
+          // result as an error event; the flag here only classifies the
+          // done cause.
+          for (const event of decodeParsed(h, parsed, state, opts.model ?? "")) {
+            await routeDecoded(event);
+          }
+          if (record.isError) resultError = true;
+          endTurn({
+            kind: "done",
+            exitCode: null,
+            cause: turnLimitSeen ? "limit" : resultError ? "crash" : "clean",
+          });
+          return;
+        }
+        case "content": {
+          for (const event of decodeParsed(h, parsed, state, opts.model ?? "")) {
+            await routeDecoded(event);
           }
           return;
         }
-        if (parsed.success === false) {
-          await routeEvent({
-            kind: "error",
-            message: `rpc command failed: ${JSON.stringify(parsed.command)} - ${JSON.stringify(parsed.error ?? "unknown error")}`,
-          });
+        default: {
+          const exhaustive: never = record;
+          return exhaustive;
         }
-        return;
-      }
-      // The turn-end record still feeds identity dedupe (claude includes
-      // session_id on result - a rotation announced there must not be
-      // missed).
-      const events = decodeParsed(h, parsed, state, opts.model ?? "");
-      const isTurnEnd = sessionInputMode !== null && matches(parsed, sessionInputMode.turnEnd);
-      if (isTurnEnd) {
-        // decodeParsed already surfaces the is_error case as an error event
-        // (content.ts claude reader); routing the events is enough - we only
-        // still track resultError here to classify the done cause.
-        for (const event of events) {
-          if (event.kind === "failure") await pushFailure(summaryOf(event));
-          else await routeDecoded(event);
-        }
-        if (parsed.is_error === true) resultError = true;
-        endTurn({
-          kind: "done",
-          exitCode: null,
-          cause: turnLimitSeen ? "limit" : resultError ? "crash" : "clean",
-        });
-        return;
-      }
-      for (const event of events) {
-        if (event.kind === "failure") await pushFailure(summaryOf(event));
-        else await routeDecoded(event);
       }
     };
     for await (const chunk of proc.stdout) {
-      rearmStall();
+      sup.rearm();
       for (const line of lines.push(chunk)) await handleLine(line);
     }
     const rest = lines.flush();
@@ -550,26 +495,8 @@ export const openSession = (
   const pumpStderr = async (): Promise<void> => {
     const lines = new LineBuffer();
     for await (const chunk of proc.stderr) {
-      rearmStall();
-      for (const line of lines.push(chunk)) {
-        const limit = detectLimitInLine(h, line);
-        if (limit !== null) {
-          await routeEvent({
-            kind: "limit",
-            code: limit,
-            message: `limit wall detected (${limit})`,
-          });
-          await pushFailure(failureFromLimit(limit));
-          continue;
-        }
-        const auth = detectAuthFailureInLine(h, line);
-        if (auth !== null) {
-          await pushFailure(failureFromAuth(auth));
-          await routeEvent({ kind: "error", message: `auth wall: ${auth}` });
-          continue;
-        }
-        stderrTail.push(line);
-      }
+      sup.rearm();
+      for (const line of lines.push(chunk)) await sup.stderrLine(line);
     }
   };
 
@@ -586,8 +513,6 @@ export const openSession = (
   const finalize = (): void => {
     if (finalized) return;
     finalized = true;
-    // A stall killed the process on purpose, so the signal death it caused
-    // reports as "stall", not "killed".
     const cause: ExitCause = stalled
       ? "stall"
       : state.limitSeen
@@ -618,7 +543,7 @@ export const openSession = (
       pendingLengths.length = 0;
     }
     endTurn({ kind: "done", exitCode, cause });
-    if (preTurnEvents.some((e) => e.kind !== "token" && e.kind !== "progress")) {
+    if (preTurnEvents.some((e) => !DROPPABLE_KINDS.has(e.kind))) {
       log({
         event: "preturn_events_dropped",
         sessionId: opts.sessionId,
@@ -646,8 +571,9 @@ export const openSession = (
       turnSettled = null;
       release();
     }
-    // The process is gone: a later fire would flip a finished turn to stall.
-    disarmStall();
+    // The process is gone: no signal, no pending escalation, no stall
+    // clock - a later fire would flip a finished turn to stall.
+    sup.settle();
     // Pipes held open past exit (a grandchild) must not hang the session.
     const pipeGrace = deps.clock.setTimeout(() => {
       pipesOpenAtExit = true;
@@ -683,7 +609,7 @@ export const openSession = (
       // stdin may already be gone - escalation below still bounds close.
     }
     // A child that does not exit on stdin EOF gets signalled after grace.
-    const closeGrace = deps.clock.setTimeout(() => escalate(), CLOSE_GRACE_MS);
+    const closeGrace = deps.clock.setTimeout(() => sup.escalate(), CLOSE_GRACE_MS);
     await shutdown;
     deps.clock.clearTimeout(closeGrace);
   };
