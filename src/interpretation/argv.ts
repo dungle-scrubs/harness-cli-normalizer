@@ -73,6 +73,7 @@ export interface TurnOptions {
   readonly autonomy?: boolean;
   readonly effort?: string;
   readonly sandbox?: string;
+  readonly contextWindow?: number;
   readonly provider?: string;
   readonly discovery?: DiscoveryOptions;
   readonly write?: boolean;

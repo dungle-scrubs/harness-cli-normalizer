@@ -31,6 +31,8 @@ Options:
   --model <id>              Model id (validated per harness)
   --effort <value>          Effort level (validated per harness/model)
   --sandbox <value>         Sandbox mode (codex only)
+  --context-window <tokens> Context window (codex, integer 1-272000;
+                            launch default 272000; config: contextWindow)
   --provider <value>        Provider (pi only)
   --tools <a,b>             Tool grant allowlist - canonical names (read, write,
                             edit, shell, grep, glob, list, web-fetch,
@@ -99,7 +101,8 @@ Defaults with no flags:
   git root) > user config (~/.config/hcn/config.json) > built-in profile
   > harness default. The profile pins: effort medium, sandbox
   workspace-write (codex only; other harnesses report divergence),
-  discovery on, autonomy off, write/shell on. timeout, max-steps and
+  context window 272000 (codex only; divergence elsewhere), discovery on,
+  autonomy off, write/shell on. timeout, max-steps and
   access have no default; harness default applies (access write emits
   nothing on claude/pi/muse, --sandbox workspace-write on codex via
   profile). toolMap is config-only (no flag) - canonical -> native
@@ -171,6 +174,7 @@ Options:
   --model <id>              Model
   --effort <value>          Effort
   --sandbox <value>         Sandbox
+  --context-window <tokens> Context window (codex, integer 1-272000)
   --provider <value>        Provider
   --tools <a,b>             Tools - canonical names (read, write, edit,
                             shell, grep, glob, list, web-fetch,

@@ -148,6 +148,7 @@ export type UnavailableMatcher = PhraseMatcher;
 export const TURN_OPTION_KEYS = deepFreeze([
   "effort",
   "sandbox",
+  "contextWindow",
   "provider",
   "discovery",
   "write",

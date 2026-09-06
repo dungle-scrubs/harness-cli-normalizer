@@ -56,6 +56,7 @@ export interface ResolvedOptions {
  * resolves to "emit nothing," which every harness can do. Divergence is
  * reserved for dimensions that would emit a flag the harness lacks. */
 const EXPRESSIBLE: Readonly<Record<ProfileKey, (h: HarnessDescriptor) => boolean>> = {
+  contextWindow: (h) => h.turnOptions.contextWindow !== undefined,
   effort: (h) => h.turnOptions.effort !== undefined,
   sandbox: (h) => h.turnOptions.sandbox !== undefined,
   discovery: () => true,

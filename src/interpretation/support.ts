@@ -53,6 +53,7 @@ const spellingOf = (h: HarnessDescriptor, option: RefusalOption): string | null 
       return h.autonomy?.flag ?? null;
     case "effort":
     case "sandbox":
+    case "contextWindow":
     case "provider":
     case "write":
     case "shell":
@@ -125,6 +126,7 @@ export const recognizeNativeSpelling = (
     "autonomy",
     "effort",
     "sandbox",
+    "contextWindow",
     "provider",
     "write",
     "shell",

@@ -156,6 +156,7 @@ export const parseTurnOptions = (values: Record<string, unknown>): ParsedTurnOpt
   if (values.model !== undefined) opts.model = values.model;
   if (values.effort !== undefined) opts.effort = values.effort;
   if (values.sandbox !== undefined) opts.sandbox = values.sandbox;
+  if (values["context-window"] !== undefined) opts.contextWindow = Number(values["context-window"]);
   if (values.provider !== undefined) opts.provider = values.provider;
   if (values.tools !== undefined) {
     const raw = String(values.tools);
@@ -298,6 +299,7 @@ const KNOWN_FLAGS = new Set([
   "--model",
   "--effort",
   "--sandbox",
+  "--context-window",
   "--provider",
   "--tools",
   "--exclude-tools",
@@ -337,6 +339,7 @@ const FLAGS_WITH_VALUE = new Set([
   "--model",
   "--effort",
   "--sandbox",
+  "--context-window",
   "--provider",
   "--tools",
   "--exclude-tools",
@@ -452,6 +455,7 @@ export const parseCommonFlags = (
       model: { type: "string" as const },
       effort: { type: "string" as const },
       sandbox: { type: "string" as const },
+      "context-window": { type: "string" as const },
       provider: { type: "string" as const },
       tools: { type: "string" as const },
       "exclude-tools": { type: "string" as const },

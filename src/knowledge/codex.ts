@@ -108,6 +108,14 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     observedOn: { harness: "codex", model: "", version: "0.146.1", date: "2026-08-19" },
   },
   turnOptions: {
+    // Codex config reference; accepted as an integer on CLI 0.153.4.
+    // Native compaction uses this window; hcn does not count request tokens.
+    contextWindow: {
+      kind: "integer",
+      min: 1,
+      max: 272000,
+      render: { kind: "config-kv", flag: "-c", key: "model_context_window" },
+    },
     effort: {
       kind: "effort",
       render: { kind: "config-kv", flag: "-c", key: "model_reasoning_effort" },

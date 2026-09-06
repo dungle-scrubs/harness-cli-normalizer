@@ -25,6 +25,7 @@ import { defaultDescriptors } from "../knowledge/overrides.js";
 import type { DiscoveryOptions, TurnOptions } from "./argv.js";
 import { hintFor } from "./hints.js";
 import { ArgvRefusalError } from "./refusal.js";
+import { supportedBy } from "./support.js";
 import { renderToolSelection } from "./tool-selection.js";
 import { canonicalTable, hasCounterpart, READ_PRESET } from "./tool-vocabulary.js";
 import { CLEAN_SELECTOR, resolveModel, validateAccess, validateEffort } from "./vocabulary.js";
@@ -239,6 +240,7 @@ export const renderTurnOptions = (
         harness: h.name,
         option: key,
         supported: Object.keys(h.turnOptions).length ? Object.keys(h.turnOptions) : ["(none)"],
+        supportedBy: supportedBy(defaultDescriptors(), key),
         detail: String(raw),
         hint: hintFor(h.name, key),
       });
@@ -279,13 +281,14 @@ export const renderTurnOptions = (
       spec.render.kind === "config-kv" &&
       spec.kind !== "enum" &&
       spec.kind !== "effort" &&
+      spec.kind !== "integer" &&
       spec.kind !== "prompt-text"
     ) {
       throw new ArgvRefusalError({
         issue: "invalid-option-value",
         harness: h.name,
         option: key,
-        supported: ["config-kv only for enum, effort, and prompt-text (issue #48)"],
+        supported: ["config-kv only for enum, effort, integer, and prompt-text"],
       });
     }
 
@@ -424,7 +427,7 @@ export const renderTurnOptions = (
             detail: String(raw),
           });
         }
-        sequences.push([...tokensFor(render, String(raw))]);
+        sequences.push([...tokensFor(render, String(raw), "verbatim")]);
         break;
       }
       default: {

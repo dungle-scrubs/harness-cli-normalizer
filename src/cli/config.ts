@@ -69,6 +69,7 @@ const KNOWN_KEYS = new Set([
   "model",
   "provider",
   "sandbox",
+  "contextWindow",
   "tools",
   "excludeTools",
   "autonomy",
