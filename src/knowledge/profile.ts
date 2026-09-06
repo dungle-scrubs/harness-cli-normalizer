@@ -19,6 +19,7 @@ export const DEFAULT_TURN_PROFILE = deepFreeze({
   // profile tier. On the other three the dimension is unrenderable and
   // reports as divergence.
   sandbox: "workspace-write",
+  contextWindow: 272000,
   // Ratified: discovery fully ON. The harnesses' bare runs already
   // discover instruction files, skills, and extensions; the profile makes
   // that a stated contract. The off-spellings exist per harness

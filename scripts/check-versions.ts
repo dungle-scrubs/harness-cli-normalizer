@@ -1,9 +1,9 @@
 /**
  * Harness-update detector (the free, no-inference half of the pipeline):
  * for each descriptor, compare `verifiedAgainst` to the latest PUBLISHED
- * version and report drift. npm sources are a pure registry fetch
- * (credential-free, CI-friendly); `installed` sources (muse) fall back to
- * the local `<bin> --version` and are skipped where the CLI is absent.
+ * version and report drift. The registry fetch and the installed-version
+ * probe are the CLI check command's (src/cli/check.ts); this script adds
+ * the local installed-vs-verified drift row and the exit gate.
  *
  *   bun run check:versions          # table + exit 1 if any harness is behind
  *   bun run check:versions --json   # machine output for CI to open an issue
@@ -14,7 +14,7 @@
  * An "installed-mismatch" drift row means the locally installed CLI
  * version differs from verifiedAgainst - not a CI gate, but local signal.
  */
-import { execFileSync } from "node:child_process";
+import { installedVersion, resolveLatest } from "../src/cli/check.js";
 import { type VersionStatus, versionStatus } from "../src/interpretation/versions.js";
 import type { HarnessDescriptor } from "../src/knowledge/descriptor.js";
 import { defaultDescriptors } from "../src/knowledge/overrides.js";
@@ -28,45 +28,6 @@ interface Row {
   status: VersionStatus;
   installed: string | null;
 }
-
-const npmLatest = async (pkg: string): Promise<string | null> => {
-  try {
-    // The packument (not the /latest tag endpoint, which does not route for
-    // scoped names); the abbreviated form still carries dist-tags.
-    const res = await fetch(`https://registry.npmjs.org/${pkg}`, {
-      headers: { accept: "application/vnd.npm.install-v1+json" },
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!res.ok) return null;
-    const body = (await res.json()) as { "dist-tags"?: { latest?: unknown } };
-    const latest = body["dist-tags"]?.latest;
-    return typeof latest === "string" ? latest : null;
-  } catch {
-    return null;
-  }
-};
-
-const installedVersion = (bin: string): string | null => {
-  try {
-    const out = execFileSync(bin, ["--version"], { encoding: "utf8", timeout: 10_000 });
-    const match = out.match(/\d+\.\d+\.\d+(?:[.\-+][0-9A-Za-z.-]+)?/);
-    return match ? match[0] : null;
-  } catch {
-    return null;
-  }
-};
-
-const resolveLatest = async (
-  h: HarnessDescriptor,
-): Promise<{ latest: string | null; source: string }> => {
-  if (h.versionSource.kind === "npm") {
-    return {
-      latest: await npmLatest(h.versionSource.package),
-      source: `npm:${h.versionSource.package}`,
-    };
-  }
-  return { latest: installedVersion(h.bin), source: `installed:${h.bin}` };
-};
 
 const descriptors = Object.values(defaultDescriptors()).filter(
   (d): d is HarnessDescriptor => d !== undefined,

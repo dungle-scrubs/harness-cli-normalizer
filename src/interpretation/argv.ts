@@ -4,24 +4,46 @@
  * prompt before tool grants) and the spawn-boundary refusals live here so
  * no caller re-derives them.
  */
-import type { HarnessDescriptor, StreamingGranularity } from "../knowledge/descriptor.js";
+import type {
+  AccessValue,
+  HarnessDescriptor,
+  StreamingGranularity,
+} from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { ArgvRefusalError } from "./refusal.js";
 import { assertUsableSessionId, SESSION_ID_MAX, SessionIdRefusalError } from "./session-id.js";
-import { renderSkillsSelection } from "./skills-selection.js";
+import { renderSkillsSelection, type SkillsSelection } from "./skills-selection.js";
 import { supportedBy } from "./support.js";
 import { renderToolSelection } from "./tool-selection.js";
+import type { ToolMap } from "./tool-vocabulary.js";
 import { renderTurnOptions } from "./turn-options.js";
 import { validateModel } from "./vocabulary.js";
 
 export type { RefusalIssue } from "./refusal.js";
 export { ArgvRefusalError, buildRefusalMessage, REFUSAL_ISSUES } from "./refusal.js";
 
-/** One guard for every builder that places a positional prompt. Selector
+/** A prompt carries its own provenance (RFC-02 change 13): a plain string
+ * is an implicit, positional prompt; the object form came from an explicit
+ * flag or file, so a leading dash is the caller's intent, not a flag. */
+export type Prompt = string | { readonly text: string; readonly explicit: boolean };
+
+/** The one accessor for the prompt's text, for builders, the runner, and
+ * redaction alike. */
+export const promptTextOf = (opts: { readonly prompt: Prompt }): string =>
+  typeof opts.prompt === "string" ? opts.prompt : opts.prompt.text;
+
+/** The same prompt with new text: the composed form keeps its provenance. */
+export const withPromptText = (prompt: Prompt, text: string): Prompt =>
+  typeof prompt === "string" ? text : { ...prompt, text };
+
+/** One guard for every builder that places a positional prompt: an
+ * implicit prompt may not start with '-' (it would be parsed as a flag),
+ * while an explicit one - `hcn run --prompt "-bad"` - passes. Selector
  * hygiene (session ids) lives in session-id.ts; model selectors go through
  * validateModel - both refuse, never sanitize. */
-const assertCleanPrompt = (h: HarnessDescriptor, prompt: string): void => {
-  if (prompt.startsWith("-")) {
+const assertCleanPrompt = (h: HarnessDescriptor, prompt: Prompt): void => {
+  if (typeof prompt !== "string" && prompt.explicit) return;
+  if (promptTextOf({ prompt }).startsWith("-")) {
     throw new ArgvRefusalError({
       issue: "prompt-flag-injection",
       harness: h.name,
@@ -29,19 +51,6 @@ const assertCleanPrompt = (h: HarnessDescriptor, prompt: string): void => {
       detail: `it would be parsed as a flag by ${h.bin}`,
     });
   }
-};
-
-/**
- * Variant that allows a leading '-' when the caller explicitly opted in via
- * --prompt / --prompt-file. The positional guard still applies for implicit
- * positional prompts, but an explicit opt-in bypasses it so `hcn run --prompt "-bad"`
- * succeeds while `hcn run "-bad"` refuses. The caller must set
- * `__explicitPrompt: true` on the options object when the prompt came from an
- * explicit flag.
- */
-const assertCleanPromptMaybe = (h: HarnessDescriptor, prompt: string, explicit?: boolean): void => {
-  if (explicit) return;
-  assertCleanPrompt(h, prompt);
 };
 
 export interface DiscoveryOptions {
@@ -52,18 +61,19 @@ export interface DiscoveryOptions {
 }
 
 export interface TurnOptions {
-  readonly prompt: string;
+  readonly prompt: Prompt;
   readonly tools?: readonly string[];
   readonly excludeTools?: readonly string[];
-  /** Caller-directed skills allowlist: resolved absolute paths, one per
-   * skill. Rendering: pi loads each via --skill with discovery off;
-   * claude turns off the complement via skillOverrides settings; codex
-   * and muse refuse (structural - no per-skill surface). */
-  readonly skills?: readonly string[];
+  /** Caller-directed skills allowlist: the resolved picks and the
+   * registry's known names. Rendered per descriptor by
+   * renderSkillsSelection (pi loads each pick with discovery off; claude
+   * and codex turn the complement off); muse refuses. */
+  readonly skills?: SkillsSelection;
   readonly model?: string;
   readonly autonomy?: boolean;
   readonly effort?: string;
   readonly sandbox?: string;
+  readonly contextWindow?: number;
   readonly provider?: string;
   readonly discovery?: DiscoveryOptions;
   readonly write?: boolean;
@@ -81,11 +91,10 @@ export interface TurnOptions {
    * harness argv; the CLI layer turns it into the prompt preamble and
    * arms question-block detection. Undefined means the default: "ask". */
   readonly questions?: import("./question.js").QuestionMode;
-  /** Internal: set by CLI when prompt came from --prompt/--prompt-file to bypass leading '-' guard */
-  readonly __explicitPrompt?: boolean;
-  /** toolMap extensible vocabulary per harness (issue toolMap) */
-  readonly toolMap?: Readonly<Record<string, Readonly<Record<string, string>>>>;
-  readonly access?: "read" | "write";
+  /** The merged toolMap (every harness, native plus tier), the one shape
+   * past option resolution (RFC-02 change 8). */
+  readonly toolMap?: ToolMap;
+  readonly access?: AccessValue;
 }
 
 export interface ResumeOptions extends TurnOptions {
@@ -98,8 +107,8 @@ export type LaunchOptions = TurnOptions;
  * validated selections, with the variadic tools flag LAST and fed exactly
  * one joined token so nothing after it can be swallowed as a tool name. */
 const turnTail = (h: HarnessDescriptor, opts: TurnOptions): string[] => {
-  assertCleanPromptMaybe(h, opts.prompt, opts.__explicitPrompt);
-  const tail = [opts.prompt, ...h.launch.streamFlags];
+  assertCleanPrompt(h, opts.prompt);
+  const tail = [promptTextOf(opts), ...h.launch.streamFlags];
   if (opts.model !== undefined) {
     const validated = validateModel(h, opts.model);
     if (!validated.ok) {
@@ -127,15 +136,14 @@ const turnTail = (h: HarnessDescriptor, opts: TurnOptions): string[] => {
     tail.push(h.autonomy.flag);
   }
   if (opts.tools !== undefined || opts.excludeTools !== undefined) {
-    const perHarnessMap = opts.toolMap?.[h.name];
     const rendered = renderToolSelection(h, {
       include: opts.tools,
       exclude: opts.excludeTools,
-      toolMap: perHarnessMap,
+      toolMap: opts.toolMap,
     });
     tail.push(...rendered.tokens);
   }
-  if (opts.skills !== undefined && opts.skills.length > 0) {
+  if (opts.skills !== undefined) {
     tail.push(...renderSkillsSelection(h, opts.skills));
   }
   return tail;
@@ -184,6 +192,26 @@ export const buildResumeArgv = (h: HarnessDescriptor, opts: ResumeOptions): stri
     ...renderTurnOptions(h, opts, "resume"),
     ...turnTail(h, opts),
   ];
+};
+
+/** What a spawn needs beyond the turn options: the session to resume, if
+ * any, and the raw passthrough tail (ADR 0003). */
+export interface SpawnArgvOptions extends TurnOptions {
+  readonly resume?: string;
+  readonly passthrough?: readonly string[];
+}
+
+/** The argv a turn spawns: launch or resume per `resume`, then the
+ * passthrough tail after a bare separator. One owner, so the CLI's preview
+ * and the runner's spawn agree by construction (RFC-02 change 10). */
+export const buildSpawnArgv = (h: HarnessDescriptor, opts: SpawnArgvOptions): string[] => {
+  const base =
+    opts.resume === undefined
+      ? buildLaunchArgv(h, opts)
+      : buildResumeArgv(h, { ...opts, sessionId: opts.resume });
+  return opts.passthrough !== undefined && opts.passthrough.length > 0
+    ? [...base, "--", ...opts.passthrough]
+    : base;
 };
 
 export interface SessionOptions {

@@ -27,7 +27,6 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     baseFlags: ["-p"],
     subcommands: [],
     promptStyle: "positional",
-    toolsFlag: "--allowedTools",
     // A headless turn launches with the full stream-json output set so the
     // runner can decode identity/limits and stream token deltas; bare -p
     // (granularity none) is a degraded invocation this builder never emits.
@@ -198,7 +197,9 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
         },
       },
     },
-    access: { kind: "tool-preset", render: { kind: "flag-value", flag: "--allowedTools" } },
+    // read renders the read preset through the tool list (grant plus deny
+    // complement); write is the harness default and emits nothing.
+    access: { kind: "access", renders: { read: "tool-preset", write: null } },
   },
   // Phase 0 fixtures: claude-tool-interplay.md. include is a permission
   // grant (Bash, Edit stay visible under --allowedTools Read); only the
@@ -211,7 +212,6 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     includeFlag: "--allowedTools",
     excludeFlag: "--disallowedTools",
     includeIsStrictAllowlist: false,
-    composable: true,
     builtins: [
       { name: "Bash", defaultEnabled: true, canonical: "shell" },
       { name: "Edit", defaultEnabled: true, canonical: "edit" },

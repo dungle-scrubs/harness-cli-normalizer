@@ -32,7 +32,26 @@ const HARNESS_EVENT_KINDS = [
   "done",
 ] as const;
 
+/** The `hcn session --json` surface (ADR 0006, ADR 0007): the send
+ * dispositions and the four control event kinds that frame the stream. */
+const SESSION_DISPOSITIONS = ["started", "rejected"] as const;
+const SESSION_EVENT_KINDS = ["session", "turn", "disposition", "closed"] as const;
+
 describe("README contract", () => {
+  it("lists every session disposition and no removed one", () => {
+    for (const disposition of SESSION_DISPOSITIONS) {
+      expect(readme, `README missing disposition "${disposition}"`).toContain(`\`${disposition}\``);
+    }
+    // ADR 0007 removed hcn's own send queue; the disposition went with it.
+    expect(readme, "README documents the removed queued disposition").not.toMatch(/`queued`/);
+  });
+
+  it("lists every session control event kind", () => {
+    for (const kind of SESSION_EVENT_KINDS) {
+      expect(readme, `README missing session event kind "${kind}"`).toContain(`\`${kind}\``);
+    }
+  });
+
   it("lists every FailureClass", () => {
     for (const cls of FAILURE_CLASSES) {
       expect(readme, `README missing FailureClass "${cls}"`).toContain(`"${cls}"`);

@@ -24,7 +24,6 @@ export const museCode: HarnessDescriptor = deepFreeze({
     baseFlags: ["exec", "--json"],
     subcommands: ["exec"],
     promptStyle: "positional",
-    toolsFlag: null,
     streamFlags: [],
     idFlag: "--session-id",
   },
@@ -116,10 +115,14 @@ export const museCode: HarnessDescriptor = deepFreeze({
       max: 10000,
       render: { kind: "flag-value", flag: "--max-model-steps" },
     },
+    // read gates the write and shell categories; write is the harness
+    // default and emits nothing.
     access: {
-      kind: "flag-list-by-value",
-      flags: { read: ["--disable-write", "--disable-shell"], write: [] },
-      render: { kind: "flag-list", flags: ["--disable-write", "--disable-shell"] },
+      kind: "access",
+      renders: {
+        read: { render: { kind: "flag-list", flags: ["--disable-write", "--disable-shell"] } },
+        write: null,
+      },
     },
   },
   // Phase 0 fixtures: muse-category-flags.md. No name lists; category
@@ -133,7 +136,6 @@ export const museCode: HarnessDescriptor = deepFreeze({
     includeFlag: null,
     excludeFlag: null,
     includeIsStrictAllowlist: false,
-    composable: false,
     builtins: [],
     categories: [
       {

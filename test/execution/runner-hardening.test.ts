@@ -2,12 +2,8 @@ import { describe, expect, test, vi } from "vitest";
 import { AsyncChannel } from "../../src/execution/channel.js";
 import type { HarnessEvent } from "../../src/execution/events.js";
 import { LINE_MAX, LineBuffer } from "../../src/execution/lines.js";
-import {
-  KILL_GRACE_MS,
-  PIPE_GRACE_MS,
-  redactArgv,
-  streamTurn,
-} from "../../src/execution/stream-turn.js";
+import { PIPE_GRACE_MS, redactArgv, streamTurn } from "../../src/execution/stream-turn.js";
+import { KILL_GRACE_MS } from "../../src/execution/supervisor.js";
 import { buildResumeArgv } from "../../src/interpretation/argv.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { museCode } from "../../src/knowledge/muse.js";

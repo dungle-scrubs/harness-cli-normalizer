@@ -235,7 +235,7 @@ describe("toolMap extensible vocabulary", () => {
   it("with toolMap web-search on pi renders web_search", () => {
     const { tokens } = renderToolSelection(piCli, {
       include: ["web-search"],
-      toolMap: { "web-search": "web_search" },
+      toolMap: { pi: { "web-search": { native: "web_search", tier: "user-config" } } },
     });
     expect(tokens).toEqual(["--tools", "web_search"]);
   });
@@ -262,7 +262,7 @@ describe("toolMap extensible vocabulary", () => {
   it("shadowing entry wins over descriptor", () => {
     const { tokens } = renderToolSelection(piCli, {
       include: ["read"],
-      toolMap: { read: "my_read" },
+      toolMap: { pi: { read: { native: "my_read", tier: "user-config" } } },
     });
     expect(tokens).toEqual(["--tools", "my_read"]);
   });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canonicalNames,
-  canonicalToolTable,
+  canonicalTable,
   mergeToolMaps,
 } from "../../src/interpretation/tool-vocabulary.js";
 import { defaultDescriptors } from "../../src/knowledge/overrides.js";
@@ -25,7 +25,7 @@ describe("tool vocabulary", () => {
   });
 
   it("table built from defaultDescriptors equals spec table per harness", () => {
-    const table = canonicalToolTable(defaultDescriptors());
+    const table = canonicalTable(defaultDescriptors());
     const expectEntry = (canonical: string, expected: Record<string, unknown>) => {
       const entry = table[canonical] as Record<string, unknown>;
       expect(entry, `missing canonical ${canonical}`).toBeDefined();

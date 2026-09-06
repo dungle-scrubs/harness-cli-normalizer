@@ -6,10 +6,10 @@
  * stay-on-harness suggestion first. Wording is locked verbatim; unit tests
  * pin every string.
  */
-import type { HarnessDescriptor } from "../knowledge/descriptor.js";
+import { deepFreeze, type HarnessDescriptor } from "../knowledge/descriptor.js";
 import type { RefusalOption } from "./refusal.js";
 
-const HINTS: Readonly<Record<string, Readonly<Record<string, string>>>> = deepFreezeSafe({
+const HINTS: Readonly<Record<string, Readonly<Record<string, string>>>> = deepFreeze({
   claude: {
     sandbox:
       "claude has no sandbox modes; approximate with a per-tool allowlist (--tools Read,Bash) or --disallowedTools to keep tools out, and run untrusted work in a disposable directory or container",
@@ -83,16 +83,6 @@ const HINTS: Readonly<Record<string, Readonly<Record<string, string>>>> = deepFr
       "muse has no system-prompt surface; its built-in prompt always applies - there is no replacement or append spelling (structural: nothing to approximate with)",
   },
 });
-
-/** deepFreeze without importing the descriptor's (which carries extra
- * machinery); structure is plain JSON so Object.freeze all the way down. */
-function deepFreezeSafe<T>(value: T): T {
-  if (typeof value === "object" && value !== null) {
-    for (const v of Object.values(value as Record<string, unknown>)) deepFreezeSafe(v);
-    Object.freeze(value);
-  }
-  return value;
-}
 
 /** The confirmed hint for a refused option on a harness, or undefined. */
 export const hintFor = (harness: string, option: RefusalOption): string | undefined =>
