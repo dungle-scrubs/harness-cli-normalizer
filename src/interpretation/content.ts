@@ -11,7 +11,7 @@
  * identity decoding uses.)
  */
 import type { HarnessName, LimitCode } from "../knowledge/descriptor.js";
-import { asRecord } from "./shape.js";
+import { asRecord, readPath as at } from "./shape.js";
 
 export type ContentEvent =
   | { readonly kind: "token"; readonly text: string }
@@ -42,16 +42,6 @@ const textOfBlocks = (content: unknown): string =>
         .map((b) => (typeof b.text === "string" ? b.text : ""))
         .join("")
     : "";
-
-const at = (record: Record<string, unknown>, path: string): unknown => {
-  let cursor: unknown = record;
-  for (const seg of path.split(".")) {
-    const inner = asRecord(cursor);
-    if (inner === null) return undefined;
-    cursor = inner[seg];
-  }
-  return cursor;
-};
 
 const claude = (r: Record<string, unknown>): ContentEvent[] => {
   const events: ContentEvent[] = [];
@@ -85,16 +75,16 @@ const claude = (r: Record<string, unknown>): ContentEvent[] => {
     const sub = typeof r.subtype === "string" ? r.subtype : "result error";
     events.push({ kind: "error", message: `turn failed: ${sub}`, terminal: true });
   } else if (r.type === "rate_limit_event") {
-    // Only non-"allowed" statuses are limits. overageStatus is deliberately
-    // not classified - it is a separate billing signal, not a rate limit.
+    // Only "rejected" is a limit; "allowed_warning" still serves the request.
+    // overageStatus is a separate billing signal, not a rate limit.
     // resetsAt arrives in seconds; the event carries milliseconds. No wall
     // clock is read.
     const info = asRecord(r.rate_limit_info);
     const status = info?.status;
-    if (status !== undefined && status !== "allowed") {
+    if (status === "rejected") {
       const raw = info?.resetsAt;
-      const resetsAt =
-        typeof raw === "number" && Number.isFinite(raw) && raw > 0 ? raw * 1000 : undefined;
+      const milliseconds = typeof raw === "number" ? raw * 1000 : Number.NaN;
+      const resetsAt = Number.isFinite(milliseconds) && milliseconds > 0 ? milliseconds : undefined;
       events.push({
         kind: "limit",
         code: "rate-limit",

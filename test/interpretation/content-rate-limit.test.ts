@@ -17,12 +17,14 @@ const event = (status: string, resetsAt?: number) => ({
 });
 
 describe("claude rate_limit_event in the content reader", () => {
-  test("a non-allowed status is a limit event with the reset time in milliseconds", () => {
-    expect(contentEventsOf("claude", event("limited", 1_700_000_000))).toEqual([
+  // The status union is closed in the Agent SDK's SDKRateLimitEvent type:
+  // "allowed" | "allowed_warning" | "rejected". Only rejection is a limit.
+  test("a rejected status is a limit event with the reset time in milliseconds", () => {
+    expect(contentEventsOf("claude", event("rejected", 1_700_000_000))).toEqual([
       {
         kind: "limit",
         code: "rate-limit",
-        detail: "rate_limit_event status=limited",
+        detail: "rate_limit_event status=rejected",
         resetsAt: 1_700_000_000_000,
       },
     ]);
@@ -32,19 +34,32 @@ describe("claude rate_limit_event in the content reader", () => {
     expect(contentEventsOf("claude", event("allowed"))).toEqual([]);
   });
 
+  test("allowed_warning (past a usage threshold, request still served) is not a limit", () => {
+    // Observed live on claude 2.1.263 (2026-09-06): a clean one-word turn
+    // carried status=allowed_warning and hcn reported it failed. The
+    // request was served; a warning must never fail the turn.
+    expect(contentEventsOf("claude", event("allowed_warning", 1_788_682_200))).toEqual([]);
+  });
+
   test("a non-finite or absent reset time is left out, never a broken number", () => {
-    expect(contentEventsOf("claude", event("limited"))).toEqual([
-      { kind: "limit", code: "rate-limit", detail: "rate_limit_event status=limited" },
+    expect(contentEventsOf("claude", event("rejected"))).toEqual([
+      { kind: "limit", code: "rate-limit", detail: "rate_limit_event status=rejected" },
     ]);
-    expect(contentEventsOf("claude", event("limited", -5))).toEqual([
-      { kind: "limit", code: "rate-limit", detail: "rate_limit_event status=limited" },
+    expect(contentEventsOf("claude", event("rejected", -5))).toEqual([
+      { kind: "limit", code: "rate-limit", detail: "rate_limit_event status=rejected" },
+    ]);
+  });
+
+  test("reset time conversion cannot overflow to Infinity", () => {
+    expect(contentEventsOf("claude", event("rejected", Number.MAX_VALUE))).toEqual([
+      { kind: "limit", code: "rate-limit", detail: "rate_limit_event status=rejected" },
     ]);
   });
 
   test("the stream decoder still yields the same failure event, reset time included", () => {
     const events = decodeParsed(
       claudeCode,
-      event("limited", 1_700_000_000),
+      event("rejected", 1_700_000_000),
       freshDecodeState(),
       "",
     );
@@ -54,7 +69,7 @@ describe("claude rate_limit_event in the content reader", () => {
         class: "rate-limit",
         retryable: true,
         message:
-          "Rate limit hit (rate_limit_event status=limited) - retry after backoff or route to another provider",
+          "Rate limit hit (rate_limit_event status=rejected) - retry after backoff or route to another provider",
         code: "rate-limit",
         resetsAt: 1_700_000_000_000,
       },

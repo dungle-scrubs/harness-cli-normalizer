@@ -11,7 +11,7 @@ import type {
   SessionInputKind,
 } from "../knowledge/descriptor.js";
 import { SESSION_INPUT_KINDS } from "../knowledge/descriptor.js";
-import { asRecord } from "./shape.js";
+import { asRecord, readPath } from "./shape.js";
 
 export type SessionInputIssue = "missing-session-input-contract" | "unsupported-session-input-kind";
 
@@ -88,16 +88,6 @@ export type SessionRecord =
   | { readonly kind: "turn-end"; readonly isError: boolean }
   /** Anything else: content for the stream decoder. */
   | { readonly kind: "content" };
-
-const readPath = (record: Record<string, unknown>, path: string): unknown => {
-  let cursor: unknown = record;
-  for (const segment of path.split(".")) {
-    const inner = asRecord(cursor);
-    if (inner === null) return undefined;
-    cursor = inner[segment];
-  }
-  return cursor;
-};
 
 const matchesTurnEnd = (
   record: Record<string, unknown>,
