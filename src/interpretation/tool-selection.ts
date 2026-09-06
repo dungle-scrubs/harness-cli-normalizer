@@ -114,10 +114,12 @@ export const renderToolSelection = (
     return { canonical, passthrough };
   };
 
-  const isCodexShape = h.tools.includeFlag === null && h.tools.categories.length === 0;
-  const isCategoryShape = h.tools.includeFlag === null && h.tools.categories.length > 0;
+  // The descriptor says how a deny lands (RFC-02 change 7): no lists at
+  // all (codex), a policy gate over category switches (muse), or removal
+  // from the name list (claude, pi). Nothing here re-derives that shape.
+  const semantics = h.tools.denySemantics;
 
-  if (isCodexShape) {
+  if (semantics === "no-lists") {
     throw new ArgvRefusalError({
       issue: "unsupported-option",
       harness: h.name,
@@ -129,7 +131,7 @@ export const renderToolSelection = (
         "nearest control on codex: category switches via config keys (features.shell_tool, web_search) or sandbox modes - see `hcn inspect codex`",
     });
   }
-  if (isCategoryShape) {
+  if (semantics === "policy-gate") {
     const names = hasInclude ? selection.include! : selection.exclude!;
     const { canonical, passthrough } = splitSelection(names);
 
@@ -181,7 +183,7 @@ export const renderToolSelection = (
     return { tokens, passthrough };
   }
 
-  // From here: h has list flags (claude, pi)
+  // From here: remove-from-set, the harness has name-list flags (claude, pi)
   if (hasInclude) {
     const names = selection.include!;
     if (names.length === 0) {

@@ -758,11 +758,11 @@
           "supportedBy": [
             {
               "harness": "claude",
-              "spelling": "Read"
+              "spelling": "--allowedTools"
             },
             {
               "harness": "pi",
-              "spelling": "read"
+              "spelling": "--tools"
             }
           ],
           "hint": "codex has no per-tool name lists; use --sandbox read-only for a read-only grant or category switches via config keys (features.shell_tool, web_search)",
@@ -780,11 +780,11 @@
           "supportedBy": [
             {
               "harness": "claude",
-              "spelling": "Read"
+              "spelling": "--allowedTools"
             },
             {
               "harness": "pi",
-              "spelling": "read"
+              "spelling": "--tools"
             }
           ],
           "hint": "codex has no per-tool name lists; use --sandbox read-only for a read-only grant or category switches via config keys (features.shell_tool, web_search)",
@@ -792,15 +792,26 @@
         }
       },
       "tools-include-empty": {
-        "argv": [
-          "codex",
-          "exec",
-          "--json",
-          "--skip-git-repo-check",
-          "--sandbox",
-          "workspace-write",
-          "hi"
-        ]
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "codex",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--allowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--tools"
+            }
+          ],
+          "hint": "codex has no per-tool name lists; use --sandbox read-only for a read-only grant or category switches via config keys (features.shell_tool, web_search)",
+          "message": "codex cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
       },
       "tools-exclude": {
         "refusal": {
@@ -813,15 +824,11 @@
           "supportedBy": [
             {
               "harness": "claude",
-              "spelling": "Bash"
+              "spelling": "--disallowedTools"
             },
             {
               "harness": "pi",
-              "spelling": "bash"
-            },
-            {
-              "harness": "muse",
-              "spelling": "shell"
+              "spelling": "--exclude-tools"
             }
           ],
           "hint": "codex has no per-tool name lists; use category switches via config keys (features.shell_tool) or --sandbox modes",
@@ -829,15 +836,26 @@
         }
       },
       "tools-exclude-native": {
-        "argv": [
-          "codex",
-          "exec",
-          "--json",
-          "--skip-git-repo-check",
-          "--sandbox",
-          "workspace-write",
-          "hi"
-        ]
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "codex",
+          "option": "excludeTools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--disallowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--exclude-tools"
+            }
+          ],
+          "hint": "codex has no per-tool name lists; use category switches via config keys (features.shell_tool) or --sandbox modes",
+          "message": "codex cannot express option \"excludeTools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
       },
       "tools-both": {
         "refusal": {
@@ -861,11 +879,11 @@
           "supportedBy": [
             {
               "harness": "claude",
-              "spelling": "WebSearch"
+              "spelling": "--allowedTools"
             },
             {
-              "harness": "muse",
-              "spelling": "web"
+              "harness": "pi",
+              "spelling": "--tools"
             }
           ],
           "hint": "codex has no per-tool name lists; use --sandbox read-only for a read-only grant or category switches via config keys (features.shell_tool, web_search)",
@@ -874,24 +892,24 @@
       },
       "tools-unknown-name": {
         "refusal": {
-          "issue": "unknown-tool-name",
+          "issue": "unsupported-option",
           "harness": "codex",
           "option": "tools",
           "supported": [
-            "edit",
-            "glob",
-            "grep",
-            "list",
-            "read",
-            "shell",
-            "skill",
-            "subagent",
-            "web-fetch",
-            "web-search",
-            "write"
+            "per-tool name lists"
           ],
-          "hint": "use native:<name> for an extension or MCP tool",
-          "message": "codex cannot compute a tool complement around an unknown name (unknown tool name(s) frobnicate); supported: edit, glob, grep, list, read, shell, skill, subagent, web-fetch, web-search, write - exclude only curated names, or pass the unknown name through an include list instead"
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--allowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--tools"
+            }
+          ],
+          "hint": "codex has no per-tool name lists; use --sandbox read-only for a read-only grant or category switches via config keys (features.shell_tool, web_search)",
+          "message": "codex cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
         }
       },
       "skills-pick": {
@@ -2591,11 +2609,11 @@
           "supportedBy": [
             {
               "harness": "claude",
-              "spelling": "Read"
+              "spelling": "--allowedTools"
             },
             {
               "harness": "pi",
-              "spelling": "read"
+              "spelling": "--tools"
             }
           ],
           "hint": "codex has no per-tool name lists; use --sandbox read-only for a read-only grant or category switches via config keys (features.shell_tool, web_search)",
@@ -2613,11 +2631,11 @@
           "supportedBy": [
             {
               "harness": "claude",
-              "spelling": "Read"
+              "spelling": "--allowedTools"
             },
             {
               "harness": "pi",
-              "spelling": "read"
+              "spelling": "--tools"
             }
           ],
           "hint": "codex has no per-tool name lists; use --sandbox read-only for a read-only grant or category switches via config keys (features.shell_tool, web_search)",
@@ -2625,15 +2643,26 @@
         }
       },
       "tools-include-empty": {
-        "argv": [
-          "codex",
-          "exec",
-          "resume",
-          "0199a4c5-1111-2222-3333-444455556666",
-          "--json",
-          "--skip-git-repo-check",
-          "hi"
-        ]
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "codex",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--allowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--tools"
+            }
+          ],
+          "hint": "codex has no per-tool name lists; use --sandbox read-only for a read-only grant or category switches via config keys (features.shell_tool, web_search)",
+          "message": "codex cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
       },
       "tools-exclude": {
         "refusal": {
@@ -2646,15 +2675,11 @@
           "supportedBy": [
             {
               "harness": "claude",
-              "spelling": "Bash"
+              "spelling": "--disallowedTools"
             },
             {
               "harness": "pi",
-              "spelling": "bash"
-            },
-            {
-              "harness": "muse",
-              "spelling": "shell"
+              "spelling": "--exclude-tools"
             }
           ],
           "hint": "codex has no per-tool name lists; use category switches via config keys (features.shell_tool) or --sandbox modes",
@@ -2662,15 +2687,26 @@
         }
       },
       "tools-exclude-native": {
-        "argv": [
-          "codex",
-          "exec",
-          "resume",
-          "0199a4c5-1111-2222-3333-444455556666",
-          "--json",
-          "--skip-git-repo-check",
-          "hi"
-        ]
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "codex",
+          "option": "excludeTools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--disallowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--exclude-tools"
+            }
+          ],
+          "hint": "codex has no per-tool name lists; use category switches via config keys (features.shell_tool) or --sandbox modes",
+          "message": "codex cannot express option \"excludeTools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
       },
       "tools-both": {
         "refusal": {
@@ -2694,11 +2730,11 @@
           "supportedBy": [
             {
               "harness": "claude",
-              "spelling": "WebSearch"
+              "spelling": "--allowedTools"
             },
             {
-              "harness": "muse",
-              "spelling": "web"
+              "harness": "pi",
+              "spelling": "--tools"
             }
           ],
           "hint": "codex has no per-tool name lists; use --sandbox read-only for a read-only grant or category switches via config keys (features.shell_tool, web_search)",
@@ -2707,24 +2743,24 @@
       },
       "tools-unknown-name": {
         "refusal": {
-          "issue": "unknown-tool-name",
+          "issue": "unsupported-option",
           "harness": "codex",
           "option": "tools",
           "supported": [
-            "edit",
-            "glob",
-            "grep",
-            "list",
-            "read",
-            "shell",
-            "skill",
-            "subagent",
-            "web-fetch",
-            "web-search",
-            "write"
+            "per-tool name lists"
           ],
-          "hint": "use native:<name> for an extension or MCP tool",
-          "message": "codex cannot compute a tool complement around an unknown name (unknown tool name(s) frobnicate); supported: edit, glob, grep, list, read, shell, skill, subagent, web-fetch, web-search, write - exclude only curated names, or pass the unknown name through an include list instead"
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--allowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--tools"
+            }
+          ],
+          "hint": "codex has no per-tool name lists; use --sandbox read-only for a read-only grant or category switches via config keys (features.shell_tool, web_search)",
+          "message": "codex cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
         }
       },
       "skills-pick": {

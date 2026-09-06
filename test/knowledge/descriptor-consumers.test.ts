@@ -52,7 +52,6 @@ const fieldPaths = (value: unknown, prefix: string, depth: number, into: Set<str
  * the ticket that removes it; an entry that outlives its ticket is drift. */
 const PENDING: Readonly<Record<string, string>> = {
   "skills.overridesVia": "#124 skills rendering is descriptor-driven",
-  "tools.denySemantics": "#122 fix commit: codex tool-list refusals follow deny semantics",
 };
 
 describe("every descriptor field has a consumer outside the knowledge layer", () => {
