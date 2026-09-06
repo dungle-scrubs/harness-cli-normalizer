@@ -12,7 +12,10 @@ interface Row {
   status: VersionStatus;
 }
 
-const npmLatest = async (pkg: string): Promise<string | null> => {
+/** The latest published version of an npm package, or null when the
+ * registry cannot be reached. One owner; the version-check script imports
+ * it (RFC-02 change 12). */
+export const npmLatest = async (pkg: string): Promise<string | null> => {
   try {
     const res = await fetch(`https://registry.npmjs.org/${pkg}`, {
       headers: { accept: "application/vnd.npm.install-v1+json" },
@@ -27,7 +30,9 @@ const npmLatest = async (pkg: string): Promise<string | null> => {
   }
 };
 
-const installedVersion = (bin: string): string | null => {
+/** The locally installed CLI's version from `<bin> --version`, or null
+ * when the binary is absent or reports none. */
+export const installedVersion = (bin: string): string | null => {
   try {
     const out = execFileSync(bin, ["--version"], { encoding: "utf8", timeout: 10_000 });
     const match = out.match(/\d+\.\d+\.\d+(?:[.+-][0-9A-Za-z.-]+)?/);
@@ -37,7 +42,9 @@ const installedVersion = (bin: string): string | null => {
   }
 };
 
-const resolveLatest = async (
+/** Where a descriptor's latest version is found, per its versionSource:
+ * the npm registry, or the installed binary. */
+export const resolveLatest = async (
   h: HarnessDescriptor,
 ): Promise<{ latest: string | null; source: string }> => {
   if (h.versionSource.kind === "npm") {
