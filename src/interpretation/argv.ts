@@ -22,11 +22,28 @@ import { validateModel } from "./vocabulary.js";
 export type { RefusalIssue } from "./refusal.js";
 export { ArgvRefusalError, buildRefusalMessage, REFUSAL_ISSUES } from "./refusal.js";
 
-/** One guard for every builder that places a positional prompt. Selector
+/** A prompt carries its own provenance (RFC-02 change 13): a plain string
+ * is an implicit, positional prompt; the object form came from an explicit
+ * flag or file, so a leading dash is the caller's intent, not a flag. */
+export type Prompt = string | { readonly text: string; readonly explicit: boolean };
+
+/** The one accessor for the prompt's text, for builders, the runner, and
+ * redaction alike. */
+export const promptTextOf = (opts: { readonly prompt: Prompt }): string =>
+  typeof opts.prompt === "string" ? opts.prompt : opts.prompt.text;
+
+/** The same prompt with new text: the composed form keeps its provenance. */
+export const withPromptText = (prompt: Prompt, text: string): Prompt =>
+  typeof prompt === "string" ? text : { ...prompt, text };
+
+/** One guard for every builder that places a positional prompt: an
+ * implicit prompt may not start with '-' (it would be parsed as a flag),
+ * while an explicit one - `hcn run --prompt "-bad"` - passes. Selector
  * hygiene (session ids) lives in session-id.ts; model selectors go through
  * validateModel - both refuse, never sanitize. */
-const assertCleanPrompt = (h: HarnessDescriptor, prompt: string): void => {
-  if (prompt.startsWith("-")) {
+const assertCleanPrompt = (h: HarnessDescriptor, prompt: Prompt): void => {
+  if (typeof prompt !== "string" && prompt.explicit) return;
+  if (promptTextOf({ prompt }).startsWith("-")) {
     throw new ArgvRefusalError({
       issue: "prompt-flag-injection",
       harness: h.name,
@@ -34,19 +51,6 @@ const assertCleanPrompt = (h: HarnessDescriptor, prompt: string): void => {
       detail: `it would be parsed as a flag by ${h.bin}`,
     });
   }
-};
-
-/**
- * Variant that allows a leading '-' when the caller explicitly opted in via
- * --prompt / --prompt-file. The positional guard still applies for implicit
- * positional prompts, but an explicit opt-in bypasses it so `hcn run --prompt "-bad"`
- * succeeds while `hcn run "-bad"` refuses. The caller must set
- * `__explicitPrompt: true` on the options object when the prompt came from an
- * explicit flag.
- */
-const assertCleanPromptMaybe = (h: HarnessDescriptor, prompt: string, explicit?: boolean): void => {
-  if (explicit) return;
-  assertCleanPrompt(h, prompt);
 };
 
 export interface DiscoveryOptions {
@@ -57,7 +61,7 @@ export interface DiscoveryOptions {
 }
 
 export interface TurnOptions {
-  readonly prompt: string;
+  readonly prompt: Prompt;
   readonly tools?: readonly string[];
   readonly excludeTools?: readonly string[];
   /** Caller-directed skills allowlist: the resolved picks and the
@@ -86,8 +90,6 @@ export interface TurnOptions {
    * harness argv; the CLI layer turns it into the prompt preamble and
    * arms question-block detection. Undefined means the default: "ask". */
   readonly questions?: import("./question.js").QuestionMode;
-  /** Internal: set by CLI when prompt came from --prompt/--prompt-file to bypass leading '-' guard */
-  readonly __explicitPrompt?: boolean;
   /** The merged toolMap (every harness, native plus tier), the one shape
    * past option resolution (RFC-02 change 8). */
   readonly toolMap?: ToolMap;
@@ -104,8 +106,8 @@ export type LaunchOptions = TurnOptions;
  * validated selections, with the variadic tools flag LAST and fed exactly
  * one joined token so nothing after it can be swallowed as a tool name. */
 const turnTail = (h: HarnessDescriptor, opts: TurnOptions): string[] => {
-  assertCleanPromptMaybe(h, opts.prompt, opts.__explicitPrompt);
-  const tail = [opts.prompt, ...h.launch.streamFlags];
+  assertCleanPrompt(h, opts.prompt);
+  const tail = [promptTextOf(opts), ...h.launch.streamFlags];
   if (opts.model !== undefined) {
     const validated = validateModel(h, opts.model);
     if (!validated.ok) {

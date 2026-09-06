@@ -7,7 +7,7 @@
  * preview agree by construction, skill tokens and passthrough included.
  */
 import { redactArgv, type TurnRunOptions } from "../execution/stream-turn.js";
-import { buildSpawnArgv } from "../interpretation/argv.js";
+import { buildSpawnArgv, promptTextOf } from "../interpretation/argv.js";
 import { composeEscalatedPrompt } from "../interpretation/question.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
 import {
@@ -273,16 +273,19 @@ export const planTurn = async (
 
   // The prompt here is the COMPOSED one (escalation preamble included):
   // redactArgv masks by position, so an argv built from the raw prompt
-  // would leak it into the spawn line.
+  // would leak it into the spawn line. It carries its provenance: an
+  // explicit prompt (flag or file) may start with a dash.
   const options: TurnRunOptions = {
     ...effectiveTurnOpts,
-    prompt: composeEscalatedPrompt(prompt, behavior.questions.value),
+    prompt: {
+      text: composeEscalatedPrompt(prompt, behavior.questions.value),
+      explicit: explicitPrompt,
+    },
     ...(extra.cwd !== undefined ? { cwd: extra.cwd } : {}),
     ...(extra.env !== undefined ? { env: extra.env } : {}),
     ...(extra.resume !== undefined ? { resume: extra.resume } : {}),
     questions: behavior.questions.value,
     ...(passthrough.length > 0 ? { passthrough } : {}),
-    ...(explicitPrompt ? { __explicitPrompt: true as const } : {}),
   };
 
   let argv: string[];
@@ -315,7 +318,7 @@ export const planTurn = async (
       wantJson,
       options,
       argv,
-      redactedArgv: redactArgv(argv, options.prompt),
+      redactedArgv: redactArgv(argv, promptTextOf(options)),
       provenance,
       unrenderable,
       behavior,

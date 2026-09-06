@@ -80,7 +80,7 @@ const turnCases = (h: HarnessDescriptor): ReadonlyArray<readonly [string, TurnOp
   ["tools-unknown-name", { prompt: "hi", tools: ["frobnicate"] }],
   ["skills-pick", { prompt: "hi", skills: { picks: ["/registry/hcn"], known: ["hcn", "other"] } }],
   ["autonomy", { prompt: "hi", autonomy: true }],
-  ["explicit-dash-prompt", { prompt: "-x", __explicitPrompt: true }],
+  ["explicit-dash-prompt", { prompt: { text: "-x", explicit: true } }],
   ["implicit-dash-prompt", { prompt: "-x" }],
 ];
 

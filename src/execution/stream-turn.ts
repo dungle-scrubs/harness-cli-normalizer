@@ -12,7 +12,9 @@
 import {
   buildSpawnArgv,
   type LaunchOptions,
+  promptTextOf,
   streamingGranularityOf,
+  withPromptText,
 } from "../interpretation/argv.js";
 import {
   detectAuthFailureInLine,
@@ -139,8 +141,9 @@ export async function* streamTurn(
   const questionMode: QuestionMode = opts.questions ?? "ask";
   const effective: TurnRunOptions = {
     ...opts,
-    prompt: composeEscalatedPrompt(opts.prompt, questionMode),
+    prompt: withPromptText(opts.prompt, composeEscalatedPrompt(promptTextOf(opts), questionMode)),
   };
+  const promptText = promptTextOf(effective);
   // The turn's last assistant message - where the protocol says the
   // hcn-question block lives. Tracked only when detection is armed.
   let lastAssistantText: string | null = null;
@@ -169,7 +172,7 @@ export async function* streamTurn(
           harness: h.name,
           issue: refusal.issue,
           supported: refusal.supported,
-          argv: redactArgv([], effective.prompt),
+          argv: redactArgv([], promptText),
         });
         yield { kind: "failure", ...failure };
         yield {
@@ -203,7 +206,7 @@ export async function* streamTurn(
       // No process spawned on a refusal - log rejected instead of spawn
       let argvForLog: string[] = [];
       try {
-        argvForLog = redactArgv([], effective.prompt);
+        argvForLog = redactArgv([], promptText);
       } catch {}
       log({
         event: "rejected",
@@ -234,7 +237,7 @@ export async function* streamTurn(
     event: "spawn",
     turnId,
     harness: h.name,
-    argv: redactArgv(argv, effective.prompt),
+    argv: redactArgv(argv, promptText),
     granularity,
     ...(matcherOverrides ? { matcherOverrides } : {}),
     ...(envKeys?.length ? { envKeys } : {}),
