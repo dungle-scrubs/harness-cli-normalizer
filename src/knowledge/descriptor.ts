@@ -41,9 +41,45 @@ export const CANONICAL_TOOLS = deepFreeze([
 ] as const);
 export type CanonicalTool = (typeof CANONICAL_TOOLS)[number];
 
-export type StreamingGranularity = "token" | "message" | "none";
+/** Every closed string vocabulary on a descriptor is declared once as a
+ * runtime array with its type derived (RFC-02 change 9), so a CLI list, an
+ * override validator, or a test reads the array instead of restating it. */
+export const STREAMING_GRANULARITIES = deepFreeze(["token", "message", "none"] as const);
+export type StreamingGranularity = (typeof STREAMING_GRANULARITIES)[number];
 
-export type HarnessMode = "headless-turn" | "headless-session" | "interactive";
+export const HARNESS_MODES = deepFreeze([
+  "headless-turn",
+  "headless-session",
+  "interactive",
+] as const);
+export type HarnessMode = (typeof HARNESS_MODES)[number];
+
+export const STDIN_POLICIES = deepFreeze(["inherit", "close-required"] as const);
+export type StdinPolicy = (typeof STDIN_POLICIES)[number];
+
+export const CWD_SLUGS = deepFreeze(["dash-separators", "pi-dash-wrapped", "verbatim"] as const);
+export type CwdSlug = (typeof CWD_SLUGS)[number];
+
+export const RESUME_STYLES = deepFreeze(["flag", "positional"] as const);
+export type ResumeStyle = (typeof RESUME_STYLES)[number];
+
+export const RESUME_ON_MISSING = deepFreeze(["error", "create"] as const);
+export type ResumeOnMissing = (typeof RESUME_ON_MISSING)[number];
+
+export const IDENTITY_AUTHORITIES = deepFreeze(["caller-assigned", "harness-minted"] as const);
+export type IdentityAuthority = (typeof IDENTITY_AUTHORITIES)[number];
+
+export const DENY_SEMANTICS = deepFreeze(["remove-from-set", "policy-gate", "no-lists"] as const);
+export type DenySemantics = (typeof DENY_SEMANTICS)[number];
+
+export const SKILLS_OVERRIDES_VIA = deepFreeze([
+  "settings-skilloverrides",
+  "config-skills-array",
+] as const);
+export type SkillsOverridesVia = (typeof SKILLS_OVERRIDES_VIA)[number];
+
+export const VERSION_SOURCE_KINDS = deepFreeze(["npm", "installed"] as const);
+export type VersionSourceKind = (typeof VERSION_SOURCE_KINDS)[number];
 
 export const SESSION_INPUT_KINDS = ["claude-sdk-user-message", "pi-rpc-prompt"] as const;
 export type SessionInputKind = (typeof SESSION_INPUT_KINDS)[number];
@@ -284,8 +320,8 @@ export interface HarnessDescriptor {
    * have no registry to poll, so the check falls back to the locally
    * installed `<bin> --version` and is skipped where the CLI is absent. */
   readonly versionSource:
-    | { readonly kind: "npm"; readonly package: string }
-    | { readonly kind: "installed" };
+    | { readonly kind: Extract<VersionSourceKind, "npm">; readonly package: string }
+    | { readonly kind: Extract<VersionSourceKind, "installed"> };
   /** Headless one-turn launch shape. `promptStyle: "positional"` means the
    * prompt travels as a bare argv entry (ordering constraints apply).
    * `streamFlags` is the output flag set a headless turn launches with so
@@ -314,7 +350,7 @@ export interface HarnessDescriptor {
    * anywhere else (the v1 first-UUID-wins scar: a UUID inside quoted prompt
    * text was returned as the session id, and resuming it started a stranger). */
   readonly resume: {
-    readonly style: "flag" | "positional";
+    readonly style: ResumeStyle;
     readonly flag: string;
     readonly aliases: readonly string[];
     readonly idShape: RegExp;
@@ -332,7 +368,7 @@ export interface HarnessDescriptor {
      * The protocol layer must know this: a consumer resuming a session it
      * believes exists gets a blank session, not an error, on a "create"
      * harness. */
-    readonly onMissing: "error" | "create";
+    readonly onMissing: ResumeOnMissing;
   };
   /** Persistent headless session support: the complete flag list that follows
    * the binary to open one lucid-owned process serving many turns, or null
@@ -381,7 +417,7 @@ export interface HarnessDescriptor {
    * {type: "system", subtype: "init"}, re-emitted at every turn start with
    * the same value (A-001) - consumers dedupe via decodeIdentity. */
   readonly identity: {
-    readonly authority: "caller-assigned" | "harness-minted";
+    readonly authority: IdentityAuthority;
     /** `idField` is a dot-path (muse nests its id at `stream.id`); an empty
      * `match` means "any record carrying the id path". */
     readonly announce: {
@@ -420,7 +456,7 @@ export interface HarnessDescriptor {
     readonly template: string;
     /** claude: '/', '.' -> '-'; pi: '/' -> '-' wrapped in leading/trailing
      * dashes, dots preserved. */
-    readonly cwdSlug: "dash-separators" | "pi-dash-wrapped" | "verbatim";
+    readonly cwdSlug: CwdSlug;
   };
   /** How the harness exposes context-window usage; the interpretation layer
    * surfaces it as a `context` HarnessEvent. */
@@ -433,7 +469,7 @@ export interface HarnessDescriptor {
   readonly resumeLast: { readonly flag: string } | null;
   /** Whether backgrounded headless calls must have stdin closed (pi hangs
    * without `< /dev/null`). */
-  readonly stdin: "inherit" | "close-required";
+  readonly stdin: StdinPolicy;
   /** Presence recognition: how an interactive process for a session id shows
    * up in a process listing. `headlessMarkers` mark a process as headless
    * (not interactive presence). Known blind spot, inherent to argv matching:
@@ -494,7 +530,7 @@ export interface HarnessDescriptor {
    * muse: null (structural gap - trust/config scoped only). */
   readonly skills: {
     readonly loadFlag: string | null;
-    readonly overridesVia: "settings-skilloverrides" | "config-skills-array" | null;
+    readonly overridesVia: SkillsOverridesVia | null;
   } | null;
   readonly tools: {
     readonly includeFlag: string | null;
@@ -512,6 +548,6 @@ export interface HarnessDescriptor {
       readonly configKey: string | null;
       readonly canonical: readonly CanonicalTool[];
     }>;
-    readonly denySemantics: "remove-from-set" | "policy-gate" | "no-lists";
+    readonly denySemantics: DenySemantics;
   };
 }

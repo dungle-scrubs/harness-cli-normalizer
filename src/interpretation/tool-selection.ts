@@ -16,8 +16,7 @@ import {
   READ_PRESET,
   validateCanonicalList,
 } from "./tool-vocabulary.js";
-
-export const TOOL_SELECTOR = /^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$/;
+import { CLEAN_SELECTOR } from "./vocabulary.js";
 
 export interface ToolSelection {
   readonly include?: readonly string[];
@@ -39,11 +38,11 @@ const validateInnerName = (h: HarnessDescriptor, name: string, raw: readonly str
       detail: `tools=${JSON.stringify(raw)}`,
     });
   }
-  if (!TOOL_SELECTOR.test(name)) {
+  if (!CLEAN_SELECTOR.test(name)) {
     throw new ArgvRefusalError({
       issue: "invalid-tool-grant",
       harness: h.name,
-      supported: [`must match ${TOOL_SELECTOR.source}`],
+      supported: [`must match ${CLEAN_SELECTOR.source}`],
       detail: name,
     });
   }

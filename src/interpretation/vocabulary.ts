@@ -14,10 +14,11 @@ export interface ValidationRefusal {
   readonly reason: string;
 }
 
-/** The selector grammar an extensible registry still demands: pi documents
- * models as provider/id[:thinking], so word characters plus the few real
- * separators - never whitespace, shell metacharacters, or control/format
- * characters, and bounded like session ids. */
+/** The one selector grammar for model ids, tool names, and toolMap keys
+ * (RFC-02 change 9): pi documents models as provider/id[:thinking], so
+ * word characters plus the few real separators - never whitespace, shell
+ * metacharacters, or control/format characters, and bounded like session
+ * ids. */
 export const CLEAN_SELECTOR = /^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$/;
 
 export interface ResolvedModel {

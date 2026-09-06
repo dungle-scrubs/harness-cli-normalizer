@@ -4,15 +4,13 @@ import { capabilitiesOf } from "../interpretation/capabilities.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
 import { FloorExceededError, resolveEffectiveOptions } from "../interpretation/resolve-options.js";
 import { canonicalTable, mergeToolMaps } from "../interpretation/tool-vocabulary.js";
-import type { HarnessMode } from "../knowledge/descriptor.js";
+import { HARNESS_MODES, type HarnessMode } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { parseTurnOptions, resolvePromptAsync } from "./args.js";
 import { ConfigError, loadProjectConfig, loadUserConfig } from "./config.js";
 import { EXIT_REFUSAL } from "./exit-codes.js";
 import { refusalOf, refuse } from "./refuse.js";
 import { resolveHarness } from "./resolve-harness.js";
-
-const HARNESS_MODES = ["headless-turn", "headless-session", "interactive"] as const;
 
 export const inspect = async (harnessName: string, rawArgs: string[]): Promise<void> => {
   const h = resolveHarness(harnessName);
