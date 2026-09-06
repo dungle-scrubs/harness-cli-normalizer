@@ -1534,7 +1534,7 @@
           "--json",
           "hi",
           "--model",
-          "muse-spark-1.2-contributor"
+          "muse-spark-1.3-contributor"
         ]
       },
       "effort-high": {
@@ -1556,7 +1556,7 @@
           "high",
           "hi",
           "--model",
-          "muse-spark-1.2-contributor"
+          "muse-spark-1.3-contributor"
         ]
       },
       "effort-unknown": {
@@ -1580,11 +1580,12 @@
           "issue": "unknown-model",
           "harness": "muse",
           "supported": [
+            "muse-spark-1.3-contributor",
             "muse-spark-1.2-contributor",
             "muse-spark-1.2",
             "muse-spark-1.1"
           ],
-          "message": "unknown muse model \"no-such-model\"; supported: muse-spark-1.2-contributor, muse-spark-1.2, muse-spark-1.1 - use one of the supported models"
+          "message": "unknown muse model \"no-such-model\"; supported: muse-spark-1.3-contributor, muse-spark-1.2-contributor, muse-spark-1.2, muse-spark-1.1 - use one of the supported models"
         }
       },
       "sandbox-read-only": {
@@ -3618,7 +3619,7 @@
           "--json",
           "hi",
           "--model",
-          "muse-spark-1.2-contributor"
+          "muse-spark-1.3-contributor"
         ]
       },
       "effort-high": {
@@ -3644,7 +3645,7 @@
           "high",
           "hi",
           "--model",
-          "muse-spark-1.2-contributor"
+          "muse-spark-1.3-contributor"
         ]
       },
       "effort-unknown": {
@@ -3668,11 +3669,12 @@
           "issue": "unknown-model",
           "harness": "muse",
           "supported": [
+            "muse-spark-1.3-contributor",
             "muse-spark-1.2-contributor",
             "muse-spark-1.2",
             "muse-spark-1.1"
           ],
-          "message": "unknown muse model \"no-such-model\"; supported: muse-spark-1.2-contributor, muse-spark-1.2, muse-spark-1.1 - use one of the supported models"
+          "message": "unknown muse model \"no-such-model\"; supported: muse-spark-1.3-contributor, muse-spark-1.2-contributor, muse-spark-1.2, muse-spark-1.1 - use one of the supported models"
         }
       },
       "sandbox-read-only": {
