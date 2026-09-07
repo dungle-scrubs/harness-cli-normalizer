@@ -12,6 +12,34 @@
           "--include-partial-messages"
         ]
       },
+      "tool-free": {
+        "argv": [
+          "claude",
+          "-p",
+          "--bare",
+          "--tools",
+          "",
+          "--disallowedTools",
+          "mcp__*",
+          "--strict-mcp-config",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--verbose",
+          "--include-partial-messages"
+        ]
+      },
+      "tool-free-conflict": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "claude",
+          "option": "isolation",
+          "supported": [
+            "tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough"
+          ],
+          "message": "claude cannot combine option \"isolation\" (discovery); supported: tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough - pass exactly one of them"
+        }
+      },
       "model": {
         "argv": [
           "claude",
@@ -91,6 +119,7 @@
           "harness": "claude",
           "option": "sandbox",
           "supported": [
+            "isolation",
             "effort",
             "systemPrompt",
             "appendSystemPrompt",
@@ -104,7 +133,7 @@
             }
           ],
           "hint": "claude has no sandbox modes; approximate with a per-tool allowlist (--tools Read,Bash) or --disallowedTools to keep tools out, and run untrusted work in a disposable directory or container",
-          "message": "claude cannot express option \"sandbox\" (read-only); supported: effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"sandbox\" (read-only); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
         }
       },
       "context-window": {
@@ -113,6 +142,7 @@
           "harness": "claude",
           "option": "contextWindow",
           "supported": [
+            "isolation",
             "effort",
             "systemPrompt",
             "appendSystemPrompt",
@@ -125,7 +155,7 @@
               "spelling": "-c"
             }
           ],
-          "message": "claude cannot express option \"contextWindow\" (100000); supported: effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"contextWindow\" (100000); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
         }
       },
       "provider": {
@@ -134,6 +164,7 @@
           "harness": "claude",
           "option": "provider",
           "supported": [
+            "isolation",
             "effort",
             "systemPrompt",
             "appendSystemPrompt",
@@ -147,7 +178,7 @@
             }
           ],
           "hint": "claude routes models through Anthropic only (Bedrock/Vertex via settings); use --model to pick within it - there is no separate provider selector",
-          "message": "claude cannot express option \"provider\" (zai); supported: effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"provider\" (zai); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
         }
       },
       "no-tools": {
@@ -220,6 +251,7 @@
           "harness": "claude",
           "option": "write",
           "supported": [
+            "isolation",
             "effort",
             "systemPrompt",
             "appendSystemPrompt",
@@ -233,7 +265,7 @@
             }
           ],
           "hint": "claude has no write toggle; keep the Write tool out with --tools that omits it, or --disallowedTools Write for the deny-complement spelling",
-          "message": "claude cannot express option \"write\" (false); supported: effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"write\" (false); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
         }
       },
       "shell-off": {
@@ -242,6 +274,7 @@
           "harness": "claude",
           "option": "shell",
           "supported": [
+            "isolation",
             "effort",
             "systemPrompt",
             "appendSystemPrompt",
@@ -255,7 +288,7 @@
             }
           ],
           "hint": "claude has no shell toggle; disallow the Bash tool (--tools without Bash, or --disallowedTools Bash) and note Monitor can still run commands in headless runs",
-          "message": "claude cannot express option \"shell\" (false); supported: effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"shell\" (false); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
         }
       },
       "max-steps": {
@@ -264,6 +297,7 @@
           "harness": "claude",
           "option": "maxSteps",
           "supported": [
+            "isolation",
             "effort",
             "systemPrompt",
             "appendSystemPrompt",
@@ -277,7 +311,7 @@
             }
           ],
           "hint": "claude has no step cap flag; bound the work in the prompt (task size, 'stop after N operations') or impose a wall-clock timeout at the caller",
-          "message": "claude cannot express option \"maxSteps\" (5); supported: effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"maxSteps\" (5); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
         }
       },
       "system-prompt": {
@@ -522,6 +556,38 @@
           "workspace-write",
           "hi"
         ]
+      },
+      "tool-free": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "codex",
+          "option": "isolation",
+          "supported": [
+            "contextWindow",
+            "effort",
+            "systemPrompt",
+            "sandbox",
+            "access"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--bare"
+            }
+          ],
+          "message": "codex cannot express option \"isolation\" (tool-free); supported: contextWindow, effort, systemPrompt, sandbox, access - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tool-free-conflict": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "codex",
+          "option": "isolation",
+          "supported": [
+            "tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough"
+          ],
+          "message": "codex cannot combine option \"isolation\" (discovery); supported: tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough - pass exactly one of them"
+        }
       },
       "model": {
         "argv": [
@@ -1071,6 +1137,39 @@
           "hi"
         ]
       },
+      "tool-free": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "pi",
+          "option": "isolation",
+          "supported": [
+            "effort",
+            "provider",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "discovery",
+            "access"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--bare"
+            }
+          ],
+          "message": "pi cannot express option \"isolation\" (tool-free); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tool-free-conflict": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "pi",
+          "option": "isolation",
+          "supported": [
+            "tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough"
+          ],
+          "message": "pi cannot combine option \"isolation\" (discovery); supported: tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough - pass exactly one of them"
+        }
+      },
       "model": {
         "argv": [
           "pi",
@@ -1527,6 +1626,38 @@
           "hi"
         ]
       },
+      "tool-free": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "muse",
+          "option": "isolation",
+          "supported": [
+            "effort",
+            "write",
+            "shell",
+            "maxSteps",
+            "access"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--bare"
+            }
+          ],
+          "message": "muse cannot express option \"isolation\" (tool-free); supported: effort, write, shell, maxSteps, access - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tool-free-conflict": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "muse",
+          "option": "isolation",
+          "supported": [
+            "tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough"
+          ],
+          "message": "muse cannot combine option \"isolation\" (discovery); supported: tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough - pass exactly one of them"
+        }
+      },
       "model": {
         "argv": [
           "muse",
@@ -1534,7 +1665,7 @@
           "--json",
           "hi",
           "--model",
-          "muse-spark-1.2-contributor"
+          "muse-spark-1.3-contributor"
         ]
       },
       "effort-high": {
@@ -1556,7 +1687,7 @@
           "high",
           "hi",
           "--model",
-          "muse-spark-1.2-contributor"
+          "muse-spark-1.3-contributor"
         ]
       },
       "effort-unknown": {
@@ -1580,11 +1711,12 @@
           "issue": "unknown-model",
           "harness": "muse",
           "supported": [
+            "muse-spark-1.3-contributor",
             "muse-spark-1.2-contributor",
             "muse-spark-1.2",
             "muse-spark-1.1"
           ],
-          "message": "unknown muse model \"no-such-model\"; supported: muse-spark-1.2-contributor, muse-spark-1.2, muse-spark-1.1 - use one of the supported models"
+          "message": "unknown muse model \"no-such-model\"; supported: muse-spark-1.3-contributor, muse-spark-1.2-contributor, muse-spark-1.2, muse-spark-1.1 - use one of the supported models"
         }
       },
       "sandbox-read-only": {
@@ -2004,6 +2136,32 @@
           "--include-partial-messages"
         ]
       },
+      "tool-free": {
+        "refusal": {
+          "issue": "unsupported-on-resume",
+          "harness": "claude",
+          "option": "isolation",
+          "supported": [
+            "effort",
+            "discovery",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "access"
+          ],
+          "message": "\"isolation\" cannot be expressed on resume for claude; supported: effort, discovery, systemPrompt, appendSystemPrompt, access - re-launch instead of resuming or drop the option"
+        }
+      },
+      "tool-free-conflict": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "claude",
+          "option": "isolation",
+          "supported": [
+            "tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough"
+          ],
+          "message": "claude cannot combine option \"isolation\" (discovery); supported: tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough - pass exactly one of them"
+        }
+      },
       "model": {
         "argv": [
           "claude",
@@ -2089,6 +2247,7 @@
           "harness": "claude",
           "option": "sandbox",
           "supported": [
+            "isolation",
             "effort",
             "systemPrompt",
             "appendSystemPrompt",
@@ -2102,7 +2261,7 @@
             }
           ],
           "hint": "claude has no sandbox modes; approximate with a per-tool allowlist (--tools Read,Bash) or --disallowedTools to keep tools out, and run untrusted work in a disposable directory or container",
-          "message": "claude cannot express option \"sandbox\" (read-only); supported: effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"sandbox\" (read-only); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
         }
       },
       "context-window": {
@@ -2111,6 +2270,7 @@
           "harness": "claude",
           "option": "contextWindow",
           "supported": [
+            "isolation",
             "effort",
             "systemPrompt",
             "appendSystemPrompt",
@@ -2123,7 +2283,7 @@
               "spelling": "-c"
             }
           ],
-          "message": "claude cannot express option \"contextWindow\" (100000); supported: effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"contextWindow\" (100000); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
         }
       },
       "provider": {
@@ -2132,6 +2292,7 @@
           "harness": "claude",
           "option": "provider",
           "supported": [
+            "isolation",
             "effort",
             "systemPrompt",
             "appendSystemPrompt",
@@ -2145,7 +2306,7 @@
             }
           ],
           "hint": "claude routes models through Anthropic only (Bedrock/Vertex via settings); use --model to pick within it - there is no separate provider selector",
-          "message": "claude cannot express option \"provider\" (zai); supported: effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"provider\" (zai); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
         }
       },
       "no-tools": {
@@ -2224,6 +2385,7 @@
           "harness": "claude",
           "option": "write",
           "supported": [
+            "isolation",
             "effort",
             "systemPrompt",
             "appendSystemPrompt",
@@ -2237,7 +2399,7 @@
             }
           ],
           "hint": "claude has no write toggle; keep the Write tool out with --tools that omits it, or --disallowedTools Write for the deny-complement spelling",
-          "message": "claude cannot express option \"write\" (false); supported: effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"write\" (false); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
         }
       },
       "shell-off": {
@@ -2246,6 +2408,7 @@
           "harness": "claude",
           "option": "shell",
           "supported": [
+            "isolation",
             "effort",
             "systemPrompt",
             "appendSystemPrompt",
@@ -2259,7 +2422,7 @@
             }
           ],
           "hint": "claude has no shell toggle; disallow the Bash tool (--tools without Bash, or --disallowedTools Bash) and note Monitor can still run commands in headless runs",
-          "message": "claude cannot express option \"shell\" (false); supported: effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"shell\" (false); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
         }
       },
       "max-steps": {
@@ -2268,6 +2431,7 @@
           "harness": "claude",
           "option": "maxSteps",
           "supported": [
+            "isolation",
             "effort",
             "systemPrompt",
             "appendSystemPrompt",
@@ -2281,7 +2445,7 @@
             }
           ],
           "hint": "claude has no step cap flag; bound the work in the prompt (task size, 'stop after N operations') or impose a wall-clock timeout at the caller",
-          "message": "claude cannot express option \"maxSteps\" (5); supported: effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"maxSteps\" (5); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
         }
       },
       "system-prompt": {
@@ -2552,6 +2716,38 @@
           "--skip-git-repo-check",
           "hi"
         ]
+      },
+      "tool-free": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "codex",
+          "option": "isolation",
+          "supported": [
+            "contextWindow",
+            "effort",
+            "systemPrompt",
+            "sandbox",
+            "access"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--bare"
+            }
+          ],
+          "message": "codex cannot express option \"isolation\" (tool-free); supported: contextWindow, effort, systemPrompt, sandbox, access - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tool-free-conflict": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "codex",
+          "option": "isolation",
+          "supported": [
+            "tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough"
+          ],
+          "message": "codex cannot combine option \"isolation\" (discovery); supported: tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough - pass exactly one of them"
+        }
       },
       "model": {
         "argv": [
@@ -3109,6 +3305,39 @@
           "hi"
         ]
       },
+      "tool-free": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "pi",
+          "option": "isolation",
+          "supported": [
+            "effort",
+            "provider",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "discovery",
+            "access"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--bare"
+            }
+          ],
+          "message": "pi cannot express option \"isolation\" (tool-free); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tool-free-conflict": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "pi",
+          "option": "isolation",
+          "supported": [
+            "tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough"
+          ],
+          "message": "pi cannot combine option \"isolation\" (discovery); supported: tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough - pass exactly one of them"
+        }
+      },
       "model": {
         "argv": [
           "pi",
@@ -3609,6 +3838,38 @@
           "hi"
         ]
       },
+      "tool-free": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "muse",
+          "option": "isolation",
+          "supported": [
+            "effort",
+            "write",
+            "shell",
+            "maxSteps",
+            "access"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--bare"
+            }
+          ],
+          "message": "muse cannot express option \"isolation\" (tool-free); supported: effort, write, shell, maxSteps, access - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tool-free-conflict": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "muse",
+          "option": "isolation",
+          "supported": [
+            "tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough"
+          ],
+          "message": "muse cannot combine option \"isolation\" (discovery); supported: tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough - pass exactly one of them"
+        }
+      },
       "model": {
         "argv": [
           "muse",
@@ -3618,7 +3879,7 @@
           "--json",
           "hi",
           "--model",
-          "muse-spark-1.2-contributor"
+          "muse-spark-1.3-contributor"
         ]
       },
       "effort-high": {
@@ -3644,7 +3905,7 @@
           "high",
           "hi",
           "--model",
-          "muse-spark-1.2-contributor"
+          "muse-spark-1.3-contributor"
         ]
       },
       "effort-unknown": {
@@ -3668,11 +3929,12 @@
           "issue": "unknown-model",
           "harness": "muse",
           "supported": [
+            "muse-spark-1.3-contributor",
             "muse-spark-1.2-contributor",
             "muse-spark-1.2",
             "muse-spark-1.1"
           ],
-          "message": "unknown muse model \"no-such-model\"; supported: muse-spark-1.2-contributor, muse-spark-1.2, muse-spark-1.1 - use one of the supported models"
+          "message": "unknown muse model \"no-such-model\"; supported: muse-spark-1.3-contributor, muse-spark-1.2-contributor, muse-spark-1.2, muse-spark-1.1 - use one of the supported models"
         }
       },
       "sandbox-read-only": {
@@ -4181,6 +4443,7 @@
           "harness": "claude",
           "option": "provider",
           "supported": [
+            "isolation",
             "effort",
             "systemPrompt",
             "appendSystemPrompt",
@@ -4194,7 +4457,7 @@
             }
           ],
           "hint": "claude routes models through Anthropic only (Bedrock/Vertex via settings); use --model to pick within it - there is no separate provider selector",
-          "message": "claude cannot express option \"provider\" (zai); supported: effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"provider\" (zai); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
         }
       },
       "resume": {

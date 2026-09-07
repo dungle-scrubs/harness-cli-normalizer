@@ -7,6 +7,11 @@ import { describe, expect, it } from "vitest";
 import { ConfigError, parseUserConfig, userConfigPath } from "../../src/cli/config.js";
 
 describe("parseUserConfig", () => {
+  it("isolation remains invocation-only", () => {
+    expect(() => parseUserConfig('{"version":1,"isolation":"tool-free"}')).toThrow(
+      /unknown config key: "isolation"/,
+    );
+  });
   it("valid config with version parses", () => {
     expect(parseUserConfig('{"version":1,"effort":"high"}')).toEqual({ effort: "high" });
   });
