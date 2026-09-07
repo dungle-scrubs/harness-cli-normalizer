@@ -487,6 +487,7 @@ export const parseCommonFlags = (
       json: { type: "boolean" as const },
       argv: { type: "boolean" as const },
       capabilities: { type: "boolean" as const },
+      runtime: { type: "boolean" as const },
       mode: { type: "string" as const },
       stall: { type: "string" as const },
       help: { type: "boolean" as const },

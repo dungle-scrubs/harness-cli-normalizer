@@ -2,12 +2,14 @@ import { capabilitiesOf } from "../interpretation/capabilities.js";
 import { canonicalTable, mergeToolMaps } from "../interpretation/tool-vocabulary.js";
 import { HARNESS_MODES, type HarnessMode } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
-import { splitPassthrough } from "./args.js";
+import { parseCommonFlags, splitPassthrough } from "./args.js";
 import { ConfigError, loadProjectConfig, loadUserConfig } from "./config.js";
 import { EXIT_REFUSAL } from "./exit-codes.js";
+import { inspectSessionRuntime } from "./inspect-session.js";
 import { planTurn, writePlanDiagnostics } from "./plan-turn.js";
 import { refuse } from "./refuse.js";
 import { resolveHarness } from "./resolve-harness.js";
+import { runtimeCompatibility } from "./runtime-compatibility.js";
 
 export const inspect = async (harnessName: string, rawArgs: string[]): Promise<void> => {
   const h = resolveHarness(harnessName);
@@ -22,24 +24,43 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
   // --argv: the preview is the plan the run command would spawn from, so
   // the two agree by construction (RFC-02 change 10). Refusals go through
   // the shared refuse path like every other command's.
-  if (normalized.includes("--argv")) {
+  if (normalized.includes("--argv") || normalized.includes("--runtime")) {
     if (normalized.includes("--capabilities")) {
-      process.stderr.write(`--capabilities and --argv are mutually exclusive; pick one\n`);
+      process.stderr.write(`--capabilities is mutually exclusive with --argv and --runtime\n`);
       process.exitCode = EXIT_REFUSAL;
       return;
     }
+    if (normalized.includes("--runtime") && (await inspectSessionRuntime(h, rawArgs))) return;
     const outcome = await planTurn(h, rawArgs, { command: "inspect" });
     if (outcome.kind === "refusal") {
       refuse(outcome.refusal, false);
       return;
     }
     writePlanDiagnostics(h, outcome.plan, "argv");
+    if (normalized.includes("--runtime")) {
+      const mode = parseCommonFlags(rawArgs).values.mode ?? "headless-turn";
+      if (mode !== "headless-turn" && mode !== "headless-session") {
+        refuse(
+          {
+            message: `invalid runtime mode: ${String(mode)}`,
+            issue: "invalid-option-value",
+            supported: ["headless-turn", "headless-session"],
+          },
+          false,
+        );
+        return;
+      }
+      const argv = outcome.plan.redactedArgv;
+      process.stdout.write(
+        `${JSON.stringify({ v: 1, argvKind: "redacted-preview", argv, ...(await runtimeCompatibility(h, outcome.plan.options)) })}\n`,
+      );
+      return;
+    }
     process.stdout.write(`${JSON.stringify(outcome.plan.redactedArgv)}\n`);
     return;
   }
 
   // --capabilities path: pure capability record, no spawn, no config, no prompt
-  const { parseCommonFlags } = await import("./args.js");
   let parsed: ReturnType<typeof parseCommonFlags>;
   try {
     parsed = parseCommonFlags(rawArgs);

@@ -167,11 +167,18 @@ Arguments:
 
 Options:
   --argv                    Preview argv that would be spawned
+  --runtime                 Preview argv and probe the selected executable version;
+                            exact adapter matches support native resume, others unknown
+                            (does not run a model or prove the saved session exists)
   --capabilities            Print the capability record (vision, images,
                             streaming, session, source) as one JSON line
-  --mode <mode>             Mode for --capabilities:
+  --mode <mode>             Mode for --capabilities or --runtime:
                             headless-turn | headless-session | interactive
                             (default headless-turn)
+                            --runtime excludes interactive; headless-session requires
+                            --resume and accepts no native passthrough arguments
+                            Session preview needs no prompt; only model, effort,
+                            provider and cwd process options are accepted
   --prompt <text>           Prompt for argv preview
   --prompt-file <path|->    Read prompt from file
   --model <id>              Model

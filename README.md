@@ -181,7 +181,20 @@ hcn check --json
 given `--mode` (`headless-turn` | `headless-session` | `interactive`;
 default `headless-turn`) and `--model` (absent = the harness default model;
 a model outside the vocabulary degrades to `source: "unknown"`). It is
-mutually exclusive with `--argv`.
+mutually exclusive with `--argv` and `--runtime`.
+
+`hcn inspect <harness> --runtime --prompt "validation"` reports version-1
+JSON containing redacted argv, the resolved executable path and version,
+the adapter's verified version, and native-resume compatibility. This runs
+only a version probe. The argv is a diagnostic preview, not a command to
+execute. Exact version agreement establishes adapter support; missing or
+different versions remain unknown. It does not prove session existence or
+recall. Pass the same working folder and options as the intended turn.
+
+For persistent resume use `--mode headless-session --resume <session-id>`.
+That preview needs no prompt and accepts model, effort, provider, and cwd.
+It refuses other process options that persistent startup cannot apply,
+including tool grants, environment overrides, and native passthrough.
 
 Flag table (maps to `TurnOptions` / `TurnRunOptions`):
 

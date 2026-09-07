@@ -9,6 +9,7 @@
 import { type ChildProcess, spawn as nodeSpawn } from "node:child_process";
 import type { Readable } from "node:stream";
 import type { Clock, RunnerDeps, SpawnedProcess, SpawnOptions } from "./deps.js";
+import { mergeEnvironment } from "./environment.js";
 
 const children = new WeakMap<SpawnedProcess, ChildProcess>();
 
@@ -91,22 +92,7 @@ export const disposableOutputStream = (
 const realSpawn = (argv: readonly string[], opts: SpawnOptions): SpawnedProcess => {
   const [bin, ...args] = argv;
   if (bin === undefined) throw new Error("empty argv");
-  const env =
-    opts.env === undefined
-      ? undefined
-      : (() => {
-          const merged: Record<string, string | undefined> = { ...process.env };
-          for (const [k, v] of Object.entries(opts.env)) {
-            if (v === "") delete merged[k];
-            else merged[k] = v;
-          }
-          // Filter out undefined to satisfy Node's env type (string -> string)
-          const out: Record<string, string> = {};
-          for (const [k, v] of Object.entries(merged)) {
-            if (v !== undefined) out[k] = v;
-          }
-          return out;
-        })();
+  const env = mergeEnvironment(process.env, opts.env);
   const child = nodeSpawn(bin, args, {
     ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
     ...(env !== undefined ? { env } : {}),

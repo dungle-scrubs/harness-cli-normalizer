@@ -12,6 +12,7 @@ import type {
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { assertIsolationCombination } from "./isolation.js";
 import { ArgvRefusalError } from "./refusal.js";
+import { assertAccessExclusivity } from "./resolve-options.js";
 import { assertUsableSessionId, SESSION_ID_MAX, SessionIdRefusalError } from "./session-id.js";
 import { renderSkillsSelection, type SkillsSelection } from "./skills-selection.js";
 import { supportedBy } from "./support.js";
@@ -154,8 +155,9 @@ const turnTail = (h: HarnessDescriptor, opts: TurnOptions): string[] => {
 export const buildLaunchArgv = (h: HarnessDescriptor, opts: LaunchOptions): string[] => [
   h.bin,
   ...h.launch.baseFlags,
-  ...renderTurnOptions(h, opts, "launch"),
+  ...renderTurnOptions(h, opts, "launch", "before-prompt"),
   ...turnTail(h, opts),
+  ...renderTurnOptions(h, opts, "launch", "after-prompt"),
 ];
 
 /** A session id that fails the shape rule is a spawn-boundary refusal like
@@ -180,6 +182,7 @@ const refuseUnusableSessionId = (h: HarnessDescriptor, sessionId: string): void 
 
 export const buildResumeArgv = (h: HarnessDescriptor, opts: ResumeOptions): string[] => {
   refuseUnusableSessionId(h, opts.sessionId);
+  assertAccessExclusivity(h, opts);
   // Subcommands lead, then the resume token and id, then the flags the
   // RESUME grammar accepts (never inherited launch flags - codex exec
   // resume rejects --sandbox). One shape serves both styles:
@@ -191,8 +194,9 @@ export const buildResumeArgv = (h: HarnessDescriptor, opts: ResumeOptions): stri
     h.resume.flag,
     opts.sessionId,
     ...h.resume.extraFlags,
-    ...renderTurnOptions(h, opts, "resume"),
+    ...renderTurnOptions(h, opts, "resume", "before-prompt"),
     ...turnTail(h, opts),
+    ...renderTurnOptions(h, opts, "resume", "after-prompt"),
   ];
 };
 
