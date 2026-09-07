@@ -27,6 +27,30 @@ import {
  * signal. */
 export const KILL_GRACE_MS = 5_000;
 
+/** Shared process termination policy for turn runners and control probes. */
+export function superviseTermination(
+  clock: Clock,
+  signal: (sig: SignalName) => void,
+): { readonly escalate: () => void; readonly settle: () => void } {
+  let settled = false;
+  let timer: TimerHandle | null = null;
+  return {
+    escalate(): void {
+      if (settled || timer !== null) return;
+      signal("SIGTERM");
+      timer = clock.setTimeout(() => {
+        timer = null;
+        if (!settled) signal("SIGKILL");
+      }, KILL_GRACE_MS);
+    },
+    settle(): void {
+      settled = true;
+      if (timer !== null) clock.clearTimeout(timer);
+      timer = null;
+    },
+  };
+}
+
 /** Bounded tail of unmatched stderr - the crash context a nonzero exit is
  * explained by (v1 kept the turn's output slice for exactly this). */
 export class StderrTail {
@@ -106,15 +130,10 @@ export const superviseTurn = (
   questionMode: QuestionMode,
   io: SupervisorIo,
 ): TurnSupervisor => {
-  let settled = false;
-  let killTimer: TimerHandle | null = null;
+  const termination = superviseTermination(io.clock, io.signal);
   let stallTimer: TimerHandle | null = null;
   let turnOpen = false;
   let lastAssistantText: string | null = null;
-
-  const signal = (sig: SignalName): void => {
-    if (!settled) io.signal(sig);
-  };
 
   const disarm = (): void => {
     if (stallTimer !== null) io.clock.clearTimeout(stallTimer);
@@ -122,14 +141,7 @@ export const superviseTurn = (
     turnOpen = false;
   };
 
-  const escalate = (): void => {
-    if (settled || killTimer !== null) return;
-    signal("SIGTERM");
-    killTimer = io.clock.setTimeout(() => {
-      killTimer = null;
-      signal("SIGKILL");
-    }, KILL_GRACE_MS);
-  };
+  const escalate = termination.escalate;
 
   const armStall = (): void => {
     if (io.stallMs === undefined || !turnOpen) return;
@@ -156,9 +168,7 @@ export const superviseTurn = (
     disarm,
     escalate,
     settle(): void {
-      settled = true;
-      if (killTimer !== null) io.clock.clearTimeout(killTimer);
-      killTimer = null;
+      termination.settle();
       disarm();
     },
     async stderrLine(line: string): Promise<void> {

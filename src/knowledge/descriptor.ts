@@ -454,6 +454,13 @@ export interface HarnessDescriptor {
     readonly object: string;
     readonly usedPctField: string;
   } | null;
+  /** Disposable native context accounting, verified at verifiedAgainst.
+   * Null is unknown support, never a model-window estimate. */
+  readonly contextInspection: {
+    readonly flags: readonly string[];
+    readonly forkFlag: string;
+    readonly kind: "claude-control-v1";
+  } | null;
   /** Resume-most-recent support (codex --last), or null. The race it opens
    * is owned by the corroboration ranking in interpretation. */
   readonly resumeLast: { readonly flag: string } | null;

@@ -183,6 +183,31 @@ default `headless-turn`) and `--model` (absent = the harness default model;
 a model outside the vocabulary degrades to `source: "unknown"`). It is
 mutually exclusive with `--argv` and `--runtime`.
 
+`hcn inspect claude --context --model opus --prompt-file request.txt --json`
+reports a native estimate of the full staged request, including native history
+when `--resume ID` is given. The result includes the resolved executable,
+version, observed model, used tokens, and supported input limit. Callers own
+their extra reserve and dispatch policy. The probe forks resumed sessions with
+persistence disabled and stages the prompt with `shouldQuery:false`; it never
+asks the assistant to execute it. Native startup hooks can still run. The
+verified Claude headless-turn adapter supports this operation, including fresh
+`--isolation tool-free` requests. Other versions and adapters report unavailable.
+Persistent-process accounting is not established by this command. It refuses
+native passthrough and other inspection modes, bounds serialized prompts to
+8 MiB, and defaults to a 30-second deadline followed by bounded process cleanup.
+A positive `--timeout` or configured timeout changes that deadline; zero keeps
+the bounded default. Interruption aborts and cleans up before exiting 1.
+Invalid requests exit 2 with the standard failure/done pair under `--json`.
+An ordinary inspection returns one version-1 JSON object. `accounting.status`
+is `available` or `unavailable`; an available result carries
+`method: "native-context-estimate"`, `model`, `totalTokens`,
+`contextWindowTokens`, and `inputLimitTokens`. The input limit is the smaller
+of the native window and its enabled automatic-compaction threshold.
+Unavailable reasons distinguish unsupported adapters, unverified versions,
+auth or limit failures, native exits, transport bounds/errors, invalid native
+protocol, timeout, cancellation, and cleanup failure. Neither an unavailable
+result nor a total window alone is permission to dispatch.
+
 `hcn inspect <harness> --runtime --prompt "validation"` reports version-1
 JSON containing redacted argv, the resolved executable path and version,
 the adapter's verified version, and native-resume compatibility. This runs

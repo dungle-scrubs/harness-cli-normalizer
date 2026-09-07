@@ -115,6 +115,7 @@ export const piCli: HarnessDescriptor = deepFreeze({
     cwdSlug: "pi-dash-wrapped",
   },
   contextHook: null,
+  contextInspection: null,
   resumeLast: null,
   stdin: "close-required",
   presence: {

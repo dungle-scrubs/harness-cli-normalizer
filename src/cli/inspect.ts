@@ -2,9 +2,10 @@ import { capabilitiesOf } from "../interpretation/capabilities.js";
 import { canonicalTable, mergeToolMaps } from "../interpretation/tool-vocabulary.js";
 import { HARNESS_MODES, type HarnessMode } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
-import { parseCommonFlags, splitPassthrough } from "./args.js";
+import { parseCommonFlags } from "./args.js";
 import { ConfigError, loadProjectConfig, loadUserConfig } from "./config.js";
 import { EXIT_REFUSAL } from "./exit-codes.js";
+import { inspectContextCommand } from "./inspect-context.js";
 import { inspectSessionRuntime } from "./inspect-session.js";
 import { planTurn, writePlanDiagnostics } from "./plan-turn.js";
 import { refuse } from "./refuse.js";
@@ -13,9 +14,21 @@ import { runtimeCompatibility } from "./runtime-compatibility.js";
 
 export const inspect = async (harnessName: string, rawArgs: string[]): Promise<void> => {
   const h = resolveHarness(harnessName);
-  const { normalized } = splitPassthrough(rawArgs);
+  let parsed: ReturnType<typeof parseCommonFlags>;
+  try {
+    parsed = parseCommonFlags(rawArgs);
+  } catch (err) {
+    // Preserve the shared prompt-injection and native-spelling diagnostics.
+    const outcome = await planTurn(h, rawArgs, { command: "inspect" });
+    if (outcome.kind === "refusal") {
+      refuse(outcome.refusal, outcome.wantJson && rawArgs.includes("--context"));
+      return;
+    }
+    throw err;
+  }
+  const values = parsed.values as Record<string, unknown>;
 
-  if (normalized.includes("--help") || normalized.includes("-h")) {
+  if (values.help === true) {
     const { INSPECT_HELP } = await import("./help.js");
     process.stdout.write(INSPECT_HELP);
     return;
@@ -24,20 +37,39 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
   // --argv: the preview is the plan the run command would spawn from, so
   // the two agree by construction (RFC-02 change 10). Refusals go through
   // the shared refuse path like every other command's.
-  if (normalized.includes("--argv") || normalized.includes("--runtime")) {
-    if (normalized.includes("--capabilities")) {
-      process.stderr.write(`--capabilities is mutually exclusive with --argv and --runtime\n`);
-      process.exitCode = EXIT_REFUSAL;
-      return;
-    }
-    if (normalized.includes("--runtime") && (await inspectSessionRuntime(h, rawArgs))) return;
+  if (
+    (values.capabilities && (values.argv || values.runtime || values.context)) ||
+    (values.context && (values.argv || values.runtime))
+  ) {
+    refuse(
+      {
+        issue: "invalid-option-value",
+        message: "--capabilities and --context are mutually exclusive with other inspection modes",
+      },
+      values.context === true && values.json === true,
+    );
+    return;
+  }
+  if (values.context && values.mode !== undefined && values.mode !== "headless-turn") {
+    refuse(
+      { issue: "invalid-option-value", message: "--context supports headless-turn only" },
+      values.json === true,
+    );
+    return;
+  }
+  if (values.context === true) {
+    await inspectContextCommand(h, rawArgs);
+    return;
+  }
+  if (values.argv === true || values.runtime === true) {
+    if (values.runtime === true && (await inspectSessionRuntime(h, rawArgs))) return;
     const outcome = await planTurn(h, rawArgs, { command: "inspect" });
     if (outcome.kind === "refusal") {
       refuse(outcome.refusal, false);
       return;
     }
     writePlanDiagnostics(h, outcome.plan, "argv");
-    if (normalized.includes("--runtime")) {
+    if (values.runtime === true) {
       const mode = parseCommonFlags(rawArgs).values.mode ?? "headless-turn";
       if (mode !== "headless-turn" && mode !== "headless-session") {
         refuse(
@@ -59,24 +91,6 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
     process.stdout.write(`${JSON.stringify(outcome.plan.redactedArgv)}\n`);
     return;
   }
-
-  // --capabilities path: pure capability record, no spawn, no config, no prompt
-  let parsed: ReturnType<typeof parseCommonFlags>;
-  try {
-    parsed = parseCommonFlags(rawArgs);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    refuse(
-      {
-        message: `unknown flag: ${message}`,
-        issue: "invalid-option-value",
-        trailer: ["Run 'hcn inspect --help' for usage."],
-      },
-      false,
-    );
-    return;
-  }
-  const values = parsed.values as Record<string, unknown>;
 
   if (values.capabilities === true) {
     const mode = values.mode === undefined ? "headless-turn" : String(values.mode);
@@ -144,6 +158,7 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
       idFlag: h.launch.idFlag,
     },
     resume: h.resume,
+    contextInspection: h.contextInspection ?? null,
     sessionMode: h.sessionMode,
     vocabulary: {
       models: h.vocabulary.models,

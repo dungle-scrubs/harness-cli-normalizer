@@ -102,7 +102,14 @@ const realSpawn = (argv: readonly string[], opts: SpawnOptions): SpawnedProcess 
       "pipe",
     ],
   });
+  const inputError = new Promise<void>((resolve) => {
+    child.stdin?.once("error", () => resolve());
+  });
   let outputDisposed = false;
+  let outputDisposedResolve!: () => void;
+  const outputDisposal = new Promise<void>((resolve) => {
+    outputDisposedResolve = resolve;
+  });
   const stdoutDisposalCause = new Error("stdout disposed by runner");
   const stderrDisposalCause = new Error("stderr disposed by runner");
   let spawnError: Error | null = null;
@@ -136,10 +143,13 @@ const realSpawn = (argv: readonly string[], opts: SpawnOptions): SpawnedProcess 
   // immediately while an async ENOENT remains the single spawn-error signal.
   const stderrWithError = async function* (): AsyncIterable<string | Uint8Array> {
     if (stderrOutput !== null) yield* stderrOutput.stream;
-    await exited;
+    // Terminal output disposal must also settle this tail when a child has
+    // closed stderr but has not exited. The caller owns signalling it.
+    await Promise.race([exited, outputDisposal]);
     if (spawnError !== null) yield `spawn failed: ${(spawnError as Error).message}\n`;
   };
   const proc: SpawnedProcess = {
+    inputError,
     stdout: stdoutOutput === null ? emptyStream() : stdoutOutput.stream,
     stderr: stderrWithError(),
     exited,
@@ -147,6 +157,7 @@ const realSpawn = (argv: readonly string[], opts: SpawnOptions): SpawnedProcess 
     disposeOutput: (): void => {
       if (outputDisposed) return;
       outputDisposed = true;
+      outputDisposedResolve();
       stdoutOutput?.dispose();
       stderrOutput?.dispose();
     },

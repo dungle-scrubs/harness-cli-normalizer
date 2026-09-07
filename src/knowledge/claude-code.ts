@@ -1,6 +1,6 @@
 /**
  * The claude-code descriptor: facts about the `claude` CLI as data, verified
- * against claude 2.1.233 and the 00-chat-substrate spike evidence (A-001,
+ * against claude 2.1.263 and the 00-chat-substrate spike evidence (A-001,
  * A-002, A-005). No process logic lives here.
  *
  * Discovery: claude 2.1.233 has no isolated instruction-file toggle.
@@ -20,10 +20,12 @@
 import { deepFreeze, type HarnessDescriptor, UUID_SHAPE } from "./descriptor.js";
 import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
 
+const STREAM_INPUT_FLAGS = ["--input-format", "stream-json"] as const;
+
 export const claudeCode: HarnessDescriptor = deepFreeze({
   name: "claude",
   bin: "claude",
-  verifiedAgainst: "2.1.233",
+  verifiedAgainst: "2.1.263",
   versionSource: { kind: "npm", package: "@anthropic-ai/claude-code" },
   launch: {
     baseFlags: ["-p"],
@@ -67,8 +69,7 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     // recalls codeword "pomegranate".
     flags: [
       "-p",
-      "--input-format",
-      "stream-json",
+      ...STREAM_INPUT_FLAGS,
       "--output-format",
       "stream-json",
       "--include-partial-messages",
@@ -140,6 +141,11 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     object: "context_window",
     usedPctField: "used_percentage",
   },
+  contextInspection: {
+    kind: "claude-control-v1",
+    flags: [...STREAM_INPUT_FLAGS, "--no-session-persistence", "--replay-user-messages"],
+    forkFlag: "--fork-session",
+  },
   resumeLast: null,
   stdin: "inherit",
   presence: {
@@ -160,7 +166,7 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
   // records a model id - absence of evidence, not an unset field.
   escalation: {
     supported: true,
-    observedOn: { harness: "claude", model: "", version: "2.1.235", date: "2026-08-19" },
+    observedOn: { harness: "claude", model: "sonnet", version: "2.1.263", date: "2026-09-07" },
   },
   turnOptions: {
     // Native CLI reference: bare removes discovery; the empty built-in list and

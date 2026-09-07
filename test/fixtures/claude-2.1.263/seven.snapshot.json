@@ -1,0 +1,35 @@
+{
+  "ranAt": "2026-09-07T20:41:53.967Z",
+  "results": {
+    "claude": {
+      "single-turn": {
+        "status": "pass",
+        "detail": "done=clean text=\"alpha\""
+      },
+      "streaming": {
+        "status": "pass",
+        "detail": "tokens=\"Count: one two three\" msg=\"Count: one two three\""
+      },
+      "tool-use": {
+        "status": "pass",
+        "detail": "1 tool events"
+      },
+      "session-cont(1proc)": {
+        "status": "pass",
+        "detail": "recall=\"kestrel\""
+      },
+      "resume-continuity": {
+        "status": "pass",
+        "detail": "resumed 48120ba3 recall=\"marlin\""
+      },
+      "kill-and-resume": {
+        "status": "pass",
+        "detail": "killed@2ev recall=\"otter\""
+      },
+      "error-prop": {
+        "status": "pass",
+        "detail": "done=failed err=true"
+      }
+    }
+  }
+}

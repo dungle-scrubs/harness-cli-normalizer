@@ -31,6 +31,7 @@ export type RefusalIssue = (typeof REFUSAL_ISSUES)[number];
  * branch on it without a default arm. */
 export type RefusalOption =
   | TurnOptionKey
+  | "context"
   | "tools"
   | "excludeTools"
   | "skills"
