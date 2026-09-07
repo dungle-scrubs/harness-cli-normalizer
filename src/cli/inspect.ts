@@ -153,6 +153,7 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
       baseFlags: h.launch.baseFlags,
       subcommands: h.launch.subcommands,
       streamFlags: h.launch.streamFlags,
+      stdinPrompt: h.launch.stdinPrompt ?? null,
       promptStyle: h.launch.promptStyle,
       toolsFlag: h.tools.includeFlag,
       idFlag: h.launch.idFlag,

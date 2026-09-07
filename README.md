@@ -223,6 +223,17 @@ including tool grants, environment overrides, and native passthrough.
 
 Flag table (maps to `TurnOptions` / `TurnRunOptions`):
 
+Claude prompts larger than 65,536 UTF-8 bytes use native print-mode stdin,
+with an empty prompt argument. This applies to fresh and resumed turns and
+keeps large requests out of the operating system's argument limit. The
+descriptor reports this alternate transport as `launch.stdinPrompt`.
+The same composed prompt is written once and stdin is closed. A broken pipe
+is a transport failure and terminates that child; a late pipe error after
+the child exits preserves its native failure classification. Ordinary prompts retain
+their existing argv shape. This uses Claude's documented
+[piped input](https://code.claude.com/docs/en/headless#pipe-data-through-claude)
+support; its native 10MB input cap still applies.
+
 | CLI flag | TurnOptions field | Notes |
 |---|---|---|
 | `--prompt <text>` | `prompt` | Alternative to positional; mutual exclusion |

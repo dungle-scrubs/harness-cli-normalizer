@@ -106,12 +106,28 @@ export interface ResumeOptions extends TurnOptions {
 
 export type LaunchOptions = TurnOptions;
 
+/** Returns the exact text to pipe, or null when it travels in argv. */
+export function stdinPromptOf(h: HarnessDescriptor, opts: TurnOptions): string | null {
+  const transport = h.launch.stdinPrompt;
+  if (!transport) return null;
+  const text = promptTextOf(opts);
+  if (text.length <= transport.aboveBytes / 3) return null;
+  return text.length > transport.aboveBytes ||
+    new TextEncoder().encode(text).byteLength > transport.aboveBytes
+    ? text
+    : null;
+}
+
 /** The shared tail of every headless-turn argv: prompt, stream flags, then
  * validated selections, with the variadic tools flag LAST and fed exactly
  * one joined token so nothing after it can be swallowed as a tool name. */
 const turnTail = (h: HarnessDescriptor, opts: TurnOptions): string[] => {
-  assertCleanPrompt(h, opts.prompt);
-  const tail = [promptTextOf(opts), ...h.launch.streamFlags];
+  const stdinPrompt = stdinPromptOf(h, opts);
+  if (stdinPrompt === null) assertCleanPrompt(h, opts.prompt);
+  const tail = [
+    stdinPrompt === null ? promptTextOf(opts) : (h.launch.stdinPrompt?.argument ?? ""),
+    ...h.launch.streamFlags,
+  ];
   if (opts.model !== undefined) {
     const validated = validateModel(h, opts.model);
     if (!validated.ok) {

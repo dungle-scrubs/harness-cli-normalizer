@@ -7,7 +7,7 @@
  * preview agree by construction, skill tokens and passthrough included.
  */
 import { redactArgv, type TurnRunOptions } from "../execution/stream-turn.js";
-import { buildSpawnArgv, promptTextOf } from "../interpretation/argv.js";
+import { buildSpawnArgv, promptTextOf, stdinPromptOf } from "../interpretation/argv.js";
 import { assertIsolationCombination } from "../interpretation/isolation.js";
 import { composeEscalatedPrompt } from "../interpretation/question.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
@@ -320,7 +320,7 @@ export const planTurn = async (
       wantJson,
       options,
       argv,
-      redactedArgv: redactArgv(argv, promptTextOf(options)),
+      redactedArgv: redactArgv(argv, promptTextOf(options), stdinPromptOf(h, options) !== null),
       provenance,
       unrenderable,
       behavior,

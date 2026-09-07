@@ -31,6 +31,9 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     baseFlags: ["-p"],
     subcommands: [],
     promptStyle: "positional",
+    // Print mode accepts piped text. Keep ordinary argv introspection
+    // stable while staying below per-argument limits for large requests.
+    stdinPrompt: { argument: "", aboveBytes: 65_536 },
     // A headless turn launches with the full stream-json output set so the
     // runner can decode identity/limits and stream token deltas; bare -p
     // (granularity none) is a degraded invocation this builder never emits.

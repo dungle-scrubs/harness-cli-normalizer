@@ -196,6 +196,7 @@ describe("hcn inspect (pure)", () => {
     expect(parsed.bin).toBe("claude");
     expect(parsed.verifiedAgainst).toBe("2.1.263");
     expect(parsed.launch.streamFlags).toContain("--output-format");
+    expect(parsed.launch.stdinPrompt).toEqual({ argument: "", aboveBytes: 65_536 });
     expect(parsed.resume.flag).toBe("--resume");
     expect(parsed.vocabulary.models).toContain("claude-opus-5");
   });

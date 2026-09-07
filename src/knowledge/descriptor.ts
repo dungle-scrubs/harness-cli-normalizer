@@ -323,6 +323,8 @@ export interface HarnessDescriptor {
      * `workspace-write` into subcommands. */
     readonly subcommands: readonly string[];
     readonly promptStyle: "positional";
+    /** A verified alternate transport for prompts too large for argv. */
+    readonly stdinPrompt?: { readonly argument: string; readonly aboveBytes: number };
     readonly streamFlags: readonly string[];
     /** The flag that pins a caller-assigned id at LAUNCH (spawn-time
      * assignment; the execution layer consumes it), or null when the
