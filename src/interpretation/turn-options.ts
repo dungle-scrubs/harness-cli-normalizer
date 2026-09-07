@@ -24,6 +24,7 @@ import {
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import type { DiscoveryOptions, TurnOptions } from "./argv.js";
 import { hintFor } from "./hints.js";
+import { assertIsolationCombination } from "./isolation.js";
 import { ArgvRefusalError } from "./refusal.js";
 import { supportedBy } from "./support.js";
 import { renderToolSelection } from "./tool-selection.js";
@@ -41,6 +42,7 @@ export const renderTurnOptions = (
   opts: TurnOptions,
   phase: "launch" | "resume",
 ): string[] => {
+  assertIsolationCombination(h, opts);
   const sequences: string[][] = [];
   // The turn option the access preset displaces when set (codex: sandbox),
   // read from the descriptor so no arm below branches on a harness name.

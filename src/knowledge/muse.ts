@@ -59,7 +59,12 @@ export const museCode: HarnessDescriptor = deepFreeze({
   autonomy: { flag: "--yolo" },
   vocabulary: {
     modelFlag: "--model",
-    models: ["muse-spark-1.2-contributor", "muse-spark-1.2", "muse-spark-1.1"],
+    models: [
+      "muse-spark-1.3-contributor",
+      "muse-spark-1.2-contributor",
+      "muse-spark-1.2",
+      "muse-spark-1.1",
+    ],
     aliases: {},
     efforts: ["none", "minimal", "low", "medium", "high", "xhigh"],
     extensible: false,

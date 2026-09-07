@@ -603,3 +603,22 @@ describe("issue #95: a caller-supplied session id must match the harness's id sh
     }
   });
 });
+
+test("session refuses the fresh-turn isolation option before looking up a session", async () => {
+  const before = process.exitCode;
+  const out: string[] = [];
+  const stdout = vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
+    out.push(String(chunk));
+    return true;
+  });
+  const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+  try {
+    await session("claude", ["--json", "--isolation", "tool-free", "--session-id", "bogus"]);
+    expect(process.exitCode).toBe(2);
+    expect(out.join("")).toContain("isolation");
+  } finally {
+    process.exitCode = before;
+    stdout.mockRestore();
+    stderr.mockRestore();
+  }
+});

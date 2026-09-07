@@ -189,6 +189,7 @@ Flag table (maps to `TurnOptions` / `TurnRunOptions`):
 |---|---|---|
 | `--prompt <text>` | `prompt` | Alternative to positional; mutual exclusion |
 | `--prompt-file <path\|->` | `prompt` | Reads UTF-8 file or stdin (`-`) |
+| `--isolation <tool-free>` | `isolation` | Fresh Claude run only; no tools or native discovery; invocation-only |
 | `--model <id>` | `model` | Validated via `validateModel` |
 | `--effort <value>` | `effort` | Validated via `validateEffort` |
 | `--sandbox <value>` | `sandbox` | Codex only |
@@ -215,6 +216,20 @@ Flag table (maps to `TurnOptions` / `TurnRunOptions`):
 | `--json` | output mode | NDJSON `HarnessEvent` to stdout |
 
 For development, `bun run demo claude "hi"` remains as a live-rendering alternative.
+
+### Tool-free turns
+
+`hcn run claude --isolation tool-free --model opus --effort high --timeout 60 "Name this quoted prompt"`
+starts a separate turn with built-in tools and MCP tools disabled. It also
+skips native instruction, hook, skill, and extension discovery. This option
+is invocation-only. Other harnesses refuse it. Resume, sessions, native
+passthrough, and explicit tool, skill, access, autonomy, or discovery overrides
+refuse. Config defaults for these dimensions yield to tool-free isolation;
+model and effort defaults still apply.
+
+Claude uses bare mode, which requires authentication that works in that mode;
+OAuth-only installations may fail. A caller doing optional naming must keep
+its fallback on failure. See the [native CLI reference](https://code.claude.com/docs/en/cli-reference).
 
 ## Defaults, config, provenance
 

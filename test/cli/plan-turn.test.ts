@@ -95,3 +95,101 @@ describe("planTurn", () => {
     expect(() => resumeIdOf({ resume: "a", "session-id": "b" })).toThrow(/not both/);
   });
 });
+
+test("tool-free isolation removes native and discovered tools and refuses resumed or widened runs", async () => {
+  const outcome = await planTurn(
+    claudeCode,
+    ["--isolation", "tool-free", "--model", "opus", "--effort", "high", "Name this prompt"],
+    { command: "run" },
+    deps,
+  );
+  expect(outcome.kind).toBe("plan");
+  if (outcome.kind !== "plan") throw new Error("Expected isolated plan");
+  expect(outcome.plan.argv).toContain("--bare");
+  expect(
+    outcome.plan.argv.slice(
+      outcome.plan.argv.indexOf("--tools"),
+      outcome.plan.argv.indexOf("--tools") + 2,
+    ),
+  ).toEqual(["--tools", ""]);
+  expect(outcome.plan.argv).toContain("--strict-mcp-config");
+  expect(outcome.plan.argv).toContain("mcp__*");
+  for (const tail of [
+    ["--resume", "eb04301d-8756-4a8b-ae3e-aac0e71f7265"],
+    ["--tools", "shell"],
+    ["--", "--tools", "Bash"],
+  ]) {
+    expect(
+      (
+        await planTurn(
+          claudeCode,
+          ["--isolation", "tool-free", "Name this prompt", ...tail],
+          { command: "run" },
+          deps,
+        )
+      ).kind,
+    ).toBe("refusal");
+  }
+  expect(
+    (
+      await planTurn(
+        codexCli,
+        ["--isolation", "tool-free", "Name this prompt"],
+        { command: "run" },
+        deps,
+      )
+    ).kind,
+  ).toBe("refusal");
+});
+
+test("tool-free overrides configured grants but refuses explicit discovery or grants before loading skills", async () => {
+  const configured: PlanDeps = {
+    ...deps,
+    loadUserConfig: () => ({
+      config: {
+        tools: ["shell"],
+        autonomy: true,
+        discovery: { extensions: false },
+        effort: "high",
+      },
+    }),
+    loadProjectConfig: () => ({ config: { tools: ["read"] } }),
+  };
+  const outcome = await planTurn(
+    claudeCode,
+    ["--isolation", "tool-free", "Name this"],
+    { command: "run" },
+    configured,
+  );
+  expect(outcome.kind).toBe("plan");
+  if (outcome.kind !== "plan") throw new Error("Expected isolated plan");
+  expect(outcome.plan.argv).not.toContain("--allowedTools");
+  expect(outcome.plan.argv).not.toContain("--dangerously-skip-permissions");
+  expect(outcome.plan.argv).not.toContain("--setting-sources");
+  const noScan: PlanDeps = {
+    ...deps,
+    resolveSkillNames: () => {
+      throw new Error("Must refuse before scanning skills");
+    },
+    listKnownSkills: () => {
+      throw new Error("Must refuse before scanning skills");
+    },
+  };
+  for (const flags of [
+    ["--skills", "hcn"],
+    ["--no-extensions"],
+    ["--access", "read"],
+    ["--autonomy"],
+    ["--exclude-tools", "shell"],
+  ]) {
+    const refused = await planTurn(
+      claudeCode,
+      ["--isolation", "tool-free", "Name this", ...flags],
+      { command: "run" },
+      noScan,
+    );
+    expect(refused.kind).toBe("refusal");
+    if (refused.kind === "refusal")
+      expect(refused.refusal.issue).toBe("mutually-exclusive-options");
+  }
+});

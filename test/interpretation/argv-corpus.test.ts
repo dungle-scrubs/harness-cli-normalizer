@@ -50,6 +50,11 @@ const TOOL_MAP = {
 /** Turn-option cases, one per dimension at a non-default value. */
 const turnCases = (h: HarnessDescriptor): ReadonlyArray<readonly [string, TurnOptions]> => [
   ["bare", { prompt: "hi" }],
+  ["tool-free", { prompt: "hi", isolation: "tool-free" }],
+  [
+    "tool-free-conflict",
+    { prompt: "hi", isolation: "tool-free", discovery: { extensions: false } },
+  ],
   ["model", { prompt: "hi", model: modelFor(h) }],
   ["effort-high", { prompt: "hi", effort: "high" }],
   ["effort-with-model", { prompt: "hi", model: modelFor(h), effort: "high" }],

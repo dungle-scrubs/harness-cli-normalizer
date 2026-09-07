@@ -11,6 +11,7 @@ import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { DEFAULT_TURN_PROFILE, type ProfileKey } from "../knowledge/profile.js";
 import type { TurnOptions } from "./argv.js";
+import { assertIsolationCombination, ISOLATION_OVERRIDES } from "./isolation.js";
 import type { QuestionMode } from "./question.js";
 import { ArgvRefusalError } from "./refusal.js";
 import type { ToolMapConfig } from "./tool-vocabulary.js";
@@ -152,10 +153,17 @@ export const resolveEffectiveOptions = (
   args: TurnOptions,
   tiers: ConfigTiers = {},
 ): ResolvedOptions => {
+  assertIsolationCombination(h, args);
   const provenance: ProvenanceEntry[] = [];
+  if (args.isolation !== undefined)
+    provenance.push({ key: "isolation", value: args.isolation, tier: "arg" });
   const unrenderable: string[] = [];
-  const config = effectiveConfig(tiers);
+  const config = { ...effectiveConfig(tiers) };
+  if (args.isolation !== undefined) {
+    for (const key of ISOLATION_OVERRIDES) delete config[key];
+  }
   const sourceTier = (key: string): ProvenanceTier | undefined => {
+    if (config[key as keyof TurnOptions] === undefined) return undefined;
     if (tiers.project?.[key as keyof TurnOptions] !== undefined) return "project-config";
     if (tiers.user?.[key as keyof TurnOptions] !== undefined) return "user-config";
     return undefined;
@@ -288,6 +296,10 @@ export const resolveEffectiveOptions = (
 
   // Profile is the floor: apply only where nothing above it set the key.
   for (const [key, value] of Object.entries(DEFAULT_TURN_PROFILE)) {
+    if (args.isolation !== undefined && ISOLATION_OVERRIDES.some((owned) => owned === key)) {
+      provenance.push({ key, value: "disabled (tool-free isolation)", tier: "arg" });
+      continue;
+    }
     const argsSet = effectiveArgs[key as keyof TurnOptions] !== undefined;
     const tier = sourceTier(key);
     if (argsSet) {
