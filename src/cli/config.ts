@@ -64,6 +64,8 @@ type MutableTurnOptions = {
   [K in keyof TurnOptions]?: TurnOptions[K];
 };
 
+// Isolation is invocation-only: a config must not silently change native auth
+// or disable all tools for unrelated turns.
 const KNOWN_KEYS = new Set([
   "effort",
   "model",

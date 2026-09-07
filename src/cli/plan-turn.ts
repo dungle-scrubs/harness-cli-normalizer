@@ -8,6 +8,7 @@
  */
 import { redactArgv, type TurnRunOptions } from "../execution/stream-turn.js";
 import { buildSpawnArgv, promptTextOf } from "../interpretation/argv.js";
+import { assertIsolationCombination } from "../interpretation/isolation.js";
 import { composeEscalatedPrompt } from "../interpretation/question.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
 import {
@@ -204,6 +205,7 @@ export const planTurn = async (
   try {
     turnOpts = parseTurnOptions(values);
     extra = parseRunExtra(values);
+    assertIsolationCombination(h, { ...turnOpts, passthrough });
   } catch (err) {
     if (err instanceof ArgvRefusalError) return refused(err);
     throw err;
@@ -336,7 +338,9 @@ export const writePlanDiagnostics = (
   label: "spawn" | "argv",
 ): void => {
   writeProvenance(h.name, plan.provenance, plan.unrenderable);
-  process.stderr.write(`${label}: ${plan.redactedArgv.join(" ")}\n`);
+  process.stderr.write(
+    `${label}: ${plan.redactedArgv.map((token) => (token === "" ? '""' : token)).join(" ")}\n`,
+  );
   process.stderr.write(
     `provenance: questions = ${plan.behavior.questions.value} (${plan.behavior.questions.tier})\n`,
   );

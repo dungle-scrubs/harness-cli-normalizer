@@ -9,7 +9,9 @@
  * `ANTHROPIC_API_KEY` / `apiKeyHelper` (OAuth never read) - so a caller
  * authenticated via OAuth would break. The descriptor therefore offers no
  * `instructionFiles` facet and a call passing it must refuse. Likewise
- * `tools` has no discovery flag on claude and refuses.
+ * `tools` has no discovery flag on claude and refuses. The explicit
+ * tool-free isolation composite below accepts the bare-mode auth cost and
+ * disables native tools too. It is separate from a granular discovery facet.
  *
  * Effort: A-002 showed `--effort bogus` warns on stderr and runs at DEFAULT
  * effort, exit 0, with nothing echoed in the stream. The library-side
@@ -161,6 +163,17 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     observedOn: { harness: "claude", model: "", version: "2.1.235", date: "2026-08-19" },
   },
   turnOptions: {
+    // Native CLI reference: bare removes discovery; the empty built-in list and
+    // MCP deny remove tool access. Resume and native overrides are refused.
+    isolation: {
+      kind: "enum",
+      values: ["tool-free"],
+      resumeRender: null,
+      render: {
+        kind: "flag-list",
+        flags: ["--bare", "--tools", "", "--disallowedTools", "mcp__*", "--strict-mcp-config"],
+      },
+    },
     effort: { kind: "effort", render: { kind: "flag-value", flag: "--effort" } },
     // issue #48, live-verified 2.1.235: --system-prompt replaces the built-in
     // prompt; --exclude-dynamic-system-prompt-sections strips the dynamic

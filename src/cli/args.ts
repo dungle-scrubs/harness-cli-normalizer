@@ -153,6 +153,7 @@ export type ParsedTurnOptions = TurnOptions & { readonly skillNames?: readonly s
 export const parseTurnOptions = (values: Record<string, unknown>): ParsedTurnOptions => {
   const opts: Record<string, unknown> = {};
 
+  if (values.isolation !== undefined) opts.isolation = values.isolation;
   if (values.model !== undefined) opts.model = values.model;
   if (values.effort !== undefined) opts.effort = values.effort;
   if (values.sandbox !== undefined) opts.sandbox = values.sandbox;
@@ -314,6 +315,7 @@ const KNOWN_FLAGS = new Set([
   "--system-prompt",
   "--append-system-prompt",
   "--max-steps",
+  "--isolation",
   "--no-tools",
   "--no-instruction-files",
   "--no-extensions",
@@ -334,6 +336,7 @@ const KNOWN_FLAGS = new Set([
 ]);
 
 const FLAGS_WITH_VALUE = new Set([
+  "--isolation",
   "--prompt",
   "--prompt-file",
   "--model",
@@ -470,6 +473,7 @@ export const parseCommonFlags = (
       "system-prompt": { type: "string" as const },
       "append-system-prompt": { type: "string" as const },
       "max-steps": { type: "string" as const },
+      isolation: { type: "string" as const },
       access: { type: "string" as const },
       "no-tools": { type: "boolean" as const },
       "no-instruction-files": { type: "boolean" as const },

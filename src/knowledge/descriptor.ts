@@ -146,6 +146,7 @@ export type UnavailableMatcher = PhraseMatcher;
  * arm would be dead data that can only drift. Render order is the tuple
  * order, so argv is deterministic regardless of caller field order. */
 export const TURN_OPTION_KEYS = deepFreeze([
+  "isolation",
   "effort",
   "sandbox",
   "contextWindow",

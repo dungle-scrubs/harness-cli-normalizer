@@ -10,6 +10,7 @@ import type {
   StreamingGranularity,
 } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
+import { assertIsolationCombination } from "./isolation.js";
 import { ArgvRefusalError } from "./refusal.js";
 import { assertUsableSessionId, SESSION_ID_MAX, SessionIdRefusalError } from "./session-id.js";
 import { renderSkillsSelection, type SkillsSelection } from "./skills-selection.js";
@@ -61,6 +62,7 @@ export interface DiscoveryOptions {
 }
 
 export interface TurnOptions {
+  readonly isolation?: "tool-free";
   readonly prompt: Prompt;
   readonly tools?: readonly string[];
   readonly excludeTools?: readonly string[];
@@ -205,6 +207,7 @@ export interface SpawnArgvOptions extends TurnOptions {
  * passthrough tail after a bare separator. One owner, so the CLI's preview
  * and the runner's spawn agree by construction (RFC-02 change 10). */
 export const buildSpawnArgv = (h: HarnessDescriptor, opts: SpawnArgvOptions): string[] => {
+  assertIsolationCombination(h, opts);
   const base =
     opts.resume === undefined
       ? buildLaunchArgv(h, opts)

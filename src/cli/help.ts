@@ -72,6 +72,9 @@ Options:
   --max-steps <n>           Max steps (muse, 1-10000)
   --timeout <seconds>       Wall-clock budget for the run (all harnesses,
                             hcn-enforced; 0 disables; no default)
+  --isolation <tool-free>   Fresh tool-free turn (claude); no resume, tools,
+                            skills, access, autonomy, discovery, or native passthrough.
+                            Uses bare mode; native authentication must support it.
   --no-tools                Disable tools discovery facet
   --no-instruction-files    Disable instructionFiles discovery facet
   --no-extensions           Disable extensions discovery facet
@@ -186,6 +189,7 @@ Options:
   --questions <ask|assume|none>
                             (accepted; renders nothing - rides the run prompt)
   --max-steps <n>
+  --isolation <tool-free> (fresh claude turn only)
   --no-tools, --no-instruction-files, --no-extensions, --no-skills
   --questions <ask|assume|none>
                             Accepted; renders nothing in argv (the mode

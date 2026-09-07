@@ -64,6 +64,23 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   }
 
   const values = parsed.values as Record<string, unknown>;
+  if (values.isolation !== undefined) {
+    const { refuse, refusalOf } = await import("./refuse.js");
+    refuse(
+      refusalOf(
+        new ArgvRefusalError({
+          harness: h.name,
+          message: "isolation is available only for a fresh hcn run",
+          issue: "invalid-option-value",
+          option: "isolation",
+          supported: ["hcn run --isolation tool-free"],
+        }),
+      ),
+      jsonMode,
+      "closed",
+    );
+    return;
+  }
   // --resume and --session-id are aliases for one concept; the one check
   // every command calls decides whether both were given.
   let resumeId: string | undefined;
