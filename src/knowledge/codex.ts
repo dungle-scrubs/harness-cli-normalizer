@@ -83,6 +83,8 @@ export const codexCli: HarnessDescriptor = deepFreeze({
   },
   contextHook: null,
   contextInspection: null,
+  // Codex 0.153.4 core/session/turn.rs runs native automatic compaction.
+  nativeContextManagement: { kind: "auto-compaction", modes: ["headless-turn"] },
   // Valid only in the `exec resume` context: `codex exec resume --last`.
   resumeLast: { flag: "--last" },
   // codex exec appends piped stdin as a <stdin> block and can block on an

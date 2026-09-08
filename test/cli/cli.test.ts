@@ -208,6 +208,17 @@ describe("hcn inspect (pure)", () => {
     expect(parsed.vocabulary.models).toContain("zai/glm-5.2");
     expect(parsed.launch.baseFlags).toContain("--mode");
   });
+  test("inspect declares native context management separately from accounting", async () => {
+    const codex = JSON.parse((await captureDispatch(["inspect", "codex"])).stdout);
+    expect(codex.nativeContextManagement).toEqual({
+      kind: "auto-compaction",
+      modes: ["headless-turn"],
+    });
+    expect(codex.contextInspection).toBeNull();
+    const claude = JSON.parse((await captureDispatch(["inspect", "claude"])).stdout);
+    expect(claude.nativeContextManagement).toBeNull();
+    expect(claude.contextInspection).not.toBeNull();
+  });
 });
 
 describe("hcn inspect --argv (argv preview + redaction)", () => {

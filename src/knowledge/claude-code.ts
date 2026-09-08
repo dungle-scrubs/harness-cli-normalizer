@@ -151,6 +151,7 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     object: "context_window",
     usedPctField: "used_percentage",
   },
+  nativeContextManagement: null,
   contextInspection: {
     kind: "claude-control-v1",
     flags: [...STREAM_INPUT_FLAGS, "--no-session-persistence", "--replay-user-messages"],

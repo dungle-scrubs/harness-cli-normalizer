@@ -208,6 +208,13 @@ auth or limit failures, native exits, transport bounds/errors, invalid native
 protocol, timeout, cancellation, and cleanup failure. Neither an unavailable
 result nor a total window alone is permission to dispatch.
 
+Descriptor inspection separately exposes `nativeContextManagement`: Codex
+0.153.4 declares `{ kind: "auto-compaction", modes: ["headless-turn"] }`.
+Other adapters emit null. This describes native handling, not a count or a
+successful budget check. Callers decide whether to delegate context management
+after verifying the selected executable and mode. Codex preflight accounting
+continues to return `unsupported-adapter`.
+
 `hcn inspect <harness> --runtime --prompt "validation"` reports version-1
 JSON containing redacted argv, the resolved executable path and version,
 the adapter's verified version, and native-resume compatibility. This runs

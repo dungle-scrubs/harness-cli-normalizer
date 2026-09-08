@@ -116,6 +116,7 @@ export const piCli: HarnessDescriptor = deepFreeze({
   },
   contextHook: null,
   contextInspection: null,
+  nativeContextManagement: null,
   resumeLast: null,
   stdin: "close-required",
   presence: {
