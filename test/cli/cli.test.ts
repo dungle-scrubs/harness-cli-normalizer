@@ -90,6 +90,13 @@ describe("hcn version and help", () => {
     expect(out.stdout).toContain("--argv");
   });
 
+  test("an explicit prompt equal to an inspection flag is data", async () => {
+    const out = await captureDispatch(["inspect", "claude", "--argv", "--prompt", "--context"]);
+    expect(out.exitCode).toBeUndefined();
+    expect(Array.isArray(JSON.parse(out.stdout))).toBe(true);
+    expect(out.stdout).not.toContain("accounting");
+  });
+
   test("unknown flag exits 2 with usage hint", async () => {
     const out = await captureDispatch(["run", "claude", "hi", "--unknown-flag"]);
     expect(out.exitCode).toBe(2);
@@ -100,7 +107,7 @@ describe("hcn version and help", () => {
 describe("hcn ls", () => {
   test("lists claude@, codex@, pi@, muse@ with versionSource", async () => {
     const out = await captureDispatch(["ls"]);
-    expect(out.stdout).toContain("claude@2.1.233");
+    expect(out.stdout).toContain("claude@2.1.263");
     expect(out.stdout).toContain("codex@0.147.0");
     expect(out.stdout).toContain("pi@0.84.2");
     expect(out.stdout).toContain("muse@0.1.0");
@@ -187,8 +194,9 @@ describe("hcn inspect (pure)", () => {
     const out = await captureDispatch(["inspect", "claude"]);
     const parsed = JSON.parse(out.stdout);
     expect(parsed.bin).toBe("claude");
-    expect(parsed.verifiedAgainst).toBe("2.1.233");
+    expect(parsed.verifiedAgainst).toBe("2.1.263");
     expect(parsed.launch.streamFlags).toContain("--output-format");
+    expect(parsed.launch.stdinPrompt).toEqual({ argument: "", aboveBytes: 65_536 });
     expect(parsed.resume.flag).toBe("--resume");
     expect(parsed.vocabulary.models).toContain("claude-opus-5");
   });

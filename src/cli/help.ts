@@ -167,11 +167,33 @@ Arguments:
 
 Options:
   --argv                    Preview argv that would be spawned
+  --runtime                 Preview argv and probe the selected executable version;
+                            exact adapter matches support native resume, others unknown
+                            (does not run a model or prove the saved session exists)
+  --context                 Inspect complete staged context through a disposable native
+                            process (headless-turn only, verified Claude adapter).
+                            --json returns accounting plus executable/model provenance.
+                            Native estimate includes recalled history and the composed
+                            prompt. No assistant task is queried. Resume is forked with
+                            persistence disabled; the original session is unchanged.
+                            Unknown adapter/accounting returns unavailable, never a
+                            guessed budget. Callers own reserves and dispatch decisions.
+                            Excludes --argv, --runtime, --capabilities and passthrough.
+                            Maximum serialized prompt: 8 MiB. Probe deadline defaults to
+                            30 seconds; positive --timeout/config timeout overrides it.
+                            Zero retains 30 seconds. Cleanup is bounded separately.
+                            Startup hooks may run. Interruption exits 1 after cleanup.
+                            Invalid requests exit 2 with the standard JSON failure/done
+                            pair when --json is set.
   --capabilities            Print the capability record (vision, images,
                             streaming, session, source) as one JSON line
-  --mode <mode>             Mode for --capabilities:
+  --mode <mode>             Mode for --capabilities or --runtime:
                             headless-turn | headless-session | interactive
                             (default headless-turn)
+                            --runtime excludes interactive; headless-session requires
+                            --resume and accepts no native passthrough arguments
+                            Session preview needs no prompt; only model, effort,
+                            provider and cwd process options are accepted
   --prompt <text>           Prompt for argv preview
   --prompt-file <path|->    Read prompt from file
   --model <id>              Model

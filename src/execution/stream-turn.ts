@@ -19,6 +19,7 @@ import {
   buildSpawnArgv,
   type LaunchOptions,
   promptTextOf,
+  stdinPromptOf,
   streamingGranularityOf,
   withPromptText,
 } from "../interpretation/argv.js";
@@ -72,14 +73,21 @@ const SECRETISH = /(sk-[A-Za-z0-9_-]{8,}|(?:token|key|secret|password)=\S+)/i;
  * other token is kept unless it is secret-shaped. Only the prompt's
  * positional slot is masked, so a one-word prompt that equals a flag
  * value does not cause that flag value to be masked. */
-export const redactArgv = (argv: readonly string[], prompt?: string): string[] => {
+export const redactArgv = (
+  argv: readonly string[],
+  prompt?: string,
+  viaStdin = false,
+): string[] => {
   const promptIndex = prompt !== undefined ? argv.lastIndexOf(prompt) : -1;
   const promptLabel = prompt !== undefined ? `[prompt:${prompt.length}ch]` : "";
-  return argv.map((token, index) => {
+  const redacted = argv.map((token, index) => {
     if (index === promptIndex) return promptLabel;
     if (SECRETISH.test(token)) return "[redacted]";
     return token;
   });
+  return viaStdin && prompt !== undefined
+    ? [...redacted, `[stdin prompt:${prompt.length}ch]`]
+    : redacted;
 };
 
 export interface TurnRunOptions extends LaunchOptions {
@@ -119,6 +127,7 @@ export async function* streamTurn(
     prompt: withPromptText(opts.prompt, composeEscalatedPrompt(promptTextOf(opts), questionMode)),
   };
   const promptText = promptTextOf(effective);
+  const stdinPrompt = stdinPromptOf(h, effective);
   let asked = false;
   let escalationDetection: EscalationDetection = "none";
 
@@ -209,7 +218,7 @@ export async function* streamTurn(
     event: "spawn",
     turnId,
     harness: h.name,
-    argv: redactArgv(argv, promptText),
+    argv: redactArgv(argv, promptText, stdinPrompt !== null),
     granularity,
     ...(matcherOverrides ? { matcherOverrides } : {}),
     ...(envKeys?.length ? { envKeys } : {}),
@@ -226,7 +235,7 @@ export async function* streamTurn(
   let proc: SpawnedProcess;
   try {
     proc = deps.spawn(argv, {
-      stdin: h.stdin === "close-required" ? "close" : "inherit",
+      stdin: stdinPrompt !== null ? "pipe" : h.stdin === "close-required" ? "close" : "inherit",
       ...(effective.cwd !== undefined ? { cwd: effective.cwd } : {}),
       ...(effective.env !== undefined ? { env: effective.env } : {}),
     });
@@ -366,6 +375,24 @@ export async function* streamTurn(
       proc.disposeOutput();
     }, PIPE_GRACE_MS);
   });
+
+  if (stdinPrompt !== null) {
+    let inputFailed = false;
+    const failInput = (): void => {
+      if (inputFailed || cancelled || exited) return;
+      inputFailed = true;
+      void pushFailure(failureFromTransport("native prompt stdin failed"));
+      sup.escalate();
+    };
+    void proc.inputError?.then(failInput);
+    try {
+      if (!proc.stdin) throw new Error("native prompt requires stdin");
+      proc.stdin.write(stdinPrompt);
+      proc.stdin.end();
+    } catch {
+      failInput();
+    }
+  }
 
   const pumpStdout = async (): Promise<void> => {
     const lines = new LineBuffer();

@@ -77,6 +77,7 @@ export const museCode: HarnessDescriptor = deepFreeze({
     cwdSlug: "verbatim",
   },
   contextHook: null,
+  contextInspection: null,
   // `muse resume --last` exists (muse resume --help).
   resumeLast: { flag: "--last" },
   stdin: "inherit",

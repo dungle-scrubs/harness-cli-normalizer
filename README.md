@@ -181,9 +181,58 @@ hcn check --json
 given `--mode` (`headless-turn` | `headless-session` | `interactive`;
 default `headless-turn`) and `--model` (absent = the harness default model;
 a model outside the vocabulary degrades to `source: "unknown"`). It is
-mutually exclusive with `--argv`.
+mutually exclusive with `--argv` and `--runtime`.
+
+`hcn inspect claude --context --model opus --prompt-file request.txt --json`
+reports a native estimate of the full staged request, including native history
+when `--resume ID` is given. The result includes the resolved executable,
+version, observed model, used tokens, and supported input limit. Callers own
+their extra reserve and dispatch policy. The probe forks resumed sessions with
+persistence disabled and stages the prompt with `shouldQuery:false`; it never
+asks the assistant to execute it. Native startup hooks can still run. The
+verified Claude headless-turn adapter supports this operation, including fresh
+`--isolation tool-free` requests. Other versions and adapters report unavailable.
+Persistent-process accounting is not established by this command. It refuses
+native passthrough and other inspection modes, bounds serialized prompts to
+8 MiB, and defaults to a 30-second deadline followed by bounded process cleanup.
+A positive `--timeout` or configured timeout changes that deadline; zero keeps
+the bounded default. Interruption aborts and cleans up before exiting 1.
+Invalid requests exit 2 with the standard failure/done pair under `--json`.
+An ordinary inspection returns one version-1 JSON object. `accounting.status`
+is `available` or `unavailable`; an available result carries
+`method: "native-context-estimate"`, `model`, `totalTokens`,
+`contextWindowTokens`, and `inputLimitTokens`. The input limit is the smaller
+of the native window and its enabled automatic-compaction threshold.
+Unavailable reasons distinguish unsupported adapters, unverified versions,
+auth or limit failures, native exits, transport bounds/errors, invalid native
+protocol, timeout, cancellation, and cleanup failure. Neither an unavailable
+result nor a total window alone is permission to dispatch.
+
+`hcn inspect <harness> --runtime --prompt "validation"` reports version-1
+JSON containing redacted argv, the resolved executable path and version,
+the adapter's verified version, and native-resume compatibility. This runs
+only a version probe. The argv is a diagnostic preview, not a command to
+execute. Exact version agreement establishes adapter support; missing or
+different versions remain unknown. It does not prove session existence or
+recall. Pass the same working folder and options as the intended turn.
+
+For persistent resume use `--mode headless-session --resume <session-id>`.
+That preview needs no prompt and accepts model, effort, provider, and cwd.
+It refuses other process options that persistent startup cannot apply,
+including tool grants, environment overrides, and native passthrough.
 
 Flag table (maps to `TurnOptions` / `TurnRunOptions`):
+
+Claude prompts larger than 65,536 UTF-8 bytes use native print-mode stdin,
+with an empty prompt argument. This applies to fresh and resumed turns and
+keeps large requests out of the operating system's argument limit. The
+descriptor reports this alternate transport as `launch.stdinPrompt`.
+The same composed prompt is written once and stdin is closed. A broken pipe
+is a transport failure and terminates that child; a late pipe error after
+the child exits preserves its native failure classification. Ordinary prompts retain
+their existing argv shape. This uses Claude's documented
+[piped input](https://code.claude.com/docs/en/headless#pipe-data-through-claude)
+support; its native 10MB input cap still applies.
 
 | CLI flag | TurnOptions field | Notes |
 |---|---|---|
