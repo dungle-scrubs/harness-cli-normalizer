@@ -108,7 +108,7 @@ describe("hcn ls", () => {
   test("lists claude@, codex@, pi@, muse@ with versionSource", async () => {
     const out = await captureDispatch(["ls"]);
     expect(out.stdout).toContain("claude@2.1.263");
-    expect(out.stdout).toContain("codex@0.147.0");
+    expect(out.stdout).toContain("codex@0.153.4");
     expect(out.stdout).toContain("pi@0.84.2");
     expect(out.stdout).toContain("muse@0.1.0");
     expect(out.stdout).toContain("npm:");

@@ -1,8 +1,7 @@
 /**
  * The codex descriptor: facts about the `codex` CLI as data, verified
- * against codex-cli 0.147.0 and lucid v1's registry. Descriptor groundwork
- * only (D-003): not exercised through the chat protocol until the claude
- * vertical slice is green.
+ * against codex-cli 0.153.4. Native capability and question recordings
+ * live in test/fixtures/codex-0.153.4.
  */
 import { deepFreeze, type HarnessDescriptor, UUID_SHAPE } from "./descriptor.js";
 import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
@@ -10,7 +9,7 @@ import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
 export const codexCli: HarnessDescriptor = deepFreeze({
   name: "codex",
   bin: "codex",
-  verifiedAgainst: "0.147.0",
+  verifiedAgainst: "0.153.4",
   versionSource: { kind: "npm", package: "@openai/codex" },
   launch: {
     // exec --json emits structured item events; without --json, identity
@@ -108,7 +107,12 @@ export const codexCli: HarnessDescriptor = deepFreeze({
   // records a model id - absence of evidence, not an unset field.
   escalation: {
     supported: true,
-    observedOn: { harness: "codex", model: "", version: "0.146.1", date: "2026-08-19" },
+    observedOn: {
+      harness: "codex",
+      model: "gpt-6-astra",
+      version: "0.153.4",
+      date: "2026-09-08",
+    },
   },
   turnOptions: {
     // Codex config reference; accepted as an integer on CLI 0.153.4.
