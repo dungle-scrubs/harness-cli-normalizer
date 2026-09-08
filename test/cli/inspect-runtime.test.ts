@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { env } from "node:process";
 import { expect, test } from "vitest";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 
@@ -36,7 +37,7 @@ test("runtime inspection renders persistent session resume using the session gra
         env: {
           HOME: dir,
           XDG_CONFIG_HOME: dir,
-          PATH: `${dir}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
+          PATH: `${dir}:${env.PATH ?? ""}`,
         },
       },
     );
@@ -135,7 +136,7 @@ test("runtime inspection refuses version drift in the executable selected by the
         env: {
           HOME: dir,
           XDG_CONFIG_HOME: dir,
-          PATH: `${dir}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
+          PATH: `${dir}:${env.PATH ?? ""}`,
         },
       },
     );
@@ -181,7 +182,7 @@ test.each(["selected", "missing", ""])(
           env: {
             HOME: dir,
             XDG_CONFIG_HOME: dir,
-            PATH: `${dir}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
+            PATH: `${dir}:${env.PATH ?? ""}`,
           },
         },
       );

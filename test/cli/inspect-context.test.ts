@@ -2,6 +2,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { env } from "node:process";
 import { expect, test } from "vitest";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 
@@ -66,7 +67,7 @@ require("node:readline").createInterface({ input: process.stdin }).on("line", li
           env: {
             HOME: dir,
             XDG_CONFIG_HOME: dir,
-            PATH: `${dir}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
+            PATH: `${dir}:${env.PATH ?? ""}`,
           },
         },
       ),
@@ -184,7 +185,7 @@ test("CLI interruption cancels the probe, reaps its native child and exits with 
       env: {
         HOME: dir,
         XDG_CONFIG_HOME: dir,
-        PATH: `${dir}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
+        PATH: `${dir}:${env.PATH ?? ""}`,
       },
       stdio: ["ignore", "pipe", "ignore"],
     },
