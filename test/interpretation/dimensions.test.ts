@@ -59,8 +59,17 @@ describe("capabilitiesOf (claude)", () => {
   });
 
   test("a descriptor whose observation is behind verifiedAgainst reports lower confidence than one that is current", () => {
-    // codex observed 0.146.1 behind verified 0.147.0 -> medium; claude/pi/muse current-or-ahead -> high
-    const stale = capabilitiesOf(codexCli, "", "headless-turn");
+    const stale = capabilitiesOf(
+      {
+        ...codexCli,
+        escalation: {
+          ...codexCli.escalation,
+          observedOn: { harness: "codex", model: "", version: "0.146.1", date: "2026-08-19" },
+        },
+      },
+      "",
+      "headless-turn",
+    );
     const current = capabilitiesOf(claudeCode, "", "headless-turn");
     const piCaps = capabilitiesOf(piCli, "", "headless-turn");
     expect(stale.escalation.confidence).toBe("medium");

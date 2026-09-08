@@ -1,0 +1,35 @@
+{
+  "ranAt": "2026-09-08T10:22:25.432Z",
+  "results": {
+    "codex": {
+      "single-turn": {
+        "status": "pass",
+        "detail": "done=clean text=\"alpha\""
+      },
+      "streaming": {
+        "status": "skip",
+        "detail": "not token-granular"
+      },
+      "tool-use": {
+        "status": "pass",
+        "detail": "1 tool events"
+      },
+      "session-cont(1proc)": {
+        "status": "skip",
+        "detail": "no session mode"
+      },
+      "resume-continuity": {
+        "status": "pass",
+        "detail": "resumed 01a08089 recall=\"marlin\""
+      },
+      "kill-and-resume": {
+        "status": "pass",
+        "detail": "killed@2ev recall=\"otter\""
+      },
+      "error-prop": {
+        "status": "pass",
+        "detail": "done=failed err=true"
+      }
+    }
+  }
+}

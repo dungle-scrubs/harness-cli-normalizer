@@ -1,0 +1,23 @@
+{
+  "ranAt": "2026-09-08T10:23:13.456Z",
+  "results": {
+    "codex": {
+      "status": "pass",
+      "observedOn": {
+        "harness": "codex",
+        "model": "gpt-6-astra",
+        "version": "0.153.4",
+        "date": "2026-09-08"
+      },
+      "detail": "question \"Which environment must deploy-\""
+    }
+  },
+  "observations": {
+    "codex": {
+      "harness": "codex",
+      "model": "gpt-6-astra",
+      "version": "0.153.4",
+      "date": "2026-09-08"
+    }
+  }
+}

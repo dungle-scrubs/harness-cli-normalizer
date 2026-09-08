@@ -5,5 +5,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     include: ["test/**/*.test.ts"],
+    // CLI tests start subprocesses. Bound workers on high-core developer hosts.
+    maxWorkers: 2,
   },
 });

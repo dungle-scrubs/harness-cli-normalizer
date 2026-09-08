@@ -463,6 +463,11 @@ export interface HarnessDescriptor {
     readonly forkFlag: string;
     readonly kind: "claude-control-v1";
   } | null;
+  /** Native context handling at verifiedAgainst; not a preflight count. */
+  readonly nativeContextManagement: {
+    readonly kind: "auto-compaction";
+    readonly modes: readonly HarnessMode[];
+  } | null;
   /** Resume-most-recent support (codex --last), or null. The race it opens
    * is owned by the corroboration ranking in interpretation. */
   readonly resumeLast: { readonly flag: string } | null;

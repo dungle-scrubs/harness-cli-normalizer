@@ -31,6 +31,7 @@ const DESCRIPTOR_KEYS = [
   "store",
   "contextHook",
   "contextInspection",
+  "nativeContextManagement",
   "resumeLast",
   "stdin",
   "presence",
