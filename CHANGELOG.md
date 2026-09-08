@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.5](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.4...v0.6.5) (2026-09-08)
+
+
+### Fixed
+
+* **codex:** verify resume and native context management ([#141](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/141)) ([99ba912](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/99ba9122276f7aa74c1b5f7a1017c92ec30c76b9))
+
 ## [0.6.4](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.3...v0.6.4) (2026-09-08)
 
 
