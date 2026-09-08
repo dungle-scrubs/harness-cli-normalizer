@@ -18,7 +18,8 @@ describe("validateModel / validateEffort (claude)", () => {
   test("accepts full ids and resolves aliases to the harness's own spelling", () => {
     expect(validateModel(claudeCode, "claude-opus-5")).toEqual({ ok: true, id: "claude-opus-5" });
     expect(validateModel(claudeCode, "opus")).toEqual({ ok: true, id: "claude-opus-5" });
-    expect(validateModel(claudeCode, "fable")).toEqual({ ok: true, id: "claude-fable-5" });
+    expect(validateModel(claudeCode, "fable")).toEqual({ ok: true, id: "claude-fable-5-1" });
+    expect(validateModel(claudeCode, "claude-fable-5")).toEqual({ ok: true, id: "claude-fable-5" });
   });
 
   test("rejects unknown model spellings with the vocabulary in the message", () => {
