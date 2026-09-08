@@ -12,6 +12,7 @@ import type {
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { assertIsolationCombination } from "./isolation.js";
 import { ArgvRefusalError } from "./refusal.js";
+import { assertAccessExclusivity } from "./resolve-options.js";
 import { assertUsableSessionId, SESSION_ID_MAX, SessionIdRefusalError } from "./session-id.js";
 import { renderSkillsSelection, type SkillsSelection } from "./skills-selection.js";
 import { supportedBy } from "./support.js";
@@ -105,12 +106,28 @@ export interface ResumeOptions extends TurnOptions {
 
 export type LaunchOptions = TurnOptions;
 
+/** Returns the exact text to pipe, or null when it travels in argv. */
+export function stdinPromptOf(h: HarnessDescriptor, opts: TurnOptions): string | null {
+  const transport = h.launch.stdinPrompt;
+  if (!transport) return null;
+  const text = promptTextOf(opts);
+  if (text.length <= transport.aboveBytes / 3) return null;
+  return text.length > transport.aboveBytes ||
+    new TextEncoder().encode(text).byteLength > transport.aboveBytes
+    ? text
+    : null;
+}
+
 /** The shared tail of every headless-turn argv: prompt, stream flags, then
  * validated selections, with the variadic tools flag LAST and fed exactly
  * one joined token so nothing after it can be swallowed as a tool name. */
 const turnTail = (h: HarnessDescriptor, opts: TurnOptions): string[] => {
-  assertCleanPrompt(h, opts.prompt);
-  const tail = [promptTextOf(opts), ...h.launch.streamFlags];
+  const stdinPrompt = stdinPromptOf(h, opts);
+  if (stdinPrompt === null) assertCleanPrompt(h, opts.prompt);
+  const tail = [
+    stdinPrompt === null ? promptTextOf(opts) : (h.launch.stdinPrompt?.argument ?? ""),
+    ...h.launch.streamFlags,
+  ];
   if (opts.model !== undefined) {
     const validated = validateModel(h, opts.model);
     if (!validated.ok) {
@@ -154,8 +171,9 @@ const turnTail = (h: HarnessDescriptor, opts: TurnOptions): string[] => {
 export const buildLaunchArgv = (h: HarnessDescriptor, opts: LaunchOptions): string[] => [
   h.bin,
   ...h.launch.baseFlags,
-  ...renderTurnOptions(h, opts, "launch"),
+  ...renderTurnOptions(h, opts, "launch", "before-prompt"),
   ...turnTail(h, opts),
+  ...renderTurnOptions(h, opts, "launch", "after-prompt"),
 ];
 
 /** A session id that fails the shape rule is a spawn-boundary refusal like
@@ -180,6 +198,7 @@ const refuseUnusableSessionId = (h: HarnessDescriptor, sessionId: string): void 
 
 export const buildResumeArgv = (h: HarnessDescriptor, opts: ResumeOptions): string[] => {
   refuseUnusableSessionId(h, opts.sessionId);
+  assertAccessExclusivity(h, opts);
   // Subcommands lead, then the resume token and id, then the flags the
   // RESUME grammar accepts (never inherited launch flags - codex exec
   // resume rejects --sandbox). One shape serves both styles:
@@ -191,8 +210,9 @@ export const buildResumeArgv = (h: HarnessDescriptor, opts: ResumeOptions): stri
     h.resume.flag,
     opts.sessionId,
     ...h.resume.extraFlags,
-    ...renderTurnOptions(h, opts, "resume"),
+    ...renderTurnOptions(h, opts, "resume", "before-prompt"),
     ...turnTail(h, opts),
+    ...renderTurnOptions(h, opts, "resume", "after-prompt"),
   ];
 };
 

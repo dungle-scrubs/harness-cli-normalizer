@@ -6,6 +6,9 @@
  */
 
 export interface SpawnedProcess {
+  /** Resolves on asynchronous stdin failure (for example EPIPE). The
+   * adapter always handles the native error event, even without a caller. */
+  readonly inputError?: Promise<void>;
   readonly stdout: AsyncIterable<string | Uint8Array>;
   readonly stderr: AsyncIterable<string | Uint8Array>;
   /** Idempotently terminate stdout and stderr reads without signalling the

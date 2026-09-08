@@ -129,7 +129,7 @@ const probeAsk = async (h: HarnessDescriptor, version: string): Promise<Cell> =>
 const results: Record<string, Cell> = {};
 
 for (const h of HARNESSES) {
-  const version = installedVersion(h.bin);
+  const version = await installedVersion(h.bin);
   if (version === null) {
     results[h.name] = { status: "skip", detail: "not installed" };
     continue;
@@ -146,7 +146,7 @@ console.log(`\n${"harness".padEnd(9)}${"version".padEnd(12)}${"result".padEnd(8)
 for (const h of HARNESSES) {
   const r = results[h.name]!;
   const mark = r.status === "pass" ? "✓" : r.status === "skip" ? "–" : "✗";
-  const ver = installedVersion(h.bin) ?? "?";
+  const ver = (await installedVersion(h.bin)) ?? "?";
   console.log(`${h.name.padEnd(9)}${ver.padEnd(12)}${mark.padEnd(8)}${r.detail}`);
 }
 

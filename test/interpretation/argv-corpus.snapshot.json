@@ -346,15 +346,15 @@
         "argv": [
           "claude",
           "-p",
-          "--allowedTools",
-          "Read,Grep,Glob,WebFetch,WebSearch",
-          "--disallowedTools",
-          "Bash,Edit,Write,Monitor,Task,Skill,NotebookEdit,LSP",
           "hi",
           "--output-format",
           "stream-json",
           "--verbose",
-          "--include-partial-messages"
+          "--include-partial-messages",
+          "--allowedTools",
+          "Read,Grep,Glob,WebFetch,WebSearch",
+          "--disallowedTools",
+          "Bash,Edit,Write,Monitor,Task,Skill,NotebookEdit,LSP"
         ]
       },
       "access-write": {
@@ -1436,9 +1436,9 @@
           "-p",
           "--mode",
           "json",
+          "hi",
           "--tools",
-          "read,grep,find,ls",
-          "hi"
+          "read,grep,find,ls"
         ]
       },
       "access-write": {
@@ -2487,15 +2487,15 @@
           "--resume",
           "0199a4c5-1111-2222-3333-444455556666",
           "-p",
-          "--allowedTools",
-          "Read,Grep,Glob,WebFetch,WebSearch",
-          "--disallowedTools",
-          "Bash,Edit,Write,Monitor,Task,Skill,NotebookEdit,LSP",
           "hi",
           "--output-format",
           "stream-json",
           "--verbose",
-          "--include-partial-messages"
+          "--include-partial-messages",
+          "--allowedTools",
+          "Read,Grep,Glob,WebFetch,WebSearch",
+          "--disallowedTools",
+          "Bash,Edit,Write,Monitor,Task,Skill,NotebookEdit,LSP"
         ]
       },
       "access-write": {
@@ -3631,9 +3631,9 @@
           "-p",
           "--mode",
           "json",
+          "hi",
           "--tools",
-          "read,grep,find,ls",
-          "hi"
+          "read,grep,find,ls"
         ]
       },
       "access-write": {

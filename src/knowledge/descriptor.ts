@@ -323,6 +323,8 @@ export interface HarnessDescriptor {
      * `workspace-write` into subcommands. */
     readonly subcommands: readonly string[];
     readonly promptStyle: "positional";
+    /** A verified alternate transport for prompts too large for argv. */
+    readonly stdinPrompt?: { readonly argument: string; readonly aboveBytes: number };
     readonly streamFlags: readonly string[];
     /** The flag that pins a caller-assigned id at LAUNCH (spawn-time
      * assignment; the execution layer consumes it), or null when the
@@ -453,6 +455,13 @@ export interface HarnessDescriptor {
   readonly contextHook: {
     readonly object: string;
     readonly usedPctField: string;
+  } | null;
+  /** Disposable native context accounting, verified at verifiedAgainst.
+   * Null is unknown support, never a model-window estimate. */
+  readonly contextInspection: {
+    readonly flags: readonly string[];
+    readonly forkFlag: string;
+    readonly kind: "claude-control-v1";
   } | null;
   /** Resume-most-recent support (codex --last), or null. The race it opens
    * is owned by the corroboration ranking in interpretation. */

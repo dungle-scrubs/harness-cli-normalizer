@@ -36,7 +36,7 @@ const descriptors = Object.values(defaultDescriptors()).filter(
 const rows: Row[] = await Promise.all(
   descriptors.map(async (h) => {
     const { latest, source } = await resolveLatest(h);
-    const installed = installedVersion(h.bin);
+    const installed = await installedVersion(h.bin);
     let status = versionStatus(h.verifiedAgainst, latest);
     if (installed !== null && installed !== h.verifiedAgainst && status !== "behind") {
       status = "drift";

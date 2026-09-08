@@ -30,6 +30,7 @@ const DESCRIPTOR_KEYS = [
   "vocabulary",
   "store",
   "contextHook",
+  "contextInspection",
   "resumeLast",
   "stdin",
   "presence",

@@ -41,6 +41,7 @@ export const renderTurnOptions = (
   h: HarnessDescriptor,
   opts: TurnOptions,
   phase: "launch" | "resume",
+  placement: "all" | "before-prompt" | "after-prompt" = "all",
 ): string[] => {
   assertIsolationCombination(h, opts);
   const sequences: string[][] = [];
@@ -52,6 +53,13 @@ export const renderTurnOptions = (
   for (const key of TURN_OPTION_KEYS) {
     const spec = h.turnOptions[key];
     const raw = (opts as unknown as Record<string, unknown>)[key];
+    const afterPrompt =
+      key === "access" &&
+      spec?.kind === "access" &&
+      opts.access !== undefined &&
+      spec.renders[opts.access] === "tool-preset";
+    if (placement === "before-prompt" && afterPrompt) continue;
+    if (placement === "after-prompt" && !afterPrompt) continue;
 
     // Discovery is a table of facets, handled separately.
     if (key === "discovery") {

@@ -51,6 +51,30 @@ export interface ResolvedOptions {
   readonly unrenderable: readonly string[];
 }
 
+export function assertAccessExclusivity(
+  harness: HarnessDescriptor,
+  options: Partial<TurnOptions>,
+  explicit: (key: keyof TurnOptions) => boolean = (key) => options[key] !== undefined,
+): void {
+  if (options.access === undefined) return;
+  const spec = harness.turnOptions.access;
+  const claimed = spec?.kind === "access" ? spec.claims : undefined;
+  const claimedConflict = claimed !== undefined && explicit(claimed as keyof TurnOptions);
+  const conflict = explicit("tools") || explicit("excludeTools") || claimedConflict;
+  if (conflict)
+    throw new ArgvRefusalError({
+      issue: "mutually-exclusive-options",
+      harness: harness.name,
+      option: "access",
+      supported: [
+        claimedConflict
+          ? `--access or --${claimed}, not both on ${harness.name}`
+          : "--access is a preset allowlist, not a filter over --tools/--exclude-tools",
+      ],
+      detail: "mutual exclusion",
+    });
+}
+
 /** Expressibility per profile dimension. Dimensions whose "on" state is
  * the harness's own default (discovery all-on) or whose "off" state emits
  * nothing (autonomy false) are expressible EVERYWHERE - the profile value
@@ -211,36 +235,11 @@ export const resolveEffectiveOptions = (
   // from the descriptor, so no harness name appears here.
   const accessSpec = h.turnOptions.access;
   const claimed = accessSpec?.kind === "access" ? accessSpec.claims : undefined;
-  if (claimed !== undefined && resolved.access !== undefined) {
-    const hasExplicit =
-      effectiveArgs[claimed as keyof TurnOptions] !== undefined ||
-      sourceTier(claimed) !== undefined;
-    if (hasExplicit) {
-      throw new ArgvRefusalError({
-        issue: "mutually-exclusive-options",
-        harness: h.name,
-        option: "access",
-        supported: [`--access or --${claimed}, not both on ${h.name}`],
-        detail: "mutual exclusion",
-      });
-    }
-  }
-  // Access vs tools exclusivity: only explicit tools/excludeTools from args or config, never profile-derived.
-  if (resolved.access !== undefined) {
-    const explicitTools = effectiveArgs.tools !== undefined || sourceTier("tools") !== undefined;
-    const explicitExclude =
-      (effectiveArgs as unknown as Record<string, unknown>).excludeTools !== undefined ||
-      sourceTier("excludeTools") !== undefined;
-    if (explicitTools || explicitExclude) {
-      throw new ArgvRefusalError({
-        issue: "mutually-exclusive-options",
-        harness: h.name,
-        option: "access",
-        supported: ["--access is a preset allowlist, not a filter over --tools/--exclude-tools"],
-        detail: "mutual exclusion",
-      });
-    }
-  }
+  assertAccessExclusivity(
+    h,
+    resolved,
+    (key) => effectiveArgs[key] !== undefined || sourceTier(key) !== undefined,
+  );
 
   // toolMap merge per harness per canonical (project > user). The merged
   // shape is the one shape past this point (RFC-02 change 8).

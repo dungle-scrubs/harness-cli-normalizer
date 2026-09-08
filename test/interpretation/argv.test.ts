@@ -10,6 +10,38 @@ import { codexCli } from "../../src/knowledge/codex.js";
 import { piCli } from "../../src/knowledge/pi.js";
 
 describe("buildLaunchArgv (claude)", () => {
+  test("resume refuses conflicting access grants instead of choosing one by argv order", () => {
+    expect(() =>
+      buildResumeArgv(claudeCode, {
+        prompt: "continue",
+        sessionId: "native-session",
+        access: "read",
+        tools: ["shell"],
+      }),
+    ).toThrow(/mutual exclusion/);
+  });
+  test("read-only access does not put the prompt inside a variadic tool list", () => {
+    for (const argv of [
+      buildLaunchArgv(claudeCode, { prompt: "Reply OK", access: "read" }),
+      buildResumeArgv(claudeCode, {
+        prompt: "Reply OK",
+        access: "read",
+        sessionId: "known-session",
+      }),
+    ]) {
+      expect(argv.indexOf("Reply OK")).toBeLessThan(argv.indexOf("--allowedTools"));
+      expect(argv.indexOf("Reply OK")).toBeLessThan(argv.indexOf("--disallowedTools"));
+    }
+  });
+  test("pi keeps its positional prompt outside the read preset on launch and resume", () => {
+    for (const argv of [
+      buildLaunchArgv(piCli, { prompt: "Reply OK", access: "read" }),
+      buildResumeArgv(piCli, { prompt: "Reply OK", access: "read", sessionId: "known-session" }),
+    ]) {
+      expect(argv.indexOf("Reply OK")).toBeGreaterThan(-1);
+      expect(argv.indexOf("Reply OK")).toBeLessThan(argv.indexOf("--tools"));
+    }
+  });
   test.each(["claude-fable-5-1", "fable"])("routes %s to Fable 5.1", (model) => {
     const launch = buildLaunchArgv(claudeCode, { model, prompt: "hello" });
     const session = buildSessionArgv(claudeCode, { model, sessionId: "fable-check" });

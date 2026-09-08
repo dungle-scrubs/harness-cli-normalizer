@@ -83,6 +83,7 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     cwdSlug: "verbatim",
   },
   contextHook: null,
+  contextInspection: null,
   // Valid only in the `exec resume` context: `codex exec resume --last`.
   resumeLast: { flag: "--last" },
   // codex exec appends piped stdin as a <stdin> block and can block on an
