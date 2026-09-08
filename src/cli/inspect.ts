@@ -160,6 +160,13 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
     },
     resume: h.resume,
     contextInspection: h.contextInspection ?? null,
+    nativeContextManagement:
+      h.nativeContextManagement === null
+        ? null
+        : {
+            kind: h.nativeContextManagement.kind,
+            modes: h.nativeContextManagement.modes,
+          },
     sessionMode: h.sessionMode,
     vocabulary: {
       models: h.vocabulary.models,
