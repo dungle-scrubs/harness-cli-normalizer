@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.3](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.2...v0.6.3) (2026-09-08)
+
+
+### Fixed
+
+* **claude:** add Fable 5.1 to the model catalog ([#137](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/137)) ([6bae47c](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/6bae47cd7d7cc898ef5132f68eb64d54d66bdf56))
+
 ## [0.6.2](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.1...v0.6.2) (2026-09-07)
 
 
