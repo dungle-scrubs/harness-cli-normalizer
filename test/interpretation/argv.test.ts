@@ -42,6 +42,13 @@ describe("buildLaunchArgv (claude)", () => {
       expect(argv.indexOf("Reply OK")).toBeLessThan(argv.indexOf("--tools"));
     }
   });
+  test.each(["claude-fable-5-1", "fable"])("routes %s to Fable 5.1", (model) => {
+    const launch = buildLaunchArgv(claudeCode, { model, prompt: "hello" });
+    const session = buildSessionArgv(claudeCode, { model, sessionId: "fable-check" });
+    expect(launch[launch.indexOf("--model") + 1]).toBe("claude-fable-5-1");
+    expect(session[session.indexOf("--model") + 1]).toBe("claude-fable-5-1");
+  });
+
   test("places the positional prompt before --allowedTools", () => {
     const argv = buildLaunchArgv(claudeCode, {
       prompt: "summarize this repo",
