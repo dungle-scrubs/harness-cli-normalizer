@@ -101,6 +101,7 @@
           "issue": "unknown-model",
           "harness": "claude",
           "supported": [
+            "claude-fable-5-1",
             "claude-fable-5",
             "claude-opus-5",
             "claude-sonnet-5",
@@ -110,7 +111,7 @@
             "sonnet",
             "haiku"
           ],
-          "message": "unknown claude model \"no-such-model\"; supported: claude-fable-5, claude-opus-5, claude-sonnet-5, claude-haiku-4-5-20251001, fable, opus, sonnet, haiku - use one of the supported models"
+          "message": "unknown claude model \"no-such-model\"; supported: claude-fable-5-1, claude-fable-5, claude-opus-5, claude-sonnet-5, claude-haiku-4-5-20251001, fable, opus, sonnet, haiku - use one of the supported models"
         }
       },
       "sandbox-read-only": {
@@ -2229,6 +2230,7 @@
           "issue": "unknown-model",
           "harness": "claude",
           "supported": [
+            "claude-fable-5-1",
             "claude-fable-5",
             "claude-opus-5",
             "claude-sonnet-5",
@@ -2238,7 +2240,7 @@
             "sonnet",
             "haiku"
           ],
-          "message": "unknown claude model \"no-such-model\"; supported: claude-fable-5, claude-opus-5, claude-sonnet-5, claude-haiku-4-5-20251001, fable, opus, sonnet, haiku - use one of the supported models"
+          "message": "unknown claude model \"no-such-model\"; supported: claude-fable-5-1, claude-fable-5, claude-opus-5, claude-sonnet-5, claude-haiku-4-5-20251001, fable, opus, sonnet, haiku - use one of the supported models"
         }
       },
       "sandbox-read-only": {
