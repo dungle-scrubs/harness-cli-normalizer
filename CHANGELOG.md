@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.4](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.3...v0.6.4) (2026-09-08)
+
+
+### Added
+
+* verify native resume and context budgets before dispatch ([#139](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/139)) ([aa871e9](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/aa871e97ba9570d0fe3ac3bc3bb5d8fd112b67df))
+
 ## [0.6.3](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.2...v0.6.3) (2026-09-08)
 
 
