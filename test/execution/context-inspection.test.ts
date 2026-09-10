@@ -2,7 +2,10 @@ import { expect, test } from "vitest";
 import { CONTEXT_TRANSPORT_MAX, inspectContext } from "../../src/execution/context-inspection.js";
 import { LineBuffer } from "../../src/execution/lines.js";
 import { KILL_GRACE_MS } from "../../src/execution/supervisor.js";
-import { contextInspectionOf } from "../../src/interpretation/context-inspection.js";
+import {
+  type ContextInspection,
+  contextInspectionOf,
+} from "../../src/interpretation/context-inspection.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
 
@@ -11,11 +14,134 @@ const settle = async (): Promise<void> => {
   for (let n = 0; n < 20; n++) await Promise.resolve();
 };
 
+test.each([
+  { type: "assistant", message: { content: [] } },
+  { type: "stream_event", event: {} },
+  { type: "tool_result" },
+  {
+    type: "user",
+    message: { content: [{ type: "tool_result", tool_use_id: "tool-1", content: "ran" }] },
+  },
+  { type: "user", parent_tool_use_id: "tool-1" },
+  { type: "result", subtype: "success", num_turns: 1 },
+  { type: "result", subtype: "success", num_turns: "0" },
+  { type: "result", subtype: "success", num_turns: -1 },
+  { type: "result", subtype: "success" },
+  { type: "rate_limit_event", rate_limit_info: {} },
+  { type: "rate_limit_event", rate_limit_info: { status: "future" } },
+  { type: "system", subtype: "future_event" },
+  { type: "future_event" },
+  {
+    type: "control_response",
+    response: { subtype: "success", request_id: `${inputId}:initialize`, response: null },
+  },
+])("query activity or unknown protocol cannot authorize accounting: %j", async (frame) => {
+  const child = new FakeProcess();
+  const result = inspectContext(
+    { harness: claudeCode, argv: ["claude"], inputId, prompt: "pending" },
+    { spawn: fakeSpawner([child]).spawn, clock: new FakeClock(), signal: fakeSignal().signal },
+  );
+  child.emitLine(JSON.stringify(frame));
+  child.exit(0);
+  expect(await result).toEqual({ status: "unavailable", reason: "protocol" });
+});
+
+test.each([
+  {
+    frame: { type: "result", subtype: "success", num_turns: 0, is_error: true },
+    reason: "native-exit",
+  },
+  { frame: { type: "result", subtype: "error_future", is_error: true }, reason: "native-exit" },
+  { frame: { type: "rate_limit_event", rate_limit_info: { status: "rejected" } }, reason: "limit" },
+  {
+    frame: { type: "result", subtype: "error_during_execution", num_turns: 0, is_error: true },
+    reason: "native-exit",
+  },
+])("native failure frames retain their failure class: $reason", async ({ frame, reason }) => {
+  const child = new FakeProcess();
+  const result = inspectContext(
+    { harness: claudeCode, argv: ["claude"], inputId, prompt: "pending" },
+    { spawn: fakeSpawner([child]).spawn, clock: new FakeClock(), signal: fakeSignal().signal },
+  );
+  child.emitLine(JSON.stringify(frame));
+  child.exit(0);
+  expect(await result).toEqual({ status: "unavailable", reason });
+});
+
 // Composed protocol sequence, not a recording. The public SDK specifies
 // shouldQuery:false and the user UUID acknowledgement used by this probe.
-test.each([false, true])(
-  "context inspection counts after acknowledgement, including output arriving after exit: %s",
-  async (exitBeforeResponse) => {
+const availableCount: ContextInspection = {
+  status: "available",
+  method: "native-context-estimate",
+  model: "claude-opus-5",
+  totalTokens: 24171,
+  inputLimitTokens: 967000,
+  contextWindowTokens: 1000000,
+};
+const lifecycle = [
+  ...["init", "hook_started", "hook_progress", "hook_response"].map((subtype) => ({
+    type: "system",
+    subtype,
+    future_field: true,
+  })),
+  { type: "command_lifecycle" },
+  ...["allowed", "allowed_warning"].map((status) => ({
+    type: "rate_limit_event",
+    rate_limit_info: { status },
+  })),
+  ...[0, 25000].map((tokens) => ({
+    type: "result",
+    subtype: "success",
+    num_turns: 0,
+    usage: { input_tokens: tokens },
+  })),
+]
+  .map((frame) => JSON.stringify(frame))
+  .join("\n");
+const completeOutputCases: readonly {
+  name: string;
+  exitBeforeResponse?: boolean;
+  tail?: string;
+  stderr?: string;
+  expected: ContextInspection;
+}[] = [
+  { name: "ordinary completion", expected: availableCount },
+  { name: "output after exit", exitBeforeResponse: true, expected: availableCount },
+  {
+    name: "assistant after usage",
+    tail: '{"type":"assistant","message":{"content":[]}}',
+    expected: { status: "unavailable", reason: "protocol" },
+  },
+  {
+    name: "tool result after usage",
+    tail: '{"type":"user","parent_tool_use_id":"tool-1"}',
+    expected: { status: "unavailable", reason: "protocol" },
+  },
+  {
+    name: "error result after usage",
+    tail: '{"type":"result","subtype":"success","is_error":true,"num_turns":0}',
+    expected: { status: "unavailable", reason: "native-exit" },
+  },
+  {
+    name: "oversized trailing output",
+    tail: "a".repeat(CONTEXT_TRANSPORT_MAX + 65_537),
+    expected: { status: "unavailable", reason: "transport-limit" },
+  },
+  {
+    name: "native authentication failure",
+    stderr: "Not logged in. Please run /login",
+    expected: { status: "unavailable", reason: "auth" },
+  },
+  {
+    name: "native authentication explains an invalid response",
+    tail: '{"type":"future_event"}',
+    stderr: "Not logged in. Please run /login",
+    expected: { status: "unavailable", reason: "auth" },
+  },
+];
+test.each(completeOutputCases)(
+  "context inspection validates complete output: $name",
+  async ({ exitBeforeResponse, tail, stderr, expected }) => {
     const child = new FakeProcess();
     const spawn = fakeSpawner([child]);
     const signals = fakeSignal();
@@ -31,6 +157,7 @@ test.each([false, true])(
       { spawn: spawn.spawn, signal: signals.signal, clock },
     );
     await settle();
+    child.emitLine(lifecycle);
     const initialize = JSON.parse(child.stdinLines[0] ?? "{}");
     child.emitLine(
       JSON.stringify({
@@ -59,7 +186,7 @@ test.each([false, true])(
       await settle();
     }
     child.emitLine(
-      JSON.stringify({
+      `${JSON.stringify({
         type: "control_response",
         response: {
           subtype: "success",
@@ -73,16 +200,10 @@ test.each([false, true])(
             isAutoCompactEnabled: true,
           },
         },
-      }),
+      })}\n${tail ?? ""}\n${lifecycle}`,
     );
-    expect(await result).toEqual({
-      status: "available",
-      method: "native-context-estimate",
-      model: "claude-opus-5",
-      totalTokens: 24171,
-      inputLimitTokens: 967000,
-      contextWindowTokens: 1000000,
-    });
+    if (stderr) child.emitStderr(stderr);
+    expect(await result).toEqual(expected);
     expect(child.stdinEnded).toBe(true);
     expect(clock.pendingTimerCount).toBe(0);
     expect(spawn.calls).toHaveLength(1);
@@ -107,6 +228,64 @@ test("asynchronous stdin failure settles as unavailable and closes the probe", a
   expect(child.stdinEnded).toBe(true);
   expect(clock.pendingTimerCount).toBe(0);
 });
+
+test.each([false, true])(
+  "usage waits for bounded cleanup, natural drain %s",
+  async (naturalDrain) => {
+    const child = new FakeProcess({ exitOnStdinEnd: false });
+    const clock = new FakeClock();
+    const result = inspectContext(
+      { harness: claudeCode, argv: ["claude"], inputId, prompt: "pending" },
+      {
+        spawn: fakeSpawner([child]).spawn,
+        clock,
+        signal: () => child.exitWithoutClosing(null),
+        turnTimeoutMs: 100,
+      },
+    );
+    clock.advance(99);
+    for (const frame of [
+      {
+        type: "control_response",
+        response: { subtype: "success", request_id: `${inputId}:initialize`, response: {} },
+      },
+      { type: "user", uuid: inputId },
+      {
+        type: "control_response",
+        response: {
+          subtype: "success",
+          request_id: `${inputId}:usage`,
+          response: {
+            model: "opus",
+            maxTokens: 1000,
+            totalTokens: 20,
+            isAutoCompactEnabled: false,
+          },
+        },
+      },
+    ])
+      child.emitLine(JSON.stringify(frame));
+    await settle();
+    if (naturalDrain) {
+      clock.advance(2);
+      child.exit(0);
+    } else clock.advance(KILL_GRACE_MS);
+    expect(await result).toEqual(
+      naturalDrain
+        ? {
+            status: "available",
+            method: "native-context-estimate",
+            model: "opus",
+            totalTokens: 20,
+            inputLimitTokens: 1000,
+            contextWindowTokens: 1000,
+          }
+        : { status: "unavailable", reason: "cleanup" },
+    );
+    expect(child.outputDisposed).toBe(true);
+    expect(clock.pendingTimerCount).toBe(0);
+  },
+);
 
 test("a context window alone and malformed native usage cannot authorize a count", () => {
   for (const value of [

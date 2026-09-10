@@ -11,7 +11,10 @@
 export const LINE_MAX = 65_536;
 
 export class LineBuffer {
-  constructor(private readonly limit = LINE_MAX) {}
+  constructor(
+    private readonly limit = LINE_MAX,
+    private readonly onOverflow?: () => void,
+  ) {}
   // Per-instance and stateful ({stream:true}): a shared decoder would carry
   // partial-sequence state across two streams and corrupt both.
   private readonly decoder = new TextDecoder();
@@ -44,6 +47,7 @@ export class LineBuffer {
     if (this.pending.length + text.length > this.limit) {
       this.pending = "";
       this.discarding = true;
+      this.onOverflow?.();
     } else this.pending += text;
   }
 

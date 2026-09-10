@@ -1,6 +1,7 @@
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import type { SpawnArgvOptions } from "./argv.js";
 import { buildSpawnArgv } from "./argv.js";
+import { contentEventsOf } from "./content.js";
 import { ArgvRefusalError } from "./refusal.js";
 import { asRecord } from "./shape.js";
 
@@ -16,7 +17,7 @@ export function buildContextInspectionArgv(
       harness: harness.name,
       issue: "invalid-option-value",
       option: "context",
-      supported: ["verified native context adapter without native passthrough"],
+      supported: ["supported native context adapter without native passthrough"],
     });
   }
   return [
@@ -73,6 +74,32 @@ export type ContextInspection =
 
 const positive = (value: unknown): value is number =>
   typeof value === "number" && Number.isSafeInteger(value) && value > 0;
+
+/** Cleanup and caller interruption take precedence. Otherwise a recognized
+ * native failure explains a failed exchange more precisely than its framing. */
+export function settledContextInspection(facts: {
+  readonly accounting: ContextInspection;
+  readonly clean: boolean;
+  readonly exitCode: number | null;
+  readonly nativeFailure: "auth" | "limit" | null;
+}): ContextInspection {
+  const { accounting, clean, exitCode, nativeFailure } = facts;
+  if (!clean) return { status: "unavailable", reason: "cleanup" };
+  if (
+    accounting.status === "unavailable" &&
+    (accounting.reason === "cancelled" || accounting.reason === "timeout")
+  )
+    return accounting;
+  if (nativeFailure !== null) return { status: "unavailable", reason: nativeFailure };
+  if (
+    accounting.status === "unavailable" &&
+    accounting.reason === "transport" &&
+    exitCode !== null &&
+    exitCode !== 0
+  )
+    return { status: "unavailable", reason: "native-exit" };
+  return accounting;
+}
 
 /** Normalize only a complete native response. A window alone says nothing
  * about remaining capacity, and invalid compaction data must not increase it. */
@@ -135,7 +162,6 @@ export function createContextProbe(inputId: string, prompt: string): ContextProb
     initial: control(initializeId, { subtype: "initialize", hooks: null }),
     staged,
     accept(line) {
-      if (phase === "finished") return null;
       let decoded: unknown;
       try {
         decoded = JSON.parse(line);
@@ -144,7 +170,46 @@ export function createContextProbe(inputId: string, prompt: string): ContextProb
         return { kind: "complete", accounting: { status: "unavailable", reason: "protocol" } };
       }
       const frame = asRecord(decoded);
-      if (frame === null || Array.isArray(decoded)) return null;
+      const failure = contentEventsOf("claude", decoded).find(
+        (event) => event.kind === "limit" || (event.kind === "error" && event.terminal),
+      );
+      if (failure) {
+        phase = "finished";
+        return {
+          kind: "complete",
+          accounting: {
+            status: "unavailable",
+            reason: failure.kind === "limit" ? "limit" : "native-exit",
+          },
+        };
+      }
+      const content = asRecord(frame?.message)?.content;
+      const toolResult =
+        frame?.type === "user" &&
+        (frame.parent_tool_use_id != null ||
+          (Array.isArray(content) &&
+            content.some((block) => asRecord(block)?.type === "tool_result")));
+      const allowed =
+        frame !== null &&
+        !Array.isArray(decoded) &&
+        !toolResult &&
+        (frame.type === "user" ||
+          frame.type === "control_response" ||
+          frame.type === "command_lifecycle" ||
+          (frame.type === "system" &&
+            ["init", "hook_started", "hook_progress", "hook_response"].includes(
+              String(frame.subtype),
+            )) ||
+          (frame.type === "result" && frame.subtype === "success" && frame.num_turns === 0) ||
+          (frame.type === "rate_limit_event" &&
+            ["allowed", "allowed_warning"].includes(
+              String(asRecord(frame.rate_limit_info)?.status),
+            )));
+      if (!allowed || frame === null) {
+        phase = "finished";
+        return { kind: "complete", accounting: { status: "unavailable", reason: "protocol" } };
+      }
+      if (phase === "finished") return null;
       if (phase === "ack" && frame.type === "user" && frame.uuid === inputId) {
         phase = "usage";
         return { kind: "send", line: control(usageId, { subtype: "get_context_usage" }) };
@@ -154,7 +219,11 @@ export function createContextProbe(inputId: string, prompt: string): ContextProb
         return null;
       const expected = phase === "initialize" ? initializeId : phase === "usage" ? usageId : null;
       if (expected === null || response.request_id !== expected) return null;
-      if (response.subtype !== "success") {
+      if (
+        response.subtype !== "success" ||
+        (phase === "initialize" &&
+          (asRecord(response.response) === null || Array.isArray(response.response)))
+      ) {
         phase = "finished";
         return { kind: "complete", accounting: { status: "unavailable", reason: "protocol" } };
       }

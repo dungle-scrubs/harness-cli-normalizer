@@ -51,16 +51,12 @@ async function inspectContextRequest(
     refuse(refusalOf(error), outcome.plan.wantJson);
     return;
   }
-  const runtime = await runtimeCompatibility(harness, options);
+  const runtime = await runtimeCompatibility(harness, { ...options, mode: "headless-turn" });
   let accounting: ContextInspection;
-  if (harness.contextInspection === null) {
+  if (harness.contextInspection?.kind !== "claude-control-v1") {
     accounting = { status: "unavailable", reason: "unsupported-adapter" };
-  } else if (
-    runtime.resume.status !== "supported" ||
-    runtime.executable.path === null ||
-    harness.contextInspection?.kind !== "claude-control-v1"
-  ) {
-    accounting = { status: "unavailable", reason: "unverified-adapter" };
+  } else if (runtime.executable.path === null) {
+    accounting = { status: "unavailable", reason: "transport" };
   } else {
     try {
       const argv = buildContextInspectionArgv(harness, options);
