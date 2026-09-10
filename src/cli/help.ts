@@ -168,10 +168,13 @@ Arguments:
 Options:
   --argv                    Preview argv that would be spawned
   --runtime                 Preview argv and probe the selected executable version;
-                            exact adapter matches support native resume, others unknown
+                            Claude headless-turn resume uses invocation support.
+                            Other harnesses and persistent sessions require exact
+                            adapter versions. A resolved executable is required
                             (does not run a model or prove the saved session exists)
   --context                 Inspect complete staged context through a disposable native
-                            process (headless-turn only, verified Claude adapter).
+                            process (Claude headless-turn only). Validates the native
+                            operation independently of version metadata.
                             --json returns accounting plus executable/model provenance.
                             Native estimate includes recalled history and the composed
                             prompt. No assistant task is queried. Resume is forked with

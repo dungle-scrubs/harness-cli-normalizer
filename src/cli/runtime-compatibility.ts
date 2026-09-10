@@ -1,7 +1,7 @@
 import { accessSync, constants, realpathSync, statSync } from "node:fs";
 import { delimiter, isAbsolute, resolve } from "node:path";
 import { mergeEnvironment } from "../execution/environment.js";
-import type { HarnessDescriptor } from "../knowledge/descriptor.js";
+import type { HarnessDescriptor, HarnessMode } from "../knowledge/descriptor.js";
 import { installedVersion } from "./check.js";
 
 function executablePath(bin: string, cwd: string, searchPath: string): string | null {
@@ -20,10 +20,14 @@ function executablePath(bin: string, cwd: string, searchPath: string): string | 
   return null;
 }
 
-/** Exact verified versions establish support. Newer is not evidence of compatibility. */
+/** Admission describes a supported invocation, never saved-session existence. */
 export async function runtimeCompatibility(
   harness: HarnessDescriptor,
-  options: { readonly cwd?: string; readonly env?: Readonly<Record<string, string>> } = {},
+  options: {
+    readonly cwd?: string;
+    readonly env?: Readonly<Record<string, string>>;
+    readonly mode: HarnessMode;
+  },
 ): Promise<{
   readonly executable: { readonly path: string | null; readonly version: string | null };
   readonly resume: { readonly status: "supported" | "unknown"; readonly reason: string | null };
@@ -37,7 +41,9 @@ export async function runtimeCompatibility(
   const path = executablePath(harness.bin, cwd, searchPath);
   const version =
     path === null ? null : await installedVersion(path, { cwd, env: effectiveEnvironment });
-  const supported = version !== null && version === harness.verifiedAgainst;
+  const invocation = harness.resume.admission?.modes.includes(options.mode) === true;
+  const supported =
+    path !== null && (invocation || (version !== null && version === harness.verifiedAgainst));
   return {
     executable: { path, version },
     resume: {

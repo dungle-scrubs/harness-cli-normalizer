@@ -10,6 +10,7 @@ import { claudeCode } from "../../src/knowledge/claude-code.js";
 function fixture(
   version = claudeCode.verifiedAgainst,
   paused = false,
+  totalTokens = 25000,
 ): {
   readonly dir: string;
   readonly run: (args: readonly string[]) => ReturnType<typeof spawnSync>;
@@ -33,7 +34,7 @@ require("node:readline").createInterface({ input: process.stdin }).on("line", li
   } else if (frame.request.subtype === "initialize") {
     send({type:"control_response",response:{subtype:"success",request_id:frame.request_id,response:{}}});
   } else {
-    send({type:"control_response",response:{subtype:"success",request_id:frame.request_id,response:{model:"claude-opus-5",totalTokens:25000,maxTokens:1000000,autoCompactThreshold:967000,isAutoCompactEnabled:true}}});
+    send({type:"control_response",response:{subtype:"success",request_id:frame.request_id,response:{model:"claude-opus-5",totalTokens:${totalTokens},maxTokens:1000000,autoCompactThreshold:967000,isAutoCompactEnabled:true}}});
   }
 });
 
@@ -106,6 +107,21 @@ test("public accounting binds provenance, stages the composed prompt and forks r
   }
 });
 
+test("a matching version cannot authorize malformed accounting", () => {
+  const { dir, run } = fixture(claudeCode.verifiedAgainst, false, -1);
+  try {
+    const result = run([]);
+    expect(result.status, String(result.stderr)).toBe(0);
+    expect(JSON.parse(String(result.stdout)).accounting).toEqual({
+      status: "unavailable",
+      reason: "protocol",
+    });
+    expect(JSON.parse(readFileSync(join(dir, "staged.json"), "utf8")).shouldQuery).toBe(false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("summary accounting preserves tool-free isolation and does not inject the question contract twice", () => {
   const { dir, run } = fixture();
   try {
@@ -122,20 +138,23 @@ test("summary accounting preserves tool-free isolation and does not inject the q
   }
 });
 
-test("unknown native versions never receive a staged task", () => {
-  const { dir, run } = fixture("0.0.0");
-  try {
-    const result = run([]);
-    expect(result.status, String(result.stderr)).toBe(0);
-    expect(JSON.parse(String(result.stdout)).accounting).toEqual({
-      status: "unavailable",
-      reason: "unverified-adapter",
-    });
-    expect(() => readFileSync(join(dir, "argv.json"))).toThrow();
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
+test.each(["0.0.0", "no version available"])(
+  "accounting validates the operation independent of version metadata: %s",
+  (version) => {
+    const { dir, run } = fixture(version);
+    try {
+      const result = run([]);
+      expect(result.status, String(result.stderr)).toBe(0);
+      expect(JSON.parse(String(result.stdout)).accounting).toMatchObject({
+        status: "available",
+        totalTokens: 25000,
+      });
+      expect(JSON.parse(readFileSync(join(dir, "staged.json"), "utf8")).shouldQuery).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  },
+);
 
 test.each([
   { args: ["--runtime"] },

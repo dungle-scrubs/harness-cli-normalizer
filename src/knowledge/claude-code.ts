@@ -41,6 +41,7 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     idFlag: "--session-id",
   },
   resume: {
+    admission: { kind: "invocation", modes: ["headless-turn"] },
     // A-005: claude resumes are id-stable - the caller-assigned id survives
     // every resume, so there is no rotation handling and forking is only the
     // explicit --fork-session flag (deliberate branching, never a default).
@@ -151,7 +152,10 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     object: "context_window",
     usedPctField: "used_percentage",
   },
-  nativeContextManagement: null,
+  nativeContextManagement: {
+    kind: "native-session-auto-compaction",
+    modes: ["headless-turn"],
+  },
   contextInspection: {
     kind: "claude-control-v1",
     flags: [...STREAM_INPUT_FLAGS, "--no-session-persistence", "--replay-user-messages"],

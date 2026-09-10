@@ -190,8 +190,9 @@ version, observed model, used tokens, and supported input limit. Callers own
 their extra reserve and dispatch policy. The probe forks resumed sessions with
 persistence disabled and stages the prompt with `shouldQuery:false`; it never
 asks the assistant to execute it. Native startup hooks can still run. The
-verified Claude headless-turn adapter supports this operation, including fresh
-`--isolation tool-free` requests. Other versions and adapters report unavailable.
+Claude headless-turn adapter supports this operation, including fresh
+`--isolation tool-free` requests. It validates the native operation independently
+of version metadata. Other adapters report unavailable.
 Persistent-process accounting is not established by this command. It refuses
 native passthrough and other inspection modes, bounds serialized prompts to
 8 MiB, and defaults to a 30-second deadline followed by bounded process cleanup.
@@ -203,24 +204,38 @@ is `available` or `unavailable`; an available result carries
 `method: "native-context-estimate"`, `model`, `totalTokens`,
 `contextWindowTokens`, and `inputLimitTokens`. The input limit is the smaller
 of the native window and its enabled automatic-compaction threshold.
-Unavailable reasons distinguish unsupported adapters, unverified versions,
+Unavailable reasons distinguish unsupported adapters,
 auth or limit failures, native exits, transport bounds/errors, invalid native
 protocol, timeout, cancellation, and cleanup failure. Neither an unavailable
-result nor a total window alone is permission to dispatch.
+result nor a total window alone is permission to dispatch. Usage remains
+provisional until output and cleanup settle. Query activity, unknown frame
+categories, malformed usage, or incomplete output invalidate the count.
+Known startup hooks, command lifecycle, nonblocking rate notices, and successful
+zero-turn results are permitted, including nonzero aggregate usage.
+`transport` with `executable.path: null` means the executable could not be
+resolved; `resume.reason` supplies that safe explanation. Otherwise transport
+denotes a failure to open or use the process channel.
 
 Descriptor inspection separately exposes `nativeContextManagement`: Codex
 0.153.4 declares `{ kind: "auto-compaction", modes: ["headless-turn"] }`.
-Other adapters emit null. This describes native handling, not a count or a
+Claude declares `{ kind: "native-session-auto-compaction", modes: ["headless-turn"] }`.
+This covers native session growth; callers must still prepare imported history.
+Fresh mandatory content can exceed the native request limit, and compaction
+does not promise lossless recall. Other adapters emit null.
+These declarations describe native handling, not a count or a
 successful budget check. Callers decide whether to delegate context management
 after verifying the selected executable and mode. Codex preflight accounting
-continues to return `unsupported-adapter`.
+continues to return `unsupported-adapter`. A declaration is a curated descriptor
+fact; it does not detect whether native compaction is currently enabled.
 
 `hcn inspect <harness> --runtime --prompt "validation"` reports version-1
 JSON containing redacted argv, the resolved executable path and version,
 the adapter's verified version, and native-resume compatibility. This runs
 only a version probe. The argv is a diagnostic preview, not a command to
-execute. Exact version agreement establishes adapter support; missing or
-different versions remain unknown. It does not prove session existence or
+execute. Claude headless-turn resume admission requires a resolved executable
+and a supported invocation; missing or different version metadata does not
+reject it. Persistent sessions and other harnesses retain exact version
+admission. No admission result proves session existence or
 recall. Pass the same working folder and options as the intended turn.
 
 For persistent resume use `--mode headless-session --resume <session-id>`.
