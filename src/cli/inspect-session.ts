@@ -75,7 +75,7 @@ export async function inspectSessionRuntime(
     });
     process.stderr.write(`argv: ${argv.join(" ")}\n`);
     process.stdout.write(
-      `${JSON.stringify({ v: 1, argvKind: "redacted-preview", argv, ...(await runtimeCompatibility(harness, { cwd })) })}\n`,
+      `${JSON.stringify({ v: 1, argvKind: "redacted-preview", argv, ...(await runtimeCompatibility(harness, { cwd, mode: "headless-session" })) })}\n`,
     );
   } catch (error) {
     if (!(error instanceof ArgvRefusalError)) throw error;

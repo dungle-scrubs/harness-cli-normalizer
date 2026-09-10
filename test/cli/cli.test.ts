@@ -216,7 +216,10 @@ describe("hcn inspect (pure)", () => {
     });
     expect(codex.contextInspection).toBeNull();
     const claude = JSON.parse((await captureDispatch(["inspect", "claude"])).stdout);
-    expect(claude.nativeContextManagement).toBeNull();
+    expect(claude.nativeContextManagement).toEqual({
+      kind: "native-session-auto-compaction",
+      modes: ["headless-turn"],
+    });
     expect(claude.contextInspection).not.toBeNull();
   });
 });

@@ -338,6 +338,12 @@ export interface HarnessDescriptor {
    * anywhere else (the v1 first-UUID-wins scar: a UUID inside quoted prompt
    * text was returned as the session id, and resuming it started a stranger). */
   readonly resume: {
+    /** Declared invocation support by mode, not proof that a saved session exists.
+     * Omitted retains the verification-version admission policy. */
+    readonly admission?: {
+      readonly kind: "invocation";
+      readonly modes: readonly HarnessMode[];
+    };
     readonly style: ResumeStyle;
     readonly flag: string;
     readonly aliases: readonly string[];
@@ -456,16 +462,18 @@ export interface HarnessDescriptor {
     readonly object: string;
     readonly usedPctField: string;
   } | null;
-  /** Disposable native context accounting, verified at verifiedAgainst.
+  /** Disposable native context accounting; the exchange validates support.
    * Null is unknown support, never a model-window estimate. */
   readonly contextInspection: {
     readonly flags: readonly string[];
     readonly forkFlag: string;
     readonly kind: "claude-control-v1";
   } | null;
-  /** Native context handling at verifiedAgainst; not a preflight count. */
+  /** Curated native context handling, not a count or enabled-state observation.
+   * Native-session handling covers the native session; callers must prepare
+   * imported history. Disabled native compaction is not detected here. */
   readonly nativeContextManagement: {
-    readonly kind: "auto-compaction";
+    readonly kind: "auto-compaction" | "native-session-auto-compaction";
     readonly modes: readonly HarnessMode[];
   } | null;
   /** Resume-most-recent support (codex --last), or null. The race it opens
