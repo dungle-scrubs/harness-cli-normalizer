@@ -1,0 +1,2 @@
+{"kind":"failure","class":"transport","retryable":true,"message":"Transport failure (native prompt stdin failed) - retry or route to another provider"}
+{"kind":"done","exitCode":1,"cause":"failed","failure":{"class":"transport","retryable":true,"message":"Transport failure (native prompt stdin failed) - retry or route to another provider"},"escalation":{"mode":"none","detection":"none"}}

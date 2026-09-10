@@ -1,0 +1,15 @@
+{"kind":"identity","sessionId":"89119539-23f9-47cb-a17d-cec1ddd92f61","authority":"caller-assigned","capabilities":{"vision":true,"images":true,"streaming":"token","session":true,"source":"curated","confidence":"medium","escalation":{"supported":true,"source":"runtime-verified","confidence":"high","observedOn":{"harness":"claude","model":"sonnet","version":"2.1.263","date":"2026-09-07"}}}}
+{"kind":"progress","label":"hook_started"}
+{"kind":"progress","label":"hook_started"}
+{"kind":"progress","label":"hook_started"}
+{"kind":"progress","label":"hook_started"}
+{"kind":"progress","label":"hook_response"}
+{"kind":"progress","label":"hook_response"}
+{"kind":"progress","label":"hook_response"}
+{"kind":"progress","label":"hook_response"}
+{"kind":"progress","label":"status"}
+{"kind":"token","text":"P"}
+{"kind":"token","text":"APER_LANTER"}
+{"kind":"token","text":"N_427"}
+{"kind":"message","role":"assistant","text":"PAPER_LANTERN_427"}
+{"kind":"done","exitCode":0,"cause":"clean","escalation":{"mode":"none","detection":"none"}}
