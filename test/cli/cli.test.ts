@@ -110,7 +110,7 @@ describe("hcn ls", () => {
     expect(out.stdout).toContain("claude@2.1.263");
     expect(out.stdout).toContain("codex@0.153.4");
     expect(out.stdout).toContain("pi@0.84.2");
-    expect(out.stdout).toContain("muse@0.1.0");
+    expect(out.stdout).toContain("muse@1.1.1");
     expect(out.stdout).toContain("npm:");
     expect(out.stdout).toContain("installed:");
     expect(out.exitCode === undefined || out.exitCode === 0).toBe(true);
@@ -221,6 +221,12 @@ describe("hcn inspect (pure)", () => {
       modes: ["headless-turn"],
     });
     expect(claude.contextInspection).not.toBeNull();
+    const muse = JSON.parse((await captureDispatch(["inspect", "muse"])).stdout);
+    expect(muse.nativeContextManagement).toEqual({
+      kind: "auto-compaction",
+      modes: ["headless-turn"],
+    });
+    expect(muse.contextInspection).toBeNull();
   });
 });
 

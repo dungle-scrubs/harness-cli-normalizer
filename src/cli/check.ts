@@ -151,7 +151,7 @@ export const check = async (rawArgs: string[]): Promise<void> => {
         `\n${behind.length} harness(es) behind: ${behind.map((r) => `${r.harness} ${r.verifiedAgainst}→${r.latest}`).join(", ")}\n`,
       );
       process.stdout.write(
-        "Run the local capability tripwires (smoke:seven) against the new version, then file an issue + bump verifiedAgainst.\n",
+        "Re-verify with smoke:seven, smoke:questions, and the declared context contracts (docs/harness-updates.md). Version drift does not reject runtime operations.\n",
       );
     } else if (unknown.length > 0) {
       process.stdout.write(`\n${unknown.length} harness(es) unknown (network or missing bin)\n`);

@@ -46,7 +46,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh label create harness-update --color FBCA04 --description "A harness CLI shipped a new version" --force
-          BODY="$(printf 'A newer harness version has shipped; the descriptor is unverified for it.\n\n```\n%s\n```\n\nNext (local, not CI): run `bun run smoke:seven` against the new version to re-run the capability tripwires; if a claim flipped, update the descriptor + capture the new fixtures, bump `verifiedAgainst`/`versionSource`, and open a PR.' "${{ steps.check.outputs.report }}")"
+          BODY="$(printf 'A newer harness version has shipped; refresh its behavioral evidence. Version drift alone does not reject runtime operations.\n\n```\n%s\n```\n\nNext (local, not CI): follow docs/harness-updates.md. Run smoke:seven and smoke:questions, verify each declared accounting/compaction contract, capture fixtures, and update verifiedAgainst/versionSource/escalation.observedOn from passing probes. Repair the adapter only where native behavior changed.' "${{ steps.check.outputs.report }}")"
           EXISTING="$(gh issue list --label harness-update --state open --json number --jq '.[0].number // empty')"
           if [ -n "$EXISTING" ]; then
             gh issue comment "$EXISTING" --body "$BODY"

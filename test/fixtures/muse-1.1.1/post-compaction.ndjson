@@ -1,0 +1,6 @@
+{"kind":"error","message":"muse creates a new session when f2bcedca-9fdd-4a35-adfd-6d1217e6f045 is unknown; verify the id exists"}
+{"kind":"identity","sessionId":"f2bcedca-9fdd-4a35-adfd-6d1217e6f045","authority":"caller-assigned","capabilities":{"vision":false,"images":false,"streaming":"token","session":false,"source":"curated","confidence":"medium","escalation":{"supported":true,"source":"runtime-verified","confidence":"high","observedOn":{"harness":"muse","model":"","version":"0.2.1","date":"2026-08-19"}}}}
+{"kind":"token","text":"MAR"}
+{"kind":"token","text":"IGOLD-742"}
+{"kind":"message","role":"assistant","text":"MARIGOLD-742"}
+{"kind":"done","exitCode":0,"cause":"clean","escalation":{"mode":"none","detection":"none"}}

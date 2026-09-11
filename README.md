@@ -217,25 +217,26 @@ resolved; `resume.reason` supplies that safe explanation. Otherwise transport
 denotes a failure to open or use the process channel.
 
 Descriptor inspection separately exposes `nativeContextManagement`: Codex
-0.153.4 declares `{ kind: "auto-compaction", modes: ["headless-turn"] }`.
+0.153.4 and Muse 1.1.1 declare `{ kind: "auto-compaction", modes: ["headless-turn"] }`.
 Claude declares `{ kind: "native-session-auto-compaction", modes: ["headless-turn"] }`.
 This covers native session growth; callers must still prepare imported history.
 Fresh mandatory content can exceed the native request limit, and compaction
-does not promise lossless recall. Other adapters emit null.
+does not promise lossless recall. Pi emits null.
 These declarations describe native handling, not a count or a
 successful budget check. Callers decide whether to delegate context management
-after verifying the selected executable and mode. Codex preflight accounting
-continues to return `unsupported-adapter`. A declaration is a curated descriptor
+after verifying the selected executable and mode. Codex and Muse preflight accounting
+continue to return `unsupported-adapter`. A declaration is a curated descriptor
 fact; it does not detect whether native compaction is currently enabled.
 
 `hcn inspect <harness> --runtime --prompt "validation"` reports version-1
 JSON containing redacted argv, the resolved executable path and version,
 the adapter's verified version, and native-resume compatibility. This runs
 only a version probe. The argv is a diagnostic preview, not a command to
-execute. Claude headless-turn resume admission requires a resolved executable
-and a supported invocation; missing or different version metadata does not
-reject it. Persistent sessions and other harnesses retain exact version
-admission. No admission result proves session existence or
+execute. All four harnesses use invocation-based resume admission, including
+supported persistent sessions. A resolved executable and a supported invocation
+are required; missing or different version metadata does not reject them.
+The native operation can still fail on changed flags, protocol, or session state.
+No admission result proves session existence or
 recall. Pass the same working folder and options as the intended turn.
 
 For persistent resume use `--mode headless-session --resume <session-id>`.
@@ -513,8 +514,10 @@ error labeling, and provenance on every resolved setting. Persistent
 sessions (`hcn session`) are available for claude and pi. Drift detection runs weekly
 in CI for the three npm harnesses; Muse is `installed` and only checked
 locally via `muse --version`. Re-verifying a descriptor's capability
-claims against a new CLI version is a local, manual step
-(`bun run smoke:seven`) plus fixture re-capture, not CI. Authentication
+claims against a new CLI version follows the [harness update procedure](docs/harness-updates.md):
+local behavioral probes and fixture capture. CI tests version-independent
+admission and the recorded contracts; a version difference alone never disables
+an invocation. Authentication
 and usage-limit signals are parsed from each harness's stream, but hcn
 never holds or ships credentials; each harness authenticates under the
 end user's own session.

@@ -98,7 +98,7 @@ if (process.argv.includes("--json")) {
       `\n${behind.length} harness(es) behind: ${behind.map((r) => `${r.harness} ${r.verifiedAgainst}→${r.latest}`).join(", ")}`,
     );
     console.log(
-      "Run the local capability tripwires (smoke:seven) against the new version, then file an issue + bump verifiedAgainst.",
+      "Re-verify with smoke:seven, smoke:questions, and the declared context contracts (docs/harness-updates.md). Version drift does not reject runtime operations.",
     );
   } else if (drift.length === 0) {
     console.log("\nall descriptors current with their published versions.");

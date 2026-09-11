@@ -122,6 +122,41 @@ test("a matching version cannot authorize malformed accounting", () => {
   }
 });
 
+test.each(["codex", "pi", "muse"])(
+  "%s version-independent invocation support does not fabricate context accounting",
+  (harness) => {
+    const dir = mkdtempSync(join(tmpdir(), "hcn-unavailable-context-"));
+    writeFileSync(join(dir, harness), "#!/bin/sh\nprintf '999.0.0\\n'\n", { mode: 0o700 });
+    try {
+      const result = spawnSync(
+        "bun",
+        [
+          resolve("src/cli/index.ts"),
+          "inspect",
+          harness,
+          "--context",
+          "--json",
+          "--prompt",
+          "Pending request",
+        ],
+        {
+          cwd: dir,
+          encoding: "utf8",
+          timeout: 10_000,
+          env: { HOME: dir, XDG_CONFIG_HOME: dir, PATH: `${dir}:${env.PATH ?? ""}` },
+        },
+      );
+      expect(result.status, result.stderr).toBe(0);
+      expect(JSON.parse(result.stdout)).toMatchObject({
+        resume: { status: "supported" },
+        accounting: { status: "unavailable", reason: "unsupported-adapter" },
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  },
+);
+
 test("summary accounting preserves tool-free isolation and does not inject the question contract twice", () => {
   const { dir, run } = fixture();
   try {

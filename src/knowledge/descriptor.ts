@@ -298,7 +298,8 @@ export interface HarnessDescriptor {
    * this, and a mismatch means the descriptor's facts are unverified for the
    * new version (drift possible, or a capability the descriptor says is
    * absent may now exist). Bump it only when the facts have been re-verified
-   * against that version (and the fixtures re-captured). */
+   * against that version (and the fixtures re-captured). Evidence metadata
+   * never rejects an operation; invocation and native results determine support. */
   readonly verifiedAgainst: string;
   /** Where the latest published version is found, so the update pipeline can
    * detect a new release WITHOUT installing the CLI or running inference.
@@ -338,12 +339,6 @@ export interface HarnessDescriptor {
    * anywhere else (the v1 first-UUID-wins scar: a UUID inside quoted prompt
    * text was returned as the session id, and resuming it started a stranger). */
   readonly resume: {
-    /** Declared invocation support by mode, not proof that a saved session exists.
-     * Omitted retains the verification-version admission policy. */
-    readonly admission?: {
-      readonly kind: "invocation";
-      readonly modes: readonly HarnessMode[];
-    };
     readonly style: ResumeStyle;
     readonly flag: string;
     readonly aliases: readonly string[];
