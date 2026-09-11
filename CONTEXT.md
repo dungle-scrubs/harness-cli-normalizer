@@ -38,8 +38,9 @@ vocabularies, what it can express. Pure data, never behaviour. _Avoid_:
 "config", "adapter".
 
 **verifiedAgainst**: the harness CLI version a descriptor's facts were checked
-against. It bounds hcn's correctness: outside that version, the facts are
-unverified.
+against. Outside that version the facts need re-verification. It is evidence
+metadata, not a runtime admission condition. The supported invocation and the
+native operation's result determine whether work can run.
 
 **Turn**: one prompt in, one result out. The unit hcn spawns and reports on.
 

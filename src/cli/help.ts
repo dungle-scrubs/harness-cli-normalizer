@@ -168,9 +168,9 @@ Arguments:
 Options:
   --argv                    Preview argv that would be spawned
   --runtime                 Preview argv and probe the selected executable version;
-                            Claude headless-turn resume uses invocation support.
-                            Other harnesses and persistent sessions require exact
-                            adapter versions. A resolved executable is required
+                            All harnesses use invocation support in supported modes.
+                            Version metadata never rejects a supported invocation.
+                            A resolved executable is required
                             (does not run a model or prove the saved session exists)
   --context                 Inspect complete staged context through a disposable native
                             process (Claude headless-turn only). Validates the native

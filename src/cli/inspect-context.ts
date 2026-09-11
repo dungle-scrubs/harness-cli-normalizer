@@ -51,7 +51,7 @@ async function inspectContextRequest(
     refuse(refusalOf(error), outcome.plan.wantJson);
     return;
   }
-  const runtime = await runtimeCompatibility(harness, { ...options, mode: "headless-turn" });
+  const runtime = await runtimeCompatibility(harness, options);
   let accounting: ContextInspection;
   if (harness.contextInspection?.kind !== "claude-control-v1") {
     accounting = { status: "unavailable", reason: "unsupported-adapter" };
