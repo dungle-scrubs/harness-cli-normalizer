@@ -84,7 +84,7 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
       }
       const argv = outcome.plan.redactedArgv;
       process.stdout.write(
-        `${JSON.stringify({ v: 1, argvKind: "redacted-preview", argv, ...(await runtimeCompatibility(h, { ...outcome.plan.options, mode })) })}\n`,
+        `${JSON.stringify({ v: 1, argvKind: "redacted-preview", argv, ...(await runtimeCompatibility(h, outcome.plan.options)) })}\n`,
       );
       return;
     }
@@ -144,7 +144,6 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
       slice[canonical] = { native: null, source: "none" };
     }
   }
-  const { admission: _admission, ...resume } = h.resume;
   const out = {
     name: h.name,
     bin: h.bin,
@@ -159,7 +158,7 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
       toolsFlag: h.tools.includeFlag,
       idFlag: h.launch.idFlag,
     },
-    resume,
+    resume: h.resume,
     contextInspection: h.contextInspection ?? null,
     nativeContextManagement:
       h.nativeContextManagement === null

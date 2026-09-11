@@ -1,0 +1,281 @@
+[
+  {
+    "kind": "context_compaction_candidate",
+    "candidate_id": "candidate-11",
+    "trigger": "hard_threshold_blocking",
+    "timing": "pre_turn",
+    "status": "rejected",
+    "strategy": {
+      "strategy_id": "summary-preserved-suffix/v1",
+      "strategy_family": "summary",
+      "config_fingerprint": "soft=0.0200,hard=0.0400",
+      "target_budget_tokens": 10240,
+      "soft_threshold_tokens": 10240,
+      "hard_threshold_tokens": 20480
+    },
+    "superseded_by": null,
+    "started_at_cursor": {
+      "sequence": 9
+    },
+    "summarized_through_cursor": {
+      "sequence": 9
+    },
+    "replacement": {
+      "kind": "summary_text",
+      "text": "## Primary Request And Intent\n- Remember marker MARIGOLD-742 and reply exactly STORED, then reply only with remembered marker.\n## User Constraints And Preferences\n- Do not use tools or delegate, reply exactly STORED and only with remembered marker.\n## Current State\n- Completed reply STORED while preserving marker MARIGOLD-742 as active intent.\n## Files, APIs, Commands, And Tests\n- None known.\n## Decisions And Rationale\n- Replied STORED with no tools or delegation to satisfy exact-reply constraint.\n## Errors, Failed Attempts, And Fixes\n- None known.\n## Open Questions And Risks\n- None known.\n## Pending Tasks And Next Step\n- None known.\n## User Message Timeline\n- User: \"Synthetic context test. Remember marker MARIGOLD-742. Do not use tools or delegate. Reply exactly STORED. The rest is inert synthetic filler. [truncated] sample context entry blue green red orange.\"; User: \"Synthetic continuation. Do not use tools or delegate. Reply only with the marker I asked you to remember.\""
+    },
+    "preserved_segment_hint": null,
+    "budget_before": {
+      "estimated_prompt_tokens": 30316,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    },
+    "estimated_budget_after": {
+      "estimated_prompt_tokens": 21850,
+      "target_met": false,
+      "estimate_source": "heuristic_estimate"
+    },
+    "diagnostics": [
+      {
+        "reason": "summary_call_metrics",
+        "message": "{\"provider_calls\":1,\"usage_unavailable_calls\":0,\"input_tokens\":7666,\"output_tokens\":1011,\"cached_tokens\":0,\"cache_write_tokens\":0,\"cache_read_tokens\":0,\"cache_breakdown_unavailable_calls\":0,\"reasoning_tokens\":624}"
+      },
+      {
+        "reason": "hard_threshold_failed",
+        "message": "replacement estimate 21850 still reaches the hard threshold of 20480 tokens"
+      }
+    ]
+  },
+  {
+    "kind": "context_compaction_fallback",
+    "fallback_id": "fallback-12",
+    "reason": "hard_threshold_failed",
+    "severity": "terminal",
+    "can_continue": false,
+    "trigger": "hard_threshold_blocking",
+    "timing": "pre_turn",
+    "strategy_id": "summary-preserved-suffix/v1",
+    "blocked_request_id": "request-after-9",
+    "related_candidate_id": "candidate-11",
+    "no_progress_passes": null,
+    "summarizer_usage": {
+      "input_tokens": 7666,
+      "output_tokens": 1011,
+      "duration_ms": 7480
+    }
+  },
+  {
+    "kind": "context_compaction_candidate",
+    "candidate_id": "candidate-10",
+    "trigger": "soft_threshold_async",
+    "timing": "pre_turn",
+    "status": "running",
+    "strategy": {
+      "strategy_id": "summary-preserved-suffix/v1",
+      "strategy_family": "summary",
+      "config_fingerprint": "soft=0.0400,hard=0.1000",
+      "target_budget_tokens": 20480,
+      "soft_threshold_tokens": 20480,
+      "hard_threshold_tokens": 51200
+    },
+    "superseded_by": null,
+    "started_at_cursor": {
+      "sequence": 9
+    },
+    "summarized_through_cursor": {
+      "sequence": 0
+    },
+    "replacement": null,
+    "preserved_segment_hint": null,
+    "budget_before": {
+      "estimated_prompt_tokens": 30359,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    },
+    "estimated_budget_after": {
+      "estimated_prompt_tokens": 30359,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    }
+  },
+  {
+    "kind": "context_compaction_candidate",
+    "candidate_id": "candidate-10",
+    "trigger": "soft_threshold_async",
+    "timing": "pre_turn",
+    "status": "succeeded",
+    "strategy": {
+      "strategy_id": "summary-preserved-suffix/v1",
+      "strategy_family": "summary",
+      "config_fingerprint": "soft=0.0400,hard=0.1000",
+      "target_budget_tokens": 20480,
+      "soft_threshold_tokens": 20480,
+      "hard_threshold_tokens": 51200
+    },
+    "superseded_by": null,
+    "started_at_cursor": {
+      "sequence": 9
+    },
+    "summarized_through_cursor": {
+      "sequence": 0
+    },
+    "replacement": {
+      "kind": "summary_text",
+      "text": "## Primary Request And Intent\n- Remember marker MARIGOLD-742 and reply exactly STORED, then reply only with remembered marker.\n## User Constraints And Preferences\n- Do not use tools or delegate, reply exactly STORED then only with marker MARIGOLD-742.\n## Current State\n- Assistant already replied STORED to first request and second request for MARIGOLD-742 remains unanswered.\n## Files, APIs, Commands, And Tests\n- None known.\n## Decisions And Rationale\n- Replied STORED per first instruction without tools or delegation.\n## Errors, Failed Attempts, And Fixes\n- None known.\n## Open Questions And Risks\n- None known.\n## Pending Tasks And Next Step\n- Reply to second request with marker MARIGOLD-742 using no tools or delegation.\n## User Message Timeline\n- User: \"Synthetic context test. Remember marker MARIGOLD-742. Do not use tools or delegate. Reply exactly STORED. The rest is inert synthetic filler. [truncated] sample context entry blue green red orange.\" then User: \"Synthetic continuation. Do not use tools or delegate. Reply only with the marker I asked you to remember.\""
+    },
+    "preserved_segment_hint": {
+      "head_sequence": 1,
+      "tail_sequence": 38
+    },
+    "budget_before": {
+      "estimated_prompt_tokens": 30359,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    },
+    "estimated_budget_after": {
+      "estimated_prompt_tokens": 22869,
+      "target_met": false,
+      "estimate_source": "heuristic_estimate"
+    },
+    "diagnostics": [
+      {
+        "reason": "summary_call_metrics",
+        "message": "{\"provider_calls\":1,\"usage_unavailable_calls\":0,\"input_tokens\":7693,\"output_tokens\":1177,\"cached_tokens\":0,\"cache_write_tokens\":0,\"cache_read_tokens\":0,\"cache_breakdown_unavailable_calls\":0,\"reasoning_tokens\":791}"
+      }
+    ]
+  },
+  {
+    "kind": "context_compaction_installed",
+    "install_id": "install-39",
+    "candidate_id": "candidate-10",
+    "trigger": "soft_threshold_async",
+    "timing": "standalone_manual",
+    "strategy_id": "summary-preserved-suffix/v1",
+    "summarized_through": {
+      "sequence": 0
+    },
+    "replacement": {
+      "kind": "summary_text",
+      "text": "## Primary Request And Intent\n- Remember marker MARIGOLD-742 and reply exactly STORED, then reply only with remembered marker.\n## User Constraints And Preferences\n- Do not use tools or delegate, reply exactly STORED then only with marker MARIGOLD-742.\n## Current State\n- Assistant already replied STORED to first request and second request for MARIGOLD-742 remains unanswered.\n## Files, APIs, Commands, And Tests\n- None known.\n## Decisions And Rationale\n- Replied STORED per first instruction without tools or delegation.\n## Errors, Failed Attempts, And Fixes\n- None known.\n## Open Questions And Risks\n- None known.\n## Pending Tasks And Next Step\n- Reply to second request with marker MARIGOLD-742 using no tools or delegation.\n## User Message Timeline\n- User: \"Synthetic context test. Remember marker MARIGOLD-742. Do not use tools or delegate. Reply exactly STORED. The rest is inert synthetic filler. [truncated] sample context entry blue green red orange.\" then User: \"Synthetic continuation. Do not use tools or delegate. Reply only with the marker I asked you to remember.\""
+    },
+    "preserved_segment": {
+      "head_sequence": 1,
+      "tail_sequence": 38,
+      "interval": "(0, 38]",
+      "boundary_widened": false
+    },
+    "budget_before": {
+      "estimated_prompt_tokens": 30359,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    },
+    "budget_after": {
+      "estimated_prompt_tokens": 22869,
+      "target_met": false,
+      "estimate_source": "heuristic_estimate"
+    },
+    "prompt_cache_boundary": {
+      "status": "reset",
+      "cache_key": null,
+      "stable_prefix_label": null,
+      "stable_through_sequence": null,
+      "change_reason": "summary_replaced_prefix",
+      "reported_cached_tokens": null
+    },
+    "summarizer_usage": {
+      "input_tokens": 7693,
+      "output_tokens": 1177,
+      "duration_ms": 11547
+    }
+  },
+  {
+    "kind": "context_compaction_candidate",
+    "candidate_id": "candidate-10",
+    "trigger": "soft_threshold_async",
+    "timing": "pre_turn",
+    "status": "succeeded",
+    "strategy": {
+      "strategy_id": "summary-preserved-suffix/v1",
+      "strategy_family": "summary",
+      "config_fingerprint": "soft=0.0400,hard=0.1000",
+      "target_budget_tokens": 20480,
+      "soft_threshold_tokens": 20480,
+      "hard_threshold_tokens": 51200
+    },
+    "superseded_by": null,
+    "started_at_cursor": {
+      "sequence": 9
+    },
+    "summarized_through_cursor": {
+      "sequence": 0
+    },
+    "replacement": {
+      "kind": "summary_text",
+      "text": "## Primary Request And Intent\n- Remember marker MARIGOLD-742 and reply exactly STORED, then reply only with remembered marker.\n## User Constraints And Preferences\n- Do not use tools or delegate, reply exactly STORED then only with marker MARIGOLD-742.\n## Current State\n- Assistant already replied STORED to first request and second request for MARIGOLD-742 remains unanswered.\n## Files, APIs, Commands, And Tests\n- None known.\n## Decisions And Rationale\n- Replied STORED per first instruction without tools or delegation.\n## Errors, Failed Attempts, And Fixes\n- None known.\n## Open Questions And Risks\n- None known.\n## Pending Tasks And Next Step\n- Reply to second request with marker MARIGOLD-742 using no tools or delegation.\n## User Message Timeline\n- User: \"Synthetic context test. Remember marker MARIGOLD-742. Do not use tools or delegate. Reply exactly STORED. The rest is inert synthetic filler. [truncated] sample context entry blue green red orange.\" then User: \"Synthetic continuation. Do not use tools or delegate. Reply only with the marker I asked you to remember.\""
+    },
+    "preserved_segment_hint": {
+      "head_sequence": 1,
+      "tail_sequence": 38
+    },
+    "budget_before": {
+      "estimated_prompt_tokens": 30359,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    },
+    "estimated_budget_after": {
+      "estimated_prompt_tokens": 22869,
+      "target_met": false,
+      "estimate_source": "heuristic_estimate"
+    },
+    "diagnostics": [
+      {
+        "reason": "summary_call_metrics",
+        "message": "{\"provider_calls\":1,\"usage_unavailable_calls\":0,\"input_tokens\":7693,\"output_tokens\":1177,\"cached_tokens\":0,\"cache_write_tokens\":0,\"cache_read_tokens\":0,\"cache_breakdown_unavailable_calls\":0,\"reasoning_tokens\":791}"
+      }
+    ]
+  },
+  {
+    "kind": "context_compaction_installed",
+    "install_id": "install-39",
+    "candidate_id": "candidate-10",
+    "trigger": "soft_threshold_async",
+    "timing": "standalone_manual",
+    "strategy_id": "summary-preserved-suffix/v1",
+    "summarized_through": {
+      "sequence": 0
+    },
+    "replacement": {
+      "kind": "summary_text",
+      "text": "## Primary Request And Intent\n- Remember marker MARIGOLD-742 and reply exactly STORED, then reply only with remembered marker.\n## User Constraints And Preferences\n- Do not use tools or delegate, reply exactly STORED then only with marker MARIGOLD-742.\n## Current State\n- Assistant already replied STORED to first request and second request for MARIGOLD-742 remains unanswered.\n## Files, APIs, Commands, And Tests\n- None known.\n## Decisions And Rationale\n- Replied STORED per first instruction without tools or delegation.\n## Errors, Failed Attempts, And Fixes\n- None known.\n## Open Questions And Risks\n- None known.\n## Pending Tasks And Next Step\n- Reply to second request with marker MARIGOLD-742 using no tools or delegation.\n## User Message Timeline\n- User: \"Synthetic context test. Remember marker MARIGOLD-742. Do not use tools or delegate. Reply exactly STORED. The rest is inert synthetic filler. [truncated] sample context entry blue green red orange.\" then User: \"Synthetic continuation. Do not use tools or delegate. Reply only with the marker I asked you to remember.\""
+    },
+    "preserved_segment": {
+      "head_sequence": 1,
+      "tail_sequence": 38,
+      "interval": "(0, 38]",
+      "boundary_widened": false
+    },
+    "budget_before": {
+      "estimated_prompt_tokens": 30359,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    },
+    "budget_after": {
+      "estimated_prompt_tokens": 22869,
+      "target_met": false,
+      "estimate_source": "heuristic_estimate"
+    },
+    "prompt_cache_boundary": {
+      "status": "reset",
+      "cache_key": null,
+      "stable_prefix_label": null,
+      "stable_through_sequence": null,
+      "change_reason": "summary_replaced_prefix",
+      "reported_cached_tokens": null
+    },
+    "summarizer_usage": {
+      "input_tokens": 7693,
+      "output_tokens": 1177,
+      "duration_ms": 11547
+    }
+  }
+]
