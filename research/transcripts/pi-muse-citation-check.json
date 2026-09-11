@@ -1,0 +1,122 @@
+{
+  "date": "2026-09-11",
+  "method": "Each GitHub commit, path, and line bound checked against its owning clone.",
+  "standardVerifier": "Foreign repository commits were checked in their owning clone. Transcript branch prose was misread as Git branches named and, when, and movement; these are not branch assertions.",
+  "checks": [
+    {
+      "url": "https://github.com/earendil-works/pi/blob/914cf1472e715297caa30db4b9535d534a9eb718/packages/coding-agent/src/modes/rpc/rpc-mode.ts#L634-L648",
+      "verified": true,
+      "lines": 818
+    },
+    {
+      "url": "https://github.com/earendil-works/pi/blob/914cf1472e715297caa30db4b9535d534a9eb718/packages/coding-agent/src/core/session-manager.ts#L895-L930",
+      "verified": true,
+      "lines": 1715
+    },
+    {
+      "url": "https://github.com/dungle-scrubs/harness-cli-normalizer/blob/2e19ca2abdfc877a6a373941def104c175f2faca/src/knowledge/pi.ts#L12-L16",
+      "verified": true,
+      "lines": 203
+    },
+    {
+      "url": "https://github.com/dungle-scrubs/harness-cli-normalizer/blob/2e19ca2abdfc877a6a373941def104c175f2faca/src/knowledge/muse.ts#L13-L20",
+      "verified": true,
+      "lines": 163
+    },
+    {
+      "url": "https://github.com/earendil-works/pi/blob/914cf1472e715297caa30db4b9535d534a9eb718/packages/coding-agent/package.json#L1-L18",
+      "verified": true,
+      "lines": 109
+    },
+    {
+      "url": "https://github.com/earendil-works/pi/blob/914cf1472e715297caa30db4b9535d534a9eb718/packages/coding-agent/src/modes/rpc/rpc-mode.ts#L634-L674",
+      "verified": true,
+      "lines": 818
+    },
+    {
+      "url": "https://github.com/earendil-works/pi/blob/914cf1472e715297caa30db4b9535d534a9eb718/packages/coding-agent/src/core/agent-session.ts#L954-L957",
+      "verified": true,
+      "lines": 3345
+    },
+    {
+      "url": "https://github.com/earendil-works/pi/blob/914cf1472e715297caa30db4b9535d534a9eb718/packages/coding-agent/src/core/session-manager.ts#L414-L469",
+      "verified": true,
+      "lines": 1715
+    },
+    {
+      "url": "https://github.com/earendil-works/pi/blob/914cf1472e715297caa30db4b9535d534a9eb718/packages/coding-agent/src/core/sdk.ts#L365-L377",
+      "verified": true,
+      "lines": 402
+    },
+    {
+      "url": "https://github.com/earendil-works/pi/blob/914cf1472e715297caa30db4b9535d534a9eb718/packages/coding-agent/src/core/session-manager.ts#L31-L153",
+      "verified": true,
+      "lines": 1715
+    },
+    {
+      "url": "https://github.com/earendil-works/pi/blob/914cf1472e715297caa30db4b9535d534a9eb718/packages/coding-agent/src/core/session-manager.ts#L1291-L1303",
+      "verified": true,
+      "lines": 1715
+    },
+    {
+      "url": "https://github.com/earendil-works/pi/blob/914cf1472e715297caa30db4b9535d534a9eb718/packages/coding-agent/docs/session-format.md#L40-L103",
+      "verified": true,
+      "lines": 439
+    },
+    {
+      "url": "https://github.com/earendil-works/pi/blob/914cf1472e715297caa30db4b9535d534a9eb718/packages/coding-agent/docs/session-format.md#L263-L282",
+      "verified": true,
+      "lines": 439
+    },
+    {
+      "url": "https://github.com/earendil-works/pi/blob/914cf1472e715297caa30db4b9535d534a9eb718/packages/coding-agent/docs/rpc.md#L694-L751",
+      "verified": true,
+      "lines": 1590
+    },
+    {
+      "url": "https://github.com/earendil-works/pi/blob/914cf1472e715297caa30db4b9535d534a9eb718/packages/coding-agent/src/core/session-manager.ts#L958-L976",
+      "verified": true,
+      "lines": 1715
+    },
+    {
+      "url": "https://github.com/earendil-works/pi/blob/914cf1472e715297caa30db4b9535d534a9eb718/packages/coding-agent/src/core/session-manager.ts#L1354-L1374",
+      "verified": true,
+      "lines": 1715
+    },
+    {
+      "url": "https://github.com/earendil-works/pi/blob/914cf1472e715297caa30db4b9535d534a9eb718/packages/coding-agent/src/core/session-manager.ts#L503-L555",
+      "verified": true,
+      "lines": 1715
+    },
+    {
+      "url": "https://github.com/earendil-works/pi/blob/914cf1472e715297caa30db4b9535d534a9eb718/packages/coding-agent/src/core/session-manager.ts#L231-L295",
+      "verified": true,
+      "lines": 1715
+    },
+    {
+      "url": "https://github.com/earendil-works/pi/blob/914cf1472e715297caa30db4b9535d534a9eb718/packages/coding-agent/src/core/session-manager.ts#L1525-L1554",
+      "verified": true,
+      "lines": 1715
+    },
+    {
+      "url": "https://github.com/earendil-works/pi/blob/914cf1472e715297caa30db4b9535d534a9eb718/packages/coding-agent/src/core/agent-session-runtime.ts#L196-L224",
+      "verified": true,
+      "lines": 442
+    },
+    {
+      "url": "https://github.com/earendil-works/pi/blob/914cf1472e715297caa30db4b9535d534a9eb718/packages/coding-agent/src/core/agent-session.ts#L2237-L2260",
+      "verified": true,
+      "lines": 3345
+    },
+    {
+      "url": "https://github.com/earendil-works/pi/blob/914cf1472e715297caa30db4b9535d534a9eb718/packages/coding-agent/test/rpc.test.ts#L308-L363",
+      "verified": true,
+      "lines": 400
+    },
+    {
+      "url": "https://github.com/dungle-scrubs/harness-cli-normalizer/blob/2e19ca2abdfc877a6a373941def104c175f2faca/src/knowledge/muse.ts#L30-L77",
+      "verified": true,
+      "lines": 163
+    }
+  ]
+}
