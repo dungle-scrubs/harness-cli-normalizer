@@ -6,6 +6,7 @@ Commands:
   run <harness> [prompt]    One-shot headless turn (streamTurn)
   session <harness>         Interactive session (openSession, claude + pi)
   inspect <harness>         Descriptor / argv / capability inspection (no spawn)
+  transcript read <harness> Passive native transcript export (JSONL)
   ls                        List harnesses with verifiedAgainst versions
   check                     Drift check (published version vs verifiedAgainst)
 
@@ -163,6 +164,8 @@ Arguments:
   <harness>                 claude | codex | pi | muse
 
 Options:
+  --transcript              Report passive transcript methods and evidence;
+                            exclusive with other inspection modes; no history opened
   --argv                    Preview argv that would be spawned
   --capabilities            Print the capability record (vision, images,
                             streaming, session, source) as one JSON line
@@ -213,4 +216,33 @@ Exits 0 when no drift, 1 when drift found, 1 on network failure with partial res
 Options:
   --json                    Machine-readable output
   -h, --help                Show help
+`;
+
+export const TRANSCRIPT_HELP = `hcn transcript - Passive native transcript export
+
+Usage: hcn transcript read <harness> (--id <native-id> | --file <path>) [options]
+
+Harnesses: claude | codex | pi | muse
+Inspect support first: hcn inspect <harness> --transcript
+
+Options:
+  --cwd <directory>         Resolution workspace (default invocation directory)
+  --since <bookmark>        Validate caller-held progress before continuing
+  --limit <entry-count>     Positive whole-entry batch limit
+  --accept-limits <names>   Explicit coverage opt-ins, comma-separated:
+                            history,branches,original-records,embedded-content
+  -h, --help                Show help
+  -V, --version             Show version
+
+Stdout is JSONL: source, complete native records, terminal result.
+Only a complete result and exit 0 establish success. Failure exits 1;
+invalid arguments or unsupported operations exit 2. Output failures exit 1.
+No model, resume, instructions, extensions, store writes, or external
+attachment reads. Retained history includes saved branches and pre-compaction
+entries. No HCN index, retention, search, or persistent bookmark state.
+
+Enabled methods: Pi v3 file/ID with batches and bookmarks; Codex 0.147.0
+standalone legacy files without paging or continuation. Claude and Muse
+remain unverified. Codex paginated/inherited history is rejected.
+Compatible customized Pi must preserve the declared v3 storage semantics.
 `;

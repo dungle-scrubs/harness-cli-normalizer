@@ -6,9 +6,11 @@
  */
 import { deepFreeze, type HarnessDescriptor, UUID_SHAPE } from "./descriptor.js";
 import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
+import { CODEX_TRANSCRIPT } from "./transcript/codex.js";
 
 export const codexCli: HarnessDescriptor = deepFreeze({
   name: "codex",
+  transcript: CODEX_TRANSCRIPT,
   bin: "codex",
   verifiedAgainst: "0.147.0",
   versionSource: { kind: "npm", package: "@openai/codex" },

@@ -20,6 +20,7 @@ import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
 
 export const claudeCode: HarnessDescriptor = deepFreeze({
   name: "claude",
+  transcript: null,
   bin: "claude",
   verifiedAgainst: "2.1.233",
   versionSource: { kind: "npm", package: "@anthropic-ai/claude-code" },

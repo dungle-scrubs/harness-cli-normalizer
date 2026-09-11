@@ -12,6 +12,7 @@ import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
 
 export const museCode: HarnessDescriptor = deepFreeze({
   name: "muse",
+  transcript: null,
   bin: "muse",
   verifiedAgainst: "0.1.0",
   // No npm package - `hcn check` falls back to `muse --version` locally and
