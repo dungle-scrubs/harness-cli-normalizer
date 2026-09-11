@@ -3,7 +3,7 @@ number: 03
 title: "Native transcript retrieval"
 type: protocol
 status: Draft
-revision: draft-04
+revision: draft-05
 author: Codex, with Kevin Frilot
 date: 2026-09-11
 ---
@@ -28,7 +28,7 @@ Out of scope: discovering/listing conversations; HCN transcript storage or index
 
 ### Fit of this revision
 
-The users are Kevin through consumers such as Trevor, which inspect saved messages and tool results. HCN normalizes harness interfaces and supervises the processes it starts. Draft-04 clarifies reference identity, the meanings of existing capability statuses, and schema extension rules. These changes serve consumers that must interpret the same result consistently across harnesses and **hold** the scope. The HCN skill-update requirement remains in the delivery contract. No new command, capability name, or supported library import surface is added.
+The users are Kevin through consumers such as Trevor, which inspect saved messages and tool results. HCN normalizes harness interfaces and supervises the processes it starts. Draft-05 defines the remaining retrieval/passivity statuses and valid target kinds for each existing relationship, while retaining the earlier identity and schema-extension clarifications. These changes serve consumers that must interpret the same result consistently across harnesses and **hold** the scope. The HCN skill-update requirement remains in the delivery contract. No new command, capability name, or supported library import surface is added.
 
 Review suggestions do not extend the feature to universal bookmark portability, protection against an arbitrary consumer's lossy JSON parser, or a persistent signing/key service: those would add guarantees or services outside this passive normalization contract. Cross-method continuation requires explicit verified compatibility, and consumers preserving originals use a lossless parser. New harness registration, indexing, retention, search, and Trevor ownership remain outside this proposal.
 
@@ -120,6 +120,36 @@ HCN MUST parse and emit native numbers without precision loss, using a lossless 
 | `Rule` | `id`: string; `purpose`: `resolution`, `compatibility`, `passivity`, `ordering`, `normalization`, `consistency`, or `continuation`; `description`: string; `appliesTo`: Applicability; `evidence`: array of Evidence. The referenced documentation/test MUST specify an actionable algorithm and preconditions; a rule ID alone is not proof. |
 
 `not-applicable` coverage is reserved for guarantees that could not be evaluated because no usable source was resolved. All four assessments on a complete result are complete, limited, or unknown. `limits` has exactly one entry for each limited/unknown returned guarantee and no others, in guarantee-name order. Accepted permission alone creates no Limit. Failed results retain observed assessments and use unknown for the unobserved remainder. Thus `returned.state: unknown` does not pretend that an unsuccessful partial stream established coverage.
+
+### Meanings of retrieval capabilities and assessments
+
+For each of history, branches, original-records, and embedded-content, Capability.status MUST use the following meanings within the stated method/format/build applicability. Coverage assesses the accessible view of the selected source. Inspection describes method support and does not establish source observations.
+
+| Capability.status | Meaning | Assessment.state after the same source/view has been evaluated | Read eligibility for this guarantee |
+| --- | --- | --- | --- |
+| available | Evidence establishes the complete guarantee defined in Coverage, history, and files. | complete | No opt-in required. |
+| limited | Evidence establishes a reduced readable projection that does not meet the complete guarantee, while the fixed identity, integrity, value-preservation, passivity, and consistency requirements remain satisfiable. The reason identifies the known reduction. | limited | Requires this guarantee in --accept-limits. |
+| unavailable | Evidence establishes that the method offers no readable view that can satisfy the fixed requirements for its stated applicability. This is absence of a usable retrieval operation, not another name for a reduced projection. | No successful assessment mapping. | Ineligible even with --accept-limits. |
+| unknown | Evidence is insufficient to establish completeness, a known reduction, or absence of a usable view. | unknown | This guarantee can be accepted through --accept-limits only if all fixed requirements are independently established. |
+
+Limited includes a projection that entirely omits one category, such as abandoned branches, while still exposing a usable view. It does not require a positive count of records in that category. Conversely, a verified empty retained history or absence of embedded payloads can be complete; zero records alone proves neither absence of support nor completeness. Historical loss remains separate from all four capability statuses.
+
+These mappings apply to the same method, source, and accessible view, not to top-level best-across-methods inspection values. On a complete result, each retrieval Capability.status MUST be available, limited, or unknown and map to the corresponding CoverageMap assessment above. Limit.available uses that accessible-view assessment. Limit.returned describes the returned projection; a batch boundary alone does not reduce it. HCN MUST NOT deliberately reduce a safely accessible view. Before evaluation, unobserved source assessments remain unknown, or not-applicable when no usable source was resolved. On a failed/refused call, retain established assessments; unavailable does not manufacture an Assessment value or erase earlier observations. No failed partial stream establishes successful returned coverage.
+
+Preflight method selection first excludes methods without available passivity, methods that cannot address the selector, and methods with any unavailable retrieval guarantee. It then applies the requested paging/incremental gates and named coverage opt-ins to each remaining method. Aggregate inspection statuses never substitute for a single eligible method. When no method meets the request, use the failure order in Error Handling; coverage unavailable or unaccepted limited uses transcript-divergence, while unaccepted unknown uses transcript-unverified. A source-specific failure after Resolve begins uses the applicable runtime code, normally guarantee-unmet with requirement retrieval and the affected guarantee when no more specific source failure applies.
+
+### Meanings of method passivity
+
+Method.passivity reuses the Capability object shape but has its own status constraints:
+
+| Status | Meaning and eligibility |
+| --- | --- |
+| available | Evidence establishes the complete no-model-request, no-history-write lifecycle under the method's declared prerequisites, including all relevant initialization, reads, and cleanup. The method is eligible only within those conditions. |
+| limited | Invalid for passivity. A partly passive lifecycle is not an eligible read operation. |
+| unavailable | Evidence establishes that the lifecycle violates a fixed passive-read requirement. The method is ineligible. |
+| unknown | Evidence does not establish either a fully passive lifecycle or a known violation. The method is ineligible. |
+
+These meanings apply to file methods as well as API and export-process methods. Inspection returns the declared available/unavailable/unknown value without opening history or starting a native process; unavailable or unknown is valid inspection data, not an inspection error. If no method addressing the selector has available passivity at Validate, the read refuses with passive-read-unverified, requirement passivity, guarantee null, and exit 2. The reason distinguishes a known violation from missing evidence. Neither status permits an opt-in. If safe source checks after Resolve begins fail to establish a declared passive prerequisite, fail with guarantee-unmet, requirement passivity, guarantee null, and exit 1 before performing the affected operation. HCN MUST NOT run a potentially mutating lifecycle to discover whether it is passive.
 
 ### Meanings of non-coverage capabilities
 
@@ -215,6 +245,18 @@ Before source resolution, conversation and methodId can be null, sources/nativeH
 | `ReferenceScope` | `harness`: Harness or null; `conversationId`: string or null; `sourceKey`: string or null; `location`: string or null |
 
 `JsonPath` is an array of object-key strings and nonnegative array-index integers, traversed from original. An empty array refers to original itself. It MUST resolve within that same object and never reads an external resource. `RelationshipMap` has exactly `parent-entry`, `tool-call`, `first-kept-entry`, `branch-origin`, and `parent-conversation`, each a Relation. Multiple established targets are allowed in one Relation. A known relation has at least one target and a known basis. None means a positively established absence, such as a native root; not-applicable means the relationship has no meaning for this entry kind. Unknown means insufficient evidence. None, unknown, and not-applicable have empty targets; none and not-applicable require a known basis. Unknown has unknown basis, empty originalPaths, and null ruleId. A format-rule basis requires ruleId; a native-field basis requires a nonempty originalPaths array and null ruleId. Each path identifies its native evidence; the array `[[]]` identifies the original object itself and is distinct from no paths. No proximity-based tool matching or inference from summary prose is allowed.
+
+Every target in a known Relation MUST have the Reference.kind allowed for its RelationshipMap key:
+
+| RelationshipMap key | Allowed Reference.kind | Established relationship |
+| --- | --- | --- |
+| parent-entry | entry | The native parent entry of this entry. |
+| tool-call | tool-call | The native call identifier associated with this entry, such as the call answered by a tool result. |
+| first-kept-entry | entry | The first entry retained in model context under an established native compaction boundary. This does not assert the exact inputs used to generate a summary. |
+| branch-origin | entry | The native entry from which the represented branch originates. Its scope can identify a separate native conversation without opening it. |
+| parent-conversation | conversation | A separate native conversation identified as the parent or fork source. |
+
+These target-kind constraints apply to every item when a relation has multiple targets. None, unknown, and not-applicable still have empty targets. A source that identifies only a parent conversation does not thereby identify a branch-origin entry. If native data cannot establish a relationship with the required target kind, its normalized relation remains unknown and original retains the native value. HCN MUST NOT invent an entry, call, or conversation identifier to fill a relation. Consumers MUST reject a normalized target-kind mismatch as invalid protocol data; this is not evidence that the retained native source itself is malformed.
 
 Reference identity rules depend on kind:
 
@@ -333,7 +375,7 @@ Failure denotes the separate `TranscriptFailure` object and vocabulary, not a `F
 | --- | --- |
 | `invalid-option-value` | Invalid selector/value, unknown harness name, invalid limit/opt-in/bookmark encoding, missing required value, or unknown option in a recognized transcript request; phase validate, 2 |
 | `mutually-exclusive-options` | Conflicting selectors or inspection modes; validate, 2 |
-| `transcript-divergence` | Descriptor evidence establishes a required capability unavailable/limited without permission; validate, 2 |
+| `transcript-divergence` | Descriptor evidence establishes a required non-passivity capability unavailable, or a retrieval guarantee limited without its opt-in; validate, 2 |
 | `transcript-unverified` | Descriptor evidence for a required non-passivity capability is unknown without permission; validate, 2 |
 | `passive-read-unverified` | No eligible verified passive lifecycle; validate, 2; no opt-in waives it |
 | `source-not-found` | No selected source/conversation in the declared lookup namespace; resolve, 1; never empty success |
@@ -410,11 +452,11 @@ Each enabled method MUST pass the applicable cases below on isolated synthetic h
 | Passive lifecycle | Startup, selection, reads, shutdown, old-format migration, empty files, missing metadata, hooks, extensions, accidental prompt/resume paths, and authentication behavior; no model request and no changed saved history. |
 | Identity and resolution | Exact ID/file selection, declared workspace/user namespace and native location settings, wrong ID, missing source, mismatches, ambiguity, multiple native segments, separate children/forks, missing entry IDs, entry/tool-call IDs distinct from conversation IDs, both native-ID and location-only conversation references, valid nullable/scoped positions, and wrong-source bookmarks. |
 | Original values and content | Unknown fields, duplicate identical messages, custom tool calls/results, custom entries/messages/headers, metadata, summaries, embedded non-text data, large entries without truncation, exact large integers/decimals, number-spelling equality, negative zero, escaped surrogate code units, duplicate-key rejection, and unopened external references. |
-| History and relationships | Retained pre-compaction data, retained abandoned branches, missing parents versus known roots, native compaction links versus unknown summary inputs, historical loss separated from retained coverage, and unknown native content without invented links. |
+| History and relationships | Retained pre-compaction data, retained abandoned branches, missing parents versus known roots, native compaction links versus unknown summary inputs, historical loss separated from retained coverage, and unknown native content without invented links, every relationship/target-kind combination, and rejection of mismatched normalized target kinds. |
 | Branch observations | Live, saved, unknown, and not-applicable cases; zero-entry reads after a live branch move; a saved reload leaf never asserted to be live; consumers compare values rather than HCN emitting invented change events. |
 | Batches and continuation | Limits between entries, no byte truncation, fixed view and later appends, no continuation support with bounded reads, empty source/EOF bookmarks, same-boundary tokens, repeated delivery, missing anchors, reused native IDs, changed prefix with surviving anchor, moves, replacement, same-size edits, truncation, malformed/oversized/unknown-version bookmarks, and declared/undeclared cross-method changes. |
 | Consistency | Initial, empty, and incremental reads; concurrent appends, incomplete tails that later finish, persistent tails, a syntactically complete value missing required framing, malformed middle records, and rewrites during reading; all claimed native write assumptions and checks; no successful unknown consistency or advancing failed bookmark. |
-| Reports and failures | Static inspection with no history/native process; inspection errors and optional object extensions versus fixed map keys; every non-coverage capability status, invalid limited paging/incremental statuses, and requested-operation refusal/runtime reductions; source-specific reductions; known and unknown accepted limits; descriptor evidence versus source facts; unfamiliar compatible versions and identified custom builds; all error phases and precedence; missing/inaccessible sources; native reader failures; output failure/EPIPE; caught interruptions; failed cleanup; terminal framing and producer exit disagreement. |
+| Reports and failures | Static inspection with no history/native process; inspection errors and optional object extensions versus fixed map keys; every retrieval, non-coverage, and passivity status; retrieval-status/assessment mapping; invalid limited passivity/paging/incremental statuses; unavailable retrieval rejected despite opt-in; and requested-operation refusal/runtime reductions; source-specific reductions; known and unknown accepted limits; descriptor evidence versus source facts; unfamiliar compatible versions and identified custom builds; all error phases and precedence; missing/inaccessible sources; native reader failures; output failure/EPIPE; caught interruptions; failed cleanup; terminal framing and producer exit disagreement. |
 | Boundaries and guidance | Knowledge/interpretation purity, injected execution I/O, Node/Bun parity, no consumer imports, no HCN index/watcher/acknowledgement state, current HCN usage-skill claims, and preservation of existing command behavior. |
 
 ### Synthetic outcome examples
@@ -537,7 +579,7 @@ The [Muse xhigh follow-up](03_native-transcript-retrieval.review-draft-02-muse.m
 
 ### Response to the draft-03 Sol review
 
-The [Sol xhigh review](03_native-transcript-retrieval.review-draft-03-sol.md) reviewed **draft-03**, commit `d200b953abc313d9547f6252e1bcd2475d6b0805`, SHA-256 `6f3a8f78adcdf6ae4b4726dd2b7600b867a39708ed369ab2c9021b35c59ff58e`. Draft-04 addresses every finding below. The report and reviewed Git snapshot remain unchanged. These are author dispositions of document findings, not runtime proof or independent review of draft-04.
+The [Sol xhigh review](03_native-transcript-retrieval.review-draft-03-sol.md) reviewed **draft-03**, commit `d200b953abc313d9547f6252e1bcd2475d6b0805`, SHA-256 `6f3a8f78adcdf6ae4b4726dd2b7600b867a39708ed369ab2c9021b35c59ff58e`. Draft-04 addressed every finding below; draft-05 retains those changes. The report and reviewed Git snapshot remain unchanged. These are author dispositions of document findings, not runtime proof or independent review of draft-04.
 
 | Point | Disposition and change |
 | --- | --- |
@@ -545,12 +587,22 @@ The [Sol xhigh review](03_native-transcript-retrieval.review-draft-03-sol.md) re
 | Sol draft-03 F2 | Applied: all four non-coverage capabilities have exact status meanings, observation mappings, and request gates. Paging and incremental prohibit limited status because their guarantees cannot be weakened; source-specific failures have explicit mappings. |
 | Sol draft-03 F3 | Applied: inspection errors require their listed fields and permit optional object extensions; Versioning distinguishes extensible objects from maps with fixed keys and defines consumer handling. |
 
+### Response to the draft-04 Sol review
+
+The [isolated Sol xhigh review](03_native-transcript-retrieval.review-draft-04-sol.md) reviewed **draft-04**, commit `1797f30e68cdb61b8ce6b1d392db1e7c1ee0c63c`, SHA-256 `2bc4140e16ead5e90993f09bdfce0fc2e30d906d1cd5f7dc61b540ef16a1a007`. Draft-05 addresses all three findings below. The report and reviewed snapshot remain unchanged. These are author dispositions, not an independent review or acceptance of draft-05.
+
+| Point | Disposition and change |
+| --- | --- |
+| Sol draft-04 F1 | Applied: every retrieval capability status has an exact meaning, mapping to evaluated coverage, and eligibility rule. Known reduced projections require opt-in; absence of a usable operation cannot be waived. Failed and unresolved observations stay distinct from successful assessments. |
+| Sol draft-04 F2 | Applied: passivity defines available, unavailable, and unknown; limited is invalid. Inspection reports evidence without running a reader, and preflight/source-prerequisite failures have explicit codes and phases. |
+| Sol draft-04 F3 | Applied: each relationship key has a required target kind and native meaning; unknown native links remain original data, and consumers reject mismatched normalized targets. |
+
 ## Open Questions
 
-1. **Does draft-04 resolve the review findings well enough for acceptance?** Options are further revision, explicit acceptance, or withdrawal. The criterion is a coherent complete contract and disposition of any follow-up review findings, not structural validation alone. Kevin or another explicitly authorized human decides. This revision remains Draft and has not been accepted or independently re-reviewed.
+1. **Does draft-05 resolve the review findings well enough for acceptance?** Options are further revision, explicit acceptance, or withdrawal. The criterion is a coherent complete contract and disposition of any follow-up review findings, not structural validation alone. Kevin or another explicitly authorized human decides. This revision remains Draft and has not been accepted or independently re-reviewed.
 2. **Which native methods can meet their declared guarantees?** The outcome for each method is enabled with established evidence, enabled only for verified named limits, or disabled with explicit unknown/unavailable support. Identified-format/build synthetic conformance decides this during implementation; no method is assumed enabled by accepting the protocol. New evidence cannot silently weaken the fixed guarantees.
 
-Machine-made choices under Kevin's instruction to continue with recommendations include the draft-02 through draft-04 concrete field/type vocabulary, resolution-workspace semantics, canonical guarantee names, bookmark transport/size bound, exact JSON equality rules, source/error precedence, and extra identity/interruption/cleanup issue codes. Draft-04 additionally defines per-kind reference rules, exact non-coverage status meanings with no limited paging/incremental operation, and optional-object versus fixed-map extension handling. These hold the agreed scope and answer the cited reviews. Trevor's ownership and harness choices remain unresolved in their own discussion.
+Machine-made choices under Kevin's instruction to continue with recommendations include the draft-02 through draft-05 concrete field/type vocabulary, resolution-workspace semantics, canonical guarantee names, bookmark transport/size bound, exact JSON equality rules, source/error precedence, and extra identity/interruption/cleanup issue codes. Draft-04 additionally defines per-kind reference rules, exact non-coverage status meanings with no limited paging/incremental operation, and optional-object versus fixed-map extension handling. Draft-05 adds retrieval-status/assessment mappings, non-waivable passivity states, and relationship target-kind constraints. These hold the agreed scope and answer the cited reviews. Trevor's ownership and harness choices remain unresolved in their own discussion.
 
 ## References
 
