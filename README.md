@@ -56,6 +56,35 @@ hcn session claude --model opus --session-id 550e8400-e29b-41d4-a716-44665544000
 hcn session pi --effort high
 ```
 
+### Native terminal resume (`hcn interactive`)
+
+This operation resumes an exact native session with inherited terminal I/O.
+The caller supplies a separate writable pipe with `--control-fd <fd>` (fd 3 or
+higher), a UUID v4 `--launch-id`, `--interface`, `--resume`, and absolute `--cwd`.
+`--env KEY=VALUE` uses the existing environment rules, including removal by empty
+value. It accepts no prompt, model switch, fork, fresh fallback, or native argv.
+
+Each control line carries `v: 1`, `operation: "interactive"`, and `launchId`:
+
+- `ready`: preflight passed. No process creation is proved yet.
+- `refused`: `evidence: "spawn-not-attempted"` and a reason from
+  `unsupported-interface`, `resume-unavailable`, `cwd-refused`, `invalid-request`,
+  `executable-unavailable`, or `spawn-rejected`. Only this evidence proves no child.
+- `started`: the exact `sessionId`, `cwd`, `interface`, and native `owner`
+  (`pid`, kernel `startedAt`, `executable`). This proves creation, not history loading.
+- `closed`: native `exitCode` (null for signal exit) and `cleanupComplete`.
+
+A lost or truncated control stream is uncertain. Exit code 2 alone is not
+no-child evidence because a native process can also exit with that code.
+HCN supervises only its own child; the caller owns reconnect reservations and
+the later proof that the native session attached.
+
+The current implementation supports the Codex native executable on macOS/Linux,
+checking an exact saved UUID and folder. Wrapper launchers, Claude, Pi, Muse,
+and Codex desktop currently return unavailable. They require separate native
+launch validation. This operation does not yet establish full consumer handoff
+acceptance. Run `hcn interactive --help` for the command contract.
+
 ### Machine session (`hcn session <harness> --json`)
 
 `--json` is the same session for a program instead of a human: NDJSON events

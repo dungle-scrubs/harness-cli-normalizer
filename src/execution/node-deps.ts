@@ -8,8 +8,9 @@
  */
 import { type ChildProcess, spawn as nodeSpawn } from "node:child_process";
 import type { Readable } from "node:stream";
-import type { Clock, RunnerDeps, SpawnedProcess, SpawnOptions } from "./deps.js";
+import type { Clock, ProcessStart, RunnerDeps, SpawnedProcess, SpawnOptions } from "./deps.js";
 import { mergeEnvironment } from "./environment.js";
+import { readNativeProcessOwner } from "./process-identity.js";
 
 const children = new WeakMap<SpawnedProcess, ChildProcess>();
 
@@ -98,9 +99,30 @@ const realSpawn = (argv: readonly string[], opts: SpawnOptions): SpawnedProcess 
     ...(env !== undefined ? { env } : {}),
     stdio: [
       opts.stdin === "pipe" ? "pipe" : opts.stdin === "close" ? "ignore" : "inherit",
-      "pipe",
-      "pipe",
+      opts.output === "inherit" ? "inherit" : "pipe",
+      opts.output === "inherit" ? "inherit" : "pipe",
     ],
+  });
+  const started = new Promise<ProcessStart>((resolve) => {
+    let spawned = false;
+    child.once("spawn", () => {
+      spawned = true;
+      resolve({
+        kind: "started",
+        owner:
+          opts.output === "inherit" && child.pid !== undefined
+            ? readNativeProcessOwner(child.pid)
+            : undefined,
+      });
+    });
+    child.once("error", (cause: NodeJS.ErrnoException) => {
+      const knownNoChild = ["ENOENT", "EACCES", "ENOTDIR", "ENOEXEC", "EAGAIN", "ENOMEM"];
+      resolve(
+        !spawned && child.pid === undefined && cause.code && knownNoChild.includes(cause.code)
+          ? { code: cause.code, kind: "not-started" }
+          : { kind: "uncertain" },
+      );
+    });
   });
   const inputError = new Promise<void>((resolve) => {
     child.stdin?.once("error", () => resolve());
@@ -151,7 +173,8 @@ const realSpawn = (argv: readonly string[], opts: SpawnOptions): SpawnedProcess 
   const proc: SpawnedProcess = {
     inputError,
     stdout: stdoutOutput === null ? emptyStream() : stdoutOutput.stream,
-    stderr: stderrWithError(),
+    stderr: opts.output === "inherit" ? emptyStream() : stderrWithError(),
+    started,
     exited,
     startupError: () => spawnError?.message ?? null,
     disposeOutput: (): void => {

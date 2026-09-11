@@ -5,6 +5,7 @@ Usage: hcn <command> [options] [prompt]
 Commands:
   run <harness> [prompt]    One-shot headless turn (streamTurn)
   session <harness>         Interactive session (openSession, claude + pi)
+  interactive <harness>     Strict native terminal resume with a separate control pipe
   inspect <harness>         Descriptor / argv / capability inspection (no spawn)
   ls                        List harnesses with verifiedAgainst versions
   check                     Drift check (published version vs verifiedAgainst)
@@ -14,6 +15,29 @@ Options:
   -V, --version             Show version
 
 Run 'hcn <command> --help' for command-specific help.
+`;
+
+export const INTERACTIVE_HELP = `hcn interactive - Resume a native terminal with process lifecycle evidence
+
+Usage: hcn interactive <harness> --interface <interface> --launch-id <uuid>
+       --resume <session-id> --cwd <absolute-folder> --control-fd <fd> [--env KEY=VALUE]
+
+Returns version 1 NDJSON on the caller's pipe (fd >= 3). Native stdin, stdout,
+and stderr remain on the inherited terminal. No prompt, model, fork, fresh
+session, or native argument passthrough is accepted. Empty --env values remove keys.
+
+Control: ready means preflight passed; started identifies the created process;
+closed reports its exit status and owned cleanup. Started does not prove native
+history loaded. A refused record with spawn-not-attempted proves no child was
+created. Missing or truncated control is uncertain; do not retry it as a refusal.
+
+Current lane: codex-cli on macOS/Linux using a native executable and an exact
+saved UUID/folder.
+Launcher wrappers, claude-cli, pi-cli, muse-cli and codex-desktop are unavailable
+until their separate strict native launch paths are verified.
+
+Exit: native terminal exit code on closed; 2 for pre-start refusal; 1 for
+uncertain launch or a signal exit. Exit code alone is not no-child evidence.
 `;
 
 export const RUN_HELP = `hcn run - One-shot headless turn

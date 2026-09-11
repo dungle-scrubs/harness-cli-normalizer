@@ -56,6 +56,11 @@ export const dispatch = async (raw: string[]): Promise<void> => {
   const cmd = raw[0] as string;
 
   switch (cmd) {
+    case "interactive": {
+      const { interactive } = await import("./interactive.js");
+      await interactive(raw.slice(1));
+      return;
+    }
     case "ls": {
       if (raw.includes("--help") || raw.includes("-h")) {
         const { LS_HELP } = await import("./help.js");

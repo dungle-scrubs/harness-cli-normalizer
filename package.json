@@ -48,5 +48,8 @@
     "lefthook": "^2.1.10",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "koffi": "3.2.1"
   }
 }
