@@ -1,9 +1,10 @@
 import { CODEX_TRANSCRIPT_EVIDENCE } from "../../knowledge/transcript/codex.js";
-import type { Part, RecordEnvelope, Reference, Relation } from "../../knowledge/transcript/wire.js";
+import type { Part, RecordEnvelope, Reference } from "../../knowledge/transcript/wire.js";
 import type { Json } from "./json.js";
 import { equalsInteger, JsonNumber, object, string, TranscriptError } from "./json.js";
 import type { NativeBase, NativeEntry, NativeHistory } from "./native.js";
 import { nativeEntries, position } from "./native.js";
+import { nativeReference, unknownRelation as unknown } from "./relations.js";
 
 export function parseCodexHistory(text: string | Uint8Array): NativeHistory {
   const rows = [...nativeEntries(text)];
@@ -31,7 +32,8 @@ export function parseCodexHistory(text: string | Uint8Array): NativeHistory {
       "Additional native source metadata requires separate format evidence.",
     );
   if (metadata.history_mode === "paginated") {
-    const start = codexBase({ entries: rows, header })?.ordinal ?? 0;
+    const start =
+      codexBase({ entries: rows, identityRecord: header, headers: [header] })?.ordinal ?? 0;
     for (const [index, row] of [first, ...rows].entries()) {
       if (!row || integer(row.original.ordinal) !== start + index)
         throw new TranscriptError(
@@ -49,7 +51,7 @@ export function parseCodexHistory(text: string | Uint8Array): NativeHistory {
         "Native subagent initialization has an incomplete inherited prefix.",
       );
   }
-  return { entries: rows, header };
+  return { entries: rows, identityRecord: header, headers: [header] };
 }
 function integer(value: Json | undefined): number {
   if (
@@ -61,7 +63,7 @@ function integer(value: Json | undefined): number {
   throw new TranscriptError("guarantee-unmet", "Invalid or unaddressable native ordinal/offset.");
 }
 export function codexBase(history: NativeHistory): NativeBase | null {
-  const metadata = object(history.header.payload);
+  const metadata = object(history.identityRecord.payload);
   if (metadata?.history_base === null || metadata?.history_base === undefined) return null;
   const base = object(metadata.history_base);
   const nativeId = string(base?.thread_id);
@@ -74,15 +76,15 @@ export function codexBase(history: NativeHistory): NativeBase | null {
   return { nativeId, offset, ordinal };
 }
 export function validateCodexBase(history: NativeHistory, base: NativeBase): void {
-  const last = history.entries.at(-1)?.original ?? history.header;
+  const last = history.entries.at(-1)?.original ?? history.identityRecord;
   if (
-    object(history.header.payload)?.history_mode !== "paginated" ||
+    object(history.identityRecord.payload)?.history_mode !== "paginated" ||
     integer(last.ordinal) + 1 !== base.ordinal
   )
     throw new TranscriptError("guarantee-unmet", "Native base ordinal and byte cutoff disagree.");
 }
 export function codexNativeId(history: NativeHistory): string {
-  return string(object(history.header.payload)?.id) ?? "";
+  return string(object(history.identityRecord.payload)?.id) ?? "";
 }
 export function normalizeCodex(entry: NativeEntry, conversationId: string): RecordEnvelope {
   const payload = object(entry.original.payload);
@@ -92,21 +94,14 @@ export function normalizeCodex(entry: NativeEntry, conversationId: string): Reco
   const knownResult =
     response && (type === "function_call_output" || type === "custom_tool_call_output");
   const callId = knownCall || knownResult ? string(payload?.call_id) : null;
-  const unknown = (): Relation => ({
-    basis: "unknown",
-    originalPaths: [],
-    ruleId: null,
-    state: "unknown",
-    targets: [],
-  });
   const targets: Reference[] = callId
     ? [
-        {
-          kind: "tool-call",
-          nativeId: callId,
-          position: null,
-          scope: { conversationId, harness: "codex", location: null, sourceKey: null },
-        },
+        nativeReference("tool-call", callId, {
+          conversationId,
+          harness: "codex",
+          location: null,
+          sourceKey: null,
+        }),
       ]
     : [];
   const parts: Part[] = [];

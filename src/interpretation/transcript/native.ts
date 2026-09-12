@@ -8,7 +8,8 @@ export interface NativeEntry {
 }
 export interface NativeHistory {
   readonly entries: NativeEntry[];
-  readonly header: JsonObject;
+  readonly identityRecord: JsonObject;
+  readonly headers: readonly JsonObject[];
 }
 export function position(offset: number): Position {
   return { sourceKey: "source-0", unit: "byte-offset", value: String(offset) };

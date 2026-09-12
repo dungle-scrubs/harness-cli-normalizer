@@ -273,6 +273,8 @@ entries. No HCN index, retention, search, or persistent bookmark state.
 Enabled methods: Pi v3 file/ID with batches and bookmarks; Codex 0.147.0
 legacy and paginated rollouts with ID/file lookup, batches and bookmarks.
 Codex inherited ranges are verified across sources; compressed files are unsupported.
-Claude and Muse remain unverified.
+Claude main JSONL and Muse schema-1 session logs support ID/file reads,
+batches and bookmarks through a passive filesystem clone on supported
+macOS/Linux filesystems. Native formats and clone prerequisites apply.
 Compatible customized Pi must preserve the declared v3 storage semantics.
 `;

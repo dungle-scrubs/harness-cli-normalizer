@@ -68,7 +68,9 @@ hcn transcript read pi --file /path/to/native.jsonl > transcript.jsonl
 Pi v3 supports full reads, batches, and caller-held bookmarks. Codex 0.147.0
 legacy and paginated rollouts support full reads, ID lookup, batches, and
 bookmarks, including verified inherited ranges. Compressed sources are
-unsupported. Claude and Muse reads remain unverified. See [native transcript reads](docs/transcripts.md)
+unsupported. Claude main-file history and Muse schema-1 session logs support
+ID/file reads, batches and bookmarks through a passive filesystem clone on
+supported macOS/Linux filesystems. See [native transcript reads](docs/transcripts.md)
 for capability checks, failure handling, custom Pi conditions, and consumer rules.
 
 ### Machine session (`hcn session <harness> --json`)

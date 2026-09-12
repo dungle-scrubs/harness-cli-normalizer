@@ -14,6 +14,10 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  native:
+    uses: ./.github/workflows/native-snapshot.yml
+    with:
+      ref: ${{ github.sha }}
   check:
     runs-on: ubuntu-latest
     steps:
@@ -33,6 +37,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
 
       - run: pnpm install --frozen-lockfile
+      - run: bash .github/prepare-transcript-test-filesystem.sh
 
       # Mirrors `pnpm check` explicitly so each failed gate is named in Actions.
       - run: pnpm lint
@@ -44,7 +49,7 @@ jobs:
 
   release-please:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: check
+    needs: [check, native]
     runs-on: ubuntu-latest
     concurrency:
       group: release-please-main

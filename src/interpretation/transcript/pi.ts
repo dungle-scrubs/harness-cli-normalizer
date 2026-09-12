@@ -11,6 +11,7 @@ import type { JsonObject } from "./json.js";
 import { equalsInteger, object, string, TranscriptError } from "./json.js";
 import type { NativeEntry, NativeHistory } from "./native.js";
 import { nativeEntries, position } from "./native.js";
+import { nativeReference, nativeRelation } from "./relations.js";
 
 export function parsePiHistory(text: string | Uint8Array): NativeHistory {
   const entries: NativeEntry[] = [];
@@ -48,7 +49,7 @@ export function parsePiHistory(text: string | Uint8Array): NativeHistory {
       "source-malformed",
       "A complete native conversation header is required.",
     );
-  return { entries, header };
+  return { entries, identityRecord: header, headers: [header] };
 }
 
 export function reference(
@@ -56,12 +57,12 @@ export function reference(
   id: string,
   conversationId: string,
 ): Reference {
-  return {
-    kind,
-    nativeId: id,
-    position: null,
-    scope: { conversationId, harness: "pi", location: null, sourceKey: "source-0" },
-  };
+  return nativeReference(kind, id, {
+    conversationId,
+    harness: "pi",
+    location: null,
+    sourceKey: "source-0",
+  });
 }
 function relation(
   id: string | null,
@@ -69,13 +70,7 @@ function relation(
   kind: "entry" | "tool-call",
   conversationId: string,
 ): Relation {
-  return {
-    basis: id ? "native-field" : "unknown",
-    originalPaths: id ? [path] : [],
-    ruleId: null,
-    state: id ? "known" : "unknown",
-    targets: id ? [reference(kind, id, conversationId)] : [],
-  };
+  return nativeRelation(id ? reference(kind, id, conversationId) : null, path);
 }
 export function normalizePi(entry: NativeEntry, conversationId: string): RecordEnvelope {
   const original = entry.original;

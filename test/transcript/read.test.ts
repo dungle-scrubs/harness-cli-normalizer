@@ -21,6 +21,41 @@ const request: import("../../src/execution/transcript/read.js").ReadTranscriptRe
   workspace: "/synthetic",
 };
 
+test("a snapshot read uses its finite cloned view and cleans it before terminal success", async () => {
+  let cleaned = false;
+  const lines: string[] = [];
+  const code = await readTranscript(request, {
+    reader: { ...reader, consistency: "snapshot" },
+    clock: nodeRunnerDeps().clock,
+    files: {
+      async open() {
+        throw new Error("Live source must not be read");
+      },
+      async version() {
+        throw new Error("Live source can be rewritten after acquisition");
+      },
+      async snapshot() {
+        return {
+          close: async () => {
+            cleaned = true;
+          },
+          read: async (length, start = 0) => bytes.subarray(start, start + length),
+          version: async () => ({ identity: "snapshot", size: bytes.length }),
+        };
+      },
+    },
+    write: async (line) => {
+      expect(cleaned).toBe(true);
+      lines.push(line);
+    },
+  });
+  expect(code).toBe(0);
+  const final = JSON.parse(lines.at(-1) ?? "{}");
+  expect(final.status).toBe("complete");
+  expect(final.consistency.method).toBe("native-snapshot");
+  expect(final.consistency.assumptions.join(" ")).not.toContain("append-only");
+});
+
 test("a multi-source export scans each namespace once and closes every contributing source", async () => {
   const codex = readerForMethod(CODEX_TRANSCRIPT_METHOD);
   if (!codex) throw new Error("Missing Codex reader");

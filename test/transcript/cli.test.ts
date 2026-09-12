@@ -2,7 +2,15 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { expect, test } from "vitest";
+import { beforeAll, expect, test } from "vitest";
+
+beforeAll(() => {
+  const built = spawnSync("node", [resolve("scripts/build-native.ts"), "--stage"], {
+    encoding: "utf8",
+    timeout: 30000,
+  });
+  expect(built.status, built.stderr).toBe(0);
+});
 
 test("transcript output to a closed pipe exits nonzero", () => {
   const run = spawnSync(
@@ -23,6 +31,7 @@ function command(
   args: string[],
   agentDirectory?: string,
   codexHome?: string,
+  roots?: { claudeConfig?: string; museData?: string },
 ): { code: number | null; out: string; err: string } {
   const home = mkdtempSync(join(tmpdir(), "hcn-transcript-test-"));
   try {
@@ -30,9 +39,12 @@ function command(
       encoding: "utf8",
       env: {
         HOME: home,
+        TMPDIR: home,
         PATH: process.env.PATH,
         ...(agentDirectory ? { PI_CODING_AGENT_DIR: agentDirectory } : {}),
         ...(codexHome ? { CODEX_HOME: codexHome } : {}),
+        ...(roots?.claudeConfig ? { CLAUDE_CONFIG_DIR: roots.claudeConfig } : {}),
+        ...(roots?.museData ? { XDG_DATA_HOME: roots.museData } : {}),
       },
     });
     if (run.error) throw run.error;
@@ -42,25 +54,194 @@ function command(
   }
 }
 
-test("transcript inspection reports unverified Muse support without starting a native reader", () => {
+test("Claude exports a caller-selected main transcript through a filesystem snapshot", () => {
+  const directory = mkdtempSync(join(tmpdir(), "hcn-claude-source-"));
+  try {
+    const path = join(directory, "synthetic.jsonl");
+    const sessionId = "11111111-1111-4111-8111-111111111111";
+    const original = `${JSON.stringify({
+      type: "user",
+      uuid: "22222222-2222-4222-8222-222222222222",
+      parentUuid: null,
+      sessionId,
+      isSidechain: false,
+      version: "2.1.233",
+      cwd: directory,
+      message: { role: "user", content: "synthetic question" },
+    })}\n`;
+    writeFileSync(path, original);
+    const read = command(["transcript", "read", "claude", "--file", path]);
+    expect(read.code, read.err).toBe(0);
+    const [source, record, result] = read.out
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    expect(source.conversation.nativeId).toBe(sessionId);
+    expect(source.methodId).toBe("claude-file-v1");
+    expect(source.nativeHeaders).toEqual([]);
+    expect(record.normalized.parts[0].text).toBe("synthetic question");
+    expect(result.status).toBe("complete");
+    expect(result.consistency.method).toBe("native-snapshot");
+    expect(typeof result.bookmark).toBe("string");
+    expect(readFileSync(path, "utf8")).toBe(original);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("Muse pages retained envelopes, accepts appended records and refuses a rewritten bookmark prefix", () => {
+  const directory = mkdtempSync(join(tmpdir(), "hcn-muse-source-"));
+  try {
+    const path = join(directory, "session.jsonl");
+    const row = (sequence: number, text: string) => ({
+      schema_version: 1,
+      id: `record-${sequence}`,
+      stream: { kind: "session", id: "synthetic-session" },
+      sequence,
+      recorded_at: 1771088000123456,
+      record_type: "event",
+      durability: "durable",
+      causation_id: null,
+      payload_type: "runtime.session",
+      payload_schema_version: 1,
+      payload: {
+        kind: "run",
+        run_id: "synthetic-run",
+        event: { kind: "assistant_message_committed", text },
+      },
+    });
+    const content = [row(42, "first"), row(43, "second")];
+    const save = () =>
+      writeFileSync(path, `${content.map((item) => JSON.stringify(item)).join("\n")}\n`);
+    save();
+    const first = command(["transcript", "read", "muse", "--file", path, "--limit", "1"]);
+    expect(first.code, first.err).toBe(0);
+    const initial = first.out
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    const bookmark = initial.at(-1).bookmark;
+    expect(initial[0].methodId).toBe("muse-file-v1");
+    expect(initial[0].nativeHeaders).toEqual([]);
+    expect(initial.at(-1).more).toBe(true);
+    content.push(row(44, "third"));
+    save();
+    const next = command(["transcript", "read", "muse", "--file", path, "--since", bookmark]);
+    expect(next.code, next.err).toBe(0);
+    const continued = next.out
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    expect(
+      continued
+        .filter((item) => item.kind === "record")
+        .map((item) => item.normalized.parts[0].text),
+    ).toEqual(["second", "third"]);
+    expect(continued.at(-1).consistency.method).toBe("native-snapshot");
+    content[0] = row(42, "rewritten first");
+    save();
+    const changed = command(["transcript", "read", "muse", "--file", path, "--since", bookmark]);
+    expect(changed.code).toBe(1);
+    const result = JSON.parse(changed.out.trim().split("\n").at(-1) ?? "{}");
+    expect(result.failure.issue).toBe("fresh-read-required");
+    expect(result.bookmark).toBeNull();
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("Claude and Muse resolve native IDs in their own stores and reject duplicate matches", () => {
+  const directory = mkdtempSync(join(tmpdir(), "hcn-native-id-"));
+  const id = "11111111-1111-4111-8111-111111111111";
+  try {
+    const cases = [
+      {
+        harness: "claude",
+        relative: `projects/workspace/${id}.jsonl`,
+        duplicate: `projects/other/${id}.jsonl`,
+        row: {
+          type: "user",
+          uuid: "native-entry",
+          parentUuid: null,
+          sessionId: id,
+          isSidechain: false,
+          version: "2.1.233",
+          cwd: directory,
+          message: { role: "user", content: "question" },
+        },
+      },
+      {
+        harness: "muse",
+        relative: `muse/sessions/2026/09/12/${id}/session.jsonl`,
+        duplicate: `muse/sessions/2026/09/11/${id}/session.jsonl`,
+        row: {
+          schema_version: 1,
+          id: "native-entry",
+          stream: { kind: "session", id },
+          sequence: 1,
+          recorded_at: 1771088000123456,
+          record_type: "event",
+          durability: "durable",
+          causation_id: null,
+          payload_type: "runtime.session",
+          payload_schema_version: 1,
+          payload: { kind: "run", event: { kind: "started", prompt: "question" } },
+        },
+      },
+    ];
+    for (const item of cases) {
+      const roots = { claudeConfig: directory, museData: directory };
+      const path = join(directory, item.relative);
+      mkdirSync(resolve(path, ".."), { recursive: true });
+      const original = `${JSON.stringify(item.row)}\n`;
+      writeFileSync(path, original);
+      const read = command(
+        ["transcript", "read", item.harness, "--id", id],
+        undefined,
+        undefined,
+        roots,
+      );
+      expect(read.code, read.out).toBe(0);
+      const source = JSON.parse(read.out.split("\n")[0] ?? "{}");
+      expect(source.conversation.nativeId).toBe(id);
+      expect(source.sources[0].location).toBe(path);
+      const duplicate = join(directory, item.duplicate);
+      mkdirSync(resolve(duplicate, ".."), { recursive: true });
+      writeFileSync(duplicate, original);
+      const ambiguous = command(
+        ["transcript", "read", item.harness, "--id", id],
+        undefined,
+        undefined,
+        roots,
+      );
+      expect(ambiguous.code).toBe(1);
+      expect(JSON.parse(ambiguous.out.trim().split("\n").at(-1) ?? "{}").failure.issue).toBe(
+        "source-ambiguous",
+      );
+    }
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("transcript inspection reports Muse's file method without starting a native reader", () => {
   const result = command(["inspect", "muse", "--transcript"]);
   expect(result.code).toBe(0);
   const doc = JSON.parse(result.out);
   expect(doc.kind).toBe("transcript-capabilities");
   expect(doc.schemaVersion).toBe(1);
   expect(doc.harness).toBe("muse");
-  expect(doc.methods).toEqual([]);
-  expect(doc.capabilities.history.status).toBe("unknown");
+  expect(doc.methods.map((method: { id: string }) => method.id)).toEqual(["muse-file-v1"]);
+  expect(doc.capabilities.history.status).toBe("available");
   expect(Object.keys(doc.capabilities)).toHaveLength(8);
   expect(doc.verifiedAgainst).toBe("1.1.1");
-  expect(doc.capabilities.history.reason).toContain("1.1.1");
-  expect(doc.capabilities.history.evidence[0].appliesTo.readerBuilds).toContainEqual({
+  expect(doc.capabilities.history.evidence[1].appliesTo.writerBuilds).toContainEqual({
     version: "1.1.1",
-    buildId: "b934305d21",
+    buildId: "1.1.1-R2514.1",
   });
 });
 
-test("Muse refusal explains the selected export evidence without opening the requested source", () => {
+test("Muse reports a missing native source without creating a conversation or advancing a bookmark", () => {
   const read = command([
     "transcript",
     "read",
@@ -70,27 +251,28 @@ test("Muse refusal explains the selected export evidence without opening the req
     "--accept-limits",
     "history,branches,original-records,embedded-content",
   ]);
-  expect(read.code).toBe(2);
+  expect(read.code).toBe(1);
   const [source, result] = read.out
     .trim()
     .split("\n")
     .map((line) => JSON.parse(line));
   expect(source.sources).toEqual([]);
   expect(source.conversation).toBeNull();
-  expect(result.failure.issue).toBe("passive-read-unverified");
-  expect(result.failure.message).toContain("1.1.1");
-  expect(result.failure.message).toContain("hcn inspect muse --transcript");
+  expect(result.failure.issue).toBe("source-not-found");
   expect(result.failure.hint).toBeNull();
   expect(result.bookmark).toBeNull();
 });
 
-test("Claude reports its in-place writer and SDK projection blockers without allowing coverage opt-ins", () => {
+test("Claude reports its snapshot method and a missing native ID despite coverage opt-ins", () => {
   const inspection = JSON.parse(command(["inspect", "claude", "--transcript"]).out);
   expect(inspection.verifiedAgainst).toBe("2.1.263");
-  expect(inspection.methods).toEqual([]);
-  expect(inspection.capabilities.history.reason).toContain("in-place");
-  expect(inspection.capabilities.history.reason).toContain("0.3.233");
-  expect(inspection.capabilities.history.evidence[0].appliesTo.writerBuilds[0].version).toBe(
+  expect(inspection.methods.map((method: { id: string }) => method.id)).toEqual(["claude-file-v1"]);
+  expect(inspection.methods[0].selectors).toEqual(["id", "file"]);
+  expect(inspection.capabilities.history.status).toBe("available");
+  expect(
+    inspection.rules.find((rule: { id: string }) => rule.id === "claude-snapshot-v1").description,
+  ).toContain("no ordinary-copy fallback");
+  expect(inspection.capabilities.history.evidence[1].appliesTo.writerBuilds[0].version).toBe(
     "2.1.233",
   );
   const read = command([
@@ -102,15 +284,15 @@ test("Claude reports its in-place writer and SDK projection blockers without all
     "--accept-limits",
     "history,branches,original-records,embedded-content",
   ]);
-  expect(read.code).toBe(2);
+  expect(read.code).toBe(1);
   const [source, result] = read.out
     .trim()
     .split("\n")
     .map((line) => JSON.parse(line));
-  expect(source.selection.storeRoots).toEqual([]);
+  expect(source.selection.storeRoots).toHaveLength(1);
+  expect(source.selection.storeRoots[0]).toMatch(/\/\.claude\/projects$/);
   expect(source.sources).toEqual([]);
-  expect(result.failure.issue).toBe("passive-read-unverified");
-  expect(result.failure.message).toContain("in-place");
+  expect(result.failure.issue).toBe("source-not-found");
   expect(result.failure.hint).toBeNull();
 });
 
@@ -213,15 +395,15 @@ test("exports retained Pi branches and tool results without modifying history or
   }
 });
 
-test("unverified readers and invalid transcript arguments return complete structured failures", () => {
+test("missing native IDs and invalid transcript arguments return complete structured failures", () => {
   const refused = command(["transcript", "read", "muse", "--id", "synthetic-id"]);
-  expect(refused.code).toBe(2);
+  expect(refused.code).toBe(1);
   const envelopes = refused.out
     .trim()
     .split("\n")
     .map((line) => JSON.parse(line));
   expect(envelopes.map((x) => x.kind)).toEqual(["source", "result"]);
-  expect(envelopes[1].failure.issue).toBe("passive-read-unverified");
+  expect(envelopes[1].failure.issue).toBe("source-not-found");
   expect(envelopes[1].bookmark).toBeNull();
   const invalid = command(["inspect", "pi", "--transcript", "--argv"]);
   expect(invalid.code).toBe(2);

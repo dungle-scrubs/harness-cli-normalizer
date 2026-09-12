@@ -119,7 +119,16 @@ export async function captureSource(
       "guarantee-unmet",
       "Compressed native sources are not established by this reader.",
     );
-  const file = await files.open(path);
+  if (reader.consistency === "snapshot" && !files.snapshot)
+    throw new TranscriptError(
+      "guarantee-unmet",
+      "A passive filesystem snapshot is required.",
+      "consistency",
+    );
+  const file =
+    reader.consistency === "snapshot" && files.snapshot
+      ? await files.snapshot(path)
+      : await files.open(path);
   opened.push(file);
   checkAbort();
   const before = await file.version();
@@ -129,7 +138,9 @@ export async function captureSource(
   const bytes = await file.read(size);
   if (bytes.length !== size)
     throw new TranscriptError("source-changed", "Native source shrank during the read.");
-  await verifySource({ before, bytes, file, path }, files, checkAbort);
+  if (reader.consistency === "append-only")
+    await verifySource({ before, bytes, file, path }, files, checkAbort);
+  checkAbort();
   const completeBytes = bytes.lastIndexOf(10) + 1;
   if (cutoff !== null && cutoff !== completeBytes)
     throw new TranscriptError("guarantee-unmet", "Native base cutoff splits a framing unit.");
@@ -182,6 +193,7 @@ export async function captureSources(
     sources.push(current);
   }
   sources.reverse();
-  if (sources.length > 1) for (const item of sources) await verifySource(item, files, checkAbort);
+  if (sources.length > 1 && reader.consistency === "append-only")
+    for (const item of sources) await verifySource(item, files, checkAbort);
   return { requested, sources };
 }

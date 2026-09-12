@@ -13,6 +13,7 @@ export interface TranscriptFile {
   version(): Promise<FileVersion>;
 }
 export interface TranscriptFiles {
+  snapshot?(path: string): Promise<TranscriptFile>;
   list?(path: string, recursive?: boolean): AsyncIterable<string>;
   open(path: string): Promise<TranscriptFile>;
   version(path: string): Promise<FileVersion>;

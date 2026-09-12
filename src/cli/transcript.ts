@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { nodeRunnerDeps } from "../execution/node-deps.js";
 import { nodeTranscriptFiles } from "../execution/transcript/files.js";
 import { emptyTranscript, failure, readTranscript } from "../execution/transcript/read.js";
+import { snapshotTranscriptFiles } from "../execution/transcript/snapshot.js";
 import type { ReadTranscriptRequest } from "../interpretation/transcript/envelopes.js";
 import { encodeJson, TranscriptError } from "../interpretation/transcript/json.js";
 import { chooseTranscriptMethod } from "../interpretation/transcript/methods.js";
@@ -75,11 +76,19 @@ export async function transcript(raw: string[]): Promise<void> {
   const storeRoot =
     options.harness === "codex"
       ? resolve(process.env.CODEX_HOME ?? resolve(homedir(), ".codex"))
-      : resolve(
-          process.env.PI_CODING_AGENT_DIR ?? resolve(homedir(), ".pi", "agent"),
-          "sessions",
-          `--${workspace.replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`,
-        );
+      : options.harness === "claude"
+        ? resolve(process.env.CLAUDE_CONFIG_DIR ?? resolve(homedir(), ".claude"), "projects")
+        : options.harness === "muse"
+          ? resolve(
+              process.env.XDG_DATA_HOME ?? resolve(homedir(), ".local", "share"),
+              "muse",
+              "sessions",
+            )
+          : resolve(
+              process.env.PI_CODING_AGENT_DIR ?? resolve(homedir(), ".pi", "agent"),
+              "sessions",
+              `--${workspace.replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`,
+            );
   const request: ReadTranscriptRequest = {
     nativeStoreRoot: storeRoot,
     selection: options.id
@@ -121,10 +130,18 @@ export async function transcript(raw: string[]): Promise<void> {
   process.on("SIGINT", interrupt);
   process.on("SIGTERM", interrupt);
   try {
+    const deps = nodeRunnerDeps();
     process.exitCode = await readTranscript(request, {
       reader,
-      clock: nodeRunnerDeps().clock,
-      files: nodeTranscriptFiles,
+      clock: deps.clock,
+      files:
+        reader.consistency === "snapshot"
+          ? snapshotTranscriptFiles({
+              deps,
+              signal: abort.signal,
+              cleanupTimeoutMs: reader.method.cleanupTimeoutMs,
+            })
+          : nodeTranscriptFiles,
       signal: abort.signal,
       write: writeTranscriptLine,
     });

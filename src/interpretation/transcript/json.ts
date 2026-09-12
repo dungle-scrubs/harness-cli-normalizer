@@ -1,13 +1,15 @@
-import type { Issue } from "../../knowledge/transcript/wire.js";
+import type { Issue, Requirement } from "../../knowledge/transcript/wire.js";
 export class JsonNumber {
   constructor(readonly text: string) {}
 }
 export type Json = null | boolean | string | JsonNumber | Json[] | { [key: string]: Json };
 export type JsonObject = { [key: string]: Json };
 export class TranscriptError extends Error {
+  cleanupFailed = false;
   constructor(
     readonly issue: Issue,
     message: string,
+    readonly requirement: Requirement | null = null,
   ) {
     super(message);
     this.name = "TranscriptError";

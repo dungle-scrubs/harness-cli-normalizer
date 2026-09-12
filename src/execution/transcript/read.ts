@@ -61,9 +61,14 @@ export async function readTranscript(
     ruleId,
   }));
   const consistency: Mutable<Consistency> = {
-    assumptions: [
-      "The selected native format uses the documented append-only writer protocol. File checks do not authenticate an unknown writer build or cover arbitrary in-place writers.",
-    ],
+    assumptions:
+      reader.consistency === "snapshot"
+        ? [
+            "One regular file is cloned through the filesystem's copy-on-write snapshot operation. The view contains complete framing units retained at acquisition; it does not assert a native multi-write transaction or live selection.",
+          ]
+        : [
+            "The selected native format uses the documented append-only writer protocol. File checks do not authenticate an unknown writer build or cover arbitrary in-place writers.",
+          ],
     boundaries: [],
     checks,
     method: "unknown",
@@ -140,7 +145,7 @@ export async function readTranscript(
     const compatibility = {
       evidence: [reader.evidence],
       reason:
-        "Validated native identity, framing and source-prefix rules within the documented format applicability; no writer build is inferred from the format label.",
+        "Validated native identity, framing and method-specific consistency rules within the documented format applicability; no writer build is inferred from the format label.",
       ruleIds: reader.rules.map((rule) => rule.id),
       state: "verified",
     };
@@ -153,10 +158,12 @@ export async function readTranscript(
       historicalLoss: reader.historicalLoss,
       coverage,
       methodId: reader.method.id,
-      nativeHeaders: sources.map((item, index) => ({
-        original: item.history.header,
-        sourceKey: `source-${index}`,
-      })),
+      nativeHeaders: sources.flatMap((item, index) =>
+        item.history.headers.map((original) => ({
+          original,
+          sourceKey: `source-${index}`,
+        })),
+      ),
       sources: sources.map((item, index) => ({
         formatId: reader.evidence.appliesTo.formatId,
         formatVersion: reader.evidence.appliesTo.formatVersions[0] ?? null,
@@ -223,7 +230,7 @@ export async function readTranscript(
     records = selected.map(({ entry, sourceIndex }) =>
       recordFromSource(reader.normalize(entry, id), `source-${sourceIndex}`),
     );
-    consistency.method = "validated-prefix";
+    consistency.method = reader.consistency === "snapshot" ? "native-snapshot" : "validated-prefix";
     let remaining = end;
     consistency.boundaries = sources.map((item, index) => {
       const count = Math.min(remaining, item.history.entries.length);
@@ -288,13 +295,14 @@ export async function readTranscript(
     }
     continuation.output = "unavailable";
     const requirement =
-      issue === "fresh-read-required"
+      (error instanceof TranscriptError ? error.requirement : null) ??
+      (issue === "fresh-read-required"
         ? "bookmark"
         : issue === "guarantee-unmet" || issue === "source-malformed"
           ? "format"
           : issue === "source-changed"
             ? "consistency"
-            : "identity";
+            : "identity");
     Object.assign(result, {
       bookmark: null,
       exitCode: 1,
@@ -302,7 +310,9 @@ export async function readTranscript(
         issue,
         phase,
         requirement,
-        "The selected native transcript could not be read under its declared rules.",
+        error instanceof TranscriptError
+          ? `${error.message}${error.cleanupFailed ? " Cleanup also failed." : ""}`
+          : "The selected native transcript could not be read under its declared rules.",
       ),
       status: "failed",
     });
