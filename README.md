@@ -345,8 +345,10 @@ value in all four ladders), sandbox `workspace-write` (codex-only; reported
 as divergence elsewhere), context window `272000` (codex-only; divergence
 elsewhere), discovery fully on, autonomy off. A dimension a
 harness cannot express is reported as divergence, never a silent skip and
-never a refusal. Resume turns bypass turn-option resolution entirely - a
-session keeps its own settings. Question escalation (below) is the
+never a refusal. Resume turns bypass turn-option resolution and pass explicit
+turn options. Omitted settings follow the native harness's resume behavior;
+Codex can use current configuration instead of the saved model and effort.
+Do not infer settings preservation from session-ID continuity. Question escalation (below) is the
 deliberate exception: it rides each turn's prompt, so it resolves on
 launch AND resume.
 

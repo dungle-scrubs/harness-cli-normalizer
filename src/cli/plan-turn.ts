@@ -69,7 +69,7 @@ export interface TurnPlan {
   /** The argv the runner will spawn, built by the same owner it uses. */
   readonly argv: readonly string[];
   readonly redactedArgv: readonly string[];
-  /** Launch-only; empty on resume, where a session keeps its settings. */
+  /** Launch-only; empty on resume, where omitted options follow native behavior. */
   readonly provenance: readonly ProvenanceEntry[];
   readonly unrenderable: readonly string[];
   readonly behavior: ResolvedBehavior;
@@ -247,8 +247,8 @@ export const planTurn = async (
     throw err;
   }
 
-  // Defaults profile + config: LAUNCH-ONLY. A resumed session keeps its own
-  // settings; the resolver never runs on resume paths.
+  // Defaults profile + config: LAUNCH-ONLY. Omitted settings follow native
+  // behavior on resume; the resolver never runs on resume paths.
   let effectiveTurnOpts = turnOpts;
   let provenance: readonly ProvenanceEntry[] = [];
   let unrenderable: readonly string[] = [];

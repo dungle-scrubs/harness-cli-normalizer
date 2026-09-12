@@ -3,9 +3,8 @@
  * profile, plus provenance. Pure - the config FILE is read by the CLI layer
  * and passed in as data; this layer only decides what wins.
  *
- * Launch-only: callers apply resolved options on launch, never resume (a
- * resumed session keeps its session's settings - same rule the codex
- * sandbox default already follows).
+ * Launch-only: resume passes explicit turn options. Omitted settings follow
+ * native behavior, which may use current configuration rather than saved settings.
  */
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";

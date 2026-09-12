@@ -28,6 +28,24 @@ const deps = (proc: FakeProcess) => {
   return { spawn: spawner.spawn, clock, signal: sig.signal, spawner, sig };
 };
 
+test("a captured Codex warning stays visible without failing its completed turn", async () => {
+  const { readFileSync } = await import("node:fs");
+  const raw = readFileSync(new URL("../fixtures/harnesses/codex.ndjson", import.meta.url), "utf8");
+  const proc = new FakeProcess();
+  const pending = collect(streamTurn(codexCli, { prompt: "hi", questions: "none" }, deps(proc)));
+  for (const line of raw.trim().split("\n")) proc.emitLine(line);
+  proc.exit(0);
+  const events = await pending;
+  expect(events).toContainEqual({
+    kind: "error",
+    message:
+      "Skill descriptions were shortened to fit the skills context budget. Codex can still see every skill, but some descriptions are shorter. Disable unused skills or plugins to leave more room for the rest.",
+  });
+  expect(events).toContainEqual({ kind: "message", role: "assistant", text: "alpha" });
+  expect(events.filter((event) => event.kind === "failure")).toEqual([]);
+  expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean", exitCode: 0 });
+});
+
 describe("streamTurn happy path (claude, fake spawner)", () => {
   test("large prompts use native stdin without changing session identity or prompt bytes", async () => {
     for (const resume of [undefined, sid]) {
