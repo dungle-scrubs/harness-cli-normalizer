@@ -92,7 +92,8 @@ hcn inspect codex --native-settings --resume <native-session-id> --cwd <absolute
 ```
 
 This reads Codex's saved session without starting a native process. It returns the
-latest recorded turn's exact model and effort, the session header's provider,
+latest supported turn or native settings update's exact model and effort, the
+most recently recorded provider (initially the session header's provider),
 and a SHA-256 source fingerprint. It does not resolve model aliases or apply
 HCN profiles or browser preferences. A custom model selector can be inspected
 even when ordinary `hcn run --model` does not accept it.
@@ -106,7 +107,7 @@ The lookup requires one matching native session file, its matching header ID,
 and matching saved folders. Symlinks, special files, incomplete or malformed
 records, missing settings, and changed sources refuse. The scan is bounded at
 16384 directory entries, 64 MiB per file and 1 MiB per line. An invalid latest
-turn never falls back to earlier settings. Conversation text is never returned.
+turn or settings update never falls back to earlier settings. Conversation text is never returned.
 
 The `permissions` field reports recorded local-command limits separately from
 model settings. The currently recognized native profile is read-only filesystem
@@ -114,8 +115,17 @@ access with restricted network access and an explicit `never` or `on-request`
 approval policy. These values carry `status: "recorded"`. Missing, extended,
 contradictory or unsupported permission metadata carries `status: "unavailable"`
 and a permission-specific reason; model inspection can still succeed. An older
-v1 producer may omit this field, which means unknown. The latest turn supplies
-both facets; permission facts never fall back to an earlier turn.
+v1 producer may omit this field, which means unknown. The latest turn or
+settings update supplies both facets; permission grants never fall back to an
+earlier record. Named-profile provenance, network overrides and extra filesystem
+policy are unavailable until their full restoration semantics are supported.
+
+When recorded, `permissions.approvalsReviewer` identifies `user`, `automatic`, or
+`unknown`. An omitted reviewer is also unknown. Codex retains its last explicit
+reviewer when a later turn omits or nulls that field; inspection follows this
+native rule without inheriting older permission grants. An unrecognized explicit
+reviewer replaces older authority with unknown. A settings update without its
+required reviewer also yields unknown. The fingerprint includes this facet.
 
 Recorded permissions are observations, not a promise that headless resume can
 preserve them. In Codex 0.154.0, a disposable native probe changed `on-request`
@@ -131,7 +141,7 @@ hcn run codex --resume <native-session-id> --cwd <absolute-path> --native-settin
 ```
 
 Planning and the runner each read the native source again. A matching read
-renders the saved model, effort and header provider before the prompt. Competing
+renders the saved model, effort and recorded provider before the prompt. Competing
 `--model`, `--effort`, `--provider`, native passthrough, fresh launch and other
 harnesses refuse. `inspect --argv` and `inspect --runtime` support the same flag.
 Ordinary resume without this flag still follows native settings behavior.

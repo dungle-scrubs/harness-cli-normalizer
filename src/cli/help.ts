@@ -119,7 +119,7 @@ Options:
   --session-id <uuid>       Alias for --resume (mutually exclusive with --resume)
   --native-settings-fingerprint <hash>
                             Codex resume only, with explicit --cwd. Re-read saved
-                            model, effort and header provider before native spawn.
+                            model, effort and recorded provider before native spawn.
                             Get the hash from inspect --native-settings. Refuses
                             changed/unavailable sources, competing model/effort/provider
                             options and native passthrough. Grants no permissions.
@@ -203,6 +203,7 @@ Options:
                             Returns one JSON object, with or without --json: available
                             plus a source fingerprint (exit 0), or unavailable plus a
                             reason (exit 2). Excludes other modes and turn options.
+                            Latest native settings updates supersede earlier turns.
                             permissions describes recorded local-command limits or
                             why they are unavailable; it does not promise restoration.
                             Reads at most 64 MiB, 1 MiB per line, 16384 directory entries.

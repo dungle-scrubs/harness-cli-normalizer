@@ -80,7 +80,13 @@ export function inspectNativeSettings(
         header = record;
       } else if (record.kind === "settings") {
         if (realpathSync(record.cwd) !== cwd) throw new NativeSettingsUnavailable("cwd-refused");
-        settings = record;
+        if (record.sessionId !== undefined && record.sessionId !== request.sessionId)
+          throw new NativeSettingsUnavailable("session-unavailable");
+        settings = {
+          ...record,
+          approvalsReviewer: record.approvalsReviewer ?? settings?.approvalsReviewer,
+          provider: record.provider ?? settings?.provider,
+        };
         settingsOrdinal = ordinal;
       }
       ordinal++;
@@ -122,8 +128,12 @@ export function inspectNativeSettings(
       return unavailable("source-changed");
     if (pendingBytes) return unavailable("source-incomplete");
     if (!header || !settings) return unavailable("settings-unavailable");
-    const { model, effort, permissions } = settings;
-    const { provider } = header;
+    const { model, effort } = settings;
+    const permissions =
+      settings.permissions.status === "recorded" && settings.approvalsReviewer !== undefined
+        ? { ...settings.permissions, approvalsReviewer: settings.approvalsReviewer }
+        : settings.permissions;
+    const provider = settings.provider ?? header.provider;
     const fingerprint = createHash("sha256")
       .update(
         JSON.stringify([

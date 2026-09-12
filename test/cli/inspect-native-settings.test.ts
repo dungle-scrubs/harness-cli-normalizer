@@ -99,6 +99,44 @@ test("native settings inspection reads the exact latest Codex turn without a nat
   }
 });
 
+const READ_ONLY_PROFILE = {
+  type: "managed",
+  file_system: {
+    type: "restricted",
+    entries: [{ path: { type: "special", value: { kind: "root" } }, access: "read" }],
+  },
+  network: "restricted",
+} as const;
+
+function appendSettingsUpdate(
+  f: Pick<ReturnType<typeof fixture>, "rollout" | "root">,
+  changes: Readonly<Record<string, unknown>> = {},
+  eventChanges: Readonly<Record<string, unknown>> = {},
+): void {
+  // Synthetic shape verified through native thread/settings/update, not a recording.
+  appendFileSync(
+    f.rollout,
+    `${JSON.stringify({
+      type: "event_msg",
+      payload: {
+        type: "thread_settings_applied",
+        thread_id: sessionId,
+        thread_settings: {
+          approval_policy: "on-request",
+          approvals_reviewer: "user",
+          cwd: f.root,
+          model: "updated-model",
+          model_provider_id: "updated-provider",
+          permission_profile: READ_ONLY_PROFILE,
+          reasoning_effort: "low",
+          ...changes,
+        },
+        ...eventChanges,
+      },
+    })}\n`,
+  );
+}
+
 function appendPermissionTurn(
   f: Pick<ReturnType<typeof fixture>, "rollout" | "root">,
   changes: Readonly<Record<string, unknown>>,
@@ -114,14 +152,7 @@ function appendPermissionTurn(
         effort: "high",
         approval_policy: "on-request",
         sandbox_policy: { type: "read-only" },
-        permission_profile: {
-          type: "managed",
-          file_system: {
-            type: "restricted",
-            entries: [{ path: { type: "special", value: { kind: "root" } }, access: "read" }],
-          },
-          network: "restricted",
-        },
+        permission_profile: READ_ONLY_PROFILE,
         ...changes,
       },
     })}\n`,
@@ -171,14 +202,7 @@ function unverifiedPermissionCases(): readonly {
   readonly name: string;
   readonly reason: string;
 }[] {
-  const profile = {
-    type: "managed",
-    file_system: {
-      type: "restricted",
-      entries: [{ path: { type: "special", value: { kind: "root" } }, access: "read" }],
-    },
-    network: "restricted",
-  };
+  const profile = READ_ONLY_PROFILE;
   return [
     ...["approval_policy", "sandbox_policy", "permission_profile"].map((key) => ({
       changes: { [key]: undefined },
@@ -504,3 +528,172 @@ test.each([["--model", "custom-model"], ["--argv"], ["--", "extra"], ["positiona
     }
   },
 );
+
+test("a native settings update after the last turn supersedes that turn for continuation", () => {
+  const f = fixture();
+  try {
+    appendPermissionTurn(f, { approval_policy: "never", approvals_reviewer: "user" });
+    const before = JSON.parse(f.run().stdout);
+    appendSettingsUpdate(f);
+    const result = f.run();
+    expect(result.status).toBe(0);
+    const latest = JSON.parse(result.stdout);
+    expect(latest).toMatchObject({
+      effort: "low",
+      model: "updated-model",
+      permissions: {
+        approvalPolicy: "on-request",
+        approvalsReviewer: "user",
+        filesystem: "read-only",
+        network: "restricted",
+        status: "recorded",
+      },
+      provider: "updated-provider",
+      sessionId,
+      status: "available",
+    });
+    expect(latest.fingerprint).not.toBe(before.fingerprint);
+  } finally {
+    f.close();
+  }
+});
+
+test("later turns retain the native settings event provider and reviewer without inheriting old permissions", () => {
+  const f = fixture();
+  try {
+    appendPermissionTurn(f, {});
+    appendSettingsUpdate(f, {
+      approval_policy: "never",
+      approvals_reviewer: "auto_review",
+      model: "event-model",
+      model_provider_id: "event-provider",
+    });
+    appendPermissionTurn(f, { approvals_reviewer: null });
+    const result = f.run();
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      effort: "high",
+      model: "custom-model",
+      provider: "event-provider",
+      permissions: { approvalPolicy: "on-request", approvalsReviewer: "automatic" },
+    });
+    appendPermissionTurn(f, { approval_policy: undefined });
+    const missing = f.run();
+    expect(missing.status).toBe(0);
+    expect(JSON.parse(missing.stdout).permissions).toEqual({
+      reason: "permissions-unrecorded",
+      status: "unavailable",
+    });
+  } finally {
+    f.close();
+  }
+});
+
+test("additional native permission authority cannot be reduced to a read-only preset", () => {
+  const f = fixture();
+  try {
+    for (const changes of [
+      { active_permission_profile: { id: "named-profile" } },
+      { network: { allowed_domains: ["restricted-fixture.example"] } },
+      { file_system_sandbox_policy: { deny: ["/fixture-private"] } },
+    ]) {
+      appendPermissionTurn(f, changes);
+      const result = f.run();
+      expect(result.status).toBe(0);
+      expect(JSON.parse(result.stdout).permissions).toEqual({
+        reason: "permission-profile-unsupported",
+        status: "unavailable",
+      });
+      expect(result.stdout).not.toContain("restricted-fixture.example");
+      expect(result.stdout).not.toContain("/fixture-private");
+    }
+  } finally {
+    f.close();
+  }
+});
+
+test.each([
+  { reviewer: "guardian_subagent", expected: "automatic" },
+  { reviewer: "auto_review", expected: "automatic" },
+  { reviewer: "user", expected: "user" },
+  { reviewer: "future-reviewer", expected: "unknown" },
+  { reviewer: {}, expected: "unknown" },
+])("an explicit reviewer $reviewer supersedes older authority", ({ reviewer, expected }) => {
+  const f = fixture();
+  try {
+    appendPermissionTurn(f, { approvals_reviewer: "user" });
+    appendPermissionTurn(f, { approvals_reviewer: reviewer });
+    appendPermissionTurn(f, { approvals_reviewer: null });
+    const result = f.run();
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).permissions.approvalsReviewer).toBe(expected);
+  } finally {
+    f.close();
+  }
+});
+
+test.each([undefined, null])(
+  "a settings update missing reviewer %s does not retain older authority",
+  (reviewer) => {
+    const f = fixture();
+    try {
+      appendPermissionTurn(f, { approvals_reviewer: "user" });
+      appendSettingsUpdate(f, { approvals_reviewer: reviewer });
+      appendPermissionTurn(f, { approvals_reviewer: null });
+      const result = f.run();
+      expect(result.status).toBe(0);
+      expect(JSON.parse(result.stdout).permissions.approvalsReviewer).toBe("unknown");
+    } finally {
+      f.close();
+    }
+  },
+);
+
+test.each([
+  { changes: { reasoning_effort: undefined }, event: {}, reason: "settings-unavailable" },
+  { changes: { reasoning_effort: null }, event: {}, reason: "settings-unavailable" },
+  { changes: { model_provider_id: undefined }, event: {}, reason: "settings-unavailable" },
+  { changes: { model: "--invalid" }, event: {}, reason: "settings-unavailable" },
+  { changes: { cwd: "/" }, event: {}, reason: "cwd-refused" },
+  {
+    changes: {},
+    event: { thread_id: "507feafe-e82b-4df4-91ba-4f1aeb987508" },
+    reason: "session-unavailable",
+  },
+  { changes: {}, event: { thread_id: 7 }, reason: "settings-unavailable" },
+  { changes: {}, event: { thread_settings: null }, reason: "settings-unavailable" },
+])(
+  "an invalid native settings update refuses without older fallback: %j",
+  ({ changes, event, reason }) => {
+    const f = fixture();
+    try {
+      appendPermissionTurn(f, { approvals_reviewer: "user" });
+      appendSettingsUpdate(f, changes, event);
+      const result = f.run();
+      expect(result.status).toBe(2);
+      expect(JSON.parse(result.stdout)).toMatchObject({ status: "unavailable", reason });
+      expect(result.stdout).not.toContain('"model"');
+    } finally {
+      f.close();
+    }
+  },
+);
+
+test("settings updates require their own complete permission evidence", () => {
+  const f = fixture();
+  try {
+    appendPermissionTurn(f, { approvals_reviewer: "user" });
+    appendSettingsUpdate(f, { permission_profile: undefined });
+    expect(JSON.parse(f.run().stdout).permissions).toEqual({
+      reason: "permissions-unrecorded",
+      status: "unavailable",
+    });
+    appendSettingsUpdate(f, { sandbox_policy: { type: "workspace-write" } });
+    expect(JSON.parse(f.run().stdout).permissions).toEqual({
+      reason: "permission-profile-unsupported",
+      status: "unavailable",
+    });
+  } finally {
+    f.close();
+  }
+});

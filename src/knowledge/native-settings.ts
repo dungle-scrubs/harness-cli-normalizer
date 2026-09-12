@@ -10,10 +10,14 @@ export const NATIVE_SETTINGS_SOURCES = deepFreeze({
 
 export const NATIVE_SETTINGS_FINGERPRINT_SHAPE = /^[a-f0-9]{64}$/;
 
+export type NativeApprovalsReviewer = "user" | "automatic" | "unknown";
+
 /** Recorded local-command limits, not a promise that a launch can restore them. */
 export type NativePermissionSettings =
   | {
       readonly approvalPolicy: "never" | "on-request";
+      /** Missing in older native records; absence is unknown, never user authority. */
+      readonly approvalsReviewer?: NativeApprovalsReviewer;
       readonly filesystem: "read-only";
       readonly network: "restricted";
       readonly status: "recorded";
