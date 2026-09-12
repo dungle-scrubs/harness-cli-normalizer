@@ -56,6 +56,21 @@ hcn session claude --model opus --session-id 550e8400-e29b-41d4-a716-44665544000
 hcn session pi --effort high
 ```
 
+### Saved native transcripts
+
+Inspect and export retained messages and tool results without resuming a model:
+
+```sh
+hcn inspect pi --transcript
+hcn transcript read pi --file /path/to/native.jsonl > transcript.jsonl
+```
+
+Pi v3 supports full reads, batches, and caller-held bookmarks. Codex 0.147.0
+legacy and paginated rollouts support full reads, ID lookup, batches, and
+bookmarks, including verified inherited ranges. Compressed sources are
+unsupported. Claude and Muse reads remain unverified. See [native transcript reads](docs/transcripts.md)
+for capability checks, failure handling, custom Pi conditions, and consumer rules.
+
 ### Machine session (`hcn session <harness> --json`)
 
 `--json` is the same session for a program instead of a human: NDJSON events

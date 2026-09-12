@@ -19,11 +19,13 @@
  */
 import { deepFreeze, type HarnessDescriptor, UUID_SHAPE } from "./descriptor.js";
 import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
+import { CLAUDE_TRANSCRIPT } from "./transcript/claude.js";
 
 const STREAM_INPUT_FLAGS = ["--input-format", "stream-json"] as const;
 
 export const claudeCode: HarnessDescriptor = deepFreeze({
   name: "claude",
+  transcript: CLAUDE_TRANSCRIPT,
   bin: "claude",
   verifiedAgainst: "2.1.263",
   versionSource: { kind: "npm", package: "@anthropic-ai/claude-code" },
