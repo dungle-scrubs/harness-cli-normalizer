@@ -122,7 +122,7 @@ export function inspectNativeSettings(
       return unavailable("source-changed");
     if (pendingBytes) return unavailable("source-incomplete");
     if (!header || !settings) return unavailable("settings-unavailable");
-    const { model, effort } = settings;
+    const { model, effort, permissions } = settings;
     const { provider } = header;
     const fingerprint = createHash("sha256")
       .update(
@@ -136,6 +136,7 @@ export function inspectNativeSettings(
           model,
           effort,
           provider,
+          permissions,
         ]),
       )
       .digest("hex");
@@ -146,6 +147,7 @@ export function inspectNativeSettings(
       effort,
       fingerprint,
       model,
+      permissions,
       provider,
       source,
       status: "available",

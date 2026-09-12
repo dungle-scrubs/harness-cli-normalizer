@@ -10,6 +10,22 @@ export const NATIVE_SETTINGS_SOURCES = deepFreeze({
 
 export const NATIVE_SETTINGS_FINGERPRINT_SHAPE = /^[a-f0-9]{64}$/;
 
+/** Recorded local-command limits, not a promise that a launch can restore them. */
+export type NativePermissionSettings =
+  | {
+      readonly approvalPolicy: "never" | "on-request";
+      readonly filesystem: "read-only";
+      readonly network: "restricted";
+      readonly status: "recorded";
+    }
+  | {
+      readonly reason:
+        | "approval-policy-unsupported"
+        | "permission-profile-unsupported"
+        | "permissions-unrecorded";
+      readonly status: "unavailable";
+    };
+
 export type NativeSettingsReason =
   | "cwd-refused"
   | "invalid-request"
@@ -26,6 +42,8 @@ export interface NativeSettingsSnapshot {
   readonly fingerprint: string;
   readonly harness: HarnessName;
   readonly model: string;
+  /** Older v1 producers omit this field; absence means unknown. */
+  readonly permissions?: NativePermissionSettings;
   readonly provider: string;
   readonly sessionId: string;
   readonly source: "codex-rollout-v1";

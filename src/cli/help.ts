@@ -203,6 +203,8 @@ Options:
                             Returns one JSON object, with or without --json: available
                             plus a source fingerprint (exit 0), or unavailable plus a
                             reason (exit 2). Excludes other modes and turn options.
+                            permissions describes recorded local-command limits or
+                            why they are unavailable; it does not promise restoration.
                             Reads at most 64 MiB, 1 MiB per line, 16384 directory entries.
                             No conversation text, permission grant or ownership claim.
   --native-settings-fingerprint <hash>

@@ -85,6 +85,7 @@ test("native settings inspection reads the exact latest Codex turn without a nat
       fingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
       harness: "codex",
       model: "custom-model",
+      permissions: { reason: "permissions-unrecorded", status: "unavailable" },
       provider: "saved",
       sessionId,
       source: "codex-rollout-v1",
@@ -93,6 +94,201 @@ test("native settings inspection reads the exact latest Codex turn without a nat
     });
     expect(result.stdout).not.toContain("DO_NOT_RETURN_CONVERSATION_CONTENT");
     expect(result.stderr).toBe("");
+  } finally {
+    f.close();
+  }
+});
+
+function appendPermissionTurn(
+  f: Pick<ReturnType<typeof fixture>, "rollout" | "root">,
+  changes: Readonly<Record<string, unknown>>,
+): void {
+  // Synthetic turn with the permission shape observed in the disposable native CLI.
+  appendFileSync(
+    f.rollout,
+    `${JSON.stringify({
+      type: "turn_context",
+      payload: {
+        cwd: f.root,
+        model: "custom-model",
+        effort: "high",
+        approval_policy: "on-request",
+        sandbox_policy: { type: "read-only" },
+        permission_profile: {
+          type: "managed",
+          file_system: {
+            type: "restricted",
+            entries: [{ path: { type: "special", value: { kind: "root" } }, access: "read" }],
+          },
+          network: "restricted",
+        },
+        ...changes,
+      },
+    })}\n`,
+  );
+}
+
+test("passive inspection distinguishes recorded user approvals from a headless permission grant", () => {
+  const f = fixture();
+  try {
+    appendPermissionTurn(f, { approval_policy: "on-request" });
+    const result = f.run();
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      status: "available",
+      model: "custom-model",
+    });
+    expect(JSON.parse(result.stdout).permissions).toEqual({
+      approvalPolicy: "on-request",
+      filesystem: "read-only",
+      network: "restricted",
+      status: "recorded",
+    });
+  } finally {
+    f.close();
+  }
+});
+
+test("passive inspection records a never-ask policy without implying broader filesystem access", () => {
+  const f = fixture();
+  try {
+    appendPermissionTurn(f, { approval_policy: "never" });
+    const result = f.run();
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout).permissions).toEqual({
+      approvalPolicy: "never",
+      filesystem: "read-only",
+      network: "restricted",
+      status: "recorded",
+    });
+  } finally {
+    f.close();
+  }
+});
+
+function unverifiedPermissionCases(): readonly {
+  readonly changes: Readonly<Record<string, unknown>>;
+  readonly name: string;
+  readonly reason: string;
+}[] {
+  const profile = {
+    type: "managed",
+    file_system: {
+      type: "restricted",
+      entries: [{ path: { type: "special", value: { kind: "root" } }, access: "read" }],
+    },
+    network: "restricted",
+  };
+  return [
+    ...["approval_policy", "sandbox_policy", "permission_profile"].map((key) => ({
+      changes: { [key]: undefined },
+      name: `missing ${key}`,
+      reason: "permissions-unrecorded",
+    })),
+    ...[null, "untrusted", "on-failure", { granular: { sandbox_approval: true } }].map(
+      (approval) => ({
+        changes: { approval_policy: approval },
+        name: `approval ${JSON.stringify(approval)}`,
+        reason: "approval-policy-unsupported",
+      }),
+    ),
+    ...[null, { type: "workspace-write" }, { type: "read-only", network_access: true }].map(
+      (sandbox) => ({
+        changes: { sandbox_policy: sandbox },
+        name: `sandbox ${JSON.stringify(sandbox)}`,
+        reason: "permission-profile-unsupported",
+      }),
+    ),
+    ...[
+      null,
+      { type: "disabled" },
+      { ...profile, network: "enabled" },
+      { ...profile, extension: "DO_NOT_RETURN_NATIVE_POLICY_EXTENSION" },
+      { ...profile, file_system: { ...profile.file_system, deny: ["/private-fixture"] } },
+      { ...profile, file_system: { ...profile.file_system, entries: [] } },
+      {
+        ...profile,
+        file_system: {
+          ...profile.file_system,
+          entries: [...profile.file_system.entries, { path: "/private-fixture", access: "deny" }],
+        },
+      },
+      {
+        ...profile,
+        file_system: {
+          ...profile.file_system,
+          entries: [{ ...profile.file_system.entries[0], access: "write" }],
+        },
+      },
+      {
+        ...profile,
+        file_system: {
+          ...profile.file_system,
+          entries: [{ ...profile.file_system.entries[0], extension: true }],
+        },
+      },
+      {
+        ...profile,
+        file_system: {
+          ...profile.file_system,
+          entries: [
+            { path: { type: "special", value: { kind: "root" }, extension: true }, access: "read" },
+          ],
+        },
+      },
+      {
+        ...profile,
+        file_system: {
+          ...profile.file_system,
+          entries: [
+            { path: { type: "special", value: { kind: "root", extension: true } }, access: "read" },
+          ],
+        },
+      },
+    ].map((value) => ({
+      changes: { permission_profile: value },
+      name: `profile ${JSON.stringify(value)}`,
+      reason: "permission-profile-unsupported",
+    })),
+  ];
+}
+
+test.each(unverifiedPermissionCases())(
+  "unverified permissions remain unavailable: $name",
+  ({ changes, reason }) => {
+    const f = fixture();
+    try {
+      appendPermissionTurn(f, changes);
+      const result = f.run();
+      expect(result.status).toBe(0);
+      expect(JSON.parse(result.stdout)).toMatchObject({
+        model: "custom-model",
+        permissions: { reason, status: "unavailable" },
+        status: "available",
+      });
+      expect(result.stdout).not.toContain("DO_NOT_RETURN_NATIVE_POLICY_EXTENSION");
+      expect(result.stdout).not.toContain("/private-fixture");
+    } finally {
+      f.close();
+    }
+  },
+);
+
+test("a later turn cannot inherit older recorded permissions and changes the preparation fingerprint", () => {
+  const f = fixture();
+  try {
+    appendPermissionTurn(f, { approval_policy: "never" });
+    const first = f.run();
+    expect(first.status).toBe(0);
+    const saved = JSON.parse(first.stdout);
+    expect(saved.permissions.status).toBe("recorded");
+    appendPermissionTurn(f, { approval_policy: undefined });
+    const second = f.run();
+    expect(second.status).toBe(0);
+    const latest = JSON.parse(second.stdout);
+    expect(latest.permissions).toEqual({ reason: "permissions-unrecorded", status: "unavailable" });
+    expect(latest.fingerprint).not.toBe(saved.fingerprint);
+    expect(latest.model).toBe(saved.model);
   } finally {
     f.close();
   }
