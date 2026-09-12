@@ -8,6 +8,8 @@ export const NATIVE_SETTINGS_SOURCES = deepFreeze({
   pi: null,
 } as const);
 
+export const NATIVE_SETTINGS_FINGERPRINT_SHAPE = /^[a-f0-9]{64}$/;
+
 export type NativeSettingsReason =
   | "cwd-refused"
   | "invalid-request"

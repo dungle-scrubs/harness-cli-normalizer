@@ -9,11 +9,15 @@ import { NATIVE_SETTINGS_SOURCES } from "../knowledge/native-settings.js";
 import { codexRecordPath, codexRecordsRoot } from "./native-codex-record.js";
 import { openRegularFile } from "./regular-file.js";
 
-interface NativeSettingsRequest {
+export interface NativeSettingsRequest {
   readonly cwd: string;
   readonly harness: HarnessName;
   readonly sessionId: string;
 }
+
+export type NativeSettingsInspector = (
+  request: NativeSettingsRequest & { readonly env?: Readonly<Record<string, string>> },
+) => NativeSettingsResult;
 
 class NativeSettingsUnavailable extends Error {
   constructor(readonly code: NativeSettingsReason) {
@@ -135,7 +139,18 @@ export function inspectNativeSettings(
         ]),
       )
       .digest("hex");
-    return { ...request, effort, fingerprint, model, provider, source, status: "available", v: 1 };
+    return {
+      cwd: request.cwd,
+      harness: request.harness,
+      sessionId: request.sessionId,
+      effort,
+      fingerprint,
+      model,
+      provider,
+      source,
+      status: "available",
+      v: 1,
+    };
   } catch (cause) {
     return unavailable(
       cause instanceof NativeSettingsUnavailable ? cause.code : "session-unavailable",

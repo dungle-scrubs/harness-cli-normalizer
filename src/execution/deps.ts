@@ -6,6 +6,7 @@
  */
 
 import type { NativeProcessOwner } from "../knowledge/interactive.js";
+import type { NativeSettingsInspector } from "./native-settings.js";
 
 export type { NativeProcessOwner } from "../knowledge/interactive.js";
 
@@ -71,6 +72,8 @@ export type SignalName = "SIGTERM" | "SIGKILL";
 export type BoundaryLog = (event: Record<string, unknown>) => void;
 
 export interface RunnerDeps {
+  /** Passive source read, required only for a caller-requested verified resume. */
+  readonly inspectNativeSettings?: NativeSettingsInspector;
   readonly spawn: (argv: readonly string[], opts: SpawnOptions) => SpawnedProcess;
   readonly clock: Clock;
   readonly signal: (proc: SpawnedProcess, sig: SignalName) => void;

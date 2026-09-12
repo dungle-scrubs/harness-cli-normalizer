@@ -17,7 +17,7 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
   const h = resolveHarness(harnessName);
   let parsed: ReturnType<typeof parseCommonFlags>;
   try {
-    parsed = parseCommonFlags(rawArgs, { nativeSettings: true });
+    parsed = parseCommonFlags(rawArgs, { nativeSettings: true, nativeSettingsFingerprint: true });
   } catch (err) {
     // Preserve the shared prompt-injection and native-spelling diagnostics.
     const outcome = await planTurn(h, rawArgs, { command: "inspect" });
@@ -36,6 +36,16 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
   }
   if (values["native-settings"] === true) {
     inspectNativeSettingsCommand(h.name, parsed, rawArgs.includes("--"));
+    return;
+  }
+  if (values["native-settings-fingerprint"] !== undefined && !values.argv && !values.runtime) {
+    refuse(
+      {
+        issue: "invalid-option-value",
+        message: "--native-settings-fingerprint requires --argv or --runtime for inspection",
+      },
+      values.json === true,
+    );
     return;
   }
 
@@ -75,7 +85,7 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
     }
     writePlanDiagnostics(h, outcome.plan, "argv");
     if (values.runtime === true) {
-      const mode = parseCommonFlags(rawArgs).values.mode ?? "headless-turn";
+      const mode = parsed.values.mode ?? "headless-turn";
       if (mode !== "headless-turn" && mode !== "headless-session") {
         refuse(
           {

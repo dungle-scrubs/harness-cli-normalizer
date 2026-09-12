@@ -7,9 +7,11 @@
  * spawned, never to a pid pattern.
  */
 import { type ChildProcess, spawn as nodeSpawn } from "node:child_process";
+import { homedir } from "node:os";
 import type { Readable } from "node:stream";
 import type { Clock, ProcessStart, RunnerDeps, SpawnedProcess, SpawnOptions } from "./deps.js";
 import { mergeEnvironment } from "./environment.js";
+import { inspectNativeSettings, type NativeSettingsInspector } from "./native-settings.js";
 import { readNativeProcessOwner } from "./process-identity.js";
 
 const children = new WeakMap<SpawnedProcess, ChildProcess>();
@@ -207,7 +209,16 @@ const realClock: Clock = {
   clearTimeout: (handle) => clearTimeout(handle as unknown as ReturnType<typeof setTimeout>),
 };
 
+export const nodeNativeSettingsInspector: NativeSettingsInspector = (request) => {
+  const environment = mergeEnvironment(process.env, request.env);
+  return inspectNativeSettings(request, {
+    codexHome: environment.CODEX_HOME,
+    home: environment.HOME ?? homedir(),
+  });
+};
+
 export const nodeRunnerDeps = (extra?: Partial<RunnerDeps>): RunnerDeps => ({
+  inspectNativeSettings: nodeNativeSettingsInspector,
   spawn: realSpawn,
   clock: realClock,
   signal: (proc, sig) => {

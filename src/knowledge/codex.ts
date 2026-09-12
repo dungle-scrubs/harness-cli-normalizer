@@ -3,8 +3,16 @@
  * against codex-cli 0.153.4. Native capability and question recordings
  * live in test/fixtures/codex-0.153.4.
  */
-import { deepFreeze, type HarnessDescriptor, UUID_SHAPE } from "./descriptor.js";
+import { deepFreeze, type HarnessDescriptor, type OptionRender, UUID_SHAPE } from "./descriptor.js";
 import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
+
+/** Saved native provider selector, verified through exec resume on 0.154.0.
+ * Only the verified-settings path uses this render; ordinary --provider stays unsupported. */
+export const codexNativeProviderRender: OptionRender = deepFreeze({
+  kind: "config-kv",
+  flag: "-c",
+  key: "model_provider",
+});
 
 export const codexCli: HarnessDescriptor = deepFreeze({
   name: "codex",

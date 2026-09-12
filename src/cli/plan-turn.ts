@@ -6,7 +6,11 @@
  * and the inspect command previews from it, so the spawn line and the
  * preview agree by construction, skill tokens and passthrough included.
  */
+
+import type { NativeSettingsInspector } from "../execution/native-settings.js";
+import { nodeNativeSettingsInspector } from "../execution/node-deps.js";
 import { redactArgv, type TurnRunOptions } from "../execution/stream-turn.js";
+import { verifyNativeSettings } from "../execution/verified-native-settings.js";
 import { buildSpawnArgv, promptTextOf, stdinPromptOf } from "../interpretation/argv.js";
 import { assertIsolationCombination } from "../interpretation/isolation.js";
 import { composeEscalatedPrompt } from "../interpretation/question.js";
@@ -39,6 +43,7 @@ import { listKnownSkills, resolveSkillNames } from "./skills-root.js";
 
 /** The impure edges a plan reads through, injectable for tests. */
 export interface PlanDeps {
+  readonly inspectNativeSettings?: NativeSettingsInspector;
   readonly loadUserConfig: () => { readonly config: ConfigTier } | null;
   readonly loadProjectConfig: () => { readonly config: ConfigTier } | null;
   readonly listKnownSkills: () => readonly string[];
@@ -51,6 +56,7 @@ export interface PlanDeps {
 }
 
 export const defaultPlanDeps: PlanDeps = {
+  inspectNativeSettings: nodeNativeSettingsInspector,
   loadUserConfig,
   loadProjectConfig,
   listKnownSkills,
@@ -159,12 +165,22 @@ export const planTurn = async (
 
   let parsed: ReturnType<typeof parseCommonFlags>;
   try {
-    parsed = parseCommonFlags([...rawArgs]);
+    parsed = parseCommonFlags([...rawArgs], { nativeSettingsFingerprint: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return refusal(unknownFlagRefusal(message, rawArgs, request.command));
   }
   const values = parsed.values as Record<string, unknown>;
+  if (
+    values["native-settings-fingerprint"] !== undefined &&
+    values.mode !== undefined &&
+    values.mode !== "headless-turn"
+  ) {
+    return refusal({
+      issue: "invalid-option-value",
+      message: "--native-settings-fingerprint supports headless-turn only",
+    });
+  }
   const positionals = parsed.positionals as string[];
   if (positionals.length > 1) {
     return refusal({
@@ -286,13 +302,17 @@ export const planTurn = async (
     ...(extra.cwd !== undefined ? { cwd: extra.cwd } : {}),
     ...(extra.env !== undefined ? { env: extra.env } : {}),
     ...(extra.resume !== undefined ? { resume: extra.resume } : {}),
+    ...(values["native-settings-fingerprint"] !== undefined
+      ? { nativeSettingsFingerprint: String(values["native-settings-fingerprint"]) }
+      : {}),
     questions: behavior.questions.value,
     ...(passthrough.length > 0 ? { passthrough } : {}),
   };
 
   let argv: string[];
   try {
-    argv = buildSpawnArgv(h, options);
+    const verifiedNativeSettings = verifyNativeSettings(h, options, deps.inspectNativeSettings);
+    argv = buildSpawnArgv(h, { ...options, verifiedNativeSettings });
   } catch (err) {
     if (err instanceof ArgvRefusalError) return refused(err);
     throw err;

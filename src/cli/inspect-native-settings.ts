@@ -1,5 +1,4 @@
-import { homedir } from "node:os";
-import { inspectNativeSettings } from "../execution/native-settings.js";
+import { nodeNativeSettingsInspector } from "../execution/node-deps.js";
 import type { HarnessName } from "../knowledge/descriptor.js";
 import type { NativeSettingsResult } from "../knowledge/native-settings.js";
 import { type parseCommonFlags, resumeIdOf } from "./args.js";
@@ -20,13 +19,7 @@ export function inspectNativeSettingsCommand(
       Object.keys(values).every((key) => allowed.has(key)) &&
       typeof values.cwd === "string" &&
       sessionId
-        ? inspectNativeSettings(
-            { cwd: values.cwd, harness, sessionId },
-            {
-              codexHome: process.env.CODEX_HOME,
-              home: homedir(),
-            },
-          )
+        ? nodeNativeSettingsInspector({ cwd: values.cwd, harness, sessionId })
         : { harness, reason: "invalid-request", status: "unavailable", v: 1 };
   } catch {
     result = { harness, reason: "invalid-request", status: "unavailable", v: 1 };

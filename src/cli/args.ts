@@ -298,6 +298,7 @@ const KNOWN_FLAGS = new Set([
   "--argv",
   "--runtime",
   "--context",
+  "--native-settings-fingerprint",
   "--capabilities",
   "--mode",
   "--stall",
@@ -308,6 +309,7 @@ const KNOWN_FLAGS = new Set([
 ]);
 
 const FLAGS_WITH_VALUE = new Set([
+  "--native-settings-fingerprint",
   "--isolation",
   "--prompt",
   "--prompt-file",
@@ -415,7 +417,7 @@ export const splitPassthrough = (argv: readonly string[]): SplitPassthrough => {
 
 export const parseCommonFlags = (
   argv: string[],
-  opts: { strict?: boolean; nativeSettings?: boolean } = {},
+  opts: { strict?: boolean; nativeSettings?: boolean; nativeSettingsFingerprint?: boolean } = {},
 ): ReturnType<typeof parseArgs> => {
   // The separator itself never reaches parseArgs: passthrough tokens may
   // be unknown to hcn by design (that is their purpose).
@@ -462,6 +464,9 @@ export const parseCommonFlags = (
       runtime: { type: "boolean" as const },
       context: { type: "boolean" as const },
       ...(opts.nativeSettings ? { "native-settings": { type: "boolean" as const } } : {}),
+      ...(opts.nativeSettingsFingerprint
+        ? { "native-settings-fingerprint": { type: "string" as const } }
+        : {}),
       mode: { type: "string" as const },
       stall: { type: "string" as const },
       help: { type: "boolean" as const },

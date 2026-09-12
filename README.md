@@ -108,11 +108,29 @@ records, missing settings, and changed sources refuse. The scan is bounded at
 16384 directory entries, 64 MiB per file and 1 MiB per line. An invalid latest
 turn never falls back to earlier settings. Conversation text is never returned.
 
-The fingerprint identifies this read, including file identity and metadata. It
-does not grant process ownership or permissions, and this operation does not
-yet make a subsequent launch preserve the inspected settings. A resume ID alone
-can still select current native defaults; callers must not treat passive
-inspection as completed handoff support.
+The fingerprint identifies this read, including file identity and metadata. Use
+it to require the same source when resuming:
+
+```bash
+hcn run codex --resume <native-session-id> --cwd <absolute-path> --native-settings-fingerprint <fingerprint> --prompt "continue"
+```
+
+Planning and the runner each read the native source again. A matching read
+renders the saved model, effort and header provider before the prompt. Competing
+`--model`, `--effort`, `--provider`, native passthrough, fresh launch and other
+harnesses refuse. `inspect --argv` and `inspect --runtime` support the same flag.
+Ordinary resume without this flag still follows native settings behavior.
+
+`native-settings-changed` means the fingerprint no longer matches;
+`native-settings-unavailable` means the source cannot be read and verified.
+Inspect the same native session again before retrying. A planning refusal exits
+2; a refusal found at the final runner read uses the failure/done stream and
+exits 1. Exit status alone does not prove whether a process started.
+
+These operations grant no ownership or permissions. The fingerprint does not
+capture provider configuration contents or freeze another process's writes.
+Callers still own duplicate-session prevention, permissions, input delivery and
+process cleanup. This is not completed consumer handoff support.
 
 ### Machine session (`hcn session <harness> --json`)
 

@@ -117,6 +117,12 @@ Options:
                             (exit 2) for harnesses that would otherwise
                             create a fresh session silently (pi, muse)
   --session-id <uuid>       Alias for --resume (mutually exclusive with --resume)
+  --native-settings-fingerprint <hash>
+                            Codex resume only, with explicit --cwd. Re-read saved
+                            model, effort and header provider before native spawn.
+                            Get the hash from inspect --native-settings. Refuses
+                            changed/unavailable sources, competing model/effort/provider
+                            options and native passthrough. Grants no permissions.
   --                        Passthrough: native harness args verbatim
                             (failures surface as labeled native errors)
   --json                    NDJSON HarnessEvent to stdout
@@ -199,6 +205,9 @@ Options:
                             reason (exit 2). Excludes other modes and turn options.
                             Reads at most 64 MiB, 1 MiB per line, 16384 directory entries.
                             No conversation text, permission grant or ownership claim.
+  --native-settings-fingerprint <hash>
+                            Require matching saved settings for --argv / --runtime
+                            headless-turn previews. Same restrictions as hcn run.
   --runtime                 Preview argv and probe the selected executable version;
                             All harnesses use invocation support in supported modes.
                             Version metadata never rejects a supported invocation.

@@ -25,7 +25,7 @@ export async function inspectSessionRuntime(
 ): Promise<boolean> {
   let parsed: ReturnType<typeof parseCommonFlags>;
   try {
-    parsed = parseCommonFlags(args);
+    parsed = parseCommonFlags(args, { nativeSettingsFingerprint: true });
   } catch (error) {
     refuse(
       {
