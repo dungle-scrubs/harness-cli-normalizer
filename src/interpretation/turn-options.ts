@@ -36,13 +36,23 @@ const isPlainObject = (v: unknown): v is Record<string, unknown> =>
 
 /** Render turn options for a given phase, in TURN_OPTION_KEYS order and with
  * discovery facets in DISCOVERY_FACETS order, de-duplicating by exact token
- * sequence (first wins) so claude's two facets sharing one flag emit once. */
+ * sequence (first wins) so claude's two facets sharing one flag emit once.
+ * Returns argv tokens AND descriptor-derived spawn-env assignments (the
+ * `env` render kind contributes no tokens - the execution layer merges
+ * `env` over the caller's env at spawn, so a descriptor-derived disable
+ * wins over a contradicting caller-set variable). */
+export interface RenderedTurnOptions {
+  readonly tokens: string[];
+  readonly env: Record<string, string>;
+}
+
 export const renderTurnOptions = (
   h: HarnessDescriptor,
   opts: TurnOptions,
   phase: "launch" | "resume",
   placement: "all" | "before-prompt" | "after-prompt" = "all",
-): string[] => {
+): RenderedTurnOptions => {
+  const env: Record<string, string> = {};
   assertIsolationCombination(h, opts);
   const sequences: string[][] = [];
   // The turn option the access preset displaces when set (codex: sandbox),
@@ -415,6 +425,10 @@ export const renderTurnOptions = (
           (spec.polarity === "disables" && raw === false) ||
           (spec.polarity === "enables" && raw === true);
         if (!shouldEmit) break;
+        if (render.kind === "env") {
+          env[render.name] = render.value;
+          break;
+        }
         sequences.push([...tokensFor(render, String(raw))]);
         break;
       }
@@ -462,5 +476,5 @@ export const renderTurnOptions = (
     seen.add(k);
     deduped.push(seq);
   }
-  return deduped.flat();
+  return { tokens: deduped.flat(), env };
 };

@@ -125,7 +125,8 @@
             "systemPrompt",
             "appendSystemPrompt",
             "discovery",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -134,7 +135,7 @@
             }
           ],
           "hint": "claude has no sandbox modes; approximate with a per-tool allowlist (--tools Read,Bash) or --disallowedTools to keep tools out, and run untrusted work in a disposable directory or container",
-          "message": "claude cannot express option \"sandbox\" (read-only); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"sandbox\" (read-only); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "context-window": {
@@ -148,7 +149,8 @@
             "systemPrompt",
             "appendSystemPrompt",
             "discovery",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -156,7 +158,7 @@
               "spelling": "-c"
             }
           ],
-          "message": "claude cannot express option \"contextWindow\" (100000); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"contextWindow\" (100000); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "provider": {
@@ -170,7 +172,8 @@
             "systemPrompt",
             "appendSystemPrompt",
             "discovery",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -179,7 +182,7 @@
             }
           ],
           "hint": "claude routes models through Anthropic only (Bedrock/Vertex via settings); use --model to pick within it - there is no separate provider selector",
-          "message": "claude cannot express option \"provider\" (zai); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"provider\" (zai); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "no-tools": {
@@ -257,7 +260,8 @@
             "systemPrompt",
             "appendSystemPrompt",
             "discovery",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -266,7 +270,7 @@
             }
           ],
           "hint": "claude has no write toggle; keep the Write tool out with --tools that omits it, or --disallowedTools Write for the deny-complement spelling",
-          "message": "claude cannot express option \"write\" (false); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"write\" (false); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "shell-off": {
@@ -280,7 +284,8 @@
             "systemPrompt",
             "appendSystemPrompt",
             "discovery",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -289,7 +294,7 @@
             }
           ],
           "hint": "claude has no shell toggle; disallow the Bash tool (--tools without Bash, or --disallowedTools Bash) and note Monitor can still run commands in headless runs",
-          "message": "claude cannot express option \"shell\" (false); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"shell\" (false); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "max-steps": {
@@ -303,7 +308,8 @@
             "systemPrompt",
             "appendSystemPrompt",
             "discovery",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -312,7 +318,7 @@
             }
           ],
           "hint": "claude has no step cap flag; bound the work in the prompt (task size, 'stop after N operations') or impose a wall-clock timeout at the caller",
-          "message": "claude cannot express option \"maxSteps\" (5); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"maxSteps\" (5); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "system-prompt": {
@@ -568,7 +574,8 @@
             "effort",
             "systemPrompt",
             "sandbox",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -576,7 +583,7 @@
               "spelling": "--bare"
             }
           ],
-          "message": "codex cannot express option \"isolation\" (tool-free); supported: contextWindow, effort, systemPrompt, sandbox, access - drop the option or route this work to a harness that supports it"
+          "message": "codex cannot express option \"isolation\" (tool-free); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "tool-free-conflict": {
@@ -695,7 +702,8 @@
             "effort",
             "systemPrompt",
             "sandbox",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -704,7 +712,7 @@
             }
           ],
           "hint": "codex routes models through OpenAI (or --oss for local); use --model to pick within it - there is no separate provider selector",
-          "message": "codex cannot express option \"provider\" (zai); supported: contextWindow, effort, systemPrompt, sandbox, access - drop the option or route this work to a harness that supports it"
+          "message": "codex cannot express option \"provider\" (zai); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "no-tools": {
@@ -717,10 +725,11 @@
             "effort",
             "systemPrompt",
             "sandbox",
-            "access"
+            "access",
+            "memory"
           ],
           "hint": "codex has no tools-discovery toggle; disable tool classes via config keys (features.shell_tool, web_search) instead",
-          "message": "codex cannot express option \"discovery\" (tools); supported: contextWindow, effort, systemPrompt, sandbox, access - drop the option or route this work to a harness that supports it"
+          "message": "codex cannot express option \"discovery\" (tools); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "no-instruction-files": {
@@ -733,10 +742,11 @@
             "effort",
             "systemPrompt",
             "sandbox",
-            "access"
+            "access",
+            "memory"
           ],
           "hint": "codex always loads AGENTS.md hierarchy; no per-call toggle exists - keep the files out of the tree or work from a directory without them",
-          "message": "codex cannot express option \"discovery\" (instructionFiles); supported: contextWindow, effort, systemPrompt, sandbox, access - drop the option or route this work to a harness that supports it"
+          "message": "codex cannot express option \"discovery\" (instructionFiles); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "no-extensions": {
@@ -749,10 +759,11 @@
             "effort",
             "systemPrompt",
             "sandbox",
-            "access"
+            "access",
+            "memory"
           ],
           "hint": "codex loads MCP servers and plugins from config; disable per-server with -c or codex mcp remove rather than a call-time toggle",
-          "message": "codex cannot express option \"discovery\" (extensions); supported: contextWindow, effort, systemPrompt, sandbox, access - drop the option or route this work to a harness that supports it"
+          "message": "codex cannot express option \"discovery\" (extensions); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "no-skills": {
@@ -765,10 +776,11 @@
             "effort",
             "systemPrompt",
             "sandbox",
-            "access"
+            "access",
+            "memory"
           ],
           "hint": "codex has no global skills-off switch (skills.enabled is not a key); disable per skill per call with -c skills.config=[{path=\".../SKILL.md\", enabled=false}] and bundled skills with -c skills.bundled.enabled=false",
-          "message": "codex cannot express option \"discovery\" (skills); supported: contextWindow, effort, systemPrompt, sandbox, access - drop the option or route this work to a harness that supports it"
+          "message": "codex cannot express option \"discovery\" (skills); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "discovery-all-on": {
@@ -792,7 +804,8 @@
             "effort",
             "systemPrompt",
             "sandbox",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -801,7 +814,7 @@
             }
           ],
           "hint": "codex has no write toggle; use --sandbox read-only (config: sandbox_mode) so shell commands cannot write either",
-          "message": "codex cannot express option \"write\" (false); supported: contextWindow, effort, systemPrompt, sandbox, access - drop the option or route this work to a harness that supports it"
+          "message": "codex cannot express option \"write\" (false); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "shell-off": {
@@ -814,7 +827,8 @@
             "effort",
             "systemPrompt",
             "sandbox",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -823,7 +837,7 @@
             }
           ],
           "hint": "codex has no shell toggle; disable the shell tool via config (-c features.shell_tool=false) or use --sandbox read-only",
-          "message": "codex cannot express option \"shell\" (false); supported: contextWindow, effort, systemPrompt, sandbox, access - drop the option or route this work to a harness that supports it"
+          "message": "codex cannot express option \"shell\" (false); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "max-steps": {
@@ -836,7 +850,8 @@
             "effort",
             "systemPrompt",
             "sandbox",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -845,7 +860,7 @@
             }
           ],
           "hint": "codex has no step cap flag; bound via sandbox policy and a caller-side timeout, or prompt-level limits",
-          "message": "codex cannot express option \"maxSteps\" (5); supported: contextWindow, effort, systemPrompt, sandbox, access - drop the option or route this work to a harness that supports it"
+          "message": "codex cannot express option \"maxSteps\" (5); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "system-prompt": {
@@ -871,11 +886,12 @@
             "effort",
             "systemPrompt",
             "sandbox",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [],
           "hint": "codex has no append-to-prompt flag; -c instructions=<literal or path> REPLACES the whole prompt (both accepted, live-verified) - there is no additive form",
-          "message": "codex cannot express option \"appendSystemPrompt\" (and polite); supported: contextWindow, effort, systemPrompt, sandbox, access - drop the option or route this work to a harness that supports it"
+          "message": "codex cannot express option \"appendSystemPrompt\" (and polite); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "access-read": {
@@ -910,10 +926,11 @@
             "effort",
             "systemPrompt",
             "sandbox",
-            "access"
+            "access",
+            "memory"
           ],
           "hint": "codex has no tools-discovery toggle; disable tool classes via config keys (features.shell_tool, web_search) instead",
-          "message": "codex cannot express option \"discovery\" (tools); supported: contextWindow, effort, systemPrompt, sandbox, access - drop the option or route this work to a harness that supports it"
+          "message": "codex cannot express option \"discovery\" (tools); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "tools-include": {
@@ -1149,7 +1166,8 @@
             "systemPrompt",
             "appendSystemPrompt",
             "discovery",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -1157,7 +1175,7 @@
               "spelling": "--bare"
             }
           ],
-          "message": "pi cannot express option \"isolation\" (tool-free); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"isolation\" (tool-free); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "tool-free-conflict": {
@@ -1245,7 +1263,8 @@
             "systemPrompt",
             "appendSystemPrompt",
             "discovery",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -1254,7 +1273,7 @@
             }
           ],
           "hint": "pi has no sandbox dimension; approximate with a minimal tool grant (--tools read,grep,find,ls) so the run cannot write or execute, or sandbox the process yourself (container, VM)",
-          "message": "pi cannot express option \"sandbox\" (read-only); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"sandbox\" (read-only); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "context-window": {
@@ -1268,7 +1287,8 @@
             "systemPrompt",
             "appendSystemPrompt",
             "discovery",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -1276,7 +1296,7 @@
               "spelling": "-c"
             }
           ],
-          "message": "pi cannot express option \"contextWindow\" (100000); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"contextWindow\" (100000); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "provider": {
@@ -1350,7 +1370,8 @@
             "systemPrompt",
             "appendSystemPrompt",
             "discovery",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -1359,7 +1380,7 @@
             }
           ],
           "hint": "pi has no write toggle; grant without the write tool (--tools read,bash,edit) or use --exclude-tools write",
-          "message": "pi cannot express option \"write\" (false); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"write\" (false); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "shell-off": {
@@ -1373,7 +1394,8 @@
             "systemPrompt",
             "appendSystemPrompt",
             "discovery",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -1382,7 +1404,7 @@
             }
           ],
           "hint": "pi has no shell toggle; grant without the bash tool (--tools read,edit,write) or use --exclude-tools bash",
-          "message": "pi cannot express option \"shell\" (false); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"shell\" (false); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "max-steps": {
@@ -1396,7 +1418,8 @@
             "systemPrompt",
             "appendSystemPrompt",
             "discovery",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -1405,7 +1428,7 @@
             }
           ],
           "hint": "pi has no step cap flag; bound the work in the prompt or impose a wall-clock timeout at the caller",
-          "message": "pi cannot express option \"maxSteps\" (5); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"maxSteps\" (5); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "system-prompt": {
@@ -2145,11 +2168,12 @@
           "supported": [
             "effort",
             "discovery",
+            "memory",
             "systemPrompt",
             "appendSystemPrompt",
             "access"
           ],
-          "message": "\"isolation\" cannot be expressed on resume for claude; supported: effort, discovery, systemPrompt, appendSystemPrompt, access - re-launch instead of resuming or drop the option"
+          "message": "\"isolation\" cannot be expressed on resume for claude; supported: effort, discovery, memory, systemPrompt, appendSystemPrompt, access - re-launch instead of resuming or drop the option"
         }
       },
       "tool-free-conflict": {
@@ -2254,7 +2278,8 @@
             "systemPrompt",
             "appendSystemPrompt",
             "discovery",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -2263,7 +2288,7 @@
             }
           ],
           "hint": "claude has no sandbox modes; approximate with a per-tool allowlist (--tools Read,Bash) or --disallowedTools to keep tools out, and run untrusted work in a disposable directory or container",
-          "message": "claude cannot express option \"sandbox\" (read-only); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"sandbox\" (read-only); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "context-window": {
@@ -2277,7 +2302,8 @@
             "systemPrompt",
             "appendSystemPrompt",
             "discovery",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -2285,7 +2311,7 @@
               "spelling": "-c"
             }
           ],
-          "message": "claude cannot express option \"contextWindow\" (100000); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"contextWindow\" (100000); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "provider": {
@@ -2299,7 +2325,8 @@
             "systemPrompt",
             "appendSystemPrompt",
             "discovery",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -2308,7 +2335,7 @@
             }
           ],
           "hint": "claude routes models through Anthropic only (Bedrock/Vertex via settings); use --model to pick within it - there is no separate provider selector",
-          "message": "claude cannot express option \"provider\" (zai); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"provider\" (zai); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "no-tools": {
@@ -2392,7 +2419,8 @@
             "systemPrompt",
             "appendSystemPrompt",
             "discovery",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -2401,7 +2429,7 @@
             }
           ],
           "hint": "claude has no write toggle; keep the Write tool out with --tools that omits it, or --disallowedTools Write for the deny-complement spelling",
-          "message": "claude cannot express option \"write\" (false); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"write\" (false); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "shell-off": {
@@ -2415,7 +2443,8 @@
             "systemPrompt",
             "appendSystemPrompt",
             "discovery",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -2424,7 +2453,7 @@
             }
           ],
           "hint": "claude has no shell toggle; disallow the Bash tool (--tools without Bash, or --disallowedTools Bash) and note Monitor can still run commands in headless runs",
-          "message": "claude cannot express option \"shell\" (false); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"shell\" (false); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "max-steps": {
@@ -2438,7 +2467,8 @@
             "systemPrompt",
             "appendSystemPrompt",
             "discovery",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -2447,7 +2477,7 @@
             }
           ],
           "hint": "claude has no step cap flag; bound the work in the prompt (task size, 'stop after N operations') or impose a wall-clock timeout at the caller",
-          "message": "claude cannot express option \"maxSteps\" (5); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"maxSteps\" (5); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "system-prompt": {
@@ -2729,7 +2759,8 @@
             "effort",
             "systemPrompt",
             "sandbox",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -2737,7 +2768,7 @@
               "spelling": "--bare"
             }
           ],
-          "message": "codex cannot express option \"isolation\" (tool-free); supported: contextWindow, effort, systemPrompt, sandbox, access - drop the option or route this work to a harness that supports it"
+          "message": "codex cannot express option \"isolation\" (tool-free); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "tool-free-conflict": {
@@ -2858,7 +2889,8 @@
             "effort",
             "systemPrompt",
             "sandbox",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -2867,7 +2899,7 @@
             }
           ],
           "hint": "codex routes models through OpenAI (or --oss for local); use --model to pick within it - there is no separate provider selector",
-          "message": "codex cannot express option \"provider\" (zai); supported: contextWindow, effort, systemPrompt, sandbox, access - drop the option or route this work to a harness that supports it"
+          "message": "codex cannot express option \"provider\" (zai); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "no-tools": {
@@ -2880,10 +2912,11 @@
             "effort",
             "systemPrompt",
             "sandbox",
-            "access"
+            "access",
+            "memory"
           ],
           "hint": "codex has no tools-discovery toggle; disable tool classes via config keys (features.shell_tool, web_search) instead",
-          "message": "codex cannot express option \"discovery\" (tools); supported: contextWindow, effort, systemPrompt, sandbox, access - drop the option or route this work to a harness that supports it"
+          "message": "codex cannot express option \"discovery\" (tools); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "no-instruction-files": {
@@ -2896,10 +2929,11 @@
             "effort",
             "systemPrompt",
             "sandbox",
-            "access"
+            "access",
+            "memory"
           ],
           "hint": "codex always loads AGENTS.md hierarchy; no per-call toggle exists - keep the files out of the tree or work from a directory without them",
-          "message": "codex cannot express option \"discovery\" (instructionFiles); supported: contextWindow, effort, systemPrompt, sandbox, access - drop the option or route this work to a harness that supports it"
+          "message": "codex cannot express option \"discovery\" (instructionFiles); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "no-extensions": {
@@ -2912,10 +2946,11 @@
             "effort",
             "systemPrompt",
             "sandbox",
-            "access"
+            "access",
+            "memory"
           ],
           "hint": "codex loads MCP servers and plugins from config; disable per-server with -c or codex mcp remove rather than a call-time toggle",
-          "message": "codex cannot express option \"discovery\" (extensions); supported: contextWindow, effort, systemPrompt, sandbox, access - drop the option or route this work to a harness that supports it"
+          "message": "codex cannot express option \"discovery\" (extensions); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "no-skills": {
@@ -2928,10 +2963,11 @@
             "effort",
             "systemPrompt",
             "sandbox",
-            "access"
+            "access",
+            "memory"
           ],
           "hint": "codex has no global skills-off switch (skills.enabled is not a key); disable per skill per call with -c skills.config=[{path=\".../SKILL.md\", enabled=false}] and bundled skills with -c skills.bundled.enabled=false",
-          "message": "codex cannot express option \"discovery\" (skills); supported: contextWindow, effort, systemPrompt, sandbox, access - drop the option or route this work to a harness that supports it"
+          "message": "codex cannot express option \"discovery\" (skills); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "discovery-all-on": {
@@ -2955,7 +2991,8 @@
             "effort",
             "systemPrompt",
             "sandbox",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -2964,7 +3001,7 @@
             }
           ],
           "hint": "codex has no write toggle; use --sandbox read-only (config: sandbox_mode) so shell commands cannot write either",
-          "message": "codex cannot express option \"write\" (false); supported: contextWindow, effort, systemPrompt, sandbox, access - drop the option or route this work to a harness that supports it"
+          "message": "codex cannot express option \"write\" (false); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "shell-off": {
@@ -2977,7 +3014,8 @@
             "effort",
             "systemPrompt",
             "sandbox",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -2986,7 +3024,7 @@
             }
           ],
           "hint": "codex has no shell toggle; disable the shell tool via config (-c features.shell_tool=false) or use --sandbox read-only",
-          "message": "codex cannot express option \"shell\" (false); supported: contextWindow, effort, systemPrompt, sandbox, access - drop the option or route this work to a harness that supports it"
+          "message": "codex cannot express option \"shell\" (false); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "max-steps": {
@@ -2999,7 +3037,8 @@
             "effort",
             "systemPrompt",
             "sandbox",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -3008,7 +3047,7 @@
             }
           ],
           "hint": "codex has no step cap flag; bound via sandbox policy and a caller-side timeout, or prompt-level limits",
-          "message": "codex cannot express option \"maxSteps\" (5); supported: contextWindow, effort, systemPrompt, sandbox, access - drop the option or route this work to a harness that supports it"
+          "message": "codex cannot express option \"maxSteps\" (5); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "system-prompt": {
@@ -3034,11 +3073,12 @@
             "effort",
             "systemPrompt",
             "sandbox",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [],
           "hint": "codex has no append-to-prompt flag; -c instructions=<literal or path> REPLACES the whole prompt (both accepted, live-verified) - there is no additive form",
-          "message": "codex cannot express option \"appendSystemPrompt\" (and polite); supported: contextWindow, effort, systemPrompt, sandbox, access - drop the option or route this work to a harness that supports it"
+          "message": "codex cannot express option \"appendSystemPrompt\" (and polite); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "access-read": {
@@ -3077,10 +3117,11 @@
             "effort",
             "systemPrompt",
             "sandbox",
-            "access"
+            "access",
+            "memory"
           ],
           "hint": "codex has no tools-discovery toggle; disable tool classes via config keys (features.shell_tool, web_search) instead",
-          "message": "codex cannot express option \"discovery\" (tools); supported: contextWindow, effort, systemPrompt, sandbox, access - drop the option or route this work to a harness that supports it"
+          "message": "codex cannot express option \"discovery\" (tools); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "tools-include": {
@@ -3318,7 +3359,8 @@
             "systemPrompt",
             "appendSystemPrompt",
             "discovery",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -3326,7 +3368,7 @@
               "spelling": "--bare"
             }
           ],
-          "message": "pi cannot express option \"isolation\" (tool-free); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"isolation\" (tool-free); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "tool-free-conflict": {
@@ -3422,7 +3464,8 @@
             "systemPrompt",
             "appendSystemPrompt",
             "discovery",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -3431,7 +3474,7 @@
             }
           ],
           "hint": "pi has no sandbox dimension; approximate with a minimal tool grant (--tools read,grep,find,ls) so the run cannot write or execute, or sandbox the process yourself (container, VM)",
-          "message": "pi cannot express option \"sandbox\" (read-only); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"sandbox\" (read-only); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "context-window": {
@@ -3445,7 +3488,8 @@
             "systemPrompt",
             "appendSystemPrompt",
             "discovery",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -3453,7 +3497,7 @@
               "spelling": "-c"
             }
           ],
-          "message": "pi cannot express option \"contextWindow\" (100000); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"contextWindow\" (100000); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "provider": {
@@ -3539,7 +3583,8 @@
             "systemPrompt",
             "appendSystemPrompt",
             "discovery",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -3548,7 +3593,7 @@
             }
           ],
           "hint": "pi has no write toggle; grant without the write tool (--tools read,bash,edit) or use --exclude-tools write",
-          "message": "pi cannot express option \"write\" (false); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"write\" (false); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "shell-off": {
@@ -3562,7 +3607,8 @@
             "systemPrompt",
             "appendSystemPrompt",
             "discovery",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -3571,7 +3617,7 @@
             }
           ],
           "hint": "pi has no shell toggle; grant without the bash tool (--tools read,edit,write) or use --exclude-tools bash",
-          "message": "pi cannot express option \"shell\" (false); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"shell\" (false); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "max-steps": {
@@ -3585,7 +3631,8 @@
             "systemPrompt",
             "appendSystemPrompt",
             "discovery",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -3594,7 +3641,7 @@
             }
           ],
           "hint": "pi has no step cap flag; bound the work in the prompt or impose a wall-clock timeout at the caller",
-          "message": "pi cannot express option \"maxSteps\" (5); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"maxSteps\" (5); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "system-prompt": {
@@ -4450,7 +4497,8 @@
             "systemPrompt",
             "appendSystemPrompt",
             "discovery",
-            "access"
+            "access",
+            "memory"
           ],
           "supportedBy": [
             {
@@ -4459,7 +4507,7 @@
             }
           ],
           "hint": "claude routes models through Anthropic only (Bedrock/Vertex via settings); use --model to pick within it - there is no separate provider selector",
-          "message": "claude cannot express option \"provider\" (zai); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"provider\" (zai); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "resume": {
@@ -4729,7 +4777,8 @@
       "bare": {
         "resolved": {
           "options": {
-            "effort": "medium"
+            "effort": "medium",
+            "memory": false
           },
           "provenance": [
             {
@@ -4770,6 +4819,11 @@
             {
               "key": "shell",
               "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
               "tier": "profile"
             },
             {
@@ -4788,7 +4842,8 @@
         "resolved": {
           "options": {
             "access": "read",
-            "effort": "medium"
+            "effort": "medium",
+            "memory": false
           },
           "provenance": [
             {
@@ -4829,6 +4884,11 @@
             {
               "key": "shell",
               "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
               "tier": "profile"
             },
             {
@@ -4853,7 +4913,8 @@
           "options": {
             "access": "read",
             "sandbox": "read-only",
-            "effort": "medium"
+            "effort": "medium",
+            "memory": false
           },
           "provenance": [
             {
@@ -4897,6 +4958,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
               "key": "tools",
               "value": "none (access preset)",
               "tier": "arg"
@@ -4917,7 +4983,8 @@
           "options": {
             "access": "read",
             "effort": "medium",
-            "sandbox": "read-only"
+            "sandbox": "read-only",
+            "memory": false
           },
           "provenance": [
             {
@@ -4961,6 +5028,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
               "key": "tools",
               "value": "none (access preset)",
               "tier": "arg"
@@ -4991,6 +5063,7 @@
         "resolved": {
           "options": {
             "effort": "medium",
+            "memory": false,
             "access": "read"
           },
           "provenance": [
@@ -5035,6 +5108,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
               "key": "tools",
               "value": "all known (already default)",
               "tier": "profile"
@@ -5069,7 +5147,8 @@
             "tools": [
               "read"
             ],
-            "effort": "medium"
+            "effort": "medium",
+            "memory": false
           },
           "provenance": [
             {
@@ -5110,6 +5189,11 @@
             {
               "key": "shell",
               "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
               "tier": "profile"
             },
             {
@@ -5155,7 +5239,8 @@
               "read",
               "grep"
             ],
-            "effort": "medium"
+            "effort": "medium",
+            "memory": false
           },
           "provenance": [
             {
@@ -5204,6 +5289,11 @@
             {
               "key": "shell",
               "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
               "tier": "profile"
             },
             {
@@ -5232,7 +5322,8 @@
                 }
               }
             },
-            "effort": "medium"
+            "effort": "medium",
+            "memory": false
           },
           "provenance": [
             {
@@ -5276,6 +5367,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
               "key": "tools",
               "value": "all known (already default)",
               "tier": "profile"
@@ -5293,7 +5389,8 @@
             "discovery": {
               "tools": false
             },
-            "effort": "medium"
+            "effort": "medium",
+            "memory": false
           },
           "provenance": [
             {
@@ -5334,6 +5431,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
               "key": "tools",
               "value": "none (discovery.tools off)",
               "tier": "arg"
@@ -5348,7 +5450,8 @@
       "effort-tiers": {
         "resolved": {
           "options": {
-            "effort": "low"
+            "effort": "low",
+            "memory": false
           },
           "provenance": [
             {
@@ -5392,6 +5495,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
               "key": "tools",
               "value": "all known (already default)",
               "tier": "profile"
@@ -5406,7 +5514,8 @@
       "effort-arg-wins": {
         "resolved": {
           "options": {
-            "effort": "max"
+            "effort": "max",
+            "memory": false
           },
           "provenance": [
             {
@@ -5450,6 +5559,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
               "key": "tools",
               "value": "all known (already default)",
               "tier": "profile"
@@ -5465,6 +5579,7 @@
         "resolved": {
           "options": {
             "effort": "medium",
+            "memory": false,
             "questions": "assume",
             "timeout": 30
           },
@@ -5510,6 +5625,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
               "key": "tools",
               "value": "all known (already default)",
               "tier": "profile"
@@ -5538,7 +5658,8 @@
           "options": {
             "effort": "medium",
             "sandbox": "workspace-write",
-            "contextWindow": 272000
+            "contextWindow": 272000,
+            "memory": false
           },
           "provenance": [
             {
@@ -5582,6 +5703,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
               "key": "tools",
               "value": "all-known",
               "tier": "harness"
@@ -5597,7 +5723,8 @@
           "options": {
             "access": "read",
             "effort": "medium",
-            "contextWindow": 272000
+            "contextWindow": 272000,
+            "memory": false
           },
           "provenance": [
             {
@@ -5638,6 +5765,11 @@
             {
               "key": "shell",
               "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
               "tier": "profile"
             },
             {
@@ -5695,6 +5827,7 @@
             "effort": "medium",
             "sandbox": "workspace-write",
             "contextWindow": 272000,
+            "memory": false,
             "access": "read"
           },
           "provenance": [
@@ -5739,6 +5872,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
               "key": "tools",
               "value": "all-known",
               "tier": "harness"
@@ -5774,7 +5912,8 @@
             ],
             "effort": "medium",
             "sandbox": "workspace-write",
-            "contextWindow": 272000
+            "contextWindow": 272000,
+            "memory": false
           },
           "provenance": [
             {
@@ -5815,6 +5954,11 @@
             {
               "key": "shell",
               "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
               "tier": "profile"
             },
             {
@@ -5859,7 +6003,8 @@
             ],
             "effort": "medium",
             "sandbox": "workspace-write",
-            "contextWindow": 272000
+            "contextWindow": 272000,
+            "memory": false
           },
           "provenance": [
             {
@@ -5908,6 +6053,11 @@
             {
               "key": "shell",
               "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
               "tier": "profile"
             },
             {
@@ -5935,7 +6085,8 @@
             },
             "effort": "medium",
             "sandbox": "workspace-write",
-            "contextWindow": 272000
+            "contextWindow": 272000,
+            "memory": false
           },
           "provenance": [
             {
@@ -5979,6 +6130,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
               "key": "tools",
               "value": "all-known",
               "tier": "harness"
@@ -5997,7 +6153,8 @@
             },
             "effort": "medium",
             "sandbox": "workspace-write",
-            "contextWindow": 272000
+            "contextWindow": 272000,
+            "memory": false
           },
           "provenance": [
             {
@@ -6038,6 +6195,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
               "key": "tools",
               "value": "all-known",
               "tier": "harness"
@@ -6053,7 +6215,8 @@
           "options": {
             "effort": "low",
             "sandbox": "workspace-write",
-            "contextWindow": 272000
+            "contextWindow": 272000,
+            "memory": false
           },
           "provenance": [
             {
@@ -6097,6 +6260,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
               "key": "tools",
               "value": "all-known",
               "tier": "harness"
@@ -6112,7 +6280,8 @@
           "options": {
             "effort": "max",
             "sandbox": "workspace-write",
-            "contextWindow": 272000
+            "contextWindow": 272000,
+            "memory": false
           },
           "provenance": [
             {
@@ -6156,6 +6325,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
               "key": "tools",
               "value": "all-known",
               "tier": "harness"
@@ -6172,6 +6346,7 @@
             "effort": "medium",
             "sandbox": "workspace-write",
             "contextWindow": 272000,
+            "memory": false,
             "questions": "assume",
             "timeout": 30
           },
@@ -6217,6 +6392,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
               "key": "tools",
               "value": "all-known",
               "tier": "harness"
@@ -6242,7 +6422,8 @@
       "bare": {
         "resolved": {
           "options": {
-            "effort": "medium"
+            "effort": "medium",
+            "memory": false
           },
           "provenance": [
             {
@@ -6283,6 +6464,11 @@
             {
               "key": "shell",
               "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
               "tier": "profile"
             },
             {
@@ -6301,7 +6487,8 @@
         "resolved": {
           "options": {
             "access": "read",
-            "effort": "medium"
+            "effort": "medium",
+            "memory": false
           },
           "provenance": [
             {
@@ -6342,6 +6529,11 @@
             {
               "key": "shell",
               "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
               "tier": "profile"
             },
             {
@@ -6366,7 +6558,8 @@
           "options": {
             "access": "read",
             "sandbox": "read-only",
-            "effort": "medium"
+            "effort": "medium",
+            "memory": false
           },
           "provenance": [
             {
@@ -6410,6 +6603,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
               "key": "tools",
               "value": "none (access preset)",
               "tier": "arg"
@@ -6430,7 +6628,8 @@
           "options": {
             "access": "read",
             "effort": "medium",
-            "sandbox": "read-only"
+            "sandbox": "read-only",
+            "memory": false
           },
           "provenance": [
             {
@@ -6471,6 +6670,11 @@
             {
               "key": "shell",
               "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
               "tier": "profile"
             },
             {
@@ -6504,6 +6708,7 @@
         "resolved": {
           "options": {
             "effort": "medium",
+            "memory": false,
             "access": "read"
           },
           "provenance": [
@@ -6548,6 +6753,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
               "key": "tools",
               "value": "none (a tools list would drop extension and MCP tools; harness default applies)",
               "tier": "profile"
@@ -6582,7 +6792,8 @@
             "tools": [
               "read"
             ],
-            "effort": "medium"
+            "effort": "medium",
+            "memory": false
           },
           "provenance": [
             {
@@ -6623,6 +6834,11 @@
             {
               "key": "shell",
               "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
               "tier": "profile"
             },
             {
@@ -6668,7 +6884,8 @@
               "read",
               "grep"
             ],
-            "effort": "medium"
+            "effort": "medium",
+            "memory": false
           },
           "provenance": [
             {
@@ -6720,6 +6937,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
               "key": "tools",
               "value": [
                 "read",
@@ -6745,7 +6967,8 @@
                 }
               }
             },
-            "effort": "medium"
+            "effort": "medium",
+            "memory": false
           },
           "provenance": [
             {
@@ -6794,6 +7017,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
               "key": "tools",
               "value": "none (a tools list would drop extension and MCP tools; harness default applies)",
               "tier": "profile"
@@ -6811,7 +7039,8 @@
             "discovery": {
               "tools": false
             },
-            "effort": "medium"
+            "effort": "medium",
+            "memory": false
           },
           "provenance": [
             {
@@ -6852,6 +7081,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
               "key": "tools",
               "value": "none (discovery.tools off)",
               "tier": "arg"
@@ -6866,7 +7100,8 @@
       "effort-tiers": {
         "resolved": {
           "options": {
-            "effort": "low"
+            "effort": "low",
+            "memory": false
           },
           "provenance": [
             {
@@ -6910,6 +7145,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
               "key": "tools",
               "value": "none (a tools list would drop extension and MCP tools; harness default applies)",
               "tier": "profile"
@@ -6924,7 +7164,8 @@
       "effort-arg-wins": {
         "resolved": {
           "options": {
-            "effort": "max"
+            "effort": "max",
+            "memory": false
           },
           "provenance": [
             {
@@ -6968,6 +7209,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
               "key": "tools",
               "value": "none (a tools list would drop extension and MCP tools; harness default applies)",
               "tier": "profile"
@@ -6983,6 +7229,7 @@
         "resolved": {
           "options": {
             "effort": "medium",
+            "memory": false,
             "questions": "assume",
             "timeout": 30
           },
@@ -7025,6 +7272,11 @@
             {
               "key": "shell",
               "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
               "tier": "profile"
             },
             {
@@ -7098,6 +7350,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
               "key": "tools",
               "value": "all-known",
               "tier": "harness"
@@ -7106,6 +7363,7 @@
           "unrenderable": [
             "sandbox",
             "contextWindow",
+            "memory",
             "tools"
           ]
         }
@@ -7158,6 +7416,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
               "key": "tools",
               "value": "all-known",
               "tier": "harness"
@@ -7171,6 +7434,7 @@
           "unrenderable": [
             "sandbox",
             "contextWindow",
+            "memory",
             "tools"
           ]
         }
@@ -7224,6 +7488,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
               "key": "tools",
               "value": "all-known",
               "tier": "harness"
@@ -7236,6 +7505,7 @@
           ],
           "unrenderable": [
             "contextWindow",
+            "memory",
             "tools"
           ]
         }
@@ -7289,6 +7559,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
               "key": "tools",
               "value": "all-known",
               "tier": "harness"
@@ -7301,6 +7576,7 @@
           ],
           "unrenderable": [
             "contextWindow",
+            "memory",
             "tools"
           ]
         }
@@ -7364,6 +7640,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
               "key": "tools",
               "value": "all-known",
               "tier": "harness"
@@ -7377,6 +7658,7 @@
           "unrenderable": [
             "sandbox",
             "contextWindow",
+            "memory",
             "tools"
           ]
         }
@@ -7443,6 +7725,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
               "key": "tools",
               "value": [
                 "read"
@@ -7452,7 +7739,8 @@
           ],
           "unrenderable": [
             "sandbox",
-            "contextWindow"
+            "contextWindow",
+            "memory"
           ]
         }
       },
@@ -7537,6 +7825,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
               "key": "tools",
               "value": [
                 "read",
@@ -7547,7 +7840,8 @@
           ],
           "unrenderable": [
             "sandbox",
-            "contextWindow"
+            "contextWindow",
+            "memory"
           ]
         }
       },
@@ -7606,6 +7900,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
               "key": "tools",
               "value": "all-known",
               "tier": "harness"
@@ -7614,6 +7913,7 @@
           "unrenderable": [
             "sandbox",
             "contextWindow",
+            "memory",
             "tools"
           ]
         }
@@ -7665,6 +7965,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
               "key": "tools",
               "value": "all-known",
               "tier": "harness"
@@ -7673,6 +7978,7 @@
           "unrenderable": [
             "sandbox",
             "contextWindow",
+            "memory",
             "tools"
           ]
         }
@@ -7724,6 +8030,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
               "key": "tools",
               "value": "all-known",
               "tier": "harness"
@@ -7732,6 +8043,7 @@
           "unrenderable": [
             "sandbox",
             "contextWindow",
+            "memory",
             "tools"
           ]
         }
@@ -7783,6 +8095,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
               "key": "tools",
               "value": "all-known",
               "tier": "harness"
@@ -7791,6 +8108,7 @@
           "unrenderable": [
             "sandbox",
             "contextWindow",
+            "memory",
             "tools"
           ]
         }
@@ -7844,6 +8162,11 @@
               "tier": "profile"
             },
             {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
               "key": "tools",
               "value": "all-known",
               "tier": "harness"
@@ -7862,6 +8185,7 @@
           "unrenderable": [
             "sandbox",
             "contextWindow",
+            "memory",
             "tools"
           ]
         }

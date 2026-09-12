@@ -1,0 +1,3 @@
+# ps eww on the claude child spawned by `node dist/cli.js run claude --json`
+# (harness-cli-normalizer, 2026-08-26, memory dimension default off):
+CLAUDE_CODE_DISABLE_AUTO_MEMORY=1

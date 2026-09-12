@@ -88,6 +88,9 @@ const EXPRESSIBLE: Readonly<Record<ProfileKey, (h: HarnessDescriptor) => boolean
   autonomy: () => true,
   write: () => true,
   shell: () => true,
+  // memory:false must render on claude/codex; pi's vacuous empty render
+  // makes it expressible there too. muse (no spec) reports divergence.
+  memory: (h) => h.turnOptions.memory !== undefined,
   tools: (h) => h.tools.includeFlag !== null || h.tools.excludeFlag !== null,
 };
 
@@ -123,26 +126,27 @@ export interface ResolvedBehavior {
   readonly timeoutSeconds: { readonly value: number | undefined; readonly tier: BehaviorTier };
 }
 
+const pickTier = <TValue>(
+  arg: TValue | undefined,
+  project: TValue | undefined,
+  user: TValue | undefined,
+  fallback: TValue,
+): { readonly value: TValue; readonly tier: BehaviorTier } => {
+  if (arg !== undefined) return { value: arg, tier: "arg" };
+  if (project !== undefined) return { value: project, tier: "project-config" };
+  if (user !== undefined) return { value: user, tier: "user-config" };
+  return { value: fallback, tier: "default" };
+};
+
 /** Precedence arg > project > user > default, with the tier the
  * provenance line prints. Timeout 0 is an explicit disable. */
 export const resolveBehavior = (
   args: { readonly questions?: QuestionMode; readonly timeoutSeconds?: number },
   tiers: ConfigTiers,
 ): ResolvedBehavior => {
-  const pick = <T>(
-    arg: T | undefined,
-    project: T | undefined,
-    user: T | undefined,
-    fallback: T,
-  ): { readonly value: T; readonly tier: BehaviorTier } => {
-    if (arg !== undefined) return { value: arg, tier: "arg" };
-    if (project !== undefined) return { value: project, tier: "project-config" };
-    if (user !== undefined) return { value: user, tier: "user-config" };
-    return { value: fallback, tier: "default" };
-  };
   return {
-    questions: pick(args.questions, tiers.project?.questions, tiers.user?.questions, "ask"),
-    timeoutSeconds: pick(
+    questions: pickTier(args.questions, tiers.project?.questions, tiers.user?.questions, "ask"),
+    timeoutSeconds: pickTier(
       args.timeoutSeconds,
       tiers.project?.timeout,
       tiers.user?.timeout,
@@ -159,6 +163,32 @@ const effectiveConfig = (tiers: ConfigTiers): ConfigTier => ({
   ...(tiers.user ?? {}),
   ...(tiers.project ?? {}),
 });
+
+/** Memory precedence for SESSION spawns (ratified 2026-08-26): sessions
+ * resolve the memory dimension like a bare launch does - arg > project >
+ * user > profile default false - because the decision is made once at
+ * spawn, not per turn. Pure so the precedence is unit-pinnable; the
+ * session CLI reports the tier and passes the value to openSession. */
+export interface MemoryResolution {
+  readonly memory: boolean;
+  readonly tier: "arg" | "project-config" | "user-config" | "profile";
+}
+
+export const resolveSessionMemory = (
+  arg: boolean | undefined,
+  tiers: {
+    readonly user?: Readonly<{ memory?: boolean }>;
+    readonly project?: Readonly<{ memory?: boolean }>;
+  },
+): MemoryResolution => {
+  const selected = pickTier<boolean>(
+    arg,
+    tiers.project?.memory,
+    tiers.user?.memory,
+    DEFAULT_TURN_PROFILE.memory,
+  );
+  return { memory: selected.value, tier: selected.tier === "default" ? "profile" : selected.tier };
+};
 
 /** Resolve the effective options for a LAUNCH. `args` is what the caller
  * passed explicitly (highest tier); `userConfig` the parsed config file;

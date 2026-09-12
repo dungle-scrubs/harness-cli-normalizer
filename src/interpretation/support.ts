@@ -11,7 +11,7 @@
  * argument rather than importing the defaults, so override sets work.
  */
 
-import type { HarnessDescriptor } from "../knowledge/descriptor.js";
+import type { HarnessDescriptor, OptionRender } from "../knowledge/descriptor.js";
 import type { DescriptorSet } from "../knowledge/overrides.js";
 import type { RefusalOption } from "./refusal.js";
 import type { VocabularyEntry } from "./tool-vocabulary.js";
@@ -31,6 +31,7 @@ const spellingOf = (h: HarnessDescriptor, option: RefusalOption): string | null 
       const read = spec.renders.read;
       if (read === "tool-preset") return h.tools.includeFlag ?? h.tools.excludeFlag ?? null;
       if (read === null) return null;
+      if (read.render.kind === "env") return `${read.render.name}=${read.render.value}`;
       return read.render.kind === "flag-list" ? (read.render.flags[0] ?? null) : read.render.flag;
     }
     case "tools":
@@ -51,6 +52,17 @@ const spellingOf = (h: HarnessDescriptor, option: RefusalOption): string | null 
     }
     case "autonomy":
       return h.autonomy?.flag ?? null;
+    case "memory": {
+      const spec = h.turnOptions.memory;
+      if (spec === undefined) return null;
+      const r = (spec as { readonly render: OptionRender }).render;
+      // The env render kind is not an argv flag - the caller-visible
+      // spelling is the assignment itself.
+      if (r.kind === "env") return `${r.name}=${r.value}`;
+      const flags = r.kind === "flag-list" ? r.flags : [];
+      // pi: vacuous support - no built-in memory, nothing to disable.
+      return flags.length > 0 ? flags.join(" ") : "(no built-in memory - already off)";
+    }
     case "isolation":
     case "effort":
     case "sandbox":
@@ -132,6 +144,7 @@ export const recognizeNativeSpelling = (
     "provider",
     "write",
     "shell",
+    "memory",
     "maxSteps",
   ];
   for (const option of candidates) {

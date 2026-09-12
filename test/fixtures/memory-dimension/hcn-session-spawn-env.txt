@@ -1,0 +1,6 @@
+# ps eww on the claude session child spawned by
+# `node dist/cli.js session claude --json` (send held the session open):
+# command: claude -p --input-format stream-json --output-format stream-json
+#          --include-partial-messages --verbose --setting-sources project
+#          --session-id <id>
+CLAUDE_CODE_DISABLE_AUTO_MEMORY=1

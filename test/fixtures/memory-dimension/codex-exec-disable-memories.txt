@@ -1,0 +1,3 @@
+# hcn run codex spawn line (default profile, memory off):
+# spawn: codex exec --json --skip-git-repo-check -c model_reasoning_effort="medium" --sandbox workspace-write --disable memories [prompt:960ch]
+# Model replied "ok", done cause clean, exit 0. 2026-08-26, codex-cli 0.149.1.

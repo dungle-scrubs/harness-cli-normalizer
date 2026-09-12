@@ -56,6 +56,11 @@ hcn session claude --model opus --session-id 550e8400-e29b-41d4-a716-44665544000
 hcn session pi --effort high
 ```
 
+Sessions resolve the memory dimension at spawn - default off, same as
+runs (`--memory` / `--no-memory`, config `memory` in both tiers;
+claude spawns with `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`, pi has no
+built-in memory).
+
 ### Saved native transcripts
 
 Inspect and export retained messages and tool results without resuming a model:
@@ -290,6 +295,7 @@ support; its native 10MB input cap still applies.
 | `--autonomy` / `--no-autonomy` | `autonomy` | |
 | `--write` / `--no-write` | `write` | Muse |
 | `--shell` / `--no-shell` | `shell` | Muse |
+| `--memory` / `--no-memory` | `memory` | Persistent cross-session memory, default OFF (profile). claude renders the `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` spawn env var (shown as an `env:` line in `inspect --argv`, never an argv token); codex renders `--disable memories`; pi has no built-in memory (renders nothing - already off); muse cannot turn memory off (explicit values refuse with a hint; the profile default reports divergence and muse's memory tools stay on). `--memory` removes HCN's disable override and uses native settings; it does not force memory on. Config key `memory` in both tiers |
 | `--max-steps <n>` | `maxSteps` | Muse, 1-10000 |
 | `--no-tools, --no-instruction-files, --no-extensions, --no-skills` | `discovery` | |
 | `--cwd <path>` | `cwd` | Working directory |
@@ -331,7 +337,7 @@ args  >  .hcn/config.json (git root, auto-discovered)  >  ~/.config/hcn/config.j
 The built-in profile pins the ratified defaults: effort `medium` (the only
 value in all four ladders), sandbox `workspace-write` (codex-only; reported
 as divergence elsewhere), context window `272000` (codex-only; divergence
-elsewhere), discovery fully on, autonomy off. A dimension a
+elsewhere), discovery fully on, autonomy off, memory off. A dimension a
 harness cannot express is reported as divergence, never a silent skip and
 never a refusal. Resume turns bypass turn-option resolution entirely - a
 session keeps its own settings. Question escalation (below) is the
@@ -342,6 +348,13 @@ User config (`~/.config/hcn/config.json`, `$XDG_CONFIG_HOME` respected):
 
 ```json
 { "version": 1, "effort": "high" }
+```
+
+`memory: true` in either config tier removes HCN's disable override for
+that machine or repo. Native memory settings still apply:
+
+```json
+{ "version": 1, "memory": true }
 ```
 
 Codex callers can set `"contextWindow": 100000` in either config file or

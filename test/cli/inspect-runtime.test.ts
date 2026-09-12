@@ -350,3 +350,57 @@ test.each(["claude", "codex", "pi", "muse"])(
     }
   },
 );
+
+test.each([
+  { flags: [], configured: undefined, disabled: true, tier: "profile" },
+  { flags: ["--memory"], configured: false, disabled: false, tier: "arg" },
+  { flags: ["--no-memory"], configured: true, disabled: true, tier: "arg" },
+  { flags: [], configured: true, disabled: false, tier: "user-config" },
+])(
+  "persistent inspection resolves memory like session startup: $tier $disabled",
+  ({ flags, configured, disabled, tier }) => {
+    const dir = mkdtempSync(join(tmpdir(), "hcn-session-memory-preview-"));
+    const calls = join(dir, "calls");
+    writeFileSync(
+      join(dir, "claude"),
+      `#!/bin/sh\nprintf '%s\\n' "$*" >> '${calls}'\nif [ "$1" = '--version' ]; then printf '999.0.0\\n'; else exit 73; fi\n`,
+      { mode: 0o700 },
+    );
+    if (configured !== undefined)
+      writeFileSync(join(dir, "config.json"), JSON.stringify({ version: 1, memory: configured }));
+    try {
+      const result = spawnSync(
+        "bun",
+        [
+          resolve("src/cli/index.ts"),
+          "inspect",
+          "claude",
+          "--runtime",
+          "--mode",
+          "headless-session",
+          "--resume",
+          "11111111-1111-4111-8111-111111111111",
+          ...flags,
+        ],
+        {
+          cwd: dir,
+          encoding: "utf8",
+          timeout: 30_000,
+          env: {
+            HOME: dir,
+            HCN_CONFIG_DIR: dir,
+            XDG_CONFIG_HOME: dir,
+            PATH: `${dir}:${env.PATH ?? ""}`,
+          },
+        },
+      );
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stderr.includes("env: CLAUDE_CODE_DISABLE_AUTO_MEMORY=1")).toBe(disabled);
+      expect(result.stderr).toContain(`provenance: memory = ${!disabled} (${tier})`);
+      expect(JSON.parse(result.stdout).argv).toContain("--resume");
+      expect(readFileSync(calls, "utf8").trim()).toBe("--version");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  },
+);

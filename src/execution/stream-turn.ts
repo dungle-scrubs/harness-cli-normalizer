@@ -17,6 +17,7 @@
  */
 import {
   buildSpawnArgv,
+  buildTurnEnv,
   type LaunchOptions,
   promptTextOf,
   stdinPromptOf,
@@ -212,8 +213,15 @@ export async function* streamTurn(
     throw e;
   }
 
+  // Descriptor-derived spawn env (claude's memory disable) merged OVER the
+  // caller's per-call env: an explicit normalized option beats a raw
+  // contradicting variable. Dropped keys ("" values) stay meaningful - only
+  // the caller's side can delete, the descriptor side only sets.
+  const turnEnv = buildTurnEnv(h, effective, effective.resume === undefined ? "launch" : "resume");
+  const mergedEnv: Record<string, string> = { ...(opts.env ?? {}), ...turnEnv };
+
   const matcherOverrides = matcherOverridesOf.get(h);
-  const envKeys = opts.env ? Object.keys(opts.env) : undefined;
+  const envKeys = Object.keys(mergedEnv).length > 0 ? Object.keys(mergedEnv) : undefined;
   log({
     event: "spawn",
     turnId,
@@ -237,7 +245,7 @@ export async function* streamTurn(
     proc = deps.spawn(argv, {
       stdin: stdinPrompt !== null ? "pipe" : h.stdin === "close-required" ? "close" : "inherit",
       ...(effective.cwd !== undefined ? { cwd: effective.cwd } : {}),
-      ...(effective.env !== undefined ? { env: effective.env } : {}),
+      ...(Object.keys(mergedEnv).length > 0 ? { env: mergedEnv } : {}),
     });
   } catch (cause) {
     // Spawn failure is a transport failure, not merely a crash

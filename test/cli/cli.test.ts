@@ -169,6 +169,8 @@ describe("harness-name validation", () => {
     const out = await captureDispatch(["session", "pi", "--help"]);
     expect(out.exitCode).toBeUndefined();
     expect(out.stdout).toContain("--questions");
+    // memory dimension ships on the session surface too (ratified 2026-08-26)
+    expect(out.stdout).toContain("--no-memory");
     // the session surface carries the effort dimension (validated per
     // harness/model, like the run surface)
     expect(out.stdout).toContain("--effort <value>");
@@ -439,6 +441,73 @@ describe("flag mapping and validation", () => {
       "--no-write",
     ]);
     expect(out.stdout).toContain("--disable-write");
+  });
+
+  test("memory dimension: conflicting flags refuse before a preview or session spawn", async () => {
+    for (const args of [
+      ["inspect", "claude", "--argv", "--prompt", "synthetic"],
+      ["session", "claude", "--json"],
+    ]) {
+      const out = await captureDispatch([...args, "--memory", "--no-memory"]);
+      expect(out.exitCode).toBe(2);
+      expect(out.stderr).toContain("--memory and --no-memory");
+    }
+  });
+
+  test("memory dimension: claude preview shows the env assignment, not argv tokens", async () => {
+    const out = await captureDispatch(["inspect", "claude", "--argv", "--prompt", "hi"]);
+    // profile default memory:off renders a spawn env var (ratified 2026-08-26)
+    expect(out.stderr).toContain("env: CLAUDE_CODE_DISABLE_AUTO_MEMORY=1");
+    expect(out.stdout).not.toContain("AUTO_MEMORY");
+  });
+
+  test("memory dimension: resume preview carries the env line too (claude)", async () => {
+    const out = await captureDispatch([
+      "inspect",
+      "claude",
+      "--argv",
+      "--prompt",
+      "hi",
+      "--no-memory",
+      "--resume",
+      "eb04301d-8756-4a8b-ae3e-aac0e71f7265",
+    ]);
+    expect(out.exitCode).toBeUndefined();
+    expect(out.stderr).toContain("env: CLAUDE_CODE_DISABLE_AUTO_MEMORY=1");
+  });
+
+  test("memory dimension: --memory opts back in over the profile", async () => {
+    const out = await captureDispatch([
+      "inspect",
+      "claude",
+      "--argv",
+      "--prompt",
+      "hi",
+      "--memory",
+    ]);
+    expect(out.stderr).not.toContain("CLAUDE_CODE_DISABLE_AUTO_MEMORY");
+  });
+
+  test("memory dimension: codex preview carries --disable memories by default", async () => {
+    const out = await captureDispatch(["inspect", "codex", "--argv", "--prompt", "hi"]);
+    expect(out.stdout).toContain("--disable");
+    const parsed = JSON.parse(out.stdout.trim().split("\n")[0] ?? "[]") as string[];
+    expect(parsed[parsed.indexOf("--disable") + 1]).toBe("memories");
+  });
+
+  test("memory dimension: muse reports divergence by default, refuses an explicit --no-memory", async () => {
+    const bare = await captureDispatch(["inspect", "muse", "--argv", "--prompt", "hi"]);
+    expect(bare.stderr).toContain('divergence: profile "memory" not expressible on muse');
+    const refused = await captureDispatch([
+      "inspect",
+      "muse",
+      "--argv",
+      "--prompt",
+      "hi",
+      "--no-memory",
+    ]);
+    expect(refused.exitCode).toBe(2);
+    expect(refused.stderr).toContain("no CLI flag or config key");
   });
 
   test("max-steps integer validation", async () => {

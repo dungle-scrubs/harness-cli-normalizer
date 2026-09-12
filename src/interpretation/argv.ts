@@ -81,6 +81,12 @@ export interface TurnOptions {
   readonly discovery?: DiscoveryOptions;
   readonly write?: boolean;
   readonly shell?: boolean;
+  /** Persistent cross-session memory (ratified 2026-08-26). false = the
+   * harness loads no cross-session memory into context (profile default);
+   * true = opt back in. claude renders a spawn env var, codex a feature
+   * flag, pi is vacuously off, muse refuses explicit values (no off
+   * switch exists - memory stays on, reported as divergence). */
+  readonly memory?: boolean;
   readonly maxSteps?: number;
   /** issue #48: replaces the harness's built-in system prompt (opt-in-only,
    * no profile entry). claude/pi: flag-value (claude pairs the dynamic-section
@@ -171,10 +177,27 @@ const turnTail = (h: HarnessDescriptor, opts: TurnOptions): string[] => {
 export const buildLaunchArgv = (h: HarnessDescriptor, opts: LaunchOptions): string[] => [
   h.bin,
   ...h.launch.baseFlags,
-  ...renderTurnOptions(h, opts, "launch", "before-prompt"),
+  ...renderTurnOptions(h, opts, "launch", "before-prompt").tokens,
   ...turnTail(h, opts),
-  ...renderTurnOptions(h, opts, "launch", "after-prompt"),
+  ...renderTurnOptions(h, opts, "launch", "after-prompt").tokens,
 ];
+
+/** Descriptor-derived spawn-env assignments for a turn (claude's memory
+ * disable is an env var, not a flag). Pure data: merge OVER the caller's
+ * env at spawn - an explicit normalized option beats a contradicting raw
+ * variable. Phase matches how the argv was built; env-kind renders
+ * contribute no tokens, so the argv builders ignore them by construction.
+ * The input is Pick<TurnOptions, "memory"> because memory is the only
+ * dimension that can render env today - widen deliberately if a second
+ * env-kind option lands. */
+export const buildTurnEnv = (
+  h: HarnessDescriptor,
+  opts: Pick<TurnOptions, "memory">,
+  phase: "launch" | "resume",
+): Record<string, string> => {
+  const { env } = renderTurnOptions(h, { prompt: "", memory: opts.memory }, phase);
+  return env;
+};
 
 /** A session id that fails the shape rule is a spawn-boundary refusal like
  * any other: typed, so streamTurn turns it into failure + done and the CLI
@@ -210,9 +233,9 @@ export const buildResumeArgv = (h: HarnessDescriptor, opts: ResumeOptions): stri
     h.resume.flag,
     opts.sessionId,
     ...h.resume.extraFlags,
-    ...renderTurnOptions(h, opts, "resume", "before-prompt"),
+    ...renderTurnOptions(h, opts, "resume", "before-prompt").tokens,
     ...turnTail(h, opts),
-    ...renderTurnOptions(h, opts, "resume", "after-prompt"),
+    ...renderTurnOptions(h, opts, "resume", "after-prompt").tokens,
   ];
 };
 
@@ -298,7 +321,7 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
           ...(opts.model !== undefined ? { model: opts.model } : {}),
         } as TurnOptions,
         "launch",
-      ),
+      ).tokens,
     );
   }
   return argv;
