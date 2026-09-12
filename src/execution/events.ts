@@ -15,6 +15,7 @@
  * concatenate both.
  */
 import type { CapabilityResult } from "../interpretation/capabilities.js";
+import type { QuestionMode } from "../interpretation/question.js";
 import type { LimitCode } from "../knowledge/descriptor.js";
 import type { FailureSummary } from "./failure.js";
 
@@ -29,7 +30,9 @@ export type ExitCause =
    * SUCCESSFUL turn (process exit 0); the caller resumes with the answer. */
   | "awaiting-input";
 
-export type EscalationMode = "ask" | "assume" | "none";
+/** The question mode the turn ran under - the one vocabulary question.ts
+ * owns, recorded on done per RFC-01. */
+export type EscalationMode = QuestionMode;
 export type EscalationDetection = "block" | "malformed" | "none";
 export interface EscalationRecord {
   readonly mode: EscalationMode;

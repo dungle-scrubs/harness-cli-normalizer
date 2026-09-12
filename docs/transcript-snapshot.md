@@ -1,0 +1,31 @@
+# Passive filesystem snapshots
+
+Claude and Muse native histories are read through a private filesystem clone. Pi and Codex retain their separate append-only source rules. This page defines the clone rule used by `claude-file-v1` and `muse-file-v1`; it does not change the native writer's persistence semantics.
+
+## Acquisition and lifetime
+
+HCN creates a private temporary directory for one call and starts its packaged `hcn-transcript-clone` helper. The helper opens the selected source read-only, checks that the open descriptor identifies a regular file, and requests a copy-on-write clone through `fclonefileat` on macOS or `FICLONE` on Linux. It never starts a harness, imports native configuration, calls an exporter, changes source permissions, or acquires a writer lock. There is no ordinary-copy fallback.
+
+The clone fixes the source bytes for the read. HCN captures its finite size, parses only complete UTF-8 LF framing units, validates native identity and format, and keeps every retained record in physical order. Later writes to the original do not change the cloned data. A source path replacement after opening does not retarget the helper's source descriptor; the result's native identity comes from the cloned content.
+
+A clone can occur between native writes, including between a truncate and a later append. It is a byte view, not a native multi-write transaction. Complete coverage means the complete retained framing units in that view. It does not prove that earlier records never existed, that a writer finished its operation, or that saved branch metadata is live selection. Malformed complete records fail; incomplete final framing is reported and excluded from progress. A new read may see more retained data or require a fresh read after a rewrite.
+
+Snapshot acquisition has a five-second helper deadline. On interruption or failure, HCN terminates and drains the helper with a one-second cleanup bound. Closing the returned file removes the private clone; the shared transcript reader requires cleanup before a successful result. Filesystem errors or unsupported clone operations fail the read with no bookmark. Uncatchable termination or denied cleanup can leave temporary material. HCN never treats leftovers as persistent state or uses them on a later call.
+
+Bookmarks contain the method, native identity, entry count, byte boundary and digest of every committed prefix byte. Continuation takes a new clone and verifies that whole prefix. A changed or missing prefix produces `fresh-read-required`; HCN does not silently restart or retain an archive.
+
+## Platforms, filesystems, and packaging
+
+The package includes a universal macOS helper (arm64/x86_64, macOS 11 or later), and statically linked Linux x64 and Linux arm64 helpers. Release builds require all three artifacts and verify their C source, builder and executable hashes before packaging. Valid artifacts are reused, including during release packaging. Users do not need a C compiler. A source checkout needs a C compiler to build its current-platform helper. Other platforms cannot use these snapshot methods.
+
+The source and temporary directory must support the same-filesystem clone operation. APFS supports macOS clones; Linux support depends on the filesystem and its configuration, such as reflink-enabled XFS. Cross-filesystem sources and temporary directories can fail. `TMPDIR` selects Node's temporary root; use a caller-owned private location on the source filesystem when needed. Inspection reports the method's prerequisites without opening a source or testing the filesystem. A clone refusal is a runtime failure, not an instruction to resume the harness or fall back to an unsafe read.
+
+The native-helper workflow builds the three targets and runs the synthetic clone probe. Linux CI creates a temporary reflink-enabled XFS filesystem for the probe and transcript tests. These workflow definitions are not evidence that a remote CI run has completed.
+
+## Evidence and limits
+
+- Apple's installed `clonefile(2)` manual documents descriptor-based clones and copy-on-write separation. The [APFS guide](https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/APFS_Guide/Features/Features.html) describes clone behavior. The guide is retired. The [public XNU implementation](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/vfs/vfs_syscalls.c) routes `fclonefileat` through the held source vnode; it does not expose APFS's full implementation.
+- Linux's [FICLONERANGE/FICLONE manual](https://man7.org/linux/man-pages/man2/FICLONERANGE.2const.html) explicitly states atomicity against concurrent writes. This is a filesystem clone guarantee, not an application transaction guarantee.
+- The [synthetic probe](../research/transcripts/snapshot/probe.mjs) accepts the packaged helper as its first argument, or compiles the C source when omitted. It checks clone independence and distinct inodes, rejects missing/nonregular sources and existing destinations, then clones while a worker alternates two 1 MiB patterns. Each clone must contain one complete pattern. The [macOS arm64 result](../research/transcripts/snapshot/results-darwin-arm64.json), [Linux arm64 result](../research/transcripts/snapshot/results-linux-arm64.json) and [Linux x64 result](../research/transcripts/snapshot/results-linux-x64.json) record the OS, runtime, helper source/executable hashes and counts. Linux ran in disposable OrbStack containers using `node:24-bookworm`, with networking disabled and only the public source/probe/helper mounted read-only. The x64 process ran under emulation on the arm64 host. No native or private transcript is used.
+- The probe is an observation on those hosts, not proof for every OS or filesystem. It does not simulate a native multi-write transaction. The authored CI job remains separate from these local runtime observations.
+- Node 24.15.0/libuv 1.51.0 returned `ENOSYS` for forced copy-on-write `copyFile` on the tested Mac. Bun's corresponding call succeeded. HCN uses one packaged helper so both runtimes enforce the same no-fallback operation. macOS `cp -c` was rejected as an implementation because its [source](https://github.com/apple-oss-distributions/file_cmds/blob/main/cp/utils.c) permits ordinary-copy fallback.

@@ -9,6 +9,7 @@
 import { type ChildProcess, spawn as nodeSpawn } from "node:child_process";
 import type { Readable } from "node:stream";
 import type { Clock, RunnerDeps, SpawnedProcess, SpawnOptions } from "./deps.js";
+import { mergeEnvironment } from "./environment.js";
 
 const children = new WeakMap<SpawnedProcess, ChildProcess>();
 
@@ -91,22 +92,7 @@ export const disposableOutputStream = (
 const realSpawn = (argv: readonly string[], opts: SpawnOptions): SpawnedProcess => {
   const [bin, ...args] = argv;
   if (bin === undefined) throw new Error("empty argv");
-  const env =
-    opts.env === undefined
-      ? undefined
-      : (() => {
-          const merged: Record<string, string | undefined> = { ...process.env };
-          for (const [k, v] of Object.entries(opts.env)) {
-            if (v === "") delete merged[k];
-            else merged[k] = v;
-          }
-          // Filter out undefined to satisfy Node's env type (string -> string)
-          const out: Record<string, string> = {};
-          for (const [k, v] of Object.entries(merged)) {
-            if (v !== undefined) out[k] = v;
-          }
-          return out;
-        })();
+  const env = mergeEnvironment(process.env, opts.env);
   const child = nodeSpawn(bin, args, {
     ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
     ...(env !== undefined ? { env } : {}),
@@ -116,7 +102,14 @@ const realSpawn = (argv: readonly string[], opts: SpawnOptions): SpawnedProcess 
       "pipe",
     ],
   });
+  const inputError = new Promise<void>((resolve) => {
+    child.stdin?.once("error", () => resolve());
+  });
   let outputDisposed = false;
+  let outputDisposedResolve!: () => void;
+  const outputDisposal = new Promise<void>((resolve) => {
+    outputDisposedResolve = resolve;
+  });
   const stdoutDisposalCause = new Error("stdout disposed by runner");
   const stderrDisposalCause = new Error("stderr disposed by runner");
   let spawnError: Error | null = null;
@@ -150,10 +143,13 @@ const realSpawn = (argv: readonly string[], opts: SpawnOptions): SpawnedProcess 
   // immediately while an async ENOENT remains the single spawn-error signal.
   const stderrWithError = async function* (): AsyncIterable<string | Uint8Array> {
     if (stderrOutput !== null) yield* stderrOutput.stream;
-    await exited;
+    // Terminal output disposal must also settle this tail when a child has
+    // closed stderr but has not exited. The caller owns signalling it.
+    await Promise.race([exited, outputDisposal]);
     if (spawnError !== null) yield `spawn failed: ${(spawnError as Error).message}\n`;
   };
   const proc: SpawnedProcess = {
+    inputError,
     stdout: stdoutOutput === null ? emptyStream() : stdoutOutput.stream,
     stderr: stderrWithError(),
     exited,
@@ -161,6 +157,7 @@ const realSpawn = (argv: readonly string[], opts: SpawnOptions): SpawnedProcess 
     disposeOutput: (): void => {
       if (outputDisposed) return;
       outputDisposed = true;
+      outputDisposedResolve();
       stdoutOutput?.dispose();
       stderrOutput?.dispose();
     },

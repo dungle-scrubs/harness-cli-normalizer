@@ -1,6 +1,6 @@
 /**
  * The claude-code descriptor: facts about the `claude` CLI as data, verified
- * against claude 2.1.233 and the 00-chat-substrate spike evidence (A-001,
+ * against claude 2.1.263 and the 00-chat-substrate spike evidence (A-001,
  * A-002, A-005). No process logic lives here.
  *
  * Discovery: claude 2.1.233 has no isolated instruction-file toggle.
@@ -9,7 +9,9 @@
  * `ANTHROPIC_API_KEY` / `apiKeyHelper` (OAuth never read) - so a caller
  * authenticated via OAuth would break. The descriptor therefore offers no
  * `instructionFiles` facet and a call passing it must refuse. Likewise
- * `tools` has no discovery flag on claude and refuses.
+ * `tools` has no discovery flag on claude and refuses. The explicit
+ * tool-free isolation composite below accepts the bare-mode auth cost and
+ * disables native tools too. It is separate from a granular discovery facet.
  *
  * Effort: A-002 showed `--effort bogus` warns on stderr and runs at DEFAULT
  * effort, exit 0, with nothing echoed in the stream. The library-side
@@ -17,17 +19,23 @@
  */
 import { deepFreeze, type HarnessDescriptor, UUID_SHAPE } from "./descriptor.js";
 import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
+import { CLAUDE_TRANSCRIPT } from "./transcript/claude.js";
+
+const STREAM_INPUT_FLAGS = ["--input-format", "stream-json"] as const;
 
 export const claudeCode: HarnessDescriptor = deepFreeze({
   name: "claude",
+  transcript: CLAUDE_TRANSCRIPT,
   bin: "claude",
-  verifiedAgainst: "2.1.233",
+  verifiedAgainst: "2.1.263",
   versionSource: { kind: "npm", package: "@anthropic-ai/claude-code" },
   launch: {
     baseFlags: ["-p"],
     subcommands: [],
     promptStyle: "positional",
-    toolsFlag: "--allowedTools",
+    // Print mode accepts piped text. Keep ordinary argv introspection
+    // stable while staying below per-argument limits for large requests.
+    stdinPrompt: { argument: "", aboveBytes: 65_536 },
     // A headless turn launches with the full stream-json output set so the
     // runner can decode identity/limits and stream token deltas; bare -p
     // (granularity none) is a degraded invocation this builder never emits.
@@ -66,8 +74,7 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     // recalls codeword "pomegranate".
     flags: [
       "-p",
-      "--input-format",
-      "stream-json",
+      ...STREAM_INPUT_FLAGS,
       "--output-format",
       "stream-json",
       "--include-partial-messages",
@@ -116,9 +123,16 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
   autonomy: { flag: "--dangerously-skip-permissions" },
   vocabulary: {
     modelFlag: "--model",
-    models: ["claude-fable-5", "claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5-20251001"],
+    // https://platform.claude.com/docs/en/models/fable-5-1/overview
+    models: [
+      "claude-fable-5-1",
+      "claude-fable-5",
+      "claude-opus-5",
+      "claude-sonnet-5",
+      "claude-haiku-4-5-20251001",
+    ],
     aliases: {
-      fable: "claude-fable-5",
+      fable: "claude-fable-5-1",
       opus: "claude-opus-5",
       sonnet: "claude-sonnet-5",
       haiku: "claude-haiku-4-5-20251001",
@@ -138,6 +152,15 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     // route accordingly, do not call per stdout line.
     object: "context_window",
     usedPctField: "used_percentage",
+  },
+  nativeContextManagement: {
+    kind: "native-session-auto-compaction",
+    modes: ["headless-turn"],
+  },
+  contextInspection: {
+    kind: "claude-control-v1",
+    flags: [...STREAM_INPUT_FLAGS, "--no-session-persistence", "--replay-user-messages"],
+    forkFlag: "--fork-session",
   },
   resumeLast: null,
   stdin: "inherit",
@@ -159,9 +182,20 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
   // records a model id - absence of evidence, not an unset field.
   escalation: {
     supported: true,
-    observedOn: { harness: "claude", model: "", version: "2.1.235", date: "2026-08-19" },
+    observedOn: { harness: "claude", model: "sonnet", version: "2.1.263", date: "2026-09-07" },
   },
   turnOptions: {
+    // Native CLI reference: bare removes discovery; the empty built-in list and
+    // MCP deny remove tool access. Resume and native overrides are refused.
+    isolation: {
+      kind: "enum",
+      values: ["tool-free"],
+      resumeRender: null,
+      render: {
+        kind: "flag-list",
+        flags: ["--bare", "--tools", "", "--disallowedTools", "mcp__*", "--strict-mcp-config"],
+      },
+    },
     effort: { kind: "effort", render: { kind: "flag-value", flag: "--effort" } },
     // issue #48, live-verified 2.1.235: --system-prompt replaces the built-in
     // prompt; --exclude-dynamic-system-prompt-sections strips the dynamic
@@ -198,7 +232,9 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
         },
       },
     },
-    access: { kind: "tool-preset", render: { kind: "flag-value", flag: "--allowedTools" } },
+    // read renders the read preset through the tool list (grant plus deny
+    // complement); write is the harness default and emits nothing.
+    access: { kind: "access", renders: { read: "tool-preset", write: null } },
     // Persistent auto-memory (loads ~/.claude/projects/<slug>/memory/ into
     // the system prompt each session) is disabled ONLY via env var - there
     // is no argv flag. Live-verified 2.1.241 (evidence:
@@ -226,7 +262,6 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     includeFlag: "--allowedTools",
     excludeFlag: "--disallowedTools",
     includeIsStrictAllowlist: false,
-    composable: true,
     builtins: [
       { name: "Bash", defaultEnabled: true, canonical: "shell" },
       { name: "Edit", defaultEnabled: true, canonical: "edit" },

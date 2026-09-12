@@ -53,12 +53,30 @@ Session (claude, pi):
 ```bash
 hcn session claude
 hcn session claude --model opus --session-id 550e8400-e29b-41d4-a716-446655440000
+hcn session pi --effort high
 ```
 
 Sessions resolve the memory dimension at spawn - default off, same as
 runs (`--memory` / `--no-memory`, config `memory` in both tiers;
 claude spawns with `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`, pi has no
 built-in memory).
+
+### Saved native transcripts
+
+Inspect and export retained messages and tool results without resuming a model:
+
+```sh
+hcn inspect pi --transcript
+hcn transcript read pi --file /path/to/native.jsonl > transcript.jsonl
+```
+
+Pi v3 supports full reads, batches, and caller-held bookmarks. Codex 0.147.0
+legacy and paginated rollouts support full reads, ID lookup, batches, and
+bookmarks, including verified inherited ranges. Compressed sources are
+unsupported. Claude main-file history and Muse schema-1 session logs support
+ID/file reads, batches and bookmarks through a passive filesystem clone on
+supported macOS/Linux filesystems. See [native transcript reads](docs/transcripts.md)
+for capability checks, failure handling, custom Pi conditions, and consumer rules.
 
 ### Machine session (`hcn session <harness> --json`)
 
@@ -99,14 +117,15 @@ stdin carries one command per line (blank lines are ignored):
 ```
 
 - Every well-formed `send`/`answer` gets exactly one `disposition` event,
-  in command order. `started`: no turn was open, the text was written, a
-  turn opened. `queued`: a turn was open, the text is held for the next
-  turn boundary. `rejected`: the text was not delivered and will not be.
+  in command order. `started`: the text was written to the harness. When
+  no turn was open, a turn opened; when one was, the harness holds the
+  text natively and the next turn consumes it (hcn keeps no queue of its
+  own - ADR 0007). `rejected`: the text was not delivered and will not be.
   Rejected reasons: `closed` (session closing or harness dead),
   `no-open-question` (`answer` with no `awaiting-input` turn to answer),
   `write-failed` (the harness's stdin pipe broke; a `closed` follows).
-- A queued send's id rides to the turn that consumes it: correlate by
-  reading `turn.id`, not by counting turns.
+- A send's id rides to the turn it opens: correlate by reading `turn.id`,
+  not by counting turns.
 - `answer` composes hcn's question-answer preamble
   (`The user answered the question: "<q>" with: <text>. Continue accordingly.`)
   around the text, so the consumer never re-derives it. A plain `send` after
@@ -118,7 +137,7 @@ disposition, and the session continues.
 
 Exit codes: 0 when `closed.cause` is `clean`; 1 otherwise; 2 for a refusal
 before the stream opens (invalid flag, no-session-mode harness, unknown
-model, provider off pi, bad `--stall`). A refusal still owes the stream its
+model, unknown effort, provider off pi, bad `--stall`). A refusal still owes the stream its
 terminal pair: the prose goes to stderr, and stdout carries
 `{"kind":"failure",...}` then `{"kind":"closed","cause":"failed"}`. A spawn
 failure (harness binary missing) writes a `transport` failure and the same
@@ -131,7 +150,11 @@ Session flags on `--json`: `--stall <seconds>` is a per-turn inactivity
 budget - a turn that produces no output for the budget ends `done` with
 `cause: "stall"` and the session closes with `cause: "stall"`. `0`
 disables it; there is no default. `--provider` is pi only, validated the
-same way as on `hcn run` and refused elsewhere with exit 2. The other
+same way as on `hcn run` and refused elsewhere with exit 2. `--effort <v>`
+sets the effort for the session spawn, validated against the ladder that
+applies to the picked `--model` exactly as on `hcn run` (claude `--effort`,
+pi `--thinking`); a session without it runs at the harness's own default
+- no profile effort is pinned onto sessions. The other
 session flags (`--model`, `--session-id`, `--cwd`, `--escalate-questions` /
 `--no-escalate-questions`) behave as in the REPL.
 
@@ -180,17 +203,91 @@ hcn check --json
 given `--mode` (`headless-turn` | `headless-session` | `interactive`;
 default `headless-turn`) and `--model` (absent = the harness default model;
 a model outside the vocabulary degrades to `source: "unknown"`). It is
-mutually exclusive with `--argv`.
+mutually exclusive with `--argv` and `--runtime`.
+
+`hcn inspect claude --context --model opus --prompt-file request.txt --json`
+reports a native estimate of the full staged request, including native history
+when `--resume ID` is given. The result includes the resolved executable,
+version, observed model, used tokens, and supported input limit. Callers own
+their extra reserve and dispatch policy. The probe forks resumed sessions with
+persistence disabled and stages the prompt with `shouldQuery:false`; it never
+asks the assistant to execute it. Native startup hooks can still run. The
+Claude headless-turn adapter supports this operation, including fresh
+`--isolation tool-free` requests. It validates the native operation independently
+of version metadata. Other adapters report unavailable.
+Persistent-process accounting is not established by this command. It refuses
+native passthrough and other inspection modes, bounds serialized prompts to
+8 MiB, and defaults to a 30-second deadline followed by bounded process cleanup.
+A positive `--timeout` or configured timeout changes that deadline; zero keeps
+the bounded default. Interruption aborts and cleans up before exiting 1.
+Invalid requests exit 2 with the standard failure/done pair under `--json`.
+An ordinary inspection returns one version-1 JSON object. `accounting.status`
+is `available` or `unavailable`; an available result carries
+`method: "native-context-estimate"`, `model`, `totalTokens`,
+`contextWindowTokens`, and `inputLimitTokens`. The input limit is the smaller
+of the native window and its enabled automatic-compaction threshold.
+Unavailable reasons distinguish unsupported adapters,
+auth or limit failures, native exits, transport bounds/errors, invalid native
+protocol, timeout, cancellation, and cleanup failure. Neither an unavailable
+result nor a total window alone is permission to dispatch. Usage remains
+provisional until output and cleanup settle. Query activity, unknown frame
+categories, malformed usage, or incomplete output invalidate the count.
+Known startup hooks, command lifecycle, nonblocking rate notices, and successful
+zero-turn results are permitted, including nonzero aggregate usage.
+`transport` with `executable.path: null` means the executable could not be
+resolved; `resume.reason` supplies that safe explanation. Otherwise transport
+denotes a failure to open or use the process channel.
+
+Descriptor inspection separately exposes `nativeContextManagement`: Codex
+0.153.4 and Muse 1.1.1 declare `{ kind: "auto-compaction", modes: ["headless-turn"] }`.
+Claude declares `{ kind: "native-session-auto-compaction", modes: ["headless-turn"] }`.
+This covers native session growth; callers must still prepare imported history.
+Fresh mandatory content can exceed the native request limit, and compaction
+does not promise lossless recall. Pi emits null.
+These declarations describe native handling, not a count or a
+successful budget check. Callers decide whether to delegate context management
+after verifying the selected executable and mode. Codex and Muse preflight accounting
+continue to return `unsupported-adapter`. A declaration is a curated descriptor
+fact; it does not detect whether native compaction is currently enabled.
+
+`hcn inspect <harness> --runtime --prompt "validation"` reports version-1
+JSON containing redacted argv, the resolved executable path and version,
+the adapter's verified version, and native-resume compatibility. This runs
+only a version probe. The argv is a diagnostic preview, not a command to
+execute. All four harnesses use invocation-based resume admission, including
+supported persistent sessions. A resolved executable and a supported invocation
+are required; missing or different version metadata does not reject them.
+The native operation can still fail on changed flags, protocol, or session state.
+No admission result proves session existence or
+recall. Pass the same working folder and options as the intended turn.
+
+For persistent resume use `--mode headless-session --resume <session-id>`.
+That preview needs no prompt and accepts model, effort, provider, and cwd.
+It refuses other process options that persistent startup cannot apply,
+including tool grants, environment overrides, and native passthrough.
 
 Flag table (maps to `TurnOptions` / `TurnRunOptions`):
+
+Claude prompts larger than 65,536 UTF-8 bytes use native print-mode stdin,
+with an empty prompt argument. This applies to fresh and resumed turns and
+keeps large requests out of the operating system's argument limit. The
+descriptor reports this alternate transport as `launch.stdinPrompt`.
+The same composed prompt is written once and stdin is closed. A broken pipe
+is a transport failure and terminates that child; a late pipe error after
+the child exits preserves its native failure classification. Ordinary prompts retain
+their existing argv shape. This uses Claude's documented
+[piped input](https://code.claude.com/docs/en/headless#pipe-data-through-claude)
+support; its native 10MB input cap still applies.
 
 | CLI flag | TurnOptions field | Notes |
 |---|---|---|
 | `--prompt <text>` | `prompt` | Alternative to positional; mutual exclusion |
 | `--prompt-file <path\|->` | `prompt` | Reads UTF-8 file or stdin (`-`) |
+| `--isolation <tool-free>` | `isolation` | Fresh Claude run only; no tools or native discovery; invocation-only |
 | `--model <id>` | `model` | Validated via `validateModel` |
 | `--effort <value>` | `effort` | Validated via `validateEffort` |
 | `--sandbox <value>` | `sandbox` | Codex only |
+| `--context-window <tokens>` | `contextWindow` | Codex, integer 1-272000; launch default 272000 |
 | `--provider <value>` | `provider` | pi only |
 | `--tools <a,b>` | `tools` | Canonical names (read, write, edit, shell, grep, glob, list, web-fetch, web-search, subagent, skill); `native:<name>` passes a harness-native or extension tool through. Per-tool allowlist; claude and pi (pi strict, claude via grant + deny-complement). A bare name matching a configured toolset expands to it |
 | `--exclude-tools <a,b>` | `excludeTools` | Canonical names (same vocabulary, `native:<name>` passthrough); complement over known tool names; mutually exclusive with `--tools` |
@@ -198,7 +295,7 @@ Flag table (maps to `TurnOptions` / `TurnRunOptions`):
 | `--autonomy` / `--no-autonomy` | `autonomy` | |
 | `--write` / `--no-write` | `write` | Muse |
 | `--shell` / `--no-shell` | `shell` | Muse |
-| `--memory` / `--no-memory` | `memory` | Persistent cross-session memory, default OFF (profile). claude renders the `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` spawn env var (shown as an `env:` line in `inspect --argv`, never an argv token); codex renders `--disable memories`; pi has no built-in memory (renders nothing - already off); muse cannot turn memory off (explicit values refuse with a hint; the profile default reports divergence and muse's memory tools stay on). `--memory` opts back in per-run; config key `memory` in both tiers |
+| `--memory` / `--no-memory` | `memory` | Persistent cross-session memory, default OFF (profile). claude renders the `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` spawn env var (shown as an `env:` line in `inspect --argv`, never an argv token); codex renders `--disable memories`; pi has no built-in memory (renders nothing - already off); muse cannot turn memory off (explicit values refuse with a hint; the profile default reports divergence and muse's memory tools stay on). `--memory` removes HCN's disable override and uses native settings; it does not force memory on. Config key `memory` in both tiers |
 | `--max-steps <n>` | `maxSteps` | Muse, 1-10000 |
 | `--no-tools, --no-instruction-files, --no-extensions, --no-skills` | `discovery` | |
 | `--cwd <path>` | `cwd` | Working directory |
@@ -215,6 +312,20 @@ Flag table (maps to `TurnOptions` / `TurnRunOptions`):
 
 For development, `bun run demo claude "hi"` remains as a live-rendering alternative.
 
+### Tool-free turns
+
+`hcn run claude --isolation tool-free --model opus --effort high --timeout 60 "Name this quoted prompt"`
+starts a separate turn with built-in tools and MCP tools disabled. It also
+skips native instruction, hook, skill, and extension discovery. This option
+is invocation-only. Other harnesses refuse it. Resume, sessions, native
+passthrough, and explicit tool, skill, access, autonomy, or discovery overrides
+refuse. Config defaults for these dimensions yield to tool-free isolation;
+model and effort defaults still apply.
+
+Claude uses bare mode, which requires authentication that works in that mode;
+OAuth-only installations may fail. A caller doing optional naming must keep
+its fallback on failure. See the [native CLI reference](https://code.claude.com/docs/en/cli-reference).
+
 ## Defaults, config, provenance
 
 Every launch resolves through one precedence chain:
@@ -225,9 +336,8 @@ args  >  .hcn/config.json (git root, auto-discovered)  >  ~/.config/hcn/config.j
 
 The built-in profile pins the ratified defaults: effort `medium` (the only
 value in all four ladders), sandbox `workspace-write` (codex-only; reported
-as divergence elsewhere), discovery fully on, autonomy off, memory off
-(`--memory` opts back in; see the flag table for the per-harness
-renderings and the muse exception). A dimension a
+as divergence elsewhere), context window `272000` (codex-only; divergence
+elsewhere), discovery fully on, autonomy off, memory off. A dimension a
 harness cannot express is reported as divergence, never a silent skip and
 never a refusal. Resume turns bypass turn-option resolution entirely - a
 session keeps its own settings. Question escalation (below) is the
@@ -240,12 +350,21 @@ User config (`~/.config/hcn/config.json`, `$XDG_CONFIG_HOME` respected):
 { "version": 1, "effort": "high" }
 ```
 
-`memory: true` in either config tier opts that machine (or repo) back
-into the harnesses' persistent memory:
+`memory: true` in either config tier removes HCN's disable override for
+that machine or repo. Native memory settings still apply:
 
 ```json
 { "version": 1, "memory": true }
 ```
+
+Codex callers can set `"contextWindow": 100000` in either config file or
+pass `--context-window 100000`. The range is 1-272000 tokens. hcn renders
+the numeric Codex override `-c model_context_window=272000` for a bare
+launch. Resume applies only an explicit flag, without profile or config
+defaults. Codex owns automatic compaction; this setting is not a hard
+per-request token or billing limit. A large prompt or tool result can
+exceed the configured window before compaction. Native arguments after
+`--` can also override it. See the [Codex config reference](https://developers.openai.com/codex/config-reference).
 
 Project config (`.hcn/config.json` at the git root, code-reviewed with the
 repo) also carries tool floors and named toolsets:
@@ -425,8 +544,10 @@ error labeling, and provenance on every resolved setting. Persistent
 sessions (`hcn session`) are available for claude and pi. Drift detection runs weekly
 in CI for the three npm harnesses; Muse is `installed` and only checked
 locally via `muse --version`. Re-verifying a descriptor's capability
-claims against a new CLI version is a local, manual step
-(`bun run smoke:seven`) plus fixture re-capture, not CI. Authentication
+claims against a new CLI version follows the [harness update procedure](docs/harness-updates.md):
+local behavioral probes and fixture capture. CI tests version-independent
+admission and the recorded contracts; a version difference alone never disables
+an invocation. Authentication
 and usage-limit signals are parsed from each harness's stream, but hcn
 never holds or ships credentials; each harness authenticates under the
 end user's own session.

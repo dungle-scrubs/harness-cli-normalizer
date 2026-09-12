@@ -1,3 +1,4 @@
+import type { TranscriptKnowledge } from "./transcript/wire.js";
 /**
  * Descriptor types: the shape of what is KNOWN about a harness CLI, as pure
  * data. Interpretation functions consume these; nothing here executes.
@@ -41,9 +42,50 @@ export const CANONICAL_TOOLS = deepFreeze([
 ] as const);
 export type CanonicalTool = (typeof CANONICAL_TOOLS)[number];
 
-export type StreamingGranularity = "token" | "message" | "none";
+/** Every closed string vocabulary on a descriptor is declared once as a
+ * runtime array with its type derived (RFC-02 change 9), so a CLI list, an
+ * override validator, or a test reads the array instead of restating it. */
+export const STREAMING_GRANULARITIES = deepFreeze(["token", "message", "none"] as const);
+export type StreamingGranularity = (typeof STREAMING_GRANULARITIES)[number];
 
-export type HarnessMode = "headless-turn" | "headless-session" | "interactive";
+export const HARNESS_MODES = deepFreeze([
+  "headless-turn",
+  "headless-session",
+  "interactive",
+] as const);
+export type HarnessMode = (typeof HARNESS_MODES)[number];
+
+export const STDIN_POLICIES = deepFreeze(["inherit", "close-required"] as const);
+export type StdinPolicy = (typeof STDIN_POLICIES)[number];
+
+export const CWD_SLUGS = deepFreeze(["dash-separators", "pi-dash-wrapped", "verbatim"] as const);
+export type CwdSlug = (typeof CWD_SLUGS)[number];
+
+export const RESUME_STYLES = deepFreeze(["flag", "positional"] as const);
+export type ResumeStyle = (typeof RESUME_STYLES)[number];
+
+export const RESUME_ON_MISSING = deepFreeze(["error", "create"] as const);
+export type ResumeOnMissing = (typeof RESUME_ON_MISSING)[number];
+
+export const IDENTITY_AUTHORITIES = deepFreeze(["caller-assigned", "harness-minted"] as const);
+export type IdentityAuthority = (typeof IDENTITY_AUTHORITIES)[number];
+
+export const DENY_SEMANTICS = deepFreeze(["remove-from-set", "policy-gate", "no-lists"] as const);
+export type DenySemantics = (typeof DENY_SEMANTICS)[number];
+
+export const SKILLS_OVERRIDES_VIA = deepFreeze([
+  "settings-skilloverrides",
+  "config-skills-array",
+] as const);
+export type SkillsOverridesVia = (typeof SKILLS_OVERRIDES_VIA)[number];
+
+export const VERSION_SOURCE_KINDS = deepFreeze(["npm", "installed"] as const);
+export type VersionSourceKind = (typeof VERSION_SOURCE_KINDS)[number];
+
+/** The access preset's value vocabulary: `read` narrows to the read-only
+ * tool subset, `write` is no restriction. */
+export const ACCESS_VALUES = deepFreeze(["read", "write"] as const);
+export type AccessValue = (typeof ACCESS_VALUES)[number];
 
 export const SESSION_INPUT_KINDS = ["claude-sdk-user-message", "pi-rpc-prompt"] as const;
 export type SessionInputKind = (typeof SESSION_INPUT_KINDS)[number];
@@ -105,8 +147,10 @@ export type UnavailableMatcher = PhraseMatcher;
  * arm would be dead data that can only drift. Render order is the tuple
  * order, so argv is deterministic regardless of caller field order. */
 export const TURN_OPTION_KEYS = deepFreeze([
+  "isolation",
   "effort",
   "sandbox",
+  "contextWindow",
   "provider",
   "discovery",
   "write",
@@ -169,6 +213,12 @@ export interface SpecBase {
   readonly resumeRender?: OptionRender | null;
 }
 
+/** How one access value renders on one harness (RFC-02 change 3): the
+ * marker for "render the read preset through the tool list", null for
+ * "emit nothing", or a phase-aware render carrying the harness value it
+ * maps to (codex: `read` is `--sandbox read-only`). */
+export type AccessRender = "tool-preset" | null | (SpecBase & { readonly value?: string });
+
 export type TurnOptionSpec =
   /** Closed value vocabulary. `default` renders on LAUNCH ONLY. */
   | (SpecBase & {
@@ -176,17 +226,15 @@ export type TurnOptionSpec =
       readonly values: readonly string[];
       readonly default?: string;
     })
-  /** Access preset: read/write dimension with per-harness rendering. */
-  | (SpecBase & { readonly kind: "tool-preset" })
-  | (SpecBase & {
-      readonly kind: "flag-value";
-      readonly flag: string;
-      readonly values: Readonly<Record<string, string>>;
-    })
-  | (SpecBase & {
-      readonly kind: "flag-list-by-value";
-      readonly flags: Readonly<Record<string, readonly string[]>>;
-    })
+  /** The access preset: one kind on every harness that expresses it, a
+   *  render per value, and `claims` naming the turn option the preset
+   *  displaces when set (codex: sandbox) so exclusivity is data, not a
+   *  harness name. */
+  | {
+      readonly kind: "access";
+      readonly renders: Readonly<Record<AccessValue, AccessRender>>;
+      readonly claims?: TurnOptionKey;
+    }
   /** Ladder comes from vocabulary.efforts / effortsByModel, not from here. */
   | (SpecBase & { readonly kind: "effort" })
   /** Open selector, CLEAN_SELECTOR-validated. */
@@ -219,31 +267,43 @@ export const resolveRender = (spec: SpecBase, phase: "launch" | "resume"): Optio
   return spec.resumeRender ?? spec.render;
 };
 
-/** Alias for `resolveRender` with the resume-only null semantics made
- * explicit in the name; useful for tests asserting the "omitted => same as
- * render, null => unexpressible" contract. */
-export const resolveResumeRender = (spec: SpecBase): OptionRender | null =>
-  resolveRender(spec, "resume");
+export type Quoting = "toml" | "verbatim";
 
-/** Like `resolveRender` but for a `TurnOptionSpec` that may be a `discovery`
- * table. Returns null for an unexpressible resume, the spec's render for
- * non-discovery specs, and for discovery returns the spec itself (facets are
- * resolved per-facet via `resolveRender`). */
-export const getOptionRender = (
-  spec: TurnOptionSpec,
-  phase: "launch" | "resume",
-): OptionRender | null => {
-  if (
-    spec.kind === "discovery" ||
-    spec.kind === "tool-preset" ||
-    spec.kind === "flag-value" ||
-    spec.kind === "flag-list-by-value"
-  )
-    return null;
-  return resolveRender(spec as SpecBase, phase);
+/** The argv tokens one resolved render produces for one value - the only
+ * place a render kind becomes tokens (RFC-02 change 1). `toml` quoting is
+ * `JSON.stringify`, sufficient for the closed vocabularies that ride
+ * config-kv; `verbatim` passes prose (prompt text) and bare TOML literals
+ * through unchanged. A flag-value or config-kv render with no value is a
+ * descriptor error, never an empty token. */
+export const tokensFor = (
+  render: OptionRender,
+  value?: string,
+  quoting: Quoting = "toml",
+): readonly string[] => {
+  switch (render.kind) {
+    case "flag-value":
+      if (value === undefined) {
+        throw new Error(`render ${render.flag} needs a value and none was given`);
+      }
+      return [...(render.extraFlags ?? []), render.flag, value];
+    case "config-kv":
+      if (value === undefined) {
+        throw new Error(`render ${render.flag} ${render.key} needs a value and none was given`);
+      }
+      return [render.flag, `${render.key}=${quoting === "toml" ? JSON.stringify(value) : value}`];
+    case "flag-list":
+      return [...render.flags];
+    case "env":
+      return [];
+    default: {
+      const exhaustive: never = render;
+      return exhaustive;
+    }
+  }
 };
 
 export interface HarnessDescriptor {
+  readonly transcript: TranscriptKnowledge | null;
   readonly name: HarnessName;
   readonly bin: string;
   /** The CLI version every fact in this descriptor - argv shapes, event
@@ -253,7 +313,8 @@ export interface HarnessDescriptor {
    * this, and a mismatch means the descriptor's facts are unverified for the
    * new version (drift possible, or a capability the descriptor says is
    * absent may now exist). Bump it only when the facts have been re-verified
-   * against that version (and the fixtures re-captured). */
+   * against that version (and the fixtures re-captured). Evidence metadata
+   * never rejects an operation; invocation and native results determine support. */
   readonly verifiedAgainst: string;
   /** Where the latest published version is found, so the update pipeline can
    * detect a new release WITHOUT installing the CLI or running inference.
@@ -262,8 +323,8 @@ export interface HarnessDescriptor {
    * have no registry to poll, so the check falls back to the locally
    * installed `<bin> --version` and is skipped where the CLI is absent. */
   readonly versionSource:
-    | { readonly kind: "npm"; readonly package: string }
-    | { readonly kind: "installed" };
+    | { readonly kind: Extract<VersionSourceKind, "npm">; readonly package: string }
+    | { readonly kind: Extract<VersionSourceKind, "installed"> };
   /** Headless one-turn launch shape. `promptStyle: "positional"` means the
    * prompt travels as a bare argv entry (ordering constraints apply).
    * `streamFlags` is the output flag set a headless turn launches with so
@@ -278,7 +339,8 @@ export interface HarnessDescriptor {
      * `workspace-write` into subcommands. */
     readonly subcommands: readonly string[];
     readonly promptStyle: "positional";
-    readonly toolsFlag: string | null;
+    /** A verified alternate transport for prompts too large for argv. */
+    readonly stdinPrompt?: { readonly argument: string; readonly aboveBytes: number };
     readonly streamFlags: readonly string[];
     /** The flag that pins a caller-assigned id at LAUNCH (spawn-time
      * assignment; the execution layer consumes it), or null when the
@@ -292,7 +354,7 @@ export interface HarnessDescriptor {
    * anywhere else (the v1 first-UUID-wins scar: a UUID inside quoted prompt
    * text was returned as the session id, and resuming it started a stranger). */
   readonly resume: {
-    readonly style: "flag" | "positional";
+    readonly style: ResumeStyle;
     readonly flag: string;
     readonly aliases: readonly string[];
     readonly idShape: RegExp;
@@ -310,7 +372,7 @@ export interface HarnessDescriptor {
      * The protocol layer must know this: a consumer resuming a session it
      * believes exists gets a blank session, not an error, on a "create"
      * harness. */
-    readonly onMissing: "error" | "create";
+    readonly onMissing: ResumeOnMissing;
   };
   /** Persistent headless session support: the complete flag list that follows
    * the binary to open one lucid-owned process serving many turns, or null
@@ -338,7 +400,11 @@ export interface HarnessDescriptor {
     readonly resumeFlag: SessionResumeFlag;
     readonly input: SessionInputContract;
     readonly turnEnd: Readonly<Record<string, string>>;
-    readonly identityProbe: { readonly command: string } | null;
+    /** The command the runner writes at spawn to learn the session id, and
+     * the dot-path to that id in the response (pi rpc: `get_state`,
+     * `data.sessionId`). Encoded and decoded in interpretation
+     * (session-input.ts); execution holds no field names (ADR 0005). */
+    readonly identityProbe: { readonly command: string; readonly responseIdField: string } | null;
   } | null;
   /** Streaming is a property of the INVOCATION, not the harness: each pin
    * names the flag set that unlocks a granularity, checked in order, first
@@ -359,7 +425,7 @@ export interface HarnessDescriptor {
    * {type: "system", subtype: "init"}, re-emitted at every turn start with
    * the same value (A-001) - consumers dedupe via decodeIdentity. */
   readonly identity: {
-    readonly authority: "caller-assigned" | "harness-minted";
+    readonly authority: IdentityAuthority;
     /** `idField` is a dot-path (muse nests its id at `stream.id`); an empty
      * `match` means "any record carrying the id path". */
     readonly announce: {
@@ -398,7 +464,7 @@ export interface HarnessDescriptor {
     readonly template: string;
     /** claude: '/', '.' -> '-'; pi: '/' -> '-' wrapped in leading/trailing
      * dashes, dots preserved. */
-    readonly cwdSlug: "dash-separators" | "pi-dash-wrapped" | "verbatim";
+    readonly cwdSlug: CwdSlug;
   };
   /** How the harness exposes context-window usage; the interpretation layer
    * surfaces it as a `context` HarnessEvent. */
@@ -406,12 +472,26 @@ export interface HarnessDescriptor {
     readonly object: string;
     readonly usedPctField: string;
   } | null;
+  /** Disposable native context accounting; the exchange validates support.
+   * Null is unknown support, never a model-window estimate. */
+  readonly contextInspection: {
+    readonly flags: readonly string[];
+    readonly forkFlag: string;
+    readonly kind: "claude-control-v1";
+  } | null;
+  /** Curated native context handling, not a count or enabled-state observation.
+   * Native-session handling covers the native session; callers must prepare
+   * imported history. Disabled native compaction is not detected here. */
+  readonly nativeContextManagement: {
+    readonly kind: "auto-compaction" | "native-session-auto-compaction";
+    readonly modes: readonly HarnessMode[];
+  } | null;
   /** Resume-most-recent support (codex --last), or null. The race it opens
    * is owned by the corroboration ranking in interpretation. */
   readonly resumeLast: { readonly flag: string } | null;
   /** Whether backgrounded headless calls must have stdin closed (pi hangs
    * without `< /dev/null`). */
-  readonly stdin: "inherit" | "close-required";
+  readonly stdin: StdinPolicy;
   /** Presence recognition: how an interactive process for a session id shows
    * up in a process listing. `headlessMarkers` mark a process as headless
    * (not interactive presence). Known blind spot, inherent to argv matching:
@@ -456,8 +536,7 @@ export interface HarnessDescriptor {
    * the claude asymmetry: claude's include flag pre-approves without
    * restricting the visible set, so an exact allowlist must render as a
    * disallow-complement there; pi's include IS strict (over built-ins).
-   * `composable`: both flags legal at once (pi: exclude subtracts from
-   * include). `builtins`: curated names + default-enabled state - grep/find/
+   * `builtins`: curated names + default-enabled state - grep/find/
    * ls ship off on pi, everything ships on elsewhere. `categories`:
    * non-list switches (muse disable flags, codex config booleans).
    * `denySemantics`: whether a deny removes the tool from the model-visible
@@ -472,13 +551,12 @@ export interface HarnessDescriptor {
    * muse: null (structural gap - trust/config scoped only). */
   readonly skills: {
     readonly loadFlag: string | null;
-    readonly overridesVia: "settings-skilloverrides" | "config-skills-array" | null;
+    readonly overridesVia: SkillsOverridesVia | null;
   } | null;
   readonly tools: {
     readonly includeFlag: string | null;
     readonly excludeFlag: string | null;
     readonly includeIsStrictAllowlist: boolean;
-    readonly composable: boolean;
     readonly builtins: ReadonlyArray<{
       readonly name: string;
       readonly defaultEnabled: boolean;
@@ -490,6 +568,6 @@ export interface HarnessDescriptor {
       readonly configKey: string | null;
       readonly canonical: readonly CanonicalTool[];
     }>;
-    readonly denySemantics: "remove-from-set" | "policy-gate" | "no-lists";
+    readonly denySemantics: DenySemantics;
   };
 }

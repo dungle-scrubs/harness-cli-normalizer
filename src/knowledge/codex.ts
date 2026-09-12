@@ -1,16 +1,17 @@
 /**
  * The codex descriptor: facts about the `codex` CLI as data, verified
- * against codex-cli 0.147.0 and lucid v1's registry. Descriptor groundwork
- * only (D-003): not exercised through the chat protocol until the claude
- * vertical slice is green.
+ * against codex-cli 0.153.4. Native capability and question recordings
+ * live in test/fixtures/codex-0.153.4.
  */
 import { deepFreeze, type HarnessDescriptor, UUID_SHAPE } from "./descriptor.js";
 import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
+import { CODEX_TRANSCRIPT } from "./transcript/codex.js";
 
 export const codexCli: HarnessDescriptor = deepFreeze({
   name: "codex",
+  transcript: CODEX_TRANSCRIPT,
   bin: "codex",
-  verifiedAgainst: "0.147.0",
+  verifiedAgainst: "0.153.4",
   versionSource: { kind: "npm", package: "@openai/codex" },
   launch: {
     // exec --json emits structured item events; without --json, identity
@@ -23,7 +24,6 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     baseFlags: ["exec", "--json", "--skip-git-repo-check"],
     subcommands: ["exec"],
     promptStyle: "positional",
-    toolsFlag: null,
     streamFlags: [],
     // Codex mints its own thread id; there is nothing to assign at launch.
     idFlag: null,
@@ -62,11 +62,13 @@ export const codexCli: HarnessDescriptor = deepFreeze({
   autonomy: { flag: "--yolo" },
   vocabulary: {
     modelFlag: "--model",
-    models: ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5"],
+    models: ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5"],
     aliases: {},
     efforts: ["minimal", "low", "medium", "high", "xhigh", "max"],
     // Codex constrains ladders per model generation (v1 registry).
     effortsByModel: {
+      // https://developers.openai.com/api/docs/models/gpt-6-astra (2026-09-06).
+      "gpt-6-astra": ["low", "medium", "high", "xhigh", "max"],
       "gpt-5.5": ["minimal", "low", "medium", "high"],
       "gpt-5.6-sol": ["medium", "high", "xhigh", "max"],
       "gpt-5.6-terra": ["medium", "high", "xhigh", "max"],
@@ -82,6 +84,9 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     cwdSlug: "verbatim",
   },
   contextHook: null,
+  contextInspection: null,
+  // Codex 0.153.4 core/session/turn.rs runs native automatic compaction.
+  nativeContextManagement: { kind: "auto-compaction", modes: ["headless-turn"] },
   // Valid only in the `exec resume` context: `codex exec resume --last`.
   resumeLast: { flag: "--last" },
   // codex exec appends piped stdin as a <stdin> block and can block on an
@@ -106,9 +111,22 @@ export const codexCli: HarnessDescriptor = deepFreeze({
   // records a model id - absence of evidence, not an unset field.
   escalation: {
     supported: true,
-    observedOn: { harness: "codex", model: "", version: "0.146.1", date: "2026-08-19" },
+    observedOn: {
+      harness: "codex",
+      model: "gpt-6-astra",
+      version: "0.153.4",
+      date: "2026-09-08",
+    },
   },
   turnOptions: {
+    // Codex config reference; accepted as an integer on CLI 0.153.4.
+    // Native compaction uses this window; hcn does not count request tokens.
+    contextWindow: {
+      kind: "integer",
+      min: 1,
+      max: 272000,
+      render: { kind: "config-kv", flag: "-c", key: "model_context_window" },
+    },
     effort: {
       kind: "effort",
       render: { kind: "config-kv", flag: "-c", key: "model_reasoning_effort" },
@@ -138,11 +156,27 @@ export const codexCli: HarnessDescriptor = deepFreeze({
       // caller asked.
       resumeRender: { kind: "config-kv", flag: "-c", key: "sandbox_mode" },
     },
+    // The preset maps onto the sandbox dimension and therefore CLAIMS it:
+    // an explicit --sandbox alongside --access refuses, and the profile's
+    // sandbox default yields. Data here, not a harness-name branch.
+    // On resume the preset rides the same config-kv spelling the sandbox
+    // dimension uses (issue #72 evidence above): `codex exec resume`
+    // rejects --sandbox, and -c sandbox_mode is enforced there.
     access: {
-      kind: "flag-value",
-      flag: "--sandbox",
-      values: { read: "read-only", write: "workspace-write" },
-      render: { kind: "flag-value", flag: "--sandbox" },
+      kind: "access",
+      claims: "sandbox",
+      renders: {
+        read: {
+          render: { kind: "flag-value", flag: "--sandbox" },
+          resumeRender: { kind: "config-kv", flag: "-c", key: "sandbox_mode" },
+          value: "read-only",
+        },
+        write: {
+          render: { kind: "flag-value", flag: "--sandbox" },
+          resumeRender: { kind: "config-kv", flag: "-c", key: "sandbox_mode" },
+          value: "workspace-write",
+        },
+      },
     },
     // Persistent memories (feature `memories`, stable, on by default on
     // 0.149.1 - evidence: test/fixtures/memory-dimension/; state lives in
@@ -173,7 +207,6 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     includeFlag: null,
     excludeFlag: null,
     includeIsStrictAllowlist: false,
-    composable: false,
     builtins: [],
     categories: [
       { key: "shell", disableFlag: null, configKey: "features.shell_tool", canonical: [] },

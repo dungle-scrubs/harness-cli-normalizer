@@ -1,7 +1,7 @@
 /**
  * The muse descriptor: facts about the `muse` CLI as data, verified against
- * Muse Code 0.1.0 and lucid v1's registry. Descriptor groundwork only
- * (D-003). The v1 scars this encodes: headless re-entry is `muse exec
+ * Muse Code 1.1.1 (test/fixtures/muse-1.1.1). The v1 scars this encodes:
+ * headless re-entry is `muse exec
  * --session-id <id>` (the positional `muse resume <id>` is the INTERACTIVE
  * picker - recognized when pasted, never built), and `muse exec` exits 0
  * on task failure but 1 on step exhaustion (verified 0.1.0 - see spike
@@ -9,22 +9,23 @@
  */
 import { deepFreeze, type HarnessDescriptor, UUID_SHAPE } from "./descriptor.js";
 import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
+import { MUSE_TRANSCRIPT } from "./transcript/muse.js";
 
 export const museCode: HarnessDescriptor = deepFreeze({
   name: "muse",
+  transcript: MUSE_TRANSCRIPT,
   bin: "muse",
-  verifiedAgainst: "0.1.0",
+  verifiedAgainst: "1.1.1",
   // No npm package - `hcn check` falls back to `muse --version` locally and
   // is skipped in CI where the binary is absent, so this harness is exempt
   // from automated drift detection (see README Version-pinning and drift).
-  versionSource: { kind: "installed" },
+  versionSource: { kind: "installed" }, // Re-checked with muse --version, 2026-09-11.
   launch: {
     // exec --json emits the payload_type/stream records the runner decodes
     // (verified 0.1.0); bare exec streams human text.
     baseFlags: ["exec", "--json"],
     subcommands: ["exec"],
     promptStyle: "positional",
-    toolsFlag: null,
     streamFlags: [],
     idFlag: "--session-id",
   },
@@ -60,7 +61,12 @@ export const museCode: HarnessDescriptor = deepFreeze({
   autonomy: { flag: "--yolo" },
   vocabulary: {
     modelFlag: "--model",
-    models: ["muse-spark-1.2-contributor", "muse-spark-1.2", "muse-spark-1.1"],
+    models: [
+      "muse-spark-1.3-contributor",
+      "muse-spark-1.2-contributor",
+      "muse-spark-1.2",
+      "muse-spark-1.1",
+    ],
     aliases: {},
     efforts: ["none", "minimal", "low", "medium", "high", "xhigh"],
     extensible: false,
@@ -73,6 +79,11 @@ export const museCode: HarnessDescriptor = deepFreeze({
     cwdSlug: "verbatim",
   },
   contextHook: null,
+  contextInspection: null,
+  // Automatic replacement installation and later process recall captured on
+  // 1.1.1. Native growth handling is not a pending-prompt count or a guarantee
+  // that arbitrary incoming content fits; native compaction can fail.
+  nativeContextManagement: { kind: "auto-compaction", modes: ["headless-turn"] },
   // `muse resume --last` exists (muse resume --help).
   resumeLast: { flag: "--last" },
   stdin: "inherit",
@@ -91,12 +102,15 @@ export const museCode: HarnessDescriptor = deepFreeze({
     },
     session: false,
   },
-  // Escalation provenance transcribed from test/fixtures/phase7-questions/,
-  // committed 2026-08-19. `model` is empty because no fixture on that stream
-  // records a model id - absence of evidence, not an unset field.
+  // Provenance from test/fixtures/muse-1.1.1/questions.snapshot.json.
   escalation: {
     supported: true,
-    observedOn: { harness: "muse", model: "", version: "0.2.1", date: "2026-08-19" },
+    observedOn: {
+      harness: "muse",
+      model: "muse-spark-1.3-contributor",
+      version: "1.1.1",
+      date: "2026-09-11",
+    },
   },
   turnOptions: {
     effort: { kind: "effort", render: { kind: "flag-value", flag: "--reasoning-effort" } },
@@ -127,10 +141,14 @@ export const museCode: HarnessDescriptor = deepFreeze({
       max: 10000,
       render: { kind: "flag-value", flag: "--max-model-steps" },
     },
+    // read gates the write and shell categories; write is the harness
+    // default and emits nothing.
     access: {
-      kind: "flag-list-by-value",
-      flags: { read: ["--disable-write", "--disable-shell"], write: [] },
-      render: { kind: "flag-list", flags: ["--disable-write", "--disable-shell"] },
+      kind: "access",
+      renders: {
+        read: { render: { kind: "flag-list", flags: ["--disable-write", "--disable-shell"] } },
+        write: null,
+      },
     },
   },
   // Phase 0 fixtures: muse-category-flags.md. No name lists; category
@@ -144,7 +162,6 @@ export const museCode: HarnessDescriptor = deepFreeze({
     includeFlag: null,
     excludeFlag: null,
     includeIsStrictAllowlist: false,
-    composable: false,
     builtins: [],
     categories: [
       {

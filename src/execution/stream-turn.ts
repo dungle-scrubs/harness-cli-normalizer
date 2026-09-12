@@ -8,40 +8,41 @@
  * evidence, not diagnostics. An abandoned turn (consumer breaks early)
  * closes backpressure, disposes output, stops the child, and awaits both
  * pumps before it returns.
+ *
+ * The supervising policies - stall clock, signal escalation, stderr
+ * classification, question detection at close - are the turn supervisor's
+ * (RFC-02 change 5); this runner composes it and owns only what is
+ * particular to one-shot turns: the wall-clock deadline, the exit
+ * classification, and the identity-first event buffer.
  */
 import {
-  buildLaunchArgv,
-  buildResumeArgv,
+  buildSpawnArgv,
   buildTurnEnv,
   type LaunchOptions,
+  promptTextOf,
+  stdinPromptOf,
   streamingGranularityOf,
+  withPromptText,
 } from "../interpretation/argv.js";
-import { stdinPolicyOf } from "../interpretation/dimensions.js";
-import {
-  detectAuthFailureInLine,
-  detectLimitInLine,
-  detectTransportInLine,
-  detectUnavailableInLine,
-} from "../interpretation/limits.js";
-import {
-  composeEscalatedPrompt,
-  detectQuestionBlock,
-  type QuestionMode,
-} from "../interpretation/question.js";
+import { detectTransportInLine, detectUnavailableInLine } from "../interpretation/limits.js";
+import { composeEscalatedPrompt, type QuestionMode } from "../interpretation/question.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { matcherOverridesOf } from "../knowledge/overrides.js";
 import { AsyncChannel } from "./channel.js";
 import { decodeLine, freshDecodeState } from "./decode.js";
 import type { RunnerDeps, SpawnedProcess } from "./deps.js";
-import type { EscalationDetection, ExitCause, HarnessEvent } from "./events.js";
+import {
+  DROPPABLE_KINDS,
+  type EscalationDetection,
+  type ExitCause,
+  type HarnessEvent,
+} from "./events.js";
 import type { FailureSummary } from "./failure.js";
 import {
-  failureFromAuth,
   failureFromLimit,
   failureFromNative,
   failureFromRejected,
-  failureFromTask,
   failureFromTerminalError,
   failureFromTimeout,
   failureFromTransport,
@@ -49,15 +50,14 @@ import {
   reduceFailures,
 } from "./failure.js";
 import { LineBuffer } from "./lines.js";
+import { StderrTail, superviseTurn } from "./supervisor.js";
 
 /** Fallback correlation when the host does not mint turn ids: monotonic per
  * process. Hosts that need cross-process uniqueness pass deps.turnId. */
 let turnCounter = 0;
 
-/** SIGTERM -> SIGKILL escalation budget for a child that ignores the first
- * signal, and the grace allowed for pipes still held open (by a grandchild)
- * after the process itself exited. */
-export const KILL_GRACE_MS = 5_000;
+/** The grace allowed for pipes still held open (by a grandchild) after the
+ * process itself exited. */
 export const PIPE_GRACE_MS = 2_000;
 
 const OUTPUT_STREAMS = ["stdout", "stderr"] as const;
@@ -74,34 +74,22 @@ const SECRETISH = /(sk-[A-Za-z0-9_-]{8,}|(?:token|key|secret|password)=\S+)/i;
  * other token is kept unless it is secret-shaped. Only the prompt's
  * positional slot is masked, so a one-word prompt that equals a flag
  * value does not cause that flag value to be masked. */
-export const redactArgv = (argv: readonly string[], prompt?: string): string[] => {
+export const redactArgv = (
+  argv: readonly string[],
+  prompt?: string,
+  viaStdin = false,
+): string[] => {
   const promptIndex = prompt !== undefined ? argv.lastIndexOf(prompt) : -1;
   const promptLabel = prompt !== undefined ? `[prompt:${prompt.length}ch]` : "";
-  return argv.map((token, index) => {
+  const redacted = argv.map((token, index) => {
     if (index === promptIndex) return promptLabel;
     if (SECRETISH.test(token)) return "[redacted]";
     return token;
   });
+  return viaStdin && prompt !== undefined
+    ? [...redacted, `[stdin prompt:${prompt.length}ch]`]
+    : redacted;
 };
-
-/** Bounded tail of unmatched stderr - the crash context a nonzero exit is
- * explained by (v1 kept the turn's output slice for exactly this). Shared
- * with the session runner. */
-export class StderrTail {
-  private readonly lines: string[] = [];
-  private bytes = 0;
-  push(line: string): void {
-    this.lines.push(line);
-    this.bytes += line.length;
-    while (this.lines.length > 20 || (this.bytes > 4096 && this.lines.length > 1)) {
-      const dropped = this.lines.shift();
-      this.bytes -= dropped?.length ?? 0;
-    }
-  }
-  snapshot(): readonly string[] {
-    return [...this.lines];
-  }
-}
 
 export interface TurnRunOptions extends LaunchOptions {
   /** Resume this session id instead of launching fresh - the turn spawns
@@ -137,11 +125,10 @@ export async function* streamTurn(
   const questionMode: QuestionMode = opts.questions ?? "ask";
   const effective: TurnRunOptions = {
     ...opts,
-    prompt: composeEscalatedPrompt(opts.prompt, questionMode),
+    prompt: withPromptText(opts.prompt, composeEscalatedPrompt(promptTextOf(opts), questionMode)),
   };
-  // The turn's last assistant message - where the protocol says the
-  // hcn-question block lives. Tracked only when detection is armed.
-  let lastAssistantText: string | null = null;
+  const promptText = promptTextOf(effective);
+  const stdinPrompt = stdinPromptOf(h, effective);
   let asked = false;
   let escalationDetection: EscalationDetection = "none";
 
@@ -167,7 +154,7 @@ export async function* streamTurn(
           harness: h.name,
           issue: refusal.issue,
           supported: refusal.supported,
-          argv: redactArgv([], effective.prompt),
+          argv: redactArgv([], promptText),
         });
         yield { kind: "failure", ...failure };
         yield {
@@ -185,19 +172,7 @@ export async function* streamTurn(
   let argv: string[];
   let granularity: import("../knowledge/descriptor.js").StreamingGranularity;
   try {
-    argv =
-      effective.resume === undefined
-        ? buildLaunchArgv(h, effective)
-        : buildResumeArgv(h, { ...effective, sessionId: effective.resume });
-    if (effective.passthrough !== undefined && effective.passthrough.length > 0) {
-      argv = [...argv, "--", ...effective.passthrough];
-    }
-    // issue #38: claude/codex render the skills allowlist as complement-off
-    // tokens at the argv tail (claude: settings JSON; codex: -c skills.config).
-    const skillTokens = (opts as unknown as { __skillTokens?: string[] }).__skillTokens;
-    if (skillTokens !== undefined && skillTokens.length > 0) {
-      argv = [...argv, ...skillTokens];
-    }
+    argv = buildSpawnArgv(h, effective);
     granularity = streamingGranularityOf(h, argv);
   } catch (e) {
     if (e instanceof ArgvRefusalError) {
@@ -213,7 +188,7 @@ export async function* streamTurn(
       // No process spawned on a refusal - log rejected instead of spawn
       let argvForLog: string[] = [];
       try {
-        argvForLog = redactArgv([], effective.prompt);
+        argvForLog = redactArgv([], promptText);
       } catch {}
       log({
         event: "rejected",
@@ -251,7 +226,7 @@ export async function* streamTurn(
     event: "spawn",
     turnId,
     harness: h.name,
-    argv: redactArgv(argv, effective.prompt),
+    argv: redactArgv(argv, promptText, stdinPrompt !== null),
     granularity,
     ...(matcherOverrides ? { matcherOverrides } : {}),
     ...(envKeys?.length ? { envKeys } : {}),
@@ -268,7 +243,7 @@ export async function* streamTurn(
   let proc: SpawnedProcess;
   try {
     proc = deps.spawn(argv, {
-      stdin: stdinPolicyOf(h) === "close-required" ? "close" : "inherit",
+      stdin: stdinPrompt !== null ? "pipe" : h.stdin === "close-required" ? "close" : "inherit",
       ...(effective.cwd !== undefined ? { cwd: effective.cwd } : {}),
       ...(Object.keys(mergedEnv).length > 0 ? { env: mergedEnv } : {}),
     });
@@ -311,34 +286,6 @@ export async function* streamTurn(
   let cancelled = false;
   let terminalEventReached = false;
 
-  const safeSignal = (sig: "SIGTERM" | "SIGKILL"): void => {
-    if (!exited) deps.signal(proc, sig);
-  };
-  let escalationTimer: number | null = null;
-  const escalate = (): void => {
-    if (exited || escalationTimer !== null) return;
-    safeSignal("SIGTERM");
-    escalationTimer = deps.clock.setTimeout(() => {
-      escalationTimer = null;
-      safeSignal("SIGKILL");
-    }, KILL_GRACE_MS);
-  };
-  let abortHandler: (() => void) | null = null;
-  if (opts.signal) {
-    const onAbort = (): void => {
-      if (killedByAbort) return;
-      killedByAbort = true;
-      escalate();
-    };
-    if (opts.signal.aborted) {
-      killedByAbort = true;
-      escalate();
-    } else {
-      opts.signal.addEventListener("abort", onAbort, { once: true });
-      abortHandler = onAbort;
-    }
-  }
-
   const failures: FailureSummary[] = [];
   const pushFailure = async (f: FailureSummary): Promise<void> => {
     // Suppress a failure identical in class and message to the previous one
@@ -348,19 +295,26 @@ export async function* streamTurn(
     await queue.push({ kind: "failure", ...f });
   };
 
-  let watchdog: number | null = null;
+  // The wall-clock deadline is this runner's own: a session has none.
   let turnDeadline: number | null = null;
   let watchdogReason: "inactivity" | "turn-deadline" | null = null;
-  const disarm = (): void => {
-    if (watchdog !== null) deps.clock.clearTimeout(watchdog);
-    watchdog = null;
+  const disarmDeadline = (): void => {
     if (turnDeadline !== null) deps.clock.clearTimeout(turnDeadline);
     turnDeadline = null;
   };
-  const rearm = (): void => {
-    if (deps.stallMs === undefined) return;
-    if (watchdog !== null) deps.clock.clearTimeout(watchdog);
-    watchdog = deps.clock.setTimeout(() => {
+
+  const sup = superviseTurn(h, questionMode, {
+    clock: deps.clock,
+    stallMs: deps.stallMs,
+    signal: (sig) => deps.signal(proc, sig),
+    emit: async (event) => {
+      // A wall read on stderr counts like one decoded from stdout.
+      if (event.kind === "limit") state.limitSeen = true;
+      await queue.push(event);
+    },
+    fail: pushFailure,
+    tail: stderrTail,
+    onStall: () => {
       killedByWatchdog = true;
       watchdogReason = "inactivity";
       log({
@@ -371,15 +325,31 @@ export async function* streamTurn(
         budgetMs: deps.stallMs,
       });
       // Disarm the other budget
-      if (turnDeadline !== null) {
-        deps.clock.clearTimeout(turnDeadline);
-        turnDeadline = null;
-      }
-      escalate();
-    }, deps.stallMs);
-  };
+      disarmDeadline();
+    },
+    onQuestion: (options) => {
+      log({ event: "question", turnId, harness: h.name, options });
+    },
+  });
+
+  let abortHandler: (() => void) | null = null;
+  if (opts.signal) {
+    const onAbort = (): void => {
+      if (killedByAbort) return;
+      killedByAbort = true;
+      sup.escalate();
+    };
+    if (opts.signal.aborted) {
+      killedByAbort = true;
+      sup.escalate();
+    } else {
+      opts.signal.addEventListener("abort", onAbort, { once: true });
+      abortHandler = onAbort;
+    }
+  }
+
   // Arm both budgets
-  rearm();
+  sup.beginTurn();
   if (deps.turnTimeoutMs !== undefined) {
     turnDeadline = deps.clock.setTimeout(() => {
       killedByWatchdog = true;
@@ -391,11 +361,8 @@ export async function* streamTurn(
         reason: "turn-deadline",
         budgetMs: deps.turnTimeoutMs,
       });
-      if (watchdog !== null) {
-        deps.clock.clearTimeout(watchdog);
-        watchdog = null;
-      }
-      escalate();
+      sup.disarm();
+      sup.escalate();
     }, deps.turnTimeoutMs);
   }
 
@@ -403,11 +370,11 @@ export async function* streamTurn(
   void proc.exited.then((code) => {
     exited = true;
     exitCode = code;
-    if (escalationTimer !== null) deps.clock.clearTimeout(escalationTimer);
-    escalationTimer = null;
-    // The process is gone: the watchdog has nothing left to kill, and a
-    // fire after this point would flip a completed turn to "stall".
-    disarm();
+    // The process is gone: no signal, no pending escalation, no stall
+    // clock - a fire after this point would flip a completed turn to
+    // "stall".
+    sup.settle();
+    disarmDeadline();
     // Pipes held open past exit (a grandchild inherited the fd) must not
     // hang the turn forever - close out with the exit code in hand.
     if (cancelled) return;
@@ -417,13 +384,29 @@ export async function* streamTurn(
     }, PIPE_GRACE_MS);
   });
 
+  if (stdinPrompt !== null) {
+    let inputFailed = false;
+    const failInput = (): void => {
+      if (inputFailed || cancelled || exited) return;
+      inputFailed = true;
+      void pushFailure(failureFromTransport("native prompt stdin failed"));
+      sup.escalate();
+    };
+    void proc.inputError?.then(failInput);
+    try {
+      if (!proc.stdin) throw new Error("native prompt requires stdin");
+      proc.stdin.write(stdinPrompt);
+      proc.stdin.end();
+    } catch {
+      failInput();
+    }
+  }
+
   const pumpStdout = async (): Promise<void> => {
     const lines = new LineBuffer();
     let identitySeen = false;
     const droppableBuffer: HarnessEvent[] = [];
     const BUFFER_CAP = 256;
-    const isDroppable = (kind: string): boolean =>
-      kind === "progress" || kind === "token" || kind === "context";
     const flushDroppable = async (): Promise<void> => {
       for (const e of droppableBuffer) await queue.push(e);
       droppableBuffer.length = 0;
@@ -436,7 +419,7 @@ export async function* streamTurn(
           await flushDroppable();
           return;
         }
-        if (isDroppable(event.kind)) {
+        if (DROPPABLE_KINDS.has(event.kind)) {
           if (droppableBuffer.length >= BUFFER_CAP) droppableBuffer.shift();
           droppableBuffer.push(event);
           return;
@@ -461,15 +444,13 @@ export async function* streamTurn(
         if (event.terminal === true) await pushFailure(failureFromTerminalError(h, event.message));
         return;
       }
-      if (questionMode === "ask" && event.kind === "message" && event.role === "assistant") {
-        lastAssistantText = event.text;
-      }
+      sup.noteEvent(event);
       await queue.push(event);
     };
     for await (const chunk of proc.stdout) {
       if (cancelled) break;
       // Any output chunk rearms the inactivity budget, but not the wall-clock deadline
-      if (deps.stallMs !== undefined) rearm();
+      sup.rearm();
       for (const line of lines.push(chunk)) {
         for (const event of decodeLine(h, line, state, opts.model ?? "", granularity)) {
           await handleEvent(event);
@@ -488,75 +469,12 @@ export async function* streamTurn(
     }
   };
 
-  /** issue #41: scan the last assistant message for the hcn-question
-   * block. Structured-first - the block's fields become the event; no
-   * prose parsing. Runs after the pumps settle (the last message is only
-   * last then) and only when detection is armed (questions ask).
-   * A malformed block surfaces as an error event, never a silent
-   * no-op. */
-  const emitQuestionIfAsked = async (): Promise<void> => {
-    if (questionMode !== "ask" || lastAssistantText === null) {
-      escalationDetection = "none";
-      return;
-    }
-    const detection = detectQuestionBlock(lastAssistantText);
-    if (detection === null) {
-      escalationDetection = "none";
-      return;
-    }
-    if ("malformed" in detection) {
-      escalationDetection = "malformed";
-      await queue.push({ kind: "error", message: detection.malformed });
-      await pushFailure(failureFromTask(`malformed hcn-question block: ${detection.malformed}`));
-      return;
-    }
-    escalationDetection = "block";
-    log({
-      event: "question",
-      turnId,
-      harness: h.name,
-      options: detection.block.options.length,
-    });
-    asked = true;
-    await queue.push({
-      kind: "question",
-      question: detection.block.question,
-      options: detection.block.options,
-      ...(detection.block.recommended !== undefined
-        ? { recommended: detection.block.recommended }
-        : {}),
-    });
-  };
-
   const pumpStderr = async (): Promise<void> => {
     const lines = new LineBuffer();
     for await (const chunk of proc.stderr) {
       if (cancelled) break;
-      if (deps.stallMs !== undefined) rearm();
-      for (const line of lines.push(chunk)) {
-        const limit = detectLimitInLine(h, line);
-        if (limit !== null) {
-          state.limitSeen = true;
-          const failure = failureFromLimit(limit);
-          // Emit both limit (for 0.1.3 compat) and failure
-          await queue.push({
-            kind: "limit",
-            code: limit,
-            message: `limit wall detected (${limit})`,
-          });
-          await pushFailure(failure);
-          continue;
-        }
-        const auth = detectAuthFailureInLine(h, line);
-        if (auth !== null) {
-          const failure = failureFromAuth(auth);
-          await pushFailure(failure);
-          // Emit error alongside failure for 0.1.3 compat
-          await queue.push({ kind: "error", message: `auth wall: ${auth}` });
-          continue;
-        }
-        stderrTail.push(line);
-      }
+      sup.rearm();
+      for (const line of lines.push(chunk)) await sup.stderrLine(line);
     }
   };
 
@@ -576,7 +494,7 @@ export async function* streamTurn(
       });
       await queue.push({ kind: "error", message: pumpFailureMessage(stream, cause) });
       await pushFailure(failureFromTransport(pumpFailureMessage(stream, cause)));
-      escalate();
+      sup.escalate();
       await proc.exited;
       proc.disposeOutput();
     }
@@ -585,8 +503,14 @@ export async function* streamTurn(
     observePump("stdout", pumpStdout()),
     observePump("stderr", pumpStderr()),
   ]);
+  // issue #41: the turn closes after the pumps settle (the last message is
+  // only last then); the supervisor detects the block and emits it.
   void Promise.all([proc.exited, pumpSettlements])
-    .then(() => emitQuestionIfAsked())
+    .then(() => {
+      const close = sup.close();
+      escalationDetection = close.detection;
+      asked = close.asked;
+    })
     .then(() => queue.close());
 
   try {
@@ -717,18 +641,18 @@ export async function* streamTurn(
     const abandoned = !terminalEventReached;
     cancelled = true;
     queue.close();
-    disarm();
+    sup.disarm();
+    disarmDeadline();
     if (abandoned) {
       log({ event: "abandoned", turnId, harness: h.name });
-      if (!exited) escalate();
+      if (!exited) sup.escalate();
     }
     proc.disposeOutput();
     const [settledExit] = await Promise.all([proc.exited, pumpSettlements]);
     exitCode = settledExit;
     if (pipeGrace !== null) deps.clock.clearTimeout(pipeGrace);
     pipeGrace = null;
-    if (escalationTimer !== null) deps.clock.clearTimeout(escalationTimer);
-    escalationTimer = null;
+    sup.settle();
     if (abandoned) {
       log({
         event: "abandonment_settled",

@@ -225,7 +225,7 @@ Go/no-go before phase 4: phase 3 MUST be able to consume `observedOn` and comput
 
 1. **Does `SESSION_ESCALATION_PREAMBLE` get its own mode value?** Today session mode is selected by the `mode: "turn" | "session"` parameter to `composeEscalatedPrompt`, orthogonal to the tri-state. Settled by whether a caller ever wants session transport with turn wording; if never, the current orthogonality stands and no fourth value is needed.
 
-2. **Should the `escalation` record appear on `hcn session --json` turn ends as well as `hcn run`?** A session's turns end with the same `done` vocabulary, so it likely falls out for free. Settled by checking whether the session runner constructs `done` through the same path.
+2. **Should the `escalation` record appear on `hcn session --json` turn ends as well as `hcn run`?** Answered by RFC-02 change 5 (`docs/rfc/02_one-owner-per-rule.rfc.md`). It did not fall out for free: each runner wrote its own detection and its own record. Both runners now compose one turn supervisor (`src/execution/supervisor.ts`), which detects the block at turn close once; the record appears on both surfaces because there is one path.
 
 3. **What does the probe do when a harness is installed but unauthenticated?** Distinct from absent. Settled by what `smoke:seven` already does in that case; this RFC SHOULD follow it rather than invent a second behaviour.
 

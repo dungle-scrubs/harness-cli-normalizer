@@ -38,8 +38,9 @@ vocabularies, what it can express. Pure data, never behaviour. _Avoid_:
 "config", "adapter".
 
 **verifiedAgainst**: the harness CLI version a descriptor's facts were checked
-against. It bounds hcn's correctness: outside that version, the facts are
-unverified.
+against. Outside that version the facts need re-verification. It is evidence
+metadata, not a runtime admission condition. The supported invocation and the
+native operation's result determine whether work can run.
 
 **Turn**: one prompt in, one result out. The unit hcn spawns and reports on.
 
@@ -98,9 +99,10 @@ These own state, a clock, or a policy that no harness has. Each is deliberate.
 - **`retryable`.** No harness says whether a caller should try again. hcn
   decides, and the whole fallback walk runs on that decision.
 - **The defaults profile.** effort medium, autonomy off, discovery on, sandbox
-  workspace-write. These are hcn's opinions about how a bare run should behave.
-- **Queued sends.** In a session, hcn holds input the harness has not accepted
-  yet, and owes the caller an account of what became of it.
+  workspace-write, and a 272,000-token context window on Codex. These are hcn's
+  opinions about how a bare run should behave.
+- **Send correlation.** In a session, hcn associates each send with the turn it
+  opens. The harness owns input queuing; hcn writes input through (ADR 0007).
 
 ## Relationships
 

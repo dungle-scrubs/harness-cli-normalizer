@@ -1,7 +1,8 @@
 /**
  * A hands-on demo of the runner: drive any harness with your own prompt and
  * watch the normalized HarnessEvent stream render live. Not a test - a way
- * to SEE the library work.
+ * to SEE the library work. Rendering is the CLI's own (src/cli/render.ts);
+ * this script only wires a prompt to a runner.
  *
  *   bun run demo claude "explain a monad in one sentence"
  *   bun run demo codex  "what is 2+2"
@@ -14,6 +15,7 @@
 
 import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
+import { createRenderState, renderEvent } from "../src/cli/render.js";
 import type { HarnessEvent } from "../src/execution/events.js";
 import { nodeRunnerDeps } from "../src/execution/node-deps.js";
 import { openSession } from "../src/execution/open-session.js";
@@ -36,47 +38,7 @@ const DESCRIPTORS: Record<string, HarnessDescriptor> = {
 
 const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
 const cyan = (s: string) => `\x1b[36m${s}\x1b[0m`;
-const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const red = (s: string) => `\x1b[31m${s}\x1b[0m`;
-const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`;
-
-/** Render one event live. Tokens stream inline; a message prints in full
- * only when no tokens preceded it (harnesses without token granularity). */
-const render = (event: HarnessEvent, state: { streamed: boolean }): void => {
-  switch (event.kind) {
-    case "identity":
-      process.stdout.write(dim(`  ● session ${event.sessionId} (${event.authority})\n`));
-      break;
-    case "token":
-      process.stdout.write(event.text);
-      state.streamed = true;
-      break;
-    case "message":
-      if (!state.streamed) process.stdout.write(event.text);
-      break;
-    case "tool":
-      process.stdout.write(cyan(`\n  ⚙ ${event.name}`));
-      break;
-    case "progress":
-      // Droppable filler (claude emits many hook_* system lines); the
-      // streaming tokens already show liveness, so keep the view clean.
-      break;
-    case "context":
-      process.stdout.write(dim(`\n  ▪ context ${event.usedPct}%`));
-      break;
-    case "limit":
-      process.stdout.write(yellow(`\n  ⚠ limit: ${event.code}`));
-      break;
-    case "error":
-      process.stdout.write(red(`\n  ✗ ${event.message}`));
-      break;
-    case "done": {
-      const mark = event.cause === "clean" ? green("○ clean") : red(`○ ${event.cause}`);
-      process.stdout.write(`\n  ${mark} (exit ${event.exitCode ?? "none"})\n`);
-      break;
-    }
-  }
-};
 
 const runOnce = async (
   h: HarnessDescriptor,
@@ -84,14 +46,14 @@ const runOnce = async (
   model: string | undefined,
 ): Promise<void> => {
   process.stdout.write(`\n${cyan(`▶ ${h.name}`)} ${dim(prompt)}\n`);
-  const state = { streamed: false };
+  const state = createRenderState();
   const opts = {
     prompt,
     cwd: process.cwd(),
     ...(model !== undefined ? { model } : {}),
     ...(h.autonomy !== null ? { autonomy: true } : {}),
   };
-  for await (const event of streamTurn(h, opts, nodeRunnerDeps())) render(event, state);
+  for await (const event of streamTurn(h, opts, nodeRunnerDeps())) renderEvent(event, state);
 };
 
 const chat = async (h: HarnessDescriptor): Promise<void> => {
@@ -114,8 +76,8 @@ const chat = async (h: HarnessDescriptor): Promise<void> => {
       session.send({ id: `demo-${Date.now()}`, text: line });
       const turn = (await turns.next()).value as AsyncIterable<HarnessEvent> | undefined;
       if (turn === undefined) break;
-      const state = { streamed: false };
-      for await (const event of turn) render(event, state);
+      const state = createRenderState();
+      for await (const event of turn) renderEvent(event, state);
     }
   } finally {
     rl.close();

@@ -7,6 +7,13 @@ import { parseEnvEntries, parseTurnOptions } from "../../src/cli/args.js";
 import { exitCodeForCause } from "../../src/cli/exit-codes.js";
 import { INSPECT_HELP, RUN_HELP, TOP_LEVEL_HELP } from "../../src/cli/help.js";
 import { dispatch } from "../../src/cli/index.js";
+import { composeEscalatedPrompt } from "../../src/interpretation/question.js";
+
+/** The preview redacts the COMPOSED prompt - what run spawns - so its
+ * label reports the composed length (RFC-02 change 10). */
+const promptLabel = (raw: string): string =>
+  `[prompt:${composeEscalatedPrompt(raw, "ask").length}ch]`;
+
 import { ls } from "../../src/cli/ls.js";
 import { resolveHarness } from "../../src/cli/resolve-harness.js";
 import { getVersion } from "../../src/cli/version.js";
@@ -83,6 +90,13 @@ describe("hcn version and help", () => {
     expect(out.stdout).toContain("--argv");
   });
 
+  test("an explicit prompt equal to an inspection flag is data", async () => {
+    const out = await captureDispatch(["inspect", "claude", "--argv", "--prompt", "--context"]);
+    expect(out.exitCode).toBeUndefined();
+    expect(Array.isArray(JSON.parse(out.stdout))).toBe(true);
+    expect(out.stdout).not.toContain("accounting");
+  });
+
   test("unknown flag exits 2 with usage hint", async () => {
     const out = await captureDispatch(["run", "claude", "hi", "--unknown-flag"]);
     expect(out.exitCode).toBe(2);
@@ -93,10 +107,10 @@ describe("hcn version and help", () => {
 describe("hcn ls", () => {
   test("lists claude@, codex@, pi@, muse@ with versionSource", async () => {
     const out = await captureDispatch(["ls"]);
-    expect(out.stdout).toContain("claude@2.1.233");
-    expect(out.stdout).toContain("codex@0.147.0");
+    expect(out.stdout).toContain("claude@2.1.263");
+    expect(out.stdout).toContain("codex@0.153.4");
     expect(out.stdout).toContain("pi@0.84.2");
-    expect(out.stdout).toContain("muse@0.1.0");
+    expect(out.stdout).toContain("muse@1.1.1");
     expect(out.stdout).toContain("npm:");
     expect(out.stdout).toContain("installed:");
     expect(out.exitCode === undefined || out.exitCode === 0).toBe(true);
@@ -157,16 +171,34 @@ describe("harness-name validation", () => {
     expect(out.stdout).toContain("--questions");
     // memory dimension ships on the session surface too (ratified 2026-08-26)
     expect(out.stdout).toContain("--no-memory");
+    // the session surface carries the effort dimension (validated per
+    // harness/model, like the run surface)
+    expect(out.stdout).toContain("--effort <value>");
   });
 });
 
 describe("hcn inspect (pure)", () => {
+  test("argv preview preserves native --argv tokens after the separator", async () => {
+    const out = await captureDispatch([
+      "inspect",
+      "codex",
+      "--argv",
+      "--questions",
+      "none",
+      "hi",
+      "--",
+      "--argv",
+    ]);
+    expect(out.exitCode).toBeUndefined();
+    expect(JSON.parse(out.stdout).slice(-2)).toEqual(["--", "--argv"]);
+  });
   test("inspect claude shows bin, verifiedAgainst, launch.streamFlags, resume.flag, vocabulary.models", async () => {
     const out = await captureDispatch(["inspect", "claude"]);
     const parsed = JSON.parse(out.stdout);
     expect(parsed.bin).toBe("claude");
-    expect(parsed.verifiedAgainst).toBe("2.1.233");
+    expect(parsed.verifiedAgainst).toBe("2.1.263");
     expect(parsed.launch.streamFlags).toContain("--output-format");
+    expect(parsed.launch.stdinPrompt).toEqual({ argument: "", aboveBytes: 65_536 });
     expect(parsed.resume.flag).toBe("--resume");
     expect(parsed.vocabulary.models).toContain("claude-opus-5");
   });
@@ -178,10 +210,30 @@ describe("hcn inspect (pure)", () => {
     expect(parsed.vocabulary.models).toContain("zai/glm-5.2");
     expect(parsed.launch.baseFlags).toContain("--mode");
   });
+  test("inspect declares native context management separately from accounting", async () => {
+    const codex = JSON.parse((await captureDispatch(["inspect", "codex"])).stdout);
+    expect(codex.nativeContextManagement).toEqual({
+      kind: "auto-compaction",
+      modes: ["headless-turn"],
+    });
+    expect(codex.contextInspection).toBeNull();
+    const claude = JSON.parse((await captureDispatch(["inspect", "claude"])).stdout);
+    expect(claude.nativeContextManagement).toEqual({
+      kind: "native-session-auto-compaction",
+      modes: ["headless-turn"],
+    });
+    expect(claude.contextInspection).not.toBeNull();
+    const muse = JSON.parse((await captureDispatch(["inspect", "muse"])).stdout);
+    expect(muse.nativeContextManagement).toEqual({
+      kind: "auto-compaction",
+      modes: ["headless-turn"],
+    });
+    expect(muse.contextInspection).toBeNull();
+  });
 });
 
 describe("hcn inspect --argv (argv preview + redaction)", () => {
-  test("previews argv with prompt redacted as [prompt:2ch]", async () => {
+  test("previews argv with the composed prompt redacted by length", async () => {
     const out = await captureDispatch([
       "inspect",
       "claude",
@@ -191,12 +243,12 @@ describe("hcn inspect --argv (argv preview + redaction)", () => {
       "--effort",
       "high",
     ]);
-    expect(out.stdout).toContain("[prompt:2ch]");
+    expect(out.stdout).toContain(promptLabel("hi"));
     expect(out.stdout).not.toContain('"hi"');
     // Check order: effort flag before prompt redacted?
     const parsed: string[] = JSON.parse(out.stdout);
     const effortAt = parsed.indexOf("--effort");
-    const promptAt = parsed.indexOf("[prompt:2ch]");
+    const promptAt = parsed.indexOf(promptLabel("hi"));
     expect(effortAt).toBeGreaterThan(-1);
     expect(promptAt).toBeGreaterThan(-1);
     expect(effortAt).toBeLessThan(promptAt);
@@ -264,7 +316,7 @@ describe("hcn inspect --argv (argv preview + redaction)", () => {
   test("--prompt '-bad' explicit form bypasses flag-injection and succeeds", async () => {
     const out = await captureDispatch(["inspect", "claude", "--argv", "--prompt", "-bad"]);
     expect(out.exitCode === undefined || out.exitCode === 0).toBe(true);
-    expect(out.stdout).toContain("[prompt:4ch]");
+    expect(out.stdout).toContain(promptLabel("-bad"));
   });
 
   test("--prompt vs positional mutual exclusion errors when both given", async () => {
@@ -391,6 +443,17 @@ describe("flag mapping and validation", () => {
     expect(out.stdout).toContain("--disable-write");
   });
 
+  test("memory dimension: conflicting flags refuse before a preview or session spawn", async () => {
+    for (const args of [
+      ["inspect", "claude", "--argv", "--prompt", "synthetic"],
+      ["session", "claude", "--json"],
+    ]) {
+      const out = await captureDispatch([...args, "--memory", "--no-memory"]);
+      expect(out.exitCode).toBe(2);
+      expect(out.stderr).toContain("--memory and --no-memory");
+    }
+  });
+
   test("memory dimension: claude preview shows the env assignment, not argv tokens", async () => {
     const out = await captureDispatch(["inspect", "claude", "--argv", "--prompt", "hi"]);
     // profile default memory:off renders a spawn env var (ratified 2026-08-26)
@@ -514,7 +577,7 @@ describe("prompt sources", () => {
     writeFileSync(file, "from file", "utf8");
     try {
       const out = await captureDispatch(["inspect", "claude", "--argv", "--prompt-file", file]);
-      expect(out.stdout).toContain("[prompt:9ch]");
+      expect(out.stdout).toContain(promptLabel("from file"));
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

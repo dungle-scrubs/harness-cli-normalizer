@@ -21,37 +21,25 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import type { HarnessEvent } from "../src/execution/events.js";
-import { nodeRunnerDeps } from "../src/execution/node-deps.js";
 import { streamTurn } from "../src/execution/stream-turn.js";
 import { claudeCode } from "../src/knowledge/claude-code.js";
 import { codexCli } from "../src/knowledge/codex.js";
 import type { HarnessDescriptor } from "../src/knowledge/descriptor.js";
 import { museCode } from "../src/knowledge/muse.js";
 import { piCli } from "../src/knowledge/pi.js";
+import { smokeCwd, smokeDeps, smokeHarnesses } from "./smoke-options.js";
 
 delete process.env.HERDR_ENV;
 
-const HARNESSES: HarnessDescriptor[] = [claudeCode, codexCli, piCli, museCode];
+const HARNESSES = smokeHarnesses([claudeCode, codexCli, piCli, museCode]);
 
 const modelFor = (h: HarnessDescriptor): string | undefined =>
-  h.name === "pi"
+  process.env.SMOKE_MODEL ??
+  (h.name === "pi"
     ? (process.env.SMOKE_PI_MODEL ?? "qwen3.6-27b")
     : h.name === "claude"
       ? "sonnet"
-      : undefined;
-
-const SCENARIO_TIMEOUT_MS = 240_000;
-
-const withTimeout = <T>(work: Promise<T>): Promise<T> =>
-  Promise.race([
-    work,
-    new Promise<never>((_, reject) =>
-      setTimeout(
-        () => reject(new Error(`scenario exceeded ${SCENARIO_TIMEOUT_MS}ms`)),
-        SCENARIO_TIMEOUT_MS,
-      ),
-    ),
-  ]);
+      : undefined);
 
 const installedVersion = (bin: string): string | null => {
   try {
@@ -92,10 +80,10 @@ const probeAsk = async (h: HarnessDescriptor, version: string): Promise<Cell> =>
       h,
       {
         prompt: genuineDecisionTask,
-        cwd: process.cwd(),
+        cwd: smokeCwd,
         ...(model ? { model } : {}),
       },
-      nodeRunnerDeps(),
+      smokeDeps(),
     ),
   );
   const question = events.find((e) => e.kind === "question");
@@ -129,13 +117,13 @@ const probeAsk = async (h: HarnessDescriptor, version: string): Promise<Cell> =>
 const results: Record<string, Cell> = {};
 
 for (const h of HARNESSES) {
-  const version = installedVersion(h.bin);
+  const version = await installedVersion(h.bin);
   if (version === null) {
     results[h.name] = { status: "skip", detail: "not installed" };
     continue;
   }
   try {
-    results[h.name] = await withTimeout(probeAsk(h, version));
+    results[h.name] = await probeAsk(h, version);
   } catch (cause) {
     results[h.name] = { status: "fail", detail: String(cause).slice(0, 120) };
   }
@@ -144,9 +132,10 @@ for (const h of HARNESSES) {
 // Render matrix
 console.log(`\n${"harness".padEnd(9)}${"version".padEnd(12)}${"result".padEnd(8)}detail`);
 for (const h of HARNESSES) {
-  const r = results[h.name]!;
+  const r = results[h.name];
+  if (r === undefined) throw new Error(`Missing smoke result for ${h.name}`);
   const mark = r.status === "pass" ? "✓" : r.status === "skip" ? "–" : "✗";
-  const ver = installedVersion(h.bin) ?? "?";
+  const ver = (await installedVersion(h.bin)) ?? "?";
   console.log(`${h.name.padEnd(9)}${ver.padEnd(12)}${mark.padEnd(8)}${r.detail}`);
 }
 

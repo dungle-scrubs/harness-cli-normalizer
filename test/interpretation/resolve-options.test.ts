@@ -23,8 +23,8 @@ describe("profile floor", () => {
     const r = resolveEffectiveOptions(piCli, base, undefined);
     expect(r.options.effort).toBe("medium");
     expect(r.provenance).toContainEqual({ key: "effort", value: "medium", tier: "profile" });
-    // pi's only divergence is sandbox (codex-only dimension)
-    expect(r.unrenderable).toEqual(["sandbox"]);
+    // Codex-only profile dimensions remain visible as divergence.
+    expect(r.unrenderable).toEqual(["sandbox", "contextWindow"]);
     expect(r.options.write).toBeUndefined(); // emit-nothing ratification (D9)
     expect(r.options.shell).toBeUndefined(); // (D10)
   });
@@ -126,6 +126,7 @@ describe("profile data", () => {
     expect(Object.keys(DEFAULT_TURN_PROFILE)).toEqual([
       "effort",
       "sandbox",
+      "contextWindow",
       "discovery",
       "autonomy",
       "write",
@@ -315,7 +316,7 @@ describe("discovery.tools off suppresses all-known expansion", () => {
 
   it("project discovery.tools false skips profile tools with project-config tier", () => {
     const r = resolveEffectiveOptions(piCli, base, {
-      project: { discovery: { tools: false } } as unknown as TurnOptions,
+      project: { discovery: { tools: false } },
     });
     expect(r.options.tools).toBeUndefined();
     expect(r.provenance).toContainEqual({

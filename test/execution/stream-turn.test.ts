@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { HarnessEvent } from "../../src/execution/events.js";
-import { streamTurn } from "../../src/execution/stream-turn.js";
+import { redactArgv, streamTurn } from "../../src/execution/stream-turn.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
 import { museCode } from "../../src/knowledge/muse.js";
@@ -29,6 +29,100 @@ const deps = (proc: FakeProcess) => {
 };
 
 describe("streamTurn happy path (claude, fake spawner)", () => {
+  test("large prompts use native stdin without changing session identity or prompt bytes", async () => {
+    for (const resume of [undefined, sid]) {
+      const proc = new FakeProcess({ exitOnStdinEnd: false });
+      const d = deps(proc);
+      const prompt = "🧭".repeat(20_000);
+      const pending = collect(streamTurn(claudeCode, { prompt, resume, questions: "none" }, d));
+      proc.emitLine(init);
+      proc.emitLine(assistant);
+      proc.emitLine(result);
+      proc.exit(0);
+      const events = await pending;
+      expect(d.spawner.calls[0]?.opts.stdin).toBe("pipe");
+      expect(d.spawner.calls[0]?.argv).not.toContain(prompt);
+      expect(proc.stdinWrites.join("")).toBe(prompt);
+      expect(proc.stdinEnded).toBe(true);
+      if (resume) expect(d.spawner.calls[0]?.argv).toContain(resume);
+      expect(events.at(-1)).toMatchObject({ kind: "done", exitCode: 0, cause: "clean" });
+    }
+  });
+  test("a broken large-prompt stdin reports transport failure and stops the native child", async () => {
+    class BrokenInput extends FakeProcess {
+      override get stdin() {
+        return {
+          write: (): void => {
+            throw new Error("broken pipe");
+          },
+          end: (): void => {},
+        };
+      }
+    }
+    class AsyncBrokenInput extends FakeProcess {
+      readonly inputError = Promise.resolve();
+    }
+    for (const proc of [
+      new BrokenInput({ exitOnStdinEnd: false }),
+      new AsyncBrokenInput({ exitOnStdinEnd: false }),
+    ]) {
+      const d = deps(proc);
+      const events = await collect(
+        streamTurn(claudeCode, { prompt: "x".repeat(70_000), questions: "none" }, d),
+      );
+      expect(events).toContainEqual(
+        expect.objectContaining({ kind: "failure", class: "transport" }),
+      );
+      expect(events.at(-1)).toMatchObject({
+        kind: "done",
+        cause: "killed",
+        failure: { class: "transport" },
+      });
+      expect(d.sig.sent.length).toBeGreaterThan(0);
+    }
+  });
+  test("late stdin failure preserves a native exit instead of signalling a dead process", async () => {
+    let breakInput!: () => void;
+    class LateInput extends FakeProcess {
+      readonly inputError = new Promise<void>((resolve) => {
+        breakInput = resolve;
+      });
+    }
+    const proc = new LateInput({ exitOnStdinEnd: false });
+    const d = deps(proc);
+    const pending = collect(
+      streamTurn(claudeCode, { prompt: "x".repeat(70_000), questions: "none" }, d),
+    );
+    proc.emitStderr("unknown native option");
+    proc.exit(1);
+    await Promise.resolve();
+    breakInput();
+    const events = await pending;
+    expect(events.at(-1)).toMatchObject({
+      kind: "done",
+      exitCode: null,
+      failure: { class: "native", nativeExitCode: 1 },
+    });
+    expect(events.some((event) => event.kind === "failure" && event.class === "transport")).toBe(
+      false,
+    );
+    expect(d.sig.sent).toEqual([]);
+  });
+  test("large dash-leading input travels as text and its diagnostic names the transport", async () => {
+    const proc = new FakeProcess({ exitOnStdinEnd: false });
+    const d = deps(proc);
+    const prompt = "--- old file\n" + "x".repeat(70_000);
+    const pending = collect(streamTurn(claudeCode, { prompt, questions: "none" }, d));
+    proc.emitLine(init);
+    proc.emitLine(result);
+    proc.exit(0);
+    const events = await pending;
+    expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+    expect(proc.stdinWrites.join("")).toBe(prompt);
+    expect(redactArgv(d.spawner.calls[0]!.argv, prompt, true)).toContain(
+      "[stdin prompt:" + prompt.length + "ch]",
+    );
+  });
   test("spawns the built argv, yields identity once, messages, and a clean done", async () => {
     const proc = new FakeProcess();
     const d = deps(proc);

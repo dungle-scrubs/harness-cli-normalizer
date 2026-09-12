@@ -1,27 +1,36 @@
 /**
- * Caller-directed skills allowlist rendering (issue #38). The delegating
- * agent picks the subset from its own registry; this module turns the
- * resolved paths into per-harness argv tokens.
+ * Caller-directed skills allowlist rendering (issue #38), descriptor-driven
+ * (RFC-02 change 2). The delegating agent picks the subset from its own
+ * registry; the CLI supplies the resolved picks and the registry's known
+ * names; this module turns them into per-harness argv tokens by reading
+ * the descriptor's `skills` field:
  *
- * - pi: `-ns` (discovery off) + one `--skill <path>` per entry - the
- *   allowlist is exact: only the caller's picks load.
- * - claude: no per-skill load flag; the registry is already present via
- *   the personal skills dir, so the allowlist renders as the complement
- *   OFF - `--settings '{"skillOverrides":{"<name>":"off",...}}'` for every
- *   known skill except the picks. Known set comes from the caller's root
- *   listing (same source that resolved the names).
- * - codex: per-skill disable via config-kv array `-c
- *   skills.config=[{path="...", enabled=false}]` for every known skill
- *   except the picks (complement-off, same inversion as claude). Uses
- *   `path` selector rather than `name` because a skill's frontmatter
- *   `name` need not equal its directory basename, and `path` is exact.
- *   The path for skill <n> under root <root> is <root>/<n>/SKILL.md.
- *   No global `skills.enabled` switch exists. Requires the known set
- *   and the resolved picks (root derived from picks via dirname).
- * - muse: refuse (structural) with the standard hint shape.
+ * - a load flag (pi): the discovery.skills facet off, then one load per
+ *   pick - the allowlist is exact, only the caller's picks load.
+ * - overrides via settings (claude): no per-skill load flag; the registry
+ *   is already present, so the allowlist renders as the complement OFF -
+ *   `--settings '{"skillOverrides":{"<name>":"off",...}}'` for every known
+ *   skill except the picks.
+ * - overrides via a config array (codex): the complement OFF through
+ *   `-c skills.config=[{path="...", enabled=false}]`. Uses the `path`
+ *   selector because a skill's frontmatter `name` need not equal its
+ *   directory basename. The path for skill <n> under root <root> is
+ *   <root>/<n>/SKILL.md, the root taken from the picks (all share one).
+ * - null (muse): refuse, with the support list derived like every other
+ *   refusal's.
  */
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
+import { tokensFor } from "../knowledge/descriptor.js";
+import { defaultDescriptors } from "../knowledge/overrides.js";
 import { ArgvRefusalError } from "./refusal.js";
+import { supportedBy } from "./support.js";
+
+/** The skills turn option: the caller's resolved picks (absolute paths)
+ * and every skill name in the registry they came from. */
+export interface SkillsSelection {
+  readonly picks: readonly string[];
+  readonly known: readonly string[];
+}
 
 export const basenameOf = (p: string): string => {
   const i = p.lastIndexOf("/");
@@ -33,11 +42,32 @@ const dirnameOf = (p: string): string => {
   return i === -1 ? "" : p.slice(0, i);
 };
 
+/** The known names that are not picks, in registry order. */
+const complementOf = (skills: SkillsSelection): readonly string[] => {
+  const picks = new Set(skills.picks.map(basenameOf));
+  return skills.known.filter((name) => !picks.has(name));
+};
+
+const settingsOverrides = (skills: SkillsSelection): readonly string[] => {
+  const offs: Record<string, string> = {};
+  for (const name of complementOf(skills)) offs[name] = "off";
+  return ["--settings", JSON.stringify({ skillOverrides: offs })];
+};
+
+const configSkillsArray = (skills: SkillsSelection): readonly string[] => {
+  const root = skills.picks.length > 0 ? dirnameOf(skills.picks[0] as string) : "";
+  const entries = complementOf(skills).map((name) => {
+    const path = root ? `${root}/${name}/SKILL.md` : `${name}/SKILL.md`;
+    return `{path=${JSON.stringify(path)}, enabled=false}`;
+  });
+  return entries.length === 0 ? [] : ["-c", `skills.config=[${entries.join(", ")}]`];
+};
+
 export const renderSkillsSelection = (
   h: HarnessDescriptor,
-  skills: readonly string[],
+  skills: SkillsSelection,
 ): readonly string[] => {
-  if (skills.length === 0) return [];
+  if (skills.picks.length === 0) return [];
 
   if (h.skills === null) {
     throw new ArgvRefusalError({
@@ -45,67 +75,33 @@ export const renderSkillsSelection = (
       harness: h.name,
       option: "skills",
       supported: ["caller-directed skill sets"],
-      supportedBy: [
-        { harness: "pi", spelling: "--skill" },
-        { harness: "claude", spelling: "skillOverrides" },
-        { harness: "codex", spelling: "-c skills.config" },
-      ],
+      supportedBy: supportedBy(defaultDescriptors(), "skills"),
       hint: "muse scopes skills by workspace trust with no per-skill surface - include the skill content in the prompt or use --trust-workspace for the whole registry",
     });
   }
 
   if (h.skills.loadFlag !== null) {
-    // pi: discovery off so ONLY the picks load.
-    const tokens: string[] = ["-ns"];
-    for (const path of skills) tokens.push(h.skills.loadFlag, path);
+    // Discovery off so ONLY the picks load; the off spelling is the
+    // descriptor's own discovery.skills facet render.
+    const facet =
+      h.turnOptions.discovery?.kind === "discovery"
+        ? h.turnOptions.discovery.facets.skills
+        : undefined;
+    const tokens: string[] = facet === undefined ? [] : [...tokensFor(facet.render)];
+    for (const path of skills.picks) tokens.push(h.skills.loadFlag, path);
     return tokens;
   }
 
-  // claude and codex: complement-off via CLI layer (settings JSON / config
-  // array). The descriptor-level render returns [] and tokens append in
-  // stream-turn / CLI.
-  return [];
-};
-
-/** The claude complement form, given the full known registry: every known
- * name except the picks gets "off". Exported for the CLI layer, which owns
- * the registry listing (an fs read - never in interpretation). */
-export const claudeSkillOverridesArg = (
-  knownSkills: readonly string[],
-  pickedPaths: readonly string[],
-): string[] => {
-  const picks = new Set(pickedPaths.map(basenameOf));
-  const offs: Record<string, string> = {};
-  for (const name of knownSkills) {
-    if (!picks.has(name)) offs[name] = "off";
-  }
-  const json = JSON.stringify({ skillOverrides: offs });
-  return ["--settings", json];
-};
-
-/** Codex complement form: every known skill except the picks gets
- * `{path="<root>/<name>/SKILL.md>", enabled=false}` via `-c
- * skills.config=[...]`. Uses `path` (exact) over `name` because
- * frontmatter name may diverge from directory basename. Root is derived
- * from the picks' dirname (all picks share the same root); if picks is
- * empty the complement cannot be rooted and we return [] (caller picks
- * nothing - no integration point needs this, and the CLI layer never
- * calls with empty picks). Empty complement returns [] (no flag). */
-export const codexSkillConfigArg = (
-  knownSkills: readonly string[],
-  pickedPaths: readonly string[],
-): string[] => {
-  const picks = new Set(pickedPaths.map(basenameOf));
-  // Derive root from first pick's dirname; all picks are under same root
-  // (skills-root guarantees this). Fall back to "" if no picks.
-  const root = pickedPaths.length > 0 ? dirnameOf(pickedPaths[0] as string) : "";
-  const entries: string[] = [];
-  for (const name of knownSkills) {
-    if (!picks.has(name)) {
-      const absPath = root ? `${root}/${name}/SKILL.md` : `${name}/SKILL.md`;
-      entries.push(`{path=${JSON.stringify(absPath)}, enabled=false}`);
+  switch (h.skills.overridesVia) {
+    case "settings-skilloverrides":
+      return settingsOverrides(skills);
+    case "config-skills-array":
+      return configSkillsArray(skills);
+    case null:
+      return [];
+    default: {
+      const exhaustive: never = h.skills.overridesVia;
+      return exhaustive;
     }
   }
-  if (entries.length === 0) return [];
-  return ["-c", `skills.config=[${entries.join(", ")}]`];
 };

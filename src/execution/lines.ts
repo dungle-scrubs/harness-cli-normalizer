@@ -11,11 +11,14 @@
 export const LINE_MAX = 65_536;
 
 export class LineBuffer {
+  constructor(
+    private readonly limit = LINE_MAX,
+    private readonly onOverflow?: () => void,
+  ) {}
   // Per-instance and stateful ({stream:true}): a shared decoder would carry
   // partial-sequence state across two streams and corrupt both.
   private readonly decoder = new TextDecoder();
   private pending = "";
-  private scanFrom = 0;
   private discarding = false;
 
   push(chunk: string | Uint8Array): string[] {
@@ -24,39 +27,39 @@ export class LineBuffer {
   }
 
   private ingest(text: string): string[] {
-    this.pending += text;
     const lines: string[] = [];
+    let start = 0;
     while (true) {
-      const at = this.pending.indexOf("\n", this.scanFrom);
-      if (at === -1) break;
-      const line = this.pending.slice(0, at);
-      this.pending = this.pending.slice(at + 1);
-      this.scanFrom = 0;
-      if (this.discarding) {
-        // The truncated head of an over-long line ends here; drop it whole.
-        this.discarding = false;
-        continue;
-      }
-      // The bound applies to COMPLETE lines too - an oversized line whose
-      // newline arrived in the same chunk must not bypass it.
-      if (line.length <= LINE_MAX && !isBlank(line)) lines.push(line);
-    }
-    this.scanFrom = this.pending.length;
-    if (this.pending.length > LINE_MAX) {
+      // Search only new bytes. Searching the accumulated rope on each pipe
+      // chunk repeatedly flattens large echoed prompts.
+      const at = text.indexOf("\n", start);
+      this.append(text.slice(start, at === -1 ? text.length : at));
+      if (at === -1) return lines;
+      if (!this.discarding && !isBlank(this.pending)) lines.push(this.pending);
       this.pending = "";
-      this.scanFrom = 0;
-      this.discarding = true;
+      this.discarding = false;
+      start = at + 1;
     }
-    return lines;
+  }
+
+  private append(text: string): void {
+    if (this.discarding) return;
+    if (this.pending.length + text.length > this.limit) {
+      this.pending = "";
+      this.discarding = true;
+      this.onOverflow?.();
+    } else this.pending += text;
   }
 
   /** The final partial line at stream close, if any. */
   flush(): string | null {
     const tail = this.decoder.decode();
-    if (tail !== "") this.pending += tail;
-    const rest = this.discarding || isBlank(this.pending) ? null : this.pending;
+    if (tail !== "") this.append(tail);
+    const rest =
+      this.discarding || this.pending.length > this.limit || isBlank(this.pending)
+        ? null
+        : this.pending;
     this.pending = "";
-    this.scanFrom = 0;
     this.discarding = false;
     return rest;
   }

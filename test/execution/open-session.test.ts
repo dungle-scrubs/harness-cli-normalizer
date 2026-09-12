@@ -46,6 +46,26 @@ const expectClaudeUserWrite = (proc: FakeProcess, index: number, text: string): 
   expect(JSON.parse(proc.stdinLines[index] ?? "null")).toEqual(expectedInput);
 };
 
+describe("openSession effort (claude, fake process)", () => {
+  test("effort rides the spawn argv; an off-ladder value refuses before any spawn", () => {
+    const proc = new FakeProcess();
+    const d = makeDeps(proc);
+    openSession(claudeCode, { sessionId: sid, effort: "high" }, d);
+    // The effort is a session (spawn) property, not a per-turn one: it
+    // lands on the one argv the session is spawned with.
+    const argv = d.spawner.calls[0]?.argv ?? [];
+    expect(argv[argv.indexOf("--effort") + 1]).toBe("high");
+
+    let refused: unknown;
+    try {
+      openSession(claudeCode, { sessionId: sid, effort: "bogus" }, makeDeps(new FakeProcess()));
+    } catch (e) {
+      refused = e;
+    }
+    expect((refused as { issue?: string })?.issue).toBe("unknown-effort");
+  });
+});
+
 describe("openSession (claude, fake process)", () => {
   test("one process serves many turns; send during idle starts a turn; result delimits it (A-001)", async () => {
     const proc = new FakeProcess();

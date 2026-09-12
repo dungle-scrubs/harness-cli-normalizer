@@ -1,8 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
-  detectAuthFailure,
   detectAuthFailureInLine,
-  detectLimit,
   detectLimitInLine,
   detectTransportInLine,
   detectUnavailableInLine,
@@ -12,47 +10,48 @@ import { codexCli } from "../../src/knowledge/codex.js";
 import { museCode } from "../../src/knowledge/muse.js";
 import { piCli } from "../../src/knowledge/pi.js";
 
-describe("detectLimit (claude)", () => {
-  test("recognizes the real claude limit walls, scanning bottom-up, code only", () => {
-    expect(detectLimit(claudeCode, "blah\nYou've hit your session limit · resets 6:30pm")).toBe(
+describe("detectLimitInLine (claude)", () => {
+  test("recognizes the real claude limit walls, code only", () => {
+    expect(detectLimitInLine(claudeCode, "You've hit your session limit · resets 6:30pm")).toBe(
       "session-limit",
     );
     expect(
-      detectLimit(claudeCode, "You've hit your weekly limit · resets 2am (Asia/Bangkok)"),
+      detectLimitInLine(claudeCode, "You've hit your weekly limit · resets 2am (Asia/Bangkok)"),
     ).toBe("weekly-limit");
-    expect(detectLimit(claudeCode, "Usage limit reached")).toBe("usage-limit");
+    expect(detectLimitInLine(claudeCode, "Usage limit reached")).toBe("usage-limit");
   });
 
   test("returns the code alone - never the matched line (D-005: no content rides along)", () => {
-    const detected = detectLimit(claudeCode, "secret prompt text you've hit your usage limit");
+    const detected = detectLimitInLine(
+      claudeCode,
+      "secret prompt text you've hit your usage limit",
+    );
     expect(detected).toBe("usage-limit");
     expect(typeof detected).toBe("string");
   });
 
-  test("a clean transcript detects nothing - crash and clean exit are not limits", () => {
-    expect(detectLimit(claudeCode, "all done\ngoodbye")).toBeNull();
-    expect(detectLimit(claudeCode, "TypeError: x is not a function")).toBeNull();
+  test("a clean line detects nothing - crash and clean exit are not limits", () => {
+    expect(detectLimitInLine(claudeCode, "all done")).toBeNull();
+    expect(detectLimitInLine(claudeCode, "goodbye")).toBeNull();
+    expect(detectLimitInLine(claudeCode, "TypeError: x is not a function")).toBeNull();
   });
 
-  test("per-line entry point serves streaming readers", () => {
+  test("structured output lines never read as a wall", () => {
     expect(detectLimitInLine(claudeCode, "You've hit your weekly limit · resets 2am")).toBe(
       "weekly-limit",
     );
     expect(detectLimitInLine(claudeCode, '{"type":"token","text":"hi"}')).toBeNull();
   });
-
-  test("batch scan is bounded to the tail - a wall buried 10k lines up is out of scope", () => {
-    const buried = `You've hit your usage limit\n${"noise line\n".repeat(10_000)}`;
-    expect(detectLimit(claudeCode, buried)).toBeNull();
-  });
 });
 
-describe("detectAuthFailure (claude)", () => {
+describe("detectAuthFailureInLine (claude)", () => {
   test("auth walls classify separately from usage limits - the remedy differs", () => {
-    expect(detectAuthFailure(claudeCode, "OAuth session expired")).toBe("expired");
-    expect(detectAuthFailure(claudeCode, "Not logged in. Please run /login")).toBe("not-logged-in");
-    expect(detectAuthFailure(claudeCode, "Invalid API key")).toBe("invalid-key");
-    expect(detectAuthFailure(claudeCode, "You've hit your usage limit")).toBeNull();
+    expect(detectAuthFailureInLine(claudeCode, "OAuth session expired")).toBe("expired");
+    expect(detectAuthFailureInLine(claudeCode, "Not logged in. Please run /login")).toBe(
+      "not-logged-in",
+    );
+    expect(detectAuthFailureInLine(claudeCode, "Invalid API key")).toBe("invalid-key");
+    expect(detectAuthFailureInLine(claudeCode, "You've hit your usage limit")).toBeNull();
   });
 });
 

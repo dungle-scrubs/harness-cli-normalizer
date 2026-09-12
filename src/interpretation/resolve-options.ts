@@ -11,8 +11,10 @@ import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { DEFAULT_TURN_PROFILE, type ProfileKey } from "../knowledge/profile.js";
 import type { TurnOptions } from "./argv.js";
+import { assertIsolationCombination, ISOLATION_OVERRIDES } from "./isolation.js";
+import type { QuestionMode } from "./question.js";
 import { ArgvRefusalError } from "./refusal.js";
-import type { ToolMap } from "./tool-vocabulary.js";
+import type { ToolMapConfig } from "./tool-vocabulary.js";
 import { allCanonicalNames, mergeToolMaps, validateCanonicalList } from "./tool-vocabulary.js";
 import { validateAccess } from "./vocabulary.js";
 
@@ -49,12 +51,37 @@ export interface ResolvedOptions {
   readonly unrenderable: readonly string[];
 }
 
+export function assertAccessExclusivity(
+  harness: HarnessDescriptor,
+  options: Partial<TurnOptions>,
+  explicit: (key: keyof TurnOptions) => boolean = (key) => options[key] !== undefined,
+): void {
+  if (options.access === undefined) return;
+  const spec = harness.turnOptions.access;
+  const claimed = spec?.kind === "access" ? spec.claims : undefined;
+  const claimedConflict = claimed !== undefined && explicit(claimed as keyof TurnOptions);
+  const conflict = explicit("tools") || explicit("excludeTools") || claimedConflict;
+  if (conflict)
+    throw new ArgvRefusalError({
+      issue: "mutually-exclusive-options",
+      harness: harness.name,
+      option: "access",
+      supported: [
+        claimedConflict
+          ? `--access or --${claimed}, not both on ${harness.name}`
+          : "--access is a preset allowlist, not a filter over --tools/--exclude-tools",
+      ],
+      detail: "mutual exclusion",
+    });
+}
+
 /** Expressibility per profile dimension. Dimensions whose "on" state is
  * the harness's own default (discovery all-on) or whose "off" state emits
  * nothing (autonomy false) are expressible EVERYWHERE - the profile value
  * resolves to "emit nothing," which every harness can do. Divergence is
  * reserved for dimensions that would emit a flag the harness lacks. */
 const EXPRESSIBLE: Readonly<Record<ProfileKey, (h: HarnessDescriptor) => boolean>> = {
+  contextWindow: (h) => h.turnOptions.contextWindow !== undefined,
   effort: (h) => h.turnOptions.effort !== undefined,
   sandbox: (h) => h.turnOptions.sandbox !== undefined,
   discovery: () => true,
@@ -67,20 +94,72 @@ const EXPRESSIBLE: Readonly<Record<ProfileKey, (h: HarnessDescriptor) => boolean
   tools: (h) => h.tools.includeFlag !== null || h.tools.excludeFlag !== null,
 };
 
+/** What one parsed config file carries: the turn options it may set, plus
+ * the keys that are not turn options - named toolsets, the raw toolMap
+ * (harness -> canonical -> native, merged into the one ToolMap shape
+ * here), and the wall-clock timeout. */
+export type ConfigTier = Readonly<Omit<Partial<TurnOptions>, "toolMap">> & {
+  readonly toolMap?: ToolMapConfig;
+  readonly toolsets?: Readonly<Record<string, readonly string[]>>;
+  readonly timeout?: number;
+};
+
 export interface ConfigTiers {
   /** ~/.config/hcn/config.json (XDG) - machine-wide defaults. */
-  readonly user?: Readonly<Partial<TurnOptions>>;
+  readonly user?: ConfigTier;
   /** <git-root>/.hcn/config.json - auto-discovered (ratified A), the ALL-
    * OFF tier; its `tools` key is both the default grant and the FLOOR: an
    * arg grant exceeding it refuses, naming both sets (D5). */
-  readonly project?: Readonly<Partial<TurnOptions>>;
+  readonly project?: ConfigTier;
 }
+
+/** Where a resolved behaviour value came from; `default` is hcn's own. */
+export type BehaviorTier = "arg" | "project-config" | "user-config" | "default";
+
+/** The hcn-owned behaviour instructions a run resolves on every path,
+ * launch, resume, and session alike (RFC-02 change 6): question mode,
+ * which rides the prompt rather than the argv, and the wall-clock
+ * timeout hcn enforces itself. Neither is a turn option, so the
+ * launch-only turn-option resolver never sees them. */
+export interface ResolvedBehavior {
+  readonly questions: { readonly value: QuestionMode; readonly tier: BehaviorTier };
+  readonly timeoutSeconds: { readonly value: number | undefined; readonly tier: BehaviorTier };
+}
+
+const pickTier = <TValue>(
+  arg: TValue | undefined,
+  project: TValue | undefined,
+  user: TValue | undefined,
+  fallback: TValue,
+): { readonly value: TValue; readonly tier: BehaviorTier } => {
+  if (arg !== undefined) return { value: arg, tier: "arg" };
+  if (project !== undefined) return { value: project, tier: "project-config" };
+  if (user !== undefined) return { value: user, tier: "user-config" };
+  return { value: fallback, tier: "default" };
+};
+
+/** Precedence arg > project > user > default, with the tier the
+ * provenance line prints. Timeout 0 is an explicit disable. */
+export const resolveBehavior = (
+  args: { readonly questions?: QuestionMode; readonly timeoutSeconds?: number },
+  tiers: ConfigTiers,
+): ResolvedBehavior => {
+  return {
+    questions: pickTier(args.questions, tiers.project?.questions, tiers.user?.questions, "ask"),
+    timeoutSeconds: pickTier(
+      args.timeoutSeconds,
+      tiers.project?.timeout,
+      tiers.user?.timeout,
+      undefined,
+    ),
+  };
+};
 
 /** Merge semantics (gap 1, resolved): config keys are scalars and lists in
  * schema v1 - there is nothing to deep-merge INTO - so precedence is whole-
  * key replacement: arg > project > user > profile. A future nested key
  * (per-harness sections) ships with schema v2 and its own merge rule. */
-const effectiveConfig = (tiers: ConfigTiers): Readonly<Partial<TurnOptions>> => ({
+const effectiveConfig = (tiers: ConfigTiers): ConfigTier => ({
   ...(tiers.user ?? {}),
   ...(tiers.project ?? {}),
 });
@@ -102,11 +181,13 @@ export const resolveSessionMemory = (
     readonly project?: Readonly<{ memory?: boolean }>;
   },
 ): MemoryResolution => {
-  if (arg !== undefined) return { memory: arg, tier: "arg" };
-  if (tiers.project?.memory !== undefined)
-    return { memory: tiers.project.memory, tier: "project-config" };
-  if (tiers.user?.memory !== undefined) return { memory: tiers.user.memory, tier: "user-config" };
-  return { memory: false, tier: "profile" };
+  const selected = pickTier<boolean>(
+    arg,
+    tiers.project?.memory,
+    tiers.user?.memory,
+    DEFAULT_TURN_PROFILE.memory,
+  );
+  return { memory: selected.value, tier: selected.tier === "default" ? "profile" : selected.tier };
 };
 
 /** Resolve the effective options for a LAUNCH. `args` is what the caller
@@ -126,10 +207,17 @@ export const resolveEffectiveOptions = (
   args: TurnOptions,
   tiers: ConfigTiers = {},
 ): ResolvedOptions => {
+  assertIsolationCombination(h, args);
   const provenance: ProvenanceEntry[] = [];
+  if (args.isolation !== undefined)
+    provenance.push({ key: "isolation", value: args.isolation, tier: "arg" });
   const unrenderable: string[] = [];
-  const config = effectiveConfig(tiers);
+  const config = { ...effectiveConfig(tiers) };
+  if (args.isolation !== undefined) {
+    for (const key of ISOLATION_OVERRIDES) delete config[key];
+  }
   const sourceTier = (key: string): ProvenanceTier | undefined => {
+    if (config[key as keyof TurnOptions] === undefined) return undefined;
     if (tiers.project?.[key as keyof TurnOptions] !== undefined) return "project-config";
     if (tiers.user?.[key as keyof TurnOptions] !== undefined) return "user-config";
     return undefined;
@@ -139,9 +227,9 @@ export const resolveEffectiveOptions = (
   // toolset resolves to its list BEFORE the floor check, so a named set
   // within the floor passes and one exceeding it refuses naming the set's
   // members. Project toolsets win name collisions over user toolsets.
-  const toolsets = {
-    ...((tiers.user as { toolsets?: Record<string, string[]> } | undefined)?.toolsets ?? {}),
-    ...((tiers.project as { toolsets?: Record<string, string[]> } | undefined)?.toolsets ?? {}),
+  const toolsets: Record<string, readonly string[]> = {
+    ...(tiers.user?.toolsets ?? {}),
+    ...(tiers.project?.toolsets ?? {}),
   };
   let effectiveArgs = args;
   if (
@@ -171,52 +259,26 @@ export const resolveEffectiveOptions = (
       });
     }
   }
-  // Access exclusivity on codex: explicit --sandbox together with --access refuses.
-  // Profile sandbox yields to access - only explicit sandbox counts.
-  if (h.name === "codex" && resolved.access !== undefined) {
-    const hasExplicitSandbox =
-      effectiveArgs.sandbox !== undefined || sourceTier("sandbox") !== undefined;
-    if (hasExplicitSandbox) {
-      throw new ArgvRefusalError({
-        issue: "mutually-exclusive-options",
-        harness: h.name,
-        option: "access",
-        supported: ["--access or --sandbox, not both on codex"],
-        detail: "mutual exclusion",
-      });
-    }
-  }
-  // Access vs tools exclusivity: only explicit tools/excludeTools from args or config, never profile-derived.
-  if (resolved.access !== undefined) {
-    const explicitTools = effectiveArgs.tools !== undefined || sourceTier("tools") !== undefined;
-    const explicitExclude =
-      (effectiveArgs as unknown as Record<string, unknown>).excludeTools !== undefined ||
-      sourceTier("excludeTools") !== undefined;
-    if (explicitTools || explicitExclude) {
-      throw new ArgvRefusalError({
-        issue: "mutually-exclusive-options",
-        harness: h.name,
-        option: "access",
-        supported: ["--access is a preset allowlist, not a filter over --tools/--exclude-tools"],
-        detail: "mutual exclusion",
-      });
-    }
-  }
+  // The access preset displaces the turn option its spec claims (codex:
+  // sandbox). An explicit value of that option alongside access refuses;
+  // the profile default yields silently in the profile loop below. Read
+  // from the descriptor, so no harness name appears here.
+  const accessSpec = h.turnOptions.access;
+  const claimed = accessSpec?.kind === "access" ? accessSpec.claims : undefined;
+  assertAccessExclusivity(
+    h,
+    resolved,
+    (key) => effectiveArgs[key] !== undefined || sourceTier(key) !== undefined,
+  );
 
-  // toolMap merge per harness per canonical (project > user)
-  const rawToolMapUser = (tiers.user as { toolMap?: ToolMap } | undefined)?.toolMap;
-  const rawToolMapProject = (tiers.project as { toolMap?: ToolMap } | undefined)?.toolMap;
-  const mergedToolMap = mergeToolMaps({ user: rawToolMapUser, project: rawToolMapProject });
+  // toolMap merge per harness per canonical (project > user). The merged
+  // shape is the one shape past this point (RFC-02 change 8).
+  const mergedToolMap = mergeToolMaps({
+    user: tiers.user?.toolMap,
+    project: tiers.project?.toolMap,
+  });
   if (Object.keys(mergedToolMap).length > 0) {
-    // Convert mergedToolMap to legacy shape for resolved.toolMap consumers
-    const legacy: Record<string, Record<string, string>> = {};
-    for (const [harness, per] of Object.entries(mergedToolMap)) {
-      legacy[harness] = {};
-      for (const [canon, entry] of Object.entries(per as Record<string, { native: string }>)) {
-        legacy[harness]![canon] = entry.native;
-      }
-    }
-    resolved.toolMap = legacy as unknown as typeof resolved.toolMap;
+    resolved.toolMap = mergedToolMap;
     const harnessMap = mergedToolMap[h.name];
     if (harnessMap) {
       for (const [canonical, entry] of Object.entries(harnessMap)) {
@@ -241,7 +303,7 @@ export const resolveEffectiveOptions = (
   let allCanonical: readonly string[] | undefined;
   const getAllCanonical = (): readonly string[] => {
     if (allCanonical) return allCanonical;
-    allCanonical = allCanonicalNames(defaultDescriptors(), mergedToolMap as unknown as ToolMap);
+    allCanonical = allCanonicalNames(defaultDescriptors(), mergedToolMap);
     return allCanonical;
   };
   if (needsCanonical) {
@@ -263,6 +325,10 @@ export const resolveEffectiveOptions = (
 
   // Profile is the floor: apply only where nothing above it set the key.
   for (const [key, value] of Object.entries(DEFAULT_TURN_PROFILE)) {
+    if (args.isolation !== undefined && ISOLATION_OVERRIDES.some((owned) => owned === key)) {
+      provenance.push({ key, value: "disabled (tool-free isolation)", tier: "arg" });
+      continue;
+    }
     const argsSet = effectiveArgs[key as keyof TurnOptions] !== undefined;
     const tier = sourceTier(key);
     if (argsSet) {
@@ -290,8 +356,8 @@ export const resolveEffectiveOptions = (
       provenance.push({ key, value: "none (access preset)", tier: accessTier });
       continue;
     }
-    // Profile sandbox yields to access - when access is set, drop profile sandbox.
-    if (key === "sandbox" && resolved.access !== undefined) {
+    // The claimed option's profile default yields to a set access preset.
+    if (key === claimed && resolved.access !== undefined) {
       provenance.push({ key, value: `${String(value)} (access)`, tier: "harness" });
       continue;
     }
@@ -307,8 +373,9 @@ export const resolveEffectiveOptions = (
       // must not have the profile grant switch them back on (pi reads
       // --tools as an enabling allowlist). The tier that turned tools off
       // owns the skip.
-      const toolsOff = (o: Partial<TurnOptions> | undefined): boolean =>
-        o?.discovery?.tools === false;
+      const toolsOff = (
+        o: { readonly discovery?: TurnOptions["discovery"] } | undefined,
+      ): boolean => o?.discovery?.tools === false;
       const offTier: ProvenanceTier | undefined = toolsOff(effectiveArgs)
         ? "arg"
         : toolsOff(tiers.project)

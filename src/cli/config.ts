@@ -20,8 +20,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import type { TurnOptions } from "../interpretation/argv.js";
-import { TOOL_SELECTOR } from "../interpretation/tool-selection.js";
-import { validateAccess } from "../interpretation/vocabulary.js";
+import { isQuestionMode, QUESTION_MODES } from "../interpretation/question.js";
+import type { ConfigTier } from "../interpretation/resolve-options.js";
+import { CLEAN_SELECTOR, validateAccess } from "../interpretation/vocabulary.js";
 import { HARNESS_NAMES } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 
@@ -63,11 +64,14 @@ type MutableTurnOptions = {
   [K in keyof TurnOptions]?: TurnOptions[K];
 };
 
+// Isolation is invocation-only: a config must not silently change native auth
+// or disable all tools for unrelated turns.
 const KNOWN_KEYS = new Set([
   "effort",
   "model",
   "provider",
   "sandbox",
+  "contextWindow",
   "tools",
   "excludeTools",
   "autonomy",
@@ -91,11 +95,10 @@ const KNOWN_KEYS = new Set([
 
 const LIST_KEYS = new Set(["tools", "excludeTools"]);
 const BOOL_KEYS = new Set(["autonomy", "write", "shell", "memory"]);
-const QUESTIONS_VALUES = new Set(["ask", "assume", "none"]);
 
 /** Parse + validate config text. Throws ConfigError with the offending key
  * named on any violation - never warns and continues. */
-export const parseUserConfig = (text: string): Partial<TurnOptions> => {
+export const parseUserConfig = (text: string): ConfigTier => {
   let raw: unknown;
   try {
     raw = JSON.parse(text);
@@ -129,7 +132,7 @@ export const parseUserConfig = (text: string): Partial<TurnOptions> => {
         );
       }
       const toolMapObj = value as Record<string, unknown>;
-      const SEL = TOOL_SELECTOR;
+      const SEL = CLEAN_SELECTOR;
       const descSet = defaultDescriptors();
       const harnessNames = HARNESS_NAMES as readonly string[];
       for (const [harness, inner] of Object.entries(toolMapObj)) {
@@ -231,9 +234,9 @@ export const parseUserConfig = (text: string): Partial<TurnOptions> => {
       continue;
     }
     if (key === "questions") {
-      if (typeof value !== "string" || !QUESTIONS_VALUES.has(value)) {
+      if (typeof value !== "string" || !isQuestionMode(value)) {
         throw new ConfigError(
-          `config key ${JSON.stringify(key)} must be one of ${[...QUESTIONS_VALUES].join(", ")}`,
+          `config key ${JSON.stringify(key)} must be one of ${QUESTION_MODES.join(", ")}`,
         );
       }
       (out as Record<string, unknown>).questions = value;
@@ -253,24 +256,24 @@ export const parseUserConfig = (text: string): Partial<TurnOptions> => {
     }
     (out as Record<string, unknown>)[key] = value;
   }
-  return out as Partial<TurnOptions>;
+  return out as ConfigTier;
 };
 
 /** Load the user config if the file exists; absent file is an empty config
  * (no tiers engaged), unreadable or invalid file is a hard error. */
-export const loadUserConfig = (): { config: Partial<TurnOptions>; path: string } | null =>
+export const loadUserConfig = (): { config: ConfigTier; path: string } | null =>
   loadConfigAt(userConfigPath());
 
 /** Load the project config (git-root auto-discovery, ratified A). */
 export const loadProjectConfig = (
   startDir?: string,
-): { config: Partial<TurnOptions>; path: string } | null => {
+): { config: ConfigTier; path: string } | null => {
   const path = projectConfigPath(startDir);
   if (path === null) return null;
   return loadConfigAt(path);
 };
 
-const loadConfigAt = (path: string): { config: Partial<TurnOptions>; path: string } | null => {
+const loadConfigAt = (path: string): { config: ConfigTier; path: string } | null => {
   let text: string;
   try {
     text = readFileSync(path, "utf8");

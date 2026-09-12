@@ -5,6 +5,62 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.7](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.6...v0.6.7) (2026-09-11)
+
+
+### Fixed
+
+* admit supported harness invocations across version updates ([#152](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/152)) ([ba9ea03](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/ba9ea0359bc5fd0c2fbcd71ab27dbafe284452be))
+
+## [0.6.6](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.5...v0.6.6) (2026-09-10)
+
+
+### Fixed
+
+* admit Claude turns by operation support ([#150](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/150)) ([7bae15f](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/7bae15fc9a5ae6319bad913689f86be4f1ddc255))
+
+## [0.6.5](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.4...v0.6.5) (2026-09-08)
+
+
+### Fixed
+
+* **codex:** verify resume and native context management ([#141](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/141)) ([99ba912](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/99ba9122276f7aa74c1b5f7a1017c92ec30c76b9))
+
+## [0.6.4](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.3...v0.6.4) (2026-09-08)
+
+
+### Added
+
+* verify native resume and context budgets before dispatch ([#139](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/139)) ([aa871e9](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/aa871e97ba9570d0fe3ac3bc3bb5d8fd112b67df))
+
+## [0.6.3](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.2...v0.6.3) (2026-09-08)
+
+
+### Fixed
+
+* **claude:** add Fable 5.1 to the model catalog ([#137](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/137)) ([6bae47c](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/6bae47cd7d7cc898ef5132f68eb64d54d66bdf56))
+
+## [0.6.2](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.1...v0.6.2) (2026-09-07)
+
+
+### Added
+
+* add isolated tool-free turns for optional naming ([effd196](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/effd196653079463f2542dab849693aa5afa3215))
+
+## [0.6.1](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.0...v0.6.1) (2026-09-06)
+
+
+### Added
+
+* consolidate normalization rules and support GPT-6 Astra ([#133](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/133)) ([5784879](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/5784879039a6a9f4b6fc1fdd8703171991a85750))
+
+## [0.6.0](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.5.7...v0.6.0) (2026-08-29)
+
+
+### Added
+
+* hcn session gains --effort, validated per harness/model ([#112](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/112)) ([6dfd31c](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/6dfd31ca2c1aff64eebb0cc15a1d50d6d6e4a2d3))
+
 ## [0.5.7](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.5.6...v0.5.7) (2026-08-23)
 
 

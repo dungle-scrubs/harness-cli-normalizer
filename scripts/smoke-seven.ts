@@ -15,7 +15,6 @@
 import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import type { HarnessEvent } from "../src/execution/events.js";
-import { nodeRunnerDeps } from "../src/execution/node-deps.js";
 import { openSession } from "../src/execution/open-session.js";
 import { streamTurn, type TurnRunOptions } from "../src/execution/stream-turn.js";
 import { claudeCode } from "../src/knowledge/claude-code.js";
@@ -23,21 +22,23 @@ import { codexCli } from "../src/knowledge/codex.js";
 import type { HarnessDescriptor } from "../src/knowledge/descriptor.js";
 import { museCode } from "../src/knowledge/muse.js";
 import { piCli } from "../src/knowledge/pi.js";
+import { smokeCwd, smokeDeps, smokeHarnesses } from "./smoke-options.js";
 
 delete process.env.HERDR_ENV;
 
-const HARNESSES: HarnessDescriptor[] = [claudeCode, codexCli, piCli, museCode];
-const cwd = process.cwd();
+const HARNESSES = smokeHarnesses([claudeCode, codexCli, piCli, museCode]);
+const cwd = smokeCwd;
 // pi is pinned to the free local model; the others use their defaults.
 // SMOKE_PI_MODEL overrides the id for environments whose registry resolves
 // the short name to an unloadable variant (e.g. pro currently cannot load
 // unsloth/qwen3.6-27b-mlx, so pin lmstudio-community/qwen3.6-27b-mlx).
 const modelFor = (h: HarnessDescriptor): string | undefined =>
-  h.name === "pi"
+  process.env.SMOKE_MODEL ??
+  (h.name === "pi"
     ? (process.env.SMOKE_PI_MODEL ?? "qwen3.6-27b")
     : h.name === "claude"
       ? "sonnet"
-      : undefined;
+      : undefined);
 
 type Status = "pass" | "fail" | "skip";
 interface Cell {
@@ -49,22 +50,6 @@ const record = (harness: string, scenario: string, cell: Cell): void => {
   if (results[harness] === undefined) results[harness] = {};
   (results[harness] as Record<string, Cell>)[scenario] = cell;
 };
-
-const SCENARIO_TIMEOUT_MS = 240_000;
-
-/** Fail a scenario rather than let a hung harness hang the whole matrix.
- * (The underlying turn finishes on its own; full cancellation is not wired
- * for an on-demand smoke.) */
-const withTimeout = <T>(work: Promise<T>): Promise<T> =>
-  Promise.race([
-    work,
-    new Promise<never>((_, reject) =>
-      setTimeout(
-        () => reject(new Error(`scenario exceeded ${SCENARIO_TIMEOUT_MS}ms`)),
-        SCENARIO_TIMEOUT_MS,
-      ),
-    ),
-  ]);
 
 const collect = async (turn: AsyncIterable<HarnessEvent>): Promise<HarnessEvent[]> => {
   const out: HarnessEvent[] = [];
@@ -94,7 +79,7 @@ const opts = (h: HarnessDescriptor, extra: Partial<TurnRunOptions> = {}): TurnRu
 
 // 1. single-turn: identity + a final message + clean done.
 const single = async (h: HarnessDescriptor): Promise<Cell> => {
-  const events = await collect(streamTurn(h, opts(h), nodeRunnerDeps()));
+  const events = await collect(streamTurn(h, opts(h), smokeDeps()));
   const ok = idOf(events) !== null && textOf(events).length > 0 && doneOf(events) === "clean";
   return {
     status: ok ? "pass" : "fail",
@@ -109,7 +94,7 @@ const streaming = async (h: HarnessDescriptor): Promise<Cell> => {
     return { status: "skip", detail: "not token-granular" };
   }
   const events = await collect(
-    streamTurn(h, opts(h, { prompt: "Count: one two three" }), nodeRunnerDeps()),
+    streamTurn(h, opts(h, { prompt: "Count: one two three" }), smokeDeps()),
   );
   const tokenText = events
     .filter((e): e is Extract<HarnessEvent, { kind: "token" }> => e.kind === "token")
@@ -135,7 +120,7 @@ const toolUse = async (h: HarnessDescriptor): Promise<Cell> => {
     streamTurn(
       h,
       opts(h, { prompt: "Run the shell command: echo seventest. Report output." }),
-      nodeRunnerDeps(),
+      smokeDeps(),
     ),
   );
   const tools = events.filter((e) => e.kind === "tool");
@@ -147,17 +132,24 @@ const sessionContinuity = async (h: HarnessDescriptor): Promise<Cell> => {
   if (h.sessionMode === null) return { status: "skip", detail: "no session mode" };
   const session = openSession(
     h,
-    { sessionId: randomUUID(), ...(modelFor(h) ? { model: modelFor(h) } : {}) },
-    nodeRunnerDeps(),
+    { cwd, sessionId: randomUUID(), ...(modelFor(h) ? { model: modelFor(h) } : {}) },
+    smokeDeps(),
   );
-  const turns = session.turns[Symbol.asyncIterator]();
-  session.send({ id: "s", text: "Remember the codeword: kestrel. Reply with only: OK" });
-  await collect((await turns.next()).value as AsyncIterable<HarnessEvent>);
-  session.send({ id: "s", text: "Reply with only the codeword." });
-  const t2 = await collect((await turns.next()).value as AsyncIterable<HarnessEvent>);
-  await session.close();
-  const ok = textOf(t2).toLowerCase().includes("kestrel");
-  return { status: ok ? "pass" : "fail", detail: `recall="${textOf(t2).slice(0, 30)}"` };
+  // Persistent sessions have no turnTimeoutMs deadline. Close this owned
+  // session on expiry, and await cleanup on every success or error path.
+  const deadline = setTimeout(() => void session.close(), 180_000);
+  try {
+    const turns = session.turns[Symbol.asyncIterator]();
+    session.send({ id: "s", text: "Remember the codeword: kestrel. Reply with only: OK" });
+    await collect((await turns.next()).value as AsyncIterable<HarnessEvent>);
+    session.send({ id: "s", text: "Reply with only the codeword." });
+    const t2 = await collect((await turns.next()).value as AsyncIterable<HarnessEvent>);
+    const ok = textOf(t2).toLowerCase().includes("kestrel");
+    return { status: ok ? "pass" : "fail", detail: `recall="${textOf(t2).slice(0, 30)}"` };
+  } finally {
+    clearTimeout(deadline);
+    await session.close();
+  }
 };
 
 // 5. resume-continuity: turn 1 sets a codeword, a separate resumed turn
@@ -167,7 +159,7 @@ const resumeContinuity = async (h: HarnessDescriptor): Promise<Cell> => {
     streamTurn(
       h,
       opts(h, { prompt: "Remember the codeword: marlin. Reply with only: OK", resume: undefined }),
-      nodeRunnerDeps(),
+      smokeDeps(),
     ),
   );
   const sid = idOf(first);
@@ -177,11 +169,7 @@ const resumeContinuity = async (h: HarnessDescriptor): Promise<Cell> => {
   // under it; turn 2 resumes THAT announced id. The model cannot guess the
   // codeword, so recall proves the session context was actually carried.
   const second = await collect(
-    streamTurn(
-      h,
-      opts(h, { prompt: "Reply with only the codeword.", resume: sid }),
-      nodeRunnerDeps(),
-    ),
+    streamTurn(h, opts(h, { prompt: "Reply with only the codeword.", resume: sid }), smokeDeps()),
   );
   const ok = textOf(second).toLowerCase().includes("marlin");
   return {
@@ -195,7 +183,7 @@ const killResume = async (h: HarnessDescriptor): Promise<Cell> => {
   // Needs resumability, NOT a persistent session mode - every harness here
   // resumes, so every harness can be killed mid-turn and resumed.
   const first = await collect(
-    streamTurn(h, opts(h, { prompt: "Remember: otter. Reply OK" }), nodeRunnerDeps()),
+    streamTurn(h, opts(h, { prompt: "Remember: otter. Reply OK" }), smokeDeps()),
   );
   const sid = idOf(first);
   if (sid === null) return { status: "fail", detail: "no id" };
@@ -207,7 +195,7 @@ const killResume = async (h: HarnessDescriptor): Promise<Cell> => {
   for await (const e of streamTurn(
     h,
     opts(h, { prompt: "Count slowly from 1 to 40, one per line.", resume: sid }),
-    nodeRunnerDeps(),
+    smokeDeps(),
   )) {
     if (e.kind === "done") {
       reachedDone = true;
@@ -219,7 +207,7 @@ const killResume = async (h: HarnessDescriptor): Promise<Cell> => {
     streamTurn(
       h,
       opts(h, { prompt: "Reply with only the word from before.", resume: sid }),
-      nodeRunnerDeps(),
+      smokeDeps(),
     ),
   );
   const recalled = textOf(resumed).toLowerCase().includes("otter");
@@ -230,15 +218,18 @@ const killResume = async (h: HarnessDescriptor): Promise<Cell> => {
   };
 };
 
-// 7. error-propagation: an unspawnable binary yields error + crash 127.
+// 7. error-propagation: a missing binary yields a transport failure and exit 127.
 const errorProp = async (h: HarnessDescriptor): Promise<Cell> => {
   const broken = { ...h, bin: "definitely-not-real-xyz" };
-  const events = await collect(streamTurn(broken, opts(h), nodeRunnerDeps()));
+  const events = await collect(streamTurn(broken, opts(h), smokeDeps()));
   const done = events.at(-1);
   const ok =
     done?.kind === "done" &&
-    done.cause === "crash" &&
+    done.cause === "failed" &&
     done.exitCode === 127 &&
+    done.failure?.class === "transport" &&
+    done.failure.retryable === true &&
+    events.some((e) => e.kind === "failure" && e.class === "transport") &&
     events.some((e) => e.kind === "error");
   return {
     status: ok ? "pass" : "fail",
@@ -263,7 +254,7 @@ const SCENARIOS: Array<[string, (h: HarnessDescriptor) => Promise<Cell>]> = [
 for (const h of HARNESSES) {
   for (const [name, fn] of SCENARIOS) {
     try {
-      record(h.name, name, await withTimeout(fn(h)));
+      record(h.name, name, await fn(h));
     } catch (cause) {
       record(h.name, name, { status: "fail", detail: String(cause).slice(0, 60) });
     }

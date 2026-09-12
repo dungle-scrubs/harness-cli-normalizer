@@ -6,6 +6,7 @@ Commands:
   run <harness> [prompt]    One-shot headless turn (streamTurn)
   session <harness>         Interactive session (openSession, claude + pi)
   inspect <harness>         Descriptor / argv / capability inspection (no spawn)
+  transcript read <harness> Passive native transcript export (JSONL)
   ls                        List harnesses with verifiedAgainst versions
   check                     Drift check (published version vs verifiedAgainst)
 
@@ -31,6 +32,8 @@ Options:
   --model <id>              Model id (validated per harness)
   --effort <value>          Effort level (validated per harness/model)
   --sandbox <value>         Sandbox mode (codex only)
+  --context-window <tokens> Context window (codex, integer 1-272000;
+                            launch default 272000; config: contextWindow)
   --provider <value>        Provider (pi only)
   --tools <a,b>             Tool grant allowlist - canonical names (read, write,
                             edit, shell, grep, glob, list, web-fetch,
@@ -48,9 +51,9 @@ Options:
   --no-write                Disable write
   --shell                   Enable shell (muse)
   --no-shell                Disable shell
-  --memory                  Enable persistent memory (claude/codex) - loads
-                            the harness's cross-session memory into context;
-                            opt back in over the memory-off default
+  --memory                  Use the harness's native memory setting; remove
+                            hcn's memory-off override. Does not force memory
+                            on when native settings disable it
   --no-memory               Disable persistent memory (claude: env var;
                             codex: --disable memories; pi: no-op, no built-in
                             memory; muse: refuses - no off switch, reported
@@ -77,11 +80,14 @@ Options:
   --max-steps <n>           Max steps (muse, 1-10000)
   --timeout <seconds>       Wall-clock budget for the run (all harnesses,
                             hcn-enforced; 0 disables; no default)
+  --isolation <tool-free>   Fresh tool-free turn (claude); no resume, tools,
+                            skills, access, autonomy, discovery, or native passthrough.
+                            Uses bare mode; native authentication must support it.
   --no-tools                Disable tools discovery facet
   --no-instruction-files    Disable instructionFiles discovery facet
   --no-extensions           Disable extensions discovery facet
   --skills <a,b>            Skill allowlist (names resolved against $HCN_SKILLS_ROOT
-                            or ~/.agents/skills; pi loads, claude narrows)
+                            or ~/.agents/skills; pi loads, claude and codex narrow)
   --no-skills               Disable skills discovery facet
   --cwd <path>              Working directory for spawn
   --env KEY=VAL             Environment (repeatable; KEY= deletes)
@@ -106,7 +112,8 @@ Defaults with no flags:
   git root) > user config (~/.config/hcn/config.json) > built-in profile
   > harness default. The profile pins: effort medium, sandbox
   workspace-write (codex only; other harnesses report divergence),
-  discovery on, autonomy off, write/shell on. timeout, max-steps and
+  context window 272000 (codex only; divergence elsewhere), discovery on,
+  autonomy off, write/shell on. timeout, max-steps and
   access have no default; harness default applies (access write emits
   nothing on claude/pi/muse, --sandbox workspace-write on codex via
   profile). toolMap is config-only (no flag) - canonical -> native
@@ -139,6 +146,9 @@ Options:
                             (default: no limit)
   --provider <value>        Provider (pi only)
   --model <id>              Model for the session
+  --effort <value>          Effort level for the session spawn (validated
+                            per harness/model; no default - the harness's
+                            own effort applies without the flag)
   --resume <uuid>           Resume session id (UUID). Continues the
                             conversation where it left off. --session-id
                             is an alias (mutually exclusive with --resume).
@@ -151,8 +161,8 @@ Options:
                             Which preamble to inject: ask = worker may
                             ask (DEFAULT, pickable menu), assume = never
                             ask, none = inject nothing
-  --memory                  Enable persistent memory for the session spawn -
-                            opts back in over the memory-off default
+  --memory                  Use native memory settings for the session spawn;
+                            remove hcn's memory-off override
   --no-memory               Disable persistent memory (DEFAULT; claude
                             spawns with CLAUDE_CODE_DISABLE_AUTO_MEMORY=1,
                             pi has no built-in memory)
@@ -169,17 +179,45 @@ Arguments:
   <harness>                 claude | codex | pi | muse
 
 Options:
+  --transcript              Report passive transcript methods and evidence;
+                            exclusive with other inspection modes; no history opened
   --argv                    Preview argv that would be spawned
+  --runtime                 Preview argv and probe the selected executable version;
+                            All harnesses use invocation support in supported modes.
+                            Version metadata never rejects a supported invocation.
+                            A resolved executable is required
+                            (does not run a model or prove the saved session exists)
+  --context                 Inspect complete staged context through a disposable native
+                            process (Claude headless-turn only). Validates the native
+                            operation independently of version metadata.
+                            --json returns accounting plus executable/model provenance.
+                            Native estimate includes recalled history and the composed
+                            prompt. No assistant task is queried. Resume is forked with
+                            persistence disabled; the original session is unchanged.
+                            Unknown adapter/accounting returns unavailable, never a
+                            guessed budget. Callers own reserves and dispatch decisions.
+                            Excludes --argv, --runtime, --capabilities and passthrough.
+                            Maximum serialized prompt: 8 MiB. Probe deadline defaults to
+                            30 seconds; positive --timeout/config timeout overrides it.
+                            Zero retains 30 seconds. Cleanup is bounded separately.
+                            Startup hooks may run. Interruption exits 1 after cleanup.
+                            Invalid requests exit 2 with the standard JSON failure/done
+                            pair when --json is set.
   --capabilities            Print the capability record (vision, images,
                             streaming, session, source) as one JSON line
-  --mode <mode>             Mode for --capabilities:
+  --mode <mode>             Mode for --capabilities or --runtime:
                             headless-turn | headless-session | interactive
                             (default headless-turn)
+                            --runtime excludes interactive; headless-session requires
+                            --resume and accepts no native passthrough arguments
+                            Session preview needs no prompt; only model, effort,
+                            provider and cwd process options are accepted
   --prompt <text>           Prompt for argv preview
   --prompt-file <path|->    Read prompt from file
   --model <id>              Model
   --effort <value>          Effort
   --sandbox <value>         Sandbox
+  --context-window <tokens> Context window (codex, integer 1-272000)
   --provider <value>        Provider
   --tools <a,b>             Tools - canonical names (read, write, edit,
                             shell, grep, glob, list, web-fetch,
@@ -195,6 +233,7 @@ Options:
   --questions <ask|assume|none>
                             (accepted; renders nothing - rides the run prompt)
   --max-steps <n>
+  --isolation <tool-free> (fresh claude turn only)
   --no-tools, --no-instruction-files, --no-extensions, --no-skills
   --questions <ask|assume|none>
                             Accepted; renders nothing in argv (the mode
@@ -222,4 +261,36 @@ Exits 0 when no drift, 1 when drift found, 1 on network failure with partial res
 Options:
   --json                    Machine-readable output
   -h, --help                Show help
+`;
+
+export const TRANSCRIPT_HELP = `hcn transcript - Passive native transcript export
+
+Usage: hcn transcript read <harness> (--id <native-id> | --file <path>) [options]
+
+Harnesses: claude | codex | pi | muse
+Inspect support first: hcn inspect <harness> --transcript
+
+Options:
+  --cwd <directory>         Resolution workspace (default invocation directory)
+  --since <bookmark>        Validate caller-held progress before continuing
+  --limit <entry-count>     Positive whole-entry batch limit
+  --accept-limits <names>   Explicit coverage opt-ins, comma-separated:
+                            history,branches,original-records,embedded-content
+  -h, --help                Show help
+  -V, --version             Show version
+
+Stdout is JSONL: source, complete native records, terminal result.
+Only a complete result and exit 0 establish success. Failure exits 1;
+invalid arguments or unsupported operations exit 2. Output failures exit 1.
+No model, resume, instructions, extensions, store writes, or external
+attachment reads. Retained history includes saved branches and pre-compaction
+entries. No HCN index, retention, search, or persistent bookmark state.
+
+Enabled methods: Pi v3 file/ID with batches and bookmarks; Codex 0.147.0
+legacy and paginated rollouts with ID/file lookup, batches and bookmarks.
+Codex inherited ranges are verified across sources; compressed files are unsupported.
+Claude main JSONL and Muse schema-1 session logs support ID/file reads,
+batches and bookmarks through a passive filesystem clone on supported
+macOS/Linux filesystems. Native formats and clone prerequisites apply.
+Compatible customized Pi must preserve the declared v3 storage semantics.
 `;

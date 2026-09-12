@@ -2,7 +2,14 @@ import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { nodeRunnerDeps } from "../execution/node-deps.js";
 import { CLOSE_GRACE_MS, openSession } from "../execution/open-session.js";
+import {
+  composeAnswer,
+  isQuestionMode,
+  QUESTION_MODES,
+  type QuestionMode,
+} from "../interpretation/question.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
+import type { BehaviorTier } from "../interpretation/resolve-options.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { createRenderState, renderEvent } from "./render.js";
@@ -22,7 +29,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
       .map((d) => d.name);
     const err = new ArgvRefusalError({
       issue: "no-session-mode",
-      harness: harnessName as "claude",
+      harness: h.name,
       supported,
       detail: `session mode is available on ${supported.join(", ")}; ${harnessName} declares no persistent headless session`,
     });
@@ -37,7 +44,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
     return;
   }
 
-  const { parseCommonFlags } = await import("./args.js");
+  const { memoryFlagOf, parseCommonFlags, resumeIdOf } = await import("./args.js");
   let parsed: ReturnType<typeof parseCommonFlags>;
   try {
     parsed = parseCommonFlags(rawArgs);
@@ -57,23 +64,34 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   }
 
   const values = parsed.values as Record<string, unknown>;
-  // --resume and --session-id are aliases for one concept: resume an existing
-  // session. Passing both is refused, matching hcn run's parseRunExtra shape
-  // (src/cli/args.ts) rather than inventing a second parser.
-  if (values.resume !== undefined && values["session-id"] !== undefined) {
-    const { ArgvRefusalError: AliasError } = await import("../interpretation/refusal.js");
-    const err = new AliasError({
-      issue: "mutually-exclusive-options",
-      harness: h.name,
-      supported: ["--resume or --session-id, not both (--session-id is an alias for --resume)"],
-      detail: "both --resume and --session-id given",
-    });
-    const { refusalOf: aliasRefusalOf, refuse: aliasRefuse } = await import("./refuse.js");
-    aliasRefuse(aliasRefusalOf(err), jsonMode, "closed");
+  if (values.isolation !== undefined) {
+    const { refuse, refusalOf } = await import("./refuse.js");
+    refuse(
+      refusalOf(
+        new ArgvRefusalError({
+          harness: h.name,
+          message: "isolation is available only for a fresh hcn run",
+          issue: "invalid-option-value",
+          option: "isolation",
+          supported: ["hcn run --isolation tool-free"],
+        }),
+      ),
+      jsonMode,
+      "closed",
+    );
     return;
   }
-  const resumeId =
-    (values.resume as string | undefined) ?? (values["session-id"] as string | undefined);
+  // --resume and --session-id are aliases for one concept; the one check
+  // every command calls decides whether both were given.
+  let resumeId: string | undefined;
+  try {
+    resumeId = resumeIdOf(values);
+  } catch (err) {
+    if (!(err instanceof ArgvRefusalError)) throw err;
+    const { refusalOf, refuse } = await import("./refuse.js");
+    refuse(refusalOf(err), jsonMode, "closed");
+    return;
+  }
   // The two flags are aliases for "use this session". Whether that means
   // RESUME is decided by the store, not by which spelling was typed: an id
   // that exists is resumed (resumeFlag rendered), an id that does not exist
@@ -105,19 +123,20 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   const model = values.model as string | undefined;
   const cwd = values.cwd as string | undefined;
   const provider = values.provider as string | undefined;
+  const effort = values.effort as string | undefined;
 
-  // question mode precedence arg > project > user > default (ask)
+  // question mode: the arg is validated through the one predicate, then
+  // precedence resolves through the one owner (RFC-02 change 6).
   const rawArgMode = values.questions !== undefined ? String(values.questions) : undefined;
-  if (rawArgMode !== undefined && !["ask", "assume", "none"].includes(rawArgMode)) {
+  if (rawArgMode !== undefined && !isQuestionMode(rawArgMode)) {
     const { refuse, refusalOf } = await import("./refuse.js");
-    const { ArgvRefusalError } = await import("../interpretation/refusal.js");
     refuse(
       refusalOf(
         new ArgvRefusalError({
           issue: "invalid-option-value",
           harness: h.name,
           option: "questions",
-          supported: ["ask", "assume", "none"],
+          supported: [...QUESTION_MODES],
           detail: rawArgMode,
         }),
       ),
@@ -126,35 +145,23 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
     );
     return;
   }
-  let questionMode: import("../interpretation/question.js").QuestionMode;
-  let questionTier: "arg" | "project-config" | "user-config" | "default";
-  // The config tiers feed question mode AND the memory dimension - one
-  // load, two resolutions (arg > project > user > default).
-  let userCfg: { questions?: string; memory?: boolean } | undefined;
-  let projectCfg: { questions?: string; memory?: boolean } | undefined;
+  let questionMode: QuestionMode;
+  let questionTier: BehaviorTier;
+  let userCfg: import("../interpretation/resolve-options.js").ConfigTier | undefined;
+  let projectCfg: import("../interpretation/resolve-options.js").ConfigTier | undefined;
   try {
     const { loadUserConfig, loadProjectConfig } = await import("./config.js");
-    userCfg = loadUserConfig()?.config as { questions?: string; memory?: boolean } | undefined;
-    projectCfg = loadProjectConfig()?.config as
-      | { questions?: string; memory?: boolean }
-      | undefined;
-    const user = userCfg;
-    const project = projectCfg;
-    const userMode = user?.questions;
-    const projectMode = project?.questions;
-    if (rawArgMode !== undefined) {
-      questionMode = rawArgMode as import("../interpretation/question.js").QuestionMode;
-      questionTier = "arg";
-    } else if (projectMode !== undefined) {
-      questionMode = projectMode as import("../interpretation/question.js").QuestionMode;
-      questionTier = "project-config";
-    } else if (userMode !== undefined) {
-      questionMode = userMode as import("../interpretation/question.js").QuestionMode;
-      questionTier = "user-config";
-    } else {
-      questionMode = "ask";
-      questionTier = "default";
-    }
+    const { resolveBehavior } = await import("../interpretation/resolve-options.js");
+    userCfg = loadUserConfig()?.config;
+    projectCfg = loadProjectConfig()?.config;
+    const behavior = resolveBehavior(
+      {
+        questions: rawArgMode !== undefined && isQuestionMode(rawArgMode) ? rawArgMode : undefined,
+      },
+      { user: userCfg, project: projectCfg },
+    );
+    questionMode = behavior.questions.value;
+    questionTier = behavior.questions.tier;
   } catch (configErr) {
     process.stderr.write(`config error: ${(configErr as Error).message}\n`);
     if (jsonMode) {
@@ -177,8 +184,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   // default (false - sessions spawn memory-off like bare runs). Divergence
   // on a harness without a memory spec is reported, never refused (no
   // session-mode harness lacks one today; the guard stays generic).
-  const memoryArg =
-    values.memory === true ? true : values["no-memory"] === true ? false : undefined;
+  const memoryArg = memoryFlagOf(values);
   const { resolveSessionMemory } = await import("../interpretation/resolve-options.js");
   const { memory, tier: memoryTier } = resolveSessionMemory(memoryArg, {
     user: userCfg,
@@ -280,8 +286,9 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
         cwd,
         questions: questionMode,
         provider,
+        effort,
         isResume,
-        ...(memoryExpressible ? { memory: memory as boolean } : {}),
+        ...(memoryExpressible ? { memory } : {}),
       },
       deps,
     );
@@ -417,10 +424,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
             answer = a;
           }
         }
-        handle.send({
-          id: `you-${++sendCount}`,
-          text: `The user answered the question: "${q.question}" with: ${answer}. Continue accordingly.`,
-        });
+        handle.send({ id: `you-${++sendCount}`, text: composeAnswer(q.question, answer) });
         // Drain the answer turn BEFORE prompting again - the pump's
         // backpressure stalls the harness until the turn iterable is
         // consumed (verified live: menu answered, you-prompt rendered, no

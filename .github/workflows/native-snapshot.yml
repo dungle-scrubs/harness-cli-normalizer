@@ -1,0 +1,48 @@
+name: Build and verify transcript snapshot helpers
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            target: darwin-universal
+          - runner: ubuntu-24.04
+            target: linux-x64
+          - runner: ubuntu-24.04-arm
+            target: linux-arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - name: Prepare a disposable Linux filesystem with cloning enabled
+        if: runner.os == 'Linux'
+        run: bash .github/prepare-transcript-test-filesystem.sh
+      - run: node scripts/build-native.ts
+      - name: Verify synthetic concurrent writes
+        run: node research/transcripts/snapshot/probe.mjs "$PWD/.native-artifacts/${{ matrix.target }}/hcn-transcript-clone"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: snapshot-${{ matrix.target }}
+          path: .native-artifacts/${{ matrix.target }}/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1

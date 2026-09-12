@@ -8,9 +8,11 @@
  */
 import { deepFreeze, type HarnessDescriptor, UUID_SHAPE } from "./descriptor.js";
 import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
+import { PI_TRANSCRIPT } from "./transcript/pi.js";
 
 export const piCli: HarnessDescriptor = deepFreeze({
   name: "pi",
+  transcript: PI_TRANSCRIPT,
   bin: "pi",
   verifiedAgainst: "0.84.2",
   versionSource: { kind: "npm", package: "@earendil-works/pi-coding-agent" },
@@ -22,7 +24,6 @@ export const piCli: HarnessDescriptor = deepFreeze({
     baseFlags: ["-p", "--mode", "json"],
     subcommands: [],
     promptStyle: "positional",
-    toolsFlag: null,
     streamFlags: [],
     idFlag: "--session-id",
   },
@@ -49,8 +50,10 @@ export const piCli: HarnessDescriptor = deepFreeze({
   // --mode rpc exists on 0.84.2 and its session semantics are now VERIFIED
   // against a live run (2026-08-19 spike, evidence at
   // test/fixtures/pi-rpc-spike): JSONL both directions, agent_settled
-  // delimits turns, steer/follow_up queue mid-run (hcn never needs them -
-  // it queues sends itself), identity is silent at startup and readable
+  // delimits turns, steer/follow_up queue mid-run (hcn keeps no queue of
+  // its own since ADR 0007 and writes a send when it arrives; a bare
+  // prompt mid-run is refused with success:false - spike fixture 05, a
+  // pending change), identity is silent at startup and readable
   // only via a get_state round trip, stdin EOF exits rc=0. The claude
   // slice remains the proven vertical (D-003); this entry is the second.
   sessionMode: {
@@ -73,7 +76,7 @@ export const piCli: HarnessDescriptor = deepFreeze({
     resumeFlag: "--session-id",
     input: { kind: "pi-rpc-prompt" },
     turnEnd: { type: "agent_settled" },
-    identityProbe: { command: "get_state" },
+    identityProbe: { command: "get_state", responseIdField: "data.sessionId" },
   },
   output: {
     // pi -p prints plain text; --mode json emits structured v3 records
@@ -114,6 +117,8 @@ export const piCli: HarnessDescriptor = deepFreeze({
     cwdSlug: "pi-dash-wrapped",
   },
   contextHook: null,
+  contextInspection: null,
+  nativeContextManagement: null,
   resumeLast: null,
   stdin: "close-required",
   presence: {
@@ -173,7 +178,9 @@ export const piCli: HarnessDescriptor = deepFreeze({
         },
       },
     },
-    access: { kind: "tool-preset", render: { kind: "flag-value", flag: "--tools" } },
+    // read renders the read preset through --tools (strict allowlist);
+    // write is the harness default and emits nothing.
+    access: { kind: "access", renders: { read: "tool-preset", write: null } },
     // pi ships no built-in persistent-memory capability (verified 0.84.3 -
     // evidence: test/fixtures/memory-dimension/pi-absence-probes.txt:
     // no memory tool or feature; sessions are files resumed explicitly,
@@ -198,7 +205,6 @@ export const piCli: HarnessDescriptor = deepFreeze({
     includeFlag: "--tools",
     excludeFlag: "--exclude-tools",
     includeIsStrictAllowlist: true,
-    composable: true,
     builtins: [
       { name: "read", defaultEnabled: true, canonical: "read" },
       { name: "bash", defaultEnabled: true, canonical: "shell" },

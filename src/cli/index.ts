@@ -2,19 +2,23 @@
 import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { HARNESS_NAMES } from "../knowledge/descriptor.js";
 import { TOP_LEVEL_HELP } from "./help.js";
 import { getVersion } from "./version.js";
 
-const SUPPORTED = ["claude", "codex", "pi", "muse"] as const;
+/** The one harness list, read from the descriptor vocabulary. */
+const SUPPORTED: readonly string[] = HARNESS_NAMES;
+
+let strictOutput = false;
 
 // Prevent EPIPE crashes when piped to head/grep -q (e.g., hcn ls | head, hcn run --json | head)
 process.stdout.on("error", (err) => {
   const code = (err as NodeJS.ErrnoException).code;
-  if (code === "EPIPE") process.exit(0);
+  if (code === "EPIPE") process.exit(strictOutput ? 1 : 0);
 });
 process.stderr.on("error", (err) => {
   const code = (err as NodeJS.ErrnoException).code;
-  if (code === "EPIPE") process.exit(0);
+  if (code === "EPIPE") process.exit(strictOutput ? 1 : 0);
 });
 
 const printVersion = (): void => {
@@ -36,6 +40,7 @@ export const failUnknownHarness = (name: string): never => {
 };
 
 export const dispatch = async (raw: string[]): Promise<void> => {
+  strictOutput = raw[0] === "transcript" || (raw[0] === "inspect" && raw.includes("--transcript"));
   // Shared dispatch for programmatic use (tests) - mirrors main but takes argv slice
   // Global --help / --version without command
   if (raw.length === 0 || raw[0] === "--help" || raw[0] === "-h") {
@@ -54,6 +59,20 @@ export const dispatch = async (raw: string[]): Promise<void> => {
   const cmd = raw[0] as string;
 
   switch (cmd) {
+    case "transcript": {
+      if (raw.includes("--version") || raw.includes("-V")) {
+        printVersion();
+        return;
+      }
+      if (raw.includes("--help") || raw.includes("-h")) {
+        const { TRANSCRIPT_HELP } = await import("./help.js");
+        process.stdout.write(TRANSCRIPT_HELP);
+        return;
+      }
+      const { transcript } = await import("./transcript.js");
+      await transcript(raw.slice(1));
+      return;
+    }
     case "ls": {
       if (raw.includes("--help") || raw.includes("-h")) {
         const { LS_HELP } = await import("./help.js");
@@ -86,6 +105,11 @@ export const dispatch = async (raw: string[]): Promise<void> => {
       if (raw.slice(1).includes("--help") || raw.slice(1).includes("-h")) {
         const { INSPECT_HELP } = await import("./help.js");
         process.stdout.write(INSPECT_HELP);
+        return;
+      }
+      if (raw.includes("--transcript")) {
+        const { inspectTranscript } = await import("./transcript.js");
+        await inspectTranscript(raw[1], raw.slice(2));
         return;
       }
       const harness = raw[1];

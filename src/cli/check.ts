@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { type VersionStatus, versionStatus } from "../interpretation/versions.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
@@ -12,7 +12,10 @@ interface Row {
   status: VersionStatus;
 }
 
-const npmLatest = async (pkg: string): Promise<string | null> => {
+/** The latest published version of an npm package, or null when the
+ * registry cannot be reached. One owner; the version-check script imports
+ * it (RFC-02 change 12). */
+export const npmLatest = async (pkg: string): Promise<string | null> => {
   try {
     const res = await fetch(`https://registry.npmjs.org/${pkg}`, {
       headers: { accept: "application/vnd.npm.install-v1+json" },
@@ -27,17 +30,66 @@ const npmLatest = async (pkg: string): Promise<string | null> => {
   }
 };
 
-const installedVersion = (bin: string): string | null => {
-  try {
-    const out = execFileSync(bin, ["--version"], { encoding: "utf8", timeout: 10_000 });
-    const match = out.match(/\d+\.\d+\.\d+(?:[.+-][0-9A-Za-z.-]+)?/);
-    return match ? match[0] : null;
-  } catch {
-    return null;
-  }
-};
+/** The locally installed CLI's version from `<bin> --version`, or null
+ * when the binary is absent or reports none. */
+export const installedVersion = (
+  bin: string,
+  options: {
+    readonly cwd?: string;
+    readonly env?: Readonly<Record<string, string | undefined>>;
+    readonly timeoutMs?: number;
+  } = {},
+): Promise<string | null> =>
+  new Promise((resolve) => {
+    let child: ReturnType<typeof spawn>;
+    const group = process.platform !== "win32";
+    try {
+      child = spawn(bin, ["--version"], {
+        cwd: options.cwd,
+        env: options.env,
+        detached: group,
+        stdio: ["ignore", "pipe", "ignore"],
+      });
+    } catch {
+      resolve(null);
+      return;
+    }
+    let settled = false;
+    let output = "";
+    const finish = (version: string | null): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      child.stdout?.destroy();
+      resolve(version);
+    };
+    const stop = (): void => {
+      if (settled) return;
+      try {
+        if (group && child.pid !== undefined) process.kill(-child.pid, "SIGKILL");
+        else child.kill("SIGKILL");
+      } catch {
+        /* A completed probe may have already exited. */
+      }
+      finish(null);
+    };
+    const timer = setTimeout(stop, options.timeoutMs ?? 10_000);
+    child.stdout?.setEncoding("utf8");
+    child.stdout?.on("data", (chunk: string) => {
+      output += chunk;
+      if (output.length > 65_536) stop();
+    });
+    child.on("error", () => finish(null));
+    child.on("close", (code) =>
+      finish(
+        code === 0 ? (output.match(/\d+\.\d+\.\d+(?:[.+-][0-9A-Za-z.-]+)?/)?.[0] ?? null) : null,
+      ),
+    );
+  });
 
-const resolveLatest = async (
+/** Where a descriptor's latest version is found, per its versionSource:
+ * the npm registry, or the installed binary. */
+export const resolveLatest = async (
   h: HarnessDescriptor,
 ): Promise<{ latest: string | null; source: string }> => {
   if (h.versionSource.kind === "npm") {
@@ -46,7 +98,7 @@ const resolveLatest = async (
       source: `npm:${h.versionSource.package}`,
     };
   }
-  return { latest: installedVersion(h.bin), source: `installed:${h.bin}` };
+  return { latest: await installedVersion(h.bin), source: `installed:${h.bin}` };
 };
 
 export const check = async (rawArgs: string[]): Promise<void> => {
@@ -99,7 +151,7 @@ export const check = async (rawArgs: string[]): Promise<void> => {
         `\n${behind.length} harness(es) behind: ${behind.map((r) => `${r.harness} ${r.verifiedAgainst}→${r.latest}`).join(", ")}\n`,
       );
       process.stdout.write(
-        "Run the local capability tripwires (smoke:seven) against the new version, then file an issue + bump verifiedAgainst.\n",
+        "Re-verify with smoke:seven, smoke:questions, and the declared context contracts (docs/harness-updates.md). Version drift does not reject runtime operations.\n",
       );
     } else if (unknown.length > 0) {
       process.stdout.write(`\n${unknown.length} harness(es) unknown (network or missing bin)\n`);
