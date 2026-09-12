@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { SpawnedProcess, SpawnOptions } from "../execution/deps.js";
 import type { HarnessEvent } from "../execution/events.js";
 import { nodeRunnerDeps } from "../execution/node-deps.js";
@@ -5,6 +6,7 @@ import { streamTurn } from "../execution/stream-turn.js";
 import { KILL_GRACE_MS } from "../execution/supervisor.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
 import { EXIT_FAILURE, exitCodeForCause } from "./exit-codes.js";
+import { ownOutputErrors } from "./output-errors.js";
 import { planTurn, writePlanDiagnostics } from "./plan-turn.js";
 import { refusalOf, refuse } from "./refuse.js";
 import { createRenderState, renderEvent, writeEventNdjsonAsync } from "./render.js";
@@ -72,6 +74,15 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   const originalSignal = deps.signal;
   const wrappedDeps = {
     ...deps,
+    ...(plan.options.nativeApprovals
+      ? {
+          approvalInput: {
+            chunks: process.stdin,
+            close: () => process.stdin.destroy(),
+            newId: randomUUID,
+          },
+        }
+      : {}),
     signal: (proc: SpawnedProcess, sig: "SIGTERM" | "SIGKILL") => {
       lastProc = proc;
       originalSignal(proc, sig);
@@ -84,6 +95,13 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   };
 
   const abortController = new AbortController();
+  let outputError: Error | undefined;
+  const releaseOutputErrors = plan.options.nativeApprovals
+    ? ownOutputErrors((error) => {
+        outputError = error;
+        abortController.abort();
+      })
+    : () => {};
   let interrupted = false;
   let escalationTimer: ReturnType<typeof setTimeout> | null = null;
   const onSig = async () => {
@@ -115,6 +133,7 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   try {
     const events = streamTurn(h, { ...plan.options, signal: abortController.signal }, wrappedDeps);
     for await (const event of events) {
+      if (outputError) throw outputError;
       lastEvent = event;
       if (wantJson) {
         // Await the write: a consumer that stops reading must stall the
@@ -134,7 +153,7 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     }
     // Transport / spawn failure
     process.stderr.write(`run failed: ${err instanceof Error ? err.message : String(err)}\n`);
-    if (wantJson && lastEvent?.kind !== "done") {
+    if (wantJson && lastEvent?.kind !== "done" && !outputError && !process.stdout.destroyed) {
       const failure = {
         kind: "failure" as const,
         class: "transport" as const,
@@ -149,6 +168,7 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     process.exitCode = EXIT_FAILURE;
     return;
   } finally {
+    releaseOutputErrors();
     if (escalationTimer !== null) {
       clearTimeout(escalationTimer);
       escalationTimer = null;

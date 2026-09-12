@@ -85,6 +85,34 @@ and Codex desktop currently return unavailable. They require separate native
 launch validation. This operation does not yet establish full consumer handoff
 acceptance. Run `hcn interactive --help` for the command contract.
 
+### Native approvals during one response
+
+`hcn run codex --json --native-approvals --resume ID --cwd ABSOLUTE --native-settings-fingerprint HASH --prompt TEXT` resumes one response through Codex app-server. Obtain `HASH` from passive native settings inspection below. HCN verifies the saved source again, restores its supported settings, and compares the effective settings before sending the prompt. This is an opt-in alternative to ordinary `exec resume`.
+
+The current lane preserves recorded read-only filesystem, restricted network, user reviewer, and `on-request` or `never` approval policy. Unsupported settings refuse before a prompt. Fresh sessions, native passthrough and competing model, effort, provider or permission options are refused. Use `--prompt-file PATH` for a file-backed prompt; stdin is reserved for decisions, so `--prompt-file -` is refused.
+
+The JSON stream adds three version-1 events:
+
+- `approval-request`: opaque `requestId`, exact `sessionId` and native `turnId`, `category`, complete plain-text `details`, and `choices` with `id`, `label`, `scope`.
+- `approval-disposition`: decision `id`, `requestId`, `status` (`sent` or `rejected`), and a rejection `reason` when applicable. Malformed IDs are null.
+- `approval-cleared`: `requestId` and `reason` (`native-resolved`, `turn-ended`, `process-ended`, `channel-failed`). Clearing says that the request stopped waiting; it does not prove tool success.
+
+Send one UTF-8 NDJSON line on the same live process's stdin:
+
+```json
+{"v":1,"op":"approval","id":"<new decision UUID>","requestId":"<offered request UUID>","choiceId":"<offered choice ID>"}
+```
+
+Choices alone define authority. Supported command choices include once, native session, deny, cancel, and an explicitly offered persistent command-prefix rule. File choices show the complete patch; their session grant covers future changes to those same files. Permission requests support exact absolute-path entries and an explicit network toggle, with response or session duration and an empty denial. Native payloads remain private. Symbolic/glob/legacy permission scopes, grouped network command requests, non-local environments and file `grantRoot` currently terminate as unsupported. Native model questions and MCP elicitation are also unsupported by this responder.
+
+A repeated decision ID with identical content returns its recorded disposition without another native write. Conflicting content is rejected. A decision is consumed before its write, so uncertain delivery is never retried. A cleared request loses its answer right. Native request IDs cannot be reused within the process because a late clear could otherwise affect a different action. HCN stores no approval state across processes; the caller owns durable choice and write-intent records.
+
+Bounds: 4 KiB per decision including newline, 64 KiB UTF-8 details, 16 choices, 32 pending requests or buffered pre-ack requests, and 4096 request identities and recorded decisions during one process. Invalid UTF-8, framing overflow or an unsupported request ends the channel and cleans up the child. Details are never truncated into an approvable action.
+
+Human approval waits pause inactivity detection. An explicit `--timeout` still runs. Initialize, resume and turn acknowledgement each have a 30-second protocol deadline. Closing decision stdin ends the response, including when no request is pending. HCN completes child cleanup before `done`. Existing HCN question blocks retain `awaiting-input`; native interruption reports `killed`.
+
+Failures carry `nativeApproval` evidence: `phase` (`preflight`, `initialize`, `resume`, `turn-start`, `running`), `process` (`not-attempted`, `not-started`, `started`, `unknown`), `prompt` (`not-submitted`, `submission-unknown`, `acknowledged`), and `reason`. A prompt write without native acknowledgement is unknown delivery. Exit codes and elapsed time do not prove that a prompt was absent. This evidence never authorizes automatic replay.
+
 ### Passive native settings (`hcn inspect codex --native-settings`)
 
 ```bash

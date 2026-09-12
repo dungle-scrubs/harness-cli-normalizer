@@ -417,7 +417,12 @@ export const splitPassthrough = (argv: readonly string[]): SplitPassthrough => {
 
 export const parseCommonFlags = (
   argv: string[],
-  opts: { strict?: boolean; nativeSettings?: boolean; nativeSettingsFingerprint?: boolean } = {},
+  opts: {
+    strict?: boolean;
+    nativeSettings?: boolean;
+    nativeSettingsFingerprint?: boolean;
+    nativeApprovals?: boolean;
+  } = {},
 ): ReturnType<typeof parseArgs> => {
   // The separator itself never reaches parseArgs: passthrough tokens may
   // be unknown to hcn by design (that is their purpose).
@@ -464,6 +469,7 @@ export const parseCommonFlags = (
       runtime: { type: "boolean" as const },
       context: { type: "boolean" as const },
       ...(opts.nativeSettings ? { "native-settings": { type: "boolean" as const } } : {}),
+      ...(opts.nativeApprovals ? { "native-approvals": { type: "boolean" as const } } : {}),
       ...(opts.nativeSettingsFingerprint
         ? { "native-settings-fingerprint": { type: "string" as const } }
         : {}),

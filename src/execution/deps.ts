@@ -72,6 +72,11 @@ export type SignalName = "SIGTERM" | "SIGKILL";
 export type BoundaryLog = (event: Record<string, unknown>) => void;
 
 export interface RunnerDeps {
+  readonly approvalInput?: {
+    readonly chunks: AsyncIterable<string | Uint8Array>;
+    readonly close: () => void;
+    readonly newId: () => string;
+  };
   /** Passive source read, required only for a caller-requested verified resume. */
   readonly inspectNativeSettings?: NativeSettingsInspector;
   readonly spawn: (argv: readonly string[], opts: SpawnOptions) => SpawnedProcess;

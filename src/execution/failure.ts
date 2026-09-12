@@ -25,6 +25,7 @@ import type {
   HarnessDescriptor,
   LimitCode,
 } from "../knowledge/descriptor.js";
+import type { NativeApprovalFailure } from "../knowledge/native-approvals.js";
 
 export const FAILURE_CLASSES = Object.freeze([
   "rate-limit",
@@ -42,6 +43,7 @@ export const FAILURE_CLASSES = Object.freeze([
 export type FailureClass = (typeof FAILURE_CLASSES)[number];
 
 export interface FailureSummary {
+  readonly nativeApproval?: import("../knowledge/native-approvals.js").NativeApprovalFailure;
   readonly class: FailureClass;
   readonly retryable: boolean;
   readonly message: string;
@@ -184,6 +186,16 @@ export const failureFromUnavailable = (detail?: string): FailureSummary => ({
   class: "unavailable",
   retryable: retryableOf("unavailable"),
   message: messageFor("unavailable", detail),
+});
+
+export const nativeApprovalPreflightEvidence = (issue: RefusalIssue): NativeApprovalFailure => ({
+  phase: "preflight",
+  process: "not-attempted",
+  prompt: "not-submitted",
+  reason:
+    issue === "native-settings-changed" || issue === "native-settings-unavailable"
+      ? issue
+      : "request-refused",
 });
 
 export const failureFromRejected = (opts: {

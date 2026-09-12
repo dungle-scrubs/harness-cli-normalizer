@@ -123,6 +123,12 @@ Options:
                             Get the hash from inspect --native-settings. Refuses
                             changed/unavailable sources, competing model/effort/provider
                             options and native passthrough. Grants no permissions.
+  --native-approvals        One verified Codex response through app-server. Requires
+                            --json, --resume, --cwd and the saved fingerprint.
+                            Retains supported read-only/user-review settings.
+                            Stdin carries NDJSON approval decisions, never the prompt.
+                            Answer only offered request/choice IDs; no automatic grants.
+                            Unsupported native interactions end with owned cleanup.
   --                        Passthrough: native harness args verbatim
                             (failures surface as labeled native errors)
   --json                    NDJSON HarnessEvent to stdout

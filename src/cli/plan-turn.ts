@@ -7,6 +7,8 @@
  * preview agree by construction, skill tokens and passthrough included.
  */
 
+import { nativeApprovalPreflightEvidence } from "../execution/failure.js";
+import { nativeApprovalPlan } from "../execution/native-approval-plan.js";
 import type { NativeSettingsInspector } from "../execution/native-settings.js";
 import { nodeNativeSettingsInspector } from "../execution/node-deps.js";
 import { redactArgv, type TurnRunOptions } from "../execution/stream-turn.js";
@@ -148,7 +150,16 @@ export const planTurn = async (
 ): Promise<PlanOutcome> => {
   const { normalized, passthrough } = splitPassthrough(rawArgs);
   const wantJson = normalized.includes("--json");
-  const refusal = (r: Refusal): PlanOutcome => ({ kind: "refusal", refusal: r, wantJson });
+  const refusal = (r: Refusal): PlanOutcome => ({
+    kind: "refusal",
+    refusal: normalized.includes("--native-approvals")
+      ? {
+          ...r,
+          nativeApproval: nativeApprovalPreflightEvidence(r.issue),
+        }
+      : r,
+    wantJson,
+  });
   const refused = (err: ArgvRefusalError): PlanOutcome => refusal(refusalOf(err));
 
   const injection = detectPositionalPromptInjection([...rawArgs]);
@@ -165,7 +176,10 @@ export const planTurn = async (
 
   let parsed: ReturnType<typeof parseCommonFlags>;
   try {
-    parsed = parseCommonFlags([...rawArgs], { nativeSettingsFingerprint: true });
+    parsed = parseCommonFlags([...rawArgs], {
+      nativeSettingsFingerprint: true,
+      nativeApprovals: true,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return refusal(unknownFlagRefusal(message, rawArgs, request.command));
@@ -181,6 +195,14 @@ export const planTurn = async (
       message: "--native-settings-fingerprint supports headless-turn only",
     });
   }
+  if (
+    values["native-approvals"] === true &&
+    (!wantJson || values["prompt-file"] === "-" || !values["native-settings-fingerprint"])
+  )
+    return refusal({
+      issue: "invalid-option-value",
+      message: "native approvals require --json, saved settings and a prompt outside stdin",
+    });
   const positionals = parsed.positionals as string[];
   if (positionals.length > 1) {
     return refusal({
@@ -295,6 +317,7 @@ export const planTurn = async (
   // explicit prompt (flag or file) may start with a dash.
   const options: TurnRunOptions = {
     ...effectiveTurnOpts,
+    ...(values["native-approvals"] === true ? { nativeApprovals: true } : {}),
     prompt: {
       text: composeEscalatedPrompt(prompt, behavior.questions.value),
       explicit: explicitPrompt,
@@ -311,8 +334,12 @@ export const planTurn = async (
 
   let argv: string[];
   try {
-    const verifiedNativeSettings = verifyNativeSettings(h, options, deps.inspectNativeSettings);
-    argv = buildSpawnArgv(h, { ...options, verifiedNativeSettings });
+    if (options.nativeApprovals)
+      argv = nativeApprovalPlan(h, options, deps.inspectNativeSettings).argv;
+    else {
+      const verifiedNativeSettings = verifyNativeSettings(h, options, deps.inspectNativeSettings);
+      argv = buildSpawnArgv(h, { ...options, verifiedNativeSettings });
+    }
   } catch (err) {
     if (err instanceof ArgvRefusalError) return refused(err);
     throw err;

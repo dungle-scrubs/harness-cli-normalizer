@@ -1,5 +1,8 @@
 import { ArgvRefusalError } from "./refusal.js";
 
+export const isValidEnvEntry = (key: string, value: string): boolean =>
+  /^[A-Za-z_][A-Za-z0-9_]*$/.test(key) && !value.includes("\0") && !key.includes("\0");
+
 /**
  * Parse --env KEY=VAL entries into env record. "" value means delete.
  */
@@ -21,7 +24,7 @@ export const parseEnvEntries = (
     }
     const key = entry.slice(0, eq);
     const value = entry.slice(eq + 1);
-    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key) || value.includes("\0") || key.includes("\0")) {
+    if (!isValidEnvEntry(key, value)) {
       throw new ArgvRefusalError({
         issue: "invalid-env",
         supported: ["keys must match ^[A-Za-z_][A-Za-z0-9_]*$ and contain no NUL"],

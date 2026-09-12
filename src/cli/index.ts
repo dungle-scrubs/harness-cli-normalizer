@@ -4,20 +4,15 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { HARNESS_NAMES } from "../knowledge/descriptor.js";
 import { TOP_LEVEL_HELP } from "./help.js";
+import { handleOutputError } from "./output-errors.js";
 import { getVersion } from "./version.js";
 
 /** The one harness list, read from the descriptor vocabulary. */
 const SUPPORTED: readonly string[] = HARNESS_NAMES;
 
 // Prevent EPIPE crashes when piped to head/grep -q (e.g., hcn ls | head, hcn run --json | head)
-process.stdout.on("error", (err) => {
-  const code = (err as NodeJS.ErrnoException).code;
-  if (code === "EPIPE") process.exit(0);
-});
-process.stderr.on("error", (err) => {
-  const code = (err as NodeJS.ErrnoException).code;
-  if (code === "EPIPE") process.exit(0);
-});
+process.stdout.on("error", handleOutputError);
+process.stderr.on("error", handleOutputError);
 
 const printVersion = (): void => {
   process.stdout.write(`${getVersion()}\n`);

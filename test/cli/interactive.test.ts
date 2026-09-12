@@ -143,7 +143,7 @@ test("interactive resumes the exact saved Codex session and separates terminal b
   );
   const { control, exitCode, stderr, stdout } = launchFixture(root, nativeDir);
   try {
-    expect(exitCode).toBe(7);
+    expect(exitCode, JSON.stringify({ control, stderr, stdout })).toBe(7);
     expect(stdout).toBe(`NATIVE:${JSON.stringify([sessionId, "--cd", root])}\n`);
     expect(stderr).toBe("NATIVE STDERR\n");
     const records = control
