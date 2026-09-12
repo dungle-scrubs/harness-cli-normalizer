@@ -1,0 +1,41 @@
+{
+  "version": "1.1.1-R2514.1",
+  "checksum_algorithm": "sha256",
+  "artifacts": {
+    "x86_macos": {
+      "url": "https:\/\/lookaside.facebook.com\/lookaside\/muse\/download\/?channel=muse&version=1.1.1-R2514.1&file=muse-x86-macos",
+      "checksum": "103eed33aa1320aab0be5584e5177954f961663e517126ddd567859085aacd5d",
+      "size": 283623120
+    },
+    "aarch64_macos": {
+      "url": "https:\/\/lookaside.facebook.com\/lookaside\/muse\/download\/?channel=muse&version=1.1.1-R2514.1&file=muse-aarch64-macos",
+      "checksum": "7dfd75e1e2dd7c763e60b7e379f4146b8b2b10478a2830c8cdbb35ae9961881e",
+      "size": 260444384
+    },
+    "x86_linux": {
+      "url": "https:\/\/lookaside.facebook.com\/lookaside\/muse\/download\/?channel=muse&version=1.1.1-R2514.1&file=muse-x86-linux",
+      "checksum": "47908f2e5b0ac5b0c0ba147a48b30a9e48c0aebea3c5cc891ad34d95425a4993",
+      "size": 286304440
+    },
+    "aarch64_linux": {
+      "url": "https:\/\/lookaside.facebook.com\/lookaside\/muse\/download\/?channel=muse&version=1.1.1-R2514.1&file=muse-aarch64-linux",
+      "checksum": "8836ca0f525f4d2bfd22e6891dbafa081dbdaa42bff71d090d85ad7ec8465d44",
+      "size": 255924304
+    },
+    "universal_macos_pkg": {
+      "url": "https:\/\/lookaside.facebook.com\/lookaside\/muse\/download\/?channel=muse&version=1.1.1-R2514.1&file=muse.pkg",
+      "checksum": "2480b32616b7af353ffb0153d5810664a919319092a72171d91aa9aacd2eab93",
+      "size": 202116088
+    },
+    "x86_windows": {
+      "url": "https:\/\/lookaside.facebook.com\/lookaside\/muse\/download\/?channel=muse&version=1.1.1-R2514.1&file=muse-x86-windows.exe",
+      "checksum": "abfe5700ad1a3b0346cf34c8437e3bfb4f31eb22b135bd70f4d9615d1d4a0ea4",
+      "size": 328100088
+    },
+    "aarch64_windows": {
+      "url": "https:\/\/lookaside.facebook.com\/lookaside\/muse\/download\/?channel=muse&version=1.1.1-R2514.1&file=muse-aarch64-windows.exe",
+      "checksum": "8fbdb27915cec541f18c0b8e44e1c29513f799826f7b42a087f799dd59d0093c",
+      "size": 298744056
+    }
+  }
+}

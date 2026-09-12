@@ -1,5 +1,6 @@
 import type { HarnessName } from "../../knowledge/descriptor.js";
 import { type Evidence, GUARANTEES, type Guarantee } from "../../knowledge/transcript/schema.js";
+import { unknownTranscriptCapabilities } from "../../knowledge/transcript/unverified.js";
 import type {
   Assessment,
   BranchObservation,
@@ -14,7 +15,6 @@ import type {
   SourceEnvelope,
   TranscriptFailure,
 } from "../../knowledge/transcript/wire.js";
-import { unknownTranscriptCapabilities } from "../transcript-capabilities.js";
 export type TranscriptSelection =
   | { readonly kind: "file"; readonly path: string }
   | { readonly kind: "id"; readonly nativeId: string };

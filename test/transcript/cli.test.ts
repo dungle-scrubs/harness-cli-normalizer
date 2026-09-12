@@ -52,6 +52,66 @@ test("transcript inspection reports unverified Muse support without starting a n
   expect(doc.methods).toEqual([]);
   expect(doc.capabilities.history.status).toBe("unknown");
   expect(Object.keys(doc.capabilities)).toHaveLength(8);
+  expect(doc.verifiedAgainst).toBe("0.1.0");
+  expect(doc.capabilities.history.reason).toContain("1.1.1");
+  expect(doc.capabilities.history.evidence[0].appliesTo.readerBuilds).toContainEqual({
+    version: "1.1.1",
+    buildId: "b934305d21",
+  });
+});
+
+test("Muse refusal explains the selected export evidence without opening the requested source", () => {
+  const read = command([
+    "transcript",
+    "read",
+    "muse",
+    "--file",
+    "/synthetic/does-not-exist.jsonl",
+    "--accept-limits",
+    "history,branches,original-records,embedded-content",
+  ]);
+  expect(read.code).toBe(2);
+  const [source, result] = read.out
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line));
+  expect(source.sources).toEqual([]);
+  expect(source.conversation).toBeNull();
+  expect(result.failure.issue).toBe("passive-read-unverified");
+  expect(result.failure.message).toContain("1.1.1");
+  expect(result.failure.message).toContain("hcn inspect muse --transcript");
+  expect(result.failure.hint).toBeNull();
+  expect(result.bookmark).toBeNull();
+});
+
+test("Claude reports its in-place writer and SDK projection blockers without allowing coverage opt-ins", () => {
+  const inspection = JSON.parse(command(["inspect", "claude", "--transcript"]).out);
+  expect(inspection.verifiedAgainst).toBe("2.1.233");
+  expect(inspection.methods).toEqual([]);
+  expect(inspection.capabilities.history.reason).toContain("in-place");
+  expect(inspection.capabilities.history.reason).toContain("0.3.233");
+  expect(inspection.capabilities.history.evidence[0].appliesTo.writerBuilds[0].version).toBe(
+    "2.1.233",
+  );
+  const read = command([
+    "transcript",
+    "read",
+    "claude",
+    "--id",
+    "11111111-1111-4111-8111-111111111111",
+    "--accept-limits",
+    "history,branches,original-records,embedded-content",
+  ]);
+  expect(read.code).toBe(2);
+  const [source, result] = read.out
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line));
+  expect(source.selection.storeRoots).toEqual([]);
+  expect(source.sources).toEqual([]);
+  expect(result.failure.issue).toBe("passive-read-unverified");
+  expect(result.failure.message).toContain("in-place");
+  expect(result.failure.hint).toBeNull();
 });
 
 test("exports retained Pi branches and tool results without modifying history or losing native values", () => {

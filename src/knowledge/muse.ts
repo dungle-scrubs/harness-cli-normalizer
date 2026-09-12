@@ -9,10 +9,11 @@
  */
 import { deepFreeze, type HarnessDescriptor, UUID_SHAPE } from "./descriptor.js";
 import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
+import { MUSE_TRANSCRIPT } from "./transcript/muse.js";
 
 export const museCode: HarnessDescriptor = deepFreeze({
   name: "muse",
-  transcript: null,
+  transcript: MUSE_TRANSCRIPT,
   bin: "muse",
   verifiedAgainst: "0.1.0",
   // No npm package - `hcn check` falls back to `muse --version` locally and

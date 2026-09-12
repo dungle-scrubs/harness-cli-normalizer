@@ -92,15 +92,13 @@ export async function transcript(raw: string[]): Promise<void> {
     hcnVersion: version,
     workspace,
   };
-  const selection = chooseTranscriptMethod(
-    resolveHarness(options.harness).transcript?.methods ?? [],
-    {
-      acceptedLimits: options.acceptedLimits,
-      selector: request.selection.kind,
-      incremental: options.since !== null,
-      paging: options.limit !== null,
-    },
-  );
+  const knowledge = resolveHarness(options.harness).transcript;
+  const selection = chooseTranscriptMethod(knowledge, {
+    acceptedLimits: options.acceptedLimits,
+    selector: request.selection.kind,
+    incremental: options.since !== null,
+    paging: options.limit !== null,
+  });
   const reader = selection.method ? readerForMethod(selection.method) : null;
   if (selection.failure || !reader) {
     const { result, source } = emptyTranscript(request);

@@ -4,6 +4,7 @@ import type {
   Method,
   Requirement,
   TranscriptFailure,
+  TranscriptKnowledge,
 } from "../../knowledge/transcript/wire.js";
 
 interface MethodRequest {
@@ -25,9 +26,18 @@ function refusal(issue: Issue, requirement: Requirement): TranscriptFailure {
   };
 }
 export function chooseTranscriptMethod(
-  methods: readonly Method[],
+  knowledge: TranscriptKnowledge | null,
   request: MethodRequest,
 ): { readonly method: Method | null; readonly failure: TranscriptFailure | null } {
+  const methods = knowledge?.methods ?? [];
+  if (knowledge && methods.length === 0)
+    return {
+      method: null,
+      failure: {
+        ...refusal("passive-read-unverified", "passivity"),
+        message: knowledge.capabilities.history.reason,
+      },
+    };
   const passive = methods.filter(
     (method) => method.passivity.status === "available" && method.passivity.evidence.length > 0,
   );
