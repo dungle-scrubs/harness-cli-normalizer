@@ -191,6 +191,14 @@ Arguments:
 
 Options:
   --argv                    Preview argv that would be spawned
+  --native-settings         Read saved model, effort and provider without starting a
+                            process (Codex only). Requires exact --resume and --cwd.
+                            --session-id is the shared alias for --resume.
+                            Returns one JSON object, with or without --json: available
+                            plus a source fingerprint (exit 0), or unavailable plus a
+                            reason (exit 2). Excludes other modes and turn options.
+                            Reads at most 64 MiB, 1 MiB per line, 16384 directory entries.
+                            No conversation text, permission grant or ownership claim.
   --runtime                 Preview argv and probe the selected executable version;
                             All harnesses use invocation support in supported modes.
                             Version metadata never rejects a supported invocation.

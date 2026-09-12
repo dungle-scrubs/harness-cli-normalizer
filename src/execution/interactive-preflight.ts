@@ -1,34 +1,26 @@
-import {
-  closeSync,
-  constants,
-  fstatSync,
-  openSync,
-  readdirSync,
-  readSync,
-  realpathSync,
-  statSync,
-} from "node:fs";
-import { join } from "node:path";
+import { closeSync, readSync, realpathSync, statSync } from "node:fs";
 import type { InteractiveRequest } from "../interpretation/interactive.js";
 import { interactiveArgv } from "../interpretation/interactive.js";
 import { asRecord } from "../interpretation/shape.js";
-import { storePath } from "../interpretation/store.js";
 import { codexCli } from "../knowledge/codex.js";
 import { UUID_SHAPE } from "../knowledge/descriptor.js";
 import type { InteractiveRefusal } from "../knowledge/interactive.js";
 import { executablePath } from "./executable.js";
+import { codexRecordPath, codexRecordsRoot } from "./native-codex-record.js";
 import { readNativeProcessOwner } from "./process-identity.js";
+import { openRegularFile } from "./regular-file.js";
 
 export type InteractivePreflight =
   | { readonly kind: "ready"; readonly argv: readonly string[] }
   | { readonly kind: "refused"; readonly reason: InteractiveRefusal };
 
 function withRegularFile<TValue>(path: string, read: (fd: number) => TValue): TValue | undefined {
-  const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  const file = openRegularFile(path);
+  if (!file) return undefined;
   try {
-    return fstatSync(fd).isFile() ? read(fd) : undefined;
+    return read(file.fd);
   } finally {
-    closeSync(fd);
+    closeSync(file.fd);
   }
 }
 
@@ -55,25 +47,9 @@ function nativeExecutable(bin: string, cwd: string, searchPath: string): string 
 }
 
 function codexSavedFolder(root: string, sessionId: string): string | undefined {
-  const matches: string[] = [];
-  let remaining = 16_384;
-  const visit = (directory: string, depth: number): void => {
-    for (const entry of readdirSync(directory, { withFileTypes: true })) {
-      if (--remaining < 0) throw new Error("Session scan bound exceeded");
-      const path = join(directory, entry.name);
-      if (depth < 3 && entry.isDirectory() && /^\d{2,4}$/.test(entry.name)) visit(path, depth + 1);
-      if (
-        depth === 3 &&
-        entry.isFile() &&
-        entry.name.startsWith("rollout-") &&
-        entry.name.endsWith(`-${sessionId}.jsonl`)
-      )
-        matches.push(path);
-    }
-  };
-  visit(root, 0);
-  if (matches.length !== 1 || !matches[0]) return undefined;
-  return withRegularFile(matches[0], (fd) => {
+  const path = codexRecordPath(root, sessionId);
+  if (!path) return undefined;
+  return withRegularFile(path, (fd) => {
     const bytes = Buffer.alloc(1024 * 1024);
     const count = readSync(fd, bytes, 0, bytes.length, 0);
     const end = bytes.subarray(0, count).indexOf(10);
@@ -108,9 +84,7 @@ export function preflightInteractive(
     return { kind: "refused", reason: "cwd-refused" };
   }
   try {
-    const root = runtime.codexHome
-      ? join(runtime.codexHome, "sessions")
-      : storePath(codexCli, { cwd, home: runtime.home, sessionId: request.sessionId });
+    const root = codexRecordsRoot({ ...runtime, cwd, sessionId: request.sessionId });
     const folder = codexSavedFolder(root, request.sessionId);
     if (!folder) return { kind: "refused", reason: "resume-unavailable" };
     if (realpathSync(folder) !== cwd) return { kind: "refused", reason: "cwd-refused" };

@@ -111,6 +111,24 @@ function codexFixture(): {
   return { nativeDir, rollout, root };
 }
 
+test("interactive refuses a matching FIFO before creating a native process", () => {
+  const { nativeDir, rollout, root } = codexFixture();
+  try {
+    rmSync(rollout);
+    execFileSync("mkfifo", [rollout]);
+    const { control, exitCode, stdout } = launchFixture(root, nativeDir);
+    expect(exitCode).toBe(2);
+    expect(stdout).toBe("");
+    expect(JSON.parse(control)).toMatchObject({
+      evidence: "spawn-not-attempted",
+      kind: "refused",
+      reason: "resume-unavailable",
+    });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("interactive resumes the exact saved Codex session and separates terminal bytes from lifecycle", () => {
   const { nativeDir, root } = codexFixture();
   writeFileSync(

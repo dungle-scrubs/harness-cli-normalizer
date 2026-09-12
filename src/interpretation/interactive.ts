@@ -3,6 +3,7 @@ import { HARNESS_NAMES } from "../knowledge/descriptor.js";
 import type { InteractiveControlBody, InteractiveControlRecord } from "../knowledge/interactive.js";
 import { INTERACTIVE_INTERFACES } from "../knowledge/interactive.js";
 import { parseEnvEntries } from "./environment.js";
+import { isNativeFolder } from "./native-path.js";
 import { isUsableSessionId } from "./session-id.js";
 
 export interface InteractiveControlAddress {
@@ -60,14 +61,7 @@ export function parseInteractiveRequest(args: readonly string[]): InteractiveReq
   const iface = oneValue(args, "--interface");
   const sessionId = oneValue(args, "--resume");
   const cwd = oneValue(args, "--cwd");
-  if (
-    !iface ||
-    !sessionId ||
-    !isUsableSessionId(sessionId) ||
-    !cwd?.startsWith("/") ||
-    /\p{Cc}/u.test(cwd) ||
-    new TextEncoder().encode(cwd).length > 4096
-  )
+  if (!iface || !sessionId || !isUsableSessionId(sessionId) || !isNativeFolder(cwd))
     return undefined;
   try {
     const environment = parseEnvEntries(environmentEntries);

@@ -85,6 +85,35 @@ and Codex desktop currently return unavailable. They require separate native
 launch validation. This operation does not yet establish full consumer handoff
 acceptance. Run `hcn interactive --help` for the command contract.
 
+### Passive native settings (`hcn inspect codex --native-settings`)
+
+```bash
+hcn inspect codex --native-settings --resume <native-session-id> --cwd <absolute-path> --json
+```
+
+This reads Codex's saved session without starting a native process. It returns the
+latest recorded turn's exact model and effort, the session header's provider,
+and a SHA-256 source fingerprint. It does not resolve model aliases or apply
+HCN profiles or browser preferences. A custom model selector can be inspected
+even when ordinary `hcn run --model` does not accept it.
+
+The result is one JSON object, with or without `--json`. `status: "available"`
+exits 0; `status: "unavailable"` and a `reason` exit 2. Other harnesses return
+`unsupported-harness`. The operation accepts only `--resume` (or `--session-id`), `--cwd`, and
+`--json`; other inspection modes, turn options and native passthrough are refused.
+
+The lookup requires one matching native session file, its matching header ID,
+and matching saved folders. Symlinks, special files, incomplete or malformed
+records, missing settings, and changed sources refuse. The scan is bounded at
+16384 directory entries, 64 MiB per file and 1 MiB per line. An invalid latest
+turn never falls back to earlier settings. Conversation text is never returned.
+
+The fingerprint identifies this read, including file identity and metadata. It
+does not grant process ownership or permissions, and this operation does not
+yet make a subsequent launch preserve the inspected settings. A resume ID alone
+can still select current native defaults; callers must not treat passive
+inspection as completed handoff support.
+
 ### Machine session (`hcn session <harness> --json`)
 
 `--json` is the same session for a program instead of a human: NDJSON events

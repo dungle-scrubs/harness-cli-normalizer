@@ -415,7 +415,7 @@ export const splitPassthrough = (argv: readonly string[]): SplitPassthrough => {
 
 export const parseCommonFlags = (
   argv: string[],
-  opts: { strict?: boolean } = {},
+  opts: { strict?: boolean; nativeSettings?: boolean } = {},
 ): ReturnType<typeof parseArgs> => {
   // The separator itself never reaches parseArgs: passthrough tokens may
   // be unknown to hcn by design (that is their purpose).
@@ -461,6 +461,7 @@ export const parseCommonFlags = (
       capabilities: { type: "boolean" as const },
       runtime: { type: "boolean" as const },
       context: { type: "boolean" as const },
+      ...(opts.nativeSettings ? { "native-settings": { type: "boolean" as const } } : {}),
       mode: { type: "string" as const },
       stall: { type: "string" as const },
       help: { type: "boolean" as const },

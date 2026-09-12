@@ -6,6 +6,7 @@ import { parseCommonFlags } from "./args.js";
 import { ConfigError, loadProjectConfig, loadUserConfig } from "./config.js";
 import { EXIT_REFUSAL } from "./exit-codes.js";
 import { inspectContextCommand } from "./inspect-context.js";
+import { inspectNativeSettingsCommand } from "./inspect-native-settings.js";
 import { inspectSessionRuntime } from "./inspect-session.js";
 import { planTurn, writePlanDiagnostics } from "./plan-turn.js";
 import { refuse } from "./refuse.js";
@@ -16,7 +17,7 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
   const h = resolveHarness(harnessName);
   let parsed: ReturnType<typeof parseCommonFlags>;
   try {
-    parsed = parseCommonFlags(rawArgs);
+    parsed = parseCommonFlags(rawArgs, { nativeSettings: true });
   } catch (err) {
     // Preserve the shared prompt-injection and native-spelling diagnostics.
     const outcome = await planTurn(h, rawArgs, { command: "inspect" });
@@ -31,6 +32,10 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
   if (values.help === true) {
     const { INSPECT_HELP } = await import("./help.js");
     process.stdout.write(INSPECT_HELP);
+    return;
+  }
+  if (values["native-settings"] === true) {
+    inspectNativeSettingsCommand(h.name, parsed, rawArgs.includes("--"));
     return;
   }
 
