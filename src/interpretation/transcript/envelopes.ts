@@ -17,8 +17,9 @@ import type {
 import { unknownTranscriptCapabilities } from "../transcript-capabilities.js";
 export type TranscriptSelection =
   | { readonly kind: "file"; readonly path: string }
-  | { readonly kind: "id"; readonly nativeId: string; readonly storeRoot: string };
+  | { readonly kind: "id"; readonly nativeId: string };
 export interface ReadTranscriptRequest {
+  readonly nativeStoreRoot?: string;
   readonly acceptedLimits: readonly Guarantee[];
   readonly selection: TranscriptSelection;
   readonly harness: HarnessName | null;

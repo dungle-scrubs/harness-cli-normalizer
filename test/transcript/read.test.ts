@@ -1,4 +1,5 @@
 import { readerForMethod } from "../../src/interpretation/transcript/readers.js";
+import { CODEX_TRANSCRIPT_METHOD } from "../../src/knowledge/transcript/codex.js";
 import { PI_TRANSCRIPT_METHOD } from "../../src/knowledge/transcript/pi.js";
 
 const reader = readerForMethod(PI_TRANSCRIPT_METHOD);
@@ -19,6 +20,84 @@ const request: import("../../src/execution/transcript/read.js").ReadTranscriptRe
   hcnVersion: "test",
   workspace: "/synthetic",
 };
+
+test("a multi-source export scans each namespace once and closes every contributing source", async () => {
+  const codex = readerForMethod(CODEX_TRANSCRIPT_METHOD);
+  if (!codex) throw new Error("Missing Codex reader");
+  const encode = (rows: unknown[]) =>
+    new TextEncoder().encode(`${rows.map((row) => JSON.stringify(row)).join("\n")}\n`);
+  const parent = encode([
+    {
+      ordinal: 0,
+      type: "session_meta",
+      payload: { id: "parent", cli_version: "0.147.0", history_mode: "paginated" },
+    },
+    { ordinal: 1, type: "event_msg", payload: { type: "synthetic" } },
+  ]);
+  const child = encode([
+    {
+      ordinal: 2,
+      type: "session_meta",
+      payload: {
+        id: "child",
+        cli_version: "0.147.0",
+        history_mode: "paginated",
+        history_base: {
+          thread_id: "parent",
+          end_byte_offset: parent.length,
+          end_ordinal_exclusive: 2,
+        },
+      },
+    },
+    { ordinal: 3, type: "event_msg", payload: { type: "synthetic" } },
+  ]);
+  const sources: Record<string, Uint8Array> = {
+    "/synthetic/sessions/rollout-test-parent.jsonl": parent,
+    "/synthetic/sessions/rollout-test-child.jsonl": child,
+  };
+  const scans: string[] = [];
+  const closed: string[] = [];
+  const files: TranscriptFiles = {
+    async *list(path) {
+      scans.push(path);
+      if (path.endsWith("/sessions"))
+        yield* ["rollout-test-parent.jsonl", "rollout-test-child.jsonl"];
+    },
+    async open(path) {
+      const bytes = sources[path];
+      if (!bytes) throw new Error("Unexpected source");
+      return {
+        close: async () => {
+          closed.push(path);
+        },
+        read: async (length, offset = 0) => bytes.subarray(offset, offset + length),
+        version: async () => ({ identity: path, size: bytes.length }),
+      };
+    },
+    version: async (path) => ({ identity: path, size: sources[path]?.length ?? 0 }),
+  };
+  const output: string[] = [];
+  const code = await readTranscript(
+    {
+      ...request,
+      harness: "codex",
+      nativeStoreRoot: "/synthetic",
+      selection: { kind: "id", nativeId: "child" },
+    },
+    {
+      reader: codex,
+      files,
+      clock: nodeRunnerDeps().clock,
+      write: async (line) => {
+        output.push(line);
+      },
+    },
+  );
+  expect(code).toBe(0);
+  expect(JSON.parse(output.at(-1) ?? "{}").recordsReturned).toBe(2);
+  expect(scans).toEqual(["/synthetic/sessions", "/synthetic/archived_sessions"]);
+  expect(closed.sort()).toEqual(Object.keys(sources).sort());
+});
 
 test("an interrupted read closes its native file and cannot return successful progress", async () => {
   const abort = new AbortController();

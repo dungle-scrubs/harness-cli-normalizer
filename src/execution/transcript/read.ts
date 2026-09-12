@@ -13,6 +13,7 @@ import { join } from "node:path";
 import { encodeJson, TranscriptError } from "../../interpretation/transcript/json.js";
 import { position } from "../../interpretation/transcript/native.js";
 import type { TranscriptReader } from "../../interpretation/transcript/readers.js";
+import { recordFromSource } from "../../interpretation/transcript/readers.js";
 import type { CapabilityMap } from "../../knowledge/transcript/schema.js";
 import type {
   Check,
@@ -25,6 +26,7 @@ import type {
 } from "../../knowledge/transcript/wire.js";
 import type { Clock } from "../deps.js";
 import type { TranscriptFile, TranscriptFiles } from "./files.js";
+import { captureSources } from "./sources.js";
 
 export interface ReadTranscriptDeps {
   readonly reader: TranscriptReader;
@@ -70,15 +72,16 @@ export async function readTranscript(
   result.consistency = consistency;
   source.methodId = reader.method.id;
   const selection = request.selection;
-  let selectedFile = selection.kind === "file" ? selection.path : "";
   if (selection.kind === "id")
     source.selection = {
       kind: "id",
-      storeRoots: [selection.storeRoot],
+      storeRoots: reader.lookup.directories.map((directory) =>
+        join(request.nativeStoreRoot ?? "", directory),
+      ),
       value: selection.nativeId,
       workspace: request.workspace,
     };
-  let file: TranscriptFile | undefined;
+  const opened: TranscriptFile[] = [];
   let phase: Phase = "resolve";
   let records: RecordEnvelope[] = [];
   let issue: Issue | null = null;
@@ -88,72 +91,42 @@ export async function readTranscript(
   };
   try {
     checkAbort();
-    if (selection.kind === "id") {
-      if (!selection.storeRoot || !deps.files.list)
-        throw new TranscriptError("source-not-found", "Native lookup root is unavailable.");
-      let match: string | null = null;
-      for await (const name of deps.files.list(selection.storeRoot)) {
-        if (!name.endsWith(`_${selection.nativeId}.jsonl`)) continue;
-        if (match !== null)
-          throw new TranscriptError(
-            "source-ambiguous",
-            "Multiple native sources match the requested ID.",
-          );
-        match = name;
-      }
-      if (!match)
-        throw new TranscriptError(
-          "source-not-found",
-          "The requested native conversation does not exist.",
-        );
-      selectedFile = join(selection.storeRoot, match);
-    }
-    file = await deps.files.open(selectedFile);
-    checkAbort();
-    const before = await file.version();
-    const bytes = await file.read(before.size);
-    const hash = createHash("sha256");
-    let hashedBytes = 0;
-    const digestThrough = (end: number): string => {
-      hash.update(bytes.subarray(hashedBytes, end));
-      hashedBytes = end;
-      return hash.copy().digest("hex");
+    const { requested, sources } = await captureSources(request, {
+      reader,
+      files: deps.files,
+      opened,
+      checkAbort,
+    });
+    const id = requested.nativeId;
+    const entryCount = sources.reduce((count, item) => count + item.history.entries.length, 0);
+    const bytes = requested.bytes;
+    const completeBytes = requested.completeBytes;
+    const boundariesAt = (count: number): number[] => {
+      let remaining = count;
+      return sources.map((item) => {
+        const consumed = Math.min(remaining, item.history.entries.length);
+        remaining -= consumed;
+        return item.history.entries[consumed]?.offset ?? item.completeBytes;
+      });
     };
-    checkAbort();
-    let samePrefix = true;
-    for (let offset = 0; offset < before.size; offset += 1024 * 1024) {
-      const length = Math.min(1024 * 1024, before.size - offset);
-      const chunk = await file.read(length, offset);
-      if (chunk.length !== length || chunk.some((byte, index) => bytes[offset + index] !== byte)) {
-        samePrefix = false;
-        break;
-      }
-      checkAbort();
-    }
-    const [after, named] = await Promise.all([file.version(), deps.files.version(selectedFile)]);
-    checkAbort();
-    if (
-      bytes.length !== before.size ||
-      !samePrefix ||
-      after.size < before.size ||
-      named.identity !== before.identity ||
-      after.identity !== before.identity
-    ) {
-      const prefixCheck = checks.find((check) => reader.consistencyRuleIds.includes(check.ruleId));
-      if (prefixCheck) prefixCheck.outcome = "failed";
-      if (request.since) continuation.input = "invalid";
-      throw new TranscriptError("source-changed", "The native source changed during the read.");
-    }
-    const completeBytes = bytes.lastIndexOf(10) + 1;
-    const history = reader.parse(bytes.subarray(0, completeBytes));
-    const id = reader.nativeId(history);
-    if (selection.kind === "id" && id !== selection.nativeId)
-      throw new TranscriptError(
-        "source-identity-mismatch",
-        "Native header identity differs from the requested ID.",
-      );
+    const offsetAt = (count: number): number =>
+      boundariesAt(count).reduce((total, boundary) => total + boundary, 0);
+    const hashes = sources.map(() => ({ hash: createHash("sha256"), through: 0 }));
+    const digestThrough = (count: number): string => {
+      const boundaries = boundariesAt(count);
+      const fingerprints = sources.map((item, index) => {
+        const state = hashes[index];
+        const boundary = boundaries[index];
+        if (!state || boundary === undefined) throw new Error("Missing source hash state");
+        state.hash.update(item.bytes.subarray(state.through, boundary));
+        state.through = boundary;
+        return { nativeId: item.nativeId, boundary, digest: state.hash.copy().digest("hex") };
+      });
+      if (fingerprints.length === 1) return fingerprints[0]?.digest ?? "";
+      return createHash("sha256").update(encodeJson(fingerprints)).digest("hex");
+    };
     const coverage = assessments("complete", reader.evidence);
-    const capabilities: CapabilityMap = history.entries.length
+    const capabilities: CapabilityMap = entryCount
       ? reader.method.capabilities
       : {
           ...reader.method.capabilities,
@@ -180,18 +153,19 @@ export async function readTranscript(
       historicalLoss: reader.historicalLoss,
       coverage,
       methodId: reader.method.id,
-      nativeHeaders: [{ original: history.header, sourceKey: "source-0" }],
-      sources: [
-        {
-          formatId: reader.evidence.appliesTo.formatId,
-          formatVersion: reader.evidence.appliesTo.formatVersions[0] ?? null,
-          key: "source-0",
-          kind: "file",
-          location: selectedFile,
-          nativeId: id,
-          writerBuild: { buildId: null, version: reader.writerVersion },
-        },
-      ],
+      nativeHeaders: sources.map((item, index) => ({
+        original: item.history.header,
+        sourceKey: `source-${index}`,
+      })),
+      sources: sources.map((item, index) => ({
+        formatId: reader.evidence.appliesTo.formatId,
+        formatVersion: reader.evidence.appliesTo.formatVersions[0] ?? null,
+        key: `source-${index}`,
+        kind: "file",
+        location: item.path,
+        nativeId: item.nativeId,
+        writerBuild: { buildId: null, version: reader.writerVersion },
+      })),
       verification: [reader.evidence],
     });
     Object.assign(result, {
@@ -208,12 +182,12 @@ export async function readTranscript(
         if (!reader.continuation)
           throw new TranscriptError("fresh-read-required", "No compatible continuation reader.");
         const bookmark = reader.continuation.decode(request.since);
-        const boundary = history.entries[bookmark.entries]?.offset ?? completeBytes;
+        const boundary = offsetAt(bookmark.entries);
         if (
           bookmark.conversationId !== id ||
-          bookmark.entries > history.entries.length ||
+          bookmark.entries > entryCount ||
           bookmark.offset !== boundary ||
-          bookmark.digest !== digestThrough(boundary)
+          bookmark.digest !== digestThrough(bookmark.entries)
         )
           throw new TranscriptError(
             "fresh-read-required",
@@ -231,29 +205,45 @@ export async function readTranscript(
       }
     }
     phase = "read";
-    const end = Math.min(history.entries.length, start + (request.limit ?? history.entries.length));
-    const selected = history.entries.slice(start, end);
-    const progressBytes = history.entries[end]?.offset ?? completeBytes;
+    const end = Math.min(entryCount, start + (request.limit ?? entryCount));
+    let skip = start;
+    let take = end - start;
+    const selected = sources.flatMap((item, sourceIndex) => {
+      const localStart = Math.min(skip, item.history.entries.length);
+      skip -= localStart;
+      const localEnd = Math.min(item.history.entries.length, localStart + take);
+      take -= localEnd - localStart;
+      return item.history.entries
+        .slice(localStart, localEnd)
+        .map((entry) => ({ entry, sourceIndex }));
+    });
+    const progressBytes = offsetAt(end);
     phase = "verify";
     for (const check of checks) check.outcome = "passed";
-    records = selected.map((entry) => reader.normalize(entry, id));
-    const last = history.entries.at(-1);
-    const progressed = history.entries[end - 1];
+    records = selected.map(({ entry, sourceIndex }) =>
+      recordFromSource(reader.normalize(entry, id), `source-${sourceIndex}`),
+    );
     consistency.method = "validated-prefix";
-    consistency.boundaries = [
-      {
-        observedEntries: String(history.entries.length),
-        observedThrough: last ? position(last.offset) : null,
-        progressEntries: String(end),
-        progressThrough: progressed ? position(progressed.offset) : null,
-        sourceKey: "source-0",
-      },
-    ];
+    let remaining = end;
+    consistency.boundaries = sources.map((item, index) => {
+      const count = Math.min(remaining, item.history.entries.length);
+      remaining -= count;
+      const last = item.history.entries.at(-1);
+      const progressed = item.history.entries[count - 1];
+      const sourceKey = `source-${index}`;
+      return {
+        observedEntries: String(item.history.entries.length),
+        observedThrough: last ? { ...position(last.offset), sourceKey } : null,
+        progressEntries: String(count),
+        progressThrough: progressed ? { ...position(progressed.offset), sourceKey } : null,
+        sourceKey,
+      };
+    });
     let bookmark =
       reader.method.capabilities.incremental.status === "available" && reader.continuation
         ? reader.continuation.encode({
             conversationId: id,
-            digest: digestThrough(progressBytes),
+            digest: digestThrough(end),
             entries: end,
             offset: progressBytes,
           })
@@ -275,22 +265,27 @@ export async function readTranscript(
     continuation.output =
       bookmark !== null ? (end > start ? "advanced" : "same-boundary") : "unavailable";
     Object.assign(result, {
-      activeBranch: reader.branch(history, id),
+      activeBranch: reader.branch(requested.history, id),
       bookmark,
       exitCode: 0,
       incompleteTail:
         completeBytes === bytes.length
           ? null
           : {
-              position: position(completeBytes),
+              position: { ...position(completeBytes), sourceKey: `source-${sources.length - 1}` },
               reason: "Final native framing unit is unfinished.",
             },
-      more: end < history.entries.length,
+      more: end < entryCount,
       recordsReturned: records.length,
       status: "complete",
     });
   } catch (error) {
     issue = errorIssue(error);
+    if (issue === "source-changed") {
+      const check = checks.find((item) => reader.consistencyRuleIds.includes(item.ruleId));
+      if (check) check.outcome = "failed";
+      if (request.since) continuation.input = "invalid";
+    }
     continuation.output = "unavailable";
     const requirement =
       issue === "fresh-read-required"
@@ -312,12 +307,17 @@ export async function readTranscript(
       status: "failed",
     });
   } finally {
-    if (file) {
+    if (opened.length) {
       try {
         let timer: number | undefined;
         try {
           await Promise.race([
-            file.close(),
+            Promise.allSettled(
+              opened.map((file) => Promise.resolve().then(() => file.close())),
+            ).then((results) => {
+              if (results.some((result) => result.status === "rejected"))
+                throw new TranscriptError("cleanup-failed", "Native reader cleanup failed.");
+            }),
             new Promise<never>((_, reject) => {
               timer = deps.clock.setTimeout(
                 () =>

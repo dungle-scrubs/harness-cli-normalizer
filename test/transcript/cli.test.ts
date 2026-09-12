@@ -22,6 +22,7 @@ test("transcript output to a closed pipe exits nonzero", () => {
 function command(
   args: string[],
   agentDirectory?: string,
+  codexHome?: string,
 ): { code: number | null; out: string; err: string } {
   const home = mkdtempSync(join(tmpdir(), "hcn-transcript-test-"));
   try {
@@ -31,6 +32,7 @@ function command(
         HOME: home,
         PATH: process.env.PATH,
         ...(agentDirectory ? { PI_CODING_AGENT_DIR: agentDirectory } : {}),
+        ...(codexHome ? { CODEX_HOME: codexHome } : {}),
       },
     });
     if (run.error) throw run.error;
@@ -255,6 +257,218 @@ test("native ID lookup finds exactly one Pi conversation and rejects duplicate i
   }
 });
 
+test("Codex refuses an interrupted subagent inherited-context initialization", () => {
+  const directory = mkdtempSync(join(tmpdir(), "hcn-codex-subagent-"));
+  const file = join(directory, "synthetic.jsonl");
+  const header = {
+    ordinal: 0,
+    type: "session_meta",
+    payload: {
+      id: "synthetic",
+      cli_version: "0.147.0",
+      history_mode: "paginated",
+      subagent_history_start_ordinal: 5,
+    },
+  };
+  writeFileSync(file, `${JSON.stringify(header)}\n`);
+  try {
+    const result = command(["transcript", "read", "codex", "--file", file]);
+    expect(result.code).toBe(1);
+    expect(JSON.parse(result.out.trim().split("\n").at(-1) ?? "{}").failure.issue).toBe(
+      "guarantee-unmet",
+    );
+  } finally {
+    rmSync(directory, { force: true, recursive: true });
+  }
+});
+
+test("Codex rejects missing, mismatched, cyclic and malformed inherited ranges", () => {
+  const directory = mkdtempSync(join(tmpdir(), "hcn-codex-invalid-lineage-"));
+  const store = join(directory, "sessions");
+  mkdirSync(store);
+  const parentId = "11111111-2222-4333-8444-555555555555";
+  const childId = "11111111-2222-4333-8444-666666666666";
+  const parentFile = join(store, `rollout-2026-09-11T00-00-00-${parentId}.jsonl`);
+  const childFile = join(directory, "child.jsonl");
+  const parent = `${JSON.stringify({ type: "session_meta", ordinal: 0, payload: { id: parentId, cli_version: "0.147.0", history_mode: "paginated" } })}\n`;
+  const base = {
+    thread_id: parentId,
+    end_byte_offset: Buffer.byteLength(parent),
+    end_ordinal_exclusive: 1,
+  };
+  const cases = [
+    { content: null, base, issue: "source-not-found" },
+    { content: parent.replace(parentId, childId), base, issue: "source-identity-mismatch" },
+    { content: parent, base: { ...base, thread_id: childId }, issue: "guarantee-unmet" },
+    {
+      content: parent,
+      base: { ...base, end_byte_offset: base.end_byte_offset - 1 },
+      issue: "guarantee-unmet",
+    },
+    { content: parent, base: { ...base, end_ordinal_exclusive: 2 }, issue: "guarantee-unmet" },
+  ];
+  try {
+    for (const scenario of cases) {
+      rmSync(parentFile, { force: true });
+      if (scenario.content !== null) writeFileSync(parentFile, scenario.content);
+      writeFileSync(
+        childFile,
+        `${JSON.stringify({ type: "session_meta", ordinal: scenario.base.end_ordinal_exclusive, payload: { id: childId, cli_version: "0.147.0", history_mode: "paginated", history_base: scenario.base } })}\n`,
+      );
+      const result = command(
+        ["transcript", "read", "codex", "--file", childFile],
+        undefined,
+        directory,
+      );
+      expect(result.code).toBe(1);
+      const final = JSON.parse(result.out.trim().split("\n").at(-1) ?? "{}");
+      expect(final.failure.issue).toBe(scenario.issue);
+      expect(final.bookmark).toBeNull();
+    }
+  } finally {
+    rmSync(directory, { force: true, recursive: true });
+  }
+});
+
+test("Codex assembles only the inherited prefix and pages across physical sources", () => {
+  const directory = mkdtempSync(join(tmpdir(), "hcn-codex-lineage-"));
+  const store = join(directory, "sessions");
+  mkdirSync(store);
+  const parentId = "11111111-2222-4333-8444-555555555555";
+  const childId = "11111111-2222-4333-8444-666666666666";
+  const parentFile = join(store, `rollout-2026-09-11T00-00-00-${parentId}.jsonl`);
+  const childFile = join(store, `rollout-2026-09-12T00-00-00-${childId}.jsonl`);
+  const header = (id: string, ordinal: number, base: unknown = null) => ({
+    type: "session_meta",
+    ordinal,
+    payload: { id, cli_version: "0.147.0", history_mode: "paginated", history_base: base },
+  });
+  const entry = (ordinal: number, text: string) => ({
+    ordinal,
+    type: "response_item",
+    payload: { type: "message", role: "user", content: [{ type: "input_text", text }] },
+  });
+  const lines = (rows: unknown[]) => `${rows.map((row) => JSON.stringify(row)).join("\n")}\n`;
+  const prefix = lines([header(parentId, 0), entry(1, "inherited")]);
+  writeFileSync(parentFile, prefix + lines([entry(2, "parent-only")]));
+  writeFileSync(
+    childFile,
+    lines([
+      header(childId, 2, {
+        thread_id: parentId,
+        end_ordinal_exclusive: 2,
+        end_byte_offset: Buffer.byteLength(prefix),
+      }),
+      entry(3, "child"),
+    ]),
+  );
+  const read = (args: string[]) => {
+    const result = command(
+      ["transcript", "read", "codex", "--file", childFile, ...args],
+      undefined,
+      directory,
+    );
+    return {
+      code: result.code,
+      rows: result.out
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line)),
+    };
+  };
+  try {
+    const first = read(["--limit", "1"]);
+    expect(first.code).toBe(0);
+    expect(first.rows[0].conversation.nativeId).toBe(childId);
+    expect(first.rows[0].sources.map((source: { nativeId: string }) => source.nativeId)).toEqual([
+      parentId,
+      childId,
+    ]);
+    expect(first.rows[1].original).toEqual(entry(1, "inherited"));
+    expect(first.rows.at(-1).more).toBe(true);
+    const bookmark = first.rows.at(-1).bookmark;
+    const second = read(["--since", bookmark]);
+    expect(second.code).toBe(0);
+    expect(second.rows.filter((row) => row.kind === "record").map((row) => row.original)).toEqual([
+      entry(3, "child"),
+    ]);
+    expect(second.rows[1].sourceKey).toBe("source-1");
+    expect(second.rows[1].position.sourceKey).toBe("source-1");
+    writeFileSync(parentFile, prefix.replace("inherited", "rewritten"));
+    const changed = read(["--since", bookmark]);
+    expect(changed.code).toBe(1);
+    expect(changed.rows.at(-1).failure.issue).toBe("fresh-read-required");
+  } finally {
+    rmSync(directory, { force: true, recursive: true });
+  }
+});
+
+test("Codex ID lookup includes archived rollouts and refuses ambiguous native sources", () => {
+  const directory = mkdtempSync(join(tmpdir(), "hcn-codex-id-"));
+  const id = "11111111-2222-4333-8444-555555555555";
+  const archived = join(directory, "archived_sessions", "2026", "09", "11");
+  const active = join(directory, "sessions", "2026", "09", "12");
+  mkdirSync(archived, { recursive: true });
+  mkdirSync(active, { recursive: true });
+  const input = `${JSON.stringify({ type: "session_meta", payload: { id, cli_version: "0.147.0" } })}\n`;
+  writeFileSync(join(archived, `rollout-2026-09-11T00-00-00-${id}.jsonl`), input);
+  try {
+    const first = command(["transcript", "read", "codex", "--id", id], undefined, directory);
+    expect(first.code).toBe(0);
+    expect(JSON.parse(first.out.split("\n")[0] ?? "{}").conversation.nativeId).toBe(id);
+    writeFileSync(join(active, `rollout-2026-09-12T00-00-00-${id}.jsonl`), input);
+    const duplicate = command(["transcript", "read", "codex", "--id", id], undefined, directory);
+    expect(duplicate.code).toBe(1);
+    expect(JSON.parse(duplicate.out.trim().split("\n").at(-1) ?? "{}").failure.issue).toBe(
+      "source-ambiguous",
+    );
+  } finally {
+    rmSync(directory, { force: true, recursive: true });
+  }
+});
+
+test("Codex batches preserve source positions and invalidate a changed committed prefix", () => {
+  const directory = mkdtempSync(join(tmpdir(), "hcn-codex-pages-"));
+  const file = join(directory, "synthetic.jsonl");
+  const header = { type: "session_meta", payload: { id: "synthetic", cli_version: "0.147.0" } };
+  const entries = ["before", "after"].map((text) => ({
+    type: "response_item",
+    payload: { type: "message", role: "user", content: [{ type: "input_text", text }] },
+  }));
+  const input = `${[header, ...entries].map((row) => JSON.stringify(row)).join("\n")}\n`;
+  const read = (args: string[]) => {
+    const result = command(["transcript", "read", "codex", "--file", file, ...args]);
+    return {
+      code: result.code,
+      rows: result.out
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line)),
+    };
+  };
+  writeFileSync(file, input);
+  try {
+    const first = read(["--limit", "1"]);
+    expect(first.code).toBe(0);
+    expect(first.rows.at(-1).more).toBe(true);
+    const bookmark = first.rows.at(-1).bookmark;
+    const second = read(["--since", bookmark]);
+    expect(second.code).toBe(0);
+    expect(second.rows.filter((row) => row.kind === "record").map((row) => row.original)).toEqual([
+      entries[1],
+    ]);
+    expect(second.rows[1].position).not.toEqual(first.rows[1].position);
+    expect(second.rows.at(-1).continuation.input).toBe("verified");
+    writeFileSync(file, input.replace("before", "edited"));
+    const changed = read(["--since", bookmark]);
+    expect(changed.code).toBe(1);
+    expect(changed.rows.at(-1).failure.issue).toBe("fresh-read-required");
+    expect(changed.rows.at(-1).bookmark).toBeNull();
+  } finally {
+    rmSync(directory, { force: true, recursive: true });
+  }
+});
+
 test("Codex legacy export preserves retained rollout items and refuses a paginated suffix as full history", () => {
   const directory = mkdtempSync(join(tmpdir(), "hcn-codex-source-"));
   const file = join(directory, "synthetic.jsonl");
@@ -302,6 +516,7 @@ test("Codex legacy export preserves retained rollout items and refuses a paginat
     expect(output.slice(1, -1).map((row) => row.original)).toEqual(rows.slice(1));
     expect(output[1].nativeId).toBeNull();
     expect(output[2].normalized.parts[0].text).toBe("synthetic result");
+    expect(output[2].normalized.relationships["tool-call"].targets[0].scope.sourceKey).toBeNull();
     expect(output.at(-1).historicalLoss.state).toBe("known-loss");
     expect(output.at(-1).coverage.history.state).toBe("complete");
     writeFileSync(file, input.replace('"history_mode":"legacy"', '"history_mode":"paginated"'));

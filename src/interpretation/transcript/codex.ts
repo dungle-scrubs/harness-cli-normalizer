@@ -1,7 +1,8 @@
 import { CODEX_TRANSCRIPT_EVIDENCE } from "../../knowledge/transcript/codex.js";
 import type { Part, RecordEnvelope, Reference, Relation } from "../../knowledge/transcript/wire.js";
-import { object, string, TranscriptError } from "./json.js";
-import type { NativeEntry, NativeHistory } from "./native.js";
+import type { Json } from "./json.js";
+import { equalsInteger, JsonNumber, object, string, TranscriptError } from "./json.js";
+import type { NativeBase, NativeEntry, NativeHistory } from "./native.js";
 import { nativeEntries, position } from "./native.js";
 
 export function parseCodexHistory(text: string | Uint8Array): NativeHistory {
@@ -13,19 +14,72 @@ export function parseCodexHistory(text: string | Uint8Array): NativeHistory {
     throw new TranscriptError("source-malformed", "Missing native rollout identity.");
   if (
     metadata.cli_version !== CODEX_TRANSCRIPT_EVIDENCE.appliesTo.writerBuilds[0]?.version ||
-    (metadata.history_mode !== undefined && metadata.history_mode !== "legacy") ||
-    (metadata.history_base !== undefined && metadata.history_base !== null)
+    (metadata.history_mode !== undefined &&
+      metadata.history_mode !== "legacy" &&
+      metadata.history_mode !== "paginated") ||
+    (metadata.history_mode !== "paginated" &&
+      metadata.history_base !== undefined &&
+      metadata.history_base !== null)
   )
     throw new TranscriptError(
       "guarantee-unmet",
-      "The selected rollout is not a verified standalone legacy view.",
+      "The selected rollout has an unsupported writer version or history mode.",
     );
   if (rows.some((row) => row.original.type === "session_meta"))
     throw new TranscriptError(
       "guarantee-unmet",
       "Additional native source metadata requires separate format evidence.",
     );
+  if (metadata.history_mode === "paginated") {
+    const start = codexBase({ entries: rows, header })?.ordinal ?? 0;
+    for (const [index, row] of [first, ...rows].entries()) {
+      if (!row || integer(row.original.ordinal) !== start + index)
+        throw new TranscriptError(
+          "guarantee-unmet",
+          "Paginated ordinals must be contiguous and include metadata.",
+        );
+    }
+    if (
+      metadata.subagent_history_start_ordinal !== undefined &&
+      metadata.subagent_history_start_ordinal !== null &&
+      start + rows.length + 1 < integer(metadata.subagent_history_start_ordinal)
+    )
+      throw new TranscriptError(
+        "guarantee-unmet",
+        "Native subagent initialization has an incomplete inherited prefix.",
+      );
+  }
   return { entries: rows, header };
+}
+function integer(value: Json | undefined): number {
+  if (
+    value instanceof JsonNumber &&
+    equalsInteger(value, Number(value.text)) &&
+    Number(value.text) >= 0
+  )
+    return Number(value.text);
+  throw new TranscriptError("guarantee-unmet", "Invalid or unaddressable native ordinal/offset.");
+}
+export function codexBase(history: NativeHistory): NativeBase | null {
+  const metadata = object(history.header.payload);
+  if (metadata?.history_base === null || metadata?.history_base === undefined) return null;
+  const base = object(metadata.history_base);
+  const nativeId = string(base?.thread_id);
+  if (!nativeId)
+    throw new TranscriptError("guarantee-unmet", "Invalid native history base identity.");
+  const offset = integer(base?.end_byte_offset);
+  const ordinal = integer(base?.end_ordinal_exclusive);
+  if (!offset || !ordinal)
+    throw new TranscriptError("guarantee-unmet", "Empty native history base boundary.");
+  return { nativeId, offset, ordinal };
+}
+export function validateCodexBase(history: NativeHistory, base: NativeBase): void {
+  const last = history.entries.at(-1)?.original ?? history.header;
+  if (
+    object(history.header.payload)?.history_mode !== "paginated" ||
+    integer(last.ordinal) + 1 !== base.ordinal
+  )
+    throw new TranscriptError("guarantee-unmet", "Native base ordinal and byte cutoff disagree.");
 }
 export function codexNativeId(history: NativeHistory): string {
   return string(object(history.header.payload)?.id) ?? "";
@@ -51,7 +105,7 @@ export function normalizeCodex(entry: NativeEntry, conversationId: string): Reco
           kind: "tool-call",
           nativeId: callId,
           position: null,
-          scope: { conversationId, harness: "codex", location: null, sourceKey: "source-0" },
+          scope: { conversationId, harness: "codex", location: null, sourceKey: null },
         },
       ]
     : [];

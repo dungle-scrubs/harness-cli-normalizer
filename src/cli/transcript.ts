@@ -72,14 +72,18 @@ export async function transcript(raw: string[]): Promise<void> {
     return;
   }
   const workspace = resolve(options.cwd ?? process.cwd());
-  const storeRoot = resolve(
-    process.env.PI_CODING_AGENT_DIR ?? resolve(homedir(), ".pi", "agent"),
-    "sessions",
-    `--${workspace.replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`,
-  );
+  const storeRoot =
+    options.harness === "codex"
+      ? resolve(process.env.CODEX_HOME ?? resolve(homedir(), ".codex"))
+      : resolve(
+          process.env.PI_CODING_AGENT_DIR ?? resolve(homedir(), ".pi", "agent"),
+          "sessions",
+          `--${workspace.replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`,
+        );
   const request: ReadTranscriptRequest = {
+    nativeStoreRoot: storeRoot,
     selection: options.id
-      ? { kind: "id", nativeId: options.id, storeRoot }
+      ? { kind: "id", nativeId: options.id }
       : { kind: "file", path: resolve(workspace, options.file ?? "") },
     limit: options.limit,
     since: options.since,

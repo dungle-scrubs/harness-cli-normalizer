@@ -31,3 +31,9 @@ export function* nativeEntries(input: string | Uint8Array): Generator<NativeEntr
     offset = end + 1;
   }
 }
+
+export interface NativeBase {
+  readonly nativeId: string;
+  readonly offset: number;
+  readonly ordinal: number;
+}

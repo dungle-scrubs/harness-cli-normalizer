@@ -242,7 +242,8 @@ attachment reads. Retained history includes saved branches and pre-compaction
 entries. No HCN index, retention, search, or persistent bookmark state.
 
 Enabled methods: Pi v3 file/ID with batches and bookmarks; Codex 0.147.0
-standalone legacy files without paging or continuation. Claude and Muse
-remain unverified. Codex paginated/inherited history is rejected.
+legacy and paginated rollouts with ID/file lookup, batches and bookmarks.
+Codex inherited ranges are verified across sources; compressed files are unsupported.
+Claude and Muse remain unverified.
 Compatible customized Pi must preserve the declared v3 storage semantics.
 `;
