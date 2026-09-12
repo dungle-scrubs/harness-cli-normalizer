@@ -56,6 +56,23 @@ hcn session claude --model opus --session-id 550e8400-e29b-41d4-a716-44665544000
 hcn session pi --effort high
 ```
 
+### Saved native transcripts
+
+Inspect and export retained messages and tool results without resuming a model:
+
+```sh
+hcn inspect pi --transcript
+hcn transcript read pi --file /path/to/native.jsonl > transcript.jsonl
+```
+
+Pi v3 supports full reads, batches, and caller-held bookmarks. Codex 0.147.0
+legacy and paginated rollouts support full reads, ID lookup, batches, and
+bookmarks, including verified inherited ranges. Compressed sources are
+unsupported. Claude main-file history and Muse schema-1 session logs support
+ID/file reads, batches and bookmarks through a passive filesystem clone on
+supported macOS/Linux filesystems. See [native transcript reads](docs/transcripts.md)
+for capability checks, failure handling, custom Pi conditions, and consumer rules.
+
 ### Machine session (`hcn session <harness> --json`)
 
 `--json` is the same session for a program instead of a human: NDJSON events
@@ -190,8 +207,9 @@ version, observed model, used tokens, and supported input limit. Callers own
 their extra reserve and dispatch policy. The probe forks resumed sessions with
 persistence disabled and stages the prompt with `shouldQuery:false`; it never
 asks the assistant to execute it. Native startup hooks can still run. The
-verified Claude headless-turn adapter supports this operation, including fresh
-`--isolation tool-free` requests. Other versions and adapters report unavailable.
+Claude headless-turn adapter supports this operation, including fresh
+`--isolation tool-free` requests. It validates the native operation independently
+of version metadata. Other adapters report unavailable.
 Persistent-process accounting is not established by this command. It refuses
 native passthrough and other inspection modes, bounds serialized prompts to
 8 MiB, and defaults to a 30-second deadline followed by bounded process cleanup.
@@ -203,24 +221,39 @@ is `available` or `unavailable`; an available result carries
 `method: "native-context-estimate"`, `model`, `totalTokens`,
 `contextWindowTokens`, and `inputLimitTokens`. The input limit is the smaller
 of the native window and its enabled automatic-compaction threshold.
-Unavailable reasons distinguish unsupported adapters, unverified versions,
+Unavailable reasons distinguish unsupported adapters,
 auth or limit failures, native exits, transport bounds/errors, invalid native
 protocol, timeout, cancellation, and cleanup failure. Neither an unavailable
-result nor a total window alone is permission to dispatch.
+result nor a total window alone is permission to dispatch. Usage remains
+provisional until output and cleanup settle. Query activity, unknown frame
+categories, malformed usage, or incomplete output invalidate the count.
+Known startup hooks, command lifecycle, nonblocking rate notices, and successful
+zero-turn results are permitted, including nonzero aggregate usage.
+`transport` with `executable.path: null` means the executable could not be
+resolved; `resume.reason` supplies that safe explanation. Otherwise transport
+denotes a failure to open or use the process channel.
 
 Descriptor inspection separately exposes `nativeContextManagement`: Codex
-0.153.4 declares `{ kind: "auto-compaction", modes: ["headless-turn"] }`.
-Other adapters emit null. This describes native handling, not a count or a
+0.153.4 and Muse 1.1.1 declare `{ kind: "auto-compaction", modes: ["headless-turn"] }`.
+Claude declares `{ kind: "native-session-auto-compaction", modes: ["headless-turn"] }`.
+This covers native session growth; callers must still prepare imported history.
+Fresh mandatory content can exceed the native request limit, and compaction
+does not promise lossless recall. Pi emits null.
+These declarations describe native handling, not a count or a
 successful budget check. Callers decide whether to delegate context management
-after verifying the selected executable and mode. Codex preflight accounting
-continues to return `unsupported-adapter`.
+after verifying the selected executable and mode. Codex and Muse preflight accounting
+continue to return `unsupported-adapter`. A declaration is a curated descriptor
+fact; it does not detect whether native compaction is currently enabled.
 
 `hcn inspect <harness> --runtime --prompt "validation"` reports version-1
 JSON containing redacted argv, the resolved executable path and version,
 the adapter's verified version, and native-resume compatibility. This runs
 only a version probe. The argv is a diagnostic preview, not a command to
-execute. Exact version agreement establishes adapter support; missing or
-different versions remain unknown. It does not prove session existence or
+execute. All four harnesses use invocation-based resume admission, including
+supported persistent sessions. A resolved executable and a supported invocation
+are required; missing or different version metadata does not reject them.
+The native operation can still fail on changed flags, protocol, or session state.
+No admission result proves session existence or
 recall. Pass the same working folder and options as the intended turn.
 
 For persistent resume use `--mode headless-session --resume <session-id>`.
@@ -498,8 +531,10 @@ error labeling, and provenance on every resolved setting. Persistent
 sessions (`hcn session`) are available for claude and pi. Drift detection runs weekly
 in CI for the three npm harnesses; Muse is `installed` and only checked
 locally via `muse --version`. Re-verifying a descriptor's capability
-claims against a new CLI version is a local, manual step
-(`bun run smoke:seven`) plus fixture re-capture, not CI. Authentication
+claims against a new CLI version follows the [harness update procedure](docs/harness-updates.md):
+local behavioral probes and fixture capture. CI tests version-independent
+admission and the recorded contracts; a version difference alone never disables
+an invocation. Authentication
 and usage-limit signals are parsed from each harness's stream, but hcn
 never holds or ships credentials; each harness authenticates under the
 end user's own session.

@@ -19,11 +19,13 @@
  */
 import { deepFreeze, type HarnessDescriptor, UUID_SHAPE } from "./descriptor.js";
 import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
+import { CLAUDE_TRANSCRIPT } from "./transcript/claude.js";
 
 const STREAM_INPUT_FLAGS = ["--input-format", "stream-json"] as const;
 
 export const claudeCode: HarnessDescriptor = deepFreeze({
   name: "claude",
+  transcript: CLAUDE_TRANSCRIPT,
   bin: "claude",
   verifiedAgainst: "2.1.263",
   versionSource: { kind: "npm", package: "@anthropic-ai/claude-code" },
@@ -151,7 +153,10 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     object: "context_window",
     usedPctField: "used_percentage",
   },
-  nativeContextManagement: null,
+  nativeContextManagement: {
+    kind: "native-session-auto-compaction",
+    modes: ["headless-turn"],
+  },
   contextInspection: {
     kind: "claude-control-v1",
     flags: [...STREAM_INPUT_FLAGS, "--no-session-persistence", "--replay-user-messages"],

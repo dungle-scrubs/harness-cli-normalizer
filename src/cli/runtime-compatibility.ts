@@ -20,10 +20,14 @@ function executablePath(bin: string, cwd: string, searchPath: string): string | 
   return null;
 }
 
-/** Exact verified versions establish support. Newer is not evidence of compatibility. */
+/** Call after validating the invocation. Version is evidence metadata, never
+ * admission. The native operation still owns session existence and success. */
 export async function runtimeCompatibility(
   harness: HarnessDescriptor,
-  options: { readonly cwd?: string; readonly env?: Readonly<Record<string, string>> } = {},
+  options: {
+    readonly cwd?: string;
+    readonly env?: Readonly<Record<string, string>>;
+  },
 ): Promise<{
   readonly executable: { readonly path: string | null; readonly version: string | null };
   readonly resume: { readonly status: "supported" | "unknown"; readonly reason: string | null };
@@ -37,18 +41,12 @@ export async function runtimeCompatibility(
   const path = executablePath(harness.bin, cwd, searchPath);
   const version =
     path === null ? null : await installedVersion(path, { cwd, env: effectiveEnvironment });
-  const supported = version !== null && version === harness.verifiedAgainst;
+  const supported = path !== null;
   return {
     executable: { path, version },
     resume: {
       status: supported ? "supported" : "unknown",
-      reason: supported
-        ? null
-        : path === null
-          ? "The selected executable could not be resolved."
-          : version === null
-            ? "The selected executable did not report a usable version."
-            : "The selected executable version does not match the verified adapter. Verify this version before native takeover.",
+      reason: supported ? null : "The selected executable could not be resolved.",
     },
     verifiedAgainst: harness.verifiedAgainst,
   };

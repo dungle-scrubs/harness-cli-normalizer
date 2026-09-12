@@ -1,0 +1,114 @@
+{
+  "binarySha256": "7dfd75e1e2dd7c763e60b7e379f4146b8b2b10478a2830c8cdbb35ae9961881e",
+  "reader": "1.1.1 / b934305d21",
+  "versionOutput": "Muse Code 1.1.1 (1.1.1-R2514.1)\n",
+  "exportHelp": "usage: muse export [--session <id|path>] [--last] [--out <file>] [--redacted]\n\nExports one session's durable log as a single self-contained JSON document\n(export_schema_version 1): timestamps, messages, verbatim encrypted\nreasoning, tool calls/results, approvals, question outcomes, model ids,\nses_/trajectory_ ids, and fork/subagent lineage.\n\nWithout --out, the document is written to trajectory-<timestamp>.json in\nthe current directory (falling back to the temp dir when the cwd is not\nwritable; an existing file is never overwritten — the name is uniquified)\nand stdout carries exactly one line: the absolute path written.\n\nWith no --session on an interactive terminal, export opens the SAME session\npicker `muse resume` uses so you can see and choose which session to export\n(#10408) — unless --out is given (a file destination exports the most\nrecent session, never the picker). A piped/redirected export stays\nnon-interactive and exports the most recent session; pass --last to be\nexplicit or to skip the picker interactively.\n\nOptions:\n  --session <id|path>  Session UUID (resolved in the local session store) or\n                       a path to a session.jsonl file. An existing file path\n                       wins over an id parse. Bypasses the picker.\n  --last               Skip the picker and export the most recent retained\n                       session for the current workspace. Also the default\n                       when the terminal is non-interactive.\n  --out <file>         Write the document to <file> instead of the default\n                       timestamped file. An existing file is replaced on\n                       success (staged + renamed, so a failed export leaves\n                       the previous file intact). Like --last, this\n                       skips the picker (most recent session).\n  --redacted           Share-safe variant: payload strings pass through the\n                       telemetry redaction rules. Default output is RAW —\n                       the export is a local file you already own. Encrypted\n                       reasoning blobs stay verbatim in both modes.\n\nOffline: reads only local files; no network access. Schema and details:\ndocs/session-export.md\n",
+  "results": [
+    {
+      "name": "valid",
+      "exitCode": 0,
+      "sourceUnchanged": true,
+      "sessionCount": 1,
+      "diagnostics": {
+        "unparseable_lines": 0,
+        "unknown_payload_kinds": 1,
+        "gaps": 0,
+        "omitted_live_only": 0,
+        "duplicate_records": 0
+      }
+    },
+    {
+      "name": "corrupt",
+      "exitCode": 0,
+      "sourceUnchanged": true,
+      "sessionCount": 1,
+      "diagnostics": {
+        "unparseable_lines": 1,
+        "unknown_payload_kinds": 1,
+        "gaps": 0,
+        "omitted_live_only": 0,
+        "duplicate_records": 0
+      }
+    },
+    {
+      "name": "duplicate",
+      "exitCode": 0,
+      "sourceUnchanged": true,
+      "sessionCount": 1,
+      "diagnostics": {
+        "unparseable_lines": 0,
+        "unknown_payload_kinds": 1,
+        "gaps": 0,
+        "omitted_live_only": 0,
+        "duplicate_records": 1
+      }
+    },
+    {
+      "name": "no_identity",
+      "exitCode": 0,
+      "sourceUnchanged": true,
+      "sessionCount": 0,
+      "diagnostics": {
+        "unparseable_lines": 1,
+        "unknown_payload_kinds": 0,
+        "gaps": 0,
+        "omitted_live_only": 0,
+        "duplicate_records": 0
+      }
+    },
+    {
+      "name": "truncated",
+      "exitCode": 0,
+      "sourceUnchanged": true,
+      "sessionCount": 1,
+      "diagnostics": {
+        "unparseable_lines": 1,
+        "unknown_payload_kinds": 1,
+        "gaps": 0,
+        "omitted_live_only": 0,
+        "duplicate_records": 0
+      }
+    },
+    {
+      "name": "sequence_gap",
+      "exitCode": 0,
+      "sourceUnchanged": true,
+      "sessionCount": 1,
+      "diagnostics": {
+        "unparseable_lines": 0,
+        "unknown_payload_kinds": 1,
+        "gaps": 0,
+        "omitted_live_only": 0,
+        "duplicate_records": 0
+      }
+    },
+    {
+      "name": "mixed_identity",
+      "exitCode": 0,
+      "sourceUnchanged": true,
+      "sessionCount": 2,
+      "diagnostics": {
+        "unparseable_lines": 0,
+        "unknown_payload_kinds": 1,
+        "gaps": 0,
+        "omitted_live_only": 0,
+        "duplicate_records": 0
+      }
+    },
+    {
+      "name": "exact_numbers",
+      "exitCode": 0,
+      "sourceUnchanged": true,
+      "sessionCount": 1,
+      "diagnostics": {
+        "unparseable_lines": 0,
+        "unknown_payload_kinds": 1,
+        "gaps": 0,
+        "omitted_live_only": 0,
+        "duplicate_records": 0
+      },
+      "integer": "9007199254740993",
+      "decimal": "1.2345678901234567"
+    }
+  ]
+}

@@ -1,5 +1,8 @@
 import type { ContextInspection } from "../interpretation/context-inspection.js";
-import { createContextProbe } from "../interpretation/context-inspection.js";
+import {
+  createContextProbe,
+  settledContextInspection,
+} from "../interpretation/context-inspection.js";
 import { detectAuthFailureInLine, detectLimitInLine } from "../interpretation/limits.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 
@@ -10,7 +13,7 @@ import { LineBuffer } from "./lines.js";
 import { KILL_GRACE_MS, superviseTermination } from "./supervisor.js";
 
 export interface ContextInspectionOptions {
-  /** Already validated, version-bound ephemeral argv. The CLI adapter owns
+  /** Already validated, executable-bound ephemeral argv. The CLI adapter owns
    * no-persistence and fork-on-resume enforcement before this layer runs. */
   readonly argv: readonly string[];
   readonly cwd?: string;
@@ -53,11 +56,14 @@ export async function inspectContext(
     return { status: "unavailable", reason: "transport" };
   }
   let finished = false;
+  const outcome: { accounting: ContextInspection } = {
+    accounting: { status: "unavailable", reason: "transport" },
+  };
   let exited = false;
   let exitCode: number | null = null;
   let nativeFailure: "auth" | "limit" | null = null;
   let disposalTimer: TimerHandle | undefined;
-  const result = deferred<ContextInspection>();
+  const result = deferred<void>();
   const stopped = deferred<boolean>();
   const signal = (kind: "SIGTERM" | "SIGKILL"): void => {
     try {
@@ -68,18 +74,17 @@ export async function inspectContext(
   };
   const termination = superviseTermination(deps.clock, signal);
   const finish = (value: ContextInspection): void => {
+    if (!finished || (outcome.accounting.status === "available" && value.status === "unavailable"))
+      outcome.accounting = value;
     if (finished) return;
     finished = true;
-    result.resolve(value);
+    result.resolve();
     try {
       child.stdin?.end();
     } catch {
       /* A broken pipe still needs cleanup. */
     }
-    if (exited) {
-      stopped.resolve(true);
-      return;
-    }
+    if (exited) return;
     termination.escalate();
     disposalTimer = deps.clock.setTimeout(() => {
       child.disposeOutput();
@@ -99,9 +104,9 @@ export async function inspectContext(
     }
   };
   const onLine = (line: string): void => {
-    if (finished) return;
+    if (finished && outcome.accounting.status !== "available") return;
     const action = probe.accept(line);
-    if (action?.kind === "send") write(action.line);
+    if (action?.kind === "send" && !finished) write(action.line);
     else if (action?.kind === "complete") finish(action.accounting);
   };
   const deadline = deps.clock.setTimeout(
@@ -111,14 +116,16 @@ export async function inspectContext(
   const abort = (): void => finish({ status: "unavailable", reason: "cancelled" });
   options.signal?.addEventListener("abort", abort, { once: true });
   const stdout = (async (): Promise<void> => {
-    const lines = new LineBuffer(CONTEXT_TRANSPORT_MAX + 65_536);
+    const lines = new LineBuffer(CONTEXT_TRANSPORT_MAX + 65_536, () =>
+      finish({ status: "unavailable", reason: "transport-limit" }),
+    );
     try {
       for await (const chunk of child.stdout) {
-        if (!finished) for (const line of lines.push(chunk)) onLine(line);
+        for (const line of lines.push(chunk)) onLine(line);
       }
       const tail = lines.flush();
       if (tail !== null) onLine(tail);
-      finish({ status: "unavailable", reason: "transport" });
+      if (!finished) finish({ status: "unavailable", reason: "transport" });
     } catch {
       finish({ status: "unavailable", reason: "transport" });
     }
@@ -142,36 +149,34 @@ export async function inspectContext(
   void child.exited.then(async (code) => {
     exited = true;
     exitCode = code;
-    if (code !== null && code !== 0) finish({ status: "unavailable", reason: "transport" });
+    if (!finished && code !== null && code !== 0)
+      finish({ status: "unavailable", reason: "transport" });
     termination.settle();
     if (disposalTimer !== undefined) deps.clock.clearTimeout(disposalTimer);
     // Exit can precede the final bytes reaching the runtime's read buffer.
     // Drain naturally first; inherited pipes get a bounded disposal fallback.
     let drainTimer: TimerHandle | undefined;
-    await Promise.race([
-      Promise.all([stdout, stderr]),
-      new Promise<void>((resolve) => {
-        drainTimer = deps.clock.setTimeout(resolve, KILL_GRACE_MS);
+    const drained = await Promise.race([
+      Promise.all([stdout, stderr]).then(() => true),
+      new Promise<boolean>((resolve) => {
+        drainTimer = deps.clock.setTimeout(() => resolve(false), KILL_GRACE_MS);
       }),
     ]);
     if (drainTimer !== undefined) deps.clock.clearTimeout(drainTimer);
     child.disposeOutput();
-    stopped.resolve(true);
+    stopped.resolve(drained);
   });
   write(probe.initial);
   // Abort can arrive during spawn or listener registration.
   if (options.signal?.aborted) abort();
-  const value = await result.promise;
+  await result.promise;
   deps.clock.clearTimeout(deadline);
-  options.signal?.removeEventListener("abort", abort);
   const clean = await stopped.promise;
-  if (clean) await Promise.all([stdout, stderr]);
-  if (!clean) return { status: "unavailable", reason: "cleanup" };
-  if (value.status === "unavailable" && value.reason === "transport") {
-    return {
-      status: "unavailable",
-      reason: nativeFailure ?? (exitCode !== null && exitCode !== 0 ? "native-exit" : "transport"),
-    };
-  }
-  return value;
+  options.signal?.removeEventListener("abort", abort);
+  return settledContextInspection({
+    accounting: outcome.accounting,
+    clean,
+    exitCode,
+    nativeFailure,
+  });
 }

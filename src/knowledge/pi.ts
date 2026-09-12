@@ -8,9 +8,11 @@
  */
 import { deepFreeze, type HarnessDescriptor, UUID_SHAPE } from "./descriptor.js";
 import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
+import { PI_TRANSCRIPT } from "./transcript/pi.js";
 
 export const piCli: HarnessDescriptor = deepFreeze({
   name: "pi",
+  transcript: PI_TRANSCRIPT,
   bin: "pi",
   verifiedAgainst: "0.84.2",
   versionSource: { kind: "npm", package: "@earendil-works/pi-coding-agent" },

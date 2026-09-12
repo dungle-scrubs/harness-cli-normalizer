@@ -6,6 +6,7 @@ Commands:
   run <harness> [prompt]    One-shot headless turn (streamTurn)
   session <harness>         Interactive session (openSession, claude + pi)
   inspect <harness>         Descriptor / argv / capability inspection (no spawn)
+  transcript read <harness> Passive native transcript export (JSONL)
   ls                        List harnesses with verifiedAgainst versions
   check                     Drift check (published version vs verifiedAgainst)
 
@@ -166,12 +167,17 @@ Arguments:
   <harness>                 claude | codex | pi | muse
 
 Options:
+  --transcript              Report passive transcript methods and evidence;
+                            exclusive with other inspection modes; no history opened
   --argv                    Preview argv that would be spawned
   --runtime                 Preview argv and probe the selected executable version;
-                            exact adapter matches support native resume, others unknown
+                            All harnesses use invocation support in supported modes.
+                            Version metadata never rejects a supported invocation.
+                            A resolved executable is required
                             (does not run a model or prove the saved session exists)
   --context                 Inspect complete staged context through a disposable native
-                            process (headless-turn only, verified Claude adapter).
+                            process (Claude headless-turn only). Validates the native
+                            operation independently of version metadata.
                             --json returns accounting plus executable/model provenance.
                             Native estimate includes recalled history and the composed
                             prompt. No assistant task is queried. Resume is forked with
@@ -239,4 +245,36 @@ Exits 0 when no drift, 1 when drift found, 1 on network failure with partial res
 Options:
   --json                    Machine-readable output
   -h, --help                Show help
+`;
+
+export const TRANSCRIPT_HELP = `hcn transcript - Passive native transcript export
+
+Usage: hcn transcript read <harness> (--id <native-id> | --file <path>) [options]
+
+Harnesses: claude | codex | pi | muse
+Inspect support first: hcn inspect <harness> --transcript
+
+Options:
+  --cwd <directory>         Resolution workspace (default invocation directory)
+  --since <bookmark>        Validate caller-held progress before continuing
+  --limit <entry-count>     Positive whole-entry batch limit
+  --accept-limits <names>   Explicit coverage opt-ins, comma-separated:
+                            history,branches,original-records,embedded-content
+  -h, --help                Show help
+  -V, --version             Show version
+
+Stdout is JSONL: source, complete native records, terminal result.
+Only a complete result and exit 0 establish success. Failure exits 1;
+invalid arguments or unsupported operations exit 2. Output failures exit 1.
+No model, resume, instructions, extensions, store writes, or external
+attachment reads. Retained history includes saved branches and pre-compaction
+entries. No HCN index, retention, search, or persistent bookmark state.
+
+Enabled methods: Pi v3 file/ID with batches and bookmarks; Codex 0.147.0
+legacy and paginated rollouts with ID/file lookup, batches and bookmarks.
+Codex inherited ranges are verified across sources; compressed files are unsupported.
+Claude main JSONL and Muse schema-1 session logs support ID/file reads,
+batches and bookmarks through a passive filesystem clone on supported
+macOS/Linux filesystems. Native formats and clone prerequisites apply.
+Compatible customized Pi must preserve the declared v3 storage semantics.
 `;
