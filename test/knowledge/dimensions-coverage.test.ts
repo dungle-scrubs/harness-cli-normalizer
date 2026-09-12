@@ -16,6 +16,7 @@ import { piCli } from "../../src/knowledge/pi.js";
  */
 const DESCRIPTOR_KEYS = [
   "name",
+  "transcript",
   "bin",
   "verifiedAgainst",
   "versionSource",

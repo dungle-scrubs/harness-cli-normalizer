@@ -1,0 +1,10 @@
+Selected binary byte offset: 203543600
+Each `session.jsonl` line is an event-log envelope:
+
+```json
+{"schema_version":1,"id":"…","stream":{"kind":"session","id":"<session-id>"},
+ "sequence":42,"recorded_at":1771088000123456,"record_type":"event",
+ "durability":"durable","causation_id":null,"payload_type":"runtime.session",
+ "payload_schema_version":1,"payload":{"kind":"run","run_id":"…",
+ "event":{"kind":"assistant_message_committed","text":"…"}}}
+```

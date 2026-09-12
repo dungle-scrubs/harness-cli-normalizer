@@ -17,6 +17,17 @@ const result = spawnSync("pnpm", ["exec", "tsc", "-p", "tsconfig.build.json"], {
 
 assert.equal(result.status, 0, "package build failed");
 
+const native = spawnSync(
+  process.execPath,
+  [
+    resolve(repositoryRoot, "scripts/build-native.ts"),
+    "--stage",
+    ...(process.argv.includes("--release") ? ["--release"] : []),
+  ],
+  { stdio: "inherit" },
+);
+assert.equal(native.status, 0, "snapshot helper staging failed");
+
 const cliIndexJs = resolve(outputDirectory, "cli", "index.js");
 if (existsSync(cliIndexJs)) {
   const content = readFileSync(cliIndexJs, "utf8");

@@ -1,3 +1,4 @@
+import type { TranscriptKnowledge } from "./transcript/wire.js";
 /**
  * Descriptor types: the shape of what is KNOWN about a harness CLI, as pure
  * data. Interpretation functions consume these; nothing here executes.
@@ -289,6 +290,7 @@ export const tokensFor = (
 };
 
 export interface HarnessDescriptor {
+  readonly transcript: TranscriptKnowledge | null;
   readonly name: HarnessName;
   readonly bin: string;
   /** The CLI version every fact in this descriptor - argv shapes, event

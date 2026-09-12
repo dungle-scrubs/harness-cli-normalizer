@@ -1,0 +1,21 @@
+{
+  "platform": "darwin",
+  "arch": "arm64",
+  "osRelease": "25.6.0",
+  "runtime": "v26.4.0",
+  "helperSourceSha256": "7eb6ea7a5e570ec8c4bdcb8f1a3357ae9166b5fc8dc235edf2a34881e7036043",
+  "checks": {
+    "independentCloneAfterRewrite": true,
+    "existingDestinationPreserved": true,
+    "directoryRejected": true,
+    "missingRejected": true,
+    "concurrentWholeFileWrites": {
+      "clones": 256,
+      "bytesPerFile": 1048576,
+      "completeWriterCycles": 11785,
+      "mixedClones": 0
+    },
+    "temporaryDirectoryRemoved": true
+  },
+  "helperExecutableSha256": "8fd7e1832bc22fe9e7ab333de313cd3b3d5c945a9eb2ae7f0476550e65569456"
+}

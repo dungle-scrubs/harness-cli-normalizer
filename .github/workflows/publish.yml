@@ -15,7 +15,12 @@ permissions:
   id-token: write
 
 jobs:
+  native:
+    uses: ./.github/workflows/native-snapshot.yml
+    with:
+      ref: ${{ github.event.release.tag_name || inputs.tag }}
   publish:
+    needs: native
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -37,6 +42,19 @@ jobs:
       - uses: oven-sh/setup-bun@v2
 
       - run: pnpm install --frozen-lockfile
+      - run: bash .github/prepare-transcript-test-filesystem.sh
+      - uses: actions/download-artifact@v8
+        with:
+          name: snapshot-darwin-universal
+          path: .native-artifacts/darwin-universal
+      - uses: actions/download-artifact@v8
+        with:
+          name: snapshot-linux-x64
+          path: .native-artifacts/linux-x64
+      - uses: actions/download-artifact@v8
+        with:
+          name: snapshot-linux-arm64
+          path: .native-artifacts/linux-arm64
       - run: pnpm check
 
       - name: Use an npm CLI with trusted publishing support

@@ -1,0 +1,21 @@
+{
+  "platform": "linux",
+  "arch": "arm64",
+  "osRelease": "7.0.14-orbstack-00380-ga7e0a2dc9535",
+  "runtime": "v24.21.0",
+  "helperSourceSha256": "7eb6ea7a5e570ec8c4bdcb8f1a3357ae9166b5fc8dc235edf2a34881e7036043",
+  "checks": {
+    "independentCloneAfterRewrite": true,
+    "existingDestinationPreserved": true,
+    "directoryRejected": true,
+    "missingRejected": true,
+    "concurrentWholeFileWrites": {
+      "clones": 256,
+      "bytesPerFile": 1048576,
+      "completeWriterCycles": 849,
+      "mixedClones": 0
+    },
+    "temporaryDirectoryRemoved": true
+  },
+  "helperExecutableSha256": "62e6178651bb7292eacd56883937eeca15a0d11b70a5b90c97b5fcf9f4490be2"
+}
