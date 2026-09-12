@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.8](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.7...v0.6.8) (2026-09-12)
+
+
+### Added
+
+* add passive native transcript retrieval ([#161](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/161)) ([d1fd946](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/d1fd9462391bff5afa17f0547725901098cdb042))
+* normalize persistent cross-session memory behind --memory, default off ([#109](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/109)) ([1fb1760](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/1fb17604232b1d894b1df9a503d3db6d6b0f359b))
+
+
+### Changed
+
+* **deps-dev:** bump vitest from 4.1.10 to 5.0.0 ([#144](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/144)) ([609e18c](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/609e18ccbdd9e531b3fd42b3728c8588e2645575))
+* **deps-dev:** update Biome, Node types, and Lefthook ([#145](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/145)) ([d2ec9d9](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/d2ec9d90b4e3aee2a3ebf3e1b2c735fb39d16d06))
+
 ## [0.6.7](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.6...v0.6.7) (2026-09-11)
 
 
