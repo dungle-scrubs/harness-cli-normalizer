@@ -7,7 +7,12 @@
  * preview agree by construction, skill tokens and passthrough included.
  */
 import { redactArgv, type TurnRunOptions } from "../execution/stream-turn.js";
-import { buildSpawnArgv, promptTextOf, stdinPromptOf } from "../interpretation/argv.js";
+import {
+  buildSpawnArgv,
+  buildTurnEnv,
+  promptTextOf,
+  stdinPromptOf,
+} from "../interpretation/argv.js";
 import { assertIsolationCombination } from "../interpretation/isolation.js";
 import { composeEscalatedPrompt } from "../interpretation/question.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
@@ -338,6 +343,18 @@ export const writePlanDiagnostics = (
   label: "spawn" | "argv",
 ): void => {
   writeProvenance(h.name, plan.provenance, plan.unrenderable);
+  const env = buildTurnEnv(
+    h,
+    plan.options,
+    plan.options.resume === undefined ? "launch" : "resume",
+  );
+  if (Object.keys(env).length > 0) {
+    process.stderr.write(
+      `env: ${Object.entries(env)
+        .map(([key, value]) => `${key}=${value}`)
+        .join(" ")}\n`,
+    );
+  }
   process.stderr.write(
     `${label}: ${plan.redactedArgv.map((token) => (token === "" ? '""' : token)).join(" ")}\n`,
   );

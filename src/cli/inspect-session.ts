@@ -1,7 +1,9 @@
-import { buildSessionArgv } from "../interpretation/argv.js";
+import { buildSessionArgv, buildTurnEnv } from "../interpretation/argv.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
+import { resolveSessionMemory } from "../interpretation/resolve-options.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
-import { parseCommonFlags, splitPassthrough } from "./args.js";
+import { memoryFlagOf, parseCommonFlags, splitPassthrough } from "./args.js";
+import { ConfigError, loadProjectConfig, loadUserConfig } from "./config.js";
 import { refusalOf, refuse } from "./refuse.js";
 import { runtimeCompatibility } from "./runtime-compatibility.js";
 
@@ -10,6 +12,8 @@ const SESSION_PREVIEW_OPTIONS = new Set([
   "cwd",
   "effort",
   "json",
+  "memory",
+  "no-memory",
   "mode",
   "model",
   "prompt",
@@ -73,11 +77,28 @@ export async function inspectSessionRuntime(
       effort: typeof values.effort === "string" ? values.effort : undefined,
       provider: typeof values.provider === "string" ? values.provider : undefined,
     });
+    const resolved = resolveSessionMemory(memoryFlagOf(values), {
+      project: loadProjectConfig()?.config,
+      user: loadUserConfig()?.config,
+    });
+    const turnEnv = buildTurnEnv(harness, { memory: resolved.memory }, "launch");
+    process.stderr.write(`provenance: memory = ${resolved.memory} (${resolved.tier})\n`);
+    if (Object.keys(turnEnv).length > 0) {
+      process.stderr.write(
+        `env: ${Object.entries(turnEnv)
+          .map(([key, value]) => `${key}=${value}`)
+          .join(" ")}\n`,
+      );
+    }
     process.stderr.write(`argv: ${argv.join(" ")}\n`);
     process.stdout.write(
       `${JSON.stringify({ v: 1, argvKind: "redacted-preview", argv, ...(await runtimeCompatibility(harness, { cwd })) })}\n`,
     );
   } catch (error) {
+    if (error instanceof ConfigError) {
+      refuse({ issue: "invalid-option-value", message: `config error: ${error.message}` }, false);
+      return true;
+    }
     if (!(error instanceof ArgvRefusalError)) throw error;
     refuse(refusalOf(error), false);
   }

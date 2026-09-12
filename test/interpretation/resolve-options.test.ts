@@ -131,6 +131,7 @@ describe("profile data", () => {
       "autonomy",
       "write",
       "shell",
+      "memory",
       "tools",
     ]);
     expect(DEFAULT_TURN_PROFILE.effort).toBe("medium");

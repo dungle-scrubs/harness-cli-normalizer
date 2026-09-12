@@ -51,6 +51,13 @@ Options:
   --no-write                Disable write
   --shell                   Enable shell (muse)
   --no-shell                Disable shell
+  --memory                  Use the harness's native memory setting; remove
+                            hcn's memory-off override. Does not force memory
+                            on when native settings disable it
+  --no-memory               Disable persistent memory (claude: env var;
+                            codex: --disable memories; pi: no-op, no built-in
+                            memory; muse: refuses - no off switch, reported
+                            as divergence by the default profile)
   --questions <ask|assume|none>
                             Which preamble to inject: ask = escalation
                             protocol (DEFAULT, question event +
@@ -154,6 +161,11 @@ Options:
                             Which preamble to inject: ask = worker may
                             ask (DEFAULT, pickable menu), assume = never
                             ask, none = inject nothing
+  --memory                  Use native memory settings for the session spawn;
+                            remove hcn's memory-off override
+  --no-memory               Disable persistent memory (DEFAULT; claude
+                            spawns with CLAUDE_CODE_DISABLE_AUTO_MEMORY=1,
+                            pi has no built-in memory)
   --cwd <path>              Working directory
   --help                    Show help
   --version                 Show version
@@ -214,6 +226,10 @@ Options:
   --autonomy / --no-autonomy
   --write / --no-write
   --shell / --no-shell
+  --memory / --no-memory
+                            (claude renders an env var, codex --disable
+                            memories; inspect --argv shows it in the spawn
+                            env, not the argv)
   --questions <ask|assume|none>
                             (accepted; renders nothing - rides the run prompt)
   --max-steps <n>

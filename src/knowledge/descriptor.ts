@@ -155,6 +155,12 @@ export const TURN_OPTION_KEYS = deepFreeze([
   "discovery",
   "write",
   "shell",
+  // Persistent-memory dimension (ratified 2026-08-26): memory:false asks
+  // the harness not to load or persist cross-session memory. claude
+  // expresses it ONLY as a spawn env var, codex as a feature flag, so the
+  // render union carries an `env` kind. muse cannot express it at all
+  // (no spec, refuses); pi has no built-in memory (vacuous empty render).
+  "memory",
   "maxSteps",
   // issue #48 (ratified 2026-08-20): the payload-stripping dimensions.
   // systemPrompt replaces the built-in prompt; appendSystemPrompt adds to
@@ -192,7 +198,12 @@ export type OptionRender =
    *  closed-vocabulary specs, so no value can need escaping. */
   | { readonly kind: "config-kv"; readonly flag: string; readonly key: string }
   /** A fixed multi-token flag set emitted verbatim, value-less. */
-  | { readonly kind: "flag-list"; readonly flags: readonly string[] };
+  | { readonly kind: "flag-list"; readonly flags: readonly string[] }
+  /** A spawn-environment assignment, not an argv token (claude's
+   *  CLAUDE_CODE_DISABLE_AUTO_MEMORY): the option renders as `name=value`
+   *  merged into the spawn env by the execution layer. Value must be a
+   *  closed-vocabulary literal - no caller-supplied interpolation. */
+  | { readonly kind: "env"; readonly name: string; readonly value: string };
 
 export interface SpecBase {
   readonly render: OptionRender;
@@ -282,6 +293,8 @@ export const tokensFor = (
       return [render.flag, `${render.key}=${quoting === "toml" ? JSON.stringify(value) : value}`];
     case "flag-list":
       return [...render.flags];
+    case "env":
+      return [];
     default: {
       const exhaustive: never = render;
       return exhaustive;

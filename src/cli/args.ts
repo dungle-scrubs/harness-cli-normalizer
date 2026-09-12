@@ -181,6 +181,8 @@ export const parseTurnOptions = (values: Record<string, unknown>): ParsedTurnOpt
   else if (values["no-write"] === true) opts.write = false;
   if (values.shell === true) opts.shell = true;
   else if (values["no-shell"] === true) opts.shell = false;
+  const memory = memoryFlagOf(values);
+  if (memory !== undefined) opts.memory = memory;
   if (values.questions !== undefined) {
     const v = String(values.questions);
     if (!isQuestionMode(v)) {
@@ -311,6 +313,8 @@ const KNOWN_FLAGS = new Set([
   "--no-write",
   "--shell",
   "--no-shell",
+  "--memory",
+  "--no-memory",
   "--questions",
   "--system-prompt",
   "--append-system-prompt",
@@ -443,6 +447,18 @@ export const splitPassthrough = (argv: readonly string[]): SplitPassthrough => {
   };
 };
 
+export const memoryFlagOf = (values: Record<string, unknown>): boolean | undefined => {
+  if (values.memory === true && values["no-memory"] === true) {
+    throw new ArgvRefusalError({
+      issue: "mutually-exclusive-options",
+      message: "--memory and --no-memory cannot be combined",
+      option: "memory",
+      supported: ["--memory or --no-memory"],
+    });
+  }
+  return values.memory === true ? true : values["no-memory"] === true ? false : undefined;
+};
+
 export const parseCommonFlags = (
   argv: string[],
   opts: { strict?: boolean } = {},
@@ -471,6 +487,8 @@ export const parseCommonFlags = (
       "no-write": { type: "boolean" as const },
       shell: { type: "boolean" as const },
       "no-shell": { type: "boolean" as const },
+      memory: { type: "boolean" as const },
+      "no-memory": { type: "boolean" as const },
       questions: { type: "string" as const },
       "system-prompt": { type: "string" as const },
       "append-system-prompt": { type: "string" as const },
@@ -498,5 +516,7 @@ export const parseCommonFlags = (
     },
   } as const;
   // parseArgs throws on unknown flag when strict true - we let it bubble and caller maps to exit 2
-  return parseArgs({ ...config, args: normalized });
+  const parsed = parseArgs({ ...config, args: normalized });
+  memoryFlagOf(parsed.values);
+  return parsed;
 };

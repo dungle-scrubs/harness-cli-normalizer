@@ -1,0 +1,15 @@
+# muse 0.2.1 (0.2.1-R1215.1) absence probes, 2026-08-26:
+# 1. `muse --help` + `muse exec --help` searched for memory flags:
+#    category flags exist only for write (--disable-write), shell
+#    (--disable-shell), web (--disable-web-tools). No memory category.
+# 2. ~/.config/muse/settings.json - no memory key; muse config
+#    (validate --plane defaults|policy) has no documented memory gate
+#    (unverified for the enterprise plane).
+# 3. Memory tools exist and persist: tools muse.add_memory /
+#    muse.edit_memory; data dir ~/.local/share/muse/memory/projects
+#    present on this machine.
+# 4. Launcher strings searched (strings ~/.local/bin/muse): no
+#    disable-memory / memory_dir spellings.
+# Conclusion: no CLI-level or documented config-level off switch for
+# memory on muse 0.2.1 - the descriptor's MEMORY GAP comment is the
+# watch point; re-probe on every version bump.

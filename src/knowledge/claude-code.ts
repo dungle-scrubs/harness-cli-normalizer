@@ -235,6 +235,21 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     // read renders the read preset through the tool list (grant plus deny
     // complement); write is the harness default and emits nothing.
     access: { kind: "access", renders: { read: "tool-preset", write: null } },
+    // Persistent auto-memory (loads ~/.claude/projects/<slug>/memory/ into
+    // the system prompt each session) is disabled ONLY via env var - there
+    // is no argv flag. Live-verified 2.1.241 (evidence:
+    // test/fixtures/memory-dimension/): the stream-json init event carries
+    // memory_paths.auto without the var, drops it entirely under
+    // CLAUDE_CODE_DISABLE_AUTO_MEMORY=1, and keeps it under =false - the
+    // var is parsed as a boolean, so "1" is the unambiguous disable.
+    // --bare also skips auto-memory but at unacceptable cost (see the
+    // header comment), and settings.json autoMemoryEnabled:false is a
+    // config-file change, not a per-call surface.
+    memory: {
+      kind: "toggle",
+      polarity: "disables",
+      render: { kind: "env", name: "CLAUDE_CODE_DISABLE_AUTO_MEMORY", value: "1" },
+    },
   },
   // Phase 0 fixtures: claude-tool-interplay.md. include is a permission
   // grant (Bash, Edit stay visible under --allowedTools Read); only the
