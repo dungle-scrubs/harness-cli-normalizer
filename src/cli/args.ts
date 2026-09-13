@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import type { DiscoveryOptions, TurnOptions } from "../interpretation/argv.js";
+import { parseEnvEntries } from "../interpretation/environment.js";
 import { isQuestionMode, QUESTION_MODES } from "../interpretation/question.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
 
@@ -35,38 +36,7 @@ const _DISCOVERY_FLAGS = {
   skills: "no-skills",
 } as const;
 
-/**
- * Parse --env KEY=VAL entries into env record. "" value means delete.
- */
-export const parseEnvEntries = (
-  entries: string[] | string | undefined,
-): Record<string, string> | undefined => {
-  if (entries === undefined) return undefined;
-  const list = Array.isArray(entries) ? entries : [entries];
-  if (list.length === 0) return undefined;
-  const env: Record<string, string> = {};
-  for (const entry of list) {
-    const eq = entry.indexOf("=");
-    if (eq === -1) {
-      throw new ArgvRefusalError({
-        issue: "invalid-env",
-        supported: ["KEY=VAL"],
-        detail: entry,
-      });
-    }
-    const key = entry.slice(0, eq);
-    const value = entry.slice(eq + 1);
-    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key) || value.includes("\0") || key.includes("\0")) {
-      throw new ArgvRefusalError({
-        issue: "invalid-env",
-        supported: ["keys must match ^[A-Za-z_][A-Za-z0-9_]*$ and contain no NUL"],
-        detail: entry,
-      });
-    }
-    env[key] = value;
-  }
-  return env;
-};
+export { parseEnvEntries } from "../interpretation/environment.js";
 
 export const resolvePrompt = (args: {
   positionalPrompt?: string;
@@ -332,6 +302,7 @@ const KNOWN_FLAGS = new Set([
   "--argv",
   "--runtime",
   "--context",
+  "--native-settings-fingerprint",
   "--capabilities",
   "--mode",
   "--stall",
@@ -342,6 +313,7 @@ const KNOWN_FLAGS = new Set([
 ]);
 
 const FLAGS_WITH_VALUE = new Set([
+  "--native-settings-fingerprint",
   "--isolation",
   "--prompt",
   "--prompt-file",
@@ -461,7 +433,12 @@ export const memoryFlagOf = (values: Record<string, unknown>): boolean | undefin
 
 export const parseCommonFlags = (
   argv: string[],
-  opts: { strict?: boolean } = {},
+  opts: {
+    strict?: boolean;
+    nativeSettings?: boolean;
+    nativeSettingsFingerprint?: boolean;
+    nativeApprovals?: boolean;
+  } = {},
 ): ReturnType<typeof parseArgs> => {
   // The separator itself never reaches parseArgs: passthrough tokens may
   // be unknown to hcn by design (that is their purpose).
@@ -509,6 +486,11 @@ export const parseCommonFlags = (
       capabilities: { type: "boolean" as const },
       runtime: { type: "boolean" as const },
       context: { type: "boolean" as const },
+      ...(opts.nativeSettings ? { "native-settings": { type: "boolean" as const } } : {}),
+      ...(opts.nativeApprovals ? { "native-approvals": { type: "boolean" as const } } : {}),
+      ...(opts.nativeSettingsFingerprint
+        ? { "native-settings-fingerprint": { type: "string" as const } }
+        : {}),
       mode: { type: "string" as const },
       stall: { type: "string" as const },
       help: { type: "boolean" as const },

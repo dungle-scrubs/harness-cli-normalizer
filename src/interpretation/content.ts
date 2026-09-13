@@ -102,6 +102,16 @@ const claude = (r: Record<string, unknown>): ContentEvent[] => {
 const CODEX_NON_TOOL = new Set(["agent_message", "error", "reasoning", "todo_list"]);
 
 const codex = (r: Record<string, unknown>): ContentEvent[] => {
+  if (r.type === "turn.failed" || r.type === "error") {
+    const error = r.type === "error" ? r : asRecord(r.error);
+    return [
+      {
+        kind: "error",
+        message: typeof error?.message === "string" ? error.message : "Codex turn failed",
+        terminal: true,
+      },
+    ];
+  }
   const item = asRecord(r.item);
   if (item === null) return [];
   // Tool activity is emitted once on start so it is not double-counted
@@ -121,7 +131,9 @@ const codex = (r: Record<string, unknown>): ContentEvent[] => {
     return [{ kind: "message", role: "assistant", text: item.text }];
   }
   if (item.type === "error" && typeof item.message === "string") {
-    return [{ kind: "error", message: item.message, terminal: true }];
+    // Codex uses item errors for notices too. The item completing does not
+    // establish turn failure; retain the diagnostic without inventing one.
+    return [{ kind: "error", message: item.message }];
   }
   return [];
 };
