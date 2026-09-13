@@ -5,7 +5,11 @@ import { deepFreeze } from "./descriptor.js";
  * Other lanes remain unavailable until their native launch is corroborated. */
 export const INTERACTIVE_INTERFACES = deepFreeze({
   "claude-cli": { harness: "claude", resume: null },
-  "codex-cli": { harness: "codex", resume: ["resume", "{sessionId}", "--cd", "{cwd}"] },
+  "codex-cli": {
+    harness: "codex",
+    resume: ["resume", "{sessionId}", "--cd", "{cwd}"],
+    startup: ["--", "{prompt}"],
+  },
   "codex-desktop": { harness: "codex", resume: null },
   "muse-cli": { harness: "muse", resume: null },
   "pi-cli": { harness: "pi", resume: null },

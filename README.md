@@ -62,7 +62,12 @@ This operation resumes an exact native session with inherited terminal I/O.
 The caller supplies a separate writable pipe with `--control-fd <fd>` (fd 3 or
 higher), a UUID v4 `--launch-id`, `--interface`, `--resume`, and absolute `--cwd`.
 `--env KEY=VALUE` uses the existing environment rules, including removal by empty
-value. It accepts no prompt, model switch, fork, fresh fallback, or native argv.
+value. Optional `--startup-prompt <text>` starts one native turn on resume.
+The text must be nonempty, valid UTF-8, at most 8,192 bytes and contain no NUL.
+It is passed once as prompt data, including leading hyphens and newlines. Duplicate
+startup options or invalid text refuse before spawn. Omitting it keeps idle resume.
+No model switch, fork, fresh fallback, or native argv is accepted. The control
+pipe never includes prompt text or claims prompt receipt or model adherence.
 
 Each control line carries `v: 1`, `operation: "interactive"`, and `launchId`:
 

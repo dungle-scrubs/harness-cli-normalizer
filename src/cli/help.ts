@@ -20,11 +20,14 @@ Run 'hcn <command> --help' for command-specific help.
 export const INTERACTIVE_HELP = `hcn interactive - Resume a native terminal with process lifecycle evidence
 
 Usage: hcn interactive <harness> --interface <interface> --launch-id <uuid>
-       --resume <session-id> --cwd <absolute-folder> --control-fd <fd> [--env KEY=VALUE]
+       --resume <session-id> --cwd <absolute-folder> --control-fd <fd> [--env KEY=VALUE] [--startup-prompt <text>]
 
 Returns version 1 NDJSON on the caller's pipe (fd >= 3). Native stdin, stdout,
-and stderr remain on the inherited terminal. No prompt, model, fork, fresh
-session, or native argument passthrough is accepted. Empty --env values remove keys.
+and stderr remain on the inherited terminal. Optional --startup-prompt starts one
+native turn: nonempty UTF-8, at most 8192 bytes, no NUL. It is passed once as data;
+control never contains the prompt or proves receipt/adherence. Omit it for idle resume.
+No model, fork, fresh session, or native argument passthrough is accepted.
+Empty --env values remove keys. Duplicate or invalid startup text refuses before spawn.
 
 Control: ready means preflight passed; started identifies the created process;
 closed reports its exit status and owned cleanup. Started does not prove native

@@ -24,7 +24,11 @@ function writeControl(fd: number, record: unknown): void {
 
 /** Control failures never redirect records to the inherited native terminal. */
 export async function interactive(args: readonly string[]): Promise<void> {
-  if (args.includes("--help") || args.includes("-h")) {
+  if (
+    args.some(
+      (word, index) => (index === 0 || index % 2 === 1) && (word === "--help" || word === "-h"),
+    )
+  ) {
     process.stdout.write(INTERACTIVE_HELP);
     return;
   }

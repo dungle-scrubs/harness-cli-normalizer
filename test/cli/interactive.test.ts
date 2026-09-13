@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSyn
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test } from "vitest";
+import { parseInteractiveRequest } from "../../src/interpretation/interactive.js";
 
 const launchId = "cf548bfb-e24e-4bb0-ab3e-ad9c70ac04db";
 const sessionId = "407feafe-e82b-4df4-91ba-4f1aeb987508";
@@ -271,4 +272,99 @@ test("a launch without a usable control address exits uncertain and emits no ref
   expect(result.control).toBe("");
   expect(result.stdout).toBe("");
   expect(result.stderr).toContain("control fd >= 3");
+});
+
+test("interactive forwards one startup instruction as native data without changing the saved target", () => {
+  const { nativeDir, root } = codexFixture();
+  writeFileSync(
+    join(root, "resume"),
+    `console.log(JSON.stringify(process.argv.slice(2))); process.stdin.once("data", () => process.exit(0)); process.stdin.resume();`,
+  );
+  const prompt = "--help\nResume listening once. Literal $() and `text` stay data.";
+  try {
+    const { control, exitCode, stderr, stdout } = launchFixture(root, nativeDir, [
+      "--startup-prompt",
+      prompt,
+    ]);
+    expect(exitCode, JSON.stringify({ control, stderr, stdout })).toBe(0);
+    expect(JSON.parse(stdout)).toEqual([sessionId, "--cd", root, "--", prompt]);
+    const records = control
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    expect(records.map((record) => record.kind)).toEqual(["ready", "started", "closed"]);
+    expect(records[1]).toMatchObject({ sessionId, cwd: root, interface: "codex-cli" });
+    expect(control).not.toContain(prompt);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("startup text equal to an option name cannot redirect help or control addressing", () => {
+  const { nativeDir, root } = codexFixture();
+  writeFileSync(
+    join(root, "resume"),
+    `console.log(JSON.stringify(process.argv.slice(2))); process.stdin.once("data", () => process.exit(0)); process.stdin.resume();`,
+  );
+  try {
+    for (const prompt of ["--help", "-h", "--launch-id", "--control-fd", "--startup-prompt"]) {
+      const result = launchFixture(root, nativeDir, ["--startup-prompt", prompt]);
+      expect(result.exitCode, JSON.stringify(result)).toBe(0);
+      expect(JSON.parse(result.stdout)).toEqual([sessionId, "--cd", root, "--", prompt]);
+      expect(
+        result.control
+          .trim()
+          .split("\n")
+          .map((line) => JSON.parse(line).kind),
+      ).toEqual(["ready", "started", "closed"]);
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("invalid or duplicate startup instructions are refused before native creation", () => {
+  const { nativeDir, root } = codexFixture();
+  writeFileSync(join(root, "resume"), `console.log("UNEXPECTED NATIVE START");process.exit(0);`);
+  try {
+    for (const extra of [
+      ["--startup-prompt", ""],
+      ["--startup-prompt", "é".repeat(4097)],
+      ["--startup-prompt", "first", "--startup-prompt", "second"],
+    ]) {
+      const result = launchFixture(root, nativeDir, extra);
+      expect(result.exitCode, JSON.stringify(result)).toBe(2);
+      expect(result.stdout).toBe("");
+      expect(JSON.parse(result.control)).toMatchObject({
+        kind: "refused",
+        reason: "invalid-request",
+        evidence: "spawn-not-attempted",
+      });
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// Parser-only cases cover values an OS argv cannot represent (NUL/invalid Unicode).
+test("startup validation counts complete UTF-8 bytes and refuses unrepresentable text", () => {
+  const args = [
+    "codex",
+    "--interface",
+    "codex-cli",
+    "--launch-id",
+    launchId,
+    "--resume",
+    sessionId,
+    "--cwd",
+    process.cwd(),
+    "--control-fd",
+    "3",
+    "--startup-prompt",
+  ];
+  expect(parseInteractiveRequest([...args, "é".repeat(4096)])?.startupPrompt).toBe(
+    "é".repeat(4096),
+  );
+  for (const text of ["before\0after", "\uD800", "é".repeat(4097)])
+    expect(parseInteractiveRequest([...args, text])).toBeUndefined();
 });
