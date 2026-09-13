@@ -146,6 +146,25 @@ function setup(beforeAck = false): {
   };
 }
 
+test("a verified native resume reports its harness-confirmed identity before approval requests", async () => {
+  const f = setup();
+  const events: HarnessEvent[] = [];
+  for await (const event of streamTurn(codexCli, options, f.deps)) {
+    events.push(event);
+    if (event.kind === "approval-request") f.proc.complete();
+  }
+  expect(events.filter((event) => event.kind === "identity")).toEqual([
+    expect.objectContaining({
+      authority: "harness-minted",
+      sessionId: saved.sessionId,
+    }),
+  ]);
+  expect(events.findIndex((event) => event.kind === "identity")).toBeLessThan(
+    events.findIndex((event) => event.kind === "approval-request"),
+  );
+  expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+});
+
 test("a malformed native error cannot disappear into a clean completion", async () => {
   const f = setup();
   f.proc.requestApproval = () => {

@@ -96,6 +96,11 @@ acceptance. Run `hcn interactive --help` for the command contract.
 
 The current lane preserves recorded read-only filesystem, restricted network, user reviewer, and `on-request` or `never` approval policy. Unsupported settings refuse before a prompt. Fresh sessions, native passthrough and competing model, effort, provider or permission options are refused. Use `--prompt-file PATH` for a file-backed prompt; stdin is reserved for decisions, so `--prompt-file -` is refused.
 
+After the native resume response confirms the exact session and effective settings,
+HCN reports an `identity` event with `authority: "harness-minted"` before submitting
+the prompt. This confirms the resumed native identity; it does not mean a new
+session was created or that the response completed.
+
 The JSON stream adds three version-1 events:
 
 - `approval-request`: opaque `requestId`, exact `sessionId` and native `turnId`, `category`, complete plain-text `details`, and `choices` with `id`, `label`, `scope`.

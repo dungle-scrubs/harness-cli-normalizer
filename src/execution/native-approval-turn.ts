@@ -334,7 +334,7 @@ export async function* streamNativeApprovalTurn(
             }
             await queue.push({
               kind: "identity",
-              authority: "caller-assigned",
+              authority: "harness-minted",
               sessionId: plan.saved.sessionId,
               capabilities: capabilitiesOf(h, plan.saved.model, "headless-turn"),
             });
