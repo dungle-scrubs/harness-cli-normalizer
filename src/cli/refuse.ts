@@ -5,6 +5,7 @@ import { EXIT_REFUSAL } from "./exit-codes.js";
 import { writeEventNdjson } from "./render.js";
 
 export interface Refusal {
+  readonly nativeApproval?: FailureSummary["nativeApproval"];
   readonly message: string;
   readonly issue: RefusalIssue;
   readonly option?: ArgvRefusalError["option"];
@@ -54,15 +55,18 @@ export const refuse = (r: Refusal, json: boolean, terminal: "done" | "closed" = 
   for (const line of r.trailer ?? []) process.stderr.write(`${line}\n`);
   if (json) {
     writeFailurePair(
-      failureFromRejected({
-        issue: r.issue,
-        option: r.option,
-        facet: r.facet,
-        supported: r.supported,
-        supportedBy: r.supportedBy,
-        hint: r.hint,
-        detail: r.message,
-      }),
+      {
+        ...failureFromRejected({
+          issue: r.issue,
+          option: r.option,
+          facet: r.facet,
+          supported: r.supported,
+          supportedBy: r.supportedBy,
+          hint: r.hint,
+          detail: r.message,
+        }),
+        ...(r.nativeApproval ? { nativeApproval: r.nativeApproval } : {}),
+      },
       terminal,
     );
   }

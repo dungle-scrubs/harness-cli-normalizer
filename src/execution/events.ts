@@ -14,9 +14,11 @@
  * deltas AND as the whole trailing message event - render one, never
  * concatenate both.
  */
+
 import type { CapabilityResult } from "../interpretation/capabilities.js";
 import type { QuestionMode } from "../interpretation/question.js";
 import type { LimitCode } from "../knowledge/descriptor.js";
+import type { NativeApprovalEvent } from "../knowledge/native-approvals.js";
 import type { FailureSummary } from "./failure.js";
 
 export type ExitCause =
@@ -40,6 +42,7 @@ export interface EscalationRecord {
 }
 
 export type HarnessEvent =
+  | NativeApprovalEvent
   | {
       readonly kind: "identity";
       readonly sessionId: string;

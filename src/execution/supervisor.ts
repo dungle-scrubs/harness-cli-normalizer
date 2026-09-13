@@ -103,6 +103,10 @@ export interface TurnSupervisor {
   /** Any output chunk arrived: restart the inactivity budget, if a turn is
    * open and a budget exists. */
   rearm(): void;
+  /** Pause only inactivity while a native request awaits its caller. */
+  pauseInactivity(): void;
+  /** Resume inactivity without resetting the turn or its last message. */
+  resumeInactivity(): void;
   /** The turn ended, or the process did: stop the stall clock. */
   disarm(): void;
   /** SIGTERM now, SIGKILL after KILL_GRACE_MS unless the process exits.
@@ -133,6 +137,7 @@ export const superviseTurn = (
   const termination = superviseTermination(io.clock, io.signal);
   let stallTimer: TimerHandle | null = null;
   let turnOpen = false;
+  let inactivityPaused = false;
   let lastAssistantText: string | null = null;
 
   const disarm = (): void => {
@@ -144,7 +149,7 @@ export const superviseTurn = (
   const escalate = termination.escalate;
 
   const armStall = (): void => {
-    if (io.stallMs === undefined || !turnOpen) return;
+    if (io.stallMs === undefined || !turnOpen || inactivityPaused) return;
     if (stallTimer !== null) io.clock.clearTimeout(stallTimer);
     stallTimer = io.clock.setTimeout(() => {
       stallTimer = null;
@@ -160,9 +165,19 @@ export const superviseTurn = (
     beginTurn(): void {
       lastAssistantText = null;
       turnOpen = true;
+      inactivityPaused = false;
       armStall();
     },
     rearm(): void {
+      armStall();
+    },
+    pauseInactivity(): void {
+      inactivityPaused = true;
+      if (stallTimer !== null) io.clock.clearTimeout(stallTimer);
+      stallTimer = null;
+    },
+    resumeInactivity(): void {
+      inactivityPaused = false;
       armStall();
     },
     disarm,
