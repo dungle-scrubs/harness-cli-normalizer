@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { HARNESS_NAMES } from "../knowledge/descriptor.js";
 import { TOP_LEVEL_HELP } from "./help.js";
+import { handleOutputError } from "./output-errors.js";
 import { getVersion } from "./version.js";
 
 /** The one harness list, read from the descriptor vocabulary. */
@@ -12,14 +13,9 @@ const SUPPORTED: readonly string[] = HARNESS_NAMES;
 let strictOutput = false;
 
 // Prevent EPIPE crashes when piped to head/grep -q (e.g., hcn ls | head, hcn run --json | head)
-process.stdout.on("error", (err) => {
-  const code = (err as NodeJS.ErrnoException).code;
-  if (code === "EPIPE") process.exit(strictOutput ? 1 : 0);
-});
-process.stderr.on("error", (err) => {
-  const code = (err as NodeJS.ErrnoException).code;
-  if (code === "EPIPE") process.exit(strictOutput ? 1 : 0);
-});
+const outputError = (error: NodeJS.ErrnoException): void => handleOutputError(error, strictOutput);
+process.stdout.on("error", outputError);
+process.stderr.on("error", outputError);
 
 const printVersion = (): void => {
   process.stdout.write(`${getVersion()}\n`);
@@ -71,6 +67,11 @@ export const dispatch = async (raw: string[]): Promise<void> => {
       }
       const { transcript } = await import("./transcript.js");
       await transcript(raw.slice(1));
+      return;
+    }
+    case "interactive": {
+      const { interactive } = await import("./interactive.js");
+      await interactive(raw.slice(1));
       return;
     }
     case "ls": {

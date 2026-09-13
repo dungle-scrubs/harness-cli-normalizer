@@ -60,13 +60,14 @@ describe("F-07 terminal error record ends clean", () => {
     expect(done?.failure?.class).toBe("task");
   });
 
-  test("codex error item yields task failure", async () => {
+  test("codex turn.failed yields task failure", async () => {
     const proc = new FakeProcess();
     const d = depsFor(proc);
     const turn = streamTurn(codexCli, { prompt: "hi" }, d);
     proc.emitLine(JSON.stringify({ type: "thread.started", thread_id: "t-1" }));
     proc.emitLine(
-      JSON.stringify({ type: "item.completed", item: { type: "error", message: "codex failed" } }),
+      // Synthetic terminal event, per Codex's public exec event contract.
+      JSON.stringify({ type: "turn.failed", error: { message: "codex failed" } }),
     );
     proc.exit(0);
     const events = await collect(turn);
@@ -75,6 +76,33 @@ describe("F-07 terminal error record ends clean", () => {
       | undefined;
     expect(done?.cause).toBe("failed");
     expect(done?.failure?.class).toBe("task");
+  });
+
+  test("codex fatal stream error stays failed after a nonfatal warning", async () => {
+    const proc = new FakeProcess();
+    const turn = streamTurn(codexCli, { prompt: "hi", questions: "none" }, depsFor(proc));
+    // Synthetic sequence from the public Codex event shapes.
+    proc.emitLine(JSON.stringify({ type: "thread.started", thread_id: "t-1" }));
+    proc.emitLine(
+      JSON.stringify({
+        type: "item.completed",
+        item: { type: "error", message: "A nonfatal notice" },
+      }),
+    );
+    proc.emitLine(JSON.stringify({ type: "error", message: "Native stream failed" }));
+    proc.exit(0);
+    const events = await collect(turn);
+    expect(events).toContainEqual({ kind: "error", message: "A nonfatal notice" });
+    expect(events).toContainEqual({
+      kind: "error",
+      message: "Native stream failed",
+      terminal: true,
+    });
+    expect(events.at(-1)).toMatchObject({
+      kind: "done",
+      cause: "failed",
+      failure: { class: "task" },
+    });
   });
 
   test("muse run_terminal failed yields task failure", async () => {

@@ -1,24 +1,7 @@
-import { accessSync, constants, realpathSync, statSync } from "node:fs";
-import { delimiter, isAbsolute, resolve } from "node:path";
 import { mergeEnvironment } from "../execution/environment.js";
+import { executablePath } from "../execution/executable.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { installedVersion } from "./check.js";
-
-function executablePath(bin: string, cwd: string, searchPath: string): string | null {
-  const candidates =
-    isAbsolute(bin) || bin.includes("/")
-      ? [resolve(cwd, bin)]
-      : searchPath.split(delimiter).map((dir) => resolve(cwd, dir, bin));
-  for (const candidate of candidates) {
-    try {
-      accessSync(candidate, constants.X_OK);
-      if (statSync(candidate).isFile()) return realpathSync(candidate);
-    } catch {
-      // PATH lookup continues when an earlier directory has no executable.
-    }
-  }
-  return null;
-}
 
 /** Call after validating the invocation. Version is evidence metadata, never
  * admission. The native operation still owns session existence and success. */

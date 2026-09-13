@@ -24,6 +24,7 @@ import {
   streamingGranularityOf,
   withPromptText,
 } from "../interpretation/argv.js";
+import { isValidEnvEntry } from "../interpretation/environment.js";
 import { detectTransportInLine, detectUnavailableInLine } from "../interpretation/limits.js";
 import { composeEscalatedPrompt, type QuestionMode } from "../interpretation/question.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
@@ -50,7 +51,9 @@ import {
   reduceFailures,
 } from "./failure.js";
 import { LineBuffer } from "./lines.js";
+import { streamNativeApprovalTurn } from "./native-approval-turn.js";
 import { StderrTail, superviseTurn } from "./supervisor.js";
+import { verifyNativeSettings } from "./verified-native-settings.js";
 
 /** Fallback correlation when the host does not mint turn ids: monotonic per
  * process. Hosts that need cross-process uniqueness pass deps.turnId. */
@@ -92,6 +95,9 @@ export const redactArgv = (
 };
 
 export interface TurnRunOptions extends LaunchOptions {
+  readonly nativeApprovals?: boolean;
+  /** Re-read and preserve this exact native settings source before spawning. */
+  readonly nativeSettingsFingerprint?: string;
   /** Resume this session id instead of launching fresh - the turn spawns
    * with the descriptor's resume grammar, and identity decoding treats a
    * DIFFERENT announced id as a rotation anomaly. */
@@ -119,6 +125,10 @@ export async function* streamTurn(
   deps: RunnerDeps,
 ): AsyncIterable<HarnessEvent> {
   const turnId = deps.turnId ?? `turn-${++turnCounter}`;
+  if (opts.nativeApprovals) {
+    yield* streamNativeApprovalTurn(h, opts, { ...deps, turnId });
+    return;
+  }
   const log = deps.log ?? (() => {});
 
   // compose the preamble onto the prompt based on question mode.
@@ -135,7 +145,7 @@ export async function* streamTurn(
   // Validate env before building argv so an invalid env is a refusal, not a spawn
   if (opts.env !== undefined) {
     for (const [k, v] of Object.entries(opts.env)) {
-      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(k) || k.includes("\0") || v.includes("\0")) {
+      if (!isValidEnvEntry(k, v)) {
         const refusal = new ArgvRefusalError({
           issue: "invalid-env",
           harness: h.name,
@@ -172,7 +182,8 @@ export async function* streamTurn(
   let argv: string[];
   let granularity: import("../knowledge/descriptor.js").StreamingGranularity;
   try {
-    argv = buildSpawnArgv(h, effective);
+    const verifiedNativeSettings = verifyNativeSettings(h, effective, deps.inspectNativeSettings);
+    argv = buildSpawnArgv(h, { ...effective, verifiedNativeSettings });
     granularity = streamingGranularityOf(h, argv);
   } catch (e) {
     if (e instanceof ArgvRefusalError) {

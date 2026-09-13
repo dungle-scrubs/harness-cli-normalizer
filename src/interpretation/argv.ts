@@ -9,8 +9,10 @@ import type {
   HarnessDescriptor,
   StreamingGranularity,
 } from "../knowledge/descriptor.js";
+import type { NativeSettingsSnapshot } from "../knowledge/native-settings.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { assertIsolationCombination } from "./isolation.js";
+import { renderVerifiedNativeSettings } from "./native-settings-argv.js";
 import { ArgvRefusalError } from "./refusal.js";
 import { assertAccessExclusivity } from "./resolve-options.js";
 import { assertUsableSessionId, SESSION_ID_MAX, SessionIdRefusalError } from "./session-id.js";
@@ -219,7 +221,11 @@ const refuseUnusableSessionId = (h: HarnessDescriptor, sessionId: string): void 
   }
 };
 
-export const buildResumeArgv = (h: HarnessDescriptor, opts: ResumeOptions): string[] => {
+const resumeArgv = (
+  h: HarnessDescriptor,
+  opts: ResumeOptions,
+  nativeSettingsArgs: readonly string[],
+): string[] => {
   refuseUnusableSessionId(h, opts.sessionId);
   assertAccessExclusivity(h, opts);
   // Subcommands lead, then the resume token and id, then the flags the
@@ -234,16 +240,22 @@ export const buildResumeArgv = (h: HarnessDescriptor, opts: ResumeOptions): stri
     opts.sessionId,
     ...h.resume.extraFlags,
     ...renderTurnOptions(h, opts, "resume", "before-prompt").tokens,
+    ...nativeSettingsArgs,
     ...turnTail(h, opts),
     ...renderTurnOptions(h, opts, "resume", "after-prompt").tokens,
   ];
 };
+
+export const buildResumeArgv = (h: HarnessDescriptor, opts: ResumeOptions): string[] =>
+  resumeArgv(h, opts, []);
 
 /** What a spawn needs beyond the turn options: the session to resume, if
  * any, and the raw passthrough tail (ADR 0003). */
 export interface SpawnArgvOptions extends TurnOptions {
   readonly resume?: string;
   readonly passthrough?: readonly string[];
+  /** Internal read result. Execution independently checks the source before using it. */
+  readonly verifiedNativeSettings?: NativeSettingsSnapshot;
 }
 
 /** The argv a turn spawns: launch or resume per `resume`, then the
@@ -251,10 +263,11 @@ export interface SpawnArgvOptions extends TurnOptions {
  * and the runner's spawn agree by construction (RFC-02 change 10). */
 export const buildSpawnArgv = (h: HarnessDescriptor, opts: SpawnArgvOptions): string[] => {
   assertIsolationCombination(h, opts);
+  const nativeSettingsArgs = renderVerifiedNativeSettings(h, opts);
   const base =
     opts.resume === undefined
       ? buildLaunchArgv(h, opts)
-      : buildResumeArgv(h, { ...opts, sessionId: opts.resume });
+      : resumeArgv(h, { ...opts, sessionId: opts.resume }, nativeSettingsArgs);
   return opts.passthrough !== undefined && opts.passthrough.length > 0
     ? [...base, "--", ...opts.passthrough]
     : base;

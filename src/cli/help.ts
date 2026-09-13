@@ -5,6 +5,7 @@ Usage: hcn <command> [options] [prompt]
 Commands:
   run <harness> [prompt]    One-shot headless turn (streamTurn)
   session <harness>         Interactive session (openSession, claude + pi)
+  interactive <harness>     Strict native terminal resume with a separate control pipe
   inspect <harness>         Descriptor / argv / capability inspection (no spawn)
   transcript read <harness> Passive native transcript export (JSONL)
   ls                        List harnesses with verifiedAgainst versions
@@ -15,6 +16,32 @@ Options:
   -V, --version             Show version
 
 Run 'hcn <command> --help' for command-specific help.
+`;
+
+export const INTERACTIVE_HELP = `hcn interactive - Resume a native terminal with process lifecycle evidence
+
+Usage: hcn interactive <harness> --interface <interface> --launch-id <uuid>
+       --resume <session-id> --cwd <absolute-folder> --control-fd <fd> [--env KEY=VALUE] [--startup-prompt <text>]
+
+Returns version 1 NDJSON on the caller's pipe (fd >= 3). Native stdin, stdout,
+and stderr remain on the inherited terminal. Optional --startup-prompt starts one
+native turn: nonempty UTF-8, at most 8192 bytes, no NUL. It is passed once as data;
+control never contains the prompt or proves receipt/adherence. Omit it for idle resume.
+No model, fork, fresh session, or native argument passthrough is accepted.
+Empty --env values remove keys. Duplicate or invalid startup text refuses before spawn.
+
+Control: ready means preflight passed; started identifies the created process;
+closed reports its exit status and owned cleanup. Started does not prove native
+history loaded. A refused record with spawn-not-attempted proves no child was
+created. Missing or truncated control is uncertain; do not retry it as a refusal.
+
+Current lane: codex-cli on macOS/Linux using a native executable and an exact
+saved UUID/folder.
+Launcher wrappers, claude-cli, pi-cli, muse-cli and codex-desktop are unavailable
+until their separate strict native launch paths are verified.
+
+Exit: native terminal exit code on closed; 2 for pre-start refusal; 1 for
+uncertain launch or a signal exit. Exit code alone is not no-child evidence.
 `;
 
 export const RUN_HELP = `hcn run - One-shot headless turn
@@ -101,6 +128,19 @@ Options:
                             (exit 2) for harnesses that would otherwise
                             create a fresh session silently (pi, muse)
   --session-id <uuid>       Alias for --resume (mutually exclusive with --resume)
+  --native-settings-fingerprint <hash>
+                            Codex resume only, with explicit --cwd. Re-read saved
+                            model, effort and recorded provider before native spawn.
+                            Get the hash from inspect --native-settings. Refuses
+                            changed/unavailable sources, competing model/effort/provider
+                            options and native passthrough. Grants no permissions.
+  --native-approvals        One verified Codex response through app-server. Requires
+                            --json, --resume, --cwd and the saved fingerprint.
+                            Retains supported read-only/user-review settings.
+                            Refuses explicit --memory and --no-memory overrides.
+                            Stdin carries NDJSON approval decisions, never the prompt.
+                            Answer only offered request/choice IDs; no automatic grants.
+                            Unsupported native interactions end with owned cleanup.
   --                        Passthrough: native harness args verbatim
                             (failures surface as labeled native errors)
   --json                    NDJSON HarnessEvent to stdout
@@ -182,6 +222,20 @@ Options:
   --transcript              Report passive transcript methods and evidence;
                             exclusive with other inspection modes; no history opened
   --argv                    Preview argv that would be spawned
+  --native-settings         Read saved model, effort and provider without starting a
+                            process (Codex only). Requires exact --resume and --cwd.
+                            --session-id is the shared alias for --resume.
+                            Returns one JSON object, with or without --json: available
+                            plus a source fingerprint (exit 0), or unavailable plus a
+                            reason (exit 2). Excludes other modes and turn options.
+                            Latest native settings updates supersede earlier turns.
+                            permissions describes recorded local-command limits or
+                            why they are unavailable; it does not promise restoration.
+                            Reads at most 64 MiB, 1 MiB per line, 16384 directory entries.
+                            No conversation text, permission grant or ownership claim.
+  --native-settings-fingerprint <hash>
+                            Require matching saved settings for --argv / --runtime
+                            headless-turn previews. Same restrictions as hcn run.
   --runtime                 Preview argv and probe the selected executable version;
                             All harnesses use invocation support in supported modes.
                             Version metadata never rejects a supported invocation.

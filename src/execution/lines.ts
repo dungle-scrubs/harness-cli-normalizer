@@ -72,3 +72,45 @@ const isBlank = (line: string): boolean => {
   }
   return true;
 };
+
+/** Strict UTF-8 NDJSON framing for a control channel. The limit includes the
+ * newline, and an incomplete final frame is never a command. Unlike diagnostic
+ * line assembly, invalid bytes and oversized frames terminate this channel. */
+export class ControlFrameError extends Error {
+  constructor(readonly code: "frame-too-large" | "invalid-utf8") {
+    super(code);
+    this.name = "ControlFrameError";
+  }
+}
+
+export class ControlLines {
+  private readonly decoder = new TextDecoder("utf-8", { fatal: true });
+  private readonly encoder = new TextEncoder();
+  private pending = "";
+  private bytes = 0;
+
+  constructor(private readonly limit: number) {}
+
+  *push(chunk: string | Uint8Array): Iterable<string> {
+    const bytes = typeof chunk === "string" ? this.encoder.encode(chunk) : chunk;
+    let start = 0;
+    while (start < bytes.length) {
+      const at = bytes.indexOf(10, start);
+      const end = at === -1 ? bytes.length : at + 1;
+      this.bytes += end - start;
+      if (this.bytes > this.limit) throw new ControlFrameError("frame-too-large");
+      try {
+        this.pending += this.decoder.decode(bytes.subarray(start, end), { stream: true });
+      } catch {
+        throw new ControlFrameError("invalid-utf8");
+      }
+      if (at !== -1) {
+        const line = this.pending.slice(0, -1);
+        this.pending = "";
+        this.bytes = 0;
+        yield line;
+      }
+      start = end;
+    }
+  }
+}

@@ -22,6 +22,8 @@ export const REFUSAL_ISSUES = deepFreeze([
   "prompt-flag-injection",
   "no-autonomy-mode",
   "no-session-mode",
+  "native-settings-unavailable",
+  "native-settings-changed",
 ] as const);
 export type RefusalIssue = (typeof REFUSAL_ISSUES)[number];
 
@@ -38,6 +40,7 @@ export type RefusalOption =
   | "autonomy"
   | "questions"
   | "timeout"
+  | "nativeSettingsFingerprint"
   | `discovery.${string}`;
 
 /** One helper builds the message from the structured fields so message and
@@ -100,6 +103,10 @@ export const buildRefusalMessage = (
       return `${who} has no unattended-run flag; ${supportedStr} - drop autonomy or route to a supporting harness (claude --dangerously-skip-permissions, codex/muse --yolo)`;
     case "no-session-mode":
       return `${who} declares no persistent headless session mode; ${supportedStr} - use hcn run --resume <id>`;
+    case "native-settings-unavailable":
+      return `saved native settings are unavailable${forHarness}${detailSuffix}; read the same native session again before retrying`;
+    case "native-settings-changed":
+      return `saved native settings changed${forHarness}; inspect the same native session again before retrying`;
     default: {
       const exhaustive: never = issue;
       return `${exhaustive as string}${forHarness}${optionPart}${detailSuffix}; ${supportedStr}`;

@@ -78,6 +78,145 @@ ID/file reads, batches and bookmarks through a passive filesystem clone on
 supported macOS/Linux filesystems. See [native transcript reads](docs/transcripts.md)
 for capability checks, failure handling, custom Pi conditions, and consumer rules.
 
+### Native terminal resume (`hcn interactive`)
+
+This operation resumes an exact native session with inherited terminal I/O.
+The caller supplies a separate writable pipe with `--control-fd <fd>` (fd 3 or
+higher), a UUID v4 `--launch-id`, `--interface`, `--resume`, and absolute `--cwd`.
+`--env KEY=VALUE` uses the existing environment rules, including removal by empty
+value. Optional `--startup-prompt <text>` starts one native turn on resume.
+The text must be nonempty, valid UTF-8, at most 8,192 bytes and contain no NUL.
+It is passed once as prompt data, including leading hyphens and newlines. Duplicate
+startup options or invalid text refuse before spawn. Omitting it keeps idle resume.
+No model switch, fork, fresh fallback, or native argv is accepted. The control
+pipe never includes prompt text or claims prompt receipt or model adherence.
+
+Each control line carries `v: 1`, `operation: "interactive"`, and `launchId`:
+
+- `ready`: preflight passed. No process creation is proved yet.
+- `refused`: `evidence: "spawn-not-attempted"` and a reason from
+  `unsupported-interface`, `resume-unavailable`, `cwd-refused`, `invalid-request`,
+  `executable-unavailable`, or `spawn-rejected`. Only this evidence proves no child.
+- `started`: the exact `sessionId`, `cwd`, `interface`, and native `owner`
+  (`pid`, kernel `startedAt`, `executable`). This proves creation, not history loading.
+- `closed`: native `exitCode` (null for signal exit) and `cleanupComplete`.
+
+A lost or truncated control stream is uncertain. Exit code 2 alone is not
+no-child evidence because a native process can also exit with that code.
+HCN supervises only its own child; the caller owns reconnect reservations and
+the later proof that the native session attached.
+
+The current implementation supports the Codex native executable on macOS/Linux,
+checking an exact saved UUID and folder. Wrapper launchers, Claude, Pi, Muse,
+and Codex desktop currently return unavailable. They require separate native
+launch validation. This operation does not yet establish full consumer handoff
+acceptance. Run `hcn interactive --help` for the command contract.
+
+### Native approvals during one response
+
+`hcn run codex --json --native-approvals --resume ID --cwd ABSOLUTE --native-settings-fingerprint HASH --prompt TEXT` resumes one response through Codex app-server. Obtain `HASH` from passive native settings inspection below. HCN verifies the saved source again, restores its supported settings, and compares the effective settings before sending the prompt. This is an opt-in alternative to ordinary `exec resume`.
+
+The current lane preserves recorded read-only filesystem, restricted network, user reviewer, and `on-request` or `never` approval policy. Unsupported settings refuse before a prompt. Fresh sessions, native passthrough, explicit `--memory` or `--no-memory`, and competing model, effort, provider or permission options are refused. Memory overrides remain available on ordinary resume; this lane accepts only its verified native settings. Use `--prompt-file PATH` for a file-backed prompt; stdin is reserved for decisions, so `--prompt-file -` is refused.
+
+After the native resume response confirms the exact session and effective settings,
+HCN reports an `identity` event with `authority: "harness-minted"` before submitting
+the prompt. This confirms the resumed native identity; it does not mean a new
+session was created or that the response completed.
+
+The JSON stream adds three version-1 events:
+
+- `approval-request`: opaque `requestId`, exact `sessionId` and native `turnId`, `category`, complete plain-text `details`, and `choices` with `id`, `label`, `scope`.
+- `approval-disposition`: decision `id`, `requestId`, `status` (`sent` or `rejected`), and a rejection `reason` when applicable. Malformed IDs are null.
+- `approval-cleared`: `requestId` and `reason` (`native-resolved`, `turn-ended`, `process-ended`, `channel-failed`). Clearing says that the request stopped waiting; it does not prove tool success.
+
+Send one UTF-8 NDJSON line on the same live process's stdin:
+
+```json
+{"v":1,"op":"approval","id":"<new decision UUID>","requestId":"<offered request UUID>","choiceId":"<offered choice ID>"}
+```
+
+Choices alone define authority. Supported command choices include once, native session, deny, cancel, and an explicitly offered persistent command-prefix rule. File choices show the complete patch; their session grant covers future changes to those same files. Permission requests support exact absolute-path entries and an explicit network toggle, with response or session duration and an empty denial. Native payloads remain private. Symbolic/glob/legacy permission scopes, grouped network command requests, non-local environments and file `grantRoot` currently terminate as unsupported. Native model questions and MCP elicitation are also unsupported by this responder.
+
+A repeated decision ID with identical content returns its recorded disposition without another native write. Conflicting content is rejected. A decision is consumed before its write, so uncertain delivery is never retried. A cleared request loses its answer right. Native request IDs cannot be reused within the process because a late clear could otherwise affect a different action. HCN stores no approval state across processes; the caller owns durable choice and write-intent records.
+
+Bounds: 4 KiB per decision including newline, 64 KiB UTF-8 details, 16 choices, 32 pending requests or buffered pre-ack requests, and 4096 request identities and recorded decisions during one process. Invalid UTF-8, framing overflow or an unsupported request ends the channel and cleans up the child. Details are never truncated into an approvable action.
+
+Human approval waits pause inactivity detection. An explicit `--timeout` still runs. Initialize, resume and turn acknowledgement each have a 30-second protocol deadline. Closing decision stdin ends the response, including when no request is pending. HCN completes child cleanup before `done`. Existing HCN question blocks retain `awaiting-input`; native interruption reports `killed`.
+
+Failures carry `nativeApproval` evidence: `phase` (`preflight`, `initialize`, `resume`, `turn-start`, `running`), `process` (`not-attempted`, `not-started`, `started`, `unknown`), `prompt` (`not-submitted`, `submission-unknown`, `acknowledged`), and `reason`. A prompt write without native acknowledgement is unknown delivery. Exit codes and elapsed time do not prove that a prompt was absent. This evidence never authorizes automatic replay.
+
+### Passive native settings (`hcn inspect codex --native-settings`)
+
+```bash
+hcn inspect codex --native-settings --resume <native-session-id> --cwd <absolute-path> --json
+```
+
+This reads Codex's saved session without starting a native process. It returns the
+latest supported turn or native settings update's exact model and effort, the
+most recently recorded provider (initially the session header's provider),
+and a SHA-256 source fingerprint. It does not resolve model aliases or apply
+HCN profiles or browser preferences. A custom model selector can be inspected
+even when ordinary `hcn run --model` does not accept it.
+
+The result is one JSON object, with or without `--json`. `status: "available"`
+exits 0; `status: "unavailable"` and a `reason` exit 2. Other harnesses return
+`unsupported-harness`. The operation accepts only `--resume` (or `--session-id`), `--cwd`, and
+`--json`; other inspection modes, turn options and native passthrough are refused.
+
+The lookup requires one matching native session file, its matching header ID,
+and matching saved folders. Symlinks, special files, incomplete or malformed
+records, missing settings, and changed sources refuse. The scan is bounded at
+16384 directory entries, 64 MiB per file and 1 MiB per line. An invalid latest
+turn or settings update never falls back to earlier settings. Conversation text is never returned.
+
+The `permissions` field reports recorded local-command limits separately from
+model settings. The currently recognized native profile is read-only filesystem
+access with restricted network access and an explicit `never` or `on-request`
+approval policy. These values carry `status: "recorded"`. Missing, extended,
+contradictory or unsupported permission metadata carries `status: "unavailable"`
+and a permission-specific reason; model inspection can still succeed. An older
+v1 producer may omit this field, which means unknown. The latest turn or
+settings update supplies both facets; permission grants never fall back to an
+earlier record. Named-profile provenance, network overrides and extra filesystem
+policy are unavailable until their full restoration semantics are supported.
+
+When recorded, `permissions.approvalsReviewer` identifies `user`, `automatic`, or
+`unknown`. An omitted reviewer is also unknown. Codex retains its last explicit
+reviewer when a later turn omits or nulls that field; inspection follows this
+native rule without inheriting older permission grants. An unrecognized explicit
+reviewer replaces older authority with unknown. A settings update without its
+required reviewer also yields unknown. The fingerprint includes this facet.
+
+Recorded permissions are observations, not a promise that headless resume can
+preserve them. In Codex 0.154.0, a disposable native probe changed `on-request`
+to `never` during `exec resume`, with the read-only sandbox unchanged. The
+verified settings flag below restores model, effort and provider only. It does
+not restore the recorded approval policy or native permission profile.
+
+The fingerprint identifies this read, including file identity and metadata. Use
+it to require the same source when resuming:
+
+```bash
+hcn run codex --resume <native-session-id> --cwd <absolute-path> --native-settings-fingerprint <fingerprint> --prompt "continue"
+```
+
+Planning and the runner each read the native source again. A matching read
+renders the saved model, effort and recorded provider before the prompt. Competing
+`--model`, `--effort`, `--provider`, native passthrough, fresh launch and other
+harnesses refuse. `inspect --argv` and `inspect --runtime` support the same flag.
+Ordinary resume without this flag still follows native settings behavior.
+
+`native-settings-changed` means the fingerprint no longer matches;
+`native-settings-unavailable` means the source cannot be read and verified.
+Inspect the same native session again before retrying. A planning refusal exits
+2; a refusal found at the final runner read uses the failure/done stream and
+exits 1. Exit status alone does not prove whether a process started.
+
+These operations grant no ownership or permissions. The fingerprint does not
+capture provider configuration contents or freeze another process's writes.
+Callers still own duplicate-session prevention, permissions, input delivery and
+process cleanup. This is not completed consumer handoff support.
+
 ### Machine session (`hcn session <harness> --json`)
 
 `--json` is the same session for a program instead of a human: NDJSON events
@@ -339,8 +478,10 @@ value in all four ladders), sandbox `workspace-write` (codex-only; reported
 as divergence elsewhere), context window `272000` (codex-only; divergence
 elsewhere), discovery fully on, autonomy off, memory off. A dimension a
 harness cannot express is reported as divergence, never a silent skip and
-never a refusal. Resume turns bypass turn-option resolution entirely - a
-session keeps its own settings. Question escalation (below) is the
+never a refusal. Resume turns bypass turn-option resolution and pass explicit
+turn options. Omitted settings follow the native harness's resume behavior;
+Codex can use current configuration instead of the saved model and effort.
+Do not infer settings preservation from session-ID continuity. Question escalation (below) is the
 deliberate exception: it rides each turn's prompt, so it resolves on
 launch AND resume.
 

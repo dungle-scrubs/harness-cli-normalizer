@@ -6,7 +6,13 @@
  * and the inspect command previews from it, so the spawn line and the
  * preview agree by construction, skill tokens and passthrough included.
  */
+
+import { nativeApprovalPreflightEvidence } from "../execution/failure.js";
+import { nativeApprovalPlan } from "../execution/native-approval-plan.js";
+import type { NativeSettingsInspector } from "../execution/native-settings.js";
+import { nodeNativeSettingsInspector } from "../execution/node-deps.js";
 import { redactArgv, type TurnRunOptions } from "../execution/stream-turn.js";
+import { verifyNativeSettings } from "../execution/verified-native-settings.js";
 import {
   buildSpawnArgv,
   buildTurnEnv,
@@ -44,6 +50,7 @@ import { listKnownSkills, resolveSkillNames } from "./skills-root.js";
 
 /** The impure edges a plan reads through, injectable for tests. */
 export interface PlanDeps {
+  readonly inspectNativeSettings?: NativeSettingsInspector;
   readonly loadUserConfig: () => { readonly config: ConfigTier } | null;
   readonly loadProjectConfig: () => { readonly config: ConfigTier } | null;
   readonly listKnownSkills: () => readonly string[];
@@ -56,6 +63,7 @@ export interface PlanDeps {
 }
 
 export const defaultPlanDeps: PlanDeps = {
+  inspectNativeSettings: nodeNativeSettingsInspector,
   loadUserConfig,
   loadProjectConfig,
   listKnownSkills,
@@ -74,7 +82,7 @@ export interface TurnPlan {
   /** The argv the runner will spawn, built by the same owner it uses. */
   readonly argv: readonly string[];
   readonly redactedArgv: readonly string[];
-  /** Launch-only; empty on resume, where a session keeps its settings. */
+  /** Launch-only; empty on resume, where omitted options follow native behavior. */
   readonly provenance: readonly ProvenanceEntry[];
   readonly unrenderable: readonly string[];
   readonly behavior: ResolvedBehavior;
@@ -147,7 +155,16 @@ export const planTurn = async (
 ): Promise<PlanOutcome> => {
   const { normalized, passthrough } = splitPassthrough(rawArgs);
   const wantJson = normalized.includes("--json");
-  const refusal = (r: Refusal): PlanOutcome => ({ kind: "refusal", refusal: r, wantJson });
+  const refusal = (r: Refusal): PlanOutcome => ({
+    kind: "refusal",
+    refusal: normalized.includes("--native-approvals")
+      ? {
+          ...r,
+          nativeApproval: nativeApprovalPreflightEvidence(r.issue),
+        }
+      : r,
+    wantJson,
+  });
   const refused = (err: ArgvRefusalError): PlanOutcome => refusal(refusalOf(err));
 
   const injection = detectPositionalPromptInjection([...rawArgs]);
@@ -164,12 +181,33 @@ export const planTurn = async (
 
   let parsed: ReturnType<typeof parseCommonFlags>;
   try {
-    parsed = parseCommonFlags([...rawArgs]);
+    parsed = parseCommonFlags([...rawArgs], {
+      nativeSettingsFingerprint: true,
+      nativeApprovals: true,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return refusal(unknownFlagRefusal(message, rawArgs, request.command));
   }
   const values = parsed.values as Record<string, unknown>;
+  if (
+    values["native-settings-fingerprint"] !== undefined &&
+    values.mode !== undefined &&
+    values.mode !== "headless-turn"
+  ) {
+    return refusal({
+      issue: "invalid-option-value",
+      message: "--native-settings-fingerprint supports headless-turn only",
+    });
+  }
+  if (
+    values["native-approvals"] === true &&
+    (!wantJson || values["prompt-file"] === "-" || !values["native-settings-fingerprint"])
+  )
+    return refusal({
+      issue: "invalid-option-value",
+      message: "native approvals require --json, saved settings and a prompt outside stdin",
+    });
   const positionals = parsed.positionals as string[];
   if (positionals.length > 1) {
     return refusal({
@@ -252,8 +290,8 @@ export const planTurn = async (
     throw err;
   }
 
-  // Defaults profile + config: LAUNCH-ONLY. A resumed session keeps its own
-  // settings; the resolver never runs on resume paths.
+  // Defaults profile + config: LAUNCH-ONLY. Omitted settings follow native
+  // behavior on resume; the resolver never runs on resume paths.
   let effectiveTurnOpts = turnOpts;
   let provenance: readonly ProvenanceEntry[] = [];
   let unrenderable: readonly string[] = [];
@@ -284,6 +322,7 @@ export const planTurn = async (
   // explicit prompt (flag or file) may start with a dash.
   const options: TurnRunOptions = {
     ...effectiveTurnOpts,
+    ...(values["native-approvals"] === true ? { nativeApprovals: true } : {}),
     prompt: {
       text: composeEscalatedPrompt(prompt, behavior.questions.value),
       explicit: explicitPrompt,
@@ -291,13 +330,21 @@ export const planTurn = async (
     ...(extra.cwd !== undefined ? { cwd: extra.cwd } : {}),
     ...(extra.env !== undefined ? { env: extra.env } : {}),
     ...(extra.resume !== undefined ? { resume: extra.resume } : {}),
+    ...(values["native-settings-fingerprint"] !== undefined
+      ? { nativeSettingsFingerprint: String(values["native-settings-fingerprint"]) }
+      : {}),
     questions: behavior.questions.value,
     ...(passthrough.length > 0 ? { passthrough } : {}),
   };
 
   let argv: string[];
   try {
-    argv = buildSpawnArgv(h, options);
+    if (options.nativeApprovals)
+      argv = nativeApprovalPlan(h, options, deps.inspectNativeSettings).argv;
+    else {
+      const verifiedNativeSettings = verifyNativeSettings(h, options, deps.inspectNativeSettings);
+      argv = buildSpawnArgv(h, { ...options, verifiedNativeSettings });
+    }
   } catch (err) {
     if (err instanceof ArgvRefusalError) return refused(err);
     throw err;

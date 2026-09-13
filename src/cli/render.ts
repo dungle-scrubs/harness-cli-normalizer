@@ -98,6 +98,10 @@ export const writeEventNdjson = (event: HarnessEvent): boolean =>
  * with the turn instead of the harness being stalled. RFC-01 rule 8 names
  * both hops; this is the hcn-to-consumer one. */
 export const writeEventNdjsonAsync = async (event: HarnessEvent): Promise<void> => {
-  if (writeEventNdjson(event)) return;
-  await new Promise<void>((resolve) => process.stdout.once("drain", resolve));
+  await new Promise<void>((resolve, reject) => {
+    process.stdout.write(`${JSON.stringify(event)}\n`, (error) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
 };

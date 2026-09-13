@@ -5,7 +5,20 @@
  * portability boundary and tests run against fakes deterministically.
  */
 
+import type { NativeProcessOwner } from "../knowledge/interactive.js";
+import type { NativeSettingsInspector } from "./native-settings.js";
+
+export type { NativeProcessOwner } from "../knowledge/interactive.js";
+
+export type ProcessStart =
+  | { readonly kind: "started"; readonly owner: NativeProcessOwner | undefined }
+  | { readonly kind: "not-started"; readonly code: string }
+  | { readonly kind: "uncertain" };
+
 export interface SpawnedProcess {
+  /** OS creation evidence, separate from exit status or native session loading.
+   * Older injected adapters may omit it; callers must treat that as unknown. */
+  readonly started?: Promise<ProcessStart>;
   /** Resolves on asynchronous stdin failure (for example EPIPE). The
    * adapter always handles the native error event, even without a caller. */
   readonly inputError?: Promise<void>;
@@ -31,6 +44,8 @@ export interface SpawnedProcess {
 }
 
 export interface SpawnOptions {
+  /** Terminal output bypasses normalized streams and never reaches control NDJSON. */
+  readonly output?: "inherit" | "pipe";
   readonly cwd?: string;
   /** `pipe` opens a writable stdin (sessions require it); `inherit` hands
    * the child the parent's fd 0; `close` gives it nothing (pi's rule). */
@@ -57,6 +72,13 @@ export type SignalName = "SIGTERM" | "SIGKILL";
 export type BoundaryLog = (event: Record<string, unknown>) => void;
 
 export interface RunnerDeps {
+  readonly approvalInput?: {
+    readonly chunks: AsyncIterable<string | Uint8Array>;
+    readonly close: () => void;
+    readonly newId: () => string;
+  };
+  /** Passive source read, required only for a caller-requested verified resume. */
+  readonly inspectNativeSettings?: NativeSettingsInspector;
   readonly spawn: (argv: readonly string[], opts: SpawnOptions) => SpawnedProcess;
   readonly clock: Clock;
   readonly signal: (proc: SpawnedProcess, sig: SignalName) => void;
