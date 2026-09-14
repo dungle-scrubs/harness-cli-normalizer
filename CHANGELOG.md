@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.10](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.9...v0.6.10) (2026-09-14)
+
+
+### Added
+
+* **pi:** report the harness's observed model on identity events ([#165](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/165)) ([e5f535d](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/e5f535dac9e9dd004c8755ac65562760962dca59))
+
 ## [0.6.9](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.8...v0.6.9) (2026-09-13)
 
 
