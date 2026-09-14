@@ -114,9 +114,10 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     },
     session: false,
   },
-  // Escalation provenance transcribed from test/fixtures/phase7-questions/,
-  // committed 2026-08-19. `model` is empty because no fixture on that stream
-  // records a model id - absence of evidence, not an unset field.
+  // Escalation provenance: the `model` below is the escalation probe's
+  // own model (what asked when instructed), not the runtime model - the
+  // harness self-attests that on its stream and the decoder fills the
+  // re-emitted identity's observedOn from it.
   escalation: {
     supported: true,
     observedOn: {
