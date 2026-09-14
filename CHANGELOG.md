@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.11](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.10...v0.6.11) (2026-09-14)
+
+
+### Fixed
+
+* **cli:** keep run.js object spreads ES2023-safe so node 24 parses dist ([#167](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/167)) ([d1af1ec](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/d1af1ec076f9ed62c91bdc53cffc1e28f8a2fe3b))
+
 ## [0.6.10](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.9...v0.6.10) (2026-09-14)
 
 
