@@ -425,25 +425,41 @@ describe("harness fixture replay (F-20)", () => {
     harness: (typeof claudeCode)["name"];
     exitCode: number;
     nonError: boolean;
+    /** pi fixtures whose streams carry assistant model attestation re-emit
+     * identity with the observed model (same sessionId); the rest stay at one. */
+    identities?: number;
   }> = [
     { file: "claude.ndjson", harness: "claude", exitCode: 0, nonError: true },
     { file: "codex.ndjson", harness: "codex", exitCode: 0, nonError: true },
     { file: "codex-tool.ndjson", harness: "codex", exitCode: 0, nonError: true },
     { file: "codex-filetool.ndjson", harness: "codex", exitCode: 0, nonError: true },
-    { file: "pi.ndjson", harness: "pi", exitCode: 0, nonError: true },
-    { file: "pi-tool.ndjson", harness: "pi", exitCode: 0, nonError: true },
-    { file: "pi-autherror.ndjson", harness: "pi", exitCode: 1, nonError: false },
-    { file: "pi-unreachable.ndjson", harness: "pi", exitCode: 0, nonError: false },
+    { file: "pi.ndjson", harness: "pi", exitCode: 0, nonError: true, identities: 2 },
+    { file: "pi-tool.ndjson", harness: "pi", exitCode: 0, nonError: true, identities: 2 },
+    { file: "pi-autherror.ndjson", harness: "pi", exitCode: 1, nonError: false, identities: 2 },
+    { file: "pi-unreachable.ndjson", harness: "pi", exitCode: 0, nonError: false, identities: 2 },
     { file: "pi-noauth.ndjson", harness: "pi", exitCode: 1, nonError: false },
-    { file: "pi-model-unavailable.ndjson", harness: "pi", exitCode: 0, nonError: false },
+    {
+      file: "pi-model-unavailable.ndjson",
+      harness: "pi",
+      exitCode: 0,
+      nonError: false,
+      identities: 2,
+    },
+    {
+      file: "pi-model-observed.ndjson",
+      harness: "pi",
+      exitCode: 0,
+      nonError: true,
+      identities: 2,
+    },
     { file: "muse.ndjson", harness: "muse", exitCode: 0, nonError: true },
     { file: "muse-tool.ndjson", harness: "muse", exitCode: 0, nonError: true },
     { file: "muse-readtool.ndjson", harness: "muse", exitCode: 0, nonError: true },
   ];
 
   test.each(cases)(
-    "replays $file with exactly one identity and a terminal done",
-    async ({ file, harness, exitCode, nonError }) => {
+    "replays $file with a terminal done",
+    async ({ file, harness, exitCode, nonError, identities }) => {
       const { readFileSync } = await import("node:fs");
       const { join } = await import("node:path");
       const { codexCli } = await import("../../src/knowledge/codex.js");
@@ -469,7 +485,10 @@ describe("harness fixture replay (F-20)", () => {
       }
       proc.exit(exitCode);
       const events = await collect(turn);
-      expect(events.filter((e) => e.kind === "identity")).toHaveLength(1);
+      // Attested pi streams re-emit identity with the observed model (same
+      // sessionId); unattested streams (pi-noauth) and other harnesses
+      // stay at one.
+      expect(events.filter((e) => e.kind === "identity")).toHaveLength(identities ?? 1);
       if (nonError) {
         const hasContent = events.some((e) => e.kind === "message" || e.kind === "token");
         expect(hasContent, `${file} should emit at least one message or token`).toBe(true);
