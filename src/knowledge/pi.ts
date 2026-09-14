@@ -136,9 +136,14 @@ export const piCli: HarnessDescriptor = deepFreeze({
     },
     session: true,
   },
-  // Escalation provenance transcribed from test/fixtures/phase7-questions/,
-  // committed 2026-08-19. `model` is empty because no fixture on that stream
-  // records a model id - absence of evidence, not an unset field.
+  // Escalation provenance: the escalation probe observations below are
+  // the probe's own model (what asked when instructed), not the runtime
+  // model. The harness self-attests THAT on its stream (pi assistant
+  // message records carry provider/model; the transcript-only
+  // `model_change` record never appears on stdout - verified live on pi
+  // 0.85.1) and the decoder fills the re-emitted identity's observedOn
+  // from that attestation (see decodeParsed). Static probe records stay
+  // untouched; the observed value is display only.
   escalation: {
     supported: true,
     observedOn: { harness: "pi", model: "", version: "0.84.2", date: "2026-08-19" },

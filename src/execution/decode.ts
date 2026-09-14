@@ -18,12 +18,31 @@ export interface DecodeState {
   /** The id this turn expects (resume paths); rotation is classified
    * against it. Null for fresh launches. */
   requestedId: string | null;
+  /** The harness's latest model self-attestation (pi assistant message
+   * records). Null until one is observed; used to fill observedOn.model
+   * on a re-emitted identity when the harness announces identity before
+   * it announces its model. Never feeds validation or refusal paths. */
+  observedModel: string | null;
+  /** The provider announced alongside the observed model, if any. */
+  observedProvider: string | null;
+  /** An identity event already went out on this state - the re-emit gate
+   * for fresh launches, where requestedId is null and only an emitted
+   * first-sight identity proves context. */
+  identityEmitted: boolean;
+  /** The observedModel value the last emitted identity carried (null when
+   * it carried the static record). A re-emit fires only on change, so one
+   * attestation means one re-emit, not one per assistant record. */
+  emittedModel: string | null;
 }
 
 export const freshDecodeState = (requestedId: string | null = null): DecodeState => ({
   lastSeenId: null,
   limitSeen: false,
   requestedId,
+  observedModel: null,
+  observedProvider: null,
+  identityEmitted: false,
+  emittedModel: null,
 });
 
 export const decodeLine = (
@@ -50,7 +69,19 @@ export const decodeLine = (
 
 /** The parsed-record half of decodeLine, for pumps that already parsed the
  * line once (a session pump inspects `type` before routing) - the hottest
- * path must not JSON.parse every token delta twice. */
+ * path must not JSON.parse every token delta twice.
+ *
+ * Model attestation (pi): the harness announces identity (the session
+ * record) before it announces its model (the first assistant message
+ * record), so the first identity event leaves with observedOn.model empty
+ * and the decoder re-emits identity with the observed model once the
+ * attestation arrives. The re-emit carries the same sessionId -
+ * decodeIdentity dedupes on lastSeenId, so consumers that dedupe see one
+ * identity; consumers that take the last (the settings projection that
+ * reads observedOn.model) see the model. The observed model is
+ * self-attestation, marked runtime-verified through the normal provenance
+ * path, and it must never widen authority: validateModel, refusal paths,
+ * and capability claims never read it. */
 export const decodeParsed = (
   h: HarnessDescriptor,
   raw: unknown,
@@ -66,16 +97,51 @@ export const decodeParsed = (
     const base = capabilitiesOf(h, model, "headless-turn");
     return streaming !== undefined && base.source !== "unknown" ? { ...base, streaming } : base;
   };
+  // The identity event's escalation.observedOn is where the downstream
+  // settings projection reads the model. Fill the descriptor's observed
+  // record with the harness's own attestation once seen; the static
+  // observedOn stays the escalation probe provenance it always was.
+  const capabilitiesWithObserved = (): CapabilityResult => {
+    const caps = capabilities();
+    if (state.observedModel === null) return caps;
+    return {
+      ...caps,
+      escalation: {
+        ...caps.escalation,
+        observedOn: {
+          harness: caps.escalation.observedOn?.harness ?? h.name,
+          model: state.observedModel,
+          version: caps.escalation.observedOn?.version ?? h.verifiedAgainst,
+          date: caps.escalation.observedOn?.date ?? "",
+        },
+      },
+    };
+  };
+  const identityOf = (sessionId: string, authority: "caller-assigned" | "harness-minted") => ({
+    kind: "identity" as const,
+    sessionId,
+    authority,
+    capabilities: capabilitiesWithObserved(),
+  });
+  const emitIdentity = (
+    sessionId: string,
+    authority: "caller-assigned" | "harness-minted",
+  ): void => {
+    events.push(identityOf(sessionId, authority));
+    state.identityEmitted = true;
+    state.emittedModel = state.observedModel;
+  };
   const decoded = decodeIdentity(h, raw, state.lastSeenId, state.requestedId);
   if (decoded.sessionId !== null) state.lastSeenId = decoded.sessionId;
+  // The attestation is orthogonal to the session-id announcement: thread
+  // it into state on every record, whether or not this record is news.
+  if (decoded.observedModel !== null) {
+    state.observedModel = decoded.observedModel.model;
+    state.observedProvider = decoded.observedModel.provider ?? null;
+  }
   if (decoded.identity !== null) {
     const authority = state.requestedId !== null ? "caller-assigned" : "harness-minted";
-    events.push({
-      kind: "identity",
-      sessionId: decoded.identity,
-      authority,
-      capabilities: capabilities(),
-    });
+    emitIdentity(decoded.identity, authority);
   } else if (decoded.outcome === "malformed" || decoded.outcome === "rotated") {
     if (decoded.outcome === "rotated") {
       const requested = state.requestedId ?? "unknown";
@@ -87,16 +153,27 @@ export const decodeParsed = (
       // The harness answered under a different id: hand the consumer the
       // id it can actually resume, marked as minted by the harness.
       if (decoded.sessionId !== null) {
-        events.push({
-          kind: "identity",
-          sessionId: decoded.sessionId,
-          authority: "harness-minted",
-          capabilities: capabilities(),
-        });
+        emitIdentity(decoded.sessionId, "harness-minted");
       }
     } else {
       events.push({ kind: "error", message: `identity ${decoded.outcome}` });
     }
+  } else if (
+    decoded.observedModel !== null &&
+    state.lastSeenId !== null &&
+    state.observedModel !== null &&
+    state.observedModel !== state.emittedModel &&
+    (state.requestedId !== null || state.identityEmitted)
+  ) {
+    // Model attestation arrived after identity did: re-emit identity with
+    // the same sessionId so the observed model reaches the consumer.
+    // Gated on an emitted identity (fresh launches announce first sight
+    // on the session record; resumes carry a requestedId) so an
+    // attestation with no identity context emits nothing on its own, and
+    // on model change so one attestation means one re-emit, not one per
+    // assistant record.
+    const authority = state.requestedId !== null ? "caller-assigned" : "harness-minted";
+    emitIdentity(state.lastSeenId, authority);
   }
 
   // Content (message/token/tool/error/budget/limit) is per-harness;

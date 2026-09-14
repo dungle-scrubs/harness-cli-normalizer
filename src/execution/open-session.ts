@@ -18,7 +18,7 @@
  * send correlation, and the close-versus-abandon distinction.
  */
 import { buildSessionArgv, buildTurnEnv } from "../interpretation/argv.js";
-import { capabilitiesOf } from "../interpretation/capabilities.js";
+import { type CapabilityResult, capabilitiesOf } from "../interpretation/capabilities.js";
 import { composeEscalatedPrompt, type QuestionMode } from "../interpretation/question.js";
 import {
   decodeSessionRecord,
@@ -387,7 +387,9 @@ export const openSession = (
 
   /** A decoded event other than a failure: a limit also records the
    * failure it stands for, and so does a terminal error, the way
-   * streamTurn does. */
+   * streamTurn does. A content-path identity re-emit carrying a later
+   * model attestation also re-announces the session identity (same
+   * sessionId), so last-takes consumers read the observed model. */
   const routeDecoded = async (event: HarnessEvent): Promise<void> => {
     if (event.kind === "failure") {
       await pushFailure(summaryOf(event));
@@ -401,7 +403,39 @@ export const openSession = (
   };
 
   /** The probe answered: bind the announced id under the descriptor's
-   * authority, or surface a rotation. */
+   * authority, or surface a rotation. The re-announce below keeps a live
+   * session's identity current: when a later model attestation arrives on
+   * content records, the turn's identity is re-emitted with the observed
+   * model filled in (same sessionId, dedupe-by-id consumers see one) -
+   * display only, never validation or refusal input. */
+  const reannounceIdentity = (): Promise<void> => {
+    if (!identityAnnounced || state.observedModel === null) return Promise.resolve();
+    if (state.observedModel === state.emittedModel) return Promise.resolve();
+    state.emittedModel = state.observedModel;
+    const authority = sessionInputMode?.idFlag === null ? "harness-minted" : "caller-assigned";
+    return routeEvent({
+      kind: "identity",
+      sessionId: state.lastSeenId ?? opts.sessionId,
+      authority,
+      capabilities: capabilitiesWithObserved(),
+    });
+  };
+  const capabilitiesWithObserved = (): CapabilityResult => {
+    const caps = capabilitiesOf(h, opts.model ?? "", "headless-session");
+    if (state.observedModel === null) return caps;
+    return {
+      ...caps,
+      escalation: {
+        ...caps.escalation,
+        observedOn: {
+          harness: caps.escalation.observedOn?.harness ?? h.name,
+          model: state.observedModel,
+          version: caps.escalation.observedOn?.version ?? h.verifiedAgainst,
+          date: caps.escalation.observedOn?.date ?? "",
+        },
+      },
+    };
+  };
   const announceIdentity = async (announced: string): Promise<void> => {
     if (identityAnnounced) return;
     if (sessionInputMode?.idFlag === null) {
@@ -414,7 +448,7 @@ export const openSession = (
         kind: "identity",
         sessionId: announced,
         authority: "harness-minted",
-        capabilities: capabilitiesOf(h, opts.model ?? "", "headless-session"),
+        capabilities: capabilitiesWithObserved(),
       });
       return;
     }
@@ -424,7 +458,7 @@ export const openSession = (
         kind: "identity",
         sessionId: announced,
         authority: "caller-assigned",
-        capabilities: capabilitiesOf(h, opts.model ?? "", "headless-session"),
+        capabilities: capabilitiesWithObserved(),
       });
       return;
     }
@@ -492,6 +526,9 @@ export const openSession = (
           for (const event of decodeParsed(h, parsed, state, opts.model ?? "")) {
             await routeDecoded(event);
           }
+          // A model attestation decoded on this record postdates the probe
+          // identity: re-announce so the turn's identity carries it.
+          await reannounceIdentity();
           return;
         }
         default: {

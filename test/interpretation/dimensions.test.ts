@@ -103,6 +103,52 @@ describe("stdin close-required policy (pi-shaped descriptors)", () => {
   });
 });
 
+describe("observed model provenance (pi)", () => {
+  test("the descriptor's escalation.observedOn stays the probe record - the observed runtime model rides the identity event, not the descriptor", async () => {
+    // Lucid's settings projection takes the LAST identity event and reads
+    // capabilities.escalation.observedOn.model; the static descriptor
+    // record below is escalation-probe provenance only.
+    expect(piCli.escalation.observedOn).toEqual({
+      harness: "pi",
+      model: "",
+      version: "0.84.2",
+      date: "2026-08-19",
+    });
+    // The static probe record above is untouched by design: the decoder
+    // fills the re-emitted identity's observedOn from the stream
+    // attestation, and this block pins that separation.
+    const { decodeParsed, freshDecodeState } = await import("../../src/execution/decode.js");
+    const sid = "11111111-2222-4333-8444-555555555555";
+    const state = freshDecodeState();
+    const events = [
+      { type: "session", version: 3, id: sid },
+      {
+        type: "message_start",
+        message: { role: "assistant", provider: "zai", model: "glm-5.3" },
+      },
+    ].flatMap((line) => decodeParsed(piCli, line, state, ""));
+    const identities = events.filter((e) => e.kind === "identity");
+    expect(identities).toHaveLength(2);
+    const last = identities.at(-1) as {
+      sessionId: string;
+      capabilities: { escalation: { observedOn?: { model?: string } } };
+    };
+    expect(last.sessionId).toBe(sid);
+    expect(last.capabilities.escalation.observedOn?.model).toBe("glm-5.3");
+  });
+
+  test("the observed model is display only - validation still answers from the static registry", async () => {
+    const { validateModel } = await import("../../src/interpretation/vocabulary.js");
+    // Curated baseline member: accepted as curated.
+    expect(validateModel(piCli, "zai/glm-5.2")).toEqual({ ok: true, id: "zai/glm-5.2" });
+    // Clean unknown selector: accepted by the D-008 extensibility rule,
+    // not by anything observed on a stream.
+    expect(validateModel(piCli, "glm-5.3")).toEqual({ ok: true, id: "glm-5.3" });
+    // Dirty selector: still refused even though a harness once attested it.
+    expect(validateModel(piCli, "glm-5.3; rm -rf ~").ok).toBe(false);
+  });
+});
+
 describe("presence hardening (review regressions)", () => {
   const sid = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
 
