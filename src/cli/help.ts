@@ -259,6 +259,9 @@ Options:
                             pair when --json is set.
   --capabilities            Print the capability record (vision, images,
                             streaming, session, source) as one JSON line
+  --models                  Print installed pi provider/model pairs from
+                            the registry stores as one JSON line with --json
+                            (pi only; mutually exclusive with other modes)
   --mode <mode>             Mode for --capabilities or --runtime:
                             headless-turn | headless-session | interactive
                             (default headless-turn)

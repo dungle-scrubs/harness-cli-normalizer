@@ -302,6 +302,7 @@ const KNOWN_FLAGS = new Set([
   "--argv",
   "--runtime",
   "--context",
+  "--models",
   "--native-settings-fingerprint",
   "--capabilities",
   "--mode",
@@ -486,6 +487,7 @@ export const parseCommonFlags = (
       capabilities: { type: "boolean" as const },
       runtime: { type: "boolean" as const },
       context: { type: "boolean" as const },
+      models: { type: "boolean" as const },
       ...(opts.nativeSettings ? { "native-settings": { type: "boolean" as const } } : {}),
       ...(opts.nativeApprovals ? { "native-approvals": { type: "boolean" as const } } : {}),
       ...(opts.nativeSettingsFingerprint

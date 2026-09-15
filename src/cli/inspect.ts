@@ -53,15 +53,17 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
   // the two agree by construction (RFC-02 change 10). Refusals go through
   // the shared refuse path like every other command's.
   if (
-    (values.capabilities && (values.argv || values.runtime || values.context)) ||
-    (values.context && (values.argv || values.runtime))
+    (values.capabilities && (values.argv || values.runtime || values.context || values.models)) ||
+    (values.context && (values.argv || values.runtime || values.models)) ||
+    (values.models && (values.argv || values.runtime))
   ) {
     refuse(
       {
         issue: "invalid-option-value",
-        message: "--capabilities and --context are mutually exclusive with other inspection modes",
+        message:
+          "--capabilities, --context and --models are mutually exclusive with other inspection modes",
       },
-      values.context === true && values.json === true,
+      (values.context === true || values.models === true) && values.json === true,
     );
     return;
   }
@@ -74,6 +76,11 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
   }
   if (values.context === true) {
     await inspectContextCommand(h, rawArgs);
+    return;
+  }
+  if (values.models === true) {
+    const { inspectModelsCommand } = await import("./inspect-models.js");
+    inspectModelsCommand(h.name, values.json === true);
     return;
   }
   if (values.argv === true || values.runtime === true) {
