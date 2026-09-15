@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.13](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.12...v0.6.13) (2026-09-15)
+
+
+### Added
+
+* **inspect:** report installed pi provider/model pairs via --models ([#171](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/171)) ([d1e9d5d](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/d1e9d5d20b1f575c8a2c619fd5d90fd1a27ddf79))
+
+
+### Fixed
+
+* **tests:** move installed-models fixture out of the turn-replay inventory ([#172](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/172)) ([f84c935](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/f84c93546172ca56fffdbb879a3dd2ff1d162744))
+
 ## [0.6.12](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.11...v0.6.12) (2026-09-15)
 
 
