@@ -67,7 +67,7 @@ describe("hcn inspect pi --models --json", () => {
     const { readFileSync } = await import("node:fs");
     const { join } = await import("node:path");
     const line = readFileSync(
-      join(import.meta.dirname, "../fixtures/harnesses/pi-installed-models.ndjson"),
+      join(import.meta.dirname, "../fixtures/inspect/pi-installed-models.ndjson"),
       "utf8",
     ).trim();
     const parsed = JSON.parse(line) as {
@@ -96,7 +96,9 @@ describe("hcn inspect pi --models --json", () => {
     expect(out.exitCode).toBeUndefined();
     const lines = out.stdout.trim().split("\n");
     expect(lines).toHaveLength(1);
-    expect(JSON.parse(lines[0]!)).toEqual({
+    const first = lines[0];
+    expect(first).toBeDefined();
+    expect(JSON.parse(first as string)).toEqual({
       v: 1,
       source: "stores",
       models: [
@@ -168,8 +170,8 @@ describe("hcn inspect pi --models --json", () => {
       .split("\n")
       .map((line) => line.trim())
       .find((line) => line.startsWith("{"));
-    expect(failureLine).toBeDefined();
-    expect((JSON.parse(failureLine!) as { issue?: unknown }).issue).toBe("invalid-option-value");
+    if (failureLine === undefined) throw new Error("expected a failure line on stdout");
+    expect((JSON.parse(failureLine) as { issue?: unknown }).issue).toBe("invalid-option-value");
   });
 
   test("--models is mutually exclusive with other modes", async () => {
