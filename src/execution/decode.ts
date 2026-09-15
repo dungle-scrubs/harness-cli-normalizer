@@ -33,6 +33,12 @@ export interface DecodeState {
    * it carried the static record). A re-emit fires only on change, so one
    * attestation means one re-emit, not one per assistant record. */
   emittedModel: string | null;
+  /** A terminal error the harness may still supersede (pi retries a
+   * stopReason-error assistant attempt inside one run). The error is
+   * already emitted as NON-terminal evidence when stashed; a later
+   * successful assistant message revokes the claim, and the pump settles
+   * what remains at stream/turn end through `settleProvisionalError`. */
+  provisionalError: string | null;
 }
 
 export const freshDecodeState = (requestedId: string | null = null): DecodeState => ({
@@ -43,6 +49,7 @@ export const freshDecodeState = (requestedId: string | null = null): DecodeState
   observedProvider: null,
   identityEmitted: false,
   emittedModel: null,
+  provisionalError: null,
 });
 
 export const decodeLine = (
@@ -188,9 +195,38 @@ export const decodeParsed = (
         kind: "failure",
         ...failureFromLimit(content.code, content.detail, content.resetsAt),
       });
+    } else if (content.kind === "error" && content.provisional === true) {
+      // A provisional terminal error (pi stopReason error) is evidence
+      // now, verdict later: the harness may retry into a successful
+      // assistant message, so the terminal claim waits in state and the
+      // pump settles it at stream/turn end. Only the verdict is deferred -
+      // the error itself streams immediately, non-terminal.
+      state.provisionalError = content.message;
+      events.push({ kind: "error", message: content.message });
+    } else if (content.kind === "message" && content.role === "assistant") {
+      // A successful assistant message supersedes any provisional error:
+      // the harness recovered, so the earlier stopReason-error attempt
+      // must not poison the verdict (its evidence already streamed).
+      state.provisionalError = null;
+      events.push(content);
     } else {
       events.push(content);
     }
   }
   return events;
+};
+
+/** Settle the provisional terminal error where the harness can no longer
+ * supersede it: the end of a one-shot stream, or the end of a session
+ * turn. What survived is the turn's terminal error (the silent-empty-turn
+ * shape); a superseded claim was already emitted as non-terminal evidence
+ * and settles to nothing. Clearing on settle keeps the next turn starting
+ * from no inherited claim. */
+export const settleProvisionalError = (
+  state: DecodeState,
+): Extract<HarnessEvent, { kind: "error" }>[] => {
+  const message = state.provisionalError;
+  if (message === null) return [];
+  state.provisionalError = null;
+  return [{ kind: "error", message, terminal: true }];
 };

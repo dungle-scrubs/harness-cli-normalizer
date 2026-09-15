@@ -20,8 +20,17 @@ export type ContentEvent =
   | { readonly kind: "progress"; readonly label: string }
   /** `terminal: true` marks an error that ended the turn (a failed result
    * record); the runner turns it into a task failure. Other errors are
-   * informational and the turn goes on. */
-  | { readonly kind: "error"; readonly message: string; readonly terminal?: boolean }
+   * informational and the turn goes on. `provisional: true` qualifies a
+   * terminal error: the harness may still supersede it with a successful
+   * assistant message in the same run (pi retries a stopReason-error
+   * attempt in-process), so the decoder holds the verdict and settles it
+   * at stream/turn end (see `settleProvisionalError`). */
+  | {
+      readonly kind: "error";
+      readonly message: string;
+      readonly terminal?: boolean;
+      readonly provisional?: boolean;
+    }
   | { readonly kind: "budget"; readonly detail: string }
   /** A structured limit record on the stream (claude's rate_limit_event);
    * the runner turns it into a limit-class failure. `resetsAt` is epoch
@@ -158,6 +167,14 @@ const pi = (r: Record<string, unknown>): ContentEvent[] => {
       // failure pi does NOT print to stderr and exits 0 for (verified with
       // an expired minimax token: empty content, stopReason error, clean
       // exit). Without this the failure is invisible - a silent empty turn.
+      // It is also PROVISIONAL: pi retries inside one run (verified live on
+      // pi 0.85.1, test/fixtures/harnesses/pi-terminated-recovered.ndjson:
+      // resuming a session created under a different model/provider aborts
+      // the first continuation once - errorMessage "terminated", pi's own
+      // fetch-abort wording - then the next assistant message_end completes
+      // the turn). The decoder therefore holds the terminal claim until no
+      // successful assistant message can supersede it; the error-then-
+      // nothing shape (minimax) still settles into a loud failure.
       if (message.stopReason === "error") {
         const msg =
           typeof message.errorMessage === "string"
@@ -168,6 +185,7 @@ const pi = (r: Record<string, unknown>): ContentEvent[] => {
             kind: "error",
             message: msg,
             terminal: true,
+            provisional: true,
           },
         ];
       }

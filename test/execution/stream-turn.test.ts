@@ -452,6 +452,16 @@ describe("harness fixture replay (F-20)", () => {
       nonError: true,
       identities: 2,
     },
+    // Live capture: stopReason "error"/"terminated" attempt superseded by
+    // a successful assistant message in the same run - replays clean (the
+    // dedicated terminal-error test asserts the supersession semantics).
+    {
+      file: "pi-terminated-recovered.ndjson",
+      harness: "pi",
+      exitCode: 0,
+      nonError: true,
+      identities: 2,
+    },
     { file: "muse.ndjson", harness: "muse", exitCode: 0, nonError: true },
     { file: "muse-tool.ndjson", harness: "muse", exitCode: 0, nonError: true },
     { file: "muse-readtool.ndjson", harness: "muse", exitCode: 0, nonError: true },

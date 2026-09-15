@@ -349,6 +349,43 @@ describe("pi session unreachable", () => {
     expect(done.failure).toMatchObject({ class: "transport" });
     await session.close();
   });
+
+  test("a pi session turn that dies before recovering settles its provisional error into the verdict", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const { piCli } = await import("../../src/knowledge/pi.js");
+    const raw = readFileSync(
+      join(import.meta.dirname, "../fixtures/harnesses/pi-unreachable.ndjson"),
+      "utf8",
+    );
+    const lines = raw.split("\n").filter((l) => l.trim() !== "");
+    const unreachableLine = lines.find(
+      (l) => l.includes('"type":"message_end"') && l.includes('"stopReason":"error"'),
+    );
+    if (unreachableLine === undefined) throw new Error("no unreachable line");
+    const proc = new FakeProcess();
+    const d = makeDeps(proc);
+    const session = openSession(piCli, { sessionId: sid }, d);
+    session.send({ id: "s", text: "hi" });
+    const turnsIter = session.turns[Symbol.asyncIterator]();
+    const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
+    // The stopReason error is provisional, so it waits; then the process
+    // dies before any turn-end record and before any successful assistant
+    // message could supersede it. Death settles the claim: the failure
+    // must land INSIDE the dying turn's done, not after it.
+    proc.emitLine(unreachableLine);
+    proc.exit(0);
+    const events = await drainTurn(turn1);
+    const errorIdx = events.findIndex((e) => e.kind === "error" && e.terminal === true);
+    const failureIdx = events.findIndex((e) => e.kind === "failure");
+    expect(errorIdx).toBeGreaterThanOrEqual(0);
+    expect(failureIdx).toBeGreaterThan(errorIdx);
+    const done = events.at(-1) as Extract<HarnessEvent, { kind: "done" }>;
+    expect(events[events.length - 1]?.kind).toBe("done");
+    expect(done.cause).toBe("failed");
+    expect(done.failure).toMatchObject({ class: "transport" });
+    await session.close();
+  });
 });
 
 describe("T01: a send's id travels to the turn it opens and to the loss report", () => {
