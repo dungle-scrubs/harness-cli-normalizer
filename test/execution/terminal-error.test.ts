@@ -60,6 +60,44 @@ describe("F-07 terminal error record ends clean", () => {
     expect(done?.failure?.class).toBe("task");
   });
 
+  test("replay pi-terminated-recovered.ndjson: a superseded stopReason error does not poison the verdict", async () => {
+    // Live capture (pi 0.85.1, lmstudio qwen3.6-35b-a3b-ud-mlx, session
+    // first created under zai/glm-5.3): resuming aborted the first
+    // continuation once - assistant message_end stopReason "error",
+    // errorMessage "terminated" (pi's own fetch-abort wording), zero
+    // usage, empty content - then pi retried in-process and the next
+    // assistant message_end completed the turn ("pi-alive-6", stop,
+    // exit 0, empty stderr). The failed attempt is evidence; the answer
+    // is the verdict.
+    const raw = readFileSync(
+      join(import.meta.dirname, "../fixtures/harnesses/pi-terminated-recovered.ndjson"),
+      "utf8",
+    );
+    const proc = new FakeProcess();
+    const d = depsFor(proc);
+    const turn = streamTurn(piCli, { prompt: "Reply with only: pi-alive-6" }, d);
+    for (const line of raw.split("\n")) {
+      if (line.trim() !== "") proc.emitLine(line);
+    }
+    proc.exit(0);
+    const events = await collect(turn);
+    const done = events.find((e) => e.kind === "done") as unknown as
+      | { cause: string; failure?: { class: string } }
+      | undefined;
+    // The answer arrived and is the verdict: clean turn, no failure.
+    expect(events.some((e) => e.kind === "message" && e.text.includes("pi-alive-6"))).toBe(true);
+    expect(events.some((e) => e.kind === "failure")).toBe(false);
+    expect(done?.cause).toBe("clean");
+    expect(done?.failure).toBeUndefined();
+    // The aborted attempt still surfaces - as non-terminal evidence only.
+    const errors = events.filter(
+      (e): e is Extract<HarnessEvent, { kind: "error" }> => e.kind === "error",
+    );
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors.some((e) => e.message.includes("terminated"))).toBe(true);
+    expect(errors.every((e) => e.terminal !== true)).toBe(true);
+  });
+
   test("codex turn.failed yields task failure", async () => {
     const proc = new FakeProcess();
     const d = depsFor(proc);

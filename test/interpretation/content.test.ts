@@ -106,7 +106,9 @@ describe("per-harness tool-call decoding (real CLI fixtures)", () => {
 describe("terminal-error detection (silent provider/auth failures)", () => {
   test("pi stopReason=error surfaces as an error event (real minimax auth fixture)", () => {
     const content = allContent("pi", fixture("pi-autherror"));
-    const errors = content.filter((e) => e.kind === "error");
+    const errors = content.filter(
+      (e): e is Extract<(typeof content)[number], { kind: "error" }> => e.kind === "error",
+    );
     expect(errors.length).toBeGreaterThan(0);
     expect(errors[0]).toMatchObject({
       kind: "error",
@@ -114,6 +116,19 @@ describe("terminal-error detection (silent provider/auth failures)", () => {
     });
     // No spurious message from the empty assistant content.
     expect(content.some((e) => e.kind === "message" && e.text !== "")).toBe(false);
+  });
+
+  test("pi stopReason=error is terminal but provisional - the verdict waits for the stream", () => {
+    const content = allContent("pi", fixture("pi-autherror"));
+    const errors = content.filter(
+      (e): e is Extract<(typeof content)[number], { kind: "error" }> => e.kind === "error",
+    );
+    // The per-record claim stays terminal (this attempt produced nothing),
+    // but it is PROVISIONAL: pi retries inside one run, so the decoder
+    // holds the verdict until no successful assistant message can
+    // supersede it (live-captured error-then-success in
+    // pi-terminated-recovered.ndjson; replayed in terminal-error.test.ts).
+    expect(errors.some((e) => e.terminal === true && e.provisional === true)).toBe(true);
   });
 
   test("pi unreachable message_end carries Connection error and terminal true", () => {
