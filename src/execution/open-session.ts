@@ -29,7 +29,7 @@ import {
 } from "../interpretation/session-input.js";
 import type { HarnessDescriptor, SessionInputContract } from "../knowledge/descriptor.js";
 import { AsyncChannel } from "./channel.js";
-import { decodeLine, decodeParsed, freshDecodeState } from "./decode.js";
+import { decodeLine, decodeParsed, freshDecodeState, settleProvisionalError } from "./decode.js";
 import type { RunnerDeps, SpawnedProcess } from "./deps.js";
 import {
   DROPPABLE_KINDS,
@@ -514,6 +514,14 @@ export const openSession = (
           for (const event of decodeParsed(h, parsed, state, opts.model ?? "")) {
             await routeDecoded(event);
           }
+          // The turn is over: a provisional terminal error (pi stopReason
+          // error) that no successful assistant message in this turn
+          // superseded settles into the turn's verdict now. The events are
+          // routed before endTurn so the failure lands inside the closing
+          // turn, never in the next one.
+          for (const event of settleProvisionalError(state)) {
+            await routeDecoded(event);
+          }
           if (record.isError) resultError = true;
           endTurn({
             kind: "done",
@@ -594,6 +602,20 @@ export const openSession = (
       });
       pendingIds.length = 0;
       pendingLengths.length = 0;
+    }
+    // A turn still open when the process died settles its provisional
+    // terminal error here (pi stopReason error the turn never superseded).
+    // Both the failure record and the events enqueue synchronously -
+    // routeDecoded defers its failure half past a microtask boundary, which
+    // would land it after endTurn's done - so finalize records the failure
+    // directly, before endTurn reduces the turn's verdict.
+    if (activeTurn !== null) {
+      for (const event of settleProvisionalError(state)) {
+        const failure = failureFromTerminalError(h, event.message);
+        turnFailures.push(failure);
+        void routeEvent(event);
+        void routeEvent({ kind: "failure", ...failure });
+      }
     }
     endTurn({ kind: "done", exitCode, cause });
     if (preTurnEvents.some((e) => !DROPPABLE_KINDS.has(e.kind))) {

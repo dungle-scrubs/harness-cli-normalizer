@@ -31,7 +31,7 @@ import { ArgvRefusalError } from "../interpretation/refusal.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { matcherOverridesOf } from "../knowledge/overrides.js";
 import { AsyncChannel } from "./channel.js";
-import { decodeLine, freshDecodeState } from "./decode.js";
+import { decodeLine, freshDecodeState, settleProvisionalError } from "./decode.js";
 import type { RunnerDeps, SpawnedProcess } from "./deps.js";
 import {
   DROPPABLE_KINDS,
@@ -477,6 +477,14 @@ export async function* streamTurn(
     // Flush at exit if no identity ever arrived
     if (!identitySeen && droppableBuffer.length > 0) {
       await flushDroppable();
+    }
+    // The stream is over, so no successful assistant message can still
+    // supersede a provisional terminal error (pi stopReason error): what
+    // remains stashed is the turn's verdict now - the silent-empty-turn
+    // shape. A superseded claim settles to nothing; its evidence already
+    // streamed non-terminal.
+    if (!cancelled) {
+      for (const event of settleProvisionalError(state)) await handleEvent(event);
     }
   };
 
