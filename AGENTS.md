@@ -11,6 +11,11 @@ descriptors. The `hcn` binary is the product; internal library layers are not an
 install surface. The package is published to npm as `@dungle-scrubs/harness-cli-normalizer`
 (`publishConfig.access: public`) and is source-public.
 
+## Roadmap
+
+`ROADMAP.md` lists planned work, such as new harnesses. Read it before
+starting a feature, and update it when planned work ships or changes.
+
 ## Architecture - three layers, one-way dependencies
 
 ```
