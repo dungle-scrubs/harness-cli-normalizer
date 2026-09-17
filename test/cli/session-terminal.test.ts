@@ -74,6 +74,16 @@ describe("T08: a refused --json session still owes the stream its terminal pair"
     expect(r.events[0]).toMatchObject({ kind: "failure" });
   });
 
+  test("a passthrough tail refuses like inspect-session instead of dropping it", async () => {
+    // L8: hcn session takes no passthrough tail - inspect-session refuses
+    // one, so session must too (typed refusal, never a silent drop).
+    const r = await run("codex", ["--json", "--", "--native-flag"]);
+    expect(r.exitCode).toBe(2);
+    expect(r.events[0]).toMatchObject({ kind: "failure", class: "rejected" });
+    expect(r.events.at(-1)).toMatchObject({ kind: "closed", cause: "failed" });
+    expect(JSON.stringify(r.events[0])).toMatch(/passthrough/);
+  });
+
   test("an invalid --stall writes failure + closed and exits 2", async () => {
     const r = await run("claude", ["--json", "--stall", "not-a-number"]);
     expect(r.exitCode).toBe(2);

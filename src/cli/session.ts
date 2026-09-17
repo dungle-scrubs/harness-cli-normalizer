@@ -13,6 +13,7 @@ import { ArgvRefusalError } from "../interpretation/refusal.js";
 import type { BehaviorTier } from "../interpretation/resolve-options.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
+import { splitPassthrough } from "./args.js";
 import { createRenderState, renderEvent } from "./render.js";
 import { resolveHarness } from "./resolve-harness.js";
 
@@ -24,6 +25,25 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   // pi --mode rpc), not a hardcoded name list - a harness that grows a
   // session mode is available the moment its descriptor declares one.
   const h = resolveHarness(harnessName);
+  // L8: a session takes no passthrough tail. parseCommonFlags strips it
+  // silently, so check the raw argv first - before any other refusal - and
+  // refuse the way inspect-session does instead of dropping it.
+  if (splitPassthrough(rawArgs).passthrough.length > 0) {
+    const { refusalOf, refuse } = await import("./refuse.js");
+    refuse(
+      refusalOf(
+        new ArgvRefusalError({
+          issue: "invalid-option-value",
+          harness: h.name,
+          message: `hcn session takes no passthrough tail; remove the tokens after \`--\` and re-run`,
+          supported: ["hcn session flags only, with no `--` separator"],
+        }),
+      ),
+      jsonMode,
+      "closed",
+    );
+    return;
+  }
   if (h.sessionMode === null) {
     const supported = Object.values(defaultDescriptors())
       .filter((d): d is HarnessDescriptor => d !== undefined && d.sessionMode !== null)

@@ -2,8 +2,10 @@
  * Phase 4 (D6): passthrough separator and native error labeling.
  * - splitPassthrough: first `--` splits normalized surface from verbatim
  *   harness tokens; no separator means empty passthrough
- * - passthrough tokens ride after the prompt tail, post `--`, never
- *   validated by hcn
+ * - passthrough tokens render at the descriptor's placement with NO
+ *   separator (ADR 0003): the bare `--` is hcn's own command-line split,
+ *   never a harness token - every probed harness parses trailing native
+ *   flags once it is gone. Never validated by hcn.
  * - a wrong-harness flag after -- fails IN the harness and surfaces as a
  *   native failure: labeled message, nativeExitCode as data, done.exitCode
  *   null, hcn process exit 1 (never 2 - that is hcn's refusal code)
@@ -13,7 +15,7 @@
 import { describe, expect, it } from "vitest";
 import { splitPassthrough } from "../../src/cli/args.js";
 import { failureFromNative } from "../../src/execution/failure.js";
-import { buildLaunchArgv } from "../../src/interpretation/argv.js";
+import { buildSpawnArgv } from "../../src/interpretation/argv.js";
 import { codexCli } from "../../src/knowledge/codex.js";
 
 describe("splitPassthrough", () => {
@@ -64,9 +66,12 @@ describe("failureFromNative (D6 labeling)", () => {
 });
 
 describe("passthrough reaches the built argv", () => {
-  it("tokens append verbatim after -- at the argv tail", () => {
-    const argv = [...buildLaunchArgv(codexCli, { prompt: "hi" }), "--", "--allowedTools", "Read"];
-    expect(argv.indexOf("--")).toBe(argv.length - 3);
+  it("tokens append verbatim at the argv tail with no separator", () => {
+    const argv = buildSpawnArgv(codexCli, {
+      prompt: "hi",
+      passthrough: ["--allowedTools", "Read"],
+    });
+    expect(argv).not.toContain("--");
     expect(argv.slice(-2)).toEqual(["--allowedTools", "Read"]);
   });
 });

@@ -69,11 +69,17 @@ export type CwdSlug = (typeof CWD_SLUGS)[number];
 export const RESUME_STYLES = deepFreeze(["flag", "positional"] as const);
 export type ResumeStyle = (typeof RESUME_STYLES)[number];
 
-/** What a harness does with tokens after hcn's bare `--` separator.
- * `prompt-joins` (cursor): the CLI takes a variadic positional prompt and
- * documents no `--` handling, so every passthrough token joins the prompt
- * as text. Absent on harnesses whose separator keeps working. */
-export const LAUNCH_PASSTHROUGHS = deepFreeze(["prompt-joins"] as const);
+/** Where tokens after hcn's bare `--` go in the harness argv. The
+ * separator itself is never rendered: every probed harness parses trailing
+ * native flags once the `--` is gone (ADR 0003), so `after-argv` appends
+ * past hcn's own argv. `prompt-joins` refuses before spawn on harnesses
+ * where no placement parses. Absent means `after-argv`: trailing flags
+ * parsed on all five harnesses, so an unverified descriptor gets the
+ * working default, never the separator that broke every harness. The
+ * `before-prompt` splice was removed (L5): no harness needed it, and on
+ * claude a variadic tail placed before the prompt would be taken as a
+ * directory by flags like `--add-dir`. */
+export const LAUNCH_PASSTHROUGHS = deepFreeze(["after-argv", "prompt-joins"] as const);
 export type LaunchPassthrough = (typeof LAUNCH_PASSTHROUGHS)[number];
 
 export const RESUME_ON_MISSING = deepFreeze(["error", "create"] as const);
@@ -101,6 +107,13 @@ export type AccessValue = (typeof ACCESS_VALUES)[number];
 
 export const SESSION_INPUT_KINDS = ["claude-sdk-user-message", "pi-rpc-prompt"] as const;
 export type SessionInputKind = (typeof SESSION_INPUT_KINDS)[number];
+
+/** How the runner observes a pending native approval the harness omits
+ * from its headless stream (issue #179). Closed vocabulary like
+ * LimitCode: a descriptor cannot invent an observer the execution layer
+ * has no arm for. */
+export const APPROVAL_OBSERVERS = deepFreeze(["msp-list-pending"] as const);
+export type ApprovalObserver = (typeof APPROVAL_OBSERVERS)[number];
 
 export interface SessionInputContract {
   readonly kind: SessionInputKind;
@@ -371,9 +384,9 @@ export interface HarnessDescriptor {
      * assignment; the execution layer consumes it), or null when the
      * harness mints its own. */
     readonly idFlag: string | null;
-    /** Declared passthrough behavior for tokens after hcn's bare `--`.
-     * Absent on harnesses where the separator keeps working; present as
-     * `"prompt-joins"` on cursor, where any non-empty tail refuses before
+    /** Declared passthrough placement for tokens after hcn's bare `--`
+     * (never rendered with the separator - ADR 0003). Absent means
+     * `"after-argv"`; `"prompt-joins"` refuses any non-empty tail before
      * spawn instead of silently rewriting the prompt. */
     readonly passthrough?: LaunchPassthrough;
   };
@@ -475,6 +488,12 @@ export interface HarnessDescriptor {
   /** The "run unattended without stops" flag, or null when the harness has
    * no such mode. */
   readonly autonomy: { readonly flag: string } | null;
+  /** Pending-approval observation for one headless turn (muse only in v1):
+   * muse exec omits approvals from stdout, so the runner polls the
+   * read-only MSP approval/listPending operation through a helper serve
+   * process it reaps with the child. Absent on harnesses whose headless
+   * stream already carries (or cannot raise) pending native requests. */
+  readonly approvalObserver?: ApprovalObserver;
   /** The harness's own model-id spellings, alias map, and effort ladder.
    * Curated baseline - pi's registry is runtime-extensible, so validation
    * against this vocabulary is a default, not a final word (D-008). */

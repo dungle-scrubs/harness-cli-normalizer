@@ -44,6 +44,9 @@ const spawnedArgv = async (
 };
 
 describe("planTurn", () => {
+  // Every harness plans a tail at its descriptor placement with no
+  // separator (ADR 0003): trailing native flags parsed on all five
+  // harnesses once hcn's bare `--` is gone (probed 2026-09-17).
   test.each([claudeCode, codexCli, piCli, museCode])(
     "$name: the plan's argv is the argv the runner spawns",
     async (h) => {

@@ -430,7 +430,7 @@ support; its native 10MB input cap still applies.
 | `--provider <value>` | `provider` | pi only |
 | `--tools <a,b>` | `tools` | Canonical names (read, write, edit, shell, grep, glob, list, web-fetch, web-search, subagent, skill); `native:<name>` passes a harness-native or extension tool through. Per-tool allowlist; claude and pi (pi strict, claude via grant + deny-complement). A bare name matching a configured toolset expands to it |
 | `--exclude-tools <a,b>` | `excludeTools` | Canonical names (same vocabulary, `native:<name>` passthrough); complement over known tool names; mutually exclusive with `--tools` |
-| `-- <harness args>` | `passthrough` | Verbatim harness tokens; failures surface as labeled native errors (hcn exit 1, native exit code as data), except on cursor, where a non-empty tail refuses before spawn because the tokens would join the positional prompt as text |
+| `-- <harness args>` | `passthrough` | Verbatim harness tokens rendered at the harness's descriptor placement with no separator (ADR 0003); failures surface as labeled native errors (hcn exit 1, native exit code as data). A harness that declares `prompt-joins` refuses a non-empty tail before spawn instead of rewriting the prompt (none do today) |
 | `--autonomy` / `--no-autonomy` | `autonomy` | |
 | `--write` / `--no-write` | `write` | Muse |
 | `--shell` / `--no-shell` | `shell` | Muse |
@@ -675,6 +675,32 @@ if (done.failure) {
 `resetsAt` is present only when the harness reports a reset time (today:
 claude's `rate_limit_event`); a consumer treats its absence as unknown,
 not as "retry now".
+
+### Muse pending native approvals (issue #179)
+
+`muse exec` omits pending approvals from stdout, so a headless turn blocked
+on one would hang with no event until `--timeout` (`hcn run` arms no stall
+clock; `--stall` is session-only). While a muse turn runs, hcn polls the
+read-only MSP `approval/listPending` operation through a helper `muse serve`
+process owned by that turn and reaped with it. The helper never loads the
+session, never decides anything, and carries only the blocked subject
+(approval vs input) and the approval's subject kind - never request
+payloads.
+
+A single non-empty sample stops nothing: judge-decided approvals for
+ordinary tool calls appear briefly, then clear. The turn ends only when the
+same request identity persists across 30 consecutive polls (about 30
+seconds), or at once when an approval is judge-escalated (a human was
+asked, and a headless run has none). A request that resolves itself
+(`autoResolutionMs`) is never reported before its deadline plus a margin.
+Either way the turn emits an `error` naming the blocked subject, then
+`failure class=task` (`retryable: false` - answer it in muse, or rerun with
+`--autonomy` only if unattended approvals are acceptable; never auto-route)
+and `done cause=failed` with exit 1. When the pending set itself cannot be
+read (the helper is slow to start, crashes, or answers unreadably three
+polls in a row), the turn fails closed with `failure class=transport`
+(`retryable: true` - hcn could not watch the pending set, so the run was
+stopped rather than risking a silent hang).
 
 ## Refusals
 

@@ -33,6 +33,12 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     baseFlags: ["-p"],
     subcommands: [],
     promptStyle: "positional",
+    // Passthrough placement (ADR 0003, probed 2026-09-17 on claude
+    // 2.1.274): appended native flags parse once hcn's bare `--` is gone
+    // (an appended `--session-id <uuid>` is honored as the session id; a
+    // bogus flag is rejected natively as an unknown option). The tail
+    // renders past hcn's own argv with no separator.
+    passthrough: "after-argv",
     // Print mode accepts piped text. Keep ordinary argv introspection
     // stable while staying below per-argument limits for large requests.
     stdinPrompt: { argument: "", aboveBytes: 65_536 },

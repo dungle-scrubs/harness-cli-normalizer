@@ -26,6 +26,13 @@ export const museCode: HarnessDescriptor = deepFreeze({
     baseFlags: ["exec", "--json"],
     subcommands: ["exec"],
     promptStyle: "positional",
+    // Passthrough placement (ADR 0003, probed 2026-09-17 on Muse Code
+    // 1.3.0): the earlier prompt-joins verdict was the `--` separator's
+    // doing. With the separator gone, appended native flags parse: an
+    // appended `--session-id <uuid>` is honored as the session id and a
+    // bogus flag is rejected natively as an unknown option. The tail
+    // renders past hcn's own argv with no separator.
+    passthrough: "after-argv",
     streamFlags: [],
     idFlag: "--session-id",
   },
@@ -59,6 +66,12 @@ export const museCode: HarnessDescriptor = deepFreeze({
   limitMatchers: [...SHARED_LIMIT_MATCHERS],
   authMatchers: [...SHARED_AUTH_MATCHERS],
   autonomy: { flag: "--yolo" },
+  // Issue #179: exec omits pending approvals from stdout, so a headless
+  // turn blocked on one hangs with no event. The runner observes them
+  // through the read-only MSP approval/listPending operation (verified
+  // against the 1.3.0 schema export: a log-fold read, no lease, works on
+  // loaded and unloaded sessions, never subscribes).
+  approvalObserver: "msp-list-pending",
   vocabulary: {
     modelFlag: "--model",
     models: [
