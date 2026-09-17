@@ -1,0 +1,5 @@
+{"jsonrpc":"2.0","id":1,"result":{"serverInfo":{"name":"muse","version":"1.3.0"},"userAgent":"muse-build/1.3.0 (non-interactive; macos-aarch64; build 02a9f9c81f7cfc6df1b00b0f941b55fd74582b5b)","museHome":"/Users/kevin/.local/share/muse","platformFamily":"unix","platformOs":"macos","schema":{"version":1,"fingerprint":"sha256:ab69549a7ebb423fce94068762da0b5ff3cdec1f8fc263dcc17248eda117f852"},"grantedCapabilities":[],"experimentalApi":false,"sessionDurability":"durable"}}
+{"jsonrpc":"2.0","id":2,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":3,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":4,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":5,"result":{"approvals":[],"userInputs":[]}}

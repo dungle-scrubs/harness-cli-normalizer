@@ -234,7 +234,7 @@ test("transcript inspection reports Muse's file method without starting a native
   expect(doc.methods.map((method: { id: string }) => method.id)).toEqual(["muse-file-v1"]);
   expect(doc.capabilities.history.status).toBe("available");
   expect(Object.keys(doc.capabilities)).toHaveLength(8);
-  expect(doc.verifiedAgainst).toBe("1.1.1");
+  expect(doc.verifiedAgainst).toBe("1.3.0");
   expect(doc.capabilities.history.evidence[1].appliesTo.writerBuilds).toContainEqual({
     version: "1.1.1",
     buildId: "1.1.1-R2514.1",
@@ -265,7 +265,7 @@ test("Muse reports a missing native source without creating a conversation or ad
 
 test("Claude reports its snapshot method and a missing native ID despite coverage opt-ins", () => {
   const inspection = JSON.parse(command(["inspect", "claude", "--transcript"]).out);
-  expect(inspection.verifiedAgainst).toBe("2.1.263");
+  expect(inspection.verifiedAgainst).toBe("2.1.274");
   expect(inspection.methods.map((method: { id: string }) => method.id)).toEqual(["claude-file-v1"]);
   expect(inspection.methods[0].selectors).toEqual(["id", "file"]);
   expect(inspection.capabilities.history.status).toBe("available");

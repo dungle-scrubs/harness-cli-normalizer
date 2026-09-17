@@ -4,7 +4,13 @@ import { contextInspectionOf } from "../../src/interpretation/context-inspection
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 
 const read = (file: string): string =>
-  readFileSync(new URL(`../fixtures/claude-2.1.263/${file}`, import.meta.url), "utf8");
+  readFileSync(new URL(`../fixtures/claude-2.1.274/${file}`, import.meta.url), "utf8");
+
+const events = (file: string): Record<string, unknown>[] =>
+  read(file)
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line));
 
 test("the verified Claude anchor has passing native capability and question captures", () => {
   const seven = JSON.parse(read("seven.snapshot.json"));
@@ -20,6 +26,7 @@ test("the verified Claude anchor has passing native capability and question capt
 test("captured native accounting normalizes with a distinct used amount and input limit", () => {
   const native = JSON.parse(read("context-native.ndjson"));
   expect(native.response.subtype).toBe("success");
+  expect(native.response.response.autocompactSource).toBe("model-default");
   expect(contextInspectionOf(native.response.response)).toMatchObject({
     status: "available",
     method: "native-context-estimate",
@@ -32,8 +39,29 @@ test("captured native accounting normalizes with a distinct used amount and inpu
   expect(native.response.response.totalTokens).toBeLessThan(967000);
   const published = JSON.parse(read("context-public.ndjson"));
   expect(published.executable.version).toBe(claudeCode.verifiedAgainst);
+  expect(published.verifiedAgainst).toBe(claudeCode.verifiedAgainst);
   expect(published.accounting).toMatchObject({
     status: "available",
     method: "native-context-estimate",
   });
+});
+
+test("forked resume accounting counts recalled history and leaves the source session unchanged", () => {
+  const fresh = JSON.parse(read("context-native.ndjson")).response.response;
+  const resumed = JSON.parse(read("context-resume-native.ndjson")).response.response;
+  expect(contextInspectionOf(resumed)).toMatchObject({ status: "available" });
+  expect(resumed.totalTokens).toBeGreaterThan(fresh.totalTokens);
+  const digest = (file: string): string => read(file).split(" ")[0] ?? "";
+  expect(digest("context-session-before.sha256")).toMatch(/^[0-9a-f]{64}$/);
+  expect(digest("context-session-after.sha256")).toBe(digest("context-session-before.sha256"));
+});
+
+test("native compaction surfaces its boundary and a later process recalls the marker", () => {
+  const compaction = events("compaction.ndjson");
+  expect(compaction).toContainEqual({ kind: "progress", label: "compact_boundary" });
+  expect(compaction).toContainEqual({ kind: "message", role: "assistant", text: "HERON-517" });
+  expect(compaction.at(-1)).toMatchObject({ kind: "done", cause: "clean", exitCode: 0 });
+  const later = events("post-compaction.ndjson");
+  expect(later).toContainEqual({ kind: "message", role: "assistant", text: "HERON-517" });
+  expect(later.at(-1)).toMatchObject({ kind: "done", cause: "clean", exitCode: 0 });
 });

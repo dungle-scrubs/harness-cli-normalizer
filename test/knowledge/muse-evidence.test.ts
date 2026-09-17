@@ -9,8 +9,8 @@ import { cursorCli } from "../../src/knowledge/cursor.js";
 import { museCode } from "../../src/knowledge/muse.js";
 import { piCli } from "../../src/knowledge/pi.js";
 
-const read = (file: string): string =>
-  readFileSync(new URL(`../fixtures/muse-1.1.1/${file}`, import.meta.url), "utf8");
+const read = (file: string, dir = "muse-1.3.0"): string =>
+  readFileSync(new URL(`../fixtures/${dir}/${file}`, import.meta.url), "utf8");
 
 const decoded = (file: string): HarnessEvent[] => {
   const state = freshDecodeState(null);
@@ -61,6 +61,13 @@ test("Muse installed automatic compaction and a later process recalled the marke
   expect(records).toContainEqual(
     expect.objectContaining({
       kind: "context_compaction_candidate",
+      trigger: "hard_threshold_blocking",
+      status: "succeeded",
+    }),
+  );
+  expect(records).toContainEqual(
+    expect.objectContaining({
+      kind: "context_compaction_candidate",
       trigger: "soft_threshold_async",
       status: "succeeded",
     }),
@@ -79,6 +86,14 @@ test("Muse installed automatic compaction and a later process recalled the marke
   expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean", exitCode: 0 });
 });
 
+test("the approval observer's MSP helper answers on the verified Muse", () => {
+  const [initialize] = read("list-pending.ndjson")
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line));
+  expect(initialize.result.serverInfo).toEqual({ name: "muse", version: museCode.verifiedAgainst });
+});
+
 test("only muse declares a pending-approval observer (issue #179)", () => {
   // muse exec omits pending approvals from stdout, so the runner observes
   // them through the read-only MSP listPending operation. No other
@@ -91,7 +106,9 @@ test("only muse declares a pending-approval observer (issue #179)", () => {
 });
 
 test("native compaction failure remains a failure, not successful accounting", () => {
-  const records = JSON.parse(read("compaction-records.json"));
+  // 1.1.1 recorded a rejected hard-threshold replacement; 1.3.0 installs one
+  // at the same thresholds, so that record stays the fallback evidence.
+  const records = JSON.parse(read("compaction-records.json", "muse-1.1.1"));
   expect(records).toContainEqual(
     expect.objectContaining({
       kind: "context_compaction_candidate",
@@ -106,4 +123,17 @@ test("native compaction failure remains a failure, not successful accounting", (
       reason: "hard_threshold_failed",
     }),
   );
+});
+
+test("a threshold the startup prompt already exceeds stays a native failure", () => {
+  const events = read("threshold-failure.ndjson")
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line));
+  expect(events).toContainEqual(
+    expect.objectContaining({ kind: "failure", class: "native", nativeExitCode: 1 }),
+  );
+  expect(events.some((event) => event.kind === "message")).toBe(false);
+  expect(events.at(-1)).toMatchObject({ kind: "done", cause: "crash" });
+  expect(events.at(-1).failure.message).toContain("reaches hard threshold");
 });

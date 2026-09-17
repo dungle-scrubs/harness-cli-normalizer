@@ -108,10 +108,10 @@ describe("hcn version and help", () => {
 describe("hcn ls", () => {
   test("lists claude@, codex@, pi@, muse@ with versionSource", async () => {
     const out = await captureDispatch(["ls"]);
-    expect(out.stdout).toContain("claude@2.1.263");
-    expect(out.stdout).toContain("codex@0.153.4");
-    expect(out.stdout).toContain("pi@0.84.2");
-    expect(out.stdout).toContain("muse@1.1.1");
+    expect(out.stdout).toContain("claude@2.1.274");
+    expect(out.stdout).toContain("codex@0.154.0");
+    expect(out.stdout).toContain("pi@0.85.1");
+    expect(out.stdout).toContain("muse@1.3.0");
     expect(out.stdout).toContain("npm:");
     expect(out.stdout).toContain("installed:");
     expect(out.exitCode === undefined || out.exitCode === 0).toBe(true);
@@ -199,7 +199,7 @@ describe("hcn inspect (pure)", () => {
     const out = await captureDispatch(["inspect", "claude"]);
     const parsed = JSON.parse(out.stdout);
     expect(parsed.bin).toBe("claude");
-    expect(parsed.verifiedAgainst).toBe("2.1.263");
+    expect(parsed.verifiedAgainst).toBe("2.1.274");
     expect(parsed.launch.streamFlags).toContain("--output-format");
     expect(parsed.launch.stdinPrompt).toEqual({ argument: "", aboveBytes: 65_536 });
     expect(parsed.resume.flag).toBe("--resume");

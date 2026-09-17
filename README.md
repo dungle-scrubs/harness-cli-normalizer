@@ -378,7 +378,7 @@ resolved; `resume.reason` supplies that safe explanation. Otherwise transport
 denotes a failure to open or use the process channel.
 
 Descriptor inspection separately exposes `nativeContextManagement`: Codex
-0.153.4 and Muse 1.1.1 declare `{ kind: "auto-compaction", modes: ["headless-turn"] }`.
+0.154.0 and Muse 1.3.0 declare `{ kind: "auto-compaction", modes: ["headless-turn"] }`.
 Claude declares `{ kind: "native-session-auto-compaction", modes: ["headless-turn"] }`.
 This covers native session growth; callers must still prepare imported history.
 Fresh mandatory content can exceed the native request limit, and compaction

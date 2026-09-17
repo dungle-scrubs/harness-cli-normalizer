@@ -1,6 +1,6 @@
 /**
  * The muse descriptor: facts about the `muse` CLI as data, verified against
- * Muse Code 1.1.1 (test/fixtures/muse-1.1.1). The v1 scars this encodes:
+ * Muse Code 1.3.0 (test/fixtures/muse-1.3.0). The v1 scars this encodes:
  * headless re-entry is `muse exec
  * --session-id <id>` (the positional `muse resume <id>` is the INTERACTIVE
  * picker - recognized when pasted, never built), and `muse exec` exits 0
@@ -15,11 +15,11 @@ export const museCode: HarnessDescriptor = deepFreeze({
   name: "muse",
   transcript: MUSE_TRANSCRIPT,
   bin: "muse",
-  verifiedAgainst: "1.1.1",
+  verifiedAgainst: "1.3.0",
   // No npm package - `hcn check` falls back to `muse --version` locally and
   // is skipped in CI where the binary is absent, so this harness is exempt
   // from automated drift detection (see README Version-pinning and drift).
-  versionSource: { kind: "installed" }, // Re-checked with muse --version, 2026-09-11.
+  versionSource: { kind: "installed" }, // Re-checked with muse --version, 2026-09-17.
   launch: {
     // exec --json emits the payload_type/stream records the runner decodes
     // (verified 0.1.0); bare exec streams human text.
@@ -81,7 +81,9 @@ export const museCode: HarnessDescriptor = deepFreeze({
       "muse-spark-1.1",
     ],
     aliases: {},
-    efforts: ["none", "minimal", "low", "medium", "high", "xhigh"],
+    // max and ultra: listed by `muse exec --help` on 1.3.0 and accepted live
+    // (an unlisted effort is a native usage error, exit 2).
+    efforts: ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"],
     extensible: false,
   },
   store: {
@@ -94,7 +96,7 @@ export const museCode: HarnessDescriptor = deepFreeze({
   contextHook: null,
   contextInspection: null,
   // Automatic replacement installation and later process recall captured on
-  // 1.1.1. Native growth handling is not a pending-prompt count or a guarantee
+  // 1.1.1 and again on 1.3.0. Native growth handling is not a pending-prompt count or a guarantee
   // that arbitrary incoming content fits; native compaction can fail.
   nativeContextManagement: { kind: "auto-compaction", modes: ["headless-turn"] },
   // `muse resume --last` exists (muse resume --help) but needs a
@@ -123,14 +125,14 @@ export const museCode: HarnessDescriptor = deepFreeze({
     },
     session: false,
   },
-  // Provenance from test/fixtures/muse-1.1.1/questions.snapshot.json.
+  // Provenance from test/fixtures/muse-1.3.0/questions.snapshot.json.
   escalation: {
     supported: true,
     observedOn: {
       harness: "muse",
       model: "muse-spark-1.3-contributor",
-      version: "1.1.1",
-      date: "2026-09-11",
+      version: "1.3.0",
+      date: "2026-09-17",
     },
   },
   turnOptions: {

@@ -64,6 +64,28 @@ describe("planTurn", () => {
     },
   );
 
+  // A single-dash native flag after `--` is passthrough, not a positional
+  // prompt: `hcn run codex "hi" -- -c key=value` must plan, not refuse as
+  // prompt-flag injection.
+  test("a single-dash native flag after -- plans beside a positional prompt", async () => {
+    const outcome = await planTurn(
+      codexCli,
+      ["hi", "--", "-c", "model_auto_compact_token_limit=20000"],
+      { command: "run" },
+      deps,
+    );
+    expect(outcome.kind).toBe("plan");
+    if (outcome.kind !== "plan") return;
+    expect(outcome.plan.argv.slice(-2)).toEqual(["-c", "model_auto_compact_token_limit=20000"]);
+  });
+
+  test("a single-dash positional prompt before -- is still refused", async () => {
+    const outcome = await planTurn(codexCli, ["-bad", "--", "-c", "x=1"], { command: "run" }, deps);
+    expect(outcome.kind).toBe("refusal");
+    if (outcome.kind !== "refusal") return;
+    expect(outcome.refusal.issue).toBe("prompt-flag-injection");
+  });
+
   test("a resume plan carries no launch provenance but still resolves behaviour", async () => {
     const outcome = await planTurn(
       claudeCode,

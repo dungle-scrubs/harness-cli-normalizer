@@ -1,7 +1,7 @@
 /**
  * The codex descriptor: facts about the `codex` CLI as data, verified
- * against codex-cli 0.153.4. Native capability and question recordings
- * live in test/fixtures/codex-0.153.4.
+ * against codex-cli 0.154.0. Native capability, question, and compaction
+ * recordings live in test/fixtures/codex-0.154.0.
  */
 import { deepFreeze, type HarnessDescriptor, type OptionRender, UUID_SHAPE } from "./descriptor.js";
 import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
@@ -19,7 +19,7 @@ export const codexCli: HarnessDescriptor = deepFreeze({
   name: "codex",
   transcript: CODEX_TRANSCRIPT,
   bin: "codex",
-  verifiedAgainst: "0.153.4",
+  verifiedAgainst: "0.154.0",
   versionSource: { kind: "npm", package: "@openai/codex" },
   launch: {
     // exec --json emits structured item events; without --json, identity
@@ -100,7 +100,8 @@ export const codexCli: HarnessDescriptor = deepFreeze({
   },
   contextHook: null,
   contextInspection: null,
-  // Codex 0.153.4 core/session/turn.rs runs native automatic compaction.
+  // Codex 0.154.0 core/session/turn.rs runs native automatic compaction;
+  // live compaction and later-process recall captured on 0.154.0.
   nativeContextManagement: { kind: "auto-compaction", modes: ["headless-turn"] },
   // Valid only in the `exec resume` context: `codex exec resume --last`
   // (re-verified on 0.154.0, 2026-09-17). No fork mechanism is probed on
@@ -137,8 +138,8 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     observedOn: {
       harness: "codex",
       model: "gpt-6-astra",
-      version: "0.153.4",
-      date: "2026-09-08",
+      version: "0.154.0",
+      date: "2026-09-17",
     },
   },
   turnOptions: {

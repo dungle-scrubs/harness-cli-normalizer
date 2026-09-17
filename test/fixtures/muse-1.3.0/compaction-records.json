@@ -1,0 +1,394 @@
+[
+  {
+    "kind": "context_compaction_candidate",
+    "candidate_id": "candidate-15",
+    "trigger": "hard_threshold_blocking",
+    "timing": "pre_turn",
+    "status": "succeeded",
+    "strategy": {
+      "strategy_id": "summary-preserved-suffix/v1",
+      "strategy_family": "summary",
+      "config_fingerprint": "soft=0.0200,hard=0.0400",
+      "target_budget_tokens": 10240,
+      "soft_threshold_tokens": 10240,
+      "hard_threshold_tokens": 20480
+    },
+    "superseded_by": null,
+    "started_at_cursor": {
+      "sequence": 13
+    },
+    "summarized_through_cursor": {
+      "sequence": 0
+    },
+    "replacement": {
+      "kind": "summary_text",
+      "text": "## Primary Request And Intent\n- Continue the latest visible user request. Latest request excerpt: Continue the synthetic session. Reply with only: OK\n## User Constraints And Preferences\n- Keep exact user constraints from the timeline, including commands, files, and final tokens.\n## Current State\n- Provider summary output was invalid; local rescue rebuilt a handoff from visible context.\n## Files, APIs, Commands, And Tests\n- APIs: {\"success\":true,\"scope\":\"personal\",\"path\":\"MEMORY.md\",\"start_line_number\":1,\"content\":\"Code word: ORCHID-7 (user asked to remember on 2026-09-17)\",\"truncated\":false}\n## Decisions And Rationale\n- Keep the run moving at the hard threshold while preserving exact coding handoff details.\n## Errors, Failed Attempts, And Fixes\n- None known.\n## Open Questions And Risks\n- Older non-user details may be omitted; use the preserved raw suffix for extra recent detail.\n## Pending Tasks And Next Step\n- Continue the latest visible user request using the files, APIs, commands, tests, and tokens above: Continue the synthetic session. Reply with only: OK\n## User Message Timeline\n- User: \"Synthetic session. Remember marker MARIGOLD-742. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction  [truncated]  the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Reply with only: OK\"; User: \"Continue the synthetic session. Reply with only: OK\""
+    },
+    "preserved_segment_hint": {
+      "head_sequence": 1,
+      "tail_sequence": 15
+    },
+    "budget_before": {
+      "estimated_prompt_tokens": 52050,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    },
+    "estimated_budget_after": {
+      "estimated_prompt_tokens": 19770,
+      "target_met": false,
+      "estimate_source": "heuristic_estimate"
+    },
+    "diagnostics": [
+      {
+        "reason": "summary_call_metrics",
+        "message": "{\"provider_calls\":0,\"usage_unavailable_calls\":0,\"input_tokens\":0,\"output_tokens\":0,\"cached_tokens\":0,\"cache_write_tokens\":0,\"cache_read_tokens\":0,\"cache_breakdown_unavailable_calls\":0,\"reasoning_tokens\":0}"
+      },
+      {
+        "reason": "local_summary_rescue",
+        "message": "provider summary failed; installed local rescue: summarizer failed: provider summarizer input cannot fit the latest user task"
+      }
+    ]
+  },
+  {
+    "kind": "context_compaction_installed",
+    "install_id": "install-16",
+    "candidate_id": "candidate-15",
+    "trigger": "hard_threshold_blocking",
+    "timing": "pre_turn",
+    "strategy_id": "summary-preserved-suffix/v1",
+    "summarized_through": {
+      "sequence": 0
+    },
+    "replacement": {
+      "kind": "summary_text",
+      "text": "## Primary Request And Intent\n- Continue the latest visible user request. Latest request excerpt: Continue the synthetic session. Reply with only: OK\n## User Constraints And Preferences\n- Keep exact user constraints from the timeline, including commands, files, and final tokens.\n## Current State\n- Provider summary output was invalid; local rescue rebuilt a handoff from visible context.\n## Files, APIs, Commands, And Tests\n- APIs: {\"success\":true,\"scope\":\"personal\",\"path\":\"MEMORY.md\",\"start_line_number\":1,\"content\":\"Code word: ORCHID-7 (user asked to remember on 2026-09-17)\",\"truncated\":false}\n## Decisions And Rationale\n- Keep the run moving at the hard threshold while preserving exact coding handoff details.\n## Errors, Failed Attempts, And Fixes\n- None known.\n## Open Questions And Risks\n- Older non-user details may be omitted; use the preserved raw suffix for extra recent detail.\n## Pending Tasks And Next Step\n- Continue the latest visible user request using the files, APIs, commands, tests, and tokens above: Continue the synthetic session. Reply with only: OK\n## User Message Timeline\n- User: \"Synthetic session. Remember marker MARIGOLD-742. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction  [truncated]  the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Reply with only: OK\"; User: \"Continue the synthetic session. Reply with only: OK\""
+    },
+    "preserved_segment": {
+      "head_sequence": 1,
+      "tail_sequence": 15,
+      "interval": "(0, 15]",
+      "boundary_widened": false
+    },
+    "budget_before": {
+      "estimated_prompt_tokens": 52050,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    },
+    "budget_after": {
+      "estimated_prompt_tokens": 19770,
+      "target_met": false,
+      "estimate_source": "heuristic_estimate"
+    },
+    "prompt_cache_boundary": {
+      "status": "reset",
+      "cache_key": null,
+      "stable_prefix_label": null,
+      "stable_through_sequence": null,
+      "change_reason": "summary_replaced_prefix",
+      "reported_cached_tokens": null
+    }
+  },
+  {
+    "kind": "context_compaction_candidate",
+    "candidate_id": "candidate-15",
+    "trigger": "hard_threshold_blocking",
+    "timing": "pre_turn",
+    "status": "succeeded",
+    "strategy": {
+      "strategy_id": "summary-preserved-suffix/v1",
+      "strategy_family": "summary",
+      "config_fingerprint": "soft=0.0200,hard=0.0400",
+      "target_budget_tokens": 10240,
+      "soft_threshold_tokens": 10240,
+      "hard_threshold_tokens": 20480
+    },
+    "superseded_by": null,
+    "started_at_cursor": {
+      "sequence": 13
+    },
+    "summarized_through_cursor": {
+      "sequence": 0
+    },
+    "replacement": {
+      "kind": "summary_text",
+      "text": "## Primary Request And Intent\n- Continue the latest visible user request. Latest request excerpt: Continue the synthetic session. Reply with only: OK\n## User Constraints And Preferences\n- Keep exact user constraints from the timeline, including commands, files, and final tokens.\n## Current State\n- Provider summary output was invalid; local rescue rebuilt a handoff from visible context.\n## Files, APIs, Commands, And Tests\n- APIs: {\"success\":true,\"scope\":\"personal\",\"path\":\"MEMORY.md\",\"start_line_number\":1,\"content\":\"Code word: ORCHID-7 (user asked to remember on 2026-09-17)\",\"truncated\":false}\n## Decisions And Rationale\n- Keep the run moving at the hard threshold while preserving exact coding handoff details.\n## Errors, Failed Attempts, And Fixes\n- None known.\n## Open Questions And Risks\n- Older non-user details may be omitted; use the preserved raw suffix for extra recent detail.\n## Pending Tasks And Next Step\n- Continue the latest visible user request using the files, APIs, commands, tests, and tokens above: Continue the synthetic session. Reply with only: OK\n## User Message Timeline\n- User: \"Synthetic session. Remember marker MARIGOLD-742. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction  [truncated]  the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Reply with only: OK\"; User: \"Continue the synthetic session. Reply with only: OK\""
+    },
+    "preserved_segment_hint": {
+      "head_sequence": 1,
+      "tail_sequence": 15
+    },
+    "budget_before": {
+      "estimated_prompt_tokens": 52050,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    },
+    "estimated_budget_after": {
+      "estimated_prompt_tokens": 19770,
+      "target_met": false,
+      "estimate_source": "heuristic_estimate"
+    },
+    "diagnostics": [
+      {
+        "reason": "summary_call_metrics",
+        "message": "{\"provider_calls\":0,\"usage_unavailable_calls\":0,\"input_tokens\":0,\"output_tokens\":0,\"cached_tokens\":0,\"cache_write_tokens\":0,\"cache_read_tokens\":0,\"cache_breakdown_unavailable_calls\":0,\"reasoning_tokens\":0}"
+      },
+      {
+        "reason": "local_summary_rescue",
+        "message": "provider summary failed; installed local rescue: summarizer failed: provider summarizer input cannot fit the latest user task"
+      }
+    ]
+  },
+  {
+    "kind": "context_compaction_installed",
+    "install_id": "install-16",
+    "candidate_id": "candidate-15",
+    "trigger": "hard_threshold_blocking",
+    "timing": "pre_turn",
+    "strategy_id": "summary-preserved-suffix/v1",
+    "summarized_through": {
+      "sequence": 0
+    },
+    "replacement": {
+      "kind": "summary_text",
+      "text": "## Primary Request And Intent\n- Continue the latest visible user request. Latest request excerpt: Continue the synthetic session. Reply with only: OK\n## User Constraints And Preferences\n- Keep exact user constraints from the timeline, including commands, files, and final tokens.\n## Current State\n- Provider summary output was invalid; local rescue rebuilt a handoff from visible context.\n## Files, APIs, Commands, And Tests\n- APIs: {\"success\":true,\"scope\":\"personal\",\"path\":\"MEMORY.md\",\"start_line_number\":1,\"content\":\"Code word: ORCHID-7 (user asked to remember on 2026-09-17)\",\"truncated\":false}\n## Decisions And Rationale\n- Keep the run moving at the hard threshold while preserving exact coding handoff details.\n## Errors, Failed Attempts, And Fixes\n- None known.\n## Open Questions And Risks\n- Older non-user details may be omitted; use the preserved raw suffix for extra recent detail.\n## Pending Tasks And Next Step\n- Continue the latest visible user request using the files, APIs, commands, tests, and tokens above: Continue the synthetic session. Reply with only: OK\n## User Message Timeline\n- User: \"Synthetic session. Remember marker MARIGOLD-742. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction  [truncated]  the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Reply with only: OK\"; User: \"Continue the synthetic session. Reply with only: OK\""
+    },
+    "preserved_segment": {
+      "head_sequence": 1,
+      "tail_sequence": 15,
+      "interval": "(0, 15]",
+      "boundary_widened": false
+    },
+    "budget_before": {
+      "estimated_prompt_tokens": 52050,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    },
+    "budget_after": {
+      "estimated_prompt_tokens": 19770,
+      "target_met": false,
+      "estimate_source": "heuristic_estimate"
+    },
+    "prompt_cache_boundary": {
+      "status": "reset",
+      "cache_key": null,
+      "stable_prefix_label": null,
+      "stable_through_sequence": null,
+      "change_reason": "summary_replaced_prefix",
+      "reported_cached_tokens": null
+    }
+  },
+  {
+    "kind": "context_compaction_candidate",
+    "candidate_id": "candidate-14",
+    "trigger": "soft_threshold_async",
+    "timing": "pre_turn",
+    "status": "running",
+    "strategy": {
+      "strategy_id": "summary-preserved-suffix/v1",
+      "strategy_family": "summary",
+      "config_fingerprint": "soft=0.0400,hard=0.1000",
+      "target_budget_tokens": 20480,
+      "soft_threshold_tokens": 20480,
+      "hard_threshold_tokens": 51200
+    },
+    "superseded_by": null,
+    "started_at_cursor": {
+      "sequence": 13
+    },
+    "summarized_through_cursor": {
+      "sequence": 0
+    },
+    "replacement": null,
+    "preserved_segment_hint": null,
+    "budget_before": {
+      "estimated_prompt_tokens": 20930,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    },
+    "estimated_budget_after": {
+      "estimated_prompt_tokens": 20930,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    }
+  },
+  {
+    "kind": "context_compaction_candidate",
+    "candidate_id": "candidate-14",
+    "trigger": "soft_threshold_async",
+    "timing": "pre_turn",
+    "status": "succeeded",
+    "strategy": {
+      "strategy_id": "summary-preserved-suffix/v1",
+      "strategy_family": "summary",
+      "config_fingerprint": "soft=0.0400,hard=0.1000",
+      "target_budget_tokens": 20480,
+      "soft_threshold_tokens": 20480,
+      "hard_threshold_tokens": 51200
+    },
+    "superseded_by": null,
+    "started_at_cursor": {
+      "sequence": 13
+    },
+    "summarized_through_cursor": {
+      "sequence": 0
+    },
+    "replacement": {
+      "kind": "summary_text",
+      "text": "## Primary Request And Intent\n- Continue the synthetic session and reply with only: OK, preserving marker MARIGOLD-742.\n## User Constraints And Preferences\n- Reply with only: OK with no extra text.\n## Current State\n- Assistant already replied OK to continue the synthetic session, so the latest request is met and no code changes are in progress.\n## Files, APIs, Commands, And Tests\n- MEMORY.md contains Code word: ORCHID-7; no files, commands, or tests were run in the visible suffix.\n- Exact visible context: APIs: - APIs: {\"success\":true,\"scope\":\"personal\",\"path\":\"MEMORY.md\",\"start_line_number\":1,\"content\":\"Code word: ORCHID-7 (user asked to remember on 2026-09-17)\",\"truncated\":false}\n## Decisions And Rationale\n- Preserved exact marker tokens and replied minimally to keep the synthetic session moving without extra work.\n## Errors, Failed Attempts, And Fixes\n- None known.\n## Open Questions And Risks\n- None known.\n## Pending Tasks And Next Step\n- None known; next user message will define further work, otherwise continue replying OK if asked.\n## User Message Timeline\n- User: \"Synthetic session. Remember marker MARIGOLD-742. Synthetic filler line [truncated] Reply with only: OK\"; User: \"Continue the synthetic session. Reply with only: OK\"\n- Exact visible user timeline: User: \"Synthetic session. Remember marker MARIGOLD-742. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for [truncated] probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Reply with only: OK\"; User: \"Continue the synthetic session. Reply with only: OK\""
+    },
+    "preserved_segment_hint": {
+      "head_sequence": 1,
+      "tail_sequence": 36
+    },
+    "budget_before": {
+      "estimated_prompt_tokens": 20930,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    },
+    "estimated_budget_after": {
+      "estimated_prompt_tokens": 19883,
+      "target_met": true,
+      "estimate_source": "heuristic_estimate"
+    },
+    "diagnostics": [
+      {
+        "reason": "summary_call_metrics",
+        "message": "{\"provider_calls\":1,\"usage_unavailable_calls\":0,\"input_tokens\":2908,\"output_tokens\":579,\"cached_tokens\":0,\"cache_write_tokens\":0,\"cache_read_tokens\":0,\"cache_breakdown_unavailable_calls\":0,\"reasoning_tokens\":210}"
+      }
+    ]
+  },
+  {
+    "kind": "context_compaction_installed",
+    "install_id": "install-37",
+    "candidate_id": "candidate-14",
+    "trigger": "soft_threshold_async",
+    "timing": "standalone_manual",
+    "strategy_id": "summary-preserved-suffix/v1",
+    "summarized_through": {
+      "sequence": 0
+    },
+    "replacement": {
+      "kind": "summary_text",
+      "text": "## Primary Request And Intent\n- Continue the synthetic session and reply with only: OK, preserving marker MARIGOLD-742.\n## User Constraints And Preferences\n- Reply with only: OK with no extra text.\n## Current State\n- Assistant already replied OK to continue the synthetic session, so the latest request is met and no code changes are in progress.\n## Files, APIs, Commands, And Tests\n- MEMORY.md contains Code word: ORCHID-7; no files, commands, or tests were run in the visible suffix.\n- Exact visible context: APIs: - APIs: {\"success\":true,\"scope\":\"personal\",\"path\":\"MEMORY.md\",\"start_line_number\":1,\"content\":\"Code word: ORCHID-7 (user asked to remember on 2026-09-17)\",\"truncated\":false}\n## Decisions And Rationale\n- Preserved exact marker tokens and replied minimally to keep the synthetic session moving without extra work.\n## Errors, Failed Attempts, And Fixes\n- None known.\n## Open Questions And Risks\n- None known.\n## Pending Tasks And Next Step\n- None known; next user message will define further work, otherwise continue replying OK if asked.\n## User Message Timeline\n- User: \"Synthetic session. Remember marker MARIGOLD-742. Synthetic filler line [truncated] Reply with only: OK\"; User: \"Continue the synthetic session. Reply with only: OK\"\n- Exact visible user timeline: User: \"Synthetic session. Remember marker MARIGOLD-742. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for [truncated] probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Reply with only: OK\"; User: \"Continue the synthetic session. Reply with only: OK\""
+    },
+    "preserved_segment": {
+      "head_sequence": 1,
+      "tail_sequence": 36,
+      "interval": "(0, 36]",
+      "boundary_widened": false
+    },
+    "budget_before": {
+      "estimated_prompt_tokens": 20930,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    },
+    "budget_after": {
+      "estimated_prompt_tokens": 19883,
+      "target_met": true,
+      "estimate_source": "heuristic_estimate"
+    },
+    "prompt_cache_boundary": {
+      "status": "reset",
+      "cache_key": null,
+      "stable_prefix_label": null,
+      "stable_through_sequence": null,
+      "change_reason": "summary_replaced_prefix",
+      "reported_cached_tokens": null
+    },
+    "summarizer_usage": {
+      "input_tokens": 2908,
+      "output_tokens": 579,
+      "duration_ms": 5957
+    }
+  },
+  {
+    "kind": "context_compaction_candidate",
+    "candidate_id": "candidate-14",
+    "trigger": "soft_threshold_async",
+    "timing": "pre_turn",
+    "status": "succeeded",
+    "strategy": {
+      "strategy_id": "summary-preserved-suffix/v1",
+      "strategy_family": "summary",
+      "config_fingerprint": "soft=0.0400,hard=0.1000",
+      "target_budget_tokens": 20480,
+      "soft_threshold_tokens": 20480,
+      "hard_threshold_tokens": 51200
+    },
+    "superseded_by": null,
+    "started_at_cursor": {
+      "sequence": 13
+    },
+    "summarized_through_cursor": {
+      "sequence": 0
+    },
+    "replacement": {
+      "kind": "summary_text",
+      "text": "## Primary Request And Intent\n- Continue the synthetic session and reply with only: OK, preserving marker MARIGOLD-742.\n## User Constraints And Preferences\n- Reply with only: OK with no extra text.\n## Current State\n- Assistant already replied OK to continue the synthetic session, so the latest request is met and no code changes are in progress.\n## Files, APIs, Commands, And Tests\n- MEMORY.md contains Code word: ORCHID-7; no files, commands, or tests were run in the visible suffix.\n- Exact visible context: APIs: - APIs: {\"success\":true,\"scope\":\"personal\",\"path\":\"MEMORY.md\",\"start_line_number\":1,\"content\":\"Code word: ORCHID-7 (user asked to remember on 2026-09-17)\",\"truncated\":false}\n## Decisions And Rationale\n- Preserved exact marker tokens and replied minimally to keep the synthetic session moving without extra work.\n## Errors, Failed Attempts, And Fixes\n- None known.\n## Open Questions And Risks\n- None known.\n## Pending Tasks And Next Step\n- None known; next user message will define further work, otherwise continue replying OK if asked.\n## User Message Timeline\n- User: \"Synthetic session. Remember marker MARIGOLD-742. Synthetic filler line [truncated] Reply with only: OK\"; User: \"Continue the synthetic session. Reply with only: OK\"\n- Exact visible user timeline: User: \"Synthetic session. Remember marker MARIGOLD-742. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for [truncated] probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Reply with only: OK\"; User: \"Continue the synthetic session. Reply with only: OK\""
+    },
+    "preserved_segment_hint": {
+      "head_sequence": 1,
+      "tail_sequence": 36
+    },
+    "budget_before": {
+      "estimated_prompt_tokens": 20930,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    },
+    "estimated_budget_after": {
+      "estimated_prompt_tokens": 19883,
+      "target_met": true,
+      "estimate_source": "heuristic_estimate"
+    },
+    "diagnostics": [
+      {
+        "reason": "summary_call_metrics",
+        "message": "{\"provider_calls\":1,\"usage_unavailable_calls\":0,\"input_tokens\":2908,\"output_tokens\":579,\"cached_tokens\":0,\"cache_write_tokens\":0,\"cache_read_tokens\":0,\"cache_breakdown_unavailable_calls\":0,\"reasoning_tokens\":210}"
+      }
+    ]
+  },
+  {
+    "kind": "context_compaction_installed",
+    "install_id": "install-37",
+    "candidate_id": "candidate-14",
+    "trigger": "soft_threshold_async",
+    "timing": "standalone_manual",
+    "strategy_id": "summary-preserved-suffix/v1",
+    "summarized_through": {
+      "sequence": 0
+    },
+    "replacement": {
+      "kind": "summary_text",
+      "text": "## Primary Request And Intent\n- Continue the synthetic session and reply with only: OK, preserving marker MARIGOLD-742.\n## User Constraints And Preferences\n- Reply with only: OK with no extra text.\n## Current State\n- Assistant already replied OK to continue the synthetic session, so the latest request is met and no code changes are in progress.\n## Files, APIs, Commands, And Tests\n- MEMORY.md contains Code word: ORCHID-7; no files, commands, or tests were run in the visible suffix.\n- Exact visible context: APIs: - APIs: {\"success\":true,\"scope\":\"personal\",\"path\":\"MEMORY.md\",\"start_line_number\":1,\"content\":\"Code word: ORCHID-7 (user asked to remember on 2026-09-17)\",\"truncated\":false}\n## Decisions And Rationale\n- Preserved exact marker tokens and replied minimally to keep the synthetic session moving without extra work.\n## Errors, Failed Attempts, And Fixes\n- None known.\n## Open Questions And Risks\n- None known.\n## Pending Tasks And Next Step\n- None known; next user message will define further work, otherwise continue replying OK if asked.\n## User Message Timeline\n- User: \"Synthetic session. Remember marker MARIGOLD-742. Synthetic filler line [truncated] Reply with only: OK\"; User: \"Continue the synthetic session. Reply with only: OK\"\n- Exact visible user timeline: User: \"Synthetic session. Remember marker MARIGOLD-742. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for [truncated] probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Synthetic filler line for the compaction probe. Reply with only: OK\"; User: \"Continue the synthetic session. Reply with only: OK\""
+    },
+    "preserved_segment": {
+      "head_sequence": 1,
+      "tail_sequence": 36,
+      "interval": "(0, 36]",
+      "boundary_widened": false
+    },
+    "budget_before": {
+      "estimated_prompt_tokens": 20930,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    },
+    "budget_after": {
+      "estimated_prompt_tokens": 19883,
+      "target_met": true,
+      "estimate_source": "heuristic_estimate"
+    },
+    "prompt_cache_boundary": {
+      "status": "reset",
+      "cache_key": null,
+      "stable_prefix_label": null,
+      "stable_through_sequence": null,
+      "change_reason": "summary_replaced_prefix",
+      "reported_cached_tokens": null
+    },
+    "summarizer_usage": {
+      "input_tokens": 2908,
+      "output_tokens": 579,
+      "duration_ms": 5957
+    }
+  }
+]

@@ -5,12 +5,16 @@ import type { HarnessEvent } from "../../src/execution/events.js";
 import { detectQuestionBlock } from "../../src/interpretation/question.js";
 import { codexCli } from "../../src/knowledge/codex.js";
 
-const read = (file: string): string =>
-  readFileSync(new URL(`../fixtures/codex-0.153.4/${file}`, import.meta.url), "utf8");
+const read = (file: string, dir = "codex-0.154.0"): string =>
+  readFileSync(new URL(`../fixtures/${dir}/${file}`, import.meta.url), "utf8");
 
-const decoded = (file: string, requestedId: string | null = null): HarnessEvent[] => {
+const decoded = (
+  file: string,
+  requestedId: string | null = null,
+  dir = "codex-0.154.0",
+): HarnessEvent[] => {
   const state = freshDecodeState(requestedId);
-  return read(file)
+  return read(file, dir)
     .trim()
     .split("\n")
     .flatMap((line) => decodeLine(codexCli, line, state, "gpt-6-astra"));
@@ -54,8 +58,26 @@ test("native resume retains the announced session and recalls its earlier prompt
   expect(resumed.some((event) => event.kind === "error")).toBe(false);
 });
 
+test("native automatic compaction installs replacement history and a later process recalls", () => {
+  const records = JSON.parse(read("compaction-rollout-records.json"));
+  expect(records.filter((record: { type: string }) => record.type === "compacted")).toHaveLength(2);
+  expect(records).toContainEqual(expect.objectContaining({ item_type: "ContextCompaction" }));
+  const events = (file: string): Record<string, unknown>[] =>
+    read(file)
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+  for (const file of ["compaction-recall.ndjson", "post-compaction.ndjson"]) {
+    expect(events(file)).toContainEqual({ kind: "message", role: "assistant", text: "HERON-517" });
+    expect(events(file).at(-1)).toMatchObject({ kind: "done", cause: "clean", exitCode: 0 });
+  }
+});
+
+// The 0.154.0 question run read a local skill file into its native output,
+// so its raw stream is not kept; the 0.153.4 recording stays the decoding
+// evidence and questions.snapshot.json records the 0.154.0 pass.
 test("the native decision response contains a valid escalation block", () => {
-  const text = decoded("question.ndjson")
+  const text = decoded("question.ndjson", null, "codex-0.153.4")
     .filter(
       (event): event is Extract<HarnessEvent, { kind: "message" }> => event.kind === "message",
     )
