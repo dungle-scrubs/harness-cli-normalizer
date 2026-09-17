@@ -6182,7 +6182,7 @@
               "spelling": "--continue"
             }
           ],
-          "hint": "muse has no headless most-recent spelling; keep the session id from the identity event and re-enter with muse exec --session-id <id> - there is no --last on exec",
+          "hint": "muse has no headless most-recent spelling; keep the session id from the identity event and re-enter with hcn run muse --resume <id> - there is no --last on exec",
           "message": "muse cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue, cursor --continue - drop the option or route this work to a harness that supports it"
         }
       },
@@ -6215,7 +6215,7 @@
               "spelling": "--continue"
             }
           ],
-          "hint": "muse has no headless most-recent spelling; keep the session id from the identity event and re-enter with muse exec --session-id <id> - there is no --last on exec",
+          "hint": "muse has no headless most-recent spelling; keep the session id from the identity event and re-enter with hcn run muse --resume <id> - there is no --last on exec",
           "message": "muse cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue, cursor --continue - drop the option or route this work to a harness that supports it"
         }
       },

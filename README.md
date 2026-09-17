@@ -478,7 +478,8 @@ profile runs, so a silently created session runs with native defaults.
 
 Every resume-last turn emits one fixed pre-spawn warning event plus a
 `store root <root> for scope <cwd>` diagnostic event before any harness
-output, and warns (never refuses) when the per-cwd store directory is
+output, and, where a per-cwd directory exists (claude, pi, cursor),
+warns (never refuses) when the per-cwd store directory is
 absent. The `identity` event carries `resumeLast: true`:
 the announced id was picked by the harness as most-recent, never
 requested by the caller, and MAY be a fresh session or a stranger

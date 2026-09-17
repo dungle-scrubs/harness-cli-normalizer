@@ -82,6 +82,14 @@ describe("resumeLast renderable split (RFC-06 Phase 1)", () => {
     expect(cursorCli.resumeLast).toMatchObject({ flag: "--continue", headless: true });
   });
 
+  test("the parse-only arm carries no warning text: muse has no renderable warning to drift", () => {
+    expect(museCode.resumeLast).not.toBeNull();
+    expect(museCode.resumeLast).not.toHaveProperty("warning");
+    for (const h of [claudeCode, piCli, codexCli, cursorCli]) {
+      expect(h.resumeLast).toHaveProperty("warning");
+    }
+  });
+
   test("claude resume-last renders --continue --fork-session from the single contextInspection.forkFlag; codex and pi render no fork flag (Resolved Question 3: --fork-session designs the parent-file write out)", () => {
     const claude = buildSpawnArgv(claudeCode, { prompt: "hi", resumeLast: true });
     expect(claude).toContain("--continue");

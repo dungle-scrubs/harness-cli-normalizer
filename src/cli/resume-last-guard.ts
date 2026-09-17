@@ -36,7 +36,11 @@ export interface ResumeLastNoticeInputs {
 
 /** The store root for the scope: descriptor data first, the shared
  * transcript-style root elsewhere. The choice keys on descriptor data
- * (whether a rootEnv/defaultRoot table exists), never on a name. */
+ * (whether a rootEnv/defaultRoot table exists), never on a name. The
+ * transcript-style roots resolve with the spawn-cwd anchor (relative env
+ * values anchor at the spawn cwd, empty counts as unset - the same
+ * precedence `resolveStoreRoot` uses); `hcn transcript` keeps the legacy
+ * process-cwd behavior and never passes through here. */
 export const resumeLastStoreRoot = (
   h: HarnessDescriptor,
   opts: {
@@ -46,7 +50,12 @@ export const resumeLastStoreRoot = (
   },
 ): string =>
   resolveStoreRoot(h, { env: opts.env, cwd: opts.cwd, home: opts.home }) ??
-  transcriptStoreRoot(h.name, { env: opts.env, cwd: opts.cwd, home: opts.home });
+  transcriptStoreRoot(h.name, {
+    env: opts.env,
+    cwd: opts.cwd,
+    home: opts.home,
+    envAnchor: "spawn-cwd",
+  });
 
 /** A session id that passes the store-path shape check, used only to
  * resolve a template down to its per-cwd directory - the id itself is

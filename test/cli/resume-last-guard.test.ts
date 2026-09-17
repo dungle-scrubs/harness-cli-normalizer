@@ -10,12 +10,14 @@
  */
 import { mkdirSync, mkdtempSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { resolve } from "node:path";
 import { describe, expect, test } from "vitest";
 import {
   resumeLastNoticesFor,
   resumeLastScopeDir,
   resumeLastStoreRoot,
 } from "../../src/cli/resume-last-guard.js";
+import { transcriptStoreRoot } from "../../src/cli/store-root.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
 import { cursorCli } from "../../src/knowledge/cursor.js";
@@ -67,6 +69,28 @@ describe("RFC-06 Phase 3: store-root and scope-dir resolution", () => {
     expect(resumeLastScopeDir(claudeCode, { root: "/tmp/cfg/projects", cwd, home })).toBe(
       "/tmp/cfg/projects/-tmp-ws-main",
     );
+  });
+
+  test("relative store-root env values anchor at the spawn cwd, empty counts as unset", () => {
+    expect(
+      resumeLastStoreRoot(claudeCode, { env: { CLAUDE_CONFIG_DIR: ".alt" }, cwd: "/repo", home }),
+    ).toBe("/repo/.alt/projects");
+    expect(
+      resumeLastStoreRoot(claudeCode, { env: { CLAUDE_CONFIG_DIR: "" }, cwd: "/repo", home }),
+    ).toBe("/tmp/fake-home/.claude/projects");
+  });
+
+  test("the legacy transcript anchor is unchanged: process cwd, empty counts as set", () => {
+    expect(
+      transcriptStoreRoot("claude", { env: { CLAUDE_CONFIG_DIR: "" }, cwd: "/repo", home }),
+    ).toBe(resolve(process.cwd(), "projects"));
+    expect(
+      transcriptStoreRoot("claude", { env: { CLAUDE_CONFIG_DIR: ".alt" }, cwd: "/repo", home }),
+    ).toBe(resolve(process.cwd(), ".alt", "projects"));
+  });
+
+  test("cursor never falls through to a pi root", () => {
+    expect(() => transcriptStoreRoot("cursor", { env: {}, cwd, home })).toThrow();
   });
 });
 

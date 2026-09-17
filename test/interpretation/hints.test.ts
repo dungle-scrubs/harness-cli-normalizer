@@ -71,6 +71,7 @@ describe("hint table (confirmed instances)", () => {
     expect(hintFor("muse", "memory")).toContain("no CLI flag or config key");
     expect(hintFor("cursor", "tools")).toContain("config-file allow and deny lists");
     expect(hintFor("cursor", "excludeTools")).toContain("config-file allow and deny lists");
+    expect(hintFor("muse", "resumeLast")).toContain("hcn run muse --resume <id>");
   });
 
   it("every hint names a concrete control or bounds strategy (no dead ends)", () => {

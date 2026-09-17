@@ -314,9 +314,15 @@ const resumeLastArgv = (
       ...afterPrompt,
     ];
   }
+  // Flag-style resumes render subcommands plus the resume grammar's own
+  // extra flags (never inherited launch-only base flags), the same order
+  // rule `resumeArgv` follows. Identical output on every current
+  // descriptor (`baseFlags` equals `subcommands + resume.extraFlags` on
+  // each); pinned by the corpus snapshot.
   return [
     h.bin,
-    ...h.launch.baseFlags,
+    ...h.launch.subcommands,
+    ...h.resume.extraFlags,
     resumeLast.flag,
     ...(h.contextInspection?.forkFlag !== undefined ? [h.contextInspection.forkFlag] : []),
     ...beforePrompt,

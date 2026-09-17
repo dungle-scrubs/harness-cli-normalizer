@@ -38,9 +38,13 @@ const identities = (events: HarnessEvent[]): string[] =>
 
 describe("RFC-06 Phase 4 filed resume-last captures", () => {
   test("claude fork recall announces the fork id and carries the marker", () => {
-    // The system/init line is excluded at filing (account connector names),
-    // so the fork announce is read structurally from result.session_id while
-    // the recall marker goes through decode like the other harnesses.
+    // Identity is not asserted through decode here, and that is
+    // deliberate: decode announces claude identity only from system/init,
+    // which was excluded at filing (account connector names), and a
+    // result record's session_id is never an announce record. So decode
+    // yields no identity event on this fixture, asserted below. The fork
+    // id is read structurally from result.session_id instead, while the
+    // recall marker goes through decode like the other harnesses.
     const resultLine = read("claude-2.1.274")
       .trim()
       .split("\n")
@@ -49,6 +53,7 @@ describe("RFC-06 Phase 4 filed resume-last captures", () => {
     const native = JSON.parse(resultLine) as { session_id: string; result: string };
     expect(native.session_id).toBe("561ce3da-4d80-4c7e-adb9-c3226512c9da");
     const events = decoded(claudeCode, "claude-2.1.274", "claude-haiku-4-5-20251001");
+    expect(identities(events)).toEqual([]);
     expect(messages(events).join("\n")).toMatch(/HERON-4/);
     expect(events.some((e) => e.kind === "error")).toBe(false);
   });
