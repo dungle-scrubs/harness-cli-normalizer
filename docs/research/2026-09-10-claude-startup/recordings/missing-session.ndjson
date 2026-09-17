@@ -1,0 +1,3 @@
+{"kind":"error","message":"turn failed: error_during_execution","terminal":true}
+{"kind":"failure","class":"task","retryable":false,"message":"Task failed (turn failed: error_during_execution) - surface to caller, do not auto-route"}
+{"kind":"done","exitCode":1,"cause":"failed","failure":{"class":"task","retryable":false,"message":"Task failed (turn failed: error_during_execution) - surface to caller, do not auto-route"},"escalation":{"mode":"none","detection":"none"}}

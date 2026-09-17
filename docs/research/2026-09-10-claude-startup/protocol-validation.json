@@ -1,0 +1,82 @@
+[
+  {
+    "name": "valid-sequence",
+    "actions": [
+      {
+        "kind": "send",
+        "line": "{\"message\":{\"role\":\"user\",\"content\":\"Synthetic pending request\"},\"parent_tool_use_id\":null,\"shouldQuery\":false,\"type\":\"user\",\"uuid\":\"synthetic-probe\"}"
+      },
+      {
+        "kind": "send",
+        "line": "{\"type\":\"control_request\",\"request_id\":\"synthetic-probe:usage\",\"request\":{\"subtype\":\"get_context_usage\"}}"
+      },
+      {
+        "kind": "complete",
+        "accounting": {
+          "contextWindowTokens": 1000,
+          "inputLimitTokens": 1000,
+          "method": "native-context-estimate",
+          "model": "claude-opus-5",
+          "status": "available",
+          "totalTokens": 100
+        }
+      }
+    ]
+  },
+  {
+    "name": "wrong-replay-id",
+    "actions": [
+      {
+        "kind": "send",
+        "line": "{\"message\":{\"role\":\"user\",\"content\":\"Synthetic pending request\"},\"parent_tool_use_id\":null,\"shouldQuery\":false,\"type\":\"user\",\"uuid\":\"synthetic-probe\"}"
+      },
+      null,
+      null
+    ]
+  },
+  {
+    "name": "missing-count-fields",
+    "actions": [
+      {
+        "kind": "send",
+        "line": "{\"message\":{\"role\":\"user\",\"content\":\"Synthetic pending request\"},\"parent_tool_use_id\":null,\"shouldQuery\":false,\"type\":\"user\",\"uuid\":\"synthetic-probe\"}"
+      },
+      {
+        "kind": "send",
+        "line": "{\"type\":\"control_request\",\"request_id\":\"synthetic-probe:usage\",\"request\":{\"subtype\":\"get_context_usage\"}}"
+      },
+      {
+        "kind": "complete",
+        "accounting": {
+          "status": "unavailable",
+          "reason": "protocol"
+        }
+      }
+    ]
+  },
+  {
+    "name": "unexpected-assistant-before-valid-usage",
+    "actions": [
+      {
+        "kind": "send",
+        "line": "{\"message\":{\"role\":\"user\",\"content\":\"Synthetic pending request\"},\"parent_tool_use_id\":null,\"shouldQuery\":false,\"type\":\"user\",\"uuid\":\"synthetic-probe\"}"
+      },
+      {
+        "kind": "send",
+        "line": "{\"type\":\"control_request\",\"request_id\":\"synthetic-probe:usage\",\"request\":{\"subtype\":\"get_context_usage\"}}"
+      },
+      null,
+      {
+        "kind": "complete",
+        "accounting": {
+          "contextWindowTokens": 1000,
+          "inputLimitTokens": 1000,
+          "method": "native-context-estimate",
+          "model": "claude-opus-5",
+          "status": "available",
+          "totalTokens": 100
+        }
+      }
+    ]
+  }
+]
