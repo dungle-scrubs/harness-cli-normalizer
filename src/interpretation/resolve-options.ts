@@ -460,18 +460,24 @@ export const resolveEffectiveOptions = (
     provenance.push({ key, value, tier });
   }
 
-  // Access divergence / fixup
+  // Access divergence / fixup. An arg-tier preset on a harness with no
+  // access spec stays resolved so the renderer refuses it: a caller asking
+  // for a restriction must not get a full-default run plus a stderr note.
+  // Non-arg tiers diverge with the tier recorded, as before.
   if (resolved.access !== undefined && h.turnOptions.access === undefined) {
     // The entry keeps the tier of the access setting, not profile: the
     // divergence names which tier attempted the preset.
     const accessTier: ProvenanceTier =
       effectiveArgs.access !== undefined ? "arg" : (sourceTier("access") ?? "user-config");
-    unrenderable.push({ key: "access", tier: accessTier });
-    for (let i = provenance.length - 1; i >= 0; i--)
-      if (provenance[i]?.key === "access") provenance.splice(i, 1);
-    provenance.push({ key: "access", value: resolved.access as string, tier: "harness" });
-    delete (resolved as Record<string, unknown>).access;
-  } else if (resolved.access !== undefined && !provenance.some((p) => p.key === "access")) {
+    if (accessTier !== "arg") {
+      unrenderable.push({ key: "access", tier: accessTier });
+      for (let i = provenance.length - 1; i >= 0; i--)
+        if (provenance[i]?.key === "access") provenance.splice(i, 1);
+      provenance.push({ key: "access", value: resolved.access as string, tier: "harness" });
+      delete (resolved as Record<string, unknown>).access;
+    }
+  }
+  if (resolved.access !== undefined && !provenance.some((p) => p.key === "access")) {
     const tier: ProvenanceTier =
       effectiveArgs.access !== undefined ? "arg" : (sourceTier("access") ?? "user-config");
     provenance.push({ key: "access", value: resolved.access as string, tier });

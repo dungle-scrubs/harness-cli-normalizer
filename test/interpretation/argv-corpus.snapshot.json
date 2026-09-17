@@ -10180,7 +10180,9 @@
       },
       "access-read": {
         "resolved": {
-          "options": {},
+          "options": {
+            "access": "read"
+          },
           "provenance": [
             {
               "key": "effort",
@@ -10235,7 +10237,7 @@
             {
               "key": "access",
               "value": "read",
-              "tier": "harness"
+              "tier": "arg"
             }
           ],
           "unrenderable": [
@@ -10258,10 +10260,6 @@
             {
               "key": "tools",
               "tier": "profile"
-            },
-            {
-              "key": "access",
-              "tier": "arg"
             }
           ]
         }
@@ -10269,6 +10267,7 @@
       "access-read-explicit-sandbox": {
         "resolved": {
           "options": {
+            "access": "read",
             "sandbox": "read-only"
           },
           "provenance": [
@@ -10325,7 +10324,7 @@
             {
               "key": "access",
               "value": "read",
-              "tier": "harness"
+              "tier": "arg"
             }
           ],
           "unrenderable": [
@@ -10344,10 +10343,6 @@
             {
               "key": "tools",
               "tier": "profile"
-            },
-            {
-              "key": "access",
-              "tier": "arg"
             }
           ]
         }
@@ -10355,6 +10350,7 @@
       "access-read-config-sandbox": {
         "resolved": {
           "options": {
+            "access": "read",
             "sandbox": "read-only"
           },
           "provenance": [
@@ -10411,7 +10407,7 @@
             {
               "key": "access",
               "value": "read",
-              "tier": "harness"
+              "tier": "arg"
             }
           ],
           "unrenderable": [
@@ -10430,10 +10426,6 @@
             {
               "key": "tools",
               "tier": "profile"
-            },
-            {
-              "key": "access",
-              "tier": "arg"
             }
           ]
         }

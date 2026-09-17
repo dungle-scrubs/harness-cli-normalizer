@@ -166,4 +166,23 @@ describe("planTurn cursor effort resolve step", () => {
     expect(r.unrenderable).toContainEqual({ key: "sandbox", tier: "profile" });
     expect(r.options.sandbox).toBeUndefined();
   });
+
+  test("explicit --access refuses unsupported-option on launch and resume", async () => {
+    // Launch must refuse, not diverge: a restriction request must never
+    // degrade to a full-default run. Resume refuses through the renderer.
+    const launch = await planTurn(
+      cursorCli,
+      ["--prompt", "hi", "--access", "read"],
+      { command: "run" },
+      deps,
+    );
+    expect(launch).toMatchObject({ kind: "refusal", refusal: { issue: "unsupported-option" } });
+    const resume = await planTurn(
+      cursorCli,
+      ["--prompt", "hi", "--resume", "0199a4c5-1111-2222-3333-444455556666", "--access", "read"],
+      { command: "run" },
+      deps,
+    );
+    expect(resume).toMatchObject({ kind: "refusal", refusal: { issue: "unsupported-option" } });
+  });
 });
