@@ -1,7 +1,8 @@
 /**
  * The cursor descriptor: facts about the Cursor CLI (`agent`) as data,
- * verified against agent 2026.09.10-fd3934a (spike: scratchpad/cursor-spike,
- * probes 01-55). The v1 scars this encodes: identity is harness-minted (no
+ * verified against agent 2026.09.15-d2fe57e (re-capture:
+ * test/fixtures/cursor-2026.09.15-d2fe57e; original spike corpus on
+ * 2026.09.10-fd3934a, probes 01-55). The v1 scars this encodes: identity is harness-minted (no
  * caller-assigned id flag; the hidden --new-session-id is not used), an
  * untrusted workspace refuses unless --force bypasses the trust gate per
  * run, effort resolves into the --model slug via effortSlugs, and sessions
@@ -16,13 +17,12 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
   // Out of v1 by owner decision: transcript reads report divergence.
   transcript: null,
   bin: "agent",
-  verifiedAgainst: "2026.09.10-fd3934a",
-  // Phase 5 (2026-09-17) re-ran the tripwires on installed
-  // 2026.09.15-d2fe57e (smoke:seven 6 pass / 1 n/a, smoke:questions showed
-  // the block), `agent models` is byte-identical to the models.txt below,
-  // and the sandbox re-probe showed no confinement - and kept this anchor:
-  // the fixture corpus in test/fixtures stays captured on this version, so
-  // a bump waits for a re-capture there.
+  verifiedAgainst: "2026.09.15-d2fe57e",
+  // Re-verified 2026-09-17: smoke:seven (6 pass / 1 n/a) and
+  // smoke:questions pass on this version, the decoding corpus is
+  // re-captured in test/fixtures/cursor-2026.09.15-d2fe57e, and `agent
+  // models` lists the same 223 slugs (only the "(current)" marker moved).
+  // Phase 5 (same version) re-probed the sandbox: no confinement.
   // No npm package exists (script install only), so drift detection falls
   // back to the local `agent --version`, skipped where absent.
   versionSource: { kind: "installed" },
@@ -103,7 +103,7 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
   autonomy: { flag: "--force" },
   vocabulary: {
     modelFlag: "--model",
-    // Full slug list transcribed from out/models.txt at verifiedAgainst
+    // Full slug list transcribed from models.txt at verifiedAgainst
     // (227 lines: 223 entries plus header, blank, and tip lines). The file
     // is not sorted, so the snapshot test compares as sets.
     models: [
@@ -583,8 +583,7 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
   // known, so no usedPct can be computed.
   nativeContextManagement: null,
   // `-p --continue` resumes the most recently touched session (probe 22;
-  // observed on 2026.09.15-d2fe57e, 2026-09-17; landed verifiedAgainst is
-  // 2026.09.10-fd3934a). RFC-06 Phase 5 renders headless after RFC-05
+  // observed on 2026.09.15-d2fe57e, 2026-09-17). RFC-06 Phase 5 renders headless after RFC-05
   // landed (merge to main).
   resumeLast: {
     flag: "--continue",
@@ -610,11 +609,9 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
     },
     session: false,
   },
-  // Phase 5 (2026-09-17): smoke:questions on installed 2026.09.15-d2fe57e
-  // showed the block (the model asked which environment to write, and the
-  // turn ended awaiting-input), so the probe record below is added.
-  // verifiedAgainst stays the fixture-capture version; the observation
-  // version names the newer install the probe ran on.
+  // smoke:questions on 2026.09.15-d2fe57e showed the block (the model
+  // asked which environment to write, and the turn ended awaiting-input);
+  // test/fixtures/cursor-2026.09.15-d2fe57e/questions.snapshot.json.
   escalation: {
     supported: true,
     observedOn: { harness: "cursor", model: "", version: "2026.09.15-d2fe57e", date: "2026-09-17" },

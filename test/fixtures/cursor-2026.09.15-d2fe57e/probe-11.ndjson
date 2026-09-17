@@ -1,0 +1,42 @@
+{"type":"system","subtype":"init","apiKeySource":"login","cwd":"/hcn-verify/cursor-capture/ws-main","session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","model":"GPT-5 Mini","permissionMode":"default"}
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"Write a four-line poem about rivers. Each line must start with the word River."}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"River"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625717}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" remembers"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625719}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" the"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625720}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" weather"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625720}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"ed"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625720}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" stones"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625914}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" and"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625914}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" light"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625914}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"\n"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625914}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"River"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625914}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" carries"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625914}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" the"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625915}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" small"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625915}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" boats"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625915}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" of"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625915}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" our"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625922}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" un"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625922}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"spoken"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625922}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" dreams"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625922}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"\n"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625922}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"River"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625922}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" writes"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625922}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" secret"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625922}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" maps"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625922}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" along"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625922}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" the"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625922}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" sleeping"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625922}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" banks"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625922}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"\n"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625922}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"River"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625922}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" keeps"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625922}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" moving"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625922}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":","}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625922}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" learning"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625922}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" language"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625923}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" from"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625923}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" the"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625923}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" sea"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","timestamp_ms":1789644625923}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"River remembers the weathered stones and light\nRiver carries the small boats of our unspoken dreams\nRiver writes secret maps along the sleeping banks\nRiver keeps moving, learning language from the sea"}]},"session_id":"8ef40118-8378-436d-8ba8-2436b19cc877"}
+{"type":"result","subtype":"success","duration_ms":6598,"duration_api_ms":6598,"is_error":false,"result":"River remembers the weathered stones and light\nRiver carries the small boats of our unspoken dreams\nRiver writes secret maps along the sleeping banks\nRiver keeps moving, learning language from the sea","session_id":"8ef40118-8378-436d-8ba8-2436b19cc877","request_id":"bc0e2570-17e4-4b69-b43f-0773e4bc2f5a","usage":{"inputTokens":6961,"outputTokens":267,"cacheReadTokens":14848,"cacheWriteTokens":0}}

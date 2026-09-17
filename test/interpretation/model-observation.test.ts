@@ -80,7 +80,7 @@ describe("decodeParsed threads the attestation and re-emits identity (pi)", () =
   const sessionLine = (id: string) =>
     ({ type: "session", version: 3, id }) as Record<string, unknown>;
 
-  test("identity first (model empty), attestation re-emits with the observed model", () => {
+  test("identity first (static probe model), attestation re-emits with the observed model", () => {
     const sid = "11111111-2222-4333-8444-555555555555";
     const state = freshDecodeState();
     const first = decodeParsed(piCli, sessionLine(sid), state, "");
@@ -88,7 +88,7 @@ describe("decodeParsed threads the attestation and re-emits identity (pi)", () =
     expect(first[0]).toMatchObject({ kind: "identity", sessionId: sid });
     const caps = (first[0] as { capabilities: { escalation: { observedOn?: unknown } } })
       .capabilities.escalation.observedOn;
-    expect(caps).toMatchObject({ harness: "pi", model: "" });
+    expect(caps).toMatchObject({ harness: "pi", model: "zai/glm-5.2" });
 
     // A token delta between them carries no attestation and re-emits nothing.
     const mid = decodeParsed(
@@ -172,7 +172,7 @@ describe("live stdout fixture (pi-model-observed.ndjson, pi 0.85.1)", () => {
     expect(validateModel(piCli, "glm-5.3")).toEqual({ ok: true, id: "glm-5.3" });
     const { capabilitiesOf } = await import("../../src/interpretation/capabilities.js");
     const caps = capabilitiesOf(piCli, "", "headless-turn");
-    expect(caps.escalation.observedOn?.model).toBe("");
+    expect(caps.escalation.observedOn?.model).toBe("zai/glm-5.2");
   });
 
   test("session path: the probe identity carries a late attestation the same way", async () => {
