@@ -29,7 +29,7 @@
     "build": "node scripts/build.ts",
     "build:native": "node scripts/build-native.ts",
     "build:release": "node scripts/build.ts --release",
-    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:bun && pnpm build && pnpm check:package",
+    "check": "pnpm lint && pnpm typecheck && pnpm build && pnpm test && pnpm test:bun && pnpm check:package",
     "check:package": "node scripts/check-package.ts",
     "lint": "biome check .",
     "typecheck": "tsc --noEmit",

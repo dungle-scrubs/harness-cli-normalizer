@@ -3,16 +3,17 @@
  * `muse` first on PATH announces a session id like real `muse exec --json`
  * and answers `approval/listPending` with a judge-escalated network
  * approval on every poll; the built CLI must end the turn promptly with
- * the typed failure instead of hanging. The escalated case reports at once,
- * so this stays under a few seconds. The 30s same-identity path and the
- * unknown-session fail-closed path are covered by scripted captures kept
- * outside the repo (fix-179 scratchpad `runtime/`).
+ * the typed failure instead of hanging, and both stub processes must be
+ * reaped. The escalated case reports at once, so this stays under a few
+ * seconds. The consecutive-poll path and the fail-closed paths are covered
+ * at the observer and runner seams (muse-approvals, muse-approval-blocked).
  */
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { describe, expect, test } from "vitest";
+import { ensureDist, expectStubsReaped } from "./stub-dist.js";
 
 const STUB = `#!/usr/bin/env node
 import { writeFileSync } from "node:fs";
@@ -50,8 +51,7 @@ if (process.argv[2] === "exec") {
 
 describe("muse blocked approval against a stub binary (issue #179)", () => {
   test("a judge-escalated stub approval ends the run with a typed failure", () => {
-    const cli = resolve("dist/cli.js");
-    if (!existsSync(cli)) return; // dist is built after tests in pnpm check
+    const cli = ensureDist();
     const tmp = mkdtempSync(join(tmpdir(), "hcn-muse-stub-"));
     try {
       const stubDir = join(tmp, "bin");
@@ -90,7 +90,11 @@ describe("muse blocked approval against a stub binary (issue #179)", () => {
           encoding: "utf8",
           timeout: 60_000,
           env: {
-            PATH: `${stubDir}:${nodeDir}:/usr/bin:/bin`,
+            // The stub dir stays first so `muse` resolves to the stub, but
+            // the inherited PATH is kept (not replaced): the M3 lane runs
+            // on bun, where process.execPath is the bun binary and a
+            // minimal PATH would hide `node` and skip the run via ENOENT.
+            PATH: `${stubDir}:${nodeDir}:${process.env.PATH ?? "/usr/bin:/bin"}`,
             HOME: process.env.HOME ?? "/tmp",
             TMPDIR: tmp,
             LANG: "C",
@@ -120,6 +124,7 @@ describe("muse blocked approval against a stub binary (issue #179)", () => {
       expect(done.exitCode).toBeNull();
       // The escalated path reports at once: well under the 30s stuck window.
       expect(wallMs).toBeLessThan(30_000);
+      expectStubsReaped(outDir);
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }
