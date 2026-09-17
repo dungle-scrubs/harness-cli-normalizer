@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { SpawnedProcess, SpawnOptions } from "../execution/deps.js";
+import type { SpawnOptions } from "../execution/deps.js";
 import type { HarnessEvent } from "../execution/events.js";
 import { nodeRunnerDeps } from "../execution/node-deps.js";
 import { streamTurn } from "../execution/stream-turn.js";
@@ -14,6 +14,7 @@ import { createRenderState, renderEvent, writeEventNdjsonAsync } from "./render.
 import { resolveHarness } from "./resolve-harness.js";
 import { effectiveGuardEnv, resumeStore } from "./resume-guard.js";
 import { resumeLastNoticesFor } from "./resume-last-guard.js";
+import { createHarnessSignalTarget } from "./signal-target.js";
 
 export const run = async (harnessName: string, rawArgs: string[]): Promise<void> => {
   const h = resolveHarness(harnessName);
@@ -90,15 +91,16 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
       : nodeRunnerDeps();
 
   // Signal handling: the runner owns the process handle, so the deps are
-  // wrapped to remember the last spawned process for SIGINT/SIGTERM.
+  // wrapped to forward SIGINT/SIGTERM at the harness child explicitly (L6).
+  // The approval observer spawns its helper after the harness child; that
+  // later spawn must not retarget signals, so the first spawn wins.
   // Spread-first object shape (ES2023-safe emit): every spread precedes
   // every method property, so tsc emits no mid-literal spread node - that
   // ES2025-only shape is what bun parses but node 24 rejects at parse
   // time (0.6.10 dist/cli/run.js died with `Unexpected token '('`). The
   // conditional spread stays first (an empty spread is a no-op) so the
   // ...deps override order is unchanged.
-  let lastProc: SpawnedProcess | null = null;
-  const originalSignal = deps.signal;
+  const signalTarget = createHarnessSignalTarget(deps.signal);
   const wrappedDeps = {
     ...(plan.options.nativeApprovals
       ? {
@@ -110,13 +112,9 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
         }
       : {}),
     ...deps,
-    signal: (proc: SpawnedProcess, sig: "SIGTERM" | "SIGKILL") => {
-      lastProc = proc;
-      originalSignal(proc, sig);
-    },
     spawn: (argv: readonly string[], opts: SpawnOptions) => {
       const proc = deps.spawn(argv, opts);
-      lastProc = proc;
+      signalTarget.noteSpawn(proc);
       return proc;
     },
   };
@@ -135,20 +133,16 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     if (interrupted) return;
     interrupted = true;
     abortController.abort();
-    if (lastProc) {
-      try {
-        wrappedDeps.signal(lastProc, "SIGTERM");
-        escalationTimer = setTimeout(() => {
-          if (lastProc) {
-            try {
-              wrappedDeps.signal(lastProc, "SIGKILL");
-            } catch {}
-          }
-          escalationTimer = null;
-        }, KILL_GRACE_MS);
-        escalationTimer.unref?.();
-      } catch {}
-    }
+    try {
+      signalTarget.forward("SIGTERM");
+      escalationTimer = setTimeout(() => {
+        try {
+          signalTarget.forward("SIGKILL");
+        } catch {}
+        escalationTimer = null;
+      }, KILL_GRACE_MS);
+      escalationTimer.unref?.();
+    } catch {}
   };
   process.on("SIGINT", onSig);
   process.on("SIGTERM", onSig);

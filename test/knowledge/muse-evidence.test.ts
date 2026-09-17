@@ -3,7 +3,11 @@ import { expect, test } from "vitest";
 import { decodeLine, freshDecodeState } from "../../src/execution/decode.js";
 import type { HarnessEvent } from "../../src/execution/events.js";
 import { detectQuestionBlock } from "../../src/interpretation/question.js";
+import { claudeCode } from "../../src/knowledge/claude-code.js";
+import { codexCli } from "../../src/knowledge/codex.js";
+import { cursorCli } from "../../src/knowledge/cursor.js";
 import { museCode } from "../../src/knowledge/muse.js";
+import { piCli } from "../../src/knowledge/pi.js";
 
 const read = (file: string): string =>
   readFileSync(new URL(`../fixtures/muse-1.1.1/${file}`, import.meta.url), "utf8");
@@ -73,6 +77,17 @@ test("Muse installed automatic compaction and a later process recalled the marke
     .map((line) => JSON.parse(line));
   expect(events).toContainEqual({ kind: "message", role: "assistant", text: "MARIGOLD-742" });
   expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean", exitCode: 0 });
+});
+
+test("only muse declares a pending-approval observer (issue #179)", () => {
+  // muse exec omits pending approvals from stdout, so the runner observes
+  // them through the read-only MSP listPending operation. No other
+  // harness needs (or has) that channel.
+  expect(museCode.approvalObserver).toBe("msp-list-pending");
+  expect(claudeCode.approvalObserver).toBeUndefined();
+  expect(codexCli.approvalObserver).toBeUndefined();
+  expect(piCli.approvalObserver).toBeUndefined();
+  expect(cursorCli.approvalObserver).toBeUndefined();
 });
 
 test("native compaction failure remains a failure, not successful accounting", () => {

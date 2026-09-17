@@ -3,8 +3,8 @@
  * refuses (flags are null like codex/muse) with the cursor config-file
  * hint; session open refuses no-session-mode; explicit access values
  * refuse unsupported-option. Sandbox launch/resume refusal plus
- * profile-tier divergence live in plan-turn-cursor; passthrough refusal
- * lives in argv-cursor-passthrough.
+ * profile-tier divergence live in plan-turn-cursor; passthrough placement
+ * (prompt-joins refusal included) lives in argv-passthrough-placement.
  */
 import { describe, expect, test } from "vitest";
 import { buildLaunchArgv, buildSessionArgv } from "../../src/interpretation/argv.js";

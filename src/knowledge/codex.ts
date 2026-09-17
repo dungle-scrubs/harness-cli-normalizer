@@ -32,6 +32,13 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     baseFlags: ["exec", "--json", "--skip-git-repo-check"],
     subcommands: ["exec"],
     promptStyle: "positional",
+    // Passthrough placement (ADR 0003, probed 2026-09-17 on 0.154.0):
+    // appended native flags parse once hcn's bare `--` is gone (an
+    // appended `-c model_reasoning_effort="medium"` is accepted; a bogus
+    // flag is rejected natively as an unexpected argument - and a repeated
+    // `--sandbox` errors "cannot be used multiple times", parsed as a flag,
+    // not a positional). The tail renders past hcn's own argv, no separator.
+    passthrough: "after-argv",
     streamFlags: [],
     // Codex mints its own thread id; there is nothing to assign at launch.
     idFlag: null,

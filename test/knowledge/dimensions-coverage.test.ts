@@ -44,6 +44,9 @@ const DESCRIPTOR_KEYS = [
   "tools",
   // RFC-05 Phase 1 adds the optional trust-matchers top-level key.
   "trustMatchers",
+  // Issue #179 adds the optional approval-observer top-level key (only
+  // muse carries it).
+  "approvalObserver",
 ] as const satisfies readonly (keyof HarnessDescriptor)[];
 
 type Missing = Exclude<keyof HarnessDescriptor, (typeof DESCRIPTOR_KEYS)[number]>;
@@ -52,7 +55,11 @@ const complete: Missing extends never ? true : false = true;
 // RFC-05 Phase 1 makes trustMatchers the first optional top-level key
 // (only cursor carries it), so "exactly the type's keys" becomes two
 // checks: every required key present, and no key outside the type.
-const OPTIONAL_KEYS = ["trustMatchers"] as const satisfies readonly (keyof HarnessDescriptor)[];
+// Issue #179 adds approvalObserver as the second (only muse carries it).
+const OPTIONAL_KEYS = [
+  "trustMatchers",
+  "approvalObserver",
+] as const satisfies readonly (keyof HarnessDescriptor)[];
 
 describe("descriptor key coverage", () => {
   test("every descriptor carries the required keys and no unknown keys", () => {

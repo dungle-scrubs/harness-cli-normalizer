@@ -333,23 +333,26 @@ const resumeLastArgv = (
 };
 
 /** The argv a turn spawns: launch or resume per `resume`, then the
- * passthrough tail after a bare separator. One owner, so the CLI's preview
- * and the runner's spawn agree by construction (RFC-02 change 10). */
+ * passthrough tail at the descriptor's placement (ADR 0003). The bare
+ * `--` is hcn's own command-line split, never a harness token: every
+ * probed harness parses trailing native flags once the separator is gone,
+ * so it is not rendered. One owner, so the CLI's preview and the runner's
+ * spawn agree by construction (RFC-02 change 10). */
 export const buildSpawnArgv = (h: HarnessDescriptor, opts: SpawnArgvOptions): string[] => {
   assertIsolationCombination(h, opts);
-  // RFC-05: a harness that declares prompt-joins passthrough (cursor)
-  // takes a variadic positional prompt with no `--` handling, so every
-  // post-`--` token would join the prompt as text (probe 41) and succeed
-  // with exit 0. Refuse before spawn, on launch and resume alike; the
-  // offending tokens ride detail. Harnesses without the declaration keep
-  // passing tails through untouched.
-  if (h.launch.passthrough === "prompt-joins" && (opts.passthrough?.length ?? 0) > 0) {
+  const placement = h.launch.passthrough ?? "after-argv";
+  const tail = opts.passthrough ?? [];
+  // A harness that declares prompt-joins passthrough takes a variadic
+  // positional prompt no placement parses into, so every post-`--` token
+  // would join the prompt as text and succeed with exit 0. Refuse before
+  // spawn, on launch and resume alike; the offending tokens ride detail.
+  if (placement === "prompt-joins" && tail.length > 0) {
     throw new ArgvRefusalError({
       issue: "unsupported-passthrough",
       harness: h.name,
       supported: [],
       hint: `remove the tokens after \`--\` and re-run on ${h.name}`,
-      detail: (opts.passthrough ?? []).join(" "),
+      detail: tail.join(" "),
       bin: h.bin,
     });
   }
@@ -372,9 +375,7 @@ export const buildSpawnArgv = (h: HarnessDescriptor, opts: SpawnArgvOptions): st
       : opts.resume === undefined
         ? buildLaunchArgv(h, opts)
         : resumeArgv(h, { ...opts, sessionId: opts.resume }, nativeSettingsArgs);
-  return opts.passthrough !== undefined && opts.passthrough.length > 0
-    ? [...base, "--", ...opts.passthrough]
-    : base;
+  return placement === "after-argv" && tail.length > 0 ? [...base, ...tail] : base;
 };
 
 export interface SessionOptions {

@@ -97,7 +97,7 @@ them; if a change needs to, change the gate test deliberately.
 
 ```bash
 pnpm install                # install deps (frozen lockfile in CI)
-pnpm check                  # lint + typecheck + vitest + bun test (the full gate)
+pnpm check                  # lint + typecheck + build, then vitest + bun test (the full gate; the build runs first because dist/ is git-ignored and the CLI stub tests fail when it is missing or stale)
 pnpm lint                   # biome check .
 pnpm typecheck              # tsc --noEmit
 pnpm test                   # vitest run

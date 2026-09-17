@@ -6279,6 +6279,183 @@
       }
     }
   },
+  "passthrough": {
+    "claude": {
+      "empty": {
+        "argv": [
+          "claude",
+          "-p",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--verbose",
+          "--include-partial-messages"
+        ]
+      },
+      "tail": {
+        "argv": [
+          "claude",
+          "-p",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--verbose",
+          "--include-partial-messages",
+          "--native-flag"
+        ]
+      },
+      "tail-resume": {
+        "argv": [
+          "claude",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--verbose",
+          "--include-partial-messages",
+          "--native-flag"
+        ]
+      }
+    },
+    "codex": {
+      "empty": {
+        "argv": [
+          "codex",
+          "exec",
+          "--json",
+          "--skip-git-repo-check",
+          "--sandbox",
+          "workspace-write",
+          "hi"
+        ]
+      },
+      "tail": {
+        "argv": [
+          "codex",
+          "exec",
+          "--json",
+          "--skip-git-repo-check",
+          "--sandbox",
+          "workspace-write",
+          "hi",
+          "--native-flag"
+        ]
+      },
+      "tail-resume": {
+        "argv": [
+          "codex",
+          "exec",
+          "resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "--json",
+          "--skip-git-repo-check",
+          "hi",
+          "--native-flag"
+        ]
+      }
+    },
+    "pi": {
+      "empty": {
+        "argv": [
+          "pi",
+          "-p",
+          "--mode",
+          "json",
+          "hi"
+        ]
+      },
+      "tail": {
+        "argv": [
+          "pi",
+          "-p",
+          "--mode",
+          "json",
+          "hi",
+          "--native-flag"
+        ]
+      },
+      "tail-resume": {
+        "argv": [
+          "pi",
+          "--session-id",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "--mode",
+          "json",
+          "hi",
+          "--native-flag"
+        ]
+      }
+    },
+    "muse": {
+      "empty": {
+        "argv": [
+          "muse",
+          "exec",
+          "--json",
+          "hi"
+        ]
+      },
+      "tail": {
+        "argv": [
+          "muse",
+          "exec",
+          "--json",
+          "hi",
+          "--native-flag"
+        ]
+      },
+      "tail-resume": {
+        "argv": [
+          "muse",
+          "exec",
+          "--session-id",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "--json",
+          "hi",
+          "--native-flag"
+        ]
+      }
+    },
+    "cursor": {
+      "empty": {
+        "argv": [
+          "agent",
+          "-p",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--stream-partial-output"
+        ]
+      },
+      "tail": {
+        "argv": [
+          "agent",
+          "-p",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--stream-partial-output",
+          "--native-flag"
+        ]
+      },
+      "tail-resume": {
+        "argv": [
+          "agent",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--stream-partial-output",
+          "--native-flag"
+        ]
+      }
+    }
+  },
   "session": {
     "claude": {
       "fresh": {

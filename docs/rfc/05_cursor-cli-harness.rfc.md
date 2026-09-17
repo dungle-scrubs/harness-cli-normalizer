@@ -154,6 +154,8 @@ Draft-08 follows the brief's fixed decision rule, grounded in `spike-addendum.md
 
 2. The plan-turn resolve step also runs when a model is present without effort. The Composition site paragraph says the step runs when arg-tier `--effort` is present; the code also runs it when a model from any tier is present without effort (verified: `--model claude-opus-4-8` with no effort refuses `unknown-model` with the stem's 5 row slugs, and `--model claude-opus-4-8-high` with no effort leaves argv and provenance unchanged). A bare stem refuses with its row instead of reaching turnTail's full-list `unknown-model`.
 
+3. Passthrough does not join the prompt. Probes 40 and 41 rendered hcn's own bare `--` into the `agent` argv, and `agent` treated every token after that separator as prompt text. That was the separator, not the CLI. Rendered without `--` after hcn's argv, a real flag takes effect (`--model gpt-5-mini` switched the model) and a bogus flag fails natively with `unknown option`, on launch and resume (2026-09-17, agent 2026.09.15-d2fe57e). Cursor now declares `launch.passthrough: "after-argv"` like the other four harnesses, and a non-empty tail no longer refuses. ADR 0003 records the root cause.
+
 ### Context
 
 This RFC follows the same house pattern as the four existing descriptors: facts as data in `src/knowledge/cursor.ts`, translation in `src/interpretation`, lifecycle in `src/execution`. It creates no new layer and changes no existing harness behavior. RFC-02's rules apply throughout: no new branch on `h.name`, one owner per rule, and every closed vocabulary declared once as a runtime array.

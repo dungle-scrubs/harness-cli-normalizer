@@ -21,7 +21,7 @@ pnpm install
 ## Day-to-day commands
 
 ```bash
-pnpm check       # the full gate: lint + typecheck + vitest + bun test
+pnpm check       # the full gate: lint + typecheck + build, then vitest + bun test
 pnpm lint        # biome check .
 pnpm typecheck   # tsc --noEmit
 pnpm test        # vitest run
@@ -29,7 +29,9 @@ pnpm test:bun    # bun test
 ```
 
 `pnpm check` is what CI runs. Run it locally before pushing; both test lanes
-(vitest and bun) must pass.
+(vitest and bun) must pass. The build runs first because dist/ is git-ignored
+and the CLI stub tests fail when it is missing or stale. `pnpm test` on its
+own needs a fresh `pnpm build` first for the same reason.
 
 ## Architecture and invariants
 

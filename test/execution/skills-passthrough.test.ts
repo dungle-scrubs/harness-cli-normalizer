@@ -1,8 +1,9 @@
 /**
  * RFC-02 fix R1: skill tokens are part of the argv the launch builder
- * returns, so they land before any passthrough separator. Before this the
+ * returns, so they land before the passthrough tail. Before this the
  * runner appended them after `--`, handing claude's --settings to the
- * harness as a positional.
+ * harness as a positional. ADR 0003 renders no separator at all: the tail
+ * sits at the descriptor placement (after-argv on both harnesses here).
  */
 import { describe, expect, test } from "vitest";
 import { streamTurn } from "../../src/execution/stream-turn.js";
@@ -30,21 +31,22 @@ const spawnedArgv = async (
   return spawner.calls[0]?.argv ?? [];
 };
 
-describe("R1: skill tokens render before the passthrough separator", () => {
-  test("claude: --settings precedes -- and the passthrough tail stays last", async () => {
+describe("R1: skill tokens render before the passthrough tail", () => {
+  test("claude: --settings precedes the tail and the tail stays last, no separator", async () => {
     const argv = await spawnedArgv(claudeCode, ["--native-flag", "value"]);
+    expect(argv).not.toContain("--");
     const settingsAt = argv.indexOf("--settings");
-    const separatorAt = argv.indexOf("--");
     expect(settingsAt).toBeGreaterThan(-1);
-    expect(separatorAt).toBeGreaterThan(-1);
-    expect(settingsAt).toBeLessThan(separatorAt);
-    expect(argv.slice(separatorAt + 1)).toEqual(["--native-flag", "value"]);
+    expect(argv.slice(-2)).toEqual(["--native-flag", "value"]);
+    expect(settingsAt).toBeLessThan(argv.length - 2);
   });
 
-  test("codex: -c skills.config precedes --", async () => {
+  test("codex: -c skills.config precedes the tail, no separator", async () => {
     const argv = await spawnedArgv(codexCli, ["--native-flag"]);
+    expect(argv).not.toContain("--");
     const configAt = argv.findIndex((t) => t.startsWith("skills.config="));
     expect(configAt).toBeGreaterThan(-1);
-    expect(configAt).toBeLessThan(argv.indexOf("--"));
+    expect(argv.at(-1)).toBe("--native-flag");
+    expect(configAt).toBeLessThan(argv.length - 1);
   });
 });

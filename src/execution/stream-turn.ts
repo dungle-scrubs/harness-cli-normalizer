@@ -40,7 +40,11 @@ import {
 } from "./events.js";
 import type { FailureSummary } from "./failure.js";
 import {
+  blockedApprovalDetail,
+  failureFromApprovalUnobserved,
+  failureFromBlockedApproval,
   failureFromLimit,
+  failureFromMuseIncompatibleSurface,
   failureFromRejected,
   failureFromStderrTail,
   failureFromTerminalError,
@@ -49,6 +53,7 @@ import {
   reduceFailures,
 } from "./failure.js";
 import { LineBuffer } from "./lines.js";
+import { type MuseApprovalObserver, watchMuseApprovals } from "./muse-approvals.js";
 import { streamNativeApprovalTurn } from "./native-approval-turn.js";
 import { StderrTail, superviseTurn } from "./supervisor.js";
 import { verifyNativeSettings } from "./verified-native-settings.js";
@@ -326,6 +331,67 @@ export async function* streamTurn(
   let cancelled = false;
   let terminalEventReached = false;
 
+  // Issue #179: a pending native approval the headless stream omits
+  // (muse exec) would hang the turn with no event until --timeout. When
+  // the descriptor declares an observer, a helper watches the pending set
+  // from the first announced identity and stops the turn promptly when
+  // something pends - or when the pending set itself cannot be read.
+  let approvalBlocked = false;
+  let blockingFailure: FailureSummary | undefined;
+  // Holder, not a bare let: the watcher is assigned from the stdout pump
+  // closure and reaped in the finally below, and a narrowed union would
+  // read as never at the reap site.
+  const approval: { watch: MuseApprovalObserver | null; session: string | null } = {
+    watch: null,
+    session: null,
+  };
+  const stopForApproval = (failure: FailureSummary, event: string, detail: string): void => {
+    // L3: once the watchdog killed the turn, a late approval stop must not
+    // overwrite the timeout - the turn's verdict is already decided.
+    if (approvalBlocked || exited || cancelled || killedByAbort || killedByWatchdog) return;
+    approvalBlocked = true;
+    blockingFailure = failure;
+    void queue.push({ kind: "error", message: detail });
+    void pushFailure(failure);
+    log({ event, turnId, harness: h.name });
+    sup.disarm();
+    disarmDeadline();
+    sup.escalate();
+  };
+  const startApprovalWatch = (sessionId: string): void => {
+    if (h.approvalObserver !== "msp-list-pending") return;
+    if (approval.watch !== null || approval.session === sessionId) return;
+    if (approvalBlocked || exited || cancelled || killedByAbort) return;
+    approval.session = sessionId;
+    approval.watch = watchMuseApprovals(
+      h.bin,
+      {
+        ...(effective.cwd !== undefined ? { cwd: effective.cwd } : {}),
+        ...(Object.keys(mergedEnv).length > 0 ? { env: mergedEnv } : {}),
+      },
+      { spawn: deps.spawn, clock: deps.clock, signal: deps.signal },
+      sessionId,
+      (subject, kind) =>
+        stopForApproval(
+          failureFromBlockedApproval(h.name, subject, kind),
+          "approval_blocked",
+          `${blockedApprovalDetail(h.name, subject, kind)} - ending the turn`,
+        ),
+      () =>
+        stopForApproval(
+          failureFromApprovalUnobserved(h.name),
+          "approval_unobserved",
+          `${h.name} approval status could not be observed - hcn could not watch the pending approval set; ending the turn`,
+        ),
+      (info) =>
+        stopForApproval(
+          failureFromMuseIncompatibleSurface(h.name, h.verifiedAgainst, info.method, info.code),
+          "approval_incompatible",
+          `${h.name} MSP surface is incompatible with hcn - ending the turn`,
+        ),
+    );
+  };
+
   const failures: FailureSummary[] = [];
   const pushFailure = async (f: FailureSummary): Promise<void> => {
     // Suppress a failure identical in class and message to the previous one
@@ -457,6 +523,7 @@ export async function* streamTurn(
           identitySeen = true;
           await queue.push(event);
           await flushDroppable();
+          startApprovalWatch(event.sessionId);
           return;
         }
         if (DROPPABLE_KINDS.has(event.kind)) {
@@ -486,6 +553,7 @@ export async function* streamTurn(
       }
       sup.noteEvent(event);
       await queue.push(event);
+      if (event.kind === "identity") startApprovalWatch(event.sessionId);
     };
     for await (const chunk of proc.stdout) {
       if (cancelled) break;
@@ -627,7 +695,11 @@ export async function* streamTurn(
               : startupFailed
                 ? "failed"
                 : "crash";
-    const reduced = reduceFailures(failures);
+    const reduced = blockingFailure ?? reduceFailures(failures);
+    // The approval stop kills a live process on purpose, so the signal
+    // death it caused reports as "failed" with the typed failure, not
+    // "killed" (which names external cancellation).
+    if (approvalBlocked && !killedByAbort) cause = "failed";
     if (reduced && cause === "clean") cause = "failed";
     // A classified failure other than native on a nonzero exit is a failed
     // turn, not a crash: the failure taxonomy already captured the reason.
@@ -665,7 +737,9 @@ export async function* streamTurn(
     const nativeReduced = reduced?.class === "native";
     yield {
       kind: "done",
-      exitCode: nativeReduced ? null : exitCode,
+      // Like the refusal path: hcn owns the process exit code, and a
+      // deliberately stopped turn carries no harness signal number.
+      exitCode: nativeReduced || approvalBlocked ? null : exitCode,
       cause,
       ...(reduced ? { failure: reduced } : {}),
       escalation: { mode: questionMode, detection: escalationDetection },
@@ -674,6 +748,9 @@ export async function* streamTurn(
     if (abortHandler !== null) opts.signal?.removeEventListener("abort", abortHandler);
     const abandoned = !terminalEventReached;
     cancelled = true;
+    // Reap the approval observer with the child on every exit - clean,
+    // failed, killed, or abandoned.
+    const approvalCleanup = approval.watch?.close();
     queue.close();
     sup.disarm();
     disarmDeadline();
@@ -682,7 +759,7 @@ export async function* streamTurn(
       if (!exited) sup.escalate();
     }
     proc.disposeOutput();
-    const [settledExit] = await Promise.all([proc.exited, pumpSettlements]);
+    const [settledExit] = await Promise.all([proc.exited, pumpSettlements, approvalCleanup]);
     exitCode = settledExit;
     if (pipeGrace !== null) deps.clock.clearTimeout(pipeGrace);
     pipeGrace = null;
