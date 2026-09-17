@@ -42,12 +42,20 @@ export class FloorExceededError extends Error {
   }
 }
 
+/** A dimension some tier attempted that this harness cannot express
+ * (skip-and-report, never refuse): rendered as divergence, not failure.
+ * The entry names the tier that set it so provenance can print which tier
+ * (profile default, user config, project config, or an arg that reached a
+ * harness with no spec) attempted the dimension. */
+export interface UnrenderableEntry {
+  readonly key: string;
+  readonly tier: ProvenanceTier;
+}
+
 export interface ResolvedOptions {
   readonly options: TurnOptions;
   readonly provenance: readonly ProvenanceEntry[];
-  /** Profile dimensions this harness cannot express (skip-and-report,
-   * never refuse): rendered as divergence, not failure. */
-  readonly unrenderable: readonly string[];
+  readonly unrenderable: readonly UnrenderableEntry[];
 }
 
 export function assertAccessExclusivity(
@@ -210,7 +218,7 @@ export const resolveEffectiveOptions = (
   const provenance: ProvenanceEntry[] = [];
   if (args.isolation !== undefined)
     provenance.push({ key: "isolation", value: args.isolation, tier: "arg" });
-  const unrenderable: string[] = [];
+  const unrenderable: UnrenderableEntry[] = [];
   const config = { ...effectiveConfig(tiers) };
   if (args.isolation !== undefined) {
     for (const key of ISOLATION_OVERRIDES) delete config[key];
@@ -334,6 +342,18 @@ export const resolveEffectiveOptions = (
       provenance.push({ key, value: effectiveArgs[key as keyof TurnOptions], tier: "arg" });
       continue;
     }
+    // RFC-05: on an effort-in-model harness only arg-tier effort enforces
+    // and can refuse. Profile, user-config, and project-config effort
+    // diverge with tier-and-key provenance; the harness default runs, so a
+    // machine-wide config effort never breaks a bare cursor run. No
+    // config-loop arm: that loop skips profile keys.
+    if (key === "effort" && h.turnOptions.effort?.kind === "effort-in-model") {
+      const nonArgTier: ProvenanceTier = tier ?? "profile";
+      const nonArgValue = tier !== undefined ? config[key as keyof TurnOptions] : value;
+      provenance.push({ key, value: nonArgValue, tier: nonArgTier });
+      unrenderable.push({ key, tier: nonArgTier });
+      continue;
+    }
     if (tier !== undefined) {
       provenance.push({ key, value: config[key as keyof TurnOptions], tier });
       resolved[key] = config[key as keyof TurnOptions];
@@ -343,7 +363,7 @@ export const resolveEffectiveOptions = (
     if (!expressible) {
       // Skip-and-report: a profile default this harness cannot express is
       // reported divergence, never a refusal and never silence.
-      unrenderable.push(key);
+      unrenderable.push({ key, tier: "profile" });
       provenance.push({ key, value, tier: "harness" });
       continue;
     }
@@ -442,7 +462,11 @@ export const resolveEffectiveOptions = (
 
   // Access divergence / fixup
   if (resolved.access !== undefined && h.turnOptions.access === undefined) {
-    unrenderable.push("access");
+    // The entry keeps the tier of the access setting, not profile: the
+    // divergence names which tier attempted the preset.
+    const accessTier: ProvenanceTier =
+      effectiveArgs.access !== undefined ? "arg" : (sourceTier("access") ?? "user-config");
+    unrenderable.push({ key: "access", tier: accessTier });
     for (let i = provenance.length - 1; i >= 0; i--)
       if (provenance[i]?.key === "access") provenance.splice(i, 1);
     provenance.push({ key: "access", value: resolved.access as string, tier: "harness" });

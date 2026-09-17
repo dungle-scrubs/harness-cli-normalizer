@@ -30,6 +30,7 @@ import {
   type ResolvedBehavior,
   resolveBehavior,
   resolveEffectiveOptions,
+  type UnrenderableEntry,
 } from "../interpretation/resolve-options.js";
 import { recognizeNativeSpelling, supportedBy } from "../interpretation/support.js";
 import { renderToolSelection } from "../interpretation/tool-selection.js";
@@ -84,7 +85,7 @@ export interface TurnPlan {
   readonly redactedArgv: readonly string[];
   /** Launch-only; empty on resume, where omitted options follow native behavior. */
   readonly provenance: readonly ProvenanceEntry[];
-  readonly unrenderable: readonly string[];
+  readonly unrenderable: readonly UnrenderableEntry[];
   readonly behavior: ResolvedBehavior;
   /** Tool names the grant passes through ungated, for the provenance line. */
   readonly nativeTools: readonly string[];
@@ -294,7 +295,7 @@ export const planTurn = async (
   // behavior on resume; the resolver never runs on resume paths.
   let effectiveTurnOpts = turnOpts;
   let provenance: readonly ProvenanceEntry[] = [];
-  let unrenderable: readonly string[] = [];
+  let unrenderable: readonly UnrenderableEntry[] = [];
   if (extra.resume === undefined) {
     try {
       const resolved = resolveEffectiveOptions(h, { ...turnOpts, prompt }, tiers as ConfigTiers);

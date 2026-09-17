@@ -142,13 +142,13 @@ describe("profile default (memory off) through resolution", () => {
   test("pi bare run resolves memory:false (vacuously expressible)", () => {
     const { options, unrenderable } = resolveEffectiveOptions(pi, { prompt: "hi" });
     expect(options.memory).toBe(false);
-    expect(unrenderable).not.toContain("memory");
+    expect(unrenderable).not.toContainEqual({ key: "memory", tier: "profile" });
   });
 
   test("muse bare run reports memory as divergence, never a refusal", () => {
     const { options, unrenderable, provenance } = resolveEffectiveOptions(muse, { prompt: "hi" });
     expect(options.memory).toBeUndefined();
-    expect(unrenderable).toContain("memory");
+    expect(unrenderable).toContainEqual({ key: "memory", tier: "profile" });
     expect(provenance).toContainEqual({ key: "memory", value: false, tier: "harness" });
   });
 

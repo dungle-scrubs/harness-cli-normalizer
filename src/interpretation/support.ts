@@ -77,6 +77,9 @@ const spellingOf = (h: HarnessDescriptor, option: RefusalOption): string | null 
     case "discovery": {
       const spec = h.turnOptions[option];
       if (spec === undefined) return null;
+      // The in-model render carries neither flag nor flags: effort on an
+      // effort-in-model harness is expressed through the model flag.
+      if (spec.kind === "effort-in-model") return h.vocabulary.modelFlag;
       const rawRender =
         spec.kind === "discovery"
           ? (

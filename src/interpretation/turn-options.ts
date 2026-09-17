@@ -455,19 +455,21 @@ export const renderTurnOptions = (
         break;
       }
       case "effort-in-model": {
-        // RFC-05 Phase 1: the kind exists so the cursor descriptor
-        // compiles. Word validation and zero-token emission land in Phase
-        // 2; until then effort on cursor refuses rather than rendering a
-        // wrong argv.
-        throw new ArgvRefusalError({
-          issue: "unsupported-option",
-          harness: h.name,
-          option: key,
-          supported: [...h.vocabulary.efforts],
-          supportedBy: supportedBy(defaultDescriptors(), key),
-          detail: "effort-in-model renders in Phase 2",
-          hint: hintFor(h.name, key),
-        });
+        // Cursor effort resolves into the --model slug at the plan-turn
+        // resolve step (Phase 3); here only the WORD is validated, against
+        // the union ladder, and zero tokens emit. Family lookup never
+        // happens here, so a mistyped family passes through untouched.
+        if (typeof raw !== "string" || !h.vocabulary.efforts.includes(raw)) {
+          throw new ArgvRefusalError({
+            issue: "unknown-effort",
+            harness: h.name,
+            option: key,
+            supported: [...h.vocabulary.efforts],
+            detail: String(raw),
+          });
+        }
+        sequences.push([...tokensFor(render)]);
+        break;
       }
       default: {
         const _exhaustive: never = spec;

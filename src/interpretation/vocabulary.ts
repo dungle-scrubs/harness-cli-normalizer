@@ -6,6 +6,7 @@
  * (resolveModel) so validation and capability claims cannot drift.
  */
 import { ACCESS_VALUES, type HarnessDescriptor } from "../knowledge/descriptor.js";
+import { ArgvRefusalError } from "./refusal.js";
 
 export type Validated = { readonly ok: true; readonly id: string } | ValidationRefusal;
 
@@ -62,6 +63,139 @@ export const validateAccess = (value: string): Validated => {
     ok: false,
     reason: `unknown access ${JSON.stringify(value)}; accepted: ${ACCESS_VALUES.join(", ")}`,
   };
+};
+
+/** Reverse-index one slug to the (stem, effort) pair whose row value it
+ * is, or null when no row lists it. First match wins; rows never share a
+ * value in the transcribed table. */
+const reverseIndexEffort = (
+  table: Readonly<Record<string, Readonly<Record<string, string>>>>,
+  slug: string,
+): { readonly stem: string; readonly effort: string } | null => {
+  for (const [stem, row] of Object.entries(table)) {
+    for (const [effort, value] of Object.entries(row)) {
+      if (value === slug) return { stem, effort };
+    }
+  }
+  return null;
+};
+
+/** Resolve a cursor model plus effort to the slug that runs (RFC-05).
+ * The ONE owner of the family, stem, variant, and fast rules; the single
+ * call site is the plan-turn resolve step (Phase 3). Rules apply in
+ * order, first match wins, model checks before effort checks:
+ * unknown-model for a selector naming no slug and no stem (supported
+ * follows the unknown-model convention) and for a bare stem with no
+ * effort (supported is that stem's row slugs); stem plus effort resolves
+ * through the row (missing effort refuses unknown-effort with the stem
+ * ladder); a variant or -fast slug pins its effort (same effort passes
+ * through, a conflict refuses invalid-option-value, nothing is ever
+ * composed); effort with no model or with a bare-only model refuses
+ * unknown-effort with empty supported; a word outside the union ladder
+ * refuses unknown-effort with the union. Returns undefined only when
+ * both inputs are absent. */
+export const resolveEffortSlug = (
+  h: HarnessDescriptor,
+  model: string | undefined,
+  effort: string | undefined,
+): string | undefined => {
+  const table = h.vocabulary.effortSlugs ?? {};
+  if (model === undefined) {
+    if (effort === undefined) return undefined;
+    throw new ArgvRefusalError({
+      issue: "unknown-effort",
+      harness: h.name,
+      option: "effort",
+      supported: [],
+      detail: effort,
+    });
+  }
+  const { id } = resolveModel(h, model);
+  const isSlug = h.vocabulary.models.includes(id);
+  const row = Object.hasOwn(table, id)
+    ? (table[id] as Readonly<Record<string, string>>)
+    : undefined;
+  if (!isSlug && row === undefined) {
+    throw new ArgvRefusalError({
+      issue: "unknown-model",
+      harness: h.name,
+      supported: [...h.vocabulary.models, ...Object.keys(h.vocabulary.aliases)],
+      detail: model,
+    });
+  }
+  if (effort === undefined) {
+    if (row !== undefined && !isSlug) {
+      throw new ArgvRefusalError({
+        issue: "unknown-model",
+        harness: h.name,
+        supported: [...Object.values(row)],
+        detail: model,
+      });
+    }
+    return id;
+  }
+  if (!h.vocabulary.efforts.includes(effort)) {
+    throw new ArgvRefusalError({
+      issue: "unknown-effort",
+      harness: h.name,
+      option: "effort",
+      supported: [...h.vocabulary.efforts],
+      detail: effort,
+    });
+  }
+  // The stem-key rule precedes the variant rule: a value that is also a
+  // stem key (gpt-5.2 is its row's medium value) still resolves here.
+  if (row !== undefined) {
+    const target = Object.hasOwn(row, effort) ? row[effort] : undefined;
+    if (target === undefined) {
+      throw new ArgvRefusalError({
+        issue: "unknown-effort",
+        harness: h.name,
+        option: "effort",
+        supported: [...Object.keys(row)],
+        detail: `${model} offers no ${effort}`,
+      });
+    }
+    return target;
+  }
+  const pinned = reverseIndexEffort(table, id);
+  if (pinned !== null) {
+    if (pinned.effort === effort) return id;
+    throw new ArgvRefusalError({
+      issue: "invalid-option-value",
+      harness: h.name,
+      option: "effort",
+      supported: [pinned.effort],
+      detail: `${model} pins effort ${pinned.effort}`,
+    });
+  }
+  if (id.endsWith("-fast")) {
+    const base = reverseIndexEffort(table, id.slice(0, -"-fast".length));
+    if (base === null) {
+      throw new ArgvRefusalError({
+        issue: "unknown-effort",
+        harness: h.name,
+        option: "effort",
+        supported: [],
+        detail: model,
+      });
+    }
+    if (base.effort === effort) return id;
+    throw new ArgvRefusalError({
+      issue: "invalid-option-value",
+      harness: h.name,
+      option: "effort",
+      supported: [base.effort],
+      detail: `${model} pins effort ${base.effort}`,
+    });
+  }
+  throw new ArgvRefusalError({
+    issue: "unknown-effort",
+    harness: h.name,
+    option: "effort",
+    supported: [],
+    detail: model,
+  });
 };
 
 /** Validate an effort against the ladder that applies to the pick: the

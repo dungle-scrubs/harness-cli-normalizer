@@ -4833,8 +4833,14 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -4903,8 +4909,14 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -4974,7 +4986,10 @@
             }
           ],
           "unrenderable": [
-            "contextWindow"
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -5044,7 +5059,10 @@
             }
           ],
           "unrenderable": [
-            "contextWindow"
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -5124,8 +5142,14 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -5205,8 +5229,14 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -5306,8 +5336,14 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -5378,8 +5414,14 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -5442,8 +5484,14 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -5506,8 +5554,14 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -5570,8 +5624,14 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -5646,8 +5706,14 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            }
           ]
         }
       }
@@ -5714,7 +5780,10 @@
             }
           ],
           "unrenderable": [
-            "tools"
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -5784,7 +5853,10 @@
             }
           ],
           "unrenderable": [
-            "tools"
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -5888,7 +5960,10 @@
             }
           ],
           "unrenderable": [
-            "tools"
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -6141,7 +6216,10 @@
             }
           ],
           "unrenderable": [
-            "tools"
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -6206,7 +6284,10 @@
             }
           ],
           "unrenderable": [
-            "tools"
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -6271,7 +6352,10 @@
             }
           ],
           "unrenderable": [
-            "tools"
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -6336,7 +6420,10 @@
             }
           ],
           "unrenderable": [
-            "tools"
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -6413,7 +6500,10 @@
             }
           ],
           "unrenderable": [
-            "tools"
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
           ]
         }
       }
@@ -6478,8 +6568,14 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -6548,8 +6644,14 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -6619,7 +6721,10 @@
             }
           ],
           "unrenderable": [
-            "contextWindow"
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -6689,7 +6794,10 @@
             }
           ],
           "unrenderable": [
-            "contextWindow"
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -6769,8 +6877,14 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -6850,8 +6964,14 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -6951,8 +7071,14 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -7028,8 +7154,14 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -7092,8 +7224,14 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -7156,8 +7294,14 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -7220,8 +7364,14 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -7296,8 +7446,14 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            }
           ]
         }
       }
@@ -7361,10 +7517,22 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow",
-            "memory",
-            "tools"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -7432,10 +7600,22 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow",
-            "memory",
-            "tools"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -7504,9 +7684,18 @@
             }
           ],
           "unrenderable": [
-            "contextWindow",
-            "memory",
-            "tools"
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -7575,9 +7764,18 @@
             }
           ],
           "unrenderable": [
-            "contextWindow",
-            "memory",
-            "tools"
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -7656,10 +7854,22 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow",
-            "memory",
-            "tools"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -7738,9 +7948,18 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow",
-            "memory"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -7839,9 +8058,18 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow",
-            "memory"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -7911,10 +8139,22 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow",
-            "memory",
-            "tools"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -7976,10 +8216,22 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow",
-            "memory",
-            "tools"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -8041,10 +8293,22 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow",
-            "memory",
-            "tools"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -8106,10 +8370,22 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow",
-            "memory",
-            "tools"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
           ]
         }
       },
@@ -8183,10 +8459,22 @@
             }
           ],
           "unrenderable": [
-            "sandbox",
-            "contextWindow",
-            "memory",
-            "tools"
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
           ]
         }
       }

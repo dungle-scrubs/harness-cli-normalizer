@@ -11,8 +11,8 @@ import { describe, expect, it } from "vitest";
 import { buildLaunchArgv } from "../../src/interpretation/argv.js";
 import { ArgvRefusalError } from "../../src/interpretation/refusal.js";
 import { recognizeNativeSpelling, supportedBy } from "../../src/interpretation/support.js";
-import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
+import { cursorCli } from "../../src/knowledge/cursor.js";
 import { defaultDescriptors } from "../../src/knowledge/overrides.js";
 import { piCli } from "../../src/knowledge/pi.js";
 
@@ -117,5 +117,12 @@ describe("native spelling recognition (D7 part B)", () => {
   it("muse effort spelling recognized as muse's, not claude's", () => {
     const r = recognizeNativeSpelling(defaultDescriptors(), "--reasoning-effort");
     expect(r?.entries).toEqual([{ harness: "muse", spelling: "--reasoning-effort" }]);
+  });
+});
+
+describe("spellingOf in-model arm (RFC-05)", () => {
+  it("cursor expresses effort through the model flag", () => {
+    const by = supportedBy({ ...defaultDescriptors(), cursor: cursorCli }, "effort");
+    expect(by).toContainEqual({ harness: "cursor", spelling: "--model" });
   });
 });
