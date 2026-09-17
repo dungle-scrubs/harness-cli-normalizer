@@ -102,6 +102,13 @@ export type AccessValue = (typeof ACCESS_VALUES)[number];
 export const SESSION_INPUT_KINDS = ["claude-sdk-user-message", "pi-rpc-prompt"] as const;
 export type SessionInputKind = (typeof SESSION_INPUT_KINDS)[number];
 
+/** How the runner observes a pending native approval the harness omits
+ * from its headless stream (issue #179). Closed vocabulary like
+ * LimitCode: a descriptor cannot invent an observer the execution layer
+ * has no arm for. */
+export const APPROVAL_OBSERVERS = deepFreeze(["msp-list-pending"] as const);
+export type ApprovalObserver = (typeof APPROVAL_OBSERVERS)[number];
+
 export interface SessionInputContract {
   readonly kind: SessionInputKind;
 }
@@ -475,6 +482,12 @@ export interface HarnessDescriptor {
   /** The "run unattended without stops" flag, or null when the harness has
    * no such mode. */
   readonly autonomy: { readonly flag: string } | null;
+  /** Pending-approval observation for one headless turn (muse only in v1):
+   * muse exec omits approvals from stdout, so the runner polls the
+   * read-only MSP approval/listPending operation through a helper serve
+   * process it reaps with the child. Absent on harnesses whose headless
+   * stream already carries (or cannot raise) pending native requests. */
+  readonly approvalObserver?: ApprovalObserver;
   /** The harness's own model-id spellings, alias map, and effort ladder.
    * Curated baseline - pi's registry is runtime-extensible, so validation
    * against this vocabulary is a default, not a final word (D-008). */

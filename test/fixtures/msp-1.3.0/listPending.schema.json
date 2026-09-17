@@ -1,0 +1,496 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "provenance": {
+    "source": "muse schema generate-json-schema (stable surface)",
+    "binary": "Muse Code 1.3.0 (1.3.0-R3233.1)",
+    "manifest": {
+      "experimental": false,
+      "fingerprint": "sha256:ab69549a7ebb423fce94068762da0b5ff3cdec1f8fc263dcc17248eda117f852",
+      "schemaVersion": 1
+    },
+    "extracted": [
+      "ApprovalChoice",
+      "ApprovalChoiceScope",
+      "ApprovalDecision",
+      "ApprovalListPendingParams",
+      "ApprovalListPendingResult",
+      "ApprovalOrigin",
+      "ApprovalRequestParams",
+      "ApprovalRequirementRef",
+      "ApprovalStage",
+      "ApprovalStageResolution",
+      "ApprovalSubject",
+      "ApprovalSuggestedPrefix",
+      "RecordPosition",
+      "SourceRange",
+      "StreamRef",
+      "UserInputOption",
+      "UserInputOptionPreview",
+      "UserInputQuestion",
+      "UserInputRequestParams",
+      "UserInputSelection",
+      "UserInputSelectionMode"
+    ]
+  },
+  "$defs": {
+    "ApprovalChoice": {
+      "properties": {
+        "acceptsFeedback": {
+          "type": "boolean"
+        },
+        "choiceId": {
+          "type": "string"
+        },
+        "decision": {
+          "$ref": "#/$defs/ApprovalDecision"
+        },
+        "label": {
+          "type": "string"
+        },
+        "rulePreview": {
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/ApprovalChoiceScope"
+        }
+      },
+      "required": ["choiceId", "decision", "label", "scope"],
+      "type": "object"
+    },
+    "ApprovalChoiceScope": {
+      "enum": ["once", "session", "localPersistent"],
+      "type": "string",
+      "x-msp-openness": "open"
+    },
+    "ApprovalDecision": {
+      "enum": [
+        "approved",
+        "approvedForSession",
+        "approvedPolicyAmendment",
+        "denied",
+        "deniedPolicyAmendment",
+        "timedOut",
+        "abort"
+      ],
+      "type": "string",
+      "x-msp-openness": "open"
+    },
+    "ApprovalListPendingParams": {
+      "description": "`approval/listPending` params (tdd SS5.7): the pull dual of the re-issued\nrequests. A log-fold read — no lease, works on loaded and unloaded\nsessions, never subscribes.",
+      "properties": {
+        "sessionId": {
+          "description": "The session to read.",
+          "type": "string"
+        }
+      },
+      "required": ["sessionId"],
+      "type": "object"
+    },
+    "ApprovalListPendingResult": {
+      "description": "`approval/listPending` result (tdd SS5.7). Ordering is by opening\n`viewCursor`; empty arrays when nothing is pending. The result is\npoint-in-time — to act on it race-safely, `approval/decide` carries the\n`requirementId` guard regardless of how the client learned the state.",
+      "properties": {
+        "approvals": {
+          "description": "Exactly the `approval/request` params of tdd SS5.3, one per pending\napproval.",
+          "items": {
+            "$ref": "#/$defs/ApprovalRequestParams"
+          },
+          "type": "array"
+        },
+        "userInputs": {
+          "description": "Exactly the `userInput/request` params of tdd SS5.10, one per pending\nprompt.",
+          "items": {
+            "$ref": "#/$defs/UserInputRequestParams"
+          },
+          "type": "array"
+        }
+      },
+      "required": ["approvals", "userInputs"],
+      "type": "object"
+    },
+    "ApprovalOrigin": {
+      "properties": {
+        "command": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": ["kind"],
+      "type": "object"
+    },
+    "ApprovalRequestParams": {
+      "description": "Full params shared by `approval/request` and `approval/requested`.",
+      "properties": {
+        "approvalId": {
+          "type": "string"
+        },
+        "availableChoices": {
+          "items": {
+            "$ref": "#/$defs/ApprovalChoice"
+          },
+          "type": "array"
+        },
+        "currentRequirementId": {
+          "$ref": "#/$defs/ApprovalRequirementRef"
+        },
+        "itemId": {
+          "type": "string"
+        },
+        "judgeEscalated": {
+          "type": "boolean"
+        },
+        "protectedWrite": {
+          "type": "boolean"
+        },
+        "rawArgs": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "sourceRange": {
+          "$ref": "#/$defs/SourceRange"
+        },
+        "subject": {
+          "$ref": "#/$defs/ApprovalSubject"
+        },
+        "taskId": {
+          "type": "string"
+        },
+        "toolCallId": {
+          "type": "string"
+        },
+        "toolName": {
+          "type": "string"
+        },
+        "turnId": {
+          "type": "string"
+        },
+        "viewCursor": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "approvalId",
+        "availableChoices",
+        "currentRequirementId",
+        "itemId",
+        "judgeEscalated",
+        "protectedWrite",
+        "rawArgs",
+        "sessionId",
+        "sourceRange",
+        "subject",
+        "taskId",
+        "toolCallId",
+        "toolName",
+        "turnId",
+        "viewCursor"
+      ],
+      "type": "object"
+    },
+    "ApprovalRequirementRef": {
+      "description": "Approval-stage token carried in SS5 params and stale-requirement errors.",
+      "properties": {
+        "approvalId": {
+          "type": "string"
+        },
+        "sourceIndex": {
+          "type": "integer"
+        }
+      },
+      "required": ["approvalId", "sourceIndex"],
+      "type": "object"
+    },
+    "ApprovalStage": {
+      "properties": {
+        "argv": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "argvComplete": {
+          "type": "boolean"
+        },
+        "position": {
+          "type": "integer"
+        },
+        "requirementId": {
+          "$ref": "#/$defs/ApprovalRequirementRef"
+        },
+        "resolution": {
+          "$ref": "#/$defs/ApprovalStageResolution"
+        },
+        "suggestedPrefix": {
+          "$ref": "#/$defs/ApprovalSuggestedPrefix"
+        },
+        "totalStages": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "argv",
+        "argvComplete",
+        "position",
+        "requirementId",
+        "resolution",
+        "totalStages"
+      ],
+      "type": "object"
+    },
+    "ApprovalStageResolution": {
+      "properties": {
+        "argvPrefix": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "diagnostic": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        }
+      },
+      "required": ["kind"],
+      "type": "object"
+    },
+    "ApprovalSubject": {
+      "description": "Open approval subject union. Unknown kinds are rendered generically and\nnever auto-approved by clients (tdd SS5.2).",
+      "properties": {
+        "access": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        },
+        "host": {
+          "type": "string"
+        },
+        "kind": {
+          "description": "Open discriminator: `shell | fileAccess | network | process | tool`.",
+          "type": "string"
+        },
+        "origin": {
+          "$ref": "#/$defs/ApprovalOrigin"
+        },
+        "path": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer"
+        },
+        "protocol": {
+          "type": "string"
+        },
+        "stages": {
+          "items": {
+            "$ref": "#/$defs/ApprovalStage"
+          },
+          "type": "array"
+        },
+        "target": {
+          "type": "string"
+        },
+        "toolName": {
+          "type": "string"
+        },
+        "workspaceRoot": {
+          "type": "string"
+        }
+      },
+      "required": ["kind"],
+      "type": "object"
+    },
+    "ApprovalSuggestedPrefix": {
+      "properties": {
+        "argvPrefix": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "required": ["argvPrefix", "label"],
+      "type": "object"
+    },
+    "RecordPosition": {
+      "description": "One end of a [`SourceRange`]: a record's event id and its sequence number\nwithin the stream (tdd SS4.2).",
+      "properties": {
+        "id": {
+          "description": "The record's event id.",
+          "type": "string"
+        },
+        "sequence": {
+          "description": "The record's sequence number within its stream.",
+          "type": "integer"
+        }
+      },
+      "required": ["id", "sequence"],
+      "type": "object"
+    },
+    "SourceRange": {
+      "description": "The inclusive raw-record range a durable-sourced view event folded from\n(tdd SS4.2) — the reconciliation token: re-folding the cited records from\nthe canonical fold state immediately before `first` — appended host-death\nterminals seed from the end-of-records state — reproduces the event\n(tdd SS7.5; spec 14653 T041/INV-009). In v1 it is an **opaque provenance\ntoken**: no wire method reads what it points at (the SS6 raw-log altitude\nis deferred, #13929).\n\nEphemeral-sourced events (`item/delta`, and an `item/started` that opens\non an ephemeral record) carry no `sourceRange` — ephemeral records may be\nevicted by retention (tdd SS4.2; spec 14653 INV-009).",
+      "properties": {
+        "first": {
+          "$ref": "#/$defs/RecordPosition",
+          "description": "The first record of the inclusive range."
+        },
+        "last": {
+          "$ref": "#/$defs/RecordPosition",
+          "description": "The last record of the inclusive range; equal to `first` for an event\nfolded from one record."
+        },
+        "stream": {
+          "$ref": "#/$defs/StreamRef",
+          "description": "The stream the folded records live on (run stream, or the session\nstream's mirror of task/approval/subagent-control records — whichever\nthe fold actually consumed, tdd SS4.2)."
+        }
+      },
+      "required": ["first", "last", "stream"],
+      "type": "object"
+    },
+    "StreamRef": {
+      "description": "One raw stream named by a [`SourceRange`] (tdd SS4.2).",
+      "properties": {
+        "id": {
+          "description": "The stream id.",
+          "type": "string"
+        },
+        "kind": {
+          "description": "The stream kind, verbatim raw-log vocabulary (e.g. `\"run\"`,\n`\"session\"`). A free string, not an enum: `sourceRange` is an opaque\nprovenance token in v1 and the raw stream vocabulary is the deferred\nSS6 altitude's to freeze (#13929).",
+          "type": "string"
+        }
+      },
+      "required": ["id", "kind"],
+      "type": "object"
+    },
+    "UserInputOption": {
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "preview": {
+          "$ref": "#/$defs/UserInputOptionPreview"
+        }
+      },
+      "required": ["label"],
+      "type": "object"
+    },
+    "UserInputOptionPreview": {
+      "properties": {
+        "content": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        }
+      },
+      "required": ["content", "format"],
+      "type": "object"
+    },
+    "UserInputQuestion": {
+      "properties": {
+        "header": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "options": {
+          "items": {
+            "$ref": "#/$defs/UserInputOption"
+          },
+          "type": "array"
+        },
+        "question": {
+          "type": "string"
+        },
+        "selection": {
+          "$ref": "#/$defs/UserInputSelection"
+        }
+      },
+      "required": ["header", "id", "options", "question", "selection"],
+      "type": "object"
+    },
+    "UserInputRequestParams": {
+      "description": "Full params shared by `userInput/request` and `userInput/requested`.",
+      "properties": {
+        "autoResolutionMs": {
+          "type": "integer"
+        },
+        "itemId": {
+          "type": "string"
+        },
+        "questions": {
+          "items": {
+            "$ref": "#/$defs/UserInputQuestion"
+          },
+          "type": "array"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "sourceRange": {
+          "$ref": "#/$defs/SourceRange"
+        },
+        "toolCallId": {
+          "type": "string"
+        },
+        "toolName": {
+          "type": "string"
+        },
+        "turnId": {
+          "type": "string"
+        },
+        "userInputId": {
+          "type": "string"
+        },
+        "viewCursor": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "itemId",
+        "questions",
+        "sessionId",
+        "toolCallId",
+        "toolName",
+        "turnId",
+        "userInputId",
+        "viewCursor"
+      ],
+      "type": "object"
+    },
+    "UserInputSelection": {
+      "properties": {
+        "maxSelections": {
+          "type": "integer"
+        },
+        "minSelections": {
+          "type": "integer"
+        },
+        "mode": {
+          "$ref": "#/$defs/UserInputSelectionMode"
+        }
+      },
+      "required": ["mode"],
+      "type": "object"
+    },
+    "UserInputSelectionMode": {
+      "enum": ["single", "multiple"],
+      "type": "string",
+      "x-msp-openness": "closed"
+    }
+  }
+}

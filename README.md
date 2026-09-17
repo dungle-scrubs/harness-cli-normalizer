@@ -676,6 +676,27 @@ if (done.failure) {
 claude's `rate_limit_event`); a consumer treats its absence as unknown,
 not as "retry now".
 
+### Muse pending native approvals (issue #179)
+
+`muse exec` omits pending approvals from stdout, so a headless turn blocked
+on one would hang with no event until `--timeout` (`hcn run` arms no stall
+clock; `--stall` is session-only). While a muse turn runs, hcn polls the
+read-only MSP `approval/listPending` operation through a helper `muse serve`
+process owned by that turn and reaped with it. The helper never loads the
+session, never decides anything, and carries only the blocked subject
+(approval vs input) and the approval's subject kind - never request
+payloads.
+
+A single non-empty sample stops nothing: judge-decided approvals for
+ordinary tool calls appear briefly, then clear. The turn ends only when the
+same request identity persists across polls for 30 seconds, or at once when
+an approval is judge-escalated (a human was asked, and a headless run has
+none). Either way the turn emits an `error` naming the blocked subject, then
+`failure class=task` (`retryable: false` - rerun with `--autonomy` or answer
+it in muse directly, never auto-route) and `done cause=failed` with exit 1.
+When the pending set itself cannot be read, the turn fails the same way
+rather than risking a silent hang.
+
 ## Refusals
 
 An unexpressible option throws `ArgvRefusalError` from the builders and is also delivered as `failure class=rejected` + `done cause=failed` from `streamTurn` (which never throws out of its first `next()`):

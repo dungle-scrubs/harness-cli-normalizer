@@ -59,6 +59,12 @@ export const museCode: HarnessDescriptor = deepFreeze({
   limitMatchers: [...SHARED_LIMIT_MATCHERS],
   authMatchers: [...SHARED_AUTH_MATCHERS],
   autonomy: { flag: "--yolo" },
+  // Issue #179: exec omits pending approvals from stdout, so a headless
+  // turn blocked on one hangs with no event. The runner observes them
+  // through the read-only MSP approval/listPending operation (verified
+  // against the 1.3.0 schema export: a log-fold read, no lease, works on
+  // loaded and unloaded sessions, never subscribes).
+  approvalObserver: "msp-list-pending",
   vocabulary: {
     modelFlag: "--model",
     models: [
