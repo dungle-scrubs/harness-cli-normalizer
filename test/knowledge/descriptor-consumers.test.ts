@@ -13,8 +13,10 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
+import { buildSpawnArgv } from "../../src/interpretation/argv.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
+import { cursorCli } from "../../src/knowledge/cursor.js";
 import { museCode } from "../../src/knowledge/muse.js";
 import { piCli } from "../../src/knowledge/pi.js";
 
@@ -68,5 +70,24 @@ describe("every descriptor field has a consumer outside the knowledge layer", ()
     expect(access.test(text), `descriptor field ${path} has no reader outside knowledge`).toBe(
       true,
     );
+  });
+});
+
+describe("resumeLast renderable split (RFC-06 Phase 1)", () => {
+  test("five descriptor values: three renderable, muse parse-only, cursor parse-only pending Phase 5", () => {
+    expect(claudeCode.resumeLast).toEqual({ flag: "--continue", headless: true });
+    expect(piCli.resumeLast).toEqual({ flag: "--continue", headless: true });
+    expect(codexCli.resumeLast).toEqual({ flag: "--last", headless: true });
+    expect(museCode.resumeLast).toEqual({ flag: "--last", headless: false });
+    expect(cursorCli.resumeLast).toEqual({ flag: "--continue", headless: false });
+  });
+
+  test("claude resume-last renders --continue --fork-session from the single contextInspection.forkFlag; codex and pi render no fork flag (Resolved Question 3: --fork-session designs the parent-file write out)", () => {
+    const claude = buildSpawnArgv(claudeCode, { prompt: "hi", resumeLast: true });
+    expect(claude).toContain("--continue");
+    expect(claude.filter((token) => token === "--fork-session")).toHaveLength(1);
+    for (const h of [codexCli, piCli]) {
+      expect(buildSpawnArgv(h, { prompt: "hi", resumeLast: true })).not.toContain("--fork-session");
+    }
   });
 });

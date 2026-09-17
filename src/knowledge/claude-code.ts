@@ -44,8 +44,10 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
   },
   resume: {
     // A-005: claude resumes are id-stable - the caller-assigned id survives
-    // every resume, so there is no rotation handling and forking is only the
-    // explicit --fork-session flag (deliberate branching, never a default).
+    // every resume, so there is no rotation handling. Forking is the
+    // explicit --fork-session flag (deliberate branching) on the resume-id
+    // path, and the default on the resume-last path (RFC-06: --continue
+    // --fork-session, so a most-recent turn never writes the parent file).
     style: "flag",
     flag: "--resume",
     aliases: ["-r"],
@@ -162,7 +164,10 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     flags: [...STREAM_INPUT_FLAGS, "--no-session-persistence", "--replay-user-messages"],
     forkFlag: "--fork-session",
   },
-  resumeLast: null,
+  // RFC-06: `-c, --continue` continues the most recent conversation
+  // (observed on 2.1.274, 2026-09-17). The fork half renders from the
+  // single contextInspection.forkFlag, always on this path.
+  resumeLast: { flag: "--continue", headless: true },
   stdin: "inherit",
   presence: {
     headlessMarkers: ["-p", "--print"],

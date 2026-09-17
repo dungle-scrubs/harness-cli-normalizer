@@ -297,7 +297,7 @@ export const planTurn = async (
   let effectiveTurnOpts = turnOpts;
   let provenance: readonly ProvenanceEntry[] = [];
   let unrenderable: readonly UnrenderableEntry[] = [];
-  if (extra.resume === undefined) {
+  if (extra.resume === undefined && extra.resumeLast !== true) {
     try {
       const resolved = resolveEffectiveOptions(h, { ...turnOpts, prompt }, tiers as ConfigTiers);
       const { prompt: _prompt, ...rest } = resolved.options;
@@ -346,7 +346,9 @@ export const planTurn = async (
     }
     if (slug !== undefined && slug !== effortModel) {
       effectiveTurnOpts = { ...effectiveTurnOpts, model: slug };
-      if (extra.resume === undefined) {
+      // RFC-06: a resume-last turn never carries launch-only provenance
+      // (RFC-05 landed, so this guard's discriminant applies now).
+      if (extra.resume === undefined && extra.resumeLast !== true) {
         provenance = provenance.some((p) => p.key === "model")
           ? provenance.map((p) => (p.key === "model" ? { ...p, value: slug } : p))
           : [...provenance, { key: "model", value: slug, tier: "arg" }];
@@ -368,6 +370,7 @@ export const planTurn = async (
     ...(extra.cwd !== undefined ? { cwd: extra.cwd } : {}),
     ...(extra.env !== undefined ? { env: extra.env } : {}),
     ...(extra.resume !== undefined ? { resume: extra.resume } : {}),
+    ...(extra.resumeLast === true ? { resumeLast: true as const } : {}),
     ...(values["native-settings-fingerprint"] !== undefined
       ? { nativeSettingsFingerprint: String(values["native-settings-fingerprint"]) }
       : {}),
@@ -431,7 +434,7 @@ export const writePlanDiagnostics = (
   const env = buildTurnEnv(
     h,
     plan.options,
-    plan.options.resume === undefined ? "launch" : "resume",
+    plan.options.resume === undefined && plan.options.resumeLast !== true ? "launch" : "resume",
   );
   if (Object.keys(env).length > 0) {
     process.stderr.write(

@@ -42,6 +42,7 @@ export type RefusalOption =
   | "questions"
   | "timeout"
   | "nativeSettingsFingerprint"
+  | "resumeLast"
   | `discovery.${string}`;
 
 /** One helper builds the message from the structured fields so message and

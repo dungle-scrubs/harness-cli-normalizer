@@ -119,7 +119,10 @@ export const piCli: HarnessDescriptor = deepFreeze({
   contextHook: null,
   contextInspection: null,
   nativeContextManagement: null,
-  resumeLast: null,
+  // RFC-06: `--continue` continues the previous session (observed on
+  // 0.85.1, 2026-09-17; `--continue` example in `pi --help`). No fork
+  // mechanism is probed on pi, so none is rendered.
+  resumeLast: { flag: "--continue", headless: true },
   stdin: "close-required",
   presence: {
     headlessMarkers: ["-p", "--print"],

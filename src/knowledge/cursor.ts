@@ -579,9 +579,11 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
   // result.usage token counts exist (probe 10) but no window size is
   // known, so no usedPct can be computed.
   nativeContextManagement: null,
-  // `-p --continue` resumes the most recently touched session (probe 22);
-  // parse data for parse-resume.ts only, never rendered into spawn argv.
-  resumeLast: { flag: "--continue" },
+  // `-p --continue` resumes the most recently touched session (probe 22;
+  // observed on 2026.09.15-d2fe57e, 2026-09-17). Parse-only until the
+  // RFC-06 conditional phase flips headless after RFC-05 lands: parse data
+  // for parse-resume.ts only, never rendered into spawn argv.
+  resumeLast: { flag: "--continue", headless: false },
   // A positional prompt plus open stdin emits `result` then never exits,
   // so stdin is closed at spawn (notes 07).
   stdin: "close-required",

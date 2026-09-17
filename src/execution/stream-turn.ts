@@ -100,6 +100,10 @@ export interface TurnRunOptions extends LaunchOptions {
    * with the descriptor's resume grammar, and identity decoding treats a
    * DIFFERENT announced id as a rotation anomaly. */
   readonly resume?: string;
+  /** Resume the harness's most recent session without naming an id (RFC-06).
+   * The plan threads this from the parsed flag; the spawn renders through
+   * the resume-last builder and the turn env resolves at resume phase. */
+  readonly resumeLast?: true;
   /** Working directory for the spawned harness. */
   readonly cwd?: string;
   /** Per-call environment, merged over parent; "" deletes. */
@@ -226,7 +230,11 @@ export async function* streamTurn(
   // caller's per-call env: an explicit normalized option beats a raw
   // contradicting variable. Dropped keys ("" values) stay meaningful - only
   // the caller's side can delete, the descriptor side only sets.
-  const turnEnv = buildTurnEnv(h, effective, effective.resume === undefined ? "launch" : "resume");
+  const turnEnv = buildTurnEnv(
+    h,
+    effective,
+    effective.resume === undefined && effective.resumeLast !== true ? "launch" : "resume",
+  );
   const mergedEnv: Record<string, string> = { ...(opts.env ?? {}), ...turnEnv };
 
   const matcherOverrides = matcherOverridesOf.get(h);

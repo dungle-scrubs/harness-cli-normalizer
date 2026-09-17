@@ -520,7 +520,10 @@ export interface HarnessDescriptor {
     readonly usedPctField: string;
   } | null;
   /** Disposable native context accounting; the exchange validates support.
-   * Null is unknown support, never a model-window estimate. */
+   * Null is unknown support, never a model-window estimate. `forkFlag` has
+   * two consumers: context inspection (a resume there forks, leaving the
+   * original session unchanged) and the resume-last builder (a claude
+   * most-recent turn always forks). */
   readonly contextInspection: {
     readonly flags: readonly string[];
     readonly forkFlag: string;
@@ -533,9 +536,12 @@ export interface HarnessDescriptor {
     readonly kind: "auto-compaction" | "native-session-auto-compaction";
     readonly modes: readonly HarnessMode[];
   } | null;
-  /** Resume-most-recent support (codex --last), or null. The race it opens
-   * is owned by the corroboration ranking in interpretation. */
-  readonly resumeLast: { readonly flag: string } | null;
+  /** Most-recent resume support, or null. `flag` stays the parse key for
+   * `parse-resume.ts` (shell history carrying `muse resume --last` still
+   * parses); `headless` decides whether a builder may render it. The
+   * harness owns most-recent resolution; the pre-spawn warning plus the
+   * identity signal bound the stranger race. */
+  readonly resumeLast: { readonly flag: string; readonly headless: boolean } | null;
   /** Whether backgrounded headless calls must have stdin closed (pi hangs
    * without `< /dev/null`). */
   readonly stdin: StdinPolicy;

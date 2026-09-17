@@ -84,8 +84,10 @@ export const museCode: HarnessDescriptor = deepFreeze({
   // 1.1.1. Native growth handling is not a pending-prompt count or a guarantee
   // that arbitrary incoming content fits; native compaction can fail.
   nativeContextManagement: { kind: "auto-compaction", modes: ["headless-turn"] },
-  // `muse resume --last` exists (muse resume --help).
-  resumeLast: { flag: "--last" },
+  // `muse resume --last` exists (muse resume --help) but needs a
+  // terminal: parse data for `parse-resume.ts` only, never a render
+  // target, since no headless grammar exists.
+  resumeLast: { flag: "--last", headless: false },
   stdin: "inherit",
   presence: {
     headlessMarkers: ["exec"],
