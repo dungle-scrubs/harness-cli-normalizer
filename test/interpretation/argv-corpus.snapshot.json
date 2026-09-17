@@ -1730,9 +1730,11 @@
             "low",
             "medium",
             "high",
-            "xhigh"
+            "xhigh",
+            "max",
+            "ultra"
           ],
-          "message": "unknown effort for muse \"bogus\"; supported: none, minimal, low, medium, high, xhigh - use one of the ladder values"
+          "message": "unknown effort for muse \"bogus\"; supported: none, minimal, low, medium, high, xhigh, max, ultra - use one of the ladder values"
         }
       },
       "model-unknown": {
@@ -4736,9 +4738,11 @@
             "low",
             "medium",
             "high",
-            "xhigh"
+            "xhigh",
+            "max",
+            "ultra"
           ],
-          "message": "unknown effort for muse \"bogus\"; supported: none, minimal, low, medium, high, xhigh - use one of the ladder values"
+          "message": "unknown effort for muse \"bogus\"; supported: none, minimal, low, medium, high, xhigh, max, ultra - use one of the ladder values"
         }
       },
       "model-unknown": {

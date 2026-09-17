@@ -1,0 +1,12 @@
+{
+  "ranAt": "2026-09-17T11:13:22.883Z",
+  "results": {
+    "pi": {
+      "status": "fail",
+      "detail": "question present but done.cause=killed"
+    }
+  },
+  "observations": {
+    "pi": null
+  }
+}

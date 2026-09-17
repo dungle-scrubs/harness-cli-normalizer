@@ -80,12 +80,21 @@ if (process.argv.includes("--json")) {
           : s === "drift"
             ? "◐ drift"
             : "– unknown";
+  // Size version columns to the widest value: cursor's date-hash versions
+  // are longer than semver and would otherwise run into the next column.
+  const width =
+    Math.max(
+      "installed".length,
+      ...rows.flatMap((r) =>
+        [r.verifiedAgainst, r.latest ?? "?", r.installed ?? "?"].map((v) => v.length),
+      ),
+    ) + 2;
   console.log(
-    `\n${"harness".padEnd(9)}${"verified".padEnd(12)}${"latest".padEnd(12)}${"installed".padEnd(12)}status`,
+    `\n${"harness".padEnd(9)}${"verified".padEnd(width)}${"latest".padEnd(width)}${"installed".padEnd(width)}status`,
   );
   for (const r of rows) {
     console.log(
-      `${r.harness.padEnd(9)}${r.verifiedAgainst.padEnd(12)}${(r.latest ?? "?").padEnd(12)}${(r.installed ?? "?").padEnd(12)}${mark(r.status)}`,
+      `${r.harness.padEnd(9)}${r.verifiedAgainst.padEnd(width)}${(r.latest ?? "?").padEnd(width)}${(r.installed ?? "?").padEnd(width)}${mark(r.status)}`,
     );
   }
   if (drift.length > 0) {

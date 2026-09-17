@@ -184,10 +184,16 @@ const killResume = async (h: HarnessDescriptor): Promise<Cell> => {
   // Needs resumability, NOT a persistent session mode - every harness here
   // resumes, so every harness can be killed mid-turn and resumed.
   const first = await collect(
-    streamTurn(h, opts(h, { prompt: "Remember: otter. Reply OK" }), smokeDeps()),
+    streamTurn(
+      h,
+      opts(h, { prompt: "Remember the codeword: otter. Reply with only: OK" }),
+      smokeDeps(),
+    ),
   );
   const sid = idOf(first);
   if (sid === null) return { status: "fail", detail: "no id" };
+  // "the word from before" was ambiguous: cursor answered its own prior
+  // reply, OK, on uninterrupted resumes too. Name the codeword instead.
   // Abandon an in-progress turn: break after the turn has started but
   // before it reaches `done`. Streaming harnesses break mid-token-stream;
   // codex (no token deltas) breaks after turn.started, mid-thinking.
@@ -205,11 +211,7 @@ const killResume = async (h: HarnessDescriptor): Promise<Cell> => {
     if (++abandonedAt >= 2) break; // in-progress: kill it here
   }
   const resumed = await collect(
-    streamTurn(
-      h,
-      opts(h, { prompt: "Reply with only the word from before.", resume: sid }),
-      smokeDeps(),
-    ),
+    streamTurn(h, opts(h, { prompt: "Reply with only the codeword.", resume: sid }), smokeDeps()),
   );
   const recalled = textOf(resumed).toLowerCase().includes("otter");
   const abandoned = !reachedDone && abandonedAt >= 2;

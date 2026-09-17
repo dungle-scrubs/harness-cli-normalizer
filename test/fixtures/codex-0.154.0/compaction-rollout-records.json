@@ -1,0 +1,32 @@
+[
+  {
+    "ordinal": 23,
+    "timestamp": "2026-09-17T11:12:52.222Z",
+    "type": "compacted",
+    "replacement_history_items": 2,
+    "message": ""
+  },
+  {
+    "ordinal": 26,
+    "timestamp": "2026-09-17T11:12:52.223Z",
+    "type": "event_msg",
+    "payload_type": "item_completed",
+    "item_type": "ContextCompaction",
+    "item_keys": ["id", "type"]
+  },
+  {
+    "ordinal": 55,
+    "timestamp": "2026-09-17T11:13:58.281Z",
+    "type": "compacted",
+    "replacement_history_items": 3,
+    "message": ""
+  },
+  {
+    "ordinal": 58,
+    "timestamp": "2026-09-17T11:13:58.304Z",
+    "type": "event_msg",
+    "payload_type": "item_completed",
+    "item_type": "ContextCompaction",
+    "item_keys": ["id", "type"]
+  }
+]

@@ -396,8 +396,9 @@ export const detectPositionalPromptInjection = (argv: string[]): string | null =
     if (KNOWN_FLAGS.has(token)) {
       continue;
     }
+    // Everything after `--` is native passthrough, never the prompt.
     if (token === "--") {
-      continue;
+      break;
     }
     // Only single-dash tokens are considered prompt injection candidates
     // Double-dash unknown flags (e.g. --unknown) are handled as unknown flag errors by parseArgs
