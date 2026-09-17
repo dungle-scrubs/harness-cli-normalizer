@@ -25,7 +25,8 @@ const run = async (
     code = process.exitCode;
   } finally {
     process.stdout.write = write;
-    process.exitCode = saved;
+    // Bun keeps a prior code when exitCode is set to undefined, so restore 0.
+    process.exitCode = saved ?? 0;
   }
   return { lines, exitCode: code };
 };
