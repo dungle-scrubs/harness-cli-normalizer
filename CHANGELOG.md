@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.15](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.14...v0.6.15) (2026-09-17)
+
+
+### Added
+
+* add --resume-last across harnesses (RFC-06) ([#181](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/181)) ([ef42791](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/ef427918b30152e49cbedf728b9e7015103a4173))
+
 ## [0.6.14](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.13...v0.6.14) (2026-09-17)
 
 
