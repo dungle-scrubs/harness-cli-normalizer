@@ -14,7 +14,7 @@ export interface StorePathInputs {
   readonly home: string;
   readonly cwd: string;
   readonly sessionId: string;
-  /** Store root the CLI resolved from rootEnv (Phase 3); absent means the
+  /** Store root the CLI resolved from rootEnv; absent means the
    * descriptor defaultRoot applies. Templates without {root} ignore it. */
   readonly root?: string;
 }

@@ -9,11 +9,16 @@ here; the full candidate list (probes 09-38 plus 40-55 plus 60-61 plus
 
 ## Normalization
 
-One mechanical replacement, applied byte-identically to every file:
+One mechanical replacement, applied to the capture-machine scratch prefix
+wherever it appears as a run path:
 
-- the capture-machine scratch prefix
-  `/private/tmp/claude-501/-Users-kevin-dev-harness-cli-normalizer/5a45c2a9-6252-4aae-9c22-f86a4afa9c3b/scratchpad/cursor-spike`
+- `/private/tmp/claude-501/-Users-kevin-dev-harness-cli-normalizer/5a45c2a9-6252-4aae-9c22-f86a4afa9c3b/scratchpad/cursor-spike`
   becomes `/hcn-cursor-spike`.
+
+Absolute paths outside that prefix are kept as captured. In particular,
+`probe-51.ndjson` carries model-reported `/Users/kevin/.cursor/projects/`
+paths in the dash-slugged form inside search-result prose; those are
+evidence, not run paths, and are not normalized.
 
 Run-specific session UUIDs, timestamps, and model display names are kept
 as captured: they are evidence, and the decoder treats them as data.

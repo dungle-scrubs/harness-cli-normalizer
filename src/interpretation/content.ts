@@ -246,20 +246,25 @@ const muse = (r: Record<string, unknown>): ContentEvent[] => {
 };
 
 /** Opaque per-reader decoder state (cursor only in v1): pending tool
- * call ids, tombstoned ids that must never re-emit a tool event, and
- * query args by toolCallId for completions that arrive with no preceding
- * start. Owned by interpretation, threaded by execution without
- * inspection; reset per turn. Each collection is bounded (drop-oldest)
- * so a pathological turn cannot grow memory without bound. */
+ * call ids, tombstoned ids evicted from pending that must never re-emit
+ * a tool event, completed ids that must not re-emit on a duplicate
+ * completion, and query args by toolCallId for completions that arrive
+ * with no preceding start. Owned by interpretation, threaded by execution
+ * without inspection; reset per turn. Each collection is bounded
+ * (drop-oldest) so a pathological turn cannot grow memory without bound.
+ * Completions land in their own set precisely so settling normal calls
+ * never pushes an evicted id out of the tombstones. */
 export interface CursorReaderState {
   readonly pending: readonly string[];
   readonly tombstones: readonly string[];
+  readonly completed: readonly string[];
   readonly queryArgs: readonly { readonly toolCallId: string; readonly args: unknown }[];
 }
 
 export const freshCursorReaderState = (): CursorReaderState => ({
   pending: [],
   tombstones: [],
+  completed: [],
   queryArgs: [],
 });
 
@@ -411,13 +416,17 @@ const cursorWithState = (
     const settled: CursorReaderState = {
       ...state,
       pending: boundedForget(state.pending, r.call_id),
-      tombstones: boundedAdd(state.tombstones, r.call_id),
+      completed: boundedAdd(state.completed, r.call_id),
     };
+    const seen =
+      state.pending.includes(r.call_id) ||
+      state.tombstones.includes(r.call_id) ||
+      state.completed.includes(r.call_id);
     if (outcome.kind === "success") {
       // Success output is the model's context, not an event. Unknown ids
       // emit the tool event once (a forward rule for kinds that omit
-      // started); tombstoned ids never re-emit.
-      if (state.pending.includes(r.call_id) || state.tombstones.includes(r.call_id)) {
+      // started); tombstoned and completed ids never re-emit.
+      if (seen) {
         return { events: [], state: settled };
       }
       const input = unknownInputOf(state, r, entry);
@@ -426,7 +435,7 @@ const cursorWithState = (
         state: settled,
       };
     }
-    if (state.pending.includes(r.call_id) || state.tombstones.includes(r.call_id)) {
+    if (seen) {
       // The tool event already fired at started (or the id finished
       // before): the denial error rides alone, never a second tool event.
       return { events: [denialEvent(entry.name, outcome.reason)], state: settled };
@@ -489,21 +498,30 @@ const cursorWithState = (
   return { events: [], state };
 };
 
-const READERS: Record<HarnessName, (r: Record<string, unknown>) => ContentEvent[]> = {
-  claude,
-  codex,
-  pi,
-  muse,
-  // Cursor decodes through cursorWithState above (it needs per-reader
-  // state); this slot only keeps the closed table exhaustive.
-  cursor: () => [],
+type StatefulReader = (
+  r: Record<string, unknown>,
+  state: ReaderState,
+) => { readonly events: ContentEvent[]; readonly state: ReaderState };
+
+const stateless =
+  (read: (r: Record<string, unknown>) => ContentEvent[]): StatefulReader =>
+  (r, state) => ({ events: read(r), state });
+
+/** Stateful reader dispatch, next to STATE_FACTORIES above: cursor threads
+ * its opaque per-reader state through cursorWithState below, the four
+ * stateless readers ignore it and pass it through. The closed table keeps
+ * every harness named once; the call site below names no harness. */
+const STATEFUL_READERS: Record<HarnessName, StatefulReader> = {
+  claude: stateless(claude),
+  codex: stateless(codex),
+  pi: stateless(pi),
+  muse: stateless(muse),
+  cursor: (r, state) => cursorWithState(r, state ?? freshCursorReaderState()),
 };
 
-/** Stateful entry point: every harness returns { events, state }. The
- * four stateless readers ignore the state and pass it through; the
- * cursor reader threads it. decode.ts is the one production call site
- * (Phase 3); contentEventsOf below keeps the array shape for stateless
- * callers. */
+/** Stateful entry point: every harness returns { events, state }.
+ * decode.ts is the one production call site; contentEventsOf below keeps
+ * the array shape for stateless callers. */
 export const contentEventsWithState = (
   harness: HarnessName,
   raw: unknown,
@@ -511,10 +529,7 @@ export const contentEventsWithState = (
 ): { readonly events: ContentEvent[]; readonly state: ReaderState } => {
   const record = asRecord(raw);
   if (record === null) return { events: [], state };
-  if (harness === "cursor") {
-    return cursorWithState(record, state ?? freshCursorReaderState());
-  }
-  return { events: READERS[harness](record), state };
+  return STATEFUL_READERS[harness](record, state);
 };
 
 export const contentEventsOf = (harness: HarnessName, raw: unknown): ContentEvent[] =>

@@ -28,7 +28,7 @@ test("the public verified resume runs the exact saved custom model, effort and p
     // Synthetic native record and executable, not a live-model claim.
     writeFileSync(
       join(directory, `rollout-fixture-${sessionId}.jsonl`),
-      [
+      `${[
         {
           type: "session_meta",
           payload: { id: sessionId, cwd: root, model_provider: "saved-provider" },
@@ -39,7 +39,7 @@ test("the public verified resume runs the exact saved custom model, effort and p
         },
       ]
         .map((record) => JSON.stringify(record))
-        .join("\n") + "\n",
+        .join("\n")}\n`,
     );
     writeFileSync(
       join(bin, "codex"),

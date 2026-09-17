@@ -182,28 +182,37 @@ const outcomeOf = (work: () => Outcome): Outcome => {
 };
 
 const buildCorpus = (): Record<string, unknown> => {
-  const corpus: Record<string, Record<string, Record<string, Outcome>>> = {
+  const corpus: {
+    launch: Record<string, Record<string, Outcome>>;
+    resume: Record<string, Record<string, Outcome>>;
+    session: Record<string, Record<string, Outcome>>;
+    resolve: Record<string, Record<string, Outcome>>;
+  } = {
     launch: {},
     resume: {},
     session: {},
     resolve: {},
   };
   for (const h of HARNESSES) {
-    corpus.launch![h.name] = {};
-    corpus.resume![h.name] = {};
-    corpus.session![h.name] = {};
-    corpus.resolve![h.name] = {};
+    const launch: Record<string, Outcome> = {};
+    const resume: Record<string, Outcome> = {};
+    const session: Record<string, Outcome> = {};
+    const resolve: Record<string, Outcome> = {};
+    corpus.launch[h.name] = launch;
+    corpus.resume[h.name] = resume;
+    corpus.session[h.name] = session;
+    corpus.resolve[h.name] = resolve;
     for (const [label, opts] of turnCases(h)) {
-      corpus.launch![h.name]![label] = outcomeOf(() => ({ argv: buildLaunchArgv(h, opts) }));
-      corpus.resume![h.name]![label] = outcomeOf(() => ({
+      launch[label] = outcomeOf(() => ({ argv: buildLaunchArgv(h, opts) }));
+      resume[label] = outcomeOf(() => ({
         argv: buildResumeArgv(h, { ...opts, sessionId: SESSION_ID }),
       }));
     }
     for (const [label, opts] of sessionCases(h)) {
-      corpus.session![h.name]![label] = outcomeOf(() => ({ argv: buildSessionArgv(h, opts) }));
+      session[label] = outcomeOf(() => ({ argv: buildSessionArgv(h, opts) }));
     }
     for (const [label, args, tiers] of resolveCases()) {
-      corpus.resolve![h.name]![label] = outcomeOf(() => {
+      resolve[label] = outcomeOf(() => {
         const r = resolveEffectiveOptions(h, args, tiers);
         const { prompt: _prompt, ...options } = r.options;
         return { resolved: { options, provenance: r.provenance, unrenderable: r.unrenderable } };

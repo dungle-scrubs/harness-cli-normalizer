@@ -456,7 +456,7 @@ export const renderTurnOptions = (
       }
       case "effort-in-model": {
         // Cursor effort resolves into the --model slug at the plan-turn
-        // resolve step (Phase 3); here only the WORD is validated, against
+        // resolve step; here only the WORD is validated, against
         // the union ladder, and zero tokens emit. Family lookup never
         // happens here, so a mistyped family passes through untouched.
         if (typeof raw !== "string" || !h.vocabulary.efforts.includes(raw)) {

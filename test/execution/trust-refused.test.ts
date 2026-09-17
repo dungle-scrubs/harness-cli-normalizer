@@ -10,6 +10,7 @@ import { describe, expect, test } from "vitest";
 import type { HarnessEvent } from "../../src/execution/events.js";
 import {
   type FailureSummary,
+  failureFromStderrTail,
   failureFromTerminalError,
   failureFromTrust,
   retryableOf,
@@ -39,7 +40,7 @@ describe("failureFromTrust", () => {
     expect(f.retryable).toBe(true);
   });
 
-  test("a nonzero exit with a trust tail classifies trust-refused, not native", async () => {
+  test("a trust line on the supervisor path fails fast as trust-refused, not native", async () => {
     const proc = new FakeProcess();
     const spawner = fakeSpawner([proc]);
     const turn = streamTurn(
@@ -57,6 +58,41 @@ describe("failureFromTrust", () => {
     expect(done.failure?.class).toBe("trust-refused");
     expect(done.failure?.retryable).toBe(true);
     expect(done.failure?.message).not.toMatch(/--trust/);
+  });
+
+  test("the post-queue tail scan classifies a trust tail as trust-refused", () => {
+    // L2: the stream-turn.ts tail branch runs after the transport and
+    // unavailable scans and before the native fallthrough. The supervisor
+    // per-line check usually fires first, so this pins the tail branch
+    // directly as defense-in-depth.
+    const f = failureFromStderrTail(cursorCli, 1, [
+      "Workspace Trust Required: this folder is not trusted",
+    ]);
+    expect(f.class).toBe("trust-refused");
+    expect(f.retryable).toBe(true);
+    expect(f.message).not.toMatch(/--trust/);
+  });
+
+  test("the tail scan prefers transport, then unavailable, over trust", () => {
+    expect(
+      failureFromStderrTail(cursorCli, 1, [
+        "Workspace Trust Required: this folder is not trusted",
+        "socket hang up",
+      ]).class,
+    ).toBe("transport");
+    expect(
+      failureFromStderrTail(cursorCli, 1, [
+        "Workspace Trust Required: this folder is not trusted",
+        "model_not_found",
+      ]).class,
+    ).toBe("unavailable");
+  });
+
+  test("the tail scan falls through to native, then to transport on an empty tail", () => {
+    const native = failureFromStderrTail(cursorCli, 1, ["Cannot use this model: nope"]);
+    expect(native.class).toBe("native");
+    const silent = failureFromStderrTail(cursorCli, 1, []);
+    expect(silent.class).toBe("transport");
   });
 
   test("a trust line on stderr fails the turn as trust-refused, not tail", async () => {

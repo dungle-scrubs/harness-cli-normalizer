@@ -26,8 +26,8 @@ proc.stdout.on("data", (d) => {
     } catch {}
   }
 });
-proc.stdin.write(JSON.stringify({ id: "p", type: "prompt", message }) + "\n");
+proc.stdin.write(`${JSON.stringify({ id: "p", type: "prompt", message })}\n`);
 const code = await new Promise((r) => proc.on("close", r));
 fs.writeFileSync(out, all);
-fs.writeFileSync(out + ".err", err);
+fs.writeFileSync(`${out}.err`, err);
 console.log(`exit=${code} lines=${all.split("\n").filter(Boolean).length}`);

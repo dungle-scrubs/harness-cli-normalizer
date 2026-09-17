@@ -25,6 +25,18 @@ describe("buildSpawnArgv cursor passthrough", () => {
     expect(caught?.message).toContain("--trust");
   });
 
+  test("the hint and message derive from the descriptor's name and bin", () => {
+    // L5: no hardcoded harness or binary words in descriptor-driven paths.
+    let caught: ArgvRefusalError | null = null;
+    try {
+      buildSpawnArgv(cursorCli, { prompt: "hi", passthrough: ["--trust"] });
+    } catch (err) {
+      caught = err as ArgvRefusalError;
+    }
+    expect(caught?.hint).toContain(cursorCli.name);
+    expect(caught?.message).toContain(cursorCli.bin);
+  });
+
   test("an empty tail still builds cursor argv", () => {
     const argv = buildSpawnArgv(cursorCli, { prompt: "hi", passthrough: [] });
     expect(argv).not.toContain("--");

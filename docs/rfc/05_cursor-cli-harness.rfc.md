@@ -148,6 +148,10 @@ Draft-08 follows the brief's fixed decision rule, grounded in `spike-addendum.md
 2. L2 applied: the draft-07 record no longer points at a member 7 "below".
 3. Status set to Accepted on 2026-09-17. The owner settled every open question; the review of draft-08 found no blocking or high finding.
 
+### Errata (2026-09-17; status stays Accepted)
+
+1. Config-tier sandbox and access values refuse, not diverge. The Refusals row says non-arg-tier sandbox values diverge with tier-and-key provenance, and the Sandbox section says profile and config-tier sandbox values diverge through the no-spec split. The code refuses user-config and project-config values of both options with `unsupported-option` (verified: project-config `sandbox: read-only`, user-config `sandbox: read-only`, and project-config `access: read` all refuse). Only the profile-tier default diverges (sandbox; access has no profile tier, so every access value refuses). Refusal fails safe, so the spec text is corrected to the code, not the other way around.
+
 ### Context
 
 This RFC follows the same house pattern as the four existing descriptors: facts as data in `src/knowledge/cursor.ts`, translation in `src/interpretation`, lifecycle in `src/execution`. It creates no new layer and changes no existing harness behavior. RFC-02's rules apply throughout: no new branch on `h.name`, one owner per rule, and every closed vocabulary declared once as a runtime array.

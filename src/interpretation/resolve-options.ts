@@ -10,6 +10,7 @@ import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { DEFAULT_TURN_PROFILE, type ProfileKey } from "../knowledge/profile.js";
 import type { TurnOptions } from "./argv.js";
+import { hintFor } from "./hints.js";
 import { assertIsolationCombination, ISOLATION_OVERRIDES } from "./isolation.js";
 import type { QuestionMode } from "./question.js";
 import { ArgvRefusalError } from "./refusal.js";
@@ -460,22 +461,21 @@ export const resolveEffectiveOptions = (
     provenance.push({ key, value, tier });
   }
 
-  // Access divergence / fixup. An arg-tier preset on a harness with no
-  // access spec stays resolved so the renderer refuses it: a caller asking
-  // for a restriction must not get a full-default run plus a stderr note.
-  // Non-arg tiers diverge with the tier recorded, as before.
+  // Access fixup. Any access value on a harness with no access spec
+  // refuses: a caller asking for a restriction must not get a full-default
+  // run plus a stderr note. Access is not a profile key, so no
+  // profile-tier default exists to diverge; arg, user-config, and
+  // project-config values all refuse with the same shape the renderer
+  // uses for explicit values.
   if (resolved.access !== undefined && h.turnOptions.access === undefined) {
-    // The entry keeps the tier of the access setting, not profile: the
-    // divergence names which tier attempted the preset.
-    const accessTier: ProvenanceTier =
-      effectiveArgs.access !== undefined ? "arg" : (sourceTier("access") ?? "user-config");
-    if (accessTier !== "arg") {
-      unrenderable.push({ key: "access", tier: accessTier });
-      for (let i = provenance.length - 1; i >= 0; i--)
-        if (provenance[i]?.key === "access") provenance.splice(i, 1);
-      provenance.push({ key: "access", value: resolved.access as string, tier: "harness" });
-      delete (resolved as Record<string, unknown>).access;
-    }
+    throw new ArgvRefusalError({
+      issue: "unsupported-option",
+      harness: h.name,
+      option: "access",
+      supported: Object.keys(h.turnOptions).length ? Object.keys(h.turnOptions) : ["(none)"],
+      detail: String(resolved.access),
+      hint: hintFor(h.name, "access"),
+    });
   }
   if (resolved.access !== undefined && !provenance.some((p) => p.key === "access")) {
     const tier: ProvenanceTier =

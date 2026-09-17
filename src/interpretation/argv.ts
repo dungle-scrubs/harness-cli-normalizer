@@ -274,7 +274,7 @@ export const buildSpawnArgv = (h: HarnessDescriptor, opts: SpawnArgvOptions): st
       issue: "unsupported-passthrough",
       harness: h.name,
       supported: [],
-      hint: "remove the tokens after `--` and re-run on cursor",
+      hint: `remove the tokens after \`--\` and re-run on ${h.name}`,
       detail: (opts.passthrough ?? []).join(" "),
     });
   }

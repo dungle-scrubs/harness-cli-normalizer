@@ -7,6 +7,7 @@
 
 import type { DiscoveryFacet, HarnessName, TurnOptionKey } from "../knowledge/descriptor.js";
 import { deepFreeze } from "../knowledge/descriptor.js";
+import { defaultDescriptors } from "../knowledge/overrides.js";
 
 export const REFUSAL_ISSUES = deepFreeze([
   "unsupported-option",
@@ -100,25 +101,28 @@ export const buildRefusalMessage = (
       return `${harness === undefined ? "cannot combine" : `${harness} cannot combine`}${optionPart}${detailSuffix}; ${supportedStr} - pass exactly one of them`;
     case "prompt-flag-injection":
       return `positional prompt may not start with '-'; it would be parsed as a flag by ${who}${detailSuffix}; ${supportedStr} - remove leading '-' or prefix with a space`;
-    case "no-autonomy-mode": {
-      // The supporting-harness tail derives from the supported list the
-      // raise site computed from descriptors, so a new autonomy grant
-      // (cursor --force) appears without editing this message.
-      const tail = supported.length > 0 ? ` (${supported.join(", ")})` : "";
-      return `${who} has no unattended-run flag; ${supportedStr} - drop autonomy or route to a supporting harness${tail}`;
-    }
+    case "no-autonomy-mode":
+      // supportedStr already carries the descriptor-derived supporting
+      // list, so a new autonomy grant (cursor --force) appears without
+      // editing this message and the list is never repeated.
+      return `${who} has no unattended-run flag; ${supportedStr} - drop autonomy or route to a supporting harness`;
     case "no-session-mode":
       return `${who} declares no persistent headless session mode; ${supportedStr} - use hcn run --resume <id>`;
     case "native-settings-unavailable":
       return `saved native settings are unavailable${forHarness}${detailSuffix}; read the same native session again before retrying`;
     case "native-settings-changed":
       return `saved native settings changed${forHarness}; inspect the same native session again before retrying`;
-    case "unsupported-passthrough":
-      // RFC-05: cursor joins post-`--` tokens into the positional prompt
-      // as text (probe 41), so a non-empty tail refuses before spawn. The
-      // offending tokens ride `detail`; the stay-on-harness hint is set at
-      // the raise site in Phase 3.
-      return `${who} joins tokens after the -- separator into the prompt as text${detailSuffix}; ${supportedStr} - remove the tokens after -- and re-run; to pass native flags, invoke agent directly`;
+    case "unsupported-passthrough": {
+      // RFC-05: a prompt-joins harness takes post-`--` tokens into the
+      // positional prompt as text (probe 41), so a non-empty tail refuses
+      // before spawn. The offending tokens ride `detail`; the
+      // stay-on-harness hint is set at the raise site. The native binary
+      // rides the descriptor table, never a harness-name branch.
+      const bin = harness !== undefined ? defaultDescriptors()[harness]?.bin : undefined;
+      const invoke =
+        bin === undefined ? "invoke the harness binary directly" : `invoke ${bin} directly`;
+      return `${who} joins tokens after the -- separator into the prompt as text${detailSuffix}; ${supportedStr} - remove the tokens after -- and re-run; to pass native flags, ${invoke}`;
+    }
     default: {
       const exhaustive: never = issue;
       return `${exhaustive as string}${forHarness}${optionPart}${detailSuffix}; ${supportedStr}`;

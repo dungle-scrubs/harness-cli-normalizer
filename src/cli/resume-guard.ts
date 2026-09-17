@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
+import { mergeEnvironment } from "../execution/environment.js";
 import { storePath } from "../interpretation/store.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 
@@ -35,11 +36,23 @@ export const resolveStoreRoot = (
   return h.store.defaultRoot?.replaceAll("{home}", () => opts.home);
 };
 
-/** Where a harness that creates sessions on an unknown id (pi, muse) would
+/** Where a harness that creates sessions on an unknown id would
  * have filed this session. The cwd is resolved to its real path first: the
  * harness slugs the directory it actually ran in, and on macOS a temp
  * directory reached through /var is really under /private/var - slugging
  * the unresolved path refused valid resumes. */
+/** The environment the child will run with, for the pre-spawn store
+ * check: per-call `--env` over the inherited environment, the
+ * descriptor-derived turn env over that, with the spawn's delete-on-empty
+ * rule. This is the same merge the spawn adapter applies
+ * (`mergeEnvironment`), so the guard resolves the same store root the
+ * child files the session under. */
+export const effectiveGuardEnv = (
+  inherited: Readonly<Record<string, string | undefined>>,
+  callEnv: Readonly<Record<string, string>>,
+  turnEnv: Readonly<Record<string, string>> = {},
+): Record<string, string> => mergeEnvironment(inherited, { ...callEnv, ...turnEnv });
+
 export const resumeStore = (
   h: HarnessDescriptor,
   opts: {

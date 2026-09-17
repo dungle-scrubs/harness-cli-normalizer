@@ -1,8 +1,7 @@
 /**
- * RFC-05 Phase 2: the inspect descriptor dump reads the effortSlugs
- * families alongside effortsByModel. Cursor joins the shared descriptor
- * set (and becomes addressable here) in Phase 3; until then the field
- * serializes as absent and existing harness output stays byte-identical.
+ * RFC-05: the inspect descriptor dump reads the cursor effortSlugs
+ * families alongside effortsByModel. The field serializes as absent on
+ * the four existing harnesses, so their output stays byte-identical.
  */
 import { describe, expect, test } from "vitest";
 import { inspect } from "../../src/cli/inspect.js";
@@ -42,5 +41,9 @@ describe("inspect family display", () => {
       "modelFlag",
       "models",
     ]);
+  });
+
+  test("cursor's dump includes the effortSlugs families", async () => {
+    expect(await dumpVocabularyKeys("cursor")).toContain("effortSlugs");
   });
 });

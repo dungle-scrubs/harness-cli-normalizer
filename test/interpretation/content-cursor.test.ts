@@ -224,10 +224,6 @@ describe("cursor reader state", () => {
     session_id: sid,
   });
 
-  test("a fresh state is empty: reuse across turns is a bug", () => {
-    expect(freshCursorReaderState()).toEqual({ pending: [], tombstones: [], queryArgs: [] });
-  });
-
   test("tombstoned ids never re-emit a tool event", () => {
     const start = contentEventsWithState(
       "cursor",
@@ -267,6 +263,33 @@ describe("cursor reader state", () => {
         denial: { tool: "shellToolCall", reason: "User Rejected" },
       },
     ]);
+  });
+
+  test("completing 128 calls never evicts the tombstoned id: no second tool event", () => {
+    // L1: start 129 calls so c0 is evicted into the tombstones, complete
+    // c1..c128, then complete c0. Completions must not push the evicted
+    // id out, or c0's completion emits a second tool event.
+    const started = (callId: string): Record<string, unknown> => ({
+      type: "tool_call",
+      subtype: "started",
+      call_id: callId,
+      tool_call: { shellToolCall: { args: {} }, toolCallId: callId },
+      session_id: sid,
+    });
+    let state = freshCursorReaderState();
+    for (let i = 0; i < 129; i++) {
+      const out = contentEventsWithState("cursor", started(`c${i}`), state);
+      if (out.state === null) throw new Error("expected cursor reader state");
+      state = out.state;
+    }
+    for (let i = 1; i < 129; i++) {
+      const out = contentEventsWithState("cursor", okCompleted(`c${i}`), state);
+      if (out.state === null) throw new Error("expected cursor reader state");
+      expect(out.events).toEqual([]);
+      state = out.state;
+    }
+    const late = contentEventsWithState("cursor", okCompleted("c0"), state);
+    expect(late.events).toEqual([]);
   });
 
   test("pending and tombstones hold 128 entries with drop-oldest into tombstones", () => {

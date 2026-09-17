@@ -206,6 +206,27 @@ export const failureFromTrust = (detail?: string): FailureSummary => ({
   message: messageFor("trust-refused", detail),
 });
 
+/** The post-queue nonzero-exit tail scan (stream-turn.ts): transport first,
+ * then unavailable, then the trust gate, then the native fallthrough, and
+ * transport on an empty tail (a silent nonzero exit reads as environment,
+ * not harness judgment). One owner so the precedence is unit-tested
+ * directly; the supervisor per-line check usually fires first, so the
+ * trust arm here is defense-in-depth. */
+export const failureFromStderrTail = (
+  h: HarnessDescriptor,
+  exitCode: number | null,
+  tail: readonly string[],
+): FailureSummary => {
+  const transportLine = tail.find((line) => detectTransportInLine(line));
+  const unavailableLine = tail.find((line) => detectUnavailableInLine(line));
+  const trustLine = tail.find((line) => detectTrustRefusal(h, line));
+  if (transportLine !== undefined) return failureFromTransport(transportLine);
+  if (unavailableLine !== undefined) return failureFromUnavailable(unavailableLine);
+  if (trustLine !== undefined) return failureFromTrust(trustLine);
+  if (tail.length > 0) return failureFromNative(exitCode, tail);
+  return failureFromTransport(`nonzero exit ${exitCode}`);
+};
+
 export const nativeApprovalPreflightEvidence = (issue: RefusalIssue): NativeApprovalFailure => ({
   phase: "preflight",
   process: "not-attempted",
@@ -255,18 +276,21 @@ const PRECEDENCE: Record<FailureClass, number> = {
   rejected: 0,
   native: 0,
   // RFC-05: the trust gate fires before any inference, so it shares the
-  // provider-unavailable family; the messageFor arm lands in Phase 3.
+  // provider-unavailable family with the messageFor arm above.
   "trust-refused": 2,
 };
 
 export const reduceFailures = (failures: readonly FailureSummary[]): FailureSummary | undefined => {
   if (failures.length === 0) return undefined;
-  if (failures.length === 1) return failures[0];
+  const first = failures[0];
+  if (failures.length === 1) return first;
+  if (first === undefined) return undefined;
   // Sort by precedence, then by earliest (stable). Lower precedence number wins.
-  let best = failures[0]!;
+  let best = first;
   let bestPrec = PRECEDENCE[best.class] ?? 99;
   for (let i = 1; i < failures.length; i++) {
-    const cur = failures[i]!;
+    const cur = failures[i];
+    if (cur === undefined) continue;
     const curPrec = PRECEDENCE[cur.class] ?? 99;
     if (curPrec < bestPrec) {
       best = cur;

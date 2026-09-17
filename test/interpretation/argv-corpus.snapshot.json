@@ -1623,7 +1623,7 @@
             }
           ],
           "hint": "pi has no unattended-run flag; approximate with a per-tool allowlist (--tools read,bash) if you need unattended behavior on pi",
-          "message": "pi has no unattended-run flag; supported: claude --dangerously-skip-permissions, codex --yolo, muse --yolo, cursor --force - drop autonomy or route to a supporting harness (claude --dangerously-skip-permissions, codex --yolo, muse --yolo, cursor --force)"
+          "message": "pi has no unattended-run flag; supported: claude --dangerously-skip-permissions, codex --yolo, muse --yolo, cursor --force - drop autonomy or route to a supporting harness"
         }
       },
       "explicit-dash-prompt": {
@@ -4619,7 +4619,7 @@
             }
           ],
           "hint": "pi has no unattended-run flag; approximate with a per-tool allowlist (--tools read,bash) if you need unattended behavior on pi",
-          "message": "pi has no unattended-run flag; supported: claude --dangerously-skip-permissions, codex --yolo, muse --yolo, cursor --force - drop autonomy or route to a supporting harness (claude --dangerously-skip-permissions, codex --yolo, muse --yolo, cursor --force)"
+          "message": "pi has no unattended-run flag; supported: claude --dangerously-skip-permissions, codex --yolo, muse --yolo, cursor --force - drop autonomy or route to a supporting harness"
         }
       },
       "explicit-dash-prompt": {
@@ -10179,255 +10179,36 @@
         }
       },
       "access-read": {
-        "resolved": {
-          "options": {
-            "access": "read"
-          },
-          "provenance": [
-            {
-              "key": "effort",
-              "value": "medium",
-              "tier": "profile"
-            },
-            {
-              "key": "sandbox",
-              "value": "workspace-write",
-              "tier": "harness"
-            },
-            {
-              "key": "contextWindow",
-              "value": 272000,
-              "tier": "harness"
-            },
-            {
-              "key": "discovery",
-              "value": {
-                "tools": true,
-                "instructionFiles": true,
-                "extensions": true,
-                "skills": true
-              },
-              "tier": "profile"
-            },
-            {
-              "key": "autonomy",
-              "value": false,
-              "tier": "profile"
-            },
-            {
-              "key": "write",
-              "value": true,
-              "tier": "profile"
-            },
-            {
-              "key": "shell",
-              "value": true,
-              "tier": "profile"
-            },
-            {
-              "key": "memory",
-              "value": false,
-              "tier": "harness"
-            },
-            {
-              "key": "tools",
-              "value": "all-known",
-              "tier": "harness"
-            },
-            {
-              "key": "access",
-              "value": "read",
-              "tier": "arg"
-            }
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "access",
+          "supported": [
+            "effort"
           ],
-          "unrenderable": [
-            {
-              "key": "effort",
-              "tier": "profile"
-            },
-            {
-              "key": "sandbox",
-              "tier": "profile"
-            },
-            {
-              "key": "contextWindow",
-              "tier": "profile"
-            },
-            {
-              "key": "memory",
-              "tier": "profile"
-            },
-            {
-              "key": "tools",
-              "tier": "profile"
-            }
-          ]
+          "message": "cursor cannot express option \"access\" (read); supported: effort - drop the option or route this work to a harness that supports it"
         }
       },
       "access-read-explicit-sandbox": {
-        "resolved": {
-          "options": {
-            "access": "read",
-            "sandbox": "read-only"
-          },
-          "provenance": [
-            {
-              "key": "effort",
-              "value": "medium",
-              "tier": "profile"
-            },
-            {
-              "key": "sandbox",
-              "value": "read-only",
-              "tier": "arg"
-            },
-            {
-              "key": "contextWindow",
-              "value": 272000,
-              "tier": "harness"
-            },
-            {
-              "key": "discovery",
-              "value": {
-                "tools": true,
-                "instructionFiles": true,
-                "extensions": true,
-                "skills": true
-              },
-              "tier": "profile"
-            },
-            {
-              "key": "autonomy",
-              "value": false,
-              "tier": "profile"
-            },
-            {
-              "key": "write",
-              "value": true,
-              "tier": "profile"
-            },
-            {
-              "key": "shell",
-              "value": true,
-              "tier": "profile"
-            },
-            {
-              "key": "memory",
-              "value": false,
-              "tier": "harness"
-            },
-            {
-              "key": "tools",
-              "value": "all-known",
-              "tier": "harness"
-            },
-            {
-              "key": "access",
-              "value": "read",
-              "tier": "arg"
-            }
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "access",
+          "supported": [
+            "effort"
           ],
-          "unrenderable": [
-            {
-              "key": "effort",
-              "tier": "profile"
-            },
-            {
-              "key": "contextWindow",
-              "tier": "profile"
-            },
-            {
-              "key": "memory",
-              "tier": "profile"
-            },
-            {
-              "key": "tools",
-              "tier": "profile"
-            }
-          ]
+          "message": "cursor cannot express option \"access\" (read); supported: effort - drop the option or route this work to a harness that supports it"
         }
       },
       "access-read-config-sandbox": {
-        "resolved": {
-          "options": {
-            "access": "read",
-            "sandbox": "read-only"
-          },
-          "provenance": [
-            {
-              "key": "effort",
-              "value": "medium",
-              "tier": "profile"
-            },
-            {
-              "key": "sandbox",
-              "value": "read-only",
-              "tier": "user-config"
-            },
-            {
-              "key": "contextWindow",
-              "value": 272000,
-              "tier": "harness"
-            },
-            {
-              "key": "discovery",
-              "value": {
-                "tools": true,
-                "instructionFiles": true,
-                "extensions": true,
-                "skills": true
-              },
-              "tier": "profile"
-            },
-            {
-              "key": "autonomy",
-              "value": false,
-              "tier": "profile"
-            },
-            {
-              "key": "write",
-              "value": true,
-              "tier": "profile"
-            },
-            {
-              "key": "shell",
-              "value": true,
-              "tier": "profile"
-            },
-            {
-              "key": "memory",
-              "value": false,
-              "tier": "harness"
-            },
-            {
-              "key": "tools",
-              "value": "all-known",
-              "tier": "harness"
-            },
-            {
-              "key": "access",
-              "value": "read",
-              "tier": "arg"
-            }
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "access",
+          "supported": [
+            "effort"
           ],
-          "unrenderable": [
-            {
-              "key": "effort",
-              "tier": "profile"
-            },
-            {
-              "key": "contextWindow",
-              "tier": "profile"
-            },
-            {
-              "key": "memory",
-              "tier": "profile"
-            },
-            {
-              "key": "tools",
-              "tier": "profile"
-            }
-          ]
+          "message": "cursor cannot express option \"access\" (read); supported: effort - drop the option or route this work to a harness that supports it"
         }
       },
       "access-and-tools": {
@@ -10442,91 +10223,14 @@
         }
       },
       "access-from-project": {
-        "resolved": {
-          "options": {},
-          "provenance": [
-            {
-              "key": "effort",
-              "value": "medium",
-              "tier": "profile"
-            },
-            {
-              "key": "sandbox",
-              "value": "workspace-write",
-              "tier": "harness"
-            },
-            {
-              "key": "contextWindow",
-              "value": 272000,
-              "tier": "harness"
-            },
-            {
-              "key": "discovery",
-              "value": {
-                "tools": true,
-                "instructionFiles": true,
-                "extensions": true,
-                "skills": true
-              },
-              "tier": "profile"
-            },
-            {
-              "key": "autonomy",
-              "value": false,
-              "tier": "profile"
-            },
-            {
-              "key": "write",
-              "value": true,
-              "tier": "profile"
-            },
-            {
-              "key": "shell",
-              "value": true,
-              "tier": "profile"
-            },
-            {
-              "key": "memory",
-              "value": false,
-              "tier": "harness"
-            },
-            {
-              "key": "tools",
-              "value": "all-known",
-              "tier": "harness"
-            },
-            {
-              "key": "access",
-              "value": "read",
-              "tier": "harness"
-            }
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "access",
+          "supported": [
+            "effort"
           ],
-          "unrenderable": [
-            {
-              "key": "effort",
-              "tier": "profile"
-            },
-            {
-              "key": "sandbox",
-              "tier": "profile"
-            },
-            {
-              "key": "contextWindow",
-              "tier": "profile"
-            },
-            {
-              "key": "memory",
-              "tier": "profile"
-            },
-            {
-              "key": "tools",
-              "tier": "profile"
-            },
-            {
-              "key": "access",
-              "tier": "project-config"
-            }
-          ]
+          "message": "cursor cannot express option \"access\" (read); supported: effort - drop the option or route this work to a harness that supports it"
         }
       },
       "access-invalid": {

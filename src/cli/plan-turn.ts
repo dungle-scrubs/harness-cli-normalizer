@@ -323,20 +323,28 @@ export const planTurn = async (
   // so capabilities, provenance, and the decoder see the slug that runs.
   // Only arg-tier --effort enforces (turnOpts carries the parsed args);
   // the model rides from any tier (arg --model, else the resolved
-  // config-tier model on launch) or none. A resolver refusal surfaces
-  // like any other argv refusal. Provenance keeps the supplying entry's
-  // tier and takes the slug as its value; when no model entry exists an
-  // arg-tier one is appended. Never on resume, where provenance stays
-  // absent as today.
-  if (turnOpts.effort !== undefined && h.turnOptions.effort?.kind === "effort-in-model") {
+  // config-tier model on launch) or none. The step also runs when a model
+  // from any tier is present without effort, so a bare stem refuses with
+  // its row instead of reaching turnTail's full-list unknown-model. A
+  // resolver refusal surfaces like any other argv refusal. Provenance
+  // keeps the supplying entry's tier and takes the slug as its value;
+  // when no model entry exists an arg-tier one is appended - but only
+  // when the slug differs, so a valid slug without effort leaves
+  // provenance untouched. Never on resume, where provenance stays absent
+  // as today.
+  const effortModel = turnOpts.model ?? effectiveTurnOpts.model;
+  if (
+    (turnOpts.effort !== undefined || effortModel !== undefined) &&
+    h.turnOptions.effort?.kind === "effort-in-model"
+  ) {
     let slug: string | undefined;
     try {
-      slug = resolveEffortSlug(h, turnOpts.model ?? effectiveTurnOpts.model, turnOpts.effort);
+      slug = resolveEffortSlug(h, effortModel, turnOpts.effort);
     } catch (err) {
       if (err instanceof ArgvRefusalError) return refused(err);
       throw err;
     }
-    if (slug !== undefined) {
+    if (slug !== undefined && slug !== effortModel) {
       effectiveTurnOpts = { ...effectiveTurnOpts, model: slug };
       if (extra.resume === undefined) {
         provenance = provenance.some((p) => p.key === "model")

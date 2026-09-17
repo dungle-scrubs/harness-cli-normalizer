@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
-import { checkEffortTable, cursorCli, stemKeyOfSlug } from "../../src/knowledge/cursor.js";
+import { cursorCli } from "../../src/knowledge/cursor.js";
+import { checkEffortTable, stemKeyOfSlug } from "./cursor-stem-check.js";
 
 describe("cursor descriptor identity", () => {
   test("names the cursor harness at the verified version", () => {

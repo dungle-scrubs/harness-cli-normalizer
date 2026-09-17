@@ -82,7 +82,7 @@ const reverseIndexEffort = (
 
 /** Resolve a cursor model plus effort to the slug that runs (RFC-05).
  * The ONE owner of the family, stem, variant, and fast rules; the single
- * call site is the plan-turn resolve step (Phase 3). Rules apply in
+ * call site is the plan-turn resolve step. Rules apply in
  * order, first match wins, model checks before effort checks:
  * unknown-model for a selector naming no slug and no stem (supported
  * follows the unknown-model convention) and for a bare stem with no

@@ -122,7 +122,7 @@ export const questionOffScenario = {
     const done = doneOf(r.events);
     if (questionOf(r.events)) failures.push("question event fired in no-escalate mode");
     if (messagesOf(r.events).includes("hcn-question")) failures.push("block present in output");
-    if (!done || done.cause !== "clean") failures.push(`done.cause=${done?.cause}, expected clean`);
+    if (done?.cause !== "clean") failures.push(`done.cause=${done?.cause}, expected clean`);
     // The instruction says "state the assumption" - models word it
     // differently (assumption, defensible reading, safer default,
     // decision). Any decision-stating marker satisfies the contract;
@@ -287,8 +287,7 @@ export const questionRoundtripScenario = {
       cwd,
     );
     const done2 = doneOf(resume.events);
-    if (!done2 || done2.cause !== "clean")
-      failures.push(`turn 2 cause=${done2?.cause}, expected clean`);
+    if (done2?.cause !== "clean") failures.push(`turn 2 cause=${done2?.cause}, expected clean`);
     if (questionOf(resume.events)) failures.push("turn 2 asked again (should complete, not ask)");
     const finalText = messagesOf(resume.events);
     if (!finalText.toLowerCase().includes(answer)) {

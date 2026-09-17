@@ -4,6 +4,7 @@ import type { HarnessEvent } from "../execution/events.js";
 import { nodeRunnerDeps } from "../execution/node-deps.js";
 import { streamTurn } from "../execution/stream-turn.js";
 import { KILL_GRACE_MS } from "../execution/supervisor.js";
+import { buildTurnEnv } from "../interpretation/argv.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
 import { EXIT_FAILURE, exitCodeForCause } from "./exit-codes.js";
 import { ownOutputErrors } from "./output-errors.js";
@@ -11,7 +12,7 @@ import { planTurn, writePlanDiagnostics } from "./plan-turn.js";
 import { refusalOf, refuse } from "./refuse.js";
 import { createRenderState, renderEvent, writeEventNdjsonAsync } from "./render.js";
 import { resolveHarness } from "./resolve-harness.js";
-import { resumeStore } from "./resume-guard.js";
+import { effectiveGuardEnv, resumeStore } from "./resume-guard.js";
 
 export const run = async (harnessName: string, rawArgs: string[]): Promise<void> => {
   const h = resolveHarness(harnessName);
@@ -33,16 +34,24 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   const { wantJson } = plan;
   writePlanDiagnostics(h, plan, "spawn");
 
-  // A harness that creates a session when the id is unknown (pi, muse)
-  // would turn a stale --resume into a silent blank session. Refuse when
-  // the session store path does not exist; where the path cannot be
-  // computed, the runner's pre-spawn warning is the only guard.
+  // A harness that creates a session when the id is unknown would turn a
+  // stale --resume into a silent blank session. Refuse when the session
+  // store path does not exist; where the path cannot be computed, the
+  // runner's pre-spawn warning is the only guard. The check runs against
+  // the child's effective environment (--env merged over the process env
+  // with the spawn's delete rule, plus the descriptor turn env), so a
+  // --env store relocation moves the guard with the child.
   const resume = plan.options.resume;
   if (resume !== undefined && h.resume.onMissing === "create") {
     const { path, exists } = resumeStore(h, {
       home: process.env.HOME ?? process.env.USERPROFILE ?? "",
       cwd: plan.options.cwd ?? process.cwd(),
       sessionId: resume,
+      env: effectiveGuardEnv(
+        process.env,
+        plan.options.env ?? {},
+        buildTurnEnv(h, plan.options, "resume"),
+      ),
     });
     if (path !== null && !exists) {
       refuse(

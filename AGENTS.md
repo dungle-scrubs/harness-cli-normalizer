@@ -24,8 +24,8 @@ knowledge        -> interpretation        -> execution
 ```
 
 - `src/knowledge/` - immutable harness **descriptors** as pure data. One file
-  per harness (`claude-code.ts`, `codex.ts`, `pi.ts`, `muse.ts`) plus shared
-  types in `descriptor.ts`. Descriptors are `deepFreeze`'d. Vocabularies that
+  per harness (`claude-code.ts`, `codex.ts`, `pi.ts`, `muse.ts`, `cursor.ts`)
+  plus shared types in `descriptor.ts`. Descriptors are `deepFreeze`'d. Vocabularies that
   consumers branch on (`LimitCode`, `AuthFailureKind`, `HarnessMode`) are
   closed unions on purpose - a descriptor cannot invent a code a consumer has
   no arm for.

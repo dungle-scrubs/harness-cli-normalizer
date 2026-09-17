@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { nodeRunnerDeps } from "../execution/node-deps.js";
 import { CLOSE_GRACE_MS, openSession } from "../execution/open-session.js";
+import { buildTurnEnv } from "../interpretation/argv.js";
 import {
   composeAnswer,
   isQuestionMode,
@@ -201,15 +202,22 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
 
   // Validate sessionId shape? let openSession handle via assertUsableSessionId
   // Unknown-id refusal reuses the run resume guard (src/cli/resume-guard.ts):
-  // harnesses that create on unknown (pi, muse with onMissing === "create")
-  // are refused before spawn with the same message shape hcn run uses.
+  // harnesses that create on unknown ids (onMissing === "create") are
+  // refused before spawn with the same message shape hcn run uses.
   // claude (onMissing === "error") refuses on its own; no store check.
+  // Sessions take no --env, but the descriptor turn env still overlays the
+  // child, so the guard checks through that same effective environment.
   if (resumeId !== undefined) {
-    const { resumeStore: checkResumeStore } = await import("./resume-guard.js");
+    const { effectiveGuardEnv, resumeStore: checkResumeStore } = await import("./resume-guard.js");
     const { path: storePath, exists } = checkResumeStore(h, {
       home: process.env.HOME ?? process.env.USERPROFILE ?? "",
       cwd: cwd ?? process.cwd(),
       sessionId,
+      env: effectiveGuardEnv(
+        process.env,
+        {},
+        memoryExpressible ? buildTurnEnv(h, { memory }, "launch") : {},
+      ),
     });
     // Exists in the store: resume it, whichever alias was typed. Absent and the
     // caller only named an id: a fresh session under that id, as before.

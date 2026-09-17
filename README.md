@@ -430,7 +430,7 @@ support; its native 10MB input cap still applies.
 | `--provider <value>` | `provider` | pi only |
 | `--tools <a,b>` | `tools` | Canonical names (read, write, edit, shell, grep, glob, list, web-fetch, web-search, subagent, skill); `native:<name>` passes a harness-native or extension tool through. Per-tool allowlist; claude and pi (pi strict, claude via grant + deny-complement). A bare name matching a configured toolset expands to it |
 | `--exclude-tools <a,b>` | `excludeTools` | Canonical names (same vocabulary, `native:<name>` passthrough); complement over known tool names; mutually exclusive with `--tools` |
-| `-- <harness args>` | `passthrough` | Verbatim harness tokens; failures surface as labeled native errors (hcn exit 1, native exit code as data) |
+| `-- <harness args>` | `passthrough` | Verbatim harness tokens; failures surface as labeled native errors (hcn exit 1, native exit code as data), except on cursor, where a non-empty tail refuses before spawn because the tokens would join the positional prompt as text |
 | `--autonomy` / `--no-autonomy` | `autonomy` | |
 | `--write` / `--no-write` | `write` | Muse |
 | `--shell` / `--no-shell` | `shell` | Muse |

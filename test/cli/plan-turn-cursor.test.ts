@@ -111,6 +111,28 @@ describe("planTurn cursor effort resolve step", () => {
     expect(outcome.plan.argv[modelAt + 1]).toBe("claude-opus-4-8-thinking-low");
   });
 
+  test("launch: a bare stem with no effort refuses unknown-model with the stem row", async () => {
+    // M2: without --effort the model must still run through the resolver
+    // so the refusal names the stem's 5 row slugs, not all 223.
+    const outcome = await planTurn(
+      cursorCli,
+      ["--prompt", "hi", "--model", "claude-opus-4-8"],
+      {
+        command: "run",
+      },
+      deps,
+    );
+    expect(outcome).toMatchObject({ kind: "refusal", refusal: { issue: "unknown-model" } });
+    if (outcome.kind !== "refusal") return;
+    expect(outcome.refusal.supported).toEqual([
+      "claude-opus-4-8-low",
+      "claude-opus-4-8-medium",
+      "claude-opus-4-8-high",
+      "claude-opus-4-8-xhigh",
+      "claude-opus-4-8-max",
+    ]);
+  });
+
   test("launch: a variant slug plus conflicting effort refuses invalid-option-value", async () => {
     const outcome = await planTurn(
       cursorCli,
@@ -165,6 +187,39 @@ describe("planTurn cursor effort resolve step", () => {
     const r = resolveEffectiveOptions(cursorCli, { prompt: "hi" }, {});
     expect(r.unrenderable).toContainEqual({ key: "sandbox", tier: "profile" });
     expect(r.options.sandbox).toBeUndefined();
+  });
+
+  test("config-tier access read refuses unsupported-option, never diverges to a wide run", async () => {
+    // H1: a read-only project or user policy must refuse like an arg-tier
+    // value, not drop to divergence while argv ends in --force.
+    const withProjectAccess: PlanDeps = {
+      ...deps,
+      loadProjectConfig: () => ({ config: { access: "read" } }),
+    };
+    const project = await planTurn(
+      cursorCli,
+      ["--prompt", "hi"],
+      { command: "run" },
+      withProjectAccess,
+    );
+    expect(project).toMatchObject({ kind: "refusal", refusal: { issue: "unsupported-option" } });
+    const withUserAccess: PlanDeps = {
+      ...deps,
+      loadUserConfig: () => ({ config: { access: "read" } }),
+    };
+    const user = await planTurn(cursorCli, ["--prompt", "hi"], { command: "run" }, withUserAccess);
+    expect(user).toMatchObject({ kind: "refusal", refusal: { issue: "unsupported-option" } });
+    const withProjectWrite: PlanDeps = {
+      ...deps,
+      loadProjectConfig: () => ({ config: { access: "write" } }),
+    };
+    const write = await planTurn(
+      cursorCli,
+      ["--prompt", "hi"],
+      { command: "run" },
+      withProjectWrite,
+    );
+    expect(write).toMatchObject({ kind: "refusal", refusal: { issue: "unsupported-option" } });
   });
 
   test("explicit --access refuses unsupported-option on launch and resume", async () => {

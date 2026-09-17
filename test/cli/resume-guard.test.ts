@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSyn
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
-import { resolveStoreRoot, resumeStore } from "../../src/cli/resume-guard.js";
+import { effectiveGuardEnv, resolveStoreRoot, resumeStore } from "../../src/cli/resume-guard.js";
 import { storePath } from "../../src/interpretation/store.js";
 import { cursorCli } from "../../src/knowledge/cursor.js";
 import { museCode } from "../../src/knowledge/muse.js";
@@ -168,5 +168,44 @@ describe("cursor store root (RFC-05 rootEnv)", () => {
     expect(
       resolveStoreRoot(piCli, { env: { CURSOR_CONFIG_DIR: "/elsewhere" }, cwd, home }),
     ).toBeUndefined();
+  });
+});
+
+describe("M1: the guard checks the root the child will file under", () => {
+  const fileCursorSession = (home: string, cwd: string, sessionId: string, root: string): void => {
+    const filed = storePath(cursorCli, { home, cwd, sessionId, root });
+    mkdirSync(join(filed, sessionId), { recursive: true });
+  };
+
+  test("--env CURSOR_CONFIG_DIR is honored when the inherited env lacks it", () => {
+    const home = mkdtempSync(join(tmpdir(), "hcn-m1-"));
+    const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "hcn-m1-cwd-")));
+    const cfg = realpathSync.native(mkdtempSync(join(tmpdir(), "hcn-m1-cfg-")));
+    fileCursorSession(home, cwd, id, cfg);
+    // The child's effective environment merges --env over the inherited
+    // one, so the guard finds the session filed under the --env root.
+    const childEnv = effectiveGuardEnv({}, { CURSOR_CONFIG_DIR: cfg }, {});
+    expect(resumeStore(cursorCli, { home, cwd, sessionId: id, env: childEnv }).exists).toBe(true);
+    // The old behavior (inherited env only) misses it and would refuse a
+    // valid resume with exit 2.
+    expect(resumeStore(cursorCli, { home, cwd, sessionId: id, env: {} }).exists).toBe(false);
+  });
+
+  test("--env CURSOR_CONFIG_DIR= deletes an inherited root", () => {
+    const home = mkdtempSync(join(tmpdir(), "hcn-m1-"));
+    const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "hcn-m1-cwd-")));
+    const cfg = realpathSync.native(mkdtempSync(join(tmpdir(), "hcn-m1-cfg-")));
+    fileCursorSession(home, cwd, id, cfg);
+    // The inherited root alone would find the session...
+    expect(
+      resumeStore(cursorCli, { home, cwd, sessionId: id, env: { CURSOR_CONFIG_DIR: cfg } }).exists,
+    ).toBe(true);
+    // ...but the child deletes the key, so it files under the default
+    // root where the id is stale, and the guard must report the miss
+    // instead of passing a session Cursor will silently create.
+    const childEnv = effectiveGuardEnv({ CURSOR_CONFIG_DIR: cfg }, { CURSOR_CONFIG_DIR: "" }, {});
+    const check = resumeStore(cursorCli, { home, cwd, sessionId: id, env: childEnv });
+    expect(check.exists).toBe(false);
+    expect(check.path?.startsWith(`${join(home, ".cursor")}/chats/`)).toBe(true);
   });
 });
