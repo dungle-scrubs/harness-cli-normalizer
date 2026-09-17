@@ -69,11 +69,19 @@ export type CwdSlug = (typeof CWD_SLUGS)[number];
 export const RESUME_STYLES = deepFreeze(["flag", "positional"] as const);
 export type ResumeStyle = (typeof RESUME_STYLES)[number];
 
-/** What a harness does with tokens after hcn's bare `--` separator.
- * `prompt-joins` (cursor): the CLI takes a variadic positional prompt and
- * documents no `--` handling, so every passthrough token joins the prompt
- * as text. Absent on harnesses whose separator keeps working. */
-export const LAUNCH_PASSTHROUGHS = deepFreeze(["prompt-joins"] as const);
+/** Where tokens after hcn's bare `--` go in the harness argv. The
+ * separator itself is never rendered: every probed harness parses trailing
+ * native flags once the `--` is gone (ADR 0003), so `after-argv` appends
+ * past hcn's own argv and `before-prompt` splices ahead of the prompt for
+ * grammars that need it. `prompt-joins` refuses before spawn on harnesses
+ * where no placement parses. Absent means `after-argv`: trailing flags
+ * parsed on all five harnesses, so an unverified descriptor gets the
+ * working default, never the separator that broke every harness. */
+export const LAUNCH_PASSTHROUGHS = deepFreeze([
+  "after-argv",
+  "before-prompt",
+  "prompt-joins",
+] as const);
 export type LaunchPassthrough = (typeof LAUNCH_PASSTHROUGHS)[number];
 
 export const RESUME_ON_MISSING = deepFreeze(["error", "create"] as const);
@@ -378,9 +386,9 @@ export interface HarnessDescriptor {
      * assignment; the execution layer consumes it), or null when the
      * harness mints its own. */
     readonly idFlag: string | null;
-    /** Declared passthrough behavior for tokens after hcn's bare `--`.
-     * Absent on harnesses where the separator keeps working; present as
-     * `"prompt-joins"` on cursor, where any non-empty tail refuses before
+    /** Declared passthrough placement for tokens after hcn's bare `--`
+     * (never rendered with the separator - ADR 0003). Absent means
+     * `"after-argv"`; `"prompt-joins"` refuses any non-empty tail before
      * spawn instead of silently rewriting the prompt. */
     readonly passthrough?: LaunchPassthrough;
   };

@@ -32,10 +32,13 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
     // No subcommand: the prompt is positional.
     subcommands: [],
     promptStyle: "positional",
-    // No documented `--` handling: tokens after hcn's bare `--` join the
-    // positional prompt as text (probes 40/41), so a non-empty tail
-    // refuses before spawn instead of silently rewriting the prompt.
-    passthrough: "prompt-joins",
+    // Passthrough placement (ADR 0003, probed 2026-09-17 on
+    // 2026.09.15-d2fe57e): the RFC-05 prompt-joins verdict (probes 40/41)
+    // was the `--` separator's doing. With the separator gone, appended
+    // native flags parse: an appended `--model gpt-5-mini` switches the
+    // run's model and a bogus flag is rejected natively as an unknown
+    // option. The tail renders past hcn's own argv with no separator.
+    passthrough: "after-argv",
     // Token-granular stream: the partial flag adds per-fragment deltas and
     // changes nothing else (probes 11, 11b, 43).
     streamFlags: ["--output-format", "stream-json", "--stream-partial-output"],

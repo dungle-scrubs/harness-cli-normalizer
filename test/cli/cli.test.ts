@@ -178,7 +178,7 @@ describe("harness-name validation", () => {
 });
 
 describe("hcn inspect (pure)", () => {
-  test("argv preview preserves native --argv tokens after the separator", async () => {
+  test("argv preview renders native tail tokens with no separator", async () => {
     const out = await captureDispatch([
       "inspect",
       "codex",
@@ -190,7 +190,9 @@ describe("hcn inspect (pure)", () => {
       "--argv",
     ]);
     expect(out.exitCode).toBeUndefined();
-    expect(JSON.parse(out.stdout).slice(-2)).toEqual(["--", "--argv"]);
+    const argv = JSON.parse(out.stdout) as string[];
+    expect(argv).not.toContain("--");
+    expect(argv.at(-1)).toBe("--argv");
   });
   test("inspect claude shows bin, verifiedAgainst, launch.streamFlags, resume.flag, vocabulary.models", async () => {
     const out = await captureDispatch(["inspect", "claude"]);

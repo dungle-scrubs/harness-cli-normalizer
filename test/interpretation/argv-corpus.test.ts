@@ -138,6 +138,22 @@ const resumeLastCases = (
   return base;
 };
 
+/** Passthrough-tail cases (ADR 0003, RFC-05): a tail after hcn's bare
+ * `--` reaches buildSpawnArgv on launch and resume alike. Prompt-joins
+ * harnesses (cursor, pi, muse) refuse; the rest carry the tail verbatim. */
+const passthroughCases = (): ReadonlyArray<readonly [string, SpawnArgvOptions]> => [
+  ["empty", { prompt: "hi", passthrough: [] }],
+  ["tail", { prompt: "hi", passthrough: ["--native-flag"] }],
+  [
+    "tail-resume",
+    {
+      prompt: "hi",
+      resume: "0199a4c5-1111-2222-3333-444455556666",
+      passthrough: ["--native-flag"],
+    },
+  ],
+];
+
 const sessionCases = (h: HarnessDescriptor): ReadonlyArray<readonly [string, SessionOptions]> => [
   ["fresh", { sessionId: SESSION_ID }],
   ["model", { sessionId: SESSION_ID, model: modelFor(h) }],
@@ -229,12 +245,14 @@ const buildCorpus = (): Record<string, unknown> => {
     launch: Record<string, Record<string, Outcome>>;
     resume: Record<string, Record<string, Outcome>>;
     resumeLast: Record<string, Record<string, Outcome>>;
+    passthrough: Record<string, Record<string, Outcome>>;
     session: Record<string, Record<string, Outcome>>;
     resolve: Record<string, Record<string, Outcome>>;
   } = {
     launch: {},
     resume: {},
     resumeLast: {},
+    passthrough: {},
     session: {},
     resolve: {},
   };
@@ -242,11 +260,13 @@ const buildCorpus = (): Record<string, unknown> => {
     const launch: Record<string, Outcome> = {};
     const resume: Record<string, Outcome> = {};
     const resumeLast: Record<string, Outcome> = {};
+    const passthrough: Record<string, Outcome> = {};
     const session: Record<string, Outcome> = {};
     const resolve: Record<string, Outcome> = {};
     corpus.launch[h.name] = launch;
     corpus.resume[h.name] = resume;
     corpus.resumeLast[h.name] = resumeLast;
+    corpus.passthrough[h.name] = passthrough;
     corpus.session[h.name] = session;
     corpus.resolve[h.name] = resolve;
     for (const [label, opts] of turnCases(h)) {
@@ -269,6 +289,9 @@ const buildCorpus = (): Record<string, unknown> => {
       resumeLast["inspect-context"] = outcomeOf(() => ({
         argv: buildContextInspectionArgv(h, { prompt: "hi", resumeLast: true }),
       }));
+    }
+    for (const [label, opts] of passthroughCases()) {
+      passthrough[label] = outcomeOf(() => ({ argv: buildSpawnArgv(h, opts) }));
     }
     for (const [label, opts] of sessionCases(h)) {
       session[label] = outcomeOf(() => ({ argv: buildSessionArgv(h, opts) }));
