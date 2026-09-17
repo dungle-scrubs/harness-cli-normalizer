@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.14](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.13...v0.6.14) (2026-09-17)
+
+
+### Added
+
+* add the Cursor CLI harness (RFC-05) ([#180](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/180)) ([103fffc](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/103fffc552cea022bb2648f700bd819ee6f08d88))
+
+
+### Fixed
+
+* **tests:** move installed-models fixture out of the turn-replay inventory ([#174](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/174)) ([47c741a](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/47c741a16bbcf0023dabe8c20803b85b1c33f49c))
+
+
+### Changed
+
+* add ROADMAP.md with Grok Build CLI and Cursor CLI, point AGENTS.md at it ([#175](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/175)) ([8a04767](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/8a0476722674206ce7fafc92db621576c87199a0))
+
 ## [0.6.13](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.12...v0.6.13) (2026-09-15)
 
 
