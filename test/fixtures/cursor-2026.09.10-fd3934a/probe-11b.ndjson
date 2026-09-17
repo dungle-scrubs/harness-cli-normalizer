@@ -1,0 +1,7 @@
+{"type":"system","subtype":"init","apiKeySource":"login","cwd":"/hcn-cursor-spike/ws-main","session_id":"8fcb61f3-12f6-47ad-9f65-fc73c97accf6","model":"Composer 2.5 Fast","permissionMode":"default"}
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"Reply with exactly: pong"}]},"session_id":"8fcb61f3-12f6-47ad-9f65-fc73c97accf6"}
+{"type":"thinking","subtype":"delta","text":"The user wants a reply","session_id":"8fcb61f3-12f6-47ad-9f65-fc73c97accf6","timestamp_ms":1789566839263}
+{"type":"thinking","subtype":"delta","text":" of exactly \"pong\".","session_id":"8fcb61f3-12f6-47ad-9f65-fc73c97accf6","timestamp_ms":1789566839264}
+{"type":"thinking","subtype":"completed","session_id":"8fcb61f3-12f6-47ad-9f65-fc73c97accf6","timestamp_ms":1789566839264}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"pong"}]},"session_id":"8fcb61f3-12f6-47ad-9f65-fc73c97accf6"}
+{"type":"result","subtype":"success","duration_ms":5912,"duration_api_ms":5912,"is_error":false,"result":"pong","session_id":"8fcb61f3-12f6-47ad-9f65-fc73c97accf6","request_id":"5aa7a33a-c159-436b-9548-86ee6bf90b3e","usage":{"inputTokens":7900,"outputTokens":38,"cacheReadTokens":8800,"cacheWriteTokens":0}}

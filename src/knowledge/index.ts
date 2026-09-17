@@ -1,7 +1,7 @@
 /**
  * Knowledge layer: owns harness descriptors as pure data.
  *
- * Each supported CLI (claude, codex, pi, muse) is described by an immutable
+ * Each supported CLI (claude, codex, pi, muse, cursor) is described by an immutable
  * descriptor capturing its argv shapes, identity and store locations, flag
  * sets, and capability claims. The point of this module is to keep every fact
  * about a harness in one declarative place as data, rather than scattered
@@ -11,6 +11,7 @@
  */
 export { claudeCode } from "./claude-code.js";
 export { codexCli } from "./codex.js";
+export { cursorCli } from "./cursor.js";
 export * from "./descriptor.js";
 export {
   SHARED_AUTH_MATCHERS,

@@ -30,9 +30,11 @@ import {
   type ResolvedBehavior,
   resolveBehavior,
   resolveEffectiveOptions,
+  type UnrenderableEntry,
 } from "../interpretation/resolve-options.js";
 import { recognizeNativeSpelling, supportedBy } from "../interpretation/support.js";
 import { renderToolSelection } from "../interpretation/tool-selection.js";
+import { resolveEffortSlug } from "../interpretation/vocabulary.js";
 import type { HarnessDescriptor, HarnessName } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import {
@@ -84,7 +86,7 @@ export interface TurnPlan {
   readonly redactedArgv: readonly string[];
   /** Launch-only; empty on resume, where omitted options follow native behavior. */
   readonly provenance: readonly ProvenanceEntry[];
-  readonly unrenderable: readonly string[];
+  readonly unrenderable: readonly UnrenderableEntry[];
   readonly behavior: ResolvedBehavior;
   /** Tool names the grant passes through ungated, for the provenance line. */
   readonly nativeTools: readonly string[];
@@ -294,7 +296,7 @@ export const planTurn = async (
   // behavior on resume; the resolver never runs on resume paths.
   let effectiveTurnOpts = turnOpts;
   let provenance: readonly ProvenanceEntry[] = [];
-  let unrenderable: readonly string[] = [];
+  let unrenderable: readonly UnrenderableEntry[] = [];
   if (extra.resume === undefined) {
     try {
       const resolved = resolveEffectiveOptions(h, { ...turnOpts, prompt }, tiers as ConfigTiers);
@@ -315,6 +317,42 @@ export const planTurn = async (
     { questions: turnOpts.questions, timeoutSeconds: extra.timeoutSeconds },
     tiers as ConfigTiers,
   );
+
+  // RFC-05: on an effort-in-model harness the resolved slug replaces
+  // opts.model once, on launch and resume alike, before buildSpawnArgv -
+  // so capabilities, provenance, and the decoder see the slug that runs.
+  // Only arg-tier --effort enforces (turnOpts carries the parsed args);
+  // the model rides from any tier (arg --model, else the resolved
+  // config-tier model on launch) or none. The step also runs when a model
+  // from any tier is present without effort, so a bare stem refuses with
+  // its row instead of reaching turnTail's full-list unknown-model. A
+  // resolver refusal surfaces like any other argv refusal. Provenance
+  // keeps the supplying entry's tier and takes the slug as its value;
+  // when no model entry exists an arg-tier one is appended - but only
+  // when the slug differs, so a valid slug without effort leaves
+  // provenance untouched. Never on resume, where provenance stays absent
+  // as today.
+  const effortModel = turnOpts.model ?? effectiveTurnOpts.model;
+  if (
+    (turnOpts.effort !== undefined || effortModel !== undefined) &&
+    h.turnOptions.effort?.kind === "effort-in-model"
+  ) {
+    let slug: string | undefined;
+    try {
+      slug = resolveEffortSlug(h, effortModel, turnOpts.effort);
+    } catch (err) {
+      if (err instanceof ArgvRefusalError) return refused(err);
+      throw err;
+    }
+    if (slug !== undefined && slug !== effortModel) {
+      effectiveTurnOpts = { ...effectiveTurnOpts, model: slug };
+      if (extra.resume === undefined) {
+        provenance = provenance.some((p) => p.key === "model")
+          ? provenance.map((p) => (p.key === "model" ? { ...p, value: slug } : p))
+          : [...provenance, { key: "model", value: slug, tier: "arg" }];
+      }
+    }
+  }
 
   // The prompt here is the COMPOSED one (escalation preamble included):
   // redactArgv masks by position, so an argv built from the raw prompt

@@ -40,7 +40,7 @@ export const payloadStripScenario = {
       {},
     );
     const done = doneOf(r.events);
-    if (!done || done.cause !== "clean") failures.push(`done=${done?.cause}`);
+    if (done?.cause !== "clean") failures.push(`done=${done?.cause}`);
     const text = r.events
       .filter((e): e is Extract<HarnessEvent, { kind: "message" }> => e.kind === "message")
       .map((e) => e.text)

@@ -16,6 +16,8 @@ export const NATIVE_APPROVAL_PROTOCOLS = deepFreeze({
   codex: { argv: ["app-server", "--listen", "stdio://"], kind: "codex-app-server-v1" },
   muse: null,
   pi: null,
+  // RFC-05 v1 has no approval channel (no ACP client); null like the rest.
+  cursor: null,
 } as const);
 
 export const NATIVE_APPROVAL_REQUEST_IDS = deepFreeze({

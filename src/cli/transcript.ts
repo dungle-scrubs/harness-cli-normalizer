@@ -72,6 +72,44 @@ export async function transcript(raw: string[]): Promise<void> {
     process.exitCode = 2;
     return;
   }
+  // RFC-05: a harness whose descriptor carries transcript: null (cursor
+  // in v1) refuses as divergence BEFORE root computation, so the request
+  // can never fall into the pi-default else branch below and resolve a pi
+  // root for it. Descriptor-driven: no harness-name branch, and the else
+  // stays pi-only with no resolving cursor branch.
+  const knowledge = resolveHarness(options.harness).transcript;
+  if (knowledge === null) {
+    const request: ReadTranscriptRequest = {
+      nativeStoreRoot: "",
+      selection: options.id
+        ? { kind: "id", nativeId: options.id }
+        : { kind: "file", path: resolve(options.cwd ?? process.cwd(), options.file ?? "") },
+      limit: options.limit,
+      since: options.since,
+      acceptedLimits: options.acceptedLimits,
+      harness: options.harness,
+      hcnVersion: version,
+      workspace: resolve(options.cwd ?? process.cwd()),
+    };
+    const { result, source } = emptyTranscript(request);
+    if (options.id)
+      source.selection = {
+        kind: "id",
+        storeRoots: [],
+        value: options.id,
+        workspace: request.workspace,
+      };
+    result.failure = failure(
+      "transcript-divergence",
+      "validate",
+      "retrieval",
+      `${options.harness} has no transcript surface in v1; transcript reads report divergence.`,
+    );
+    await writeTranscriptLine(`${encodeJson(source)}\n`);
+    await writeTranscriptLine(`${encodeJson(result)}\n`);
+    process.exitCode = 2;
+    return;
+  }
   const workspace = resolve(options.cwd ?? process.cwd());
   const storeRoot =
     options.harness === "codex"
@@ -101,7 +139,6 @@ export async function transcript(raw: string[]): Promise<void> {
     hcnVersion: version,
     workspace,
   };
-  const knowledge = resolveHarness(options.harness).transcript;
   const selection = chooseTranscriptMethod(knowledge, {
     acceptedLimits: options.acceptedLimits,
     selector: request.selection.kind,

@@ -36,12 +36,12 @@ proc.stdout.on("data", (d) => {
   }
 });
 proc.stdin.write(
-  JSON.stringify({
+  `${JSON.stringify({
     type: "user",
     message: { role: "user", content: [{ type: "text", text: message }] },
-  }) + "\n",
+  })}\n`,
 );
 const code = await new Promise((r) => proc.on("close", r));
 fs.writeFileSync(out, all);
-fs.writeFileSync(out + ".err", err);
+fs.writeFileSync(`${out}.err`, err);
 console.log(`exit=${code} lines=${all.split("\n").filter(Boolean).length} flag=${flag}`);

@@ -7,7 +7,11 @@
  * hcn-question block into events. It emits through the callbacks its
  * runner hands it and knows nothing about channels or turns.
  */
-import { detectAuthFailureInLine, detectLimitInLine } from "../interpretation/limits.js";
+import {
+  detectAuthFailureInLine,
+  detectLimitInLine,
+  detectTrustRefusal,
+} from "../interpretation/limits.js";
 import {
   type QuestionDetectionKind,
   type QuestionMode,
@@ -21,6 +25,7 @@ import {
   failureFromAuth,
   failureFromLimit,
   failureFromTask,
+  failureFromTrust,
 } from "./failure.js";
 
 /** SIGTERM -> SIGKILL escalation budget for a child that ignores the first
@@ -197,6 +202,14 @@ export const superviseTurn = (
       if (auth !== null) {
         await io.fail(failureFromAuth(auth));
         await io.emit({ kind: "error", message: `auth wall: ${auth}` });
+        return;
+      }
+      // RFC-05: the trust gate reads after the auth check, like the
+      // terminal-error classifier. A trust line fails the turn at once;
+      // anything else stays tail for the exit scan.
+      if (detectTrustRefusal(h, line)) {
+        await io.fail(failureFromTrust(line.slice(0, 512)));
+        await io.emit({ kind: "error", message: `trust wall: trust-refused` });
         return;
       }
       io.tail.push(line);

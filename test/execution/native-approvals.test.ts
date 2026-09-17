@@ -395,7 +395,7 @@ test.each([32, 33])(
         requests.push(event.requestId);
         if (count === 32 && requests.length === count)
           await f.input.push(
-            requests
+            `${requests
               .toReversed()
               .map((requestId, index) =>
                 JSON.stringify({
@@ -406,7 +406,7 @@ test.each([32, 33])(
                   choiceId: "once",
                 }),
               )
-              .join("\n") + "\n",
+              .join("\n")}\n`,
           );
       }
       if (event.kind === "approval-disposition" && event.status === "sent" && ++sent === count)

@@ -24,6 +24,7 @@ export const REFUSAL_ISSUES = deepFreeze([
   "no-session-mode",
   "native-settings-unavailable",
   "native-settings-changed",
+  "unsupported-passthrough",
 ] as const);
 export type RefusalIssue = (typeof REFUSAL_ISSUES)[number];
 
@@ -56,6 +57,10 @@ export const buildRefusalMessage = (
   facet?: DiscoveryFacet,
   supported: readonly string[] = [],
   detail?: string,
+  // N3: the native binary of the descriptor that raised the refusal. Set
+  // at the raise site (an override file can change bin); never looked up
+  // from the defaults here, which would ignore overrides.
+  bin?: string,
 ): string => {
   const supportedStr =
     supported.length > 0 ? `supported: ${supported.join(", ")}` : "supported: (none)";
@@ -100,13 +105,27 @@ export const buildRefusalMessage = (
     case "prompt-flag-injection":
       return `positional prompt may not start with '-'; it would be parsed as a flag by ${who}${detailSuffix}; ${supportedStr} - remove leading '-' or prefix with a space`;
     case "no-autonomy-mode":
-      return `${who} has no unattended-run flag; ${supportedStr} - drop autonomy or route to a supporting harness (claude --dangerously-skip-permissions, codex/muse --yolo)`;
+      // supportedStr already carries the descriptor-derived supporting
+      // list, so a new autonomy grant (cursor --force) appears without
+      // editing this message and the list is never repeated.
+      return `${who} has no unattended-run flag; ${supportedStr} - drop autonomy or route to a supporting harness`;
     case "no-session-mode":
       return `${who} declares no persistent headless session mode; ${supportedStr} - use hcn run --resume <id>`;
     case "native-settings-unavailable":
       return `saved native settings are unavailable${forHarness}${detailSuffix}; read the same native session again before retrying`;
     case "native-settings-changed":
       return `saved native settings changed${forHarness}; inspect the same native session again before retrying`;
+    case "unsupported-passthrough": {
+      // RFC-05: a prompt-joins harness takes post-`--` tokens into the
+      // positional prompt as text (probe 41), so a non-empty tail refuses
+      // before spawn. The offending tokens ride `detail`; the
+      // stay-on-harness hint is set at the raise site. The native binary
+      // arrives on the refusal from the descriptor in use, never from a
+      // harness-name branch or a defaults lookup.
+      const invoke =
+        bin === undefined ? "invoke the harness binary directly" : `invoke ${bin} directly`;
+      return `${who} joins tokens after the -- separator into the prompt as text${detailSuffix}; ${supportedStr} - remove the tokens after -- and re-run; to pass native flags, ${invoke}`;
+    }
     default: {
       const exhaustive: never = issue;
       return `${exhaustive as string}${forHarness}${optionPart}${detailSuffix}; ${supportedStr}`;
@@ -131,6 +150,10 @@ export class ArgvRefusalError extends Error {
    * scanning agent on its chosen harness instead of switching. Curatorial
    * data set at the raise site; absent when no hint exists. */
   readonly hint?: string;
+  /** N3: the native binary of the descriptor that raised the refusal, for
+   * message arms that name it. Set at the raise site; absent when the
+   * raising layer has no descriptor in scope. */
+  readonly bin?: string;
   constructor(args: {
     readonly issue: RefusalIssue;
     readonly harness?: HarnessName;
@@ -141,6 +164,7 @@ export class ArgvRefusalError extends Error {
     readonly hint?: string;
     readonly detail?: string;
     readonly message?: string;
+    readonly bin?: string;
   }) {
     const message =
       args.message ??
@@ -151,6 +175,7 @@ export class ArgvRefusalError extends Error {
         args.facet,
         args.supported ?? [],
         args.detail,
+        args.bin,
       );
     super(message);
     this.name = "ArgvRefusalError";
@@ -161,5 +186,6 @@ export class ArgvRefusalError extends Error {
     this.supported = args.supported ?? [];
     this.supportedBy = args.supportedBy;
     this.hint = args.hint;
+    this.bin = args.bin;
   }
 }

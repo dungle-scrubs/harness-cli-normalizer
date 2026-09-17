@@ -129,7 +129,7 @@ describe("streamTurn happy path (claude, fake spawner)", () => {
   test("large dash-leading input travels as text and its diagnostic names the transport", async () => {
     const proc = new FakeProcess({ exitOnStdinEnd: false });
     const d = deps(proc);
-    const prompt = "--- old file\n" + "x".repeat(70_000);
+    const prompt = `--- old file\n${"x".repeat(70_000)}`;
     const pending = collect(streamTurn(claudeCode, { prompt, questions: "none" }, d));
     proc.emitLine(init);
     proc.emitLine(result);
@@ -137,9 +137,9 @@ describe("streamTurn happy path (claude, fake spawner)", () => {
     const events = await pending;
     expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
     expect(proc.stdinWrites.join("")).toBe(prompt);
-    expect(redactArgv(d.spawner.calls[0]!.argv, prompt, true)).toContain(
-      "[stdin prompt:" + prompt.length + "ch]",
-    );
+    const spawnedArgv = d.spawner.calls[0]?.argv;
+    if (spawnedArgv === undefined) throw new Error("expected a spawn call");
+    expect(redactArgv(spawnedArgv, prompt, true)).toContain(`[stdin prompt:${prompt.length}ch]`);
   });
   test("spawns the built argv, yields identity once, messages, and a clean done", async () => {
     const proc = new FakeProcess();

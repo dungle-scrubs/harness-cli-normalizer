@@ -54,7 +54,7 @@ describe("hcn inspect --capabilities", () => {
     expect(out.exitCode).toBeUndefined();
     const lines = out.stdout.trim().split("\n");
     expect(lines).toHaveLength(1);
-    const parsed = JSON.parse(lines[0]!);
+    const parsed = JSON.parse(lines[0] as string);
     expect(parsed).toEqual(capabilitiesOf(resolveHarness("claude"), "", "headless-turn"));
     expect(parsed.source).toBe("curated");
     expect(parsed.streaming).toBe("token");
@@ -149,7 +149,7 @@ describe("hcn inspect --capabilities", () => {
 
   test("a curated model keeps source curated", async () => {
     const claude = resolveHarness("claude");
-    const curated = claude.vocabulary.models[0]!;
+    const curated = claude.vocabulary.models[0] as string;
     const out = await captureDispatch(["inspect", "claude", "--capabilities", "--model", curated]);
     expect(out.exitCode).toBeUndefined();
     const parsed = JSON.parse(out.stdout.trim());
