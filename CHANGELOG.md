@@ -5,6 +5,24 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.16](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.15...v0.6.16) (2026-09-17)
+
+
+### Fixed
+
+* **claude:** classify a result marked is_error by its text, so an auth wall reports auth ([2bdff61](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/2bdff61ef3fdaafcc05acc81c50ffbaeac6f9fef))
+* **muse:** end a headless turn blocked on a native approval instead of hanging ([#179](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/179)) ([2bdff61](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/2bdff61ef3fdaafcc05acc81c50ffbaeac6f9fef))
+* **passthrough:** stop forwarding hcn's bare -- into harness argv, so native flags reach every harness ([2bdff61](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/2bdff61ef3fdaafcc05acc81c50ffbaeac6f9fef))
+* **session:** refuse a passthrough tail on hcn session instead of dropping it ([2bdff61](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/2bdff61ef3fdaafcc05acc81c50ffbaeac6f9fef))
+
+
+### Changed
+
+* add RFC-04 draft, opt-in crash reporting at the CLI boundary ([#183](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/183)) ([4825652](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/4825652b035bd3915d8c44872447a672e7e8845b))
+* **deps-dev:** bump @biomejs/biome from 2.5.12 to 2.5.13 ([#178](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/178)) ([23f543c](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/23f543ce4a56e6f545a77909b5defcacde3815e3))
+* **deps-dev:** bump @types/node from 26.4.1 to 26.5.1 ([#177](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/177)) ([2be4d26](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/2be4d26166fd9c7d442958f1e5d3bcf159b78998))
+* file the claude startup and transcript research evidence ([#185](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/185)) ([9227ba5](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/9227ba51118f5596af182c27ef0000daf9418743))
+
 ## [0.6.15](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.14...v0.6.15) (2026-09-17)
 
 
