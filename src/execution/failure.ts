@@ -16,6 +16,7 @@
 import {
   detectAuthFailureInLine,
   detectTransportInLine,
+  detectTrustRefusal,
   detectUnavailableInLine,
 } from "../interpretation/limits.js";
 import type { RefusalIssue } from "../interpretation/refusal.js";
@@ -39,6 +40,7 @@ export const FAILURE_CLASSES = Object.freeze([
   "rejected",
   "native",
   "timeout",
+  "trust-refused",
 ] as const);
 export type FailureClass = (typeof FAILURE_CLASSES)[number];
 
@@ -92,6 +94,12 @@ const messageFor = (cls: FailureClass, detail?: string): string => {
       // caller chose this number (arg or config); retrying unchanged will
       // hit the same wall - retry only with a raised budget.
       return `Timeout: run exceeded its wall-clock budget and was killed (SIGTERM, then SIGKILL after grace) - raise --timeout for this workload or split the task`;
+    case "trust-refused":
+      // RFC-05: the gate fires before any inference, so the remedy is a
+      // different call, not a different model. Trusted-directory first,
+      // then what --autonomy grants; --trust is never named (hcn has no
+      // working channel for it, probes 40/41).
+      return `Workspace trust refused${detail ? ` (${detail})` : ""} - run \`agent\` interactively in that directory once, or use a directory Cursor already trusts; --autonomy grants unattended edits and shell for that run without persisting trust`;
     case "native":
       // D6: labeled NATIVE so it can never be confused with an hcn error.
       // The harness's own message follows verbatim; the process exit code
@@ -159,6 +167,7 @@ export const failureFromAuth = (kind: AuthFailureKind): FailureSummary => ({
 export const failureFromTerminalError = (h: HarnessDescriptor, message: string): FailureSummary => {
   const auth = detectAuthFailureInLine(h, message);
   if (auth !== null) return failureFromAuth(auth);
+  if (detectTrustRefusal(h, message)) return failureFromTrust(message);
   if (detectTransportInLine(message)) return failureFromTransport(message);
   if (detectUnavailableInLine(message)) return failureFromUnavailable(message);
   return failureFromTask(message);
@@ -187,6 +196,36 @@ export const failureFromUnavailable = (detail?: string): FailureSummary => ({
   retryable: retryableOf("unavailable"),
   message: messageFor("unavailable", detail),
 });
+
+/** RFC-05: Cursor refused an untrusted workspace before any inference ran.
+ * Retryable derives true from the provider-unavailable family; the
+ * messageFor arm names the remedy. */
+export const failureFromTrust = (detail?: string): FailureSummary => ({
+  class: "trust-refused",
+  retryable: retryableOf("trust-refused"),
+  message: messageFor("trust-refused", detail),
+});
+
+/** The post-queue nonzero-exit tail scan (stream-turn.ts): transport first,
+ * then unavailable, then the trust gate, then the native fallthrough, and
+ * transport on an empty tail (a silent nonzero exit reads as environment,
+ * not harness judgment). One owner so the precedence is unit-tested
+ * directly; the supervisor per-line check usually fires first, so the
+ * trust arm here is defense-in-depth. */
+export const failureFromStderrTail = (
+  h: HarnessDescriptor,
+  exitCode: number | null,
+  tail: readonly string[],
+): FailureSummary => {
+  const transportLine = tail.find((line) => detectTransportInLine(line));
+  const unavailableLine = tail.find((line) => detectUnavailableInLine(line));
+  const trustLine = tail.find((line) => detectTrustRefusal(h, line));
+  if (transportLine !== undefined) return failureFromTransport(transportLine);
+  if (unavailableLine !== undefined) return failureFromUnavailable(unavailableLine);
+  if (trustLine !== undefined) return failureFromTrust(trustLine);
+  if (tail.length > 0) return failureFromNative(exitCode, tail);
+  return failureFromTransport(`nonzero exit ${exitCode}`);
+};
 
 export const nativeApprovalPreflightEvidence = (issue: RefusalIssue): NativeApprovalFailure => ({
   phase: "preflight",
@@ -236,16 +275,22 @@ const PRECEDENCE: Record<FailureClass, number> = {
   // terminal-by-classification, never reduced into anything else.
   rejected: 0,
   native: 0,
+  // RFC-05: the trust gate fires before any inference, so it shares the
+  // provider-unavailable family with the messageFor arm above.
+  "trust-refused": 2,
 };
 
 export const reduceFailures = (failures: readonly FailureSummary[]): FailureSummary | undefined => {
   if (failures.length === 0) return undefined;
-  if (failures.length === 1) return failures[0];
+  const first = failures[0];
+  if (failures.length === 1) return first;
+  if (first === undefined) return undefined;
   // Sort by precedence, then by earliest (stable). Lower precedence number wins.
-  let best = failures[0]!;
+  let best = first;
   let bestPrec = PRECEDENCE[best.class] ?? 99;
   for (let i = 1; i < failures.length; i++) {
-    const cur = failures[i]!;
+    const cur = failures[i];
+    if (cur === undefined) continue;
     const curPrec = PRECEDENCE[cur.class] ?? 99;
     if (curPrec < bestPrec) {
       best = cur;

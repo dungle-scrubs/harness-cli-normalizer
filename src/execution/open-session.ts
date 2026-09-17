@@ -195,7 +195,7 @@ export const openSession = (
   });
 
   const turnsChannel = new AsyncChannel<SessionTurn>();
-  const state = freshDecodeState(opts.sessionId);
+  const state = freshDecodeState(opts.sessionId, h.name);
   const questionMode: QuestionMode = opts.questions ?? "ask";
   const sessionInputMode = h.sessionMode;
   const stderrTail = new StderrTail();

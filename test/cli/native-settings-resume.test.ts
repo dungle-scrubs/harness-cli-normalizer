@@ -28,7 +28,7 @@ test("the public verified resume runs the exact saved custom model, effort and p
     // Synthetic native record and executable, not a live-model claim.
     writeFileSync(
       join(directory, `rollout-fixture-${sessionId}.jsonl`),
-      [
+      `${[
         {
           type: "session_meta",
           payload: { id: sessionId, cwd: root, model_provider: "saved-provider" },
@@ -39,7 +39,7 @@ test("the public verified resume runs the exact saved custom model, effort and p
         },
       ]
         .map((record) => JSON.stringify(record))
-        .join("\n") + "\n",
+        .join("\n")}\n`,
     );
     writeFileSync(
       join(bin, "codex"),
@@ -71,7 +71,7 @@ test("the public verified resume runs the exact saved custom model, effort and p
         root,
         "--json",
       ],
-      { cwd: root, env, encoding: "utf8", timeout: 2000 },
+      { cwd: root, env, encoding: "utf8", timeout: 15000 },
     );
     expect(inspect.status).toBe(0);
     const fingerprint = JSON.parse(inspect.stdout).fingerprint;
@@ -94,7 +94,7 @@ test("the public verified resume runs the exact saved custom model, effort and p
         "none",
         "--json",
       ],
-      { cwd: root, env, encoding: "utf8", timeout: 3000 },
+      { cwd: root, env, encoding: "utf8", timeout: 15000 },
     );
     expect(preview.status).toBe(0);
     expect(JSON.parse(preview.stdout).argv).toContain("saved-custom-model");
@@ -130,13 +130,13 @@ test("the public verified resume runs the exact saved custom model, effort and p
         cwd: root,
         env,
         encoding: "utf8",
-        timeout: 3000,
+        timeout: 15000,
       });
       expect(refused.status).toBe(2);
       expect(refused.stdout).toContain('"issue":"invalid-option-value"');
       expect(existsSync(join(root, "native-argv.json"))).toBe(false);
     }
-    const run = spawnSync(bun, args, { cwd: root, env, encoding: "utf8", timeout: 3000 });
+    const run = spawnSync(bun, args, { cwd: root, env, encoding: "utf8", timeout: 15000 });
     expect(run.status).toBe(0);
     expect(JSON.parse(readFileSync(join(root, "native-argv.json"), "utf8"))).toEqual([
       "exec",
@@ -161,11 +161,13 @@ test("the public verified resume runs the exact saved custom model, effort and p
       join(directory, `rollout-fixture-${sessionId}.jsonl`),
       `${JSON.stringify({ type: "turn_context", payload: { cwd: root, model: "later-native-model", effort: "low" } })}\n`,
     );
-    const stale = spawnSync(bun, args, { cwd: root, env, encoding: "utf8", timeout: 3000 });
+    const stale = spawnSync(bun, args, { cwd: root, env, encoding: "utf8", timeout: 15000 });
     expect(stale.status).toBe(2);
     expect(stale.stdout).toContain('"issue":"native-settings-changed"');
     expect(existsSync(join(root, "native-argv.json"))).toBe(false);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
-});
+  // Five sequential CLI spawns of about one second each exceed the 5s default
+  // under full-lane load; each spawn keeps its own hang guard.
+}, 60_000);

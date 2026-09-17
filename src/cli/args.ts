@@ -62,10 +62,14 @@ export const resolvePrompt = (args: {
       detail: "mutual exclusion",
     });
   }
-  if (hasPositional) return { prompt: args.positionalPrompt!, source: "positional" };
-  if (hasPrompt) return { prompt: args.promptFlag!, source: "prompt-flag" };
+  const positional = args.positionalPrompt;
+  if (positional !== undefined && positional !== "")
+    return { prompt: positional, source: "positional" };
+  const flag = args.promptFlag;
+  if (flag !== undefined) return { prompt: flag, source: "prompt-flag" };
   // --prompt-file
-  const file = args.promptFile!;
+  const file = args.promptFile;
+  if (file === undefined) throw new Error("prompt source selected but no prompt file present");
   if (file === "-") {
     // read from stdin sync - caller may provide content differently for async path.
     // For sync path, read stdin fd 0.
@@ -100,9 +104,13 @@ export const resolvePromptAsync = async (args: {
       detail: "mutual exclusion",
     });
   }
-  if (hasPositional) return { prompt: args.positionalPrompt!, source: "positional" };
-  if (hasPrompt) return { prompt: args.promptFlag!, source: "prompt-flag" };
-  const file = args.promptFile!;
+  const positionalAsync = args.positionalPrompt;
+  if (positionalAsync !== undefined && positionalAsync !== "")
+    return { prompt: positionalAsync, source: "positional" };
+  const flagAsync = args.promptFlag;
+  if (flagAsync !== undefined) return { prompt: flagAsync, source: "prompt-flag" };
+  const file = args.promptFile;
+  if (file === undefined) throw new Error("prompt source selected but no prompt file present");
   if (file === "-") {
     const chunks: Buffer[] = [];
     for await (const chunk of process.stdin) chunks.push(chunk as Buffer);

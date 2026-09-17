@@ -14,6 +14,7 @@
  */
 import { claudeCode } from "./claude-code.js";
 import { codexCli } from "./codex.js";
+import { cursorCli } from "./cursor.js";
 import {
   HARNESS_NAMES,
   type HarnessDescriptor,
@@ -31,6 +32,8 @@ const SHARED_DESCRIPTORS: DescriptorSet = {
   codex: codexCli,
   pi: piCli,
   muse: museCode,
+  // RFC-05: the cursor entry is also what makes `hcn ls` list it.
+  cursor: cursorCli,
 };
 
 export const defaultDescriptors = (): DescriptorSet => SHARED_DESCRIPTORS;
@@ -38,7 +41,10 @@ export const defaultDescriptors = (): DescriptorSet => SHARED_DESCRIPTORS;
 /** Tracks which descriptors were produced by an override file and what their
  * matcher counts are, so the execution layer can emit `matcherOverrides` on
  * the spawn boundary event without re-deriving it. */
-export const matcherOverridesOf = new WeakMap<HarnessDescriptor, { limit: number; auth: number }>();
+export const matcherOverridesOf = new WeakMap<
+  HarnessDescriptor,
+  { limit: number; auth: number; trust: number }
+>();
 
 export class OverrideRefusalError extends Error {
   constructor(
@@ -75,7 +81,7 @@ const enumAt = (keyPath: readonly string[]): readonly string[] | null => {
     case "stdin":
       return ["inherit", "close-required"];
     case "store.cwdSlug":
-      return ["dash-separators", "pi-dash-wrapped", "verbatim"];
+      return ["dash-separators", "pi-dash-wrapped", "verbatim", "md5-hex"];
     case "resume.style":
       return ["flag", "positional"];
     case "identity.authority":
@@ -172,6 +178,32 @@ const validateMatcherPattern = (
 const validateMatchers = (desc: HarnessDescriptor, path: string, harness: string): void => {
   const limitMatchers = (desc as unknown as { limitMatchers: readonly unknown[] }).limitMatchers;
   const authMatchers = (desc as unknown as { authMatchers: readonly unknown[] }).authMatchers;
+  // RFC-05: trust matchers compile under the same bounds as every other
+  // wall, so a crafted override cannot widen trust detection into a
+  // backtracking hazard. Harnesses without the field skip it.
+  const trustMatchers = (desc as unknown as { trustMatchers?: readonly unknown[] }).trustMatchers;
+  if (trustMatchers !== undefined) {
+    if (!Array.isArray(trustMatchers)) {
+      throw new OverrideRefusalError(path, `trust matcher section must be an array`, harness);
+    }
+    if (trustMatchers.length > MAX_MATCHERS_PER_KIND) {
+      throw new OverrideRefusalError(
+        path,
+        `more than ${MAX_MATCHERS_PER_KIND} trust matchers`,
+        harness,
+      );
+    }
+    for (const m of trustMatchers) {
+      if (!isPlain(m as unknown as Record<string, unknown>)) {
+        throw new OverrideRefusalError(path, `trust matcher must be an object`, harness);
+      }
+      const obj = m as Record<string, unknown>;
+      if (typeof obj.pattern !== "string") {
+        throw new OverrideRefusalError(path, `trust matcher must have pattern`, harness);
+      }
+      validateMatcherPattern(obj.pattern, obj.flags as string | undefined, path, harness);
+    }
+  }
   if (Array.isArray(limitMatchers)) {
     if (limitMatchers.length > MAX_MATCHERS_PER_KIND) {
       throw new OverrideRefusalError(
@@ -254,10 +286,17 @@ export const parseOverrides = (jsonText: string, path: string): DescriptorSet =>
       (next.authMatchers as unknown as ReadonlyArray<unknown>).length !==
         (defaultsForHarness.authMatchers as unknown as ReadonlyArray<unknown>).length ||
       JSON.stringify(next.authMatchers) !== JSON.stringify(defaultsForHarness.authMatchers);
-    if (limitChanged || authChanged) {
+    const nextTrust = (next as unknown as { trustMatchers?: readonly unknown[] }).trustMatchers;
+    const baseTrust = (defaultsForHarness as unknown as { trustMatchers?: readonly unknown[] })
+      .trustMatchers;
+    const trustChanged =
+      (nextTrust === undefined) !== (baseTrust === undefined) ||
+      JSON.stringify(nextTrust ?? []) !== JSON.stringify(baseTrust ?? []);
+    if (limitChanged || authChanged || trustChanged) {
       matcherOverridesOf.set(next, {
         limit: (next.limitMatchers as unknown as ReadonlyArray<unknown>).length,
         auth: (next.authMatchers as unknown as ReadonlyArray<unknown>).length,
+        trust: nextTrust === undefined ? 0 : nextTrust.length,
       });
     }
     merged[name as HarnessName] = next;

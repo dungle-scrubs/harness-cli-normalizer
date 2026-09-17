@@ -29,11 +29,16 @@ import {
 } from "../../src/interpretation/resolve-options.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
+import { cursorCli } from "../../src/knowledge/cursor.js";
 import type { HarnessDescriptor } from "../../src/knowledge/descriptor.js";
 import { museCode } from "../../src/knowledge/muse.js";
 import { piCli } from "../../src/knowledge/pi.js";
 
-const HARNESSES: readonly HarnessDescriptor[] = [claudeCode, codexCli, piCli, museCode];
+// Cursor rows pin the launch shape (-p placement, prompt-first order,
+// effort rendering zero tokens because slug resolution lives at the
+// plan-turn step, autonomy as --force) and resume argv; the effort
+// matrix itself lives at the resolver and plan-turn seams.
+const HARNESSES: readonly HarnessDescriptor[] = [claudeCode, codexCli, piCli, museCode, cursorCli];
 const SESSION_ID = "0199a4c5-1111-2222-3333-444455556666";
 const SNAPSHOT = join(import.meta.dirname, "argv-corpus.snapshot.json");
 
@@ -177,28 +182,37 @@ const outcomeOf = (work: () => Outcome): Outcome => {
 };
 
 const buildCorpus = (): Record<string, unknown> => {
-  const corpus: Record<string, Record<string, Record<string, Outcome>>> = {
+  const corpus: {
+    launch: Record<string, Record<string, Outcome>>;
+    resume: Record<string, Record<string, Outcome>>;
+    session: Record<string, Record<string, Outcome>>;
+    resolve: Record<string, Record<string, Outcome>>;
+  } = {
     launch: {},
     resume: {},
     session: {},
     resolve: {},
   };
   for (const h of HARNESSES) {
-    corpus.launch![h.name] = {};
-    corpus.resume![h.name] = {};
-    corpus.session![h.name] = {};
-    corpus.resolve![h.name] = {};
+    const launch: Record<string, Outcome> = {};
+    const resume: Record<string, Outcome> = {};
+    const session: Record<string, Outcome> = {};
+    const resolve: Record<string, Outcome> = {};
+    corpus.launch[h.name] = launch;
+    corpus.resume[h.name] = resume;
+    corpus.session[h.name] = session;
+    corpus.resolve[h.name] = resolve;
     for (const [label, opts] of turnCases(h)) {
-      corpus.launch![h.name]![label] = outcomeOf(() => ({ argv: buildLaunchArgv(h, opts) }));
-      corpus.resume![h.name]![label] = outcomeOf(() => ({
+      launch[label] = outcomeOf(() => ({ argv: buildLaunchArgv(h, opts) }));
+      resume[label] = outcomeOf(() => ({
         argv: buildResumeArgv(h, { ...opts, sessionId: SESSION_ID }),
       }));
     }
     for (const [label, opts] of sessionCases(h)) {
-      corpus.session![h.name]![label] = outcomeOf(() => ({ argv: buildSessionArgv(h, opts) }));
+      session[label] = outcomeOf(() => ({ argv: buildSessionArgv(h, opts) }));
     }
     for (const [label, args, tiers] of resolveCases()) {
-      corpus.resolve![h.name]![label] = outcomeOf(() => {
+      resolve[label] = outcomeOf(() => {
         const r = resolveEffectiveOptions(h, args, tiers);
         const { prompt: _prompt, ...options } = r.options;
         return { resolved: { options, provenance: r.provenance, unrenderable: r.unrenderable } };

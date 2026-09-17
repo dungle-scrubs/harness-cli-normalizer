@@ -4,7 +4,55 @@ import type { NativeProcessOwner } from "./deps.js";
 
 type OwnerProbe = (pid: number) => NativeProcessOwner | undefined;
 
-function darwinProbe(): OwnerProbe {
+type FfiCall = (...args: (number | bigint | Uint8Array)[]) => number;
+
+interface BunFfi {
+  dlopen(
+    path: string,
+    definition: Record<string, { readonly args: readonly string[]; readonly returns: string }>,
+  ): { readonly symbols: Record<string, FfiCall | undefined> };
+}
+
+/** Bun's own FFI carries no napi finalizers, so it cannot hit the
+ * napi_reference_unref GC panic that koffi triggers in Bun under load. */
+function bunDarwinProbe(): OwnerProbe | undefined {
+  if ((globalThis as { readonly Bun?: unknown }).Bun === undefined) return undefined;
+  try {
+    const ffi = createRequire(import.meta.url)("bun:ffi") as BunFfi;
+    const { symbols } = ffi.dlopen("/usr/lib/libproc.dylib", {
+      proc_pidinfo: { args: ["i32", "i32", "u64", "ptr", "i32"], returns: "i32" },
+      proc_pidpath: { args: ["i32", "ptr", "u32"], returns: "i32" },
+    });
+    const info = symbols.proc_pidinfo;
+    const path = symbols.proc_pidpath;
+    if (typeof info !== "function" || typeof path !== "function") return () => undefined;
+    return (pid) => {
+      // Darwin sys/proc_info.h: proc_bsdinfo is 136 bytes, start sec/usec at 120/128.
+      const buffer = new Uint8Array(136);
+      const view = new DataView(buffer.buffer);
+      if (info(pid, 3, 0, buffer, buffer.length) !== buffer.length) return undefined;
+      if (view.getUint32(12, true) !== pid) return undefined;
+      const startedAt = `${view.getBigUint64(120, true)}:${view.getBigUint64(128, true)}`;
+      const bytes = new Uint8Array(4096);
+      if (path(pid, bytes, bytes.length) <= 0) return undefined;
+      const end = bytes.indexOf(0);
+      if (end <= 0) return undefined;
+      const executable = new TextDecoder().decode(bytes.subarray(0, end));
+      if (
+        info(pid, 3, 0, buffer, buffer.length) !== buffer.length ||
+        view.getUint32(12, true) !== pid ||
+        `${view.getBigUint64(120, true)}:${view.getBigUint64(128, true)}` !== startedAt
+      )
+        return undefined;
+      return { executable, pid, startedAt };
+    };
+  } catch {
+    // A broken Bun FFI backend fails closed; loading koffi here would crash.
+    return () => undefined;
+  }
+}
+
+function koffiDarwinProbe(): OwnerProbe {
   // Load only for terminal provenance on Darwin. Other operations and platforms
   // do not require a native addon to start a harness.
   const koffi = createRequire(import.meta.url)("koffi") as typeof import("koffi");
@@ -48,6 +96,13 @@ function linuxOwner(pid: number): NativeProcessOwner | undefined {
   const executable = readlinkSync(`/proc/${pid}/exe`);
   if (ticks() !== start) return undefined;
   return { executable, pid, startedAt: `${bootId}:${start}` };
+}
+
+function darwinProbe(): OwnerProbe {
+  // Under Bun, koffi's napi finalizers panic (napi_reference_unref) in Bun's
+  // GC under load, killing the CLI mid-protocol. Bun's own FFI calls the same
+  // libproc entry points. Node keeps the koffi backend.
+  return bunDarwinProbe() ?? koffiDarwinProbe();
 }
 
 let darwin: OwnerProbe | undefined;

@@ -454,6 +454,23 @@ export const renderTurnOptions = (
         sequences.push([...tokensFor(render, String(raw), "verbatim")]);
         break;
       }
+      case "effort-in-model": {
+        // Cursor effort resolves into the --model slug at the plan-turn
+        // resolve step; here only the WORD is validated, against
+        // the union ladder, and zero tokens emit. Family lookup never
+        // happens here, so a mistyped family passes through untouched.
+        if (typeof raw !== "string" || !h.vocabulary.efforts.includes(raw)) {
+          throw new ArgvRefusalError({
+            issue: "unknown-effort",
+            harness: h.name,
+            option: key,
+            supported: [...h.vocabulary.efforts],
+            detail: String(raw),
+          });
+        }
+        sequences.push([...tokensFor(render)]);
+        break;
+      }
       default: {
         const _exhaustive: never = spec;
         throw new ArgvRefusalError({

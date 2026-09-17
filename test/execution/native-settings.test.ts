@@ -14,12 +14,12 @@ test("native source inspection does not return the process environment supplied 
     // Synthetic environment marker, never a credential or a real environment read.
     writeFileSync(
       join(directory, `rollout-fixture-${sessionId}.jsonl`),
-      [
+      `${[
         { type: "session_meta", payload: { id: sessionId, cwd: root, model_provider: "saved" } },
         { type: "turn_context", payload: { cwd: root, model: "saved-model", effort: "high" } },
       ]
         .map((record) => JSON.stringify(record))
-        .join("\n") + "\n",
+        .join("\n")}\n`,
     );
     const result = nodeNativeSettingsInspector({
       cwd: root,

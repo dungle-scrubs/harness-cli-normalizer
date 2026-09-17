@@ -38,7 +38,8 @@ describe("context window", () => {
     for (const harness of [claudeCode, piCli, museCode]) {
       const bare = await planTurn(harness, ["hi"], { command: "run" }, deps);
       expect(bare.kind).toBe("plan");
-      if (bare.kind === "plan") expect(bare.plan.unrenderable).toContain("contextWindow");
+      if (bare.kind === "plan")
+        expect(bare.plan.unrenderable).toContainEqual({ key: "contextWindow", tier: "profile" });
       const explicit = await planTurn(
         harness,
         ["hi", "--context-window", "100000"],

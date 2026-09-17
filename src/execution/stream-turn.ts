@@ -25,7 +25,6 @@ import {
   withPromptText,
 } from "../interpretation/argv.js";
 import { isValidEnvEntry } from "../interpretation/environment.js";
-import { detectTransportInLine, detectUnavailableInLine } from "../interpretation/limits.js";
 import { composeEscalatedPrompt, type QuestionMode } from "../interpretation/question.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
@@ -42,12 +41,11 @@ import {
 import type { FailureSummary } from "./failure.js";
 import {
   failureFromLimit,
-  failureFromNative,
   failureFromRejected,
+  failureFromStderrTail,
   failureFromTerminalError,
   failureFromTimeout,
   failureFromTransport,
-  failureFromUnavailable,
   reduceFailures,
 } from "./failure.js";
 import { LineBuffer } from "./lines.js";
@@ -287,7 +285,7 @@ export async function* streamTurn(
   // F-23 warning is an early stream event, before any harness output
   if (resumeCreateWarning !== null)
     void queue.push({ kind: "error", message: resumeCreateWarning });
-  const state = freshDecodeState(effective.resume ?? null);
+  const state = freshDecodeState(effective.resume ?? null, h.name);
   const stderrTail = new StderrTail();
   let killedByWatchdog = false;
   let killedByAbort = false;
@@ -553,12 +551,8 @@ export async function* streamTurn(
       yield { kind: "failure", ...f };
     }
 
-    // Post-queue failure sources. Nonzero exit with no other failure and a
-    // non-empty stderr tail is a NATIVE failure (D6): the harness rejected
-    // its own arguments or crashed on them - verbatim stderr, native exit
-    // code as data, hcn exit 1. Without a stderr tail it stays transport
-    // (a silent nonzero exit reads as an environment problem, not a
-    // harness judgment).
+    // Post-queue failure sources: the tail scan owns the transport,
+    // unavailable, trust, native, silent precedence (failure.ts).
     if (
       !startupFailed &&
       !killedByAbort &&
@@ -568,17 +562,7 @@ export async function* streamTurn(
       !killedByWatchdog &&
       !state.limitSeen
     ) {
-      const tailForNative = stderrTail.snapshot();
-      const transportLine = tailForNative.find((line) => detectTransportInLine(line));
-      const unavailableLine = tailForNative.find((line) => detectUnavailableInLine(line));
-      const f =
-        transportLine !== undefined
-          ? failureFromTransport(transportLine)
-          : unavailableLine !== undefined
-            ? failureFromUnavailable(unavailableLine)
-            : tailForNative.length > 0
-              ? failureFromNative(exitCode, tailForNative)
-              : failureFromTransport(`nonzero exit ${exitCode}`);
+      const f = failureFromStderrTail(h, exitCode, stderrTail.snapshot());
       failures.push(f);
       // Need to emit this failure before done, even though queue is closed
       yield { kind: "failure", ...f };

@@ -3,10 +3,12 @@ import {
   detectAuthFailureInLine,
   detectLimitInLine,
   detectTransportInLine,
+  detectTrustRefusal,
   detectUnavailableInLine,
 } from "../../src/interpretation/limits.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
+import { cursorCli } from "../../src/knowledge/cursor.js";
 import { museCode } from "../../src/knowledge/muse.js";
 import { piCli } from "../../src/knowledge/pi.js";
 
@@ -246,5 +248,17 @@ describe("detectUnavailableInLine", () => {
   const negatives = ["model answered", "found 3 models"] as const;
   test.each(negatives)("negative %s is not unavailable", (line) => {
     expect(detectUnavailableInLine(line)).toBe(false);
+  });
+});
+
+describe("detectTrustRefusal (cursor)", () => {
+  test("names the probe-01 trust gate stderr, case-insensitively", () => {
+    expect(detectTrustRefusal(cursorCli, "Workspace Trust Required")).toBe(true);
+    expect(detectTrustRefusal(cursorCli, "workspace trust required")).toBe(true);
+    expect(detectTrustRefusal(cursorCli, "all done")).toBe(false);
+  });
+
+  test("harnesses without trustMatchers never detect", () => {
+    expect(detectTrustRefusal(piCli, "Workspace Trust Required")).toBe(false);
   });
 });

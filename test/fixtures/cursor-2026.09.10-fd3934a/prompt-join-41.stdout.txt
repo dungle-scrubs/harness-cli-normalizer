@@ -1,0 +1,8 @@
+{"type":"system","subtype":"init","apiKeySource":"login","cwd":"/hcn-cursor-spike/ws-main","session_id":"f0083303-4d76-4e22-904a-70b0437c354a","model":"Composer 2.5 Fast","permissionMode":"default"}
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"Reply with exactly: pong41 --continue"}]},"session_id":"f0083303-4d76-4e22-904a-70b0437c354a"}
+{"type":"thinking","subtype":"delta","text":"The user requested the","session_id":"f0083303-4d76-4e22-904a-70b0437c354a","timestamp_ms":1789569025709}
+{"type":"thinking","subtype":"delta","text":" exact phrase \"pong41","session_id":"f0083303-4d76-4e22-904a-70b0437c354a","timestamp_ms":1789569025710}
+{"type":"thinking","subtype":"delta","text":" --continue\".","session_id":"f0083303-4d76-4e22-904a-70b0437c354a","timestamp_ms":1789569025711}
+{"type":"thinking","subtype":"completed","session_id":"f0083303-4d76-4e22-904a-70b0437c354a","timestamp_ms":1789569025711}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"pong41 --continue"}]},"session_id":"f0083303-4d76-4e22-904a-70b0437c354a"}
+{"type":"result","subtype":"success","duration_ms":5623,"duration_api_ms":5623,"is_error":false,"result":"pong41 --continue","session_id":"f0083303-4d76-4e22-904a-70b0437c354a","request_id":"6d77334b-a974-43c1-8f94-e18835cf21f1","usage":{"inputTokens":39,"outputTokens":44,"cacheReadTokens":17024,"cacheWriteTokens":0}}

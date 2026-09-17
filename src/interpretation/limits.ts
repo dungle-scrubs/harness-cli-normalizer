@@ -119,3 +119,9 @@ export const detectTransportInLine = (line: string): boolean =>
 /** A provider that answered but cannot serve the requested model. */
 export const detectUnavailableInLine = (line: string): boolean =>
   detectPhraseInLine(SHARED_UNAVAILABLE_MATCHERS, line);
+
+/** A workspace-trust gate refusal (cursor): compiled under the same
+ * matcher bounds as every other wall, so a crafted override cannot widen
+ * it. Harnesses without trustMatchers never detect. */
+export const detectTrustRefusal = (h: HarnessDescriptor, line: string): boolean =>
+  h.trustMatchers !== undefined && detectPhraseInLine(h.trustMatchers, line);

@@ -186,7 +186,7 @@ const toolSelectionScenario: Scenario = {
       const done = r.events.find(
         (e): e is Extract<HarnessEvent, { kind: "done" }> => e.kind === "done",
       );
-      if (!done || done.cause !== "clean")
+      if (done?.cause !== "clean")
         failures.push(`pi read-only run not clean: ${done?.cause ?? "no done"}`);
       const text = r.events
         .filter((e): e is Extract<HarnessEvent, { kind: "message" }> => e.kind === "message")
@@ -210,7 +210,7 @@ const toolSelectionScenario: Scenario = {
       const done = r.events.find(
         (e): e is Extract<HarnessEvent, { kind: "done" }> => e.kind === "done",
       );
-      if (!done || done.cause !== "clean")
+      if (done?.cause !== "clean")
         failures.push(`claude complement run not clean: ${done?.cause ?? "no done"}`);
       const text = r.events
         .filter((e): e is Extract<HarnessEvent, { kind: "message" }> => e.kind === "message")
@@ -353,7 +353,7 @@ const passthroughScenario: Scenario = {
       const done = r.events.find(
         (e): e is Extract<HarnessEvent, { kind: "done" }> => e.kind === "done",
       );
-      if (!done || done.cause !== "clean")
+      if (done?.cause !== "clean")
         failures.push(`baseline-with-passthrough-api not clean: ${done?.cause}`);
       // empty passthrough refuses
       const r2 = await runCli([harness, "--json", "--prompt", "hi", "--"]);
@@ -388,8 +388,7 @@ const defaultsProfileScenario: Scenario = {
       const done = bare.events.find(
         (e): e is Extract<HarnessEvent, { kind: "done" }> => e.kind === "done",
       );
-      if (!done || done.cause !== "clean")
-        failures.push(`bare profile run not clean: ${done?.cause}`);
+      if (done?.cause !== "clean") failures.push(`bare profile run not clean: ${done?.cause}`);
       if (!/effort = "medium" \(profile\)/.test(bare.stderr)) {
         failures.push(`profile provenance missing: ${bare.stderr.slice(0, 200)}`);
       }
@@ -555,7 +554,7 @@ const effortEffectScenario: Scenario = {
       const done = r.events.find(
         (e): e is Extract<HarnessEvent, { kind: "done" }> => e.kind === "done",
       );
-      if (!done || done.cause !== "clean") failures.push(`effort low not clean: ${done?.cause}`);
+      if (done?.cause !== "clean") failures.push(`effort low not clean: ${done?.cause}`);
       return { durationMs: Date.now() - t0, exitCode: r.exitCode, eventCounts: {}, failures };
     }
     const TASK = "Reason step by step: which is larger, 9^9^9 or 9^99? Justify rigorously.";
@@ -655,8 +654,7 @@ const timeoutScenario: Scenario = {
     const doneOff = off.events.find(
       (e): e is Extract<HarnessEvent, { kind: "done" }> => e.kind === "done",
     );
-    if (!doneOff || doneOff.cause !== "clean")
-      failures.push(`--timeout 0 run not clean: ${doneOff?.cause}`);
+    if (doneOff?.cause !== "clean") failures.push(`--timeout 0 run not clean: ${doneOff?.cause}`);
     return { durationMs: Date.now() - t0, exitCode: slow.exitCode, eventCounts: {}, failures };
   },
 };
@@ -680,7 +678,7 @@ const toolsEquivalenceScenario: Scenario = {
       const done = r.events.find(
         (e): e is Extract<HarnessEvent, { kind: "done" }> => e.kind === "done",
       );
-      if (!done || done.cause !== "clean") failures.push(`pi bare run not clean: ${done?.cause}`);
+      if (done?.cause !== "clean") failures.push(`pi bare run not clean: ${done?.cause}`);
       const text = r.events
         .filter((e): e is Extract<HarnessEvent, { kind: "message" }> => e.kind === "message")
         .map((e) => e.text)
@@ -730,7 +728,7 @@ const skillsAllowlistScenario: Scenario = {
       const done = r.events.find(
         (e): e is Extract<HarnessEvent, { kind: "done" }> => e.kind === "done",
       );
-      if (!done || done.cause !== "clean") failures.push(`pi skills run not clean: ${done?.cause}`);
+      if (done?.cause !== "clean") failures.push(`pi skills run not clean: ${done?.cause}`);
       const text = r.events
         .filter((e): e is Extract<HarnessEvent, { kind: "message" }> => e.kind === "message")
         .map((e) => e.text)

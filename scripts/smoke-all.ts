@@ -1,6 +1,6 @@
 /**
- * Multi-harness compatibility smoke: drives claude, codex, pi, and muse
- * through the REAL runner (execution layer + node adapter) and asserts the
+ * Multi-harness compatibility smoke: drives claude, codex, pi, muse, and
+ * cursor through the REAL runner (execution layer + node adapter) and asserts the
  * runner decodes each harness's identity announcement and reaches a
  * terminal `done`. Compatibility, not proof: on-demand, nondeterministic,
  * never in the deterministic suite. Evidence -> .smoke/all-harnesses.json.
@@ -17,6 +17,7 @@ import { nodeRunnerDeps } from "../src/execution/node-deps.js";
 import { streamTurn, type TurnRunOptions } from "../src/execution/stream-turn.js";
 import { claudeCode } from "../src/knowledge/claude-code.js";
 import { codexCli } from "../src/knowledge/codex.js";
+import { cursorCli } from "../src/knowledge/cursor.js";
 import type { HarnessDescriptor } from "../src/knowledge/descriptor.js";
 import { museCode } from "../src/knowledge/muse.js";
 import { piCli } from "../src/knowledge/pi.js";
@@ -125,6 +126,7 @@ await smokeHeadlessTurn(claudeCode, { prompt, model: "sonnet", cwd });
 await smokeHeadlessTurn(codexCli, { prompt, cwd });
 await smokeHeadlessTurn(piCli, { prompt, cwd });
 await smokeHeadlessTurn(museCode, { prompt, autonomy: true, cwd });
+await smokeHeadlessTurn(cursorCli, { prompt, autonomy: true, cwd });
 
 mkdirSync(".smoke", { recursive: true });
 writeFileSync(
@@ -137,6 +139,7 @@ writeFileSync(
         codex: cliVersion("codex"),
         pi: cliVersion("pi"),
         muse: cliVersion("muse"),
+        cursor: cliVersion("agent"),
       },
       results,
       boundaryEvents: boundaryLog.length,

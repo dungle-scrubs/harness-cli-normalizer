@@ -1,4 +1,4 @@
-export const TOP_LEVEL_HELP = `hcn - One stable interface to four coding-agent CLIs
+export const TOP_LEVEL_HELP = `hcn - One stable interface to five coding-agent CLIs
 
 Usage: hcn <command> [options] [prompt]
 
@@ -49,7 +49,7 @@ export const RUN_HELP = `hcn run - One-shot headless turn
 Usage: hcn run <harness> [prompt] [options]
 
 Arguments:
-  <harness>                 claude | codex | pi | muse
+  <harness>                 claude | codex | pi | muse | cursor
   [prompt]                  Prompt text (positional). Must not start with '-'.
                             Use --prompt or --prompt-file for leading '-' or multi-line.
 
@@ -72,7 +72,7 @@ Options:
   --exclude-tools <a,b>     Complement over known tools - canonical names
                             (same vocabulary, native:<name> passthrough);
                             mutually exclusive with --tools (claude, pi)
-  --autonomy                Enable autonomy flag (claude/codex/muse)
+  --autonomy                Enable autonomy flag (claude/codex/muse/cursor)
   --no-autonomy             Disable autonomy
   --write                   Enable write (muse)
   --no-write                Disable write
@@ -83,7 +83,7 @@ Options:
                             on when native settings disable it
   --no-memory               Disable persistent memory (claude: env var;
                             codex: --disable memories; pi: no-op, no built-in
-                            memory; muse: refuses - no off switch, reported
+                            memory; muse/cursor: refuse - no off switch, reported
                             as divergence by the default profile)
   --questions <ask|assume|none>
                             Which preamble to inject: ask = escalation
@@ -93,7 +93,7 @@ Options:
                             nothing
   --system-prompt <text>    Replace the built-in system prompt (claude, pi:
                             flag; codex: -c instructions=<text-or-path>;
-                            muse refuses. claude pairs the dynamic-section
+                            muse/cursor refuse. claude pairs the dynamic-section
                             exclusion automatically. Opt-in; no default)
   --append-system-prompt <text>
                             Append to the built-in prompt (claude, pi only)
@@ -101,7 +101,7 @@ Options:
                             (canonical: read, grep, glob, list, web-fetch,
                             web-search; claude/pi via --tools, codex via
                             --sandbox read-only, muse via --disable-write
-                            --disable-shell); write = no restriction;
+                            --disable-shell, cursor refuses); write = no restriction;
                             mutually exclusive with --tools/--exclude-tools
                             and with --sandbox on codex; no default
   --max-steps <n>           Max steps (muse, 1-10000)
@@ -123,10 +123,10 @@ Options:
                             path for question escalation: resume with the
                             chosen answer as the prompt; id continuity per
                             harness (claude stable, pi/muse caller-assigned,
-                            codex minted via identity event)
+                            codex/cursor minted via identity event)
                             Note: hcn refuses an unknown id before spawn
                             (exit 2) for harnesses that would otherwise
-                            create a fresh session silently (pi, muse)
+                            create a fresh session silently (pi, muse, cursor)
   --session-id <uuid>       Alias for --resume (mutually exclusive with --resume)
   --native-settings-fingerprint <hash>
                             Codex resume only, with explicit --cwd. Re-read saved
@@ -155,7 +155,7 @@ Defaults with no flags:
   context window 272000 (codex only; divergence elsewhere), discovery on,
   autonomy off, write/shell on. timeout, max-steps and
   access have no default; harness default applies (access write emits
-  nothing on claude/pi/muse, --sandbox workspace-write on codex via
+  nothing on claude/pi/muse/cursor, --sandbox workspace-write on codex via
   profile). toolMap is config-only (no flag) - canonical -> native
   mapping per harness. A bare pi run renders no --tools list: pi's list
   is a strict allowlist and would drop extension and MCP tools; name
@@ -216,7 +216,7 @@ export const INSPECT_HELP = `hcn inspect - Descriptor / argv inspection
 Usage: hcn inspect <harness> [options]
 
 Arguments:
-  <harness>                 claude | codex | pi | muse
+  <harness>                 claude | codex | pi | muse | cursor
 
 Options:
   --transcript              Report passive transcript methods and evidence;

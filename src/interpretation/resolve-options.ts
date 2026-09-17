@@ -10,6 +10,7 @@ import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { DEFAULT_TURN_PROFILE, type ProfileKey } from "../knowledge/profile.js";
 import type { TurnOptions } from "./argv.js";
+import { hintFor } from "./hints.js";
 import { assertIsolationCombination, ISOLATION_OVERRIDES } from "./isolation.js";
 import type { QuestionMode } from "./question.js";
 import { ArgvRefusalError } from "./refusal.js";
@@ -42,12 +43,20 @@ export class FloorExceededError extends Error {
   }
 }
 
+/** A dimension some tier attempted that this harness cannot express
+ * (skip-and-report, never refuse): rendered as divergence, not failure.
+ * The entry names the tier that set it so provenance can print which tier
+ * (profile default, user config, project config, or an arg that reached a
+ * harness with no spec) attempted the dimension. */
+export interface UnrenderableEntry {
+  readonly key: string;
+  readonly tier: ProvenanceTier;
+}
+
 export interface ResolvedOptions {
   readonly options: TurnOptions;
   readonly provenance: readonly ProvenanceEntry[];
-  /** Profile dimensions this harness cannot express (skip-and-report,
-   * never refuse): rendered as divergence, not failure. */
-  readonly unrenderable: readonly string[];
+  readonly unrenderable: readonly UnrenderableEntry[];
 }
 
 export function assertAccessExclusivity(
@@ -210,7 +219,7 @@ export const resolveEffectiveOptions = (
   const provenance: ProvenanceEntry[] = [];
   if (args.isolation !== undefined)
     provenance.push({ key: "isolation", value: args.isolation, tier: "arg" });
-  const unrenderable: string[] = [];
+  const unrenderable: UnrenderableEntry[] = [];
   const config = { ...effectiveConfig(tiers) };
   if (args.isolation !== undefined) {
     for (const key of ISOLATION_OVERRIDES) delete config[key];
@@ -334,6 +343,18 @@ export const resolveEffectiveOptions = (
       provenance.push({ key, value: effectiveArgs[key as keyof TurnOptions], tier: "arg" });
       continue;
     }
+    // RFC-05: on an effort-in-model harness only arg-tier effort enforces
+    // and can refuse. Profile, user-config, and project-config effort
+    // diverge with tier-and-key provenance; the harness default runs, so a
+    // machine-wide config effort never breaks a bare cursor run. No
+    // config-loop arm: that loop skips profile keys.
+    if (key === "effort" && h.turnOptions.effort?.kind === "effort-in-model") {
+      const nonArgTier: ProvenanceTier = tier ?? "profile";
+      const nonArgValue = tier !== undefined ? config[key as keyof TurnOptions] : value;
+      provenance.push({ key, value: nonArgValue, tier: nonArgTier });
+      unrenderable.push({ key, tier: nonArgTier });
+      continue;
+    }
     if (tier !== undefined) {
       provenance.push({ key, value: config[key as keyof TurnOptions], tier });
       resolved[key] = config[key as keyof TurnOptions];
@@ -343,7 +364,7 @@ export const resolveEffectiveOptions = (
     if (!expressible) {
       // Skip-and-report: a profile default this harness cannot express is
       // reported divergence, never a refusal and never silence.
-      unrenderable.push(key);
+      unrenderable.push({ key, tier: "profile" });
       provenance.push({ key, value, tier: "harness" });
       continue;
     }
@@ -440,14 +461,23 @@ export const resolveEffectiveOptions = (
     provenance.push({ key, value, tier });
   }
 
-  // Access divergence / fixup
+  // Access fixup. Any access value on a harness with no access spec
+  // refuses: a caller asking for a restriction must not get a full-default
+  // run plus a stderr note. Access is not a profile key, so no
+  // profile-tier default exists to diverge; arg, user-config, and
+  // project-config values all refuse with the same shape the renderer
+  // uses for explicit values.
   if (resolved.access !== undefined && h.turnOptions.access === undefined) {
-    unrenderable.push("access");
-    for (let i = provenance.length - 1; i >= 0; i--)
-      if (provenance[i]?.key === "access") provenance.splice(i, 1);
-    provenance.push({ key: "access", value: resolved.access as string, tier: "harness" });
-    delete (resolved as Record<string, unknown>).access;
-  } else if (resolved.access !== undefined && !provenance.some((p) => p.key === "access")) {
+    throw new ArgvRefusalError({
+      issue: "unsupported-option",
+      harness: h.name,
+      option: "access",
+      supported: Object.keys(h.turnOptions).length ? Object.keys(h.turnOptions) : ["(none)"],
+      detail: String(resolved.access),
+      hint: hintFor(h.name, "access"),
+    });
+  }
+  if (resolved.access !== undefined && !provenance.some((p) => p.key === "access")) {
     const tier: ProvenanceTier =
       effectiveArgs.access !== undefined ? "arg" : (sourceTier("access") ?? "user-config");
     provenance.push({ key: "access", value: resolved.access as string, tier });

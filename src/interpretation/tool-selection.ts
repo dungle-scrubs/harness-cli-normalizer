@@ -155,7 +155,8 @@ export const renderToolSelection = (
     });
   }
   if (semantics === "policy-gate") {
-    const names = hasInclude ? selection.include! : selection.exclude!;
+    const names = hasInclude ? selection.include : selection.exclude;
+    if (names === undefined) throw new Error("tool selection has neither include nor exclude");
     const { canonical, passthrough } = splitSelection(names);
 
     if (hasExclude) {
@@ -182,6 +183,11 @@ export const renderToolSelection = (
   }
 
   // From here: remove-from-set, the harness has name-list flags (claude, pi)
+  const includeFlag = h.tools.includeFlag;
+  const excludeFlag = h.tools.excludeFlag;
+  if (includeFlag === null || excludeFlag === null) {
+    throw new Error(`remove-from-set tool selection needs name-list flags on ${h.name}`);
+  }
   const toolMapHint = (c: string): string =>
     `add toolMap.${h.name}.${c} to ~/.config/hcn/config.json or pass native:${c}`;
   const nativeNames = (canonical: readonly string[]): string[] =>
@@ -190,7 +196,9 @@ export const renderToolSelection = (
       .filter((n): n is string => n !== null);
 
   if (hasInclude) {
-    const names = selection.include!;
+    const include = selection.include;
+    if (include === undefined) throw new Error("tool selection include is missing");
+    const names = include;
     if (names.length === 0) {
       if (h.tools.includeIsStrictAllowlist) {
         throw new ArgvRefusalError({
@@ -202,7 +210,7 @@ export const renderToolSelection = (
         });
       }
       const known = h.tools.builtins.map((t) => t.name);
-      return { tokens: [h.tools.excludeFlag!, known.join(",")], passthrough: [] };
+      return { tokens: [excludeFlag, known.join(",")], passthrough: [] };
     }
     const { canonical, passthrough } = splitSelection(names);
     requireCounterparts(canonical, "tools", toolMapHint);
@@ -215,28 +223,30 @@ export const renderToolSelection = (
       const excluded = known.filter((n) => !mapped.includes(n));
       return {
         tokens: [
-          h.tools.includeFlag!,
+          includeFlag,
           [...mapped, ...passthrough].join(","),
-          h.tools.excludeFlag!,
+          excludeFlag,
           excluded.join(","),
         ],
         passthrough,
       };
     }
     return {
-      tokens: [h.tools.includeFlag!, [...mapped, ...passthrough].join(",")],
+      tokens: [includeFlag, [...mapped, ...passthrough].join(",")],
       passthrough,
     };
   }
 
   // exclude
-  const names = selection.exclude!;
+  const exclude = selection.exclude;
+  if (exclude === undefined) throw new Error("tool selection exclude is missing");
+  const names = exclude;
   const { canonical, passthrough: excludedPassthrough } = splitSelection(names);
   requireCounterparts(canonical, "excludeTools", toolMapHint);
   const mapped = nativeNames(canonical);
   if (excludedPassthrough.length > 0) {
     if (!h.tools.includeIsStrictAllowlist) {
-      const tokens = [h.tools.excludeFlag!, [...mapped, ...excludedPassthrough].join(",")];
+      const tokens = [excludeFlag, [...mapped, ...excludedPassthrough].join(",")];
       return { tokens, passthrough: excludedPassthrough };
     }
     throw new ArgvRefusalError({
@@ -249,7 +259,7 @@ export const renderToolSelection = (
   }
   const kept = h.tools.builtins.filter((t) => !mapped.includes(t.name)).map((t) => t.name);
   if (!h.tools.includeIsStrictAllowlist) {
-    return { tokens: [h.tools.excludeFlag!, mapped.join(",")], passthrough: [] };
+    return { tokens: [excludeFlag, mapped.join(",")], passthrough: [] };
   }
-  return { tokens: [h.tools.includeFlag!, kept.join(",")], passthrough: [] };
+  return { tokens: [includeFlag, kept.join(",")], passthrough: [] };
 };

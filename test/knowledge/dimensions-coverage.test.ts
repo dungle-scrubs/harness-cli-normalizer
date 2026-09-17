@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
+import { cursorCli } from "../../src/knowledge/cursor.js";
 import type { HarnessDescriptor } from "../../src/knowledge/descriptor.js";
 import { museCode } from "../../src/knowledge/muse.js";
 import { piCli } from "../../src/knowledge/pi.js";
@@ -41,17 +42,27 @@ const DESCRIPTOR_KEYS = [
   "turnOptions",
   "skills",
   "tools",
+  // RFC-05 Phase 1 adds the optional trust-matchers top-level key.
+  "trustMatchers",
 ] as const satisfies readonly (keyof HarnessDescriptor)[];
 
 type Missing = Exclude<keyof HarnessDescriptor, (typeof DESCRIPTOR_KEYS)[number]>;
 const complete: Missing extends never ? true : false = true;
 
+// RFC-05 Phase 1 makes trustMatchers the first optional top-level key
+// (only cursor carries it), so "exactly the type's keys" becomes two
+// checks: every required key present, and no key outside the type.
+const OPTIONAL_KEYS = ["trustMatchers"] as const satisfies readonly (keyof HarnessDescriptor)[];
+
 describe("descriptor key coverage", () => {
-  test("every descriptor carries exactly the type's keys", () => {
+  test("every descriptor carries the required keys and no unknown keys", () => {
     expect(complete).toBe(true);
     const expected = [...DESCRIPTOR_KEYS].sort();
-    for (const h of [claudeCode, codexCli, piCli, museCode]) {
-      expect(Object.keys(h).sort()).toEqual(expected);
+    const required = expected.filter((k) => !(OPTIONAL_KEYS as readonly string[]).includes(k));
+    for (const h of [claudeCode, codexCli, piCli, museCode, cursorCli]) {
+      const keys = Object.keys(h).sort();
+      for (const k of required) expect(keys).toContain(k);
+      for (const k of keys) expect(expected).toContain(k);
     }
   });
 });

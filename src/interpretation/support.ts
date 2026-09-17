@@ -32,6 +32,9 @@ const spellingOf = (h: HarnessDescriptor, option: RefusalOption): string | null 
       if (read === "tool-preset") return h.tools.includeFlag ?? h.tools.excludeFlag ?? null;
       if (read === null) return null;
       if (read.render.kind === "env") return `${read.render.name}=${read.render.value}`;
+      // RFC-05: the in-model render carries no argv spelling. Access never
+      // renders through it; the effort arm is the in-model case below.
+      if (read.render.kind === "in-model") return null;
       return read.render.kind === "flag-list" ? (read.render.flags[0] ?? null) : read.render.flag;
     }
     case "tools":
@@ -74,6 +77,9 @@ const spellingOf = (h: HarnessDescriptor, option: RefusalOption): string | null 
     case "discovery": {
       const spec = h.turnOptions[option];
       if (spec === undefined) return null;
+      // The in-model render carries neither flag nor flags: effort on an
+      // effort-in-model harness is expressed through the model flag.
+      if (spec.kind === "effort-in-model") return h.vocabulary.modelFlag;
       const rawRender =
         spec.kind === "discovery"
           ? (

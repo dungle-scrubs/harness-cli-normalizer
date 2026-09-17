@@ -10,7 +10,7 @@ import type { TranscriptKnowledge } from "./transcript/wire.js";
  * a key without a consumer arm would be dead data that can only drift.
  */
 
-export const HARNESS_NAMES = ["claude", "codex", "pi", "muse"] as const;
+export const HARNESS_NAMES = ["claude", "codex", "pi", "muse", "cursor"] as const;
 export type HarnessName = (typeof HARNESS_NAMES)[number];
 
 /** Descriptors are process-wide defaults shared by reference into merged
@@ -58,11 +58,23 @@ export type HarnessMode = (typeof HARNESS_MODES)[number];
 export const STDIN_POLICIES = deepFreeze(["inherit", "close-required"] as const);
 export type StdinPolicy = (typeof STDIN_POLICIES)[number];
 
-export const CWD_SLUGS = deepFreeze(["dash-separators", "pi-dash-wrapped", "verbatim"] as const);
+export const CWD_SLUGS = deepFreeze([
+  "dash-separators",
+  "pi-dash-wrapped",
+  "verbatim",
+  "md5-hex",
+] as const);
 export type CwdSlug = (typeof CWD_SLUGS)[number];
 
 export const RESUME_STYLES = deepFreeze(["flag", "positional"] as const);
 export type ResumeStyle = (typeof RESUME_STYLES)[number];
+
+/** What a harness does with tokens after hcn's bare `--` separator.
+ * `prompt-joins` (cursor): the CLI takes a variadic positional prompt and
+ * documents no `--` handling, so every passthrough token joins the prompt
+ * as text. Absent on harnesses whose separator keeps working. */
+export const LAUNCH_PASSTHROUGHS = deepFreeze(["prompt-joins"] as const);
+export type LaunchPassthrough = (typeof LAUNCH_PASSTHROUGHS)[number];
 
 export const RESUME_ON_MISSING = deepFreeze(["error", "create"] as const);
 export type ResumeOnMissing = (typeof RESUME_ON_MISSING)[number];
@@ -140,6 +152,9 @@ export interface PhraseMatcher {
 }
 export type TransportMatcher = PhraseMatcher;
 export type UnavailableMatcher = PhraseMatcher;
+/** Workspace-trust refusal phrasings (cursor): same bounds as the limit
+ * matchers, compiled by the same compiler. */
+export type TrustMatcher = PhraseMatcher;
 
 /** The turn-option vocabulary is closed for the same reason `LimitCode` is:
  * a descriptor must not invent an option a consumer has no field for. Every
@@ -194,16 +209,19 @@ export type OptionRender =
       readonly flag: string;
       readonly extraFlags?: readonly string[];
     }
-  /** `-c key=value` - codex's config-override grammar. Permitted only for
-   *  closed-vocabulary specs, so no value can need escaping. */
-  | { readonly kind: "config-kv"; readonly flag: string; readonly key: string }
   /** A fixed multi-token flag set emitted verbatim, value-less. */
   | { readonly kind: "flag-list"; readonly flags: readonly string[] }
   /** A spawn-environment assignment, not an argv token (claude's
    *  CLAUDE_CODE_DISABLE_AUTO_MEMORY): the option renders as `name=value`
    *  merged into the spawn env by the execution layer. Value must be a
    *  closed-vocabulary literal - no caller-supplied interpolation. */
-  | { readonly kind: "env"; readonly name: string; readonly value: string };
+  | { readonly kind: "env"; readonly name: string; readonly value: string }
+  /** Effort resolved into the model id (cursor): the effort word renders
+   *  through the model flag, so this render emits zero tokens of its own. */
+  | { readonly kind: "in-model" }
+  /** `-c key=value` - codex's config-override grammar. Permitted only for
+   *  closed-vocabulary specs, so no value can need escaping. */
+  | { readonly kind: "config-kv"; readonly flag: string; readonly key: string };
 
 export interface SpecBase {
   readonly render: OptionRender;
@@ -237,6 +255,9 @@ export type TurnOptionSpec =
     }
   /** Ladder comes from vocabulary.efforts / effortsByModel, not from here. */
   | (SpecBase & { readonly kind: "effort" })
+  /** Effort resolved into the model slug (cursor): the ladder comes from
+   *  vocabulary.effortSlugs, and the render is always `in-model`. */
+  | (SpecBase & { readonly kind: "effort-in-model" })
   /** Open selector, CLEAN_SELECTOR-validated. */
   | (SpecBase & { readonly kind: "selector" })
   /** Free-form prompt text (issue #48): systemPrompt / appendSystemPrompt.
@@ -295,6 +316,10 @@ export const tokensFor = (
       return [...render.flags];
     case "env":
       return [];
+    case "in-model":
+      // RFC-05: effort renders through the model flag, so this render
+      // emits zero tokens of its own.
+      return [];
     default: {
       const exhaustive: never = render;
       return exhaustive;
@@ -346,6 +371,11 @@ export interface HarnessDescriptor {
      * assignment; the execution layer consumes it), or null when the
      * harness mints its own. */
     readonly idFlag: string | null;
+    /** Declared passthrough behavior for tokens after hcn's bare `--`.
+     * Absent on harnesses where the separator keeps working; present as
+     * `"prompt-joins"` on cursor, where any non-empty tail refuses before
+     * spawn instead of silently rewriting the prompt. */
+    readonly passthrough?: LaunchPassthrough;
   };
   /** How a named session id is resumed. `flag` style: `<bin> <flag> <id>`;
    * `positional` style: `<bin> resume <id>` (muse) - the resume token must
@@ -438,6 +468,10 @@ export interface HarnessDescriptor {
   readonly limitMatchers: ReadonlyArray<LimitMatcher>;
   /** Auth-wall phrasings, same scan discipline as limitMatchers. */
   readonly authMatchers: ReadonlyArray<AuthMatcher>;
+  /** Workspace-trust refusal phrasings (cursor only in v1): the trust gate
+   * that refuses untrusted workspaces. Absent on harnesses with no such
+   * gate. Compiled under the same bounds as every other matcher. */
+  readonly trustMatchers?: ReadonlyArray<TrustMatcher>;
   /** The "run unattended without stops" flag, or null when the harness has
    * no such mode. */
   readonly autonomy: { readonly flag: string } | null;
@@ -457,6 +491,12 @@ export interface HarnessDescriptor {
      * selectors at argv time; capability claims for them degrade to
      * unknown until runtime verification. */
     readonly extensible: boolean;
+    /** Stem to effort-to-slug table (cursor only in v1): effort resolves
+     * into the `--model` slug by table lookup, never by concatenation.
+     * Keys are stems (never valid `--model` values on their own); values
+     * map hcn effort words to the exact slugs `agent models` lists.
+     * Absent on harnesses whose effort renders as its own flag. */
+    readonly effortSlugs?: Readonly<Record<string, Readonly<Record<string, string>>>>;
   };
   /** Where the harness files sessions/transcripts, as a template over
    * {home}, {cwdSlug} and {sessionId}. Slugging rule is per-harness. */
@@ -465,6 +505,13 @@ export interface HarnessDescriptor {
     /** claude: '/', '.' -> '-'; pi: '/' -> '-' wrapped in leading/trailing
      * dashes, dots preserved. */
     readonly cwdSlug: CwdSlug;
+    /** Environment override chain for the store root (cursor only in v1):
+     * first set entry wins; `suffix` appends to the value (empty keeps it
+     * as is). Absent on harnesses whose root is a fixed home path. */
+    readonly rootEnv?: ReadonlyArray<{ readonly name: string; readonly suffix: string }>;
+    /** Fallback root when no `rootEnv` entry is set (cursor only in v1),
+     * with `{home}` expanded by the existing home mechanism. */
+    readonly defaultRoot?: string;
   };
   /** How the harness exposes context-window usage; the interpretation layer
    * surfaces it as a `context` HarnessEvent. */

@@ -65,8 +65,16 @@ export type HarnessEvent =
     }
   | { readonly kind: "limit"; readonly code: LimitCode; readonly message: string }
   /** `terminal: true` marks an error that ended the turn; the matching
-   * `failure` (class task) follows it. */
-  | { readonly kind: "error"; readonly message: string; readonly terminal?: boolean }
+   * `failure` (class task) follows it. `denial` is present only for a
+   * refused tool call or rejected question (cursor only in v1): the native
+   * tool name and the harness's reason, which may be empty. Machine
+   * consumers branch on its presence, never on prose (ADR 0002). */
+  | {
+      readonly kind: "error";
+      readonly message: string;
+      readonly terminal?: boolean;
+      readonly denial?: { readonly tool: string; readonly reason: string };
+    }
   | ({ readonly kind: "failure" } & FailureSummary)
   | {
       readonly kind: "done";

@@ -12,6 +12,7 @@ import {
 } from "../../src/interpretation/resolve-options.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
+import { cursorCli } from "../../src/knowledge/cursor.js";
 import { museCode } from "../../src/knowledge/muse.js";
 import { piCli } from "../../src/knowledge/pi.js";
 import { DEFAULT_TURN_PROFILE } from "../../src/knowledge/profile.js";
@@ -24,7 +25,10 @@ describe("profile floor", () => {
     expect(r.options.effort).toBe("medium");
     expect(r.provenance).toContainEqual({ key: "effort", value: "medium", tier: "profile" });
     // Codex-only profile dimensions remain visible as divergence.
-    expect(r.unrenderable).toEqual(["sandbox", "contextWindow"]);
+    expect(r.unrenderable).toEqual([
+      { key: "sandbox", tier: "profile" },
+      { key: "contextWindow", tier: "profile" },
+    ]);
     expect(r.options.write).toBeUndefined(); // emit-nothing ratification (D9)
     expect(r.options.shell).toBeUndefined(); // (D10)
   });
@@ -40,10 +44,10 @@ describe("profile floor", () => {
     const rc = resolveEffectiveOptions(codexCli, base, undefined);
     expect(rc.options.sandbox).toBe("workspace-write");
     // D13: codex has no list surface - tools diverges
-    expect(rc.unrenderable).toEqual(["tools"]);
+    expect(rc.unrenderable).toEqual([{ key: "tools", tier: "profile" }]);
     const rp = resolveEffectiveOptions(piCli, base, undefined);
     expect(rp.options.sandbox).toBeUndefined();
-    expect(rp.unrenderable).toContain("sandbox");
+    expect(rp.unrenderable).toContainEqual({ key: "sandbox", tier: "profile" });
     expect(rp.provenance).toContainEqual({
       key: "sandbox",
       value: "workspace-write",
@@ -56,7 +60,7 @@ describe("profile floor", () => {
     expect(r.options.autonomy).toBeUndefined();
     expect(r.provenance).toContainEqual({ key: "autonomy", value: false, tier: "profile" });
     // emit-nothing is expressible everywhere: no divergence for autonomy-off
-    expect(r.unrenderable).not.toContain("autonomy");
+    expect(r.unrenderable).not.toContainEqual({ key: "autonomy", tier: "profile" });
   });
 
   it("discovery on maps to full-discovery defaults - no disabling flags emitted", () => {
@@ -116,7 +120,7 @@ describe("skip-and-report (unrenderable profile dimensions)", () => {
     delete (noEffort.turnOptions as Record<string, unknown>).effort;
     const r = resolveEffectiveOptions(noEffort, base, undefined);
     expect(r.options.effort).toBeUndefined();
-    expect(r.unrenderable).toContain("effort");
+    expect(r.unrenderable).toContainEqual({ key: "effort", tier: "profile" });
     expect(r.provenance).toContainEqual({ key: "effort", value: "medium", tier: "harness" });
   });
 });
@@ -246,8 +250,8 @@ describe("round 2 ratifications (D9-D12)", () => {
       const r = resolveEffectiveOptions(h, base, undefined);
       expect(r.options.write).toBeUndefined();
       expect(r.options.shell).toBeUndefined();
-      expect(r.unrenderable).not.toContain("write");
-      expect(r.unrenderable).not.toContain("shell");
+      expect(r.unrenderable).not.toContainEqual({ key: "write", tier: "profile" });
+      expect(r.unrenderable).not.toContainEqual({ key: "shell", tier: "profile" });
       expect(r.provenance).toContainEqual({ key: "write", value: true, tier: "profile" });
       expect(r.provenance).toContainEqual({ key: "shell", value: true, tier: "profile" });
     }
@@ -287,9 +291,9 @@ describe("D13: tools all-known marker", () => {
 
   it("codex and muse report divergence (no list surface)", () => {
     const rc = resolveEffectiveOptions(codexCli, base, undefined);
-    expect(rc.unrenderable).toContain("tools");
+    expect(rc.unrenderable).toContainEqual({ key: "tools", tier: "profile" });
     const rm = resolveEffectiveOptions(museCode, base, undefined);
-    expect(rm.unrenderable).toContain("tools");
+    expect(rm.unrenderable).toContainEqual({ key: "tools", tier: "profile" });
   });
 
   it("project floor narrows the profile entry (precedence chain)", () => {
@@ -333,5 +337,28 @@ describe("discovery.tools off suppresses all-known expansion", () => {
       undefined,
     );
     expect(r.options.tools).toEqual(["read"]);
+  });
+});
+
+describe("cursor effort tiers (RFC-05)", () => {
+  it("config-tier effort diverges with tier and key; the harness default runs", () => {
+    const r = resolveEffectiveOptions(cursorCli, { prompt: "hi" }, { user: { effort: "high" } });
+    expect(r.options.effort).toBeUndefined();
+    expect(r.unrenderable).toContainEqual({ key: "effort", tier: "user-config" });
+    expect(r.provenance).toContainEqual({ key: "effort", value: "high", tier: "user-config" });
+  });
+
+  it("the profile default diverges on a bare cursor run", () => {
+    const r = resolveEffectiveOptions(cursorCli, { prompt: "hi" }, {});
+    expect(r.options.effort).toBeUndefined();
+    expect(r.unrenderable).toContainEqual({ key: "effort", tier: "profile" });
+    expect(r.provenance).toContainEqual({ key: "effort", value: "medium", tier: "profile" });
+  });
+
+  it("arg-tier effort stays explicit for the plan-turn resolve step", () => {
+    const r = resolveEffectiveOptions(cursorCli, { prompt: "hi", effort: "high" }, {});
+    expect(r.options.effort).toBe("high");
+    expect(r.unrenderable).not.toContainEqual({ key: "effort", tier: "arg" });
+    expect(r.provenance).toContainEqual({ key: "effort", value: "high", tier: "arg" });
   });
 });

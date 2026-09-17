@@ -7,12 +7,16 @@
  * `$&` pattern semantics from String.replace.
  */
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
+import { md5Hex } from "./md5.js";
 import { assertUsableSessionId } from "./session-id.js";
 
 export interface StorePathInputs {
   readonly home: string;
   readonly cwd: string;
   readonly sessionId: string;
+  /** Store root the CLI resolved from rootEnv; absent means the
+   * descriptor defaultRoot applies. Templates without {root} ignore it. */
+  readonly root?: string;
 }
 
 const slugFor = (h: HarnessDescriptor, cwd: string): string => {
@@ -27,6 +31,11 @@ const slugFor = (h: HarnessDescriptor, cwd: string): string => {
       return `--${normalized.replace(/^\//, "").replace(/\//g, "-")}--`;
     case "verbatim":
       return normalized;
+    case "md5-hex":
+      // Cursor chats/<md5-of-cwd>: md5 over the UTF-8 bytes of the
+      // physical absolute cwd, no trailing slash (probes 30, 36-38,
+      // 44-46). Vendored pure md5 so the purity gate holds.
+      return md5Hex(normalized);
     default: {
       const exhaustive: never = h.store.cwdSlug;
       return exhaustive;
@@ -36,8 +45,11 @@ const slugFor = (h: HarnessDescriptor, cwd: string): string => {
 
 export const storePath = (h: HarnessDescriptor, inputs: StorePathInputs): string => {
   assertUsableSessionId(inputs.sessionId);
+  const root =
+    inputs.root ?? h.store.defaultRoot?.replaceAll("{home}", () => inputs.home) ?? inputs.home;
   return h.store.template
     .replaceAll("{home}", () => inputs.home)
+    .replaceAll("{root}", () => root)
     .replaceAll("{cwdSlug}", () => slugFor(h, inputs.cwd))
     .replaceAll("{sessionId}", () => inputs.sessionId);
 };

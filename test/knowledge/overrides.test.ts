@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
-import { defaultDescriptors, parseOverrides } from "../../src/knowledge/overrides.js";
+import {
+  defaultDescriptors,
+  matcherOverridesOf,
+  parseOverrides,
+} from "../../src/knowledge/overrides.js";
 
 const PATH = "/Users/kevin/.config/harness-cli/overrides.json";
 
@@ -32,9 +36,11 @@ describe("override refusals name the file and the offending harness", () => {
   });
 
   test("an unknown harness names the file AND the harness", () => {
-    const doc = JSON.stringify({ cursor: {} });
+    // grok stays unknown (blocked on ROADMAP.md); cursor joined the
+    // registry in RFC-05 and no longer exercises this path.
+    const doc = JSON.stringify({ grok: {} });
     expect(() => parseOverrides(doc, PATH)).toThrow(PATH);
-    expect(() => parseOverrides(doc, PATH)).toThrow(/"cursor"/);
+    expect(() => parseOverrides(doc, PATH)).toThrow(/"grok"/);
   });
 
   test("an unknown descriptor section is refused, not silently carried", () => {
@@ -98,6 +104,14 @@ describe("boundary-review regression pins", () => {
     expect(() => parseOverrides(JSON.stringify({ claude: { stdin: "sometimes" } }), PATH)).toThrow(
       /inherit/,
     );
+  });
+
+  test("the cursor md5-hex slug survives override validation", () => {
+    const merged = parseOverrides(
+      JSON.stringify({ cursor: { store: { cwdSlug: "md5-hex" } } }),
+      PATH,
+    );
+    expect(merged.cursor?.store.cwdSlug).toBe("md5-hex");
   });
 
   test("a partial depth-3 override keeps its sibling keys (recursive merge)", () => {
@@ -167,5 +181,28 @@ describe("boundary-review regression pins", () => {
     expect(() => {
       (claudeCode.vocabulary.models as string[]).push("evil");
     }).toThrow();
+  });
+});
+
+describe("trust matcher overrides (RFC-05 security claim)", () => {
+  test("more than the per-kind bound of trust matchers refuses", () => {
+    const many = Array.from({ length: 65 }, (_, i) => ({ pattern: `trust-${i}` }));
+    expect(() => parseOverrides(JSON.stringify({ cursor: { trustMatchers: many } }), PATH)).toThrow(
+      /more than 64/,
+    );
+  });
+
+  test("a changed trust matcher list is counted for the spawn boundary event", () => {
+    const merged = parseOverrides(
+      JSON.stringify({ cursor: { trustMatchers: [{ pattern: "Trust Needed" }] } }),
+      PATH,
+    );
+    const overridden = merged.cursor;
+    const codeDefault = defaultDescriptors().cursor;
+    if (overridden === undefined || codeDefault === undefined) {
+      throw new Error("expected cursor defaults to exist");
+    }
+    expect(matcherOverridesOf.get(overridden)).toMatchObject({ trust: 1 });
+    expect(matcherOverridesOf.get(codeDefault)).toBeUndefined();
   });
 });

@@ -195,6 +195,10 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
       aliases: h.vocabulary.aliases,
       efforts: h.vocabulary.efforts,
       effortsByModel: h.vocabulary.effortsByModel,
+      // Cursor stem-to-slug families (absent on the four existing
+      // harnesses, where the key serializes away). Reads the descriptor,
+      // so the display follows the table with no per-harness arm.
+      effortSlugs: h.vocabulary.effortSlugs,
       extensible: h.vocabulary.extensible,
       modelFlag: h.vocabulary.modelFlag,
     },

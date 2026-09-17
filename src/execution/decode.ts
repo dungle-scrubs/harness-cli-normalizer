@@ -5,10 +5,18 @@
  * structured stream are tolerated - scanned for walls, never fatal.
  */
 import { type CapabilityResult, capabilitiesOf } from "../interpretation/capabilities.js";
-import { contentEventsOf } from "../interpretation/content.js";
+import {
+  contentEventsWithState,
+  freshReaderState,
+  type ReaderState,
+} from "../interpretation/content.js";
 import { decodeIdentity } from "../interpretation/identity.js";
 import { detectLimitInLine } from "../interpretation/limits.js";
-import type { HarnessDescriptor, StreamingGranularity } from "../knowledge/descriptor.js";
+import type {
+  HarnessDescriptor,
+  HarnessName,
+  StreamingGranularity,
+} from "../knowledge/descriptor.js";
 import type { HarnessEvent } from "./events.js";
 import { failureFromBudget, failureFromLimit } from "./failure.js";
 
@@ -39,9 +47,17 @@ export interface DecodeState {
    * successful assistant message revokes the claim, and the pump settles
    * what remains at stream/turn end through `settleProvisionalError`. */
   provisionalError: string | null;
+  /** Opaque per-reader decoder state (cursor call ids and query args in
+   * v1), owned by interpretation and held here without inspection (ADR
+   * 0005). Threaded across the lines of one turn; reset per turn by
+   * constructing fresh state beside every freshDecodeState call. */
+  readerState: ReaderState;
 }
 
-export const freshDecodeState = (requestedId: string | null = null): DecodeState => ({
+export const freshDecodeState = (
+  requestedId: string | null = null,
+  harness?: HarnessName,
+): DecodeState => ({
   lastSeenId: null,
   limitSeen: false,
   requestedId,
@@ -50,6 +66,7 @@ export const freshDecodeState = (requestedId: string | null = null): DecodeState
   identityEmitted: false,
   emittedModel: null,
   provisionalError: null,
+  readerState: harness === undefined ? null : freshReaderState(harness),
 });
 
 export const decodeLine = (
@@ -184,10 +201,14 @@ export const decodeParsed = (
   }
 
   // Content (message/token/tool/error/budget/limit) is per-harness;
-  // identity above is descriptor-driven. contentEventsOf dispatches by
-  // harness name inside interpretation. budget and limit are not
-  // HarnessEvent kinds of their own here: both become failures.
-  for (const content of contentEventsOf(h.name, raw)) {
+  // identity above is descriptor-driven. The stateful entry point
+  // threads the opaque per-reader state across the lines of one turn
+  // (cursor call ids and query args); the other four readers ignore the
+  // state and pass it through. budget and limit are not HarnessEvent
+  // kinds of their own here: both become failures.
+  const withState = contentEventsWithState(h.name, raw, state.readerState);
+  state.readerState = withState.state;
+  for (const content of withState.events) {
     if (content.kind === "budget") {
       events.push({ kind: "failure", ...failureFromBudget(content.detail) });
     } else if (content.kind === "limit") {

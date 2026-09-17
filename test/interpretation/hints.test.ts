@@ -10,8 +10,8 @@ import { describe, expect, it } from "vitest";
 import { allHints, hintFor } from "../../src/interpretation/hints.js";
 
 describe("hint table (confirmed instances)", () => {
-  it("carries exactly 32 entries (24 confirmed + 3 issue #48 ratified + 4 tools + 1 memory ratified 2026-08-26)", () => {
-    expect(allHints().length).toBe(32);
+  it("carries exactly 34 entries (24 confirmed + 3 issue #48 ratified + 4 tools + 1 memory ratified 2026-08-26 + 2 cursor ratified 2026-09-17)", () => {
+    expect(allHints().length).toBe(34);
   });
 
   it("covers exactly the confirmed harness-dimension pairs", () => {
@@ -38,6 +38,8 @@ describe("hint table (confirmed instances)", () => {
         "codex/shell",
         "codex/tools",
         "codex/write",
+        "cursor/excludeTools",
+        "cursor/tools",
         "muse/discovery.instructionFiles",
         "muse/memory",
         "muse/discovery.skills",
@@ -66,6 +68,8 @@ describe("hint table (confirmed instances)", () => {
     expect(hintFor("muse", "discovery.skills")).toContain("no unconditional skills-off switch");
     expect(hintFor("claude", "provider")).toContain("no separate provider selector");
     expect(hintFor("muse", "memory")).toContain("no CLI flag or config key");
+    expect(hintFor("cursor", "tools")).toContain("config-file allow and deny lists");
+    expect(hintFor("cursor", "excludeTools")).toContain("config-file allow and deny lists");
   });
 
   it("every hint names a concrete control or bounds strategy (no dead ends)", () => {
