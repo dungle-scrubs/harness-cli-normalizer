@@ -83,10 +83,17 @@ const claude = (r: Record<string, unknown>): ContentEvent[] => {
     events.push({ kind: "progress", label: r.subtype });
   } else if (r.type === "result" && r.is_error === true) {
     // A result line marked is_error is a failed turn (max-turns, execution
-    // error) - surface it so a streamTurn consumer sees the failure, not a
-    // clean turn. (openSession handles result boundaries itself.)
+    // error, auth wall) - surface it so a streamTurn consumer sees the
+    // failure, not a clean turn. (openSession handles result boundaries
+    // itself.) The harness's own text rides along: without it the
+    // classifier sees only the subtype (often "success") and degrades an
+    // auth wall to a work-verdict task instead of retryable auth.
     const sub = typeof r.subtype === "string" ? r.subtype : "result error";
-    events.push({ kind: "error", message: `turn failed: ${sub}`, terminal: true });
+    // Bounded like the native stderr tail (failureFromNative slices to
+    // 512): a result text can carry a full final answer.
+    const detail =
+      typeof r.result === "string" && r.result.length > 0 ? ` (${r.result.slice(0, 512)})` : "";
+    events.push({ kind: "error", message: `turn failed: ${sub}${detail}`, terminal: true });
   } else if (r.type === "rate_limit_event") {
     // Only "rejected" is a limit; "allowed_warning" still serves the request.
     // overageStatus is a separate billing signal, not a rate limit.
