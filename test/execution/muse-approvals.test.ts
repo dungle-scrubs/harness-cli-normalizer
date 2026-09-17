@@ -5,7 +5,7 @@
  * operation - no session load, no lease, no decision.
  */
 import { describe, expect, test } from "vitest";
-import { watchMuseApprovals } from "../../src/execution/muse-approvals.js";
+import { APPROVAL_STUCK_POLLS, watchMuseApprovals } from "../../src/execution/muse-approvals.js";
 import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
 
 const flush = async (): Promise<void> => {
@@ -70,15 +70,20 @@ describe("watchMuseApprovals", () => {
       approvals: [{ approvalId: "a", subject: { kind: "network" } }],
       userInputs: [],
     };
+    // L2: the stuck window counts consecutive polls, not wall-clock time.
     s.reply(2, pending);
     await flush();
     expect(s.seen).toEqual([]);
-    s.clock.advance(29_000);
-    s.reply(3, pending);
-    await flush();
-    expect(s.seen).toEqual([]);
+    for (let id = 3; id <= APPROVAL_STUCK_POLLS; id++) {
+      s.clock.advance(1_000);
+      await flush();
+      s.reply(id, pending);
+      await flush();
+      expect(s.seen).toEqual([]);
+    }
     s.clock.advance(1_000);
-    s.reply(4, pending);
+    await flush();
+    s.reply(APPROVAL_STUCK_POLLS + 1, pending);
     await flush();
     expect(s.seen).toEqual([{ subject: "approval", kind: "network" }]);
     const methods = s.proc.stdinLines.map(
@@ -125,14 +130,46 @@ describe("watchMuseApprovals", () => {
     const s = setup();
     s.reply(1, {});
     await flush();
-    s.reply(2, { approvals: [], userInputs: [{ userInputId: "u" }] });
+    const pending = { approvals: [], userInputs: [{ userInputId: "u" }] };
+    s.reply(2, pending);
     await flush();
     expect(s.seen).toEqual([]);
-    s.clock.advance(30_000);
-    s.reply(3, { approvals: [], userInputs: [{ userInputId: "u" }] });
+    for (let id = 3; id <= APPROVAL_STUCK_POLLS; id++) {
+      s.clock.advance(1_000);
+      await flush();
+      s.reply(id, pending);
+      await flush();
+      expect(s.seen).toEqual([]);
+    }
+    s.clock.advance(1_000);
+    await flush();
+    s.reply(APPROVAL_STUCK_POLLS + 1, pending);
     await flush();
     expect(s.seen).toEqual([{ subject: "input", kind: "input" }]);
     await s.watch.close();
+  });
+
+  test("a clock jump without polls never stabilizes a pending request", async () => {
+    // L2: wall-clock time alone must not stop the turn. A laptop sleep
+    // advances the clock with no polls flowing; the count is unchanged.
+    const s = setup();
+    s.reply(1, {});
+    await flush();
+    const pending = {
+      approvals: [{ approvalId: "a", subject: { kind: "network" } }],
+      userInputs: [],
+    };
+    s.reply(2, pending);
+    await flush();
+    expect(s.seen).toEqual([]);
+    s.clock.advance(3_600_000);
+    await flush();
+    // The jump fired the poll timer, but no reply arrived, so the count
+    // stays at one sighting: still nothing reported, still observing.
+    expect(s.seen).toEqual([]);
+    expect(s.unavailable()).toBe(0);
+    await s.watch.close();
+    expect(s.clock.pendingTimerCount).toBe(0);
   });
 
   test("empty polls schedule the next read without reporting", async () => {
@@ -157,8 +194,41 @@ describe("watchMuseApprovals", () => {
     expect(s.clock.pendingTimerCount).toBe(0);
   });
 
-  test("a missing control-plane response is unknown, never an empty list", async () => {
+  test("a helper that never answers initialize is unobservable after the start budget", async () => {
+    // M1: a slow helper start is allowed room (parallel fan-out); only
+    // past the start budget does the pending set count as unobservable.
     const s = setup();
+    s.clock.advance(29_000);
+    await flush();
+    expect(s.unavailable()).toBe(0);
+    s.clock.advance(1_000);
+    await flush();
+    expect(s.unavailable()).toBe(1);
+    expect(s.seen).toEqual([]);
+    await s.watch.close();
+    expect(s.clock.pendingTimerCount).toBe(0);
+  });
+
+  test("unanswered polls fail closed only after consecutive unreadable samples", async () => {
+    // M1/H1: one unanswered poll is skipped and retried, not a verdict.
+    const s = setup();
+    s.reply(1, {});
+    await flush();
+    s.reply(2, { approvals: [], userInputs: [] });
+    await flush();
+    expect(s.unavailable()).toBe(0);
+    // Two unanswered polls: still observing.
+    for (let id = 3; id <= 4; id++) {
+      s.clock.advance(1_000);
+      await flush();
+      expect(s.unavailable()).toBe(0);
+      s.clock.advance(10_000);
+      await flush();
+      expect(s.unavailable()).toBe(0);
+    }
+    // The third consecutive unanswered poll closes observation.
+    s.clock.advance(1_000);
+    await flush();
     s.clock.advance(10_000);
     await flush();
     expect(s.unavailable()).toBe(1);
@@ -167,7 +237,8 @@ describe("watchMuseApprovals", () => {
     expect(s.clock.pendingTimerCount).toBe(0);
   });
 
-  test("an RPC error or malformed reply ends observation without reporting", async () => {
+  test("an RPC error or malformed reply is skipped, failing closed only in a row", async () => {
+    // H1: a single unreadable sample is skipped and the next poll tried.
     for (const line of [
       JSON.stringify({ id: 2, error: { code: -32020, message: "native internal details" } }),
       JSON.stringify({ id: 2, result: { approvals: null } }),
@@ -178,11 +249,56 @@ describe("watchMuseApprovals", () => {
       await flush();
       s.proc.emitLine(line);
       await flush();
-      expect(s.unavailable()).toBe(1);
+      expect(s.unavailable()).toBe(0);
       expect(s.seen).toEqual([]);
       await s.watch.close();
       expect(s.clock.pendingTimerCount).toBe(0);
     }
+  });
+
+  test("three consecutive malformed replies fail closed without reporting", async () => {
+    const s = setup();
+    s.reply(1, {});
+    await flush();
+    for (let id = 2; id <= 4; id++) {
+      s.proc.emitLine(JSON.stringify({ id, error: { code: -32020, message: "x" } }));
+      await flush();
+      if (id < 4) {
+        expect(s.unavailable()).toBe(0);
+        s.clock.advance(1_000);
+        await flush();
+      }
+    }
+    expect(s.unavailable()).toBe(1);
+    expect(s.seen).toEqual([]);
+    await s.watch.close();
+    expect(s.clock.pendingTimerCount).toBe(0);
+  });
+
+  test("a reply over 64KB on a healthy turn is a normal sample, not a failure", async () => {
+    // H1: a judge-decided approval can carry more than 64KB of rawArgs. A
+    // poll that lands in that window must not end the turn - the observer
+    // channel carries its own large line limit.
+    const s = setup();
+    s.reply(1, {});
+    await flush();
+    s.reply(2, {
+      approvals: [{ approvalId: "a", subject: { kind: "shell" }, rawArgs: "x".repeat(70_000) }],
+      userInputs: [],
+    });
+    await flush();
+    expect(s.unavailable()).toBe(0);
+    expect(s.seen).toEqual([]);
+    s.reply(3, { approvals: [], userInputs: [] });
+    await flush();
+    expect(s.unavailable()).toBe(0);
+    expect(s.seen).toEqual([]);
+    s.clock.advance(60_000);
+    await flush();
+    expect(s.unavailable()).toBe(0);
+    expect(s.seen).toEqual([]);
+    await s.watch.close();
+    expect(s.clock.pendingTimerCount).toBe(0);
   });
 
   test("closing ignores late results and terminates a wedged helper", async () => {

@@ -206,11 +206,12 @@ export const blockedApprovalDetail = (
 /** Issue #179: the harness waits on a native approval (or user-input
  * request) that a headless run can never answer - muse exec omits pending
  * approvals from stdout, so without observation the turn hangs until
- * --timeout. A task failure, non-retryable: the remedy is different
- * options (--autonomy) or answering in the harness, never auto-routing
- * the same work elsewhere. The subject kind names the blocked subject
- * (network, shell, fileAccess, process, tool, or user input); native
- * payload values (commands, hosts, paths) are never copied here. */
+ * --timeout. A task failure, non-retryable: the remedy is answering in the
+ * harness, or --autonomy only when unattended approvals are acceptable -
+ * never auto-routing the same work elsewhere. The subject kind names the
+ * blocked subject (network, shell, fileAccess, process, tool, or user
+ * input); native payload values (commands, hosts, paths) are never copied
+ * here. */
 export const failureFromBlockedApproval = (
   harness: import("../knowledge/descriptor.js").HarnessName,
   subject: "approval" | "input",
@@ -221,22 +222,24 @@ export const failureFromBlockedApproval = (
     retryable: retryableOf("task"),
     message: messageFor(
       "task",
-      `${blockedApprovalDetail(harness, subject, kind)} - the run was stopped; rerun with --autonomy to grant approvals unattended, or answer it in ${harness} directly`,
+      `${blockedApprovalDetail(harness, subject, kind)} - the run was stopped; answer it in ${harness}, or rerun with --autonomy only if unattended approvals are acceptable`,
     ),
   };
 };
 
-/** The observer itself failed (helper spawn, RPC error, malformed reply,
- * unknown session): the pending set is unknown, never empty. Fail closed -
- * a turn hcn cannot supervise must not hang silently until --timeout. */
+/** The observer itself failed (helper spawn, helper crash, repeated
+ * unreadable samples): the pending set is unknown, never empty. Fail
+ * closed - a turn hcn cannot supervise must not hang silently until
+ * --timeout. A transport failure, retryable: hcn's own supervision broke,
+ * not the model's work, so routing the same work elsewhere is safe. */
 export const failureFromApprovalUnobserved = (
   harness: import("../knowledge/descriptor.js").HarnessName,
 ): FailureSummary => ({
-  class: "task",
-  retryable: retryableOf("task"),
+  class: "transport",
+  retryable: retryableOf("transport"),
   message: messageFor(
-    "task",
-    `${harness} approval status could not be checked - the run was stopped rather than risk waiting on an approval this headless run cannot answer; update ${harness} and hcn, then retry`,
+    "transport",
+    `${harness} approval status could not be observed - hcn could not watch the pending approval set for this turn, so the run was stopped rather than risk a silent hang`,
   ),
 });
 

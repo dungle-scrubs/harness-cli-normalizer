@@ -689,13 +689,18 @@ payloads.
 
 A single non-empty sample stops nothing: judge-decided approvals for
 ordinary tool calls appear briefly, then clear. The turn ends only when the
-same request identity persists across polls for 30 seconds, or at once when
-an approval is judge-escalated (a human was asked, and a headless run has
-none). Either way the turn emits an `error` naming the blocked subject, then
-`failure class=task` (`retryable: false` - rerun with `--autonomy` or answer
-it in muse directly, never auto-route) and `done cause=failed` with exit 1.
-When the pending set itself cannot be read, the turn fails the same way
-rather than risking a silent hang.
+same request identity persists across 30 consecutive polls (about 30
+seconds), or at once when an approval is judge-escalated (a human was
+asked, and a headless run has none). A request that resolves itself
+(`autoResolutionMs`) is never reported before its deadline plus a margin.
+Either way the turn emits an `error` naming the blocked subject, then
+`failure class=task` (`retryable: false` - answer it in muse, or rerun with
+`--autonomy` only if unattended approvals are acceptable; never auto-route)
+and `done cause=failed` with exit 1. When the pending set itself cannot be
+read (the helper is slow to start, crashes, or answers unreadably three
+polls in a row), the turn fails closed with `failure class=transport`
+(`retryable: true` - hcn could not watch the pending set, so the run was
+stopped rather than risking a silent hang).
 
 ## Refusals
 

@@ -345,7 +345,9 @@ export async function* streamTurn(
     session: null,
   };
   const stopForApproval = (failure: FailureSummary, event: string, detail: string): void => {
-    if (approvalBlocked || exited || cancelled || killedByAbort) return;
+    // L3: once the watchdog killed the turn, a late approval stop must not
+    // overwrite the timeout - the turn's verdict is already decided.
+    if (approvalBlocked || exited || cancelled || killedByAbort || killedByWatchdog) return;
     approvalBlocked = true;
     blockingFailure = failure;
     void queue.push({ kind: "error", message: detail });
@@ -378,7 +380,7 @@ export async function* streamTurn(
         stopForApproval(
           failureFromApprovalUnobserved(h.name),
           "approval_unobserved",
-          `${h.name} approval status could not be checked - ending the turn`,
+          `${h.name} approval status could not be observed - hcn could not watch the pending approval set; ending the turn`,
         ),
     );
   };

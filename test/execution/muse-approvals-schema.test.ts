@@ -17,7 +17,7 @@
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
-import { watchMuseApprovals } from "../../src/execution/muse-approvals.js";
+import { APPROVAL_STUCK_POLLS, watchMuseApprovals } from "../../src/execution/muse-approvals.js";
 import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
 
 interface SchemaNode {
@@ -263,12 +263,15 @@ describe("muse listPending against the published MSP schema (issue #179)", () =>
       userInputs: [],
     };
     assertValid(defs, { $ref: "#/$defs/ApprovalListPendingResult" }, pending, "listPending");
-    s.reply(2, pending);
-    await flush();
-    expect(s.seen).toEqual([]);
-    s.clock.advance(30_000);
-    s.reply(3, pending);
-    await flush();
+    for (let id = 2; id <= APPROVAL_STUCK_POLLS + 1; id++) {
+      if (id > 2) {
+        s.clock.advance(1_000);
+        await flush();
+      }
+      s.reply(id, pending);
+      await flush();
+      if (id <= APPROVAL_STUCK_POLLS) expect(s.seen).toEqual([]);
+    }
     expect(s.seen).toEqual([{ subject: "approval", kind: "network" }]);
     await s.watch.close();
   });
@@ -296,12 +299,39 @@ describe("muse listPending against the published MSP schema (issue #179)", () =>
     await flush();
     const pending = { approvals: [], userInputs: [issueUserInput(defs)] };
     assertValid(defs, { $ref: "#/$defs/ApprovalListPendingResult" }, pending, "listPending");
-    s.reply(2, pending);
+    for (let id = 2; id <= APPROVAL_STUCK_POLLS + 1; id++) {
+      if (id > 2) {
+        s.clock.advance(1_000);
+        await flush();
+      }
+      s.reply(id, pending);
+      await flush();
+      if (id <= APPROVAL_STUCK_POLLS) expect(s.seen).toEqual([]);
+    }
+    expect(s.seen).toEqual([{ subject: "input", kind: "input" }]);
+    await s.watch.close();
+  });
+
+  test("a user input with autoResolutionMs waits past the stuck window", async () => {
+    // M2: headless muse resolves the request itself at 60s, so hcn must
+    // not report at 30 polls - only past the deadline plus a margin.
+    const defs = loadSchema();
+    const s = setup();
+    s.reply(1, {});
     await flush();
-    expect(s.seen).toEqual([]);
-    s.clock.advance(30_000);
-    s.reply(3, pending);
-    await flush();
+    const input = { ...issueUserInput(defs), autoResolutionMs: 60_000 };
+    const pending = { approvals: [], userInputs: [input] };
+    assertValid(defs, { $ref: "#/$defs/ApprovalListPendingResult" }, pending, "listPending");
+    for (let id = 2; id <= 66; id++) {
+      if (id > 2) {
+        s.clock.advance(1_000);
+        await flush();
+      }
+      s.reply(id, pending);
+      await flush();
+      // 30 consecutive polls pass with no report; the 65th reports.
+      if (id < 66) expect(s.seen).toEqual([]);
+    }
     expect(s.seen).toEqual([{ subject: "input", kind: "input" }]);
     await s.watch.close();
   });
@@ -313,26 +343,21 @@ describe("muse listPending against the published MSP schema (issue #179)", () =>
     await flush();
     s.reply(2, { approvals: [issueApproval(defs)], userInputs: [] });
     await flush();
-    s.clock.advance(29_000);
     // The first approval clears and a different identity appears: the
-    // window restarts instead of reporting the first id's age.
-    s.reply(3, {
-      approvals: [issueApproval(defs, { approvalId: "appr-179-later" })],
-      userInputs: [],
-    });
-    await flush();
-    s.clock.advance(29_000);
-    s.reply(4, {
-      approvals: [issueApproval(defs, { approvalId: "appr-179-later" })],
-      userInputs: [],
-    });
-    await flush();
-    expect(s.seen).toEqual([]);
-    s.clock.advance(1_000);
-    s.reply(5, {
-      approvals: [issueApproval(defs, { approvalId: "appr-179-later" })],
-      userInputs: [],
-    });
+    // count restarts instead of reporting the first id's sightings.
+    const later = (id: number): void => {
+      s.clock.advance(1_000);
+      s.reply(id, {
+        approvals: [issueApproval(defs, { approvalId: "appr-179-later" })],
+        userInputs: [],
+      });
+    };
+    for (let id = 3; id <= APPROVAL_STUCK_POLLS + 1; id++) {
+      later(id);
+      await flush();
+      expect(s.seen).toEqual([]);
+    }
+    later(APPROVAL_STUCK_POLLS + 2);
     await flush();
     expect(s.seen).toEqual([{ subject: "approval", kind: "network" }]);
     await s.watch.close();

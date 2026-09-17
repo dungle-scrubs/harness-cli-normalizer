@@ -11,6 +11,7 @@ import {
   failureFromBlockedApproval,
   retryableOf,
 } from "../../src/execution/failure.js";
+import { APPROVAL_STUCK_POLLS } from "../../src/execution/muse-approvals.js";
 import { streamTurn } from "../../src/execution/stream-turn.js";
 import { museCode } from "../../src/knowledge/muse.js";
 import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
@@ -41,11 +42,15 @@ describe("failureFromBlockedApproval", () => {
     expect(f.message).not.toMatch(/--native-approvals/);
   });
 
-  test("an unobservable pending set is a non-retryable task, never an empty approval list", () => {
+  test("an unobservable pending set is a retryable transport, never an empty approval list", () => {
+    // M1: hcn's own supervision broke, not the model's work - retryable
+    // transport naming hcn's inability to observe, never "update muse".
     const f = failureFromApprovalUnobserved("muse");
-    expect(f.class).toBe("task");
-    expect(f.retryable).toBe(false);
-    expect(f.message).toMatch(/could not be checked/);
+    expect(f.class).toBe("transport");
+    expect(f.retryable).toBe(true);
+    expect(f.retryable).toBe(retryableOf("transport"));
+    expect(f.message).toMatch(/could not be observed/);
+    expect(f.message).not.toMatch(/update muse/);
   });
 });
 
@@ -82,14 +87,16 @@ describe("a pending native approval during a muse turn", () => {
       approvals: [{ approvalId: "a", subject: { kind: "network" } }],
       userInputs: [],
     };
-    serveProc.emitLine(JSON.stringify({ id: 2, jsonrpc: "2.0", result: stuck }));
-    await flush();
     // A single sample is transient (judge-decided approvals clear fast);
-    // the same identity persisting across the stuck window ends the turn.
-    clock.advance(30_000);
-    await flush();
-    serveProc.emitLine(JSON.stringify({ id: 3, jsonrpc: "2.0", result: stuck }));
-    await flush();
+    // the same identity persisting across consecutive polls ends the turn.
+    for (let id = 2; id <= APPROVAL_STUCK_POLLS + 1; id++) {
+      if (id > 2) {
+        clock.advance(1_000);
+        await flush();
+      }
+      serveProc.emitLine(JSON.stringify({ id, jsonrpc: "2.0", result: stuck }));
+      await flush();
+    }
     // Release the fake on the red path, so a regression cannot hang the runner.
     if (!execProc.hasExited) execProc.exit(0);
     if (!serveProc.hasExited) serveProc.exit(0);
@@ -136,8 +143,8 @@ describe("a pending native approval during a muse turn", () => {
     await pending;
     expect(events[0]?.kind).toBe("identity");
     const failure = events.find((e) => e.kind === "failure");
-    expect(failure).toMatchObject({ kind: "failure", class: "task", retryable: false });
-    expect(JSON.stringify(failure)).toMatch(/could not be checked/);
+    expect(failure).toMatchObject({ kind: "failure", class: "transport", retryable: true });
+    expect(JSON.stringify(failure)).toMatch(/could not be observed/);
     expect(events.at(-1)).toMatchObject({ kind: "done", cause: "failed" });
     expect(clock.pendingTimerCount).toBe(0);
   });
@@ -179,6 +186,55 @@ describe("a pending native approval during a muse turn", () => {
     expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean", exitCode: 0 });
     expect(serveProc.hasExited).toBe(true);
     expect(serveProc.outputDisposed).toBe(true);
+    expect(clock.pendingTimerCount).toBe(0);
+  });
+
+  test("an approval arriving after the timeout stays a timeout", async () => {
+    // L3: --timeout fires and SIGTERM is sent; a judge-escalated approval
+    // landing before the child exits must not overwrite the timeout.
+    const execProc = new FakeProcess();
+    const serveProc = new FakeProcess({ exitOnStdinEnd: false });
+    const spawner = fakeSpawner([execProc, serveProc]);
+    // The child ignores SIGTERM, so it is still alive when the approval
+    // lands - the exited guard cannot mask the missing watchdog guard.
+    const sig = fakeSignal({ autoExit: false });
+    const clock = new FakeClock();
+    const events: HarnessEvent[] = [];
+    const pending = (async () => {
+      for await (const event of streamTurn(
+        museCode,
+        { prompt: "hi" },
+        { spawn: spawner.spawn, clock, signal: sig.signal, turnTimeoutMs: 5_000 },
+      )) {
+        events.push(event);
+      }
+    })();
+    execProc.emitLine(JSON.stringify({ stream: { id: "eb04301d-8756-4a8b-ae3e-aac0e71f7265" } }));
+    await flush();
+    serveProc.emitLine(JSON.stringify({ id: 1, jsonrpc: "2.0", result: {} }));
+    await flush();
+    clock.advance(5_000);
+    await flush();
+    expect(execProc.hasExited).toBe(false);
+    // The escalated approval lands after the watchdog killed the turn
+    // (id 2 is the poll still outstanding - the reply must match it).
+    serveProc.emitLine(
+      JSON.stringify({
+        id: 2,
+        jsonrpc: "2.0",
+        result: {
+          approvals: [{ approvalId: "a", judgeEscalated: true, subject: { kind: "shell" } }],
+          userInputs: [],
+        },
+      }),
+    );
+    await flush();
+    execProc.exit(null);
+    if (!serveProc.hasExited) serveProc.exit(0);
+    await pending;
+    const failure = events.find((e) => e.kind === "failure");
+    expect(failure).toMatchObject({ kind: "failure", class: "timeout" });
+    expect(events.at(-1)).toMatchObject({ kind: "done", cause: "killed" });
     expect(clock.pendingTimerCount).toBe(0);
   });
 
