@@ -29,11 +29,16 @@ import {
 } from "../../src/interpretation/resolve-options.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
+import { cursorCli } from "../../src/knowledge/cursor.js";
 import type { HarnessDescriptor } from "../../src/knowledge/descriptor.js";
 import { museCode } from "../../src/knowledge/muse.js";
 import { piCli } from "../../src/knowledge/pi.js";
 
-const HARNESSES: readonly HarnessDescriptor[] = [claudeCode, codexCli, piCli, museCode];
+// Cursor rows pin the launch shape (-p placement, prompt-first order,
+// effort rendering zero tokens because slug resolution lives at the
+// plan-turn step, autonomy as --force) and resume argv; the effort
+// matrix itself lives at the resolver and plan-turn seams.
+const HARNESSES: readonly HarnessDescriptor[] = [claudeCode, codexCli, piCli, museCode, cursorCli];
 const SESSION_ID = "0199a4c5-1111-2222-3333-444455556666";
 const SNAPSHOT = join(import.meta.dirname, "argv-corpus.snapshot.json");
 

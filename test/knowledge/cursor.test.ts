@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { checkEffortTable, cursorCli, stemKeyOfSlug } from "../../src/knowledge/cursor.js";
 
@@ -29,9 +31,12 @@ describe("cursor model vocabulary", () => {
     expect(digest).toBe("17713126ce312b64f5c27e695d28ace5318c44ed787283b69fb66a68dfc9327d");
   });
 
-  test("pins the transcription as sets", () => {
-    expect([...cursorCli.vocabulary.models].sort()).toMatchSnapshot();
-    expect(cursorCli.vocabulary.effortSlugs).toMatchSnapshot();
+  test("pins the transcription against committed data both lanes read identically", () => {
+    const committed = JSON.parse(
+      readFileSync(join(import.meta.dirname, "cursor-transcription.snapshot.json"), "utf8"),
+    ) as { models: readonly string[]; effortSlugs: Record<string, Record<string, string>> };
+    expect([...cursorCli.vocabulary.models].sort()).toEqual(committed.models);
+    expect(cursorCli.vocabulary.effortSlugs).toEqual(committed.effortSlugs);
   });
 
   test("carries 70 -fast twins plus the opaque composer-2.5-fast", () => {

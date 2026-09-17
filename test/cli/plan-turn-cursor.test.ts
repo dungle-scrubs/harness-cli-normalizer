@@ -98,6 +98,45 @@ describe("planTurn cursor effort resolve step", () => {
     expect(outcome).toMatchObject({ kind: "refusal", refusal: { issue: "unknown-effort" } });
   });
 
+  test("launch: a thinking stem plus effort resolves through its own row", async () => {
+    const outcome = await planTurn(
+      cursorCli,
+      ["--prompt", "hi", "--model", "claude-opus-4-8-thinking", "--effort", "low"],
+      { command: "run" },
+      deps,
+    );
+    expect(outcome.kind).toBe("plan");
+    if (outcome.kind !== "plan") return;
+    const modelAt = outcome.plan.argv.indexOf("--model");
+    expect(outcome.plan.argv[modelAt + 1]).toBe("claude-opus-4-8-thinking-low");
+  });
+
+  test("launch: a variant slug plus conflicting effort refuses invalid-option-value", async () => {
+    const outcome = await planTurn(
+      cursorCli,
+      ["--prompt", "hi", "--model", "gpt-5.2-high", "--effort", "low"],
+      { command: "run" },
+      deps,
+    );
+    expect(outcome).toMatchObject({ kind: "refusal", refusal: { issue: "invalid-option-value" } });
+  });
+
+  test("launch: arg effort against a config-tier bare-only model refuses unknown-effort", async () => {
+    const withBareModel: PlanDeps = {
+      ...deps,
+      loadUserConfig: () => ({ config: { model: "auto" } }),
+    };
+    const outcome = await planTurn(
+      cursorCli,
+      ["--prompt", "hi", "--effort", "high"],
+      { command: "run" },
+      withBareModel,
+    );
+    expect(outcome).toMatchObject({ kind: "refusal", refusal: { issue: "unknown-effort" } });
+    if (outcome.kind !== "refusal") return;
+    expect(outcome.refusal.supported).toEqual([]);
+  });
+
   test("explicit --sandbox refuses unsupported-option on launch and resume", async () => {
     const launch = await planTurn(
       cursorCli,

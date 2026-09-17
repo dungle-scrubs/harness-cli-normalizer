@@ -1623,7 +1623,7 @@
             }
           ],
           "hint": "pi has no unattended-run flag; approximate with a per-tool allowlist (--tools read,bash) if you need unattended behavior on pi",
-          "message": "pi has no unattended-run flag; supported: claude --dangerously-skip-permissions, codex --yolo, muse --yolo, cursor --force - drop autonomy or route to a supporting harness (claude --dangerously-skip-permissions, codex/muse --yolo)"
+          "message": "pi has no unattended-run flag; supported: claude --dangerously-skip-permissions, codex --yolo, muse --yolo, cursor --force - drop autonomy or route to a supporting harness (claude --dangerously-skip-permissions, codex --yolo, muse --yolo, cursor --force)"
         }
       },
       "explicit-dash-prompt": {
@@ -2146,6 +2146,764 @@
             "prompt must not start with '-'"
           ],
           "message": "positional prompt may not start with '-'; it would be parsed as a flag by muse (it would be parsed as a flag by muse); supported: prompt must not start with '-' - remove leading '-' or prefix with a space"
+        }
+      }
+    },
+    "cursor": {
+      "bare": {
+        "argv": [
+          "agent",
+          "-p",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--stream-partial-output"
+        ]
+      },
+      "tool-free": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "isolation",
+          "supported": [
+            "effort"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--bare"
+            }
+          ],
+          "message": "cursor cannot express option \"isolation\" (tool-free); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tool-free-conflict": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "cursor",
+          "option": "isolation",
+          "supported": [
+            "tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough"
+          ],
+          "message": "cursor cannot combine option \"isolation\" (discovery); supported: tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough - pass exactly one of them"
+        }
+      },
+      "model": {
+        "argv": [
+          "agent",
+          "-p",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--stream-partial-output",
+          "--model",
+          "auto"
+        ]
+      },
+      "effort-high": {
+        "argv": [
+          "agent",
+          "-p",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--stream-partial-output"
+        ]
+      },
+      "effort-with-model": {
+        "argv": [
+          "agent",
+          "-p",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--stream-partial-output",
+          "--model",
+          "auto"
+        ]
+      },
+      "effort-unknown": {
+        "refusal": {
+          "issue": "unknown-effort",
+          "harness": "cursor",
+          "option": "effort",
+          "supported": [
+            "minimal",
+            "none",
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "message": "unknown effort for cursor \"bogus\"; supported: minimal, none, low, medium, high, xhigh, max - use one of the ladder values"
+        }
+      },
+      "model-unknown": {
+        "refusal": {
+          "issue": "unknown-model",
+          "harness": "cursor",
+          "supported": [
+            "auto",
+            "gpt-5.3-codex-low",
+            "gpt-5.3-codex-low-fast",
+            "gpt-5.3-codex",
+            "gpt-5.3-codex-fast",
+            "gpt-5.3-codex-high",
+            "gpt-5.3-codex-high-fast",
+            "gpt-5.3-codex-xhigh",
+            "gpt-5.3-codex-xhigh-fast",
+            "gpt-5.2",
+            "cursor-grok-4.6-high-fast",
+            "composer-2.5",
+            "claude-opus-5-thinking-high",
+            "claude-opus-5-thinking-high-fast",
+            "gpt-5.6-sol-high",
+            "gpt-5.6-sol-high-fast",
+            "gpt-5.6-sol-xhigh",
+            "gpt-5.6-sol-xhigh-fast",
+            "claude-fable-5-thinking-high",
+            "claude-fable-5-thinking-xhigh",
+            "cursor-grok-4.5-high",
+            "cursor-grok-4.5-high-fast",
+            "gemini-3.7-flash-high",
+            "claude-sonnet-5-thinking-high",
+            "claude-sonnet-5-thinking-xhigh",
+            "gpt-5.6-luna-high",
+            "cursor-grok-4.6-low",
+            "cursor-grok-4.6-low-fast",
+            "cursor-grok-4.6-medium",
+            "cursor-grok-4.6-medium-fast",
+            "cursor-grok-4.6-high",
+            "cursor-grok-4.6-xhigh",
+            "cursor-grok-4.6-xhigh-fast",
+            "composer-2.5-fast",
+            "claude-opus-5-low",
+            "claude-opus-5-low-fast",
+            "claude-opus-5-medium",
+            "claude-opus-5-medium-fast",
+            "claude-opus-5-high",
+            "claude-opus-5-high-fast",
+            "claude-opus-5-thinking-low",
+            "claude-opus-5-thinking-low-fast",
+            "claude-opus-5-thinking-medium",
+            "claude-opus-5-thinking-medium-fast",
+            "claude-opus-5-thinking-xhigh",
+            "claude-opus-5-thinking-xhigh-fast",
+            "claude-opus-5-thinking-max",
+            "claude-opus-5-thinking-max-fast",
+            "claude-opus-4-8-low",
+            "claude-opus-4-8-low-fast",
+            "claude-opus-4-8-medium",
+            "claude-opus-4-8-medium-fast",
+            "claude-opus-4-8-high",
+            "claude-opus-4-8-high-fast",
+            "claude-opus-4-8-xhigh",
+            "claude-opus-4-8-xhigh-fast",
+            "claude-opus-4-8-max",
+            "claude-opus-4-8-max-fast",
+            "claude-opus-4-8-thinking-low",
+            "claude-opus-4-8-thinking-low-fast",
+            "claude-opus-4-8-thinking-medium",
+            "claude-opus-4-8-thinking-medium-fast",
+            "claude-opus-4-8-thinking-high",
+            "claude-opus-4-8-thinking-high-fast",
+            "claude-opus-4-8-thinking-xhigh",
+            "claude-opus-4-8-thinking-xhigh-fast",
+            "claude-opus-4-8-thinking-max",
+            "claude-opus-4-8-thinking-max-fast",
+            "gpt-5.6-sol-none",
+            "gpt-5.6-sol-none-fast",
+            "gpt-5.6-sol-low",
+            "gpt-5.6-sol-low-fast",
+            "gpt-5.6-sol-medium",
+            "gpt-5.6-sol-medium-fast",
+            "gpt-5.6-sol-max",
+            "gpt-5.6-sol-max-fast",
+            "gpt-5.5-none",
+            "gpt-5.5-none-fast",
+            "gpt-5.5-low",
+            "gpt-5.5-low-fast",
+            "gpt-5.5-medium",
+            "gpt-5.5-medium-fast",
+            "gpt-5.5-high",
+            "gpt-5.5-high-fast",
+            "gpt-5.5-extra-high",
+            "gpt-5.5-extra-high-fast",
+            "claude-fable-5-1-low",
+            "claude-fable-5-1-medium",
+            "claude-fable-5-1-high",
+            "claude-fable-5-1-xhigh",
+            "claude-fable-5-1-max",
+            "claude-fable-5-1-thinking-low",
+            "claude-fable-5-1-thinking-medium",
+            "claude-fable-5-1-thinking-high",
+            "claude-fable-5-1-thinking-xhigh",
+            "claude-fable-5-1-thinking-max",
+            "claude-fable-5-low",
+            "claude-fable-5-medium",
+            "claude-fable-5-high",
+            "claude-fable-5-xhigh",
+            "claude-fable-5-max",
+            "claude-fable-5-thinking-low",
+            "claude-fable-5-thinking-medium",
+            "claude-fable-5-thinking-max",
+            "cursor-grok-4.5-low",
+            "cursor-grok-4.5-low-fast",
+            "cursor-grok-4.5-medium",
+            "cursor-grok-4.5-medium-fast",
+            "gemini-3.8-flash-low",
+            "gemini-3.8-flash-medium",
+            "gemini-3.8-flash-high",
+            "gemini-3.7-flash-low",
+            "gemini-3.7-flash-medium",
+            "muse-spark-1.3-minimal",
+            "muse-spark-1.3-low",
+            "muse-spark-1.3-medium",
+            "muse-spark-1.3-high",
+            "muse-spark-1.3-xhigh",
+            "muse-spark-1.3-max",
+            "gpt-5.6-terra-none",
+            "gpt-5.6-terra-none-fast",
+            "gpt-5.6-terra-low",
+            "gpt-5.6-terra-low-fast",
+            "gpt-5.6-terra-medium",
+            "gpt-5.6-terra-medium-fast",
+            "gpt-5.6-terra-high",
+            "gpt-5.6-terra-high-fast",
+            "gpt-5.6-terra-xhigh",
+            "gpt-5.6-terra-xhigh-fast",
+            "gpt-5.6-terra-max",
+            "gpt-5.6-terra-max-fast",
+            "claude-sonnet-5-low",
+            "claude-sonnet-5-medium",
+            "claude-sonnet-5-high",
+            "claude-sonnet-5-xhigh",
+            "claude-sonnet-5-max",
+            "claude-sonnet-5-thinking-low",
+            "claude-sonnet-5-thinking-medium",
+            "claude-sonnet-5-thinking-max",
+            "claude-4.6-sonnet-medium",
+            "claude-4.6-sonnet-medium-thinking",
+            "claude-opus-4-7-low",
+            "claude-opus-4-7-low-fast",
+            "claude-opus-4-7-medium",
+            "claude-opus-4-7-medium-fast",
+            "claude-opus-4-7-high",
+            "claude-opus-4-7-high-fast",
+            "claude-opus-4-7-xhigh",
+            "claude-opus-4-7-xhigh-fast",
+            "claude-opus-4-7-max",
+            "claude-opus-4-7-max-fast",
+            "claude-opus-4-7-thinking-low",
+            "claude-opus-4-7-thinking-low-fast",
+            "claude-opus-4-7-thinking-medium",
+            "claude-opus-4-7-thinking-medium-fast",
+            "claude-opus-4-7-thinking-high",
+            "claude-opus-4-7-thinking-high-fast",
+            "claude-opus-4-7-thinking-xhigh",
+            "claude-opus-4-7-thinking-xhigh-fast",
+            "claude-opus-4-7-thinking-max",
+            "claude-opus-4-7-thinking-max-fast",
+            "gpt-5.4-low",
+            "gpt-5.4-medium",
+            "gpt-5.4-medium-fast",
+            "gpt-5.4-high",
+            "gpt-5.4-high-fast",
+            "gpt-5.4-xhigh",
+            "gpt-5.4-xhigh-fast",
+            "claude-4.6-opus-high",
+            "claude-4.6-opus-max",
+            "claude-4.6-opus-high-thinking",
+            "claude-4.6-opus-max-thinking",
+            "claude-4.5-opus-high",
+            "claude-4.5-opus-high-thinking",
+            "gpt-5.2-low",
+            "gpt-5.2-low-fast",
+            "gpt-5.2-fast",
+            "gpt-5.2-high",
+            "gpt-5.2-high-fast",
+            "gpt-5.2-xhigh",
+            "gpt-5.2-xhigh-fast",
+            "gpt-5.6-luna-none",
+            "gpt-5.6-luna-none-fast",
+            "gpt-5.6-luna-low",
+            "gpt-5.6-luna-low-fast",
+            "gpt-5.6-luna-medium",
+            "gpt-5.6-luna-medium-fast",
+            "gpt-5.6-luna-high-fast",
+            "gpt-5.6-luna-xhigh",
+            "gpt-5.6-luna-xhigh-fast",
+            "gpt-5.6-luna-max",
+            "gpt-5.6-luna-max-fast",
+            "gemini-3.6-flash-minimal",
+            "gemini-3.6-flash-low",
+            "gemini-3.6-flash-medium",
+            "gemini-3.6-flash-high",
+            "gemini-3.1-pro",
+            "gpt-5.4-mini-none",
+            "gpt-5.4-mini-low",
+            "gpt-5.4-mini-medium",
+            "gpt-5.4-mini-high",
+            "gpt-5.4-mini-xhigh",
+            "gpt-5.4-nano-none",
+            "gpt-5.4-nano-low",
+            "gpt-5.4-nano-medium",
+            "gpt-5.4-nano-high",
+            "gpt-5.4-nano-xhigh",
+            "claude-4.5-sonnet",
+            "claude-4.5-sonnet-thinking",
+            "gpt-5.1-low",
+            "gpt-5.1",
+            "gpt-5.1-high",
+            "gemini-3-flash",
+            "gemini-3.5-flash",
+            "claude-4-sonnet",
+            "claude-4-sonnet-thinking",
+            "gpt-5-mini",
+            "kimi-k3-low",
+            "kimi-k3-high",
+            "kimi-k3-max",
+            "kimi-k2.7-code",
+            "glm-5.2-high",
+            "glm-5.2-max"
+          ],
+          "message": "unknown cursor model \"no-such-model\"; supported: auto, gpt-5.3-codex-low, gpt-5.3-codex-low-fast, gpt-5.3-codex, gpt-5.3-codex-fast, gpt-5.3-codex-high, gpt-5.3-codex-high-fast, gpt-5.3-codex-xhigh, gpt-5.3-codex-xhigh-fast, gpt-5.2, cursor-grok-4.6-high-fast, composer-2.5, claude-opus-5-thinking-high, claude-opus-5-thinking-high-fast, gpt-5.6-sol-high, gpt-5.6-sol-high-fast, gpt-5.6-sol-xhigh, gpt-5.6-sol-xhigh-fast, claude-fable-5-thinking-high, claude-fable-5-thinking-xhigh, cursor-grok-4.5-high, cursor-grok-4.5-high-fast, gemini-3.7-flash-high, claude-sonnet-5-thinking-high, claude-sonnet-5-thinking-xhigh, gpt-5.6-luna-high, cursor-grok-4.6-low, cursor-grok-4.6-low-fast, cursor-grok-4.6-medium, cursor-grok-4.6-medium-fast, cursor-grok-4.6-high, cursor-grok-4.6-xhigh, cursor-grok-4.6-xhigh-fast, composer-2.5-fast, claude-opus-5-low, claude-opus-5-low-fast, claude-opus-5-medium, claude-opus-5-medium-fast, claude-opus-5-high, claude-opus-5-high-fast, claude-opus-5-thinking-low, claude-opus-5-thinking-low-fast, claude-opus-5-thinking-medium, claude-opus-5-thinking-medium-fast, claude-opus-5-thinking-xhigh, claude-opus-5-thinking-xhigh-fast, claude-opus-5-thinking-max, claude-opus-5-thinking-max-fast, claude-opus-4-8-low, claude-opus-4-8-low-fast, claude-opus-4-8-medium, claude-opus-4-8-medium-fast, claude-opus-4-8-high, claude-opus-4-8-high-fast, claude-opus-4-8-xhigh, claude-opus-4-8-xhigh-fast, claude-opus-4-8-max, claude-opus-4-8-max-fast, claude-opus-4-8-thinking-low, claude-opus-4-8-thinking-low-fast, claude-opus-4-8-thinking-medium, claude-opus-4-8-thinking-medium-fast, claude-opus-4-8-thinking-high, claude-opus-4-8-thinking-high-fast, claude-opus-4-8-thinking-xhigh, claude-opus-4-8-thinking-xhigh-fast, claude-opus-4-8-thinking-max, claude-opus-4-8-thinking-max-fast, gpt-5.6-sol-none, gpt-5.6-sol-none-fast, gpt-5.6-sol-low, gpt-5.6-sol-low-fast, gpt-5.6-sol-medium, gpt-5.6-sol-medium-fast, gpt-5.6-sol-max, gpt-5.6-sol-max-fast, gpt-5.5-none, gpt-5.5-none-fast, gpt-5.5-low, gpt-5.5-low-fast, gpt-5.5-medium, gpt-5.5-medium-fast, gpt-5.5-high, gpt-5.5-high-fast, gpt-5.5-extra-high, gpt-5.5-extra-high-fast, claude-fable-5-1-low, claude-fable-5-1-medium, claude-fable-5-1-high, claude-fable-5-1-xhigh, claude-fable-5-1-max, claude-fable-5-1-thinking-low, claude-fable-5-1-thinking-medium, claude-fable-5-1-thinking-high, claude-fable-5-1-thinking-xhigh, claude-fable-5-1-thinking-max, claude-fable-5-low, claude-fable-5-medium, claude-fable-5-high, claude-fable-5-xhigh, claude-fable-5-max, claude-fable-5-thinking-low, claude-fable-5-thinking-medium, claude-fable-5-thinking-max, cursor-grok-4.5-low, cursor-grok-4.5-low-fast, cursor-grok-4.5-medium, cursor-grok-4.5-medium-fast, gemini-3.8-flash-low, gemini-3.8-flash-medium, gemini-3.8-flash-high, gemini-3.7-flash-low, gemini-3.7-flash-medium, muse-spark-1.3-minimal, muse-spark-1.3-low, muse-spark-1.3-medium, muse-spark-1.3-high, muse-spark-1.3-xhigh, muse-spark-1.3-max, gpt-5.6-terra-none, gpt-5.6-terra-none-fast, gpt-5.6-terra-low, gpt-5.6-terra-low-fast, gpt-5.6-terra-medium, gpt-5.6-terra-medium-fast, gpt-5.6-terra-high, gpt-5.6-terra-high-fast, gpt-5.6-terra-xhigh, gpt-5.6-terra-xhigh-fast, gpt-5.6-terra-max, gpt-5.6-terra-max-fast, claude-sonnet-5-low, claude-sonnet-5-medium, claude-sonnet-5-high, claude-sonnet-5-xhigh, claude-sonnet-5-max, claude-sonnet-5-thinking-low, claude-sonnet-5-thinking-medium, claude-sonnet-5-thinking-max, claude-4.6-sonnet-medium, claude-4.6-sonnet-medium-thinking, claude-opus-4-7-low, claude-opus-4-7-low-fast, claude-opus-4-7-medium, claude-opus-4-7-medium-fast, claude-opus-4-7-high, claude-opus-4-7-high-fast, claude-opus-4-7-xhigh, claude-opus-4-7-xhigh-fast, claude-opus-4-7-max, claude-opus-4-7-max-fast, claude-opus-4-7-thinking-low, claude-opus-4-7-thinking-low-fast, claude-opus-4-7-thinking-medium, claude-opus-4-7-thinking-medium-fast, claude-opus-4-7-thinking-high, claude-opus-4-7-thinking-high-fast, claude-opus-4-7-thinking-xhigh, claude-opus-4-7-thinking-xhigh-fast, claude-opus-4-7-thinking-max, claude-opus-4-7-thinking-max-fast, gpt-5.4-low, gpt-5.4-medium, gpt-5.4-medium-fast, gpt-5.4-high, gpt-5.4-high-fast, gpt-5.4-xhigh, gpt-5.4-xhigh-fast, claude-4.6-opus-high, claude-4.6-opus-max, claude-4.6-opus-high-thinking, claude-4.6-opus-max-thinking, claude-4.5-opus-high, claude-4.5-opus-high-thinking, gpt-5.2-low, gpt-5.2-low-fast, gpt-5.2-fast, gpt-5.2-high, gpt-5.2-high-fast, gpt-5.2-xhigh, gpt-5.2-xhigh-fast, gpt-5.6-luna-none, gpt-5.6-luna-none-fast, gpt-5.6-luna-low, gpt-5.6-luna-low-fast, gpt-5.6-luna-medium, gpt-5.6-luna-medium-fast, gpt-5.6-luna-high-fast, gpt-5.6-luna-xhigh, gpt-5.6-luna-xhigh-fast, gpt-5.6-luna-max, gpt-5.6-luna-max-fast, gemini-3.6-flash-minimal, gemini-3.6-flash-low, gemini-3.6-flash-medium, gemini-3.6-flash-high, gemini-3.1-pro, gpt-5.4-mini-none, gpt-5.4-mini-low, gpt-5.4-mini-medium, gpt-5.4-mini-high, gpt-5.4-mini-xhigh, gpt-5.4-nano-none, gpt-5.4-nano-low, gpt-5.4-nano-medium, gpt-5.4-nano-high, gpt-5.4-nano-xhigh, claude-4.5-sonnet, claude-4.5-sonnet-thinking, gpt-5.1-low, gpt-5.1, gpt-5.1-high, gemini-3-flash, gemini-3.5-flash, claude-4-sonnet, claude-4-sonnet-thinking, gpt-5-mini, kimi-k3-low, kimi-k3-high, kimi-k3-max, kimi-k2.7-code, glm-5.2-high, glm-5.2-max - use one of the supported models"
+        }
+      },
+      "sandbox-read-only": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "sandbox",
+          "supported": [
+            "effort"
+          ],
+          "supportedBy": [
+            {
+              "harness": "codex",
+              "spelling": "--sandbox"
+            }
+          ],
+          "message": "cursor cannot express option \"sandbox\" (read-only); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "context-window": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "contextWindow",
+          "supported": [
+            "effort"
+          ],
+          "supportedBy": [
+            {
+              "harness": "codex",
+              "spelling": "-c"
+            }
+          ],
+          "message": "cursor cannot express option \"contextWindow\" (100000); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "provider": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "provider",
+          "supported": [
+            "effort"
+          ],
+          "supportedBy": [
+            {
+              "harness": "pi",
+              "spelling": "--provider"
+            }
+          ],
+          "message": "cursor cannot express option \"provider\" (zai); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-tools": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "discovery",
+          "supported": [
+            "effort"
+          ],
+          "message": "cursor cannot express option \"discovery\" (tools); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-instruction-files": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "discovery",
+          "supported": [
+            "effort"
+          ],
+          "message": "cursor cannot express option \"discovery\" (instructionFiles); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-extensions": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "discovery",
+          "supported": [
+            "effort"
+          ],
+          "message": "cursor cannot express option \"discovery\" (extensions); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-skills": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "discovery",
+          "supported": [
+            "effort"
+          ],
+          "message": "cursor cannot express option \"discovery\" (skills); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "discovery-all-on": {
+        "argv": [
+          "agent",
+          "-p",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--stream-partial-output"
+        ]
+      },
+      "write-off": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "write",
+          "supported": [
+            "effort"
+          ],
+          "supportedBy": [
+            {
+              "harness": "muse",
+              "spelling": "--disable-write"
+            }
+          ],
+          "message": "cursor cannot express option \"write\" (false); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "shell-off": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "shell",
+          "supported": [
+            "effort"
+          ],
+          "supportedBy": [
+            {
+              "harness": "muse",
+              "spelling": "--disable-shell"
+            }
+          ],
+          "message": "cursor cannot express option \"shell\" (false); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "max-steps": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "maxSteps",
+          "supported": [
+            "effort"
+          ],
+          "supportedBy": [
+            {
+              "harness": "muse",
+              "spelling": "--max-model-steps"
+            }
+          ],
+          "message": "cursor cannot express option \"maxSteps\" (5); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "system-prompt": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "systemPrompt",
+          "supported": [
+            "effort"
+          ],
+          "supportedBy": [],
+          "message": "cursor cannot express option \"systemPrompt\" (you are terse); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "append-system-prompt": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "appendSystemPrompt",
+          "supported": [
+            "effort"
+          ],
+          "supportedBy": [],
+          "message": "cursor cannot express option \"appendSystemPrompt\" (and polite); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "access-read": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "access",
+          "supported": [
+            "effort"
+          ],
+          "message": "cursor cannot express option \"access\" (read); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "access-write": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "access",
+          "supported": [
+            "effort"
+          ],
+          "message": "cursor cannot express option \"access\" (write); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "access-read-no-tools": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "discovery",
+          "supported": [
+            "effort"
+          ],
+          "message": "cursor cannot express option \"discovery\" (tools); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-include": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--allowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--tools"
+            }
+          ],
+          "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
+          "message": "cursor cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-include-native": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--allowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--tools"
+            }
+          ],
+          "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
+          "message": "cursor cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-include-empty": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--allowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--tools"
+            }
+          ],
+          "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
+          "message": "cursor cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-exclude": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "excludeTools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--disallowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--exclude-tools"
+            }
+          ],
+          "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
+          "message": "cursor cannot express option \"excludeTools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-exclude-native": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "excludeTools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--disallowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--exclude-tools"
+            }
+          ],
+          "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
+          "message": "cursor cannot express option \"excludeTools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-both": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "cursor",
+          "option": "tools",
+          "supported": [
+            "--tools (exact allowlist) or --exclude-tools (complement), never both"
+          ],
+          "message": "cursor cannot combine option \"tools\" (mutual exclusion); supported: --tools (exact allowlist) or --exclude-tools (complement), never both - pass exactly one of them"
+        }
+      },
+      "tools-via-toolmap": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--allowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--tools"
+            }
+          ],
+          "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
+          "message": "cursor cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-unknown-name": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--allowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--tools"
+            }
+          ],
+          "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
+          "message": "cursor cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "skills-pick": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "skills",
+          "supported": [
+            "caller-directed skill sets"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "skillOverrides"
+            },
+            {
+              "harness": "codex",
+              "spelling": "-c skills.config"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--skill"
+            }
+          ],
+          "hint": "muse scopes skills by workspace trust with no per-skill surface - include the skill content in the prompt or use --trust-workspace for the whole registry",
+          "message": "cursor cannot express option \"skills\"; supported: caller-directed skill sets - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "autonomy": {
+        "argv": [
+          "agent",
+          "-p",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--stream-partial-output",
+          "--force"
+        ]
+      },
+      "explicit-dash-prompt": {
+        "argv": [
+          "agent",
+          "-p",
+          "-x",
+          "--output-format",
+          "stream-json",
+          "--stream-partial-output"
+        ]
+      },
+      "implicit-dash-prompt": {
+        "refusal": {
+          "issue": "prompt-flag-injection",
+          "harness": "cursor",
+          "supported": [
+            "prompt must not start with '-'"
+          ],
+          "message": "positional prompt may not start with '-'; it would be parsed as a flag by cursor (it would be parsed as a flag by agent); supported: prompt must not start with '-' - remove leading '-' or prefix with a space"
         }
       }
     }
@@ -3861,7 +4619,7 @@
             }
           ],
           "hint": "pi has no unattended-run flag; approximate with a per-tool allowlist (--tools read,bash) if you need unattended behavior on pi",
-          "message": "pi has no unattended-run flag; supported: claude --dangerously-skip-permissions, codex --yolo, muse --yolo, cursor --force - drop autonomy or route to a supporting harness (claude --dangerously-skip-permissions, codex/muse --yolo)"
+          "message": "pi has no unattended-run flag; supported: claude --dangerously-skip-permissions, codex --yolo, muse --yolo, cursor --force - drop autonomy or route to a supporting harness (claude --dangerously-skip-permissions, codex --yolo, muse --yolo, cursor --force)"
         }
       },
       "explicit-dash-prompt": {
@@ -4420,6 +5178,778 @@
           "message": "positional prompt may not start with '-'; it would be parsed as a flag by muse (it would be parsed as a flag by muse); supported: prompt must not start with '-' - remove leading '-' or prefix with a space"
         }
       }
+    },
+    "cursor": {
+      "bare": {
+        "argv": [
+          "agent",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--stream-partial-output"
+        ]
+      },
+      "tool-free": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "isolation",
+          "supported": [
+            "effort"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--bare"
+            }
+          ],
+          "message": "cursor cannot express option \"isolation\" (tool-free); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tool-free-conflict": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "cursor",
+          "option": "isolation",
+          "supported": [
+            "tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough"
+          ],
+          "message": "cursor cannot combine option \"isolation\" (discovery); supported: tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough - pass exactly one of them"
+        }
+      },
+      "model": {
+        "argv": [
+          "agent",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--stream-partial-output",
+          "--model",
+          "auto"
+        ]
+      },
+      "effort-high": {
+        "argv": [
+          "agent",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--stream-partial-output"
+        ]
+      },
+      "effort-with-model": {
+        "argv": [
+          "agent",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--stream-partial-output",
+          "--model",
+          "auto"
+        ]
+      },
+      "effort-unknown": {
+        "refusal": {
+          "issue": "unknown-effort",
+          "harness": "cursor",
+          "option": "effort",
+          "supported": [
+            "minimal",
+            "none",
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "message": "unknown effort for cursor \"bogus\"; supported: minimal, none, low, medium, high, xhigh, max - use one of the ladder values"
+        }
+      },
+      "model-unknown": {
+        "refusal": {
+          "issue": "unknown-model",
+          "harness": "cursor",
+          "supported": [
+            "auto",
+            "gpt-5.3-codex-low",
+            "gpt-5.3-codex-low-fast",
+            "gpt-5.3-codex",
+            "gpt-5.3-codex-fast",
+            "gpt-5.3-codex-high",
+            "gpt-5.3-codex-high-fast",
+            "gpt-5.3-codex-xhigh",
+            "gpt-5.3-codex-xhigh-fast",
+            "gpt-5.2",
+            "cursor-grok-4.6-high-fast",
+            "composer-2.5",
+            "claude-opus-5-thinking-high",
+            "claude-opus-5-thinking-high-fast",
+            "gpt-5.6-sol-high",
+            "gpt-5.6-sol-high-fast",
+            "gpt-5.6-sol-xhigh",
+            "gpt-5.6-sol-xhigh-fast",
+            "claude-fable-5-thinking-high",
+            "claude-fable-5-thinking-xhigh",
+            "cursor-grok-4.5-high",
+            "cursor-grok-4.5-high-fast",
+            "gemini-3.7-flash-high",
+            "claude-sonnet-5-thinking-high",
+            "claude-sonnet-5-thinking-xhigh",
+            "gpt-5.6-luna-high",
+            "cursor-grok-4.6-low",
+            "cursor-grok-4.6-low-fast",
+            "cursor-grok-4.6-medium",
+            "cursor-grok-4.6-medium-fast",
+            "cursor-grok-4.6-high",
+            "cursor-grok-4.6-xhigh",
+            "cursor-grok-4.6-xhigh-fast",
+            "composer-2.5-fast",
+            "claude-opus-5-low",
+            "claude-opus-5-low-fast",
+            "claude-opus-5-medium",
+            "claude-opus-5-medium-fast",
+            "claude-opus-5-high",
+            "claude-opus-5-high-fast",
+            "claude-opus-5-thinking-low",
+            "claude-opus-5-thinking-low-fast",
+            "claude-opus-5-thinking-medium",
+            "claude-opus-5-thinking-medium-fast",
+            "claude-opus-5-thinking-xhigh",
+            "claude-opus-5-thinking-xhigh-fast",
+            "claude-opus-5-thinking-max",
+            "claude-opus-5-thinking-max-fast",
+            "claude-opus-4-8-low",
+            "claude-opus-4-8-low-fast",
+            "claude-opus-4-8-medium",
+            "claude-opus-4-8-medium-fast",
+            "claude-opus-4-8-high",
+            "claude-opus-4-8-high-fast",
+            "claude-opus-4-8-xhigh",
+            "claude-opus-4-8-xhigh-fast",
+            "claude-opus-4-8-max",
+            "claude-opus-4-8-max-fast",
+            "claude-opus-4-8-thinking-low",
+            "claude-opus-4-8-thinking-low-fast",
+            "claude-opus-4-8-thinking-medium",
+            "claude-opus-4-8-thinking-medium-fast",
+            "claude-opus-4-8-thinking-high",
+            "claude-opus-4-8-thinking-high-fast",
+            "claude-opus-4-8-thinking-xhigh",
+            "claude-opus-4-8-thinking-xhigh-fast",
+            "claude-opus-4-8-thinking-max",
+            "claude-opus-4-8-thinking-max-fast",
+            "gpt-5.6-sol-none",
+            "gpt-5.6-sol-none-fast",
+            "gpt-5.6-sol-low",
+            "gpt-5.6-sol-low-fast",
+            "gpt-5.6-sol-medium",
+            "gpt-5.6-sol-medium-fast",
+            "gpt-5.6-sol-max",
+            "gpt-5.6-sol-max-fast",
+            "gpt-5.5-none",
+            "gpt-5.5-none-fast",
+            "gpt-5.5-low",
+            "gpt-5.5-low-fast",
+            "gpt-5.5-medium",
+            "gpt-5.5-medium-fast",
+            "gpt-5.5-high",
+            "gpt-5.5-high-fast",
+            "gpt-5.5-extra-high",
+            "gpt-5.5-extra-high-fast",
+            "claude-fable-5-1-low",
+            "claude-fable-5-1-medium",
+            "claude-fable-5-1-high",
+            "claude-fable-5-1-xhigh",
+            "claude-fable-5-1-max",
+            "claude-fable-5-1-thinking-low",
+            "claude-fable-5-1-thinking-medium",
+            "claude-fable-5-1-thinking-high",
+            "claude-fable-5-1-thinking-xhigh",
+            "claude-fable-5-1-thinking-max",
+            "claude-fable-5-low",
+            "claude-fable-5-medium",
+            "claude-fable-5-high",
+            "claude-fable-5-xhigh",
+            "claude-fable-5-max",
+            "claude-fable-5-thinking-low",
+            "claude-fable-5-thinking-medium",
+            "claude-fable-5-thinking-max",
+            "cursor-grok-4.5-low",
+            "cursor-grok-4.5-low-fast",
+            "cursor-grok-4.5-medium",
+            "cursor-grok-4.5-medium-fast",
+            "gemini-3.8-flash-low",
+            "gemini-3.8-flash-medium",
+            "gemini-3.8-flash-high",
+            "gemini-3.7-flash-low",
+            "gemini-3.7-flash-medium",
+            "muse-spark-1.3-minimal",
+            "muse-spark-1.3-low",
+            "muse-spark-1.3-medium",
+            "muse-spark-1.3-high",
+            "muse-spark-1.3-xhigh",
+            "muse-spark-1.3-max",
+            "gpt-5.6-terra-none",
+            "gpt-5.6-terra-none-fast",
+            "gpt-5.6-terra-low",
+            "gpt-5.6-terra-low-fast",
+            "gpt-5.6-terra-medium",
+            "gpt-5.6-terra-medium-fast",
+            "gpt-5.6-terra-high",
+            "gpt-5.6-terra-high-fast",
+            "gpt-5.6-terra-xhigh",
+            "gpt-5.6-terra-xhigh-fast",
+            "gpt-5.6-terra-max",
+            "gpt-5.6-terra-max-fast",
+            "claude-sonnet-5-low",
+            "claude-sonnet-5-medium",
+            "claude-sonnet-5-high",
+            "claude-sonnet-5-xhigh",
+            "claude-sonnet-5-max",
+            "claude-sonnet-5-thinking-low",
+            "claude-sonnet-5-thinking-medium",
+            "claude-sonnet-5-thinking-max",
+            "claude-4.6-sonnet-medium",
+            "claude-4.6-sonnet-medium-thinking",
+            "claude-opus-4-7-low",
+            "claude-opus-4-7-low-fast",
+            "claude-opus-4-7-medium",
+            "claude-opus-4-7-medium-fast",
+            "claude-opus-4-7-high",
+            "claude-opus-4-7-high-fast",
+            "claude-opus-4-7-xhigh",
+            "claude-opus-4-7-xhigh-fast",
+            "claude-opus-4-7-max",
+            "claude-opus-4-7-max-fast",
+            "claude-opus-4-7-thinking-low",
+            "claude-opus-4-7-thinking-low-fast",
+            "claude-opus-4-7-thinking-medium",
+            "claude-opus-4-7-thinking-medium-fast",
+            "claude-opus-4-7-thinking-high",
+            "claude-opus-4-7-thinking-high-fast",
+            "claude-opus-4-7-thinking-xhigh",
+            "claude-opus-4-7-thinking-xhigh-fast",
+            "claude-opus-4-7-thinking-max",
+            "claude-opus-4-7-thinking-max-fast",
+            "gpt-5.4-low",
+            "gpt-5.4-medium",
+            "gpt-5.4-medium-fast",
+            "gpt-5.4-high",
+            "gpt-5.4-high-fast",
+            "gpt-5.4-xhigh",
+            "gpt-5.4-xhigh-fast",
+            "claude-4.6-opus-high",
+            "claude-4.6-opus-max",
+            "claude-4.6-opus-high-thinking",
+            "claude-4.6-opus-max-thinking",
+            "claude-4.5-opus-high",
+            "claude-4.5-opus-high-thinking",
+            "gpt-5.2-low",
+            "gpt-5.2-low-fast",
+            "gpt-5.2-fast",
+            "gpt-5.2-high",
+            "gpt-5.2-high-fast",
+            "gpt-5.2-xhigh",
+            "gpt-5.2-xhigh-fast",
+            "gpt-5.6-luna-none",
+            "gpt-5.6-luna-none-fast",
+            "gpt-5.6-luna-low",
+            "gpt-5.6-luna-low-fast",
+            "gpt-5.6-luna-medium",
+            "gpt-5.6-luna-medium-fast",
+            "gpt-5.6-luna-high-fast",
+            "gpt-5.6-luna-xhigh",
+            "gpt-5.6-luna-xhigh-fast",
+            "gpt-5.6-luna-max",
+            "gpt-5.6-luna-max-fast",
+            "gemini-3.6-flash-minimal",
+            "gemini-3.6-flash-low",
+            "gemini-3.6-flash-medium",
+            "gemini-3.6-flash-high",
+            "gemini-3.1-pro",
+            "gpt-5.4-mini-none",
+            "gpt-5.4-mini-low",
+            "gpt-5.4-mini-medium",
+            "gpt-5.4-mini-high",
+            "gpt-5.4-mini-xhigh",
+            "gpt-5.4-nano-none",
+            "gpt-5.4-nano-low",
+            "gpt-5.4-nano-medium",
+            "gpt-5.4-nano-high",
+            "gpt-5.4-nano-xhigh",
+            "claude-4.5-sonnet",
+            "claude-4.5-sonnet-thinking",
+            "gpt-5.1-low",
+            "gpt-5.1",
+            "gpt-5.1-high",
+            "gemini-3-flash",
+            "gemini-3.5-flash",
+            "claude-4-sonnet",
+            "claude-4-sonnet-thinking",
+            "gpt-5-mini",
+            "kimi-k3-low",
+            "kimi-k3-high",
+            "kimi-k3-max",
+            "kimi-k2.7-code",
+            "glm-5.2-high",
+            "glm-5.2-max"
+          ],
+          "message": "unknown cursor model \"no-such-model\"; supported: auto, gpt-5.3-codex-low, gpt-5.3-codex-low-fast, gpt-5.3-codex, gpt-5.3-codex-fast, gpt-5.3-codex-high, gpt-5.3-codex-high-fast, gpt-5.3-codex-xhigh, gpt-5.3-codex-xhigh-fast, gpt-5.2, cursor-grok-4.6-high-fast, composer-2.5, claude-opus-5-thinking-high, claude-opus-5-thinking-high-fast, gpt-5.6-sol-high, gpt-5.6-sol-high-fast, gpt-5.6-sol-xhigh, gpt-5.6-sol-xhigh-fast, claude-fable-5-thinking-high, claude-fable-5-thinking-xhigh, cursor-grok-4.5-high, cursor-grok-4.5-high-fast, gemini-3.7-flash-high, claude-sonnet-5-thinking-high, claude-sonnet-5-thinking-xhigh, gpt-5.6-luna-high, cursor-grok-4.6-low, cursor-grok-4.6-low-fast, cursor-grok-4.6-medium, cursor-grok-4.6-medium-fast, cursor-grok-4.6-high, cursor-grok-4.6-xhigh, cursor-grok-4.6-xhigh-fast, composer-2.5-fast, claude-opus-5-low, claude-opus-5-low-fast, claude-opus-5-medium, claude-opus-5-medium-fast, claude-opus-5-high, claude-opus-5-high-fast, claude-opus-5-thinking-low, claude-opus-5-thinking-low-fast, claude-opus-5-thinking-medium, claude-opus-5-thinking-medium-fast, claude-opus-5-thinking-xhigh, claude-opus-5-thinking-xhigh-fast, claude-opus-5-thinking-max, claude-opus-5-thinking-max-fast, claude-opus-4-8-low, claude-opus-4-8-low-fast, claude-opus-4-8-medium, claude-opus-4-8-medium-fast, claude-opus-4-8-high, claude-opus-4-8-high-fast, claude-opus-4-8-xhigh, claude-opus-4-8-xhigh-fast, claude-opus-4-8-max, claude-opus-4-8-max-fast, claude-opus-4-8-thinking-low, claude-opus-4-8-thinking-low-fast, claude-opus-4-8-thinking-medium, claude-opus-4-8-thinking-medium-fast, claude-opus-4-8-thinking-high, claude-opus-4-8-thinking-high-fast, claude-opus-4-8-thinking-xhigh, claude-opus-4-8-thinking-xhigh-fast, claude-opus-4-8-thinking-max, claude-opus-4-8-thinking-max-fast, gpt-5.6-sol-none, gpt-5.6-sol-none-fast, gpt-5.6-sol-low, gpt-5.6-sol-low-fast, gpt-5.6-sol-medium, gpt-5.6-sol-medium-fast, gpt-5.6-sol-max, gpt-5.6-sol-max-fast, gpt-5.5-none, gpt-5.5-none-fast, gpt-5.5-low, gpt-5.5-low-fast, gpt-5.5-medium, gpt-5.5-medium-fast, gpt-5.5-high, gpt-5.5-high-fast, gpt-5.5-extra-high, gpt-5.5-extra-high-fast, claude-fable-5-1-low, claude-fable-5-1-medium, claude-fable-5-1-high, claude-fable-5-1-xhigh, claude-fable-5-1-max, claude-fable-5-1-thinking-low, claude-fable-5-1-thinking-medium, claude-fable-5-1-thinking-high, claude-fable-5-1-thinking-xhigh, claude-fable-5-1-thinking-max, claude-fable-5-low, claude-fable-5-medium, claude-fable-5-high, claude-fable-5-xhigh, claude-fable-5-max, claude-fable-5-thinking-low, claude-fable-5-thinking-medium, claude-fable-5-thinking-max, cursor-grok-4.5-low, cursor-grok-4.5-low-fast, cursor-grok-4.5-medium, cursor-grok-4.5-medium-fast, gemini-3.8-flash-low, gemini-3.8-flash-medium, gemini-3.8-flash-high, gemini-3.7-flash-low, gemini-3.7-flash-medium, muse-spark-1.3-minimal, muse-spark-1.3-low, muse-spark-1.3-medium, muse-spark-1.3-high, muse-spark-1.3-xhigh, muse-spark-1.3-max, gpt-5.6-terra-none, gpt-5.6-terra-none-fast, gpt-5.6-terra-low, gpt-5.6-terra-low-fast, gpt-5.6-terra-medium, gpt-5.6-terra-medium-fast, gpt-5.6-terra-high, gpt-5.6-terra-high-fast, gpt-5.6-terra-xhigh, gpt-5.6-terra-xhigh-fast, gpt-5.6-terra-max, gpt-5.6-terra-max-fast, claude-sonnet-5-low, claude-sonnet-5-medium, claude-sonnet-5-high, claude-sonnet-5-xhigh, claude-sonnet-5-max, claude-sonnet-5-thinking-low, claude-sonnet-5-thinking-medium, claude-sonnet-5-thinking-max, claude-4.6-sonnet-medium, claude-4.6-sonnet-medium-thinking, claude-opus-4-7-low, claude-opus-4-7-low-fast, claude-opus-4-7-medium, claude-opus-4-7-medium-fast, claude-opus-4-7-high, claude-opus-4-7-high-fast, claude-opus-4-7-xhigh, claude-opus-4-7-xhigh-fast, claude-opus-4-7-max, claude-opus-4-7-max-fast, claude-opus-4-7-thinking-low, claude-opus-4-7-thinking-low-fast, claude-opus-4-7-thinking-medium, claude-opus-4-7-thinking-medium-fast, claude-opus-4-7-thinking-high, claude-opus-4-7-thinking-high-fast, claude-opus-4-7-thinking-xhigh, claude-opus-4-7-thinking-xhigh-fast, claude-opus-4-7-thinking-max, claude-opus-4-7-thinking-max-fast, gpt-5.4-low, gpt-5.4-medium, gpt-5.4-medium-fast, gpt-5.4-high, gpt-5.4-high-fast, gpt-5.4-xhigh, gpt-5.4-xhigh-fast, claude-4.6-opus-high, claude-4.6-opus-max, claude-4.6-opus-high-thinking, claude-4.6-opus-max-thinking, claude-4.5-opus-high, claude-4.5-opus-high-thinking, gpt-5.2-low, gpt-5.2-low-fast, gpt-5.2-fast, gpt-5.2-high, gpt-5.2-high-fast, gpt-5.2-xhigh, gpt-5.2-xhigh-fast, gpt-5.6-luna-none, gpt-5.6-luna-none-fast, gpt-5.6-luna-low, gpt-5.6-luna-low-fast, gpt-5.6-luna-medium, gpt-5.6-luna-medium-fast, gpt-5.6-luna-high-fast, gpt-5.6-luna-xhigh, gpt-5.6-luna-xhigh-fast, gpt-5.6-luna-max, gpt-5.6-luna-max-fast, gemini-3.6-flash-minimal, gemini-3.6-flash-low, gemini-3.6-flash-medium, gemini-3.6-flash-high, gemini-3.1-pro, gpt-5.4-mini-none, gpt-5.4-mini-low, gpt-5.4-mini-medium, gpt-5.4-mini-high, gpt-5.4-mini-xhigh, gpt-5.4-nano-none, gpt-5.4-nano-low, gpt-5.4-nano-medium, gpt-5.4-nano-high, gpt-5.4-nano-xhigh, claude-4.5-sonnet, claude-4.5-sonnet-thinking, gpt-5.1-low, gpt-5.1, gpt-5.1-high, gemini-3-flash, gemini-3.5-flash, claude-4-sonnet, claude-4-sonnet-thinking, gpt-5-mini, kimi-k3-low, kimi-k3-high, kimi-k3-max, kimi-k2.7-code, glm-5.2-high, glm-5.2-max - use one of the supported models"
+        }
+      },
+      "sandbox-read-only": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "sandbox",
+          "supported": [
+            "effort"
+          ],
+          "supportedBy": [
+            {
+              "harness": "codex",
+              "spelling": "--sandbox"
+            }
+          ],
+          "message": "cursor cannot express option \"sandbox\" (read-only); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "context-window": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "contextWindow",
+          "supported": [
+            "effort"
+          ],
+          "supportedBy": [
+            {
+              "harness": "codex",
+              "spelling": "-c"
+            }
+          ],
+          "message": "cursor cannot express option \"contextWindow\" (100000); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "provider": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "provider",
+          "supported": [
+            "effort"
+          ],
+          "supportedBy": [
+            {
+              "harness": "pi",
+              "spelling": "--provider"
+            }
+          ],
+          "message": "cursor cannot express option \"provider\" (zai); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-tools": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "discovery",
+          "supported": [
+            "effort"
+          ],
+          "message": "cursor cannot express option \"discovery\" (tools); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-instruction-files": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "discovery",
+          "supported": [
+            "effort"
+          ],
+          "message": "cursor cannot express option \"discovery\" (instructionFiles); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-extensions": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "discovery",
+          "supported": [
+            "effort"
+          ],
+          "message": "cursor cannot express option \"discovery\" (extensions); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-skills": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "discovery",
+          "supported": [
+            "effort"
+          ],
+          "message": "cursor cannot express option \"discovery\" (skills); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "discovery-all-on": {
+        "argv": [
+          "agent",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--stream-partial-output"
+        ]
+      },
+      "write-off": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "write",
+          "supported": [
+            "effort"
+          ],
+          "supportedBy": [
+            {
+              "harness": "muse",
+              "spelling": "--disable-write"
+            }
+          ],
+          "message": "cursor cannot express option \"write\" (false); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "shell-off": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "shell",
+          "supported": [
+            "effort"
+          ],
+          "supportedBy": [
+            {
+              "harness": "muse",
+              "spelling": "--disable-shell"
+            }
+          ],
+          "message": "cursor cannot express option \"shell\" (false); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "max-steps": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "maxSteps",
+          "supported": [
+            "effort"
+          ],
+          "supportedBy": [
+            {
+              "harness": "muse",
+              "spelling": "--max-model-steps"
+            }
+          ],
+          "message": "cursor cannot express option \"maxSteps\" (5); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "system-prompt": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "systemPrompt",
+          "supported": [
+            "effort"
+          ],
+          "supportedBy": [],
+          "message": "cursor cannot express option \"systemPrompt\" (you are terse); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "append-system-prompt": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "appendSystemPrompt",
+          "supported": [
+            "effort"
+          ],
+          "supportedBy": [],
+          "message": "cursor cannot express option \"appendSystemPrompt\" (and polite); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "access-read": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "access",
+          "supported": [
+            "effort"
+          ],
+          "message": "cursor cannot express option \"access\" (read); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "access-write": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "access",
+          "supported": [
+            "effort"
+          ],
+          "message": "cursor cannot express option \"access\" (write); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "access-read-no-tools": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "discovery",
+          "supported": [
+            "effort"
+          ],
+          "message": "cursor cannot express option \"discovery\" (tools); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-include": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--allowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--tools"
+            }
+          ],
+          "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
+          "message": "cursor cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-include-native": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--allowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--tools"
+            }
+          ],
+          "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
+          "message": "cursor cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-include-empty": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--allowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--tools"
+            }
+          ],
+          "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
+          "message": "cursor cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-exclude": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "excludeTools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--disallowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--exclude-tools"
+            }
+          ],
+          "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
+          "message": "cursor cannot express option \"excludeTools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-exclude-native": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "excludeTools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--disallowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--exclude-tools"
+            }
+          ],
+          "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
+          "message": "cursor cannot express option \"excludeTools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-both": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "cursor",
+          "option": "tools",
+          "supported": [
+            "--tools (exact allowlist) or --exclude-tools (complement), never both"
+          ],
+          "message": "cursor cannot combine option \"tools\" (mutual exclusion); supported: --tools (exact allowlist) or --exclude-tools (complement), never both - pass exactly one of them"
+        }
+      },
+      "tools-via-toolmap": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--allowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--tools"
+            }
+          ],
+          "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
+          "message": "cursor cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-unknown-name": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--allowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--tools"
+            }
+          ],
+          "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
+          "message": "cursor cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "skills-pick": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "skills",
+          "supported": [
+            "caller-directed skill sets"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "skillOverrides"
+            },
+            {
+              "harness": "codex",
+              "spelling": "-c skills.config"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--skill"
+            }
+          ],
+          "hint": "muse scopes skills by workspace trust with no per-skill surface - include the skill content in the prompt or use --trust-workspace for the whole registry",
+          "message": "cursor cannot express option \"skills\"; supported: caller-directed skill sets - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "autonomy": {
+        "argv": [
+          "agent",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--stream-partial-output",
+          "--force"
+        ]
+      },
+      "explicit-dash-prompt": {
+        "argv": [
+          "agent",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "-x",
+          "--output-format",
+          "stream-json",
+          "--stream-partial-output"
+        ]
+      },
+      "implicit-dash-prompt": {
+        "refusal": {
+          "issue": "prompt-flag-injection",
+          "harness": "cursor",
+          "supported": [
+            "prompt must not start with '-'"
+          ],
+          "message": "positional prompt may not start with '-'; it would be parsed as a flag by cursor (it would be parsed as a flag by agent); supported: prompt must not start with '-' - remove leading '-' or prefix with a space"
+        }
+      }
     }
   },
   "session": {
@@ -4778,6 +6308,85 @@
             "pi"
           ],
           "message": "muse declares no persistent headless session mode; supported: claude, pi - use hcn run --resume <id>"
+        }
+      }
+    },
+    "cursor": {
+      "fresh": {
+        "refusal": {
+          "issue": "no-session-mode",
+          "harness": "cursor",
+          "supported": [
+            "claude",
+            "pi"
+          ],
+          "message": "cursor declares no persistent headless session mode; supported: claude, pi - use hcn run --resume <id>"
+        }
+      },
+      "model": {
+        "refusal": {
+          "issue": "no-session-mode",
+          "harness": "cursor",
+          "supported": [
+            "claude",
+            "pi"
+          ],
+          "message": "cursor declares no persistent headless session mode; supported: claude, pi - use hcn run --resume <id>"
+        }
+      },
+      "effort": {
+        "refusal": {
+          "issue": "no-session-mode",
+          "harness": "cursor",
+          "supported": [
+            "claude",
+            "pi"
+          ],
+          "message": "cursor declares no persistent headless session mode; supported: claude, pi - use hcn run --resume <id>"
+        }
+      },
+      "model-effort": {
+        "refusal": {
+          "issue": "no-session-mode",
+          "harness": "cursor",
+          "supported": [
+            "claude",
+            "pi"
+          ],
+          "message": "cursor declares no persistent headless session mode; supported: claude, pi - use hcn run --resume <id>"
+        }
+      },
+      "provider": {
+        "refusal": {
+          "issue": "no-session-mode",
+          "harness": "cursor",
+          "supported": [
+            "claude",
+            "pi"
+          ],
+          "message": "cursor declares no persistent headless session mode; supported: claude, pi - use hcn run --resume <id>"
+        }
+      },
+      "resume": {
+        "refusal": {
+          "issue": "no-session-mode",
+          "harness": "cursor",
+          "supported": [
+            "claude",
+            "pi"
+          ],
+          "message": "cursor declares no persistent headless session mode; supported: claude, pi - use hcn run --resume <id>"
+        }
+      },
+      "bad-id": {
+        "refusal": {
+          "issue": "no-session-mode",
+          "harness": "cursor",
+          "supported": [
+            "claude",
+            "pi"
+          ],
+          "message": "cursor declares no persistent headless session mode; supported: claude, pi - use hcn run --resume <id>"
         }
       }
     }
@@ -8469,6 +10078,1068 @@
             }
           ],
           "unrenderable": [
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
+          ]
+        }
+      }
+    },
+    "cursor": {
+      "bare": {
+        "resolved": {
+          "options": {},
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": "all-known",
+              "tier": "harness"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "effort",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "access-read": {
+        "resolved": {
+          "options": {},
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": "all-known",
+              "tier": "harness"
+            },
+            {
+              "key": "access",
+              "value": "read",
+              "tier": "harness"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "effort",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            },
+            {
+              "key": "access",
+              "tier": "arg"
+            }
+          ]
+        }
+      },
+      "access-read-explicit-sandbox": {
+        "resolved": {
+          "options": {
+            "sandbox": "read-only"
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "read-only",
+              "tier": "arg"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": "all-known",
+              "tier": "harness"
+            },
+            {
+              "key": "access",
+              "value": "read",
+              "tier": "harness"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "effort",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            },
+            {
+              "key": "access",
+              "tier": "arg"
+            }
+          ]
+        }
+      },
+      "access-read-config-sandbox": {
+        "resolved": {
+          "options": {
+            "sandbox": "read-only"
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "read-only",
+              "tier": "user-config"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": "all-known",
+              "tier": "harness"
+            },
+            {
+              "key": "access",
+              "value": "read",
+              "tier": "harness"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "effort",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            },
+            {
+              "key": "access",
+              "tier": "arg"
+            }
+          ]
+        }
+      },
+      "access-and-tools": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "cursor",
+          "option": "access",
+          "supported": [
+            "--access is a preset allowlist, not a filter over --tools/--exclude-tools"
+          ],
+          "message": "cursor cannot combine option \"access\" (mutual exclusion); supported: --access is a preset allowlist, not a filter over --tools/--exclude-tools - pass exactly one of them"
+        }
+      },
+      "access-from-project": {
+        "resolved": {
+          "options": {},
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": "all-known",
+              "tier": "harness"
+            },
+            {
+              "key": "access",
+              "value": "read",
+              "tier": "harness"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "effort",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            },
+            {
+              "key": "access",
+              "tier": "project-config"
+            }
+          ]
+        }
+      },
+      "access-invalid": {
+        "refusal": {
+          "issue": "invalid-option-value",
+          "harness": "cursor",
+          "option": "access",
+          "supported": [
+            "read",
+            "write"
+          ],
+          "message": "invalid value for option \"access\" on cursor (rw); supported: read, write - use a supported value instead"
+        }
+      },
+      "tools-within-floor": {
+        "resolved": {
+          "options": {
+            "tools": [
+              "read"
+            ]
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": [
+                "read"
+              ],
+              "tier": "arg"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "effort",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "tools-exceeds-floor": {
+        "refusal": {
+          "name": "FloorExceededError",
+          "excess": [
+            "shell"
+          ],
+          "floor": [
+            "read"
+          ],
+          "message": "tool grant exceeds the project floor: [\"shell\"] not in floor [\"read\"] - request a grant within the floor or raise the floor in the project config"
+        }
+      },
+      "tools-empty-floor": {
+        "refusal": {
+          "name": "FloorExceededError",
+          "excess": [
+            "read"
+          ],
+          "floor": [],
+          "message": "tool grant exceeds the project floor: [\"read\"] not in floor [] - request a grant within the floor or raise the floor in the project config"
+        }
+      },
+      "toolset": {
+        "resolved": {
+          "options": {
+            "tools": [
+              "read",
+              "grep"
+            ]
+          },
+          "provenance": [
+            {
+              "key": "tools",
+              "value": [
+                "read",
+                "grep"
+              ],
+              "tier": "arg"
+            },
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": [
+                "read",
+                "grep"
+              ],
+              "tier": "arg"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "effort",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "toolmap-tiers": {
+        "resolved": {
+          "options": {
+            "toolMap": {
+              "pi": {
+                "web-search": {
+                  "native": "ws_project",
+                  "tier": "project-config"
+                }
+              }
+            }
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": "all-known",
+              "tier": "harness"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "effort",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "discovery-tools-off": {
+        "resolved": {
+          "options": {
+            "discovery": {
+              "tools": false
+            }
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": false
+              },
+              "tier": "arg"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": "all-known",
+              "tier": "harness"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "effort",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "effort-tiers": {
+        "resolved": {
+          "options": {},
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "low",
+              "tier": "project-config"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": "all-known",
+              "tier": "harness"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "effort",
+              "tier": "project-config"
+            },
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "effort-arg-wins": {
+        "resolved": {
+          "options": {
+            "effort": "max"
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "max",
+              "tier": "arg"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": "all-known",
+              "tier": "harness"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "behaviour-keys": {
+        "resolved": {
+          "options": {
+            "questions": "assume",
+            "timeout": 30
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": "all-known",
+              "tier": "harness"
+            },
+            {
+              "key": "questions",
+              "value": "assume",
+              "tier": "user-config"
+            },
+            {
+              "key": "timeout",
+              "value": 30,
+              "tier": "user-config"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "effort",
+              "tier": "profile"
+            },
             {
               "key": "sandbox",
               "tier": "profile"

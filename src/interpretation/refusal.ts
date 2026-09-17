@@ -100,8 +100,13 @@ export const buildRefusalMessage = (
       return `${harness === undefined ? "cannot combine" : `${harness} cannot combine`}${optionPart}${detailSuffix}; ${supportedStr} - pass exactly one of them`;
     case "prompt-flag-injection":
       return `positional prompt may not start with '-'; it would be parsed as a flag by ${who}${detailSuffix}; ${supportedStr} - remove leading '-' or prefix with a space`;
-    case "no-autonomy-mode":
-      return `${who} has no unattended-run flag; ${supportedStr} - drop autonomy or route to a supporting harness (claude --dangerously-skip-permissions, codex/muse --yolo)`;
+    case "no-autonomy-mode": {
+      // The supporting-harness tail derives from the supported list the
+      // raise site computed from descriptors, so a new autonomy grant
+      // (cursor --force) appears without editing this message.
+      const tail = supported.length > 0 ? ` (${supported.join(", ")})` : "";
+      return `${who} has no unattended-run flag; ${supportedStr} - drop autonomy or route to a supporting harness${tail}`;
+    }
     case "no-session-mode":
       return `${who} declares no persistent headless session mode; ${supportedStr} - use hcn run --resume <id>`;
     case "native-settings-unavailable":

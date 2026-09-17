@@ -925,6 +925,51 @@ describe("hcn run execution (human + json)", () => {
     expect(out.stderr).toMatch(/supported/i);
   });
 
+  test("F-23 cursor resume with unknown id refuses with invalid-option-value and path", async () => {
+    const tmpHome = mkdtempSync(join(tmpdir(), "hcn-home-"));
+    const tmpCwd = mkdtempSync(join(tmpdir(), "hcn-cwd-"));
+    const prevHome = process.env.HOME;
+    const prevHcn = process.env.HCN_CONFIG_DIR;
+    const prevCursor = process.env.CURSOR_CONFIG_DIR;
+    const prevXdg = process.env.XDG_CONFIG_HOME;
+    process.env.HOME = tmpHome;
+    process.env.HCN_CONFIG_DIR = mkdtempSync(join(tmpdir(), "hcn-cfg-"));
+    delete process.env.CURSOR_CONFIG_DIR;
+    delete process.env.XDG_CONFIG_HOME;
+    try {
+      const fakeId = "33333333-3333-4333-8333-333333333333";
+      const out = await captureDispatch([
+        "run",
+        "cursor",
+        "hi",
+        "--resume",
+        fakeId,
+        "--cwd",
+        tmpCwd,
+      ]);
+      expect(out.exitCode).toBe(2);
+      expect(out.stderr).toContain(`no cursor session ${fakeId} found at`);
+      expect(out.stderr).toContain(join(tmpHome, ".cursor", "chats"));
+    } finally {
+      if (prevHome === undefined) delete process.env.HOME;
+      else process.env.HOME = prevHome;
+      if (prevHcn === undefined) delete process.env.HCN_CONFIG_DIR;
+      else process.env.HCN_CONFIG_DIR = prevHcn;
+      if (prevCursor === undefined) delete process.env.CURSOR_CONFIG_DIR;
+      else process.env.CURSOR_CONFIG_DIR = prevCursor;
+      if (prevXdg === undefined) delete process.env.XDG_CONFIG_HOME;
+      else process.env.XDG_CONFIG_HOME = prevXdg;
+      rmSync(tmpHome, { recursive: true, force: true });
+      rmSync(tmpCwd, { recursive: true, force: true });
+      const cfg = process.env.HCN_CONFIG_DIR;
+      if (cfg && cfg.startsWith(tmpdir())) {
+        try {
+          rmSync(cfg, { recursive: true, force: true });
+        } catch {}
+      }
+    }
+  });
+
   test("F-23 pi resume with unknown id refuses with invalid-option-value and path", async () => {
     const tmpHome = mkdtempSync(join(tmpdir(), "hcn-home-"));
     const tmpCwd = mkdtempSync(join(tmpdir(), "hcn-cwd-"));

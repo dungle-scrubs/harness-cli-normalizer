@@ -1,0 +1,30 @@
+{"type":"system","subtype":"init","apiKeySource":"login","cwd":"/hcn-cursor-spike/ws-main","session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e","model":"Composer 2.5 Fast","permissionMode":"default"}
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"Write a four-line poem about rivers. Each line must start with the word River."}]},"session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e"}
+{"type":"thinking","subtype":"delta","text":"Writing a four-line ","session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e","timestamp_ms":1789566810061}
+{"type":"thinking","subtype":"delta","text":"poem about rivers. Each","session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e","timestamp_ms":1789566810062}
+{"type":"thinking","subtype":"delta","text":" line will begin with","session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e","timestamp_ms":1789566810062}
+{"type":"thinking","subtype":"delta","text":" the word \"River\".","session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e","timestamp_ms":1789566810062}
+{"type":"thinking","subtype":"completed","session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e","timestamp_ms":1789566810062}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"River"}]},"session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e","timestamp_ms":1789566810062}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" runs"}]},"session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e","timestamp_ms":1789566810062}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" through valleys"}]},"session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e","timestamp_ms":1789566810062}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":","}]},"session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e","timestamp_ms":1789566810062}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" green and wide"}]},"session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e","timestamp_ms":1789566810062}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":","}]},"session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e","timestamp_ms":1789566810062}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"  \nRiver wh"}]},"session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e","timestamp_ms":1789566810062}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"ispers secrets the"}]},"session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e","timestamp_ms":1789566810062}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" mountains"}]},"session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e","timestamp_ms":1789566810062}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" hide"}]},"session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e","timestamp_ms":1789566810062}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":","}]},"session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e","timestamp_ms":1789566810062}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"  \nRiver carries"}]},"session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e","timestamp_ms":1789566810063}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" sunlight"}]},"session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e","timestamp_ms":1789566810063}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" on"}]},"session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e","timestamp_ms":1789566810063}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" its tide,"}]},"session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e","timestamp_ms":1789566810063}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"  \nRiver"}]},"session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e","timestamp_ms":1789566810063}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" finds the"}]},"session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e","timestamp_ms":1789566810063}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" sea"}]},"session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e","timestamp_ms":1789566810063}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" and"}]},"session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e","timestamp_ms":1789566810063}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" rests"}]},"session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e","timestamp_ms":1789566810063}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":" inside."}]},"session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e","timestamp_ms":1789566810063}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"River runs through valleys, green and wide,  \nRiver whispers secrets the mountains hide,  \nRiver carries sunlight on its tide,  \nRiver finds the sea and rests inside."}]},"session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e"}
+{"type":"result","subtype":"success","duration_ms":5841,"duration_api_ms":5841,"is_error":false,"result":"River runs through valleys, green and wide,  \nRiver whispers secrets the mountains hide,  \nRiver carries sunlight on its tide,  \nRiver finds the sea and rests inside.","session_id":"e4df9e9e-2366-43f7-a75f-e0cb052ef45e","request_id":"b7706c11-4744-422f-88e6-848d6ba6e0ec","usage":{"inputTokens":7911,"outputTokens":80,"cacheReadTokens":8800,"cacheWriteTokens":0}}

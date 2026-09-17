@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -85,6 +86,20 @@ describe("cursor store root (RFC-05 rootEnv)", () => {
     expect(check.path?.startsWith(`${cfg}/chats/`)).toBe(true);
   });
 
+  test("both variables set: CURSOR_CONFIG_DIR wins with no cursor suffix (probes 44/45)", () => {
+    const home = mkdtempSync(join(tmpdir(), "hcn-root-"));
+    const cwd = mkdtempSync(join(tmpdir(), "hcn-root-cwd-"));
+    const cfg = mkdtempSync(join(tmpdir(), "hcn-root-cfg-"));
+    const xdg = mkdtempSync(join(tmpdir(), "hcn-root-xdg-"));
+    const check = resumeStore(cursorCli, {
+      home,
+      cwd,
+      sessionId: id,
+      env: { CURSOR_CONFIG_DIR: cfg, XDG_CONFIG_HOME: xdg },
+    });
+    expect(check.path?.startsWith(`${cfg}/chats/`)).toBe(true);
+  });
+
   test("set-but-empty counts as unset, so XDG_CONFIG_HOME applies (probe 53)", () => {
     const home = mkdtempSync(join(tmpdir(), "hcn-root-"));
     const cwd = mkdtempSync(join(tmpdir(), "hcn-root-cwd-"));
@@ -99,8 +114,14 @@ describe("cursor store root (RFC-05 rootEnv)", () => {
   });
 
   test("a relative value resolves against the spawn cwd (probe 54)", () => {
+    // Probe 54 ran with process cwd equal to spawn cwd, so the split
+    // between the two is unverified: the anchor is the spawn cwd (the cwd
+    // hcn spawns with), chosen because probe 55 files the session under
+    // the workspace Cursor actually ran in. This test pins the spawn-cwd
+    // anchor by passing a cwd that differs from process.cwd().
     const home = mkdtempSync(join(tmpdir(), "hcn-root-"));
     const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "hcn-root-cwd-")));
+    expect(cwd).not.toBe(process.cwd());
     const check = resumeStore(cursorCli, {
       home,
       cwd,
@@ -108,6 +129,30 @@ describe("cursor store root (RFC-05 rootEnv)", () => {
       env: { CURSOR_CONFIG_DIR: "relcfg" },
     });
     expect(check.path?.startsWith(`${join(cwd, "relcfg")}/chats/`)).toBe(true);
+  });
+
+  test("the md5 slug matches an independent digest on probe-shaped inputs", () => {
+    // Probe 38's trailing-slash workspace files under
+    // 6fd4032ededd13cf85abaa78342f2203 and probe 46's ws-café under
+    // 4fe2ebd9c22e4f5f59adc829aef37279 (both re-verified with an
+    // independent md5 over the live spike realpaths). Those absolute
+    // paths are machine-specific, so this test pins the same rule
+    // hermetically: the vendored slug equals node:crypto md5 over the
+    // slash-stripped UTF-8 bytes, for a trailing-slash and a café input.
+    for (const cwd of ["/ws-main/", "/tmp/ws-café"]) {
+      const slug = storePath(cursorCli, { home: "/H", cwd, sessionId: id }).split("/").at(-1);
+      const stripped = cwd.endsWith("/") && cwd.length > 1 ? cwd.slice(0, -1) : cwd;
+      expect(slug).toBe(createHash("md5").update(stripped, "utf8").digest("hex"));
+    }
+  });
+
+  test("a relocated store reports the miss with the expected path", () => {
+    const home = mkdtempSync(join(tmpdir(), "hcn-root-"));
+    const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "hcn-root-cwd-")));
+    const missing = "22222222-2222-4222-8222-222222222222";
+    const check = resumeStore(cursorCli, { home, cwd, sessionId: missing, env: {} });
+    expect(check.exists).toBe(false);
+    expect(check.path).toBe(storePath(cursorCli, { home, cwd, sessionId: missing }));
   });
 
   test("with neither variable set the defaultRoot fallback applies (probe 45)", () => {
