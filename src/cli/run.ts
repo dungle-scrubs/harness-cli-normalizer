@@ -43,15 +43,20 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   // --env store relocation moves the guard with the child.
   const resume = plan.options.resume;
   if (resume !== undefined && h.resume.onMissing === "create") {
+    // The guard reads the child's effective environment once: --env merged
+    // over the process env with the spawn's delete rule, plus the
+    // descriptor turn env. Home comes from that same env, so --env HOME
+    // moves the guard with the child.
+    const guardEnv = effectiveGuardEnv(
+      process.env,
+      plan.options.env ?? {},
+      buildTurnEnv(h, plan.options, "resume"),
+    );
     const { path, exists } = resumeStore(h, {
-      home: process.env.HOME ?? process.env.USERPROFILE ?? "",
+      home: guardEnv.HOME ?? guardEnv.USERPROFILE ?? "",
       cwd: plan.options.cwd ?? process.cwd(),
       sessionId: resume,
-      env: effectiveGuardEnv(
-        process.env,
-        plan.options.env ?? {},
-        buildTurnEnv(h, plan.options, "resume"),
-      ),
+      env: guardEnv,
     });
     if (path !== null && !exists) {
       refuse(

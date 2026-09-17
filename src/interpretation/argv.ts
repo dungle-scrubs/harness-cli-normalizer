@@ -276,6 +276,7 @@ export const buildSpawnArgv = (h: HarnessDescriptor, opts: SpawnArgvOptions): st
       supported: [],
       hint: `remove the tokens after \`--\` and re-run on ${h.name}`,
       detail: (opts.passthrough ?? []).join(" "),
+      bin: h.bin,
     });
   }
   const nativeSettingsArgs = renderVerifiedNativeSettings(h, opts);

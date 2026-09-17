@@ -37,6 +37,20 @@ describe("buildSpawnArgv cursor passthrough", () => {
     expect(caught?.message).toContain(cursorCli.bin);
   });
 
+  test("the message names the descriptor in use's bin, not the default", () => {
+    // N3: an override file can change bin (overrides.ts forbids only name),
+    // so the refusal must carry the descriptor that raised it.
+    const renamed = { ...cursorCli, bin: "cursor-agent" };
+    let caught: ArgvRefusalError | null = null;
+    try {
+      buildSpawnArgv(renamed, { prompt: "hi", passthrough: ["--trust"] });
+    } catch (err) {
+      caught = err as ArgvRefusalError;
+    }
+    expect(caught).toBeInstanceOf(ArgvRefusalError);
+    expect(caught?.message).toContain("cursor-agent");
+  });
+
   test("an empty tail still builds cursor argv", () => {
     const argv = buildSpawnArgv(cursorCli, { prompt: "hi", passthrough: [] });
     expect(argv).not.toContain("--");

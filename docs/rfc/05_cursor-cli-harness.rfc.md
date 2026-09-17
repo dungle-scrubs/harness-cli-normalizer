@@ -152,6 +152,8 @@ Draft-08 follows the brief's fixed decision rule, grounded in `spike-addendum.md
 
 1. Config-tier sandbox and access values refuse, not diverge. The Refusals row says non-arg-tier sandbox values diverge with tier-and-key provenance, and the Sandbox section says profile and config-tier sandbox values diverge through the no-spec split. The code refuses user-config and project-config values of both options with `unsupported-option` (verified: project-config `sandbox: read-only`, user-config `sandbox: read-only`, and project-config `access: read` all refuse). Only the profile-tier default diverges (sandbox; access has no profile tier, so every access value refuses). Refusal fails safe, so the spec text is corrected to the code, not the other way around.
 
+2. The plan-turn resolve step also runs when a model is present without effort. The Composition site paragraph says the step runs when arg-tier `--effort` is present; the code also runs it when a model from any tier is present without effort (verified: `--model claude-opus-4-8` with no effort refuses `unknown-model` with the stem's 5 row slugs, and `--model claude-opus-4-8-high` with no effort leaves argv and provenance unchanged). A bare stem refuses with its row instead of reaching turnTail's full-list `unknown-model`.
+
 ### Context
 
 This RFC follows the same house pattern as the four existing descriptors: facts as data in `src/knowledge/cursor.ts`, translation in `src/interpretation`, lifecycle in `src/execution`. It creates no new layer and changes no existing harness behavior. RFC-02's rules apply throughout: no new branch on `h.name`, one owner per rule, and every closed vocabulary declared once as a runtime array.

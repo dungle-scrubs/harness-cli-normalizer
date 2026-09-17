@@ -1,11 +1,13 @@
 /**
  * RFC-05 Phase 3: the plan-turn effort resolve step. Whenever arg-tier
- * --effort is present on a cursor launch or resume, the model (from any
- * tier, or none) resolves through resolveEffortSlug and opts.model is
- * replaced with the slug before buildSpawnArgv. On launch the supplying
- * provenance entry is rewritten to the slug (tier untouched), or an
- * arg-tier model entry is appended when none exists; on resume
- * provenance stays absent.
+ * --effort is present on a cursor launch or resume, or a model from any
+ * tier is present without effort, the model resolves through
+ * resolveEffortSlug and opts.model is replaced with the slug before
+ * buildSpawnArgv. A bare stem with no effort refuses unknown-model with
+ * its row; a full slug with no effort passes through with argv and
+ * provenance unchanged. On launch the supplying provenance entry is
+ * rewritten to the slug (tier untouched), or an arg-tier model entry is
+ * appended when none exists; on resume provenance stays absent.
  */
 import { describe, expect, test } from "vitest";
 import { type PlanDeps, planTurn } from "../../src/cli/plan-turn.js";
@@ -131,6 +133,24 @@ describe("planTurn cursor effort resolve step", () => {
       "claude-opus-4-8-xhigh",
       "claude-opus-4-8-max",
     ]);
+  });
+
+  test("launch: a full slug with no effort leaves argv and provenance unchanged", async () => {
+    // N5: the resolve step also runs when a model is present without
+    // effort, but a slug that already pins effort passes through
+    // untouched: no rewritten model, no appended provenance entry.
+    const outcome = await planTurn(
+      cursorCli,
+      ["--prompt", "hi", "--model", "claude-opus-4-8-high"],
+      { command: "run" },
+      deps,
+    );
+    expect(outcome.kind).toBe("plan");
+    if (outcome.kind !== "plan") return;
+    const modelAt = outcome.plan.argv.indexOf("--model");
+    expect(modelAt).toBeGreaterThanOrEqual(0);
+    expect(outcome.plan.argv[modelAt + 1]).toBe("claude-opus-4-8-high");
+    expect(outcome.plan.provenance.some((p) => p.key === "model")).toBe(false);
   });
 
   test("launch: a variant slug plus conflicting effort refuses invalid-option-value", async () => {

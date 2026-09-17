@@ -7,7 +7,6 @@
 
 import type { DiscoveryFacet, HarnessName, TurnOptionKey } from "../knowledge/descriptor.js";
 import { deepFreeze } from "../knowledge/descriptor.js";
-import { defaultDescriptors } from "../knowledge/overrides.js";
 
 export const REFUSAL_ISSUES = deepFreeze([
   "unsupported-option",
@@ -58,6 +57,10 @@ export const buildRefusalMessage = (
   facet?: DiscoveryFacet,
   supported: readonly string[] = [],
   detail?: string,
+  // N3: the native binary of the descriptor that raised the refusal. Set
+  // at the raise site (an override file can change bin); never looked up
+  // from the defaults here, which would ignore overrides.
+  bin?: string,
 ): string => {
   const supportedStr =
     supported.length > 0 ? `supported: ${supported.join(", ")}` : "supported: (none)";
@@ -117,8 +120,8 @@ export const buildRefusalMessage = (
       // positional prompt as text (probe 41), so a non-empty tail refuses
       // before spawn. The offending tokens ride `detail`; the
       // stay-on-harness hint is set at the raise site. The native binary
-      // rides the descriptor table, never a harness-name branch.
-      const bin = harness !== undefined ? defaultDescriptors()[harness]?.bin : undefined;
+      // arrives on the refusal from the descriptor in use, never from a
+      // harness-name branch or a defaults lookup.
       const invoke =
         bin === undefined ? "invoke the harness binary directly" : `invoke ${bin} directly`;
       return `${who} joins tokens after the -- separator into the prompt as text${detailSuffix}; ${supportedStr} - remove the tokens after -- and re-run; to pass native flags, ${invoke}`;
@@ -147,6 +150,10 @@ export class ArgvRefusalError extends Error {
    * scanning agent on its chosen harness instead of switching. Curatorial
    * data set at the raise site; absent when no hint exists. */
   readonly hint?: string;
+  /** N3: the native binary of the descriptor that raised the refusal, for
+   * message arms that name it. Set at the raise site; absent when the
+   * raising layer has no descriptor in scope. */
+  readonly bin?: string;
   constructor(args: {
     readonly issue: RefusalIssue;
     readonly harness?: HarnessName;
@@ -157,6 +164,7 @@ export class ArgvRefusalError extends Error {
     readonly hint?: string;
     readonly detail?: string;
     readonly message?: string;
+    readonly bin?: string;
   }) {
     const message =
       args.message ??
@@ -167,6 +175,7 @@ export class ArgvRefusalError extends Error {
         args.facet,
         args.supported ?? [],
         args.detail,
+        args.bin,
       );
     super(message);
     this.name = "ArgvRefusalError";
@@ -177,5 +186,6 @@ export class ArgvRefusalError extends Error {
     this.supported = args.supported ?? [];
     this.supportedBy = args.supportedBy;
     this.hint = args.hint;
+    this.bin = args.bin;
   }
 }

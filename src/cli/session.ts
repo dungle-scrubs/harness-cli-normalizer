@@ -209,15 +209,19 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   // child, so the guard checks through that same effective environment.
   if (resumeId !== undefined) {
     const { effectiveGuardEnv, resumeStore: checkResumeStore } = await import("./resume-guard.js");
+    // The guard reads the child's effective environment once (sessions take
+    // no --env, but the descriptor turn env still overlays the child), and
+    // home comes from that same env.
+    const guardEnv = effectiveGuardEnv(
+      process.env,
+      {},
+      memoryExpressible ? buildTurnEnv(h, { memory }, "launch") : {},
+    );
     const { path: storePath, exists } = checkResumeStore(h, {
-      home: process.env.HOME ?? process.env.USERPROFILE ?? "",
+      home: guardEnv.HOME ?? guardEnv.USERPROFILE ?? "",
       cwd: cwd ?? process.cwd(),
       sessionId,
-      env: effectiveGuardEnv(
-        process.env,
-        {},
-        memoryExpressible ? buildTurnEnv(h, { memory }, "launch") : {},
-      ),
+      env: guardEnv,
     });
     // Exists in the store: resume it, whichever alias was typed. Absent and the
     // caller only named an id: a fresh session under that id, as before.

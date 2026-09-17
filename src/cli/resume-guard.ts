@@ -36,11 +36,6 @@ export const resolveStoreRoot = (
   return h.store.defaultRoot?.replaceAll("{home}", () => opts.home);
 };
 
-/** Where a harness that creates sessions on an unknown id would
- * have filed this session. The cwd is resolved to its real path first: the
- * harness slugs the directory it actually ran in, and on macOS a temp
- * directory reached through /var is really under /private/var - slugging
- * the unresolved path refused valid resumes. */
 /** The environment the child will run with, for the pre-spawn store
  * check: per-call `--env` over the inherited environment, the
  * descriptor-derived turn env over that, with the spawn's delete-on-empty
@@ -53,6 +48,11 @@ export const effectiveGuardEnv = (
   turnEnv: Readonly<Record<string, string>> = {},
 ): Record<string, string> => mergeEnvironment(inherited, { ...callEnv, ...turnEnv });
 
+/** Where a harness that creates sessions on an unknown id would
+ * have filed this session. The cwd is resolved to its real path first: the
+ * harness slugs the directory it actually ran in, and on macOS a temp
+ * directory reached through /var is really under /private/var - slugging
+ * the unresolved path refused valid resumes. */
 export const resumeStore = (
   h: HarnessDescriptor,
   opts: {
