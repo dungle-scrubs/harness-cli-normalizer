@@ -17,6 +17,7 @@ const promptLabel = (raw: string): string =>
 import { ls } from "../../src/cli/ls.js";
 import { resolveHarness } from "../../src/cli/resolve-harness.js";
 import { getVersion } from "../../src/cli/version.js";
+import { ensureDist } from "./stub-dist.js";
 
 // Helper to capture stdout/stderr and exitCode for dispatch
 const captureDispatch = async (
@@ -756,48 +757,45 @@ describe("help/version snapshot", () => {
 });
 
 describe("integration: built cli via spawnSync", () => {
+  // L7: dist/ is git-ignored, so ensureDist fails with an actionable
+  // message when it is missing or older than src/ instead of letting
+  // these tests pass vacuously. Every assertion below is real - no
+  // try/catch swallowing, no early return.
   test("node dist/cli.js --help exits 0", () => {
-    // dist is built after tests in pnpm check, so skip if not yet built (CI)
-    try {
-      const result = spawnSync("node", ["dist/cli.js", "--help"], { encoding: "utf8" });
-      if (result.error && (result.error as NodeJS.ErrnoException).code === "ENOENT") return;
-      // If dist not built, status may be 1 due to missing file; treat as skip
-      if (result.status !== 0 && result.stderr?.includes("Cannot find module")) return;
-      expect(result.status).toBe(0);
-      expect(result.stdout).toContain("hcn");
-    } catch {
-      // skip if build not yet done
-    }
+    const cli = ensureDist();
+    const result = spawnSync("node", [cli, "--help"], { encoding: "utf8" });
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("hcn");
   });
 
   test("node dist/cli.js ls exits 0", () => {
-    try {
-      const result = spawnSync("node", ["dist/cli.js", "ls"], { encoding: "utf8" });
-      if (result.error && (result.error as NodeJS.ErrnoException).code === "ENOENT") return;
-      if (result.status !== 0 && result.stderr?.includes("Cannot find module")) return;
-      expect(result.status).toBe(0);
-      expect(result.stdout).toContain("claude@");
-    } catch {}
+    const cli = ensureDist();
+    const result = spawnSync("node", [cli, "ls"], { encoding: "utf8" });
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("claude@");
   });
 
   test("dist/cli.js is executable and bin.hcn points at it", () => {
-    try {
-      const result = spawnSync("ls", ["-l", "dist/cli.js"], { encoding: "utf8" });
-      if (result.error) return;
-      expect(result.stdout).toMatch(/x/);
-    } catch {}
+    const cli = ensureDist();
+    const result = spawnSync("ls", ["-l", cli], { encoding: "utf8" });
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(0);
+    expect(result.stdout).toMatch(/x/);
   });
 
   // Issue #33: through an npm global install, the bin is a symlink named
   // `hcn`, so argv[1] ends with "hcn" - the old filename-suffix guard never
   // matched and every invocation exited 0 with no output.
   test("hcn bin symlink (npm global install shape) runs the CLI", () => {
+    const cli = ensureDist();
     const tmp = mkdtempSync(join(tmpdir(), "hcn-bin-"));
     try {
       const link = join(tmp, "hcn");
-      symlinkSync(resolve("dist/cli.js"), link);
+      symlinkSync(resolve(cli), link);
       const result = spawnSync(link, ["ls"], { encoding: "utf8" });
-      if (result.error && (result.error as NodeJS.ErrnoException).code === "ENOENT") return; // dist not built
+      expect(result.error).toBeUndefined();
       expect(result.status).toBe(0);
       expect(result.stdout).toContain("claude@");
     } finally {
@@ -806,12 +804,13 @@ describe("integration: built cli via spawnSync", () => {
   });
 
   test("symlink named hcn pointing at dist/cli/index.js runs the CLI", () => {
+    ensureDist();
     const tmp = mkdtempSync(join(tmpdir(), "hcn-idx-"));
     try {
       const link = join(tmp, "hcn");
       symlinkSync(resolve("dist/cli/index.js"), link);
       const result = spawnSync(link, ["--help"], { encoding: "utf8" });
-      if (result.error && (result.error as NodeJS.ErrnoException).code === "ENOENT") return;
+      expect(result.error).toBeUndefined();
       expect(result.status).toBe(0);
       expect(result.stdout).toContain("hcn");
     } finally {
