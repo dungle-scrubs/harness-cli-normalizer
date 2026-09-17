@@ -138,9 +138,12 @@ const resumeLastCases = (
   return base;
 };
 
-/** Passthrough-tail cases (ADR 0003, RFC-05): a tail after hcn's bare
- * `--` reaches buildSpawnArgv on launch and resume alike. Prompt-joins
- * harnesses (cursor, pi, muse) refuse; the rest carry the tail verbatim. */
+/** Passthrough-tail cases (ADR 0003): a tail after hcn's bare `--`
+ * reaches buildSpawnArgv on launch and resume alike. All five harnesses
+ * declare after-argv placement, so every row carries the tail verbatim
+ * past hcn's own argv; a prompt-joins harness would refuse instead (none
+ * declares it today - that refusal is pinned in
+ * argv-passthrough-placement). */
 const passthroughCases = (): ReadonlyArray<readonly [string, SpawnArgvOptions]> => [
   ["empty", { prompt: "hi", passthrough: [] }],
   ["tail", { prompt: "hi", passthrough: ["--native-flag"] }],

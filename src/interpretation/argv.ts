@@ -177,15 +177,10 @@ const turnTail = (h: HarnessDescriptor, opts: TurnOptions): string[] => {
   return tail;
 };
 
-export const buildLaunchArgv = (
-  h: HarnessDescriptor,
-  opts: LaunchOptions,
-  passthroughBeforePrompt: readonly string[] = [],
-): string[] => [
+export const buildLaunchArgv = (h: HarnessDescriptor, opts: LaunchOptions): string[] => [
   h.bin,
   ...h.launch.baseFlags,
   ...renderTurnOptions(h, opts, "launch", "before-prompt").tokens,
-  ...passthroughBeforePrompt,
   ...turnTail(h, opts),
   ...renderTurnOptions(h, opts, "launch", "after-prompt").tokens,
 ];
@@ -231,7 +226,6 @@ const resumeArgv = (
   h: HarnessDescriptor,
   opts: ResumeOptions,
   nativeSettingsArgs: readonly string[],
-  passthroughBeforePrompt: readonly string[] = [],
 ): string[] => {
   refuseUnusableSessionId(h, opts.sessionId);
   assertAccessExclusivity(h, opts);
@@ -248,7 +242,6 @@ const resumeArgv = (
     ...h.resume.extraFlags,
     ...renderTurnOptions(h, opts, "resume", "before-prompt").tokens,
     ...nativeSettingsArgs,
-    ...passthroughBeforePrompt,
     ...turnTail(h, opts),
     ...renderTurnOptions(h, opts, "resume", "after-prompt").tokens,
   ];
@@ -303,7 +296,6 @@ const resumeLastArgv = (
   h: HarnessDescriptor,
   opts: SpawnArgvOptions,
   nativeSettingsArgs: readonly string[],
-  passthroughBeforePrompt: readonly string[] = [],
 ): string[] => {
   const resumeLast = assertResumeLastRenderable(h);
   assertAccessExclusivity(h, opts);
@@ -318,7 +310,6 @@ const resumeLastArgv = (
       ...h.resume.extraFlags,
       ...beforePrompt,
       ...nativeSettingsArgs,
-      ...passthroughBeforePrompt,
       ...turnTail(h, opts),
       ...afterPrompt,
     ];
@@ -336,7 +327,6 @@ const resumeLastArgv = (
     ...(h.contextInspection?.forkFlag !== undefined ? [h.contextInspection.forkFlag] : []),
     ...beforePrompt,
     ...nativeSettingsArgs,
-    ...passthroughBeforePrompt,
     ...turnTail(h, opts),
     ...afterPrompt,
   ];
@@ -379,13 +369,12 @@ export const buildSpawnArgv = (h: HarnessDescriptor, opts: SpawnArgvOptions): st
     });
   }
   const nativeSettingsArgs = renderVerifiedNativeSettings(h, opts);
-  const tailBeforePrompt = placement === "before-prompt" ? tail : [];
   const base =
     opts.resumeLast === true
-      ? resumeLastArgv(h, opts, nativeSettingsArgs, tailBeforePrompt)
+      ? resumeLastArgv(h, opts, nativeSettingsArgs)
       : opts.resume === undefined
-        ? buildLaunchArgv(h, opts, tailBeforePrompt)
-        : resumeArgv(h, { ...opts, sessionId: opts.resume }, nativeSettingsArgs, tailBeforePrompt);
+        ? buildLaunchArgv(h, opts)
+        : resumeArgv(h, { ...opts, sessionId: opts.resume }, nativeSettingsArgs);
   return placement === "after-argv" && tail.length > 0 ? [...base, ...tail] : base;
 };
 

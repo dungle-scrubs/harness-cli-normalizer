@@ -3,11 +3,13 @@
  * tokens after hcn's bare `--` reach the harness as native flags, so the
  * separator itself is never rendered into the harness argv. Each
  * descriptor declares where its tail goes (`launch.passthrough`):
- * `after-argv` appends past hcn's own argv, `before-prompt` splices ahead
- * of the prompt, and `prompt-joins` refuses before spawn on harnesses
- * where no placement parses. Absent means `after-argv`: trailing flags
- * parsed on all five harnesses, so an unverified descriptor gets the
- * working default, never the separator that broke every harness.
+ * `after-argv` appends past hcn's own argv, and `prompt-joins` refuses
+ * before spawn on harnesses where no placement parses. The `before-prompt`
+ * splice was removed (L5): no harness needed it, and a variadic tail ahead
+ * of the prompt is a hazard (claude would take the prompt as a directory).
+ * Absent means `after-argv`: trailing flags parsed on all five harnesses,
+ * so an unverified descriptor gets the working default, never the
+ * separator that broke every harness.
  *
  * Probe evidence (prompt "Reply with exactly OK", scrubbed env):
  * - claude 2.1.274: appended `--session-id <uuid>` honored as the session
@@ -70,33 +72,6 @@ describe("after-argv placement", () => {
       expect(argv).not.toContain("--");
     });
   }
-});
-
-describe("before-prompt placement", () => {
-  const before: HarnessDescriptor = {
-    ...claudeCode,
-    launch: { ...claudeCode.launch, passthrough: "before-prompt" },
-  };
-
-  test("launch splices the tail immediately ahead of the prompt", () => {
-    const argv = buildSpawnArgv(before, { prompt: "hi", passthrough: TAIL });
-    expect(argv).not.toContain("--");
-    const at = argv.indexOf("hi");
-    expect(at).toBeGreaterThan(0);
-    expect(argv.slice(at - TAIL.length, at)).toEqual(TAIL);
-  });
-
-  test("resume splices the tail immediately ahead of the prompt", () => {
-    const argv = buildSpawnArgv(before, {
-      prompt: "hi",
-      resume: SESSION_ID,
-      passthrough: TAIL,
-    });
-    expect(argv).not.toContain("--");
-    const at = argv.indexOf("hi");
-    expect(at).toBeGreaterThan(0);
-    expect(argv.slice(at - TAIL.length, at)).toEqual(TAIL);
-  });
 });
 
 describe("prompt-joins placement", () => {

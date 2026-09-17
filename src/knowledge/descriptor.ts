@@ -72,16 +72,14 @@ export type ResumeStyle = (typeof RESUME_STYLES)[number];
 /** Where tokens after hcn's bare `--` go in the harness argv. The
  * separator itself is never rendered: every probed harness parses trailing
  * native flags once the `--` is gone (ADR 0003), so `after-argv` appends
- * past hcn's own argv and `before-prompt` splices ahead of the prompt for
- * grammars that need it. `prompt-joins` refuses before spawn on harnesses
+ * past hcn's own argv. `prompt-joins` refuses before spawn on harnesses
  * where no placement parses. Absent means `after-argv`: trailing flags
  * parsed on all five harnesses, so an unverified descriptor gets the
- * working default, never the separator that broke every harness. */
-export const LAUNCH_PASSTHROUGHS = deepFreeze([
-  "after-argv",
-  "before-prompt",
-  "prompt-joins",
-] as const);
+ * working default, never the separator that broke every harness. The
+ * `before-prompt` splice was removed (L5): no harness needed it, and on
+ * claude a variadic tail placed before the prompt would be taken as a
+ * directory by flags like `--add-dir`. */
+export const LAUNCH_PASSTHROUGHS = deepFreeze(["after-argv", "prompt-joins"] as const);
 export type LaunchPassthrough = (typeof LAUNCH_PASSTHROUGHS)[number];
 
 export const RESUME_ON_MISSING = deepFreeze(["error", "create"] as const);
