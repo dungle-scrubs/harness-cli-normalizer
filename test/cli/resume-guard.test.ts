@@ -2,8 +2,9 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSyn
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
-import { resumeStore } from "../../src/cli/resume-guard.js";
+import { resolveStoreRoot, resumeStore } from "../../src/cli/resume-guard.js";
 import { storePath } from "../../src/interpretation/store.js";
+import { cursorCli } from "../../src/knowledge/cursor.js";
 import { museCode } from "../../src/knowledge/muse.js";
 import { piCli } from "../../src/knowledge/pi.js";
 
@@ -67,5 +68,60 @@ describe("issue #103: a directory-shaped store is searched as deep as the harnes
     mkdirSync(join(root, "a", "b", "c", "d", "e", "f", id), { recursive: true });
     expect(resumeStore(museCode, { home, cwd: "/any", sessionId: id }).exists).toBe(false);
     rmSync(home, { recursive: true, force: true });
+  });
+});
+
+describe("cursor store root (RFC-05 rootEnv)", () => {
+  test("CURSOR_CONFIG_DIR wins and names the chats parent directly", () => {
+    const home = mkdtempSync(join(tmpdir(), "hcn-root-"));
+    const cwd = mkdtempSync(join(tmpdir(), "hcn-root-cwd-"));
+    const cfg = mkdtempSync(join(tmpdir(), "hcn-root-cfg-"));
+    const check = resumeStore(cursorCli, {
+      home,
+      cwd,
+      sessionId: id,
+      env: { CURSOR_CONFIG_DIR: cfg },
+    });
+    expect(check.path?.startsWith(`${cfg}/chats/`)).toBe(true);
+  });
+
+  test("set-but-empty counts as unset, so XDG_CONFIG_HOME applies (probe 53)", () => {
+    const home = mkdtempSync(join(tmpdir(), "hcn-root-"));
+    const cwd = mkdtempSync(join(tmpdir(), "hcn-root-cwd-"));
+    const xdg = mkdtempSync(join(tmpdir(), "hcn-root-xdg-"));
+    const check = resumeStore(cursorCli, {
+      home,
+      cwd,
+      sessionId: id,
+      env: { CURSOR_CONFIG_DIR: "", XDG_CONFIG_HOME: xdg },
+    });
+    expect(check.path?.startsWith(`${join(xdg, "cursor")}/chats/`)).toBe(true);
+  });
+
+  test("a relative value resolves against the spawn cwd (probe 54)", () => {
+    const home = mkdtempSync(join(tmpdir(), "hcn-root-"));
+    const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "hcn-root-cwd-")));
+    const check = resumeStore(cursorCli, {
+      home,
+      cwd,
+      sessionId: id,
+      env: { CURSOR_CONFIG_DIR: "relcfg" },
+    });
+    expect(check.path?.startsWith(`${join(cwd, "relcfg")}/chats/`)).toBe(true);
+  });
+
+  test("with neither variable set the defaultRoot fallback applies (probe 45)", () => {
+    const home = mkdtempSync(join(tmpdir(), "hcn-root-"));
+    const cwd = mkdtempSync(join(tmpdir(), "hcn-root-cwd-"));
+    const check = resumeStore(cursorCli, { home, cwd, sessionId: id, env: {} });
+    expect(check.path?.startsWith(`${join(home, ".cursor")}/chats/`)).toBe(true);
+  });
+
+  test("resolveStoreRoot yields undefined where the descriptor has no root table", () => {
+    const home = mkdtempSync(join(tmpdir(), "hcn-root-"));
+    const cwd = mkdtempSync(join(tmpdir(), "hcn-root-cwd-"));
+    expect(
+      resolveStoreRoot(piCli, { env: { CURSOR_CONFIG_DIR: "/elsewhere" }, cwd, home }),
+    ).toBeUndefined();
   });
 });

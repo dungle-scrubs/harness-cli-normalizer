@@ -11,11 +11,13 @@ export const writeProvenance = (
       `provenance: ${entry.key} = ${JSON.stringify(entry.value)} (${entry.tier})\n`,
     );
   }
-  // Phase 3 prints the recorded entry tier; until then the profile-tier
-  // lines keep printing profile and the output stays unchanged.
-  for (const { key } of unrenderable) {
+  // RFC-05: each entry names the tier that set it (profile default,
+  // user config, project config), so the owner can see which file set a
+  // diverged dimension. Existing profile-tier lines keep printing
+  // profile, so no existing harness output changes.
+  for (const { key, tier } of unrenderable) {
     process.stderr.write(
-      `divergence: profile ${JSON.stringify(key)} not expressible on ${harnessName}; harness default applies\n`,
+      `divergence: ${tier} ${JSON.stringify(key)} not expressible on ${harnessName}; harness default applies\n`,
     );
   }
 };

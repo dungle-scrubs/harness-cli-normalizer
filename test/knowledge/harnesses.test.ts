@@ -111,9 +111,9 @@ describe("muse descriptor (v1 scars)", () => {
 });
 
 describe("registry", () => {
-  test("all four harnesses have code defaults", () => {
+  test("all five harnesses have code defaults", () => {
     const all = defaultDescriptors();
-    expect(Object.keys(all).sort()).toEqual(["claude", "codex", "muse", "pi"]);
+    expect(Object.keys(all).sort()).toEqual(["claude", "codex", "cursor", "muse", "pi"]);
   });
 });
 

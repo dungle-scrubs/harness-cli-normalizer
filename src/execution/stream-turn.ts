@@ -25,7 +25,11 @@ import {
   withPromptText,
 } from "../interpretation/argv.js";
 import { isValidEnvEntry } from "../interpretation/environment.js";
-import { detectTransportInLine, detectUnavailableInLine } from "../interpretation/limits.js";
+import {
+  detectTransportInLine,
+  detectTrustRefusal,
+  detectUnavailableInLine,
+} from "../interpretation/limits.js";
 import { composeEscalatedPrompt, type QuestionMode } from "../interpretation/question.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
@@ -47,6 +51,7 @@ import {
   failureFromTerminalError,
   failureFromTimeout,
   failureFromTransport,
+  failureFromTrust,
   failureFromUnavailable,
   reduceFailures,
 } from "./failure.js";
@@ -287,7 +292,7 @@ export async function* streamTurn(
   // F-23 warning is an early stream event, before any harness output
   if (resumeCreateWarning !== null)
     void queue.push({ kind: "error", message: resumeCreateWarning });
-  const state = freshDecodeState(effective.resume ?? null);
+  const state = freshDecodeState(effective.resume ?? null, h.name);
   const stderrTail = new StderrTail();
   let killedByWatchdog = false;
   let killedByAbort = false;
@@ -571,14 +576,20 @@ export async function* streamTurn(
       const tailForNative = stderrTail.snapshot();
       const transportLine = tailForNative.find((line) => detectTransportInLine(line));
       const unavailableLine = tailForNative.find((line) => detectUnavailableInLine(line));
+      // RFC-05: the trust gate fires before any inference, so it outranks
+      // the native fallthrough (a harness judgment on its arguments) but
+      // not the transport/unavailable scans that precede it.
+      const trustLine = tailForNative.find((line) => detectTrustRefusal(h, line));
       const f =
         transportLine !== undefined
           ? failureFromTransport(transportLine)
           : unavailableLine !== undefined
             ? failureFromUnavailable(unavailableLine)
-            : tailForNative.length > 0
-              ? failureFromNative(exitCode, tailForNative)
-              : failureFromTransport(`nonzero exit ${exitCode}`);
+            : trustLine !== undefined
+              ? failureFromTrust(trustLine)
+              : tailForNative.length > 0
+                ? failureFromNative(exitCode, tailForNative)
+                : failureFromTransport(`nonzero exit ${exitCode}`);
       failures.push(f);
       // Need to emit this failure before done, even though queue is closed
       yield { kind: "failure", ...f };

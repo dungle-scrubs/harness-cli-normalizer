@@ -16,6 +16,7 @@
 import {
   detectAuthFailureInLine,
   detectTransportInLine,
+  detectTrustRefusal,
   detectUnavailableInLine,
 } from "../interpretation/limits.js";
 import type { RefusalIssue } from "../interpretation/refusal.js";
@@ -93,6 +94,12 @@ const messageFor = (cls: FailureClass, detail?: string): string => {
       // caller chose this number (arg or config); retrying unchanged will
       // hit the same wall - retry only with a raised budget.
       return `Timeout: run exceeded its wall-clock budget and was killed (SIGTERM, then SIGKILL after grace) - raise --timeout for this workload or split the task`;
+    case "trust-refused":
+      // RFC-05: the gate fires before any inference, so the remedy is a
+      // different call, not a different model. Trusted-directory first,
+      // then what --autonomy grants; --trust is never named (hcn has no
+      // working channel for it, probes 40/41).
+      return `Workspace trust refused${detail ? ` (${detail})` : ""} - run \`agent\` interactively in that directory once, or use a directory Cursor already trusts; --autonomy grants unattended edits and shell for that run without persisting trust`;
     case "native":
       // D6: labeled NATIVE so it can never be confused with an hcn error.
       // The harness's own message follows verbatim; the process exit code
@@ -160,6 +167,7 @@ export const failureFromAuth = (kind: AuthFailureKind): FailureSummary => ({
 export const failureFromTerminalError = (h: HarnessDescriptor, message: string): FailureSummary => {
   const auth = detectAuthFailureInLine(h, message);
   if (auth !== null) return failureFromAuth(auth);
+  if (detectTrustRefusal(h, message)) return failureFromTrust(message);
   if (detectTransportInLine(message)) return failureFromTransport(message);
   if (detectUnavailableInLine(message)) return failureFromUnavailable(message);
   return failureFromTask(message);
@@ -187,6 +195,15 @@ export const failureFromUnavailable = (detail?: string): FailureSummary => ({
   class: "unavailable",
   retryable: retryableOf("unavailable"),
   message: messageFor("unavailable", detail),
+});
+
+/** RFC-05: Cursor refused an untrusted workspace before any inference ran.
+ * Retryable derives true from the provider-unavailable family; the
+ * messageFor arm names the remedy. */
+export const failureFromTrust = (detail?: string): FailureSummary => ({
+  class: "trust-refused",
+  retryable: retryableOf("trust-refused"),
+  message: messageFor("trust-refused", detail),
 });
 
 export const nativeApprovalPreflightEvidence = (issue: RefusalIssue): NativeApprovalFailure => ({

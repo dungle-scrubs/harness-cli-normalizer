@@ -263,6 +263,21 @@ export interface SpawnArgvOptions extends TurnOptions {
  * and the runner's spawn agree by construction (RFC-02 change 10). */
 export const buildSpawnArgv = (h: HarnessDescriptor, opts: SpawnArgvOptions): string[] => {
   assertIsolationCombination(h, opts);
+  // RFC-05: a harness that declares prompt-joins passthrough (cursor)
+  // takes a variadic positional prompt with no `--` handling, so every
+  // post-`--` token would join the prompt as text (probe 41) and succeed
+  // with exit 0. Refuse before spawn, on launch and resume alike; the
+  // offending tokens ride detail. Harnesses without the declaration keep
+  // passing tails through untouched.
+  if (h.launch.passthrough === "prompt-joins" && (opts.passthrough?.length ?? 0) > 0) {
+    throw new ArgvRefusalError({
+      issue: "unsupported-passthrough",
+      harness: h.name,
+      supported: [],
+      hint: "remove the tokens after `--` and re-run on cursor",
+      detail: (opts.passthrough ?? []).join(" "),
+    });
+  }
   const nativeSettingsArgs = renderVerifiedNativeSettings(h, opts);
   const base =
     opts.resume === undefined

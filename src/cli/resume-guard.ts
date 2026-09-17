@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, realpathSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import { storePath } from "../interpretation/store.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 
@@ -10,6 +10,31 @@ export interface ResumeStoreCheck {
   readonly exists: boolean;
 }
 
+/** RFC-05: resolve the store root impurely from the environment, through
+ * the descriptor's precedence table instead of a harness-name branch.
+ * First set entry wins; set-but-empty counts as unset (probe 53);
+ * relative values resolve against the spawn cwd (probe 54; the
+ * process-cwd split is unverified, so the resolved spawn cwd anchors
+ * it); else defaultRoot with {home} expanded. Descriptors without
+ * rootEnv and defaultRoot (the four existing harnesses) yield undefined
+ * and their paths compute exactly as today. */
+export const resolveStoreRoot = (
+  h: HarnessDescriptor,
+  opts: {
+    readonly env: Readonly<Record<string, string | undefined>>;
+    readonly cwd: string;
+    readonly home: string;
+  },
+): string | undefined => {
+  for (const entry of h.store.rootEnv ?? []) {
+    const value = opts.env[entry.name];
+    if (value === undefined || value === "") continue;
+    const rooted = entry.suffix === "" ? value : join(value, entry.suffix);
+    return isAbsolute(rooted) ? rooted : resolve(opts.cwd, rooted);
+  }
+  return h.store.defaultRoot?.replaceAll("{home}", () => opts.home);
+};
+
 /** Where a harness that creates sessions on an unknown id (pi, muse) would
  * have filed this session. The cwd is resolved to its real path first: the
  * harness slugs the directory it actually ran in, and on macOS a temp
@@ -17,7 +42,14 @@ export interface ResumeStoreCheck {
  * the unresolved path refused valid resumes. */
 export const resumeStore = (
   h: HarnessDescriptor,
-  opts: { readonly cwd: string; readonly home: string; readonly sessionId: string },
+  opts: {
+    readonly cwd: string;
+    readonly home: string;
+    readonly sessionId: string;
+    /** Environment to resolve rootEnv through; defaults to the process
+     * environment. Injectable so tests pin precedence without mutating it. */
+    readonly env?: Readonly<Record<string, string | undefined>>;
+  },
 ): ResumeStoreCheck => {
   let cwd = opts.cwd;
   try {
@@ -28,7 +60,17 @@ export const resumeStore = (
   }
   let path: string | null = null;
   try {
-    path = storePath(h, { home: opts.home, cwd, sessionId: opts.sessionId });
+    const root = resolveStoreRoot(h, {
+      env: opts.env ?? process.env,
+      cwd,
+      home: opts.home,
+    });
+    path = storePath(h, {
+      home: opts.home,
+      cwd,
+      sessionId: opts.sessionId,
+      ...(root !== undefined ? { root } : {}),
+    });
   } catch {
     path = null;
   }

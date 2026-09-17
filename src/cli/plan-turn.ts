@@ -34,6 +34,7 @@ import {
 } from "../interpretation/resolve-options.js";
 import { recognizeNativeSpelling, supportedBy } from "../interpretation/support.js";
 import { renderToolSelection } from "../interpretation/tool-selection.js";
+import { resolveEffortSlug } from "../interpretation/vocabulary.js";
 import type { HarnessDescriptor, HarnessName } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import {
@@ -316,6 +317,34 @@ export const planTurn = async (
     { questions: turnOpts.questions, timeoutSeconds: extra.timeoutSeconds },
     tiers as ConfigTiers,
   );
+
+  // RFC-05: on an effort-in-model harness the resolved slug replaces
+  // opts.model once, on launch and resume alike, before buildSpawnArgv -
+  // so capabilities, provenance, and the decoder see the slug that runs.
+  // Only arg-tier --effort enforces (turnOpts carries the parsed args);
+  // the model rides from any tier (arg --model, else the resolved
+  // config-tier model on launch) or none. A resolver refusal surfaces
+  // like any other argv refusal. Provenance keeps the supplying entry's
+  // tier and takes the slug as its value; when no model entry exists an
+  // arg-tier one is appended. Never on resume, where provenance stays
+  // absent as today.
+  if (turnOpts.effort !== undefined && h.turnOptions.effort?.kind === "effort-in-model") {
+    let slug: string | undefined;
+    try {
+      slug = resolveEffortSlug(h, turnOpts.model ?? effectiveTurnOpts.model, turnOpts.effort);
+    } catch (err) {
+      if (err instanceof ArgvRefusalError) return refused(err);
+      throw err;
+    }
+    if (slug !== undefined) {
+      effectiveTurnOpts = { ...effectiveTurnOpts, model: slug };
+      if (extra.resume === undefined) {
+        provenance = provenance.some((p) => p.key === "model")
+          ? provenance.map((p) => (p.key === "model" ? { ...p, value: slug } : p))
+          : [...provenance, { key: "model", value: slug, tier: "arg" }];
+      }
+    }
+  }
 
   // The prompt here is the COMPOSED one (escalation preamble included):
   // redactArgv masks by position, so an argv built from the raw prompt

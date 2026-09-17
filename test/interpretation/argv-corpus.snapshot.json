@@ -1601,7 +1601,8 @@
           "supported": [
             "claude --dangerously-skip-permissions",
             "codex --yolo",
-            "muse --yolo"
+            "muse --yolo",
+            "cursor --force"
           ],
           "supportedBy": [
             {
@@ -1615,10 +1616,14 @@
             {
               "harness": "muse",
               "spelling": "--yolo"
+            },
+            {
+              "harness": "cursor",
+              "spelling": "--force"
             }
           ],
           "hint": "pi has no unattended-run flag; approximate with a per-tool allowlist (--tools read,bash) if you need unattended behavior on pi",
-          "message": "pi has no unattended-run flag; supported: claude --dangerously-skip-permissions, codex --yolo, muse --yolo - drop autonomy or route to a supporting harness (claude --dangerously-skip-permissions, codex/muse --yolo)"
+          "message": "pi has no unattended-run flag; supported: claude --dangerously-skip-permissions, codex --yolo, muse --yolo, cursor --force - drop autonomy or route to a supporting harness (claude --dangerously-skip-permissions, codex/muse --yolo)"
         }
       },
       "explicit-dash-prompt": {
@@ -3834,7 +3839,8 @@
           "supported": [
             "claude --dangerously-skip-permissions",
             "codex --yolo",
-            "muse --yolo"
+            "muse --yolo",
+            "cursor --force"
           ],
           "supportedBy": [
             {
@@ -3848,10 +3854,14 @@
             {
               "harness": "muse",
               "spelling": "--yolo"
+            },
+            {
+              "harness": "cursor",
+              "spelling": "--force"
             }
           ],
           "hint": "pi has no unattended-run flag; approximate with a per-tool allowlist (--tools read,bash) if you need unattended behavior on pi",
-          "message": "pi has no unattended-run flag; supported: claude --dangerously-skip-permissions, codex --yolo, muse --yolo - drop autonomy or route to a supporting harness (claude --dangerously-skip-permissions, codex/muse --yolo)"
+          "message": "pi has no unattended-run flag; supported: claude --dangerously-skip-permissions, codex --yolo, muse --yolo, cursor --force - drop autonomy or route to a supporting harness (claude --dangerously-skip-permissions, codex/muse --yolo)"
         }
       },
       "explicit-dash-prompt": {
