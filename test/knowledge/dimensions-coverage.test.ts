@@ -66,9 +66,9 @@ describe("descriptor key coverage", () => {
     }
   });
 
-  test("resumeLast headless dimension: renderable set vs parse-only set (RFC-06 Phase 1)", () => {
-    const renderable = [claudeCode, codexCli, piCli].map((h) => h.name).sort();
-    const parseOnly = [museCode, cursorCli].map((h) => h.name).sort();
+  test("resumeLast headless dimension: renderable set vs parse-only set (RFC-06 Phase 5: cursor renders)", () => {
+    const renderable = [claudeCode, codexCli, piCli, cursorCli].map((h) => h.name).sort();
+    const parseOnly = [museCode].map((h) => h.name).sort();
     for (const h of [claudeCode, codexCli, piCli, museCode, cursorCli]) {
       expect(h.resumeLast).not.toBeNull();
     }

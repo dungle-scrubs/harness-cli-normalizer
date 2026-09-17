@@ -74,12 +74,12 @@ describe("every descriptor field has a consumer outside the knowledge layer", ()
 });
 
 describe("resumeLast renderable split (RFC-06 Phase 1)", () => {
-  test("five descriptor values: three renderable, muse parse-only, cursor parse-only pending Phase 5", () => {
+  test("five descriptor values: four renderable, muse parse-only (RFC-06 Phase 5: cursor flipped)", () => {
     expect(claudeCode.resumeLast).toMatchObject({ flag: "--continue", headless: true });
     expect(piCli.resumeLast).toMatchObject({ flag: "--continue", headless: true });
     expect(codexCli.resumeLast).toMatchObject({ flag: "--last", headless: true });
     expect(museCode.resumeLast).toMatchObject({ flag: "--last", headless: false });
-    expect(cursorCli.resumeLast).toMatchObject({ flag: "--continue", headless: false });
+    expect(cursorCli.resumeLast).toMatchObject({ flag: "--continue", headless: true });
   });
 
   test("claude resume-last renders --continue --fork-session from the single contextInspection.forkFlag; codex and pi render no fork flag (Resolved Question 3: --fork-session designs the parent-file write out)", () => {

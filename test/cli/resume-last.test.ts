@@ -122,17 +122,19 @@ describe("RFC-06 Phase 3: planTurn refusals", () => {
     expect(outcome.refusal.option).toBe("resumeLast");
   });
 
-  test("cursor --resume-last stays parse-only until the conditional phase: same refusal shape", async () => {
+  test("cursor --resume-last plans the continue argv with no fork flag (RFC-06 Phase 5: cursor renders)", async () => {
     const outcome = await planTurn(
       cursorCli,
       ["--prompt", "hi", "--resume-last"],
       { command: "run" },
       deps,
     );
-    expect(outcome.kind).toBe("refusal");
-    if (outcome.kind !== "refusal") return;
-    expect(outcome.refusal.issue).toBe("unsupported-option");
-    expect(outcome.refusal.option).toBe("resumeLast");
+    expect(outcome.kind).toBe("plan");
+    if (outcome.kind !== "plan") return;
+    expect(outcome.plan.options.resumeLast).toBe(true);
+    expect(outcome.plan.provenance).toEqual([]);
+    expect(outcome.plan.argv).toContain("--continue");
+    expect(outcome.plan.argv).not.toContain("--fork-session");
   });
 
   test("codex --resume-last with --native-approvals refuses: no id to bind the plan", async () => {

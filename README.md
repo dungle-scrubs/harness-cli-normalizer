@@ -441,7 +441,7 @@ support; its native 10MB input cap still applies.
 | `--env KEY=VAL` | `env` | Repeatable; `KEY=` deletes |
 | `--resume <uuid>` | `resume` | Resume session |
 | `--session-id <uuid>` | `resume` | Alias for `--resume`; UUID of session to resume or re-enter |
-| `--resume-last` | `resumeLast` | Resume the harness's most recent session in the spawn cwd, without naming an id (claude, codex, pi; muse and cursor refuse). Mutually exclusive with `--resume`/`--session-id`; refused on `hcn session`, with `--native-approvals`, and with `--native-settings-fingerprint` |
+| `--resume-last` | `resumeLast` | Resume the harness's most recent session in the spawn cwd, without naming an id (claude, codex, pi, cursor; muse refuses). Mutually exclusive with `--resume`/`--session-id`; refused on `hcn session`, with `--native-approvals`, and with `--native-settings-fingerprint` |
 | `--skills <a,b>` | `skills` | Skill allowlist; claude, pi and codex (pi strict via --skill, claude via --settings skillOverrides, codex via -c skills.config) |
 | `--timeout <seconds>` | `timeoutSeconds` | Wall-clock budget for the run (hcn-enforced; 0 disables; no default) |
 | `--escalate-questions` / `--no-escalate-questions` | `escalateQuestions` | Let worker ask when blocked (DEFAULT) / never ask, state assumption and continue |
@@ -471,7 +471,7 @@ its fallback on failure. See the [native CLI reference](https://code.claude.com/
 `hcn run <harness> --resume-last "prompt"` resumes the harness's most
 recent session in the exact spawn cwd through each harness's own
 most-recent grammar (claude `--continue --fork-session`, codex
-`exec resume --last`, pi `--continue`; muse and cursor refuse with
+`exec resume --last`, pi `--continue`, cursor `--continue`; muse refuses with
 `unsupported-option`). Most-recent resolution stays inside the harness;
 hcn only renders. A resume-last turn is resume-semantics: no defaults
 profile runs, so a silently created session runs with native defaults.

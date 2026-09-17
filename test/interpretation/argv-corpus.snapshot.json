@@ -6161,7 +6161,8 @@
           "supported": [
             "claude --continue",
             "codex --last",
-            "pi --continue"
+            "pi --continue",
+            "cursor --continue"
           ],
           "supportedBy": [
             {
@@ -6175,10 +6176,14 @@
             {
               "harness": "pi",
               "spelling": "--continue"
+            },
+            {
+              "harness": "cursor",
+              "spelling": "--continue"
             }
           ],
           "hint": "muse has no headless most-recent spelling; keep the session id from the identity event and re-enter with muse exec --session-id <id> - there is no --last on exec",
-          "message": "muse cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue - drop the option or route this work to a harness that supports it"
+          "message": "muse cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue, cursor --continue - drop the option or route this work to a harness that supports it"
         }
       },
       "model": {
@@ -6189,7 +6194,8 @@
           "supported": [
             "claude --continue",
             "codex --last",
-            "pi --continue"
+            "pi --continue",
+            "cursor --continue"
           ],
           "supportedBy": [
             {
@@ -6203,10 +6209,14 @@
             {
               "harness": "pi",
               "spelling": "--continue"
+            },
+            {
+              "harness": "cursor",
+              "spelling": "--continue"
             }
           ],
           "hint": "muse has no headless most-recent spelling; keep the session id from the identity event and re-enter with muse exec --session-id <id> - there is no --last on exec",
-          "message": "muse cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue - drop the option or route this work to a harness that supports it"
+          "message": "muse cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue, cursor --continue - drop the option or route this work to a harness that supports it"
         }
       },
       "id-and-last-refuse": {
@@ -6222,58 +6232,40 @@
     },
     "cursor": {
       "bare": {
-        "refusal": {
-          "issue": "unsupported-option",
-          "harness": "cursor",
-          "option": "resumeLast",
-          "supported": [
-            "claude --continue",
-            "codex --last",
-            "pi --continue"
-          ],
-          "supportedBy": [
-            {
-              "harness": "claude",
-              "spelling": "--continue"
-            },
-            {
-              "harness": "codex",
-              "spelling": "--last"
-            },
-            {
-              "harness": "pi",
-              "spelling": "--continue"
-            }
-          ],
-          "message": "cursor cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue - drop the option or route this work to a harness that supports it"
-        }
+        "argv": [
+          "agent",
+          "-p",
+          "--continue",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--stream-partial-output"
+        ]
       },
       "model": {
-        "refusal": {
-          "issue": "unsupported-option",
-          "harness": "cursor",
-          "option": "resumeLast",
-          "supported": [
-            "claude --continue",
-            "codex --last",
-            "pi --continue"
-          ],
-          "supportedBy": [
-            {
-              "harness": "claude",
-              "spelling": "--continue"
-            },
-            {
-              "harness": "codex",
-              "spelling": "--last"
-            },
-            {
-              "harness": "pi",
-              "spelling": "--continue"
-            }
-          ],
-          "message": "cursor cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue - drop the option or route this work to a harness that supports it"
-        }
+        "argv": [
+          "agent",
+          "-p",
+          "--continue",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--stream-partial-output",
+          "--model",
+          "auto"
+        ]
+      },
+      "autonomy": {
+        "argv": [
+          "agent",
+          "-p",
+          "--continue",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--stream-partial-output",
+          "--force"
+        ]
       },
       "id-and-last-refuse": {
         "refusal": {

@@ -129,6 +129,12 @@ const resumeLastCases = (
   if (h.name === "pi") {
     return [...base, ["tools", { prompt: "hi", tools: ["read", "shell"], resumeLast: true }]];
   }
+  if (h.name === "cursor") {
+    // RFC-06 Phase 5: autonomy renders --force after the model per
+    // turnTail; Phase 4 re-verifies the position live (probe 14 carried
+    // --force before --continue).
+    return [...base, ["autonomy", { prompt: "hi", autonomy: true, resumeLast: true }]];
+  }
   return base;
 };
 
