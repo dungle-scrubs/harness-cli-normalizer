@@ -13,6 +13,7 @@ import { refusalOf, refuse } from "./refuse.js";
 import { createRenderState, renderEvent, writeEventNdjsonAsync } from "./render.js";
 import { resolveHarness } from "./resolve-harness.js";
 import { effectiveGuardEnv, resumeStore } from "./resume-guard.js";
+import { resumeLastNoticesFor } from "./resume-last-guard.js";
 
 export const run = async (harnessName: string, rawArgs: string[]): Promise<void> => {
   const h = resolveHarness(harnessName);
@@ -41,6 +42,12 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   // the child's effective environment (--env merged over the process env
   // with the spawn's delete rule, plus the descriptor turn env), so a
   // --env store relocation moves the guard with the child.
+  // RFC-06: the id-less most-recent path intentionally skips the store
+  // check below - there is no id to look up. The guards on that path are
+  // the CLI-computed pre-spawn notices (fixed warning, resolved-root
+  // diagnostic, absent-directory warn) passed to the runner as plain data
+  // plus the identity resumeLast signal, never a refusal: the absent case
+  // is also the legitimate first run in a new cwd.
   const resume = plan.options.resume;
   if (resume !== undefined && h.resume.onMissing === "create") {
     // The guard reads the child's effective environment once: --env merged
@@ -151,7 +158,30 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   let exitCode = 0;
 
   try {
-    const events = streamTurn(h, { ...plan.options, signal: abortController.signal }, wrappedDeps);
+    // RFC-06: the resume-last notices resolve through the child's
+    // effective environment here in the CLI layer (a --env store
+    // relocation moves them with the child) and travel to the runner as
+    // plain data; execution only emits them.
+    const resumeLastNotices =
+      plan.options.resumeLast === true
+        ? resumeLastNoticesFor(h, {
+            env: effectiveGuardEnv(
+              process.env,
+              plan.options.env ?? {},
+              buildTurnEnv(h, plan.options, "resume"),
+            ),
+            cwd: plan.options.cwd ?? process.cwd(),
+          }).messages
+        : undefined;
+    const events = streamTurn(
+      h,
+      {
+        ...plan.options,
+        ...(resumeLastNotices !== undefined ? { resumeLastNotices } : {}),
+        signal: abortController.signal,
+      },
+      wrappedDeps,
+    );
     for await (const event of events) {
       if (outputError) throw outputError;
       lastEvent = event;
@@ -160,7 +190,7 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
         // harness, not be absorbed into this process's memory.
         await writeEventNdjsonAsync(event);
       } else {
-        renderEvent(event, state);
+        renderEvent(event, state, h);
       }
       // A refusal before spawn exits 2 above; every done maps through the
       // one exit-code rule.

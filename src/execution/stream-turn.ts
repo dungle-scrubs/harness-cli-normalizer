@@ -100,6 +100,16 @@ export interface TurnRunOptions extends LaunchOptions {
    * with the descriptor's resume grammar, and identity decoding treats a
    * DIFFERENT announced id as a rotation anomaly. */
   readonly resume?: string;
+  /** Resume the harness's most recent session without naming an id (RFC-06).
+   * The plan threads this from the parsed flag; the spawn renders through
+   * the resume-last builder and the turn env resolves at resume phase. */
+  readonly resumeLast?: true;
+  /** The resume-last pre-spawn lines (fixed warning, resolved-root
+   * diagnostic, absent-directory warn), computed by the CLI layer and
+   * passed in as plain data (ADR 0005: session input and protocol state
+   * flow in). Execution only emits them, before any harness output,
+   * spawn failures included; it never resolves roots or reads text. */
+  readonly resumeLastNotices?: readonly string[];
   /** Working directory for the spawned harness. */
   readonly cwd?: string;
   /** Per-call environment, merged over parent; "" deletes. */
@@ -226,7 +236,11 @@ export async function* streamTurn(
   // caller's per-call env: an explicit normalized option beats a raw
   // contradicting variable. Dropped keys ("" values) stay meaningful - only
   // the caller's side can delete, the descriptor side only sets.
-  const turnEnv = buildTurnEnv(h, effective, effective.resume === undefined ? "launch" : "resume");
+  const turnEnv = buildTurnEnv(
+    h,
+    effective,
+    effective.resume === undefined && effective.resumeLast !== true ? "launch" : "resume",
+  );
   const mergedEnv: Record<string, string> = { ...(opts.env ?? {}), ...turnEnv };
 
   const matcherOverrides = matcherOverridesOf.get(h);
@@ -249,6 +263,13 @@ export async function* streamTurn(
     ? `${h.name} creates a new session when ${effective.resume} is unknown; verify the id exists`
     : null;
 
+  // RFC-06: the id-less most-recent path carries no id, so the F-23 gate
+  // above never fires here. The pre-spawn lines arrive as plain option
+  // data from the CLI layer; the runner only emits them, before any
+  // harness output, like the F-23 text.
+  const resumeLastGuardMessages: readonly string[] =
+    effective.resumeLast === true ? (effective.resumeLastNotices ?? []) : [];
+
   let proc: SpawnedProcess;
   try {
     proc = deps.spawn(argv, {
@@ -269,6 +290,7 @@ export async function* streamTurn(
       spawnError: message,
     });
     if (resumeCreateWarning !== null) yield { kind: "error", message: resumeCreateWarning };
+    for (const warning of resumeLastGuardMessages) yield { kind: "error", message: warning };
     yield { kind: "error", message: `spawn failed: ${message}` };
     yield { kind: "failure", ...failure };
     yield {
@@ -285,7 +307,16 @@ export async function* streamTurn(
   // F-23 warning is an early stream event, before any harness output
   if (resumeCreateWarning !== null)
     void queue.push({ kind: "error", message: resumeCreateWarning });
+  // RFC-06: the resume-last guard rides the same early slot, before any
+  // harness output, on every resume-last turn.
+  for (const warning of resumeLastGuardMessages)
+    void queue.push({ kind: "error", message: warning });
   const state = freshDecodeState(effective.resume ?? null, h.name);
+  // RFC-06: the plan threads the resume-last discriminant here alongside
+  // the null requested id, covering the first announce and the
+  // model-attestation re-emit alike. Authority stays harness-minted by
+  // the existing requestedId rule.
+  if (effective.resumeLast === true) state.resumeLast = true;
   const stderrTail = new StderrTail();
   let killedByWatchdog = false;
   let killedByAbort = false;

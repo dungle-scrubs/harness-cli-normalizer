@@ -1,0 +1,4 @@
+{"type":"thread.started","thread_id":"01a0ae03-fd99-72d0-b1cf-1d6e6f1866ad"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"JUNIPER-6"}}
+{"type":"turn.completed","usage":{"input_tokens":58699,"cached_input_tokens":33536,"cache_write_input_tokens":0,"output_tokens":124,"reasoning_output_tokens":105}}

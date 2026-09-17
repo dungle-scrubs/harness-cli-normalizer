@@ -103,6 +103,14 @@ These own state, a clock, or a policy that no harness has. Each is deliberate.
   opinions about how a bare run should behave.
 - **Send correlation.** In a session, hcn associates each send with the turn it
   opens. The harness owns input queuing; hcn writes input through (ADR 0007).
+- **The resume-last pre-spawn warning.** On an id-less most-recent turn hcn
+  emits one fixed warning plus a store-root diagnostic before any harness
+  output, and warns when the per-cwd store directory is absent. No harness
+  marks a fresh-or-stranger session; the standing text is hcn's policy.
+- **The claude resume-last fork render.** On that path hcn renders
+  `--continue --fork-session` instead of the plain native `--continue`,
+  choosing the session semantics of the one spawned process: the child
+  starts from saved history under a new id and never writes the parent file.
 
 ## Relationships
 
@@ -121,7 +129,7 @@ These own state, a clock, or a policy that no harness has. Each is deliberate.
   API by shape. The first claim is about packaging, the second about interface.
   Neither cancels the other, and the README should say which it means.
 
-- **"Normalizer"** describes hcn's identity but not all of its code. Six parts
+- **"Normalizer"** describes hcn's identity but not all of its code. Eight parts
   supervise, listed above. Calling the whole product a normalizer overstates
   roughly a third of it.
 

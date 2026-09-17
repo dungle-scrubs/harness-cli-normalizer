@@ -337,6 +337,8 @@ The refusal is typed: issue `unsupported-passthrough` (new `RefusalIssue` member
 
 Owner decision 2026-09-17: hcn gains a `--resume-last` option. Review draft-05 (findings B1/H2) showed the design needs cross-harness evidence and a safety policy, which is a separate unit of work, so the design moved to its own RFC (to be drafted next, likely number 06). This RFC keeps no resume-last design: no flag, no render, no refusals, no tests. For cursor v1, most-recent resume is not reachable through hcn: `resumeLast: { flag: "--continue" }` stays as descriptor data for `parse-resume.ts` only.
 
+Errata 2026-09-17 (RFC-06 Phase 5, this RFC stays Accepted): the "not reachable through hcn" sentence above is SUPERSEDED. RFC-06 (Accepted) flips cursor `resumeLast.headless` to `true` now that this RFC has landed (merge to main), so `hcn run cursor --resume-last` renders `agent -p --continue <prompt>` with the stream flags, model, and `--force` per `turnTail`. The `parse-resume.ts` role is unchanged.
+
 The next RFC starts from these B1/H2 facts:
 
 - Codex `--last` is valid only in `exec resume` (`codex.ts:98-99`); rendering it into launch argv produces invalid codex argv, and resume argv takes different turn-option renders (sandbox uses `resumeRender` `-c sandbox_mode`).

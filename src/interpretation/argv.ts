@@ -11,6 +11,7 @@ import type {
 } from "../knowledge/descriptor.js";
 import type { NativeSettingsSnapshot } from "../knowledge/native-settings.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
+import { hintFor } from "./hints.js";
 import { assertIsolationCombination } from "./isolation.js";
 import { renderVerifiedNativeSettings } from "./native-settings-argv.js";
 import { ArgvRefusalError } from "./refusal.js";
@@ -253,10 +254,83 @@ export const buildResumeArgv = (h: HarnessDescriptor, opts: ResumeOptions): stri
  * any, and the raw passthrough tail (ADR 0003). */
 export interface SpawnArgvOptions extends TurnOptions {
   readonly resume?: string;
+  /** Resume the harness's most recent session without naming an id (RFC-06).
+   * Mutually exclusive with `resume`; renderable only when the descriptor's
+   * `resumeLast.headless` is true, else an unsupported-option refusal. */
+  readonly resumeLast?: true;
   readonly passthrough?: readonly string[];
   /** Internal read result. Execution independently checks the source before using it. */
   readonly verifiedNativeSettings?: NativeSettingsSnapshot;
 }
+
+/** Refuse an id-less most-recent turn on a harness with no renderable
+ * most-recent grammar (RFC-06). One owner for the refusal shape: the
+ * resume-last builder and planTurn both raise it from here, so the plan
+ * fires first with the same unsupported-option/resumeLast shape the
+ * builder would raise at spawn time. */
+export const assertResumeLastRenderable = (
+  h: HarnessDescriptor,
+): NonNullable<HarnessDescriptor["resumeLast"]> => {
+  const resumeLast = h.resumeLast;
+  if (resumeLast?.headless === true) return resumeLast;
+  const by = supportedBy(defaultDescriptors(), "resumeLast");
+  throw new ArgvRefusalError({
+    issue: "unsupported-option",
+    harness: h.name,
+    option: "resumeLast",
+    supported: by.map((e) => `${e.harness} ${e.spelling}`),
+    supportedBy: by,
+    hint: hintFor(h.name, "resumeLast"),
+  });
+};
+
+/** The resume-last argv: most-recent resolution stays inside the harness,
+ * hcn only renders the native grammar (RFC-06). A `--continue` harness
+ * (flag-style resume) gets the launch grammar plus the flag, with the fork
+ * flag when the descriptor holds one (claude only, read from the single
+ * `contextInspection.forkFlag` - no harness-name branch). The positional
+ * resume harness (codex) gets the `exec resume` grammar with `--last` in
+ * the id slot. Phase is always resume: no defaults profile runs and
+ * `resumeRender` refusals apply. */
+const resumeLastArgv = (
+  h: HarnessDescriptor,
+  opts: SpawnArgvOptions,
+  nativeSettingsArgs: readonly string[],
+): string[] => {
+  const resumeLast = assertResumeLastRenderable(h);
+  assertAccessExclusivity(h, opts);
+  const beforePrompt = renderTurnOptions(h, opts, "resume", "before-prompt").tokens;
+  const afterPrompt = renderTurnOptions(h, opts, "resume", "after-prompt").tokens;
+  if (h.resume.style === "positional") {
+    return [
+      h.bin,
+      ...h.launch.subcommands,
+      h.resume.flag,
+      resumeLast.flag,
+      ...h.resume.extraFlags,
+      ...beforePrompt,
+      ...nativeSettingsArgs,
+      ...turnTail(h, opts),
+      ...afterPrompt,
+    ];
+  }
+  // Flag-style resumes render subcommands plus the resume grammar's own
+  // extra flags (never inherited launch-only base flags), the same order
+  // rule `resumeArgv` follows. Identical output on every current
+  // descriptor (`baseFlags` equals `subcommands + resume.extraFlags` on
+  // each); pinned by the corpus snapshot.
+  return [
+    h.bin,
+    ...h.launch.subcommands,
+    ...h.resume.extraFlags,
+    resumeLast.flag,
+    ...(h.contextInspection?.forkFlag !== undefined ? [h.contextInspection.forkFlag] : []),
+    ...beforePrompt,
+    ...nativeSettingsArgs,
+    ...turnTail(h, opts),
+    ...afterPrompt,
+  ];
+};
 
 /** The argv a turn spawns: launch or resume per `resume`, then the
  * passthrough tail after a bare separator. One owner, so the CLI's preview
@@ -279,11 +353,25 @@ export const buildSpawnArgv = (h: HarnessDescriptor, opts: SpawnArgvOptions): st
       bin: h.bin,
     });
   }
+  // Most-recent and a named id are two answers to one question: both at
+  // once refuses here as well as in the widened `resumeIdOf` check.
+  if (opts.resume !== undefined && opts.resumeLast === true) {
+    throw new ArgvRefusalError({
+      issue: "mutually-exclusive-options",
+      harness: h.name,
+      supported: [
+        "--resume or --resume-last, not both (most-recent and a named id are two answers to one question)",
+      ],
+      detail: "both --resume and --resume-last given",
+    });
+  }
   const nativeSettingsArgs = renderVerifiedNativeSettings(h, opts);
   const base =
-    opts.resume === undefined
-      ? buildLaunchArgv(h, opts)
-      : resumeArgv(h, { ...opts, sessionId: opts.resume }, nativeSettingsArgs);
+    opts.resumeLast === true
+      ? resumeLastArgv(h, opts, nativeSettingsArgs)
+      : opts.resume === undefined
+        ? buildLaunchArgv(h, opts)
+        : resumeArgv(h, { ...opts, sessionId: opts.resume }, nativeSettingsArgs);
   return opts.passthrough !== undefined && opts.passthrough.length > 0
     ? [...base, "--", ...opts.passthrough]
     : base;

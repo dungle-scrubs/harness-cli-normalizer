@@ -432,6 +432,26 @@ draft-05, which recommended acceptance with L2 and L4 before acceptance
 and L1, L3, and L5 as implementation-plan notes. All five are applied
 above.
 
+### Errata (2026-09-17, post-acceptance; status stays Accepted)
+
+1. `resumeLast` descriptor data carries a third field, `warning`: the
+   verbatim pre-spawn text of Safety item 4 with `{cwd}` placeholders,
+   rendered purely by `resumeLastWarning` (no harness-name branch). The
+   draft-05 M3 record says the field gains only `{ flag, headless }`;
+   read it as `{ flag, headless, warning }` on the renderable arm.
+2. A parse-only harness (`headless: false`, muse in v1) carries no
+   `warning`: the type holds it only on the renderable arm, and muse
+   omits it. The muse warning text drafted during implementation was
+   never emitted (muse always refuses) and its no-session claim was
+   never probed, so it was dropped rather than pinned.
+3. `rankResumeLast` stays exported from
+   `src/interpretation/resume-last.ts` with its `ResumeCandidate` and
+   `ResumeLastVerdict` types and its unit tests, sharing the module
+   with the new warning renderer. It has no production caller:
+   most-recent resolution stays inside the harness, per the Scope
+   section. The branch review finding that it had been deleted is
+   answered by the restore, not by a removal.
+
 ## Terminology
 
 The key words MUST, MUST NOT, REQUIRED, SHALL, SHALL NOT, SHOULD, SHOULD

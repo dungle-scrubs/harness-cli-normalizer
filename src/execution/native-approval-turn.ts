@@ -337,6 +337,10 @@ export async function* streamNativeApprovalTurn(
               authority: "harness-minted",
               sessionId: plan.saved.sessionId,
               capabilities: capabilitiesOf(h, plan.saved.model, "headless-turn"),
+              // RFC-06: for completeness only - native approvals refuse
+              // the id-less path in planTurn, so this arm never carries
+              // the mark in practice.
+              ...(opts.resumeLast === true ? { resumeLast: true as const } : {}),
             });
             if (closing || exited) continue;
             stage = "turn-start";

@@ -71,6 +71,10 @@ const HINTS: Readonly<Record<string, Readonly<Record<string, string>>>> = deepFr
       "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
   },
   muse: {
+    // RFC-06: no headless most-recent grammar exists, so the id-less path
+    // refuses and names the stay-on-harness alternative.
+    resumeLast:
+      "muse has no headless most-recent spelling; keep the session id from the identity event and re-enter with hcn run muse --resume <id> - there is no --last on exec",
     memory:
       "muse cannot turn its memory off: add_memory/edit_memory persist to ~/.local/share/muse/memory with no CLI flag or config key (verified 0.2.1) - keep muse out of memory-sensitive runs or re-probe after a version bump",
     tools:

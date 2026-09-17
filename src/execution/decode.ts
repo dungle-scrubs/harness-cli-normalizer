@@ -26,6 +26,10 @@ export interface DecodeState {
   /** The id this turn expects (resume paths); rotation is classified
    * against it. Null for fresh launches. */
   requestedId: string | null;
+  /** RFC-06: this turn rendered through the resume-last builder. The
+   * runner sets it alongside the null requested id; every identity event
+   * built from this state carries it. */
+  resumeLast?: true;
   /** The harness's latest model self-attestation (pi assistant message
    * records). Null until one is observed; used to fill observedOn.model
    * on a re-emitted identity when the harness announces identity before
@@ -146,6 +150,7 @@ export const decodeParsed = (
     sessionId,
     authority,
     capabilities: capabilitiesWithObserved(),
+    ...(state.resumeLast === true ? { resumeLast: true as const } : {}),
   });
   const emitIdentity = (
     sessionId: string,

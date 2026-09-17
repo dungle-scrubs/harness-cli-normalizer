@@ -5,7 +5,7 @@
  * run spawn line agree by construction.
  */
 import { describe, expect, test } from "vitest";
-import { resumeIdOf } from "../../src/cli/args.js";
+import { parseRunExtra, resumeIdOf } from "../../src/cli/args.js";
 import { type PlanDeps, planTurn } from "../../src/cli/plan-turn.js";
 import { streamTurn } from "../../src/execution/stream-turn.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
@@ -93,6 +93,14 @@ describe("planTurn", () => {
     expect(resumeIdOf({ resume: "a" })).toBe("a");
     expect(resumeIdOf({ "session-id": "b" })).toBe("b");
     expect(() => resumeIdOf({ resume: "a", "session-id": "b" })).toThrow(/not both/);
+  });
+
+  test("resume-last joins the mutual exclusion: most-recent and a named id refuse together (RFC-06 Phase 2)", () => {
+    expect(resumeIdOf({ "resume-last": true })).toBeUndefined();
+    expect(() => resumeIdOf({ resume: "a", "resume-last": true })).toThrow(/not both/);
+    expect(() => resumeIdOf({ "session-id": "b", "resume-last": true })).toThrow(/not both/);
+    expect(parseRunExtra({ "resume-last": true }).resumeLast).toBe(true);
+    expect(parseRunExtra({}).resumeLast).toBeUndefined();
   });
 });
 

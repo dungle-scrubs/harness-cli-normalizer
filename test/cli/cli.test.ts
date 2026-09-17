@@ -1146,6 +1146,18 @@ describe("run --help documents --skills and --session-id", () => {
   });
 });
 
+describe("help documents --resume-last (RFC-06 Phase 2)", () => {
+  test("run --help names --resume-last with its mutual exclusion", async () => {
+    const out = await captureDispatch(["run", "--help"]);
+    expect(out.stdout).toContain("--resume-last");
+  });
+
+  test("inspect --help names --resume-last", async () => {
+    const out = await captureDispatch(["inspect", "--help"]);
+    expect(out.stdout).toContain("--resume-last");
+  });
+});
+
 describe("run --resume vs --session-id mutual exclusion", () => {
   test("run claude --resume <a> --session-id <b> --prompt hi exits 2 and names mutual exclusion", async () => {
     const a = "11111111-1111-4111-8111-111111111111";

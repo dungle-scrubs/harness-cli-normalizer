@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { parseResumeCommand } from "../../src/interpretation/parse-resume.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
+import { codexCli } from "../../src/knowledge/codex.js";
 
 const uuid = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
 
@@ -45,6 +46,29 @@ describe("parseResumeCommand (claude)", () => {
   test("returns null for commands that are not a known resume shape", () => {
     expect(parseResumeCommand([claudeCode], "claude -p 'hello'")).toBeNull();
     expect(parseResumeCommand([claudeCode], "vim notes.md")).toBeNull();
+  });
+
+  test("resume-last corpus (RFC-06 Phase 2): long --continue parses, -c does not", () => {
+    expect(parseResumeCommand([claudeCode], "claude -p --continue")).toEqual({
+      harness: "claude",
+      resumeLast: true,
+      autonomy: false,
+    });
+    expect(parseResumeCommand([claudeCode], "claude -p -c")).toBeNull();
+  });
+
+  test("resume-last corpus (RFC-06 Phase 2): codex --last with a positional prompt parses, a lone positional is null", () => {
+    expect(parseResumeCommand([codexCli], 'codex exec resume --last "prompt"')).toEqual({
+      harness: "codex",
+      resumeLast: true,
+      autonomy: false,
+    });
+    expect(parseResumeCommand([codexCli], 'codex exec resume --last --yolo "prompt"')).toEqual({
+      harness: "codex",
+      resumeLast: true,
+      autonomy: true,
+    });
+    expect(parseResumeCommand([codexCli], 'codex exec resume "prompt"')).toBeNull();
   });
 
   test("positional style anchors the resume word at position 1 exactly", () => {

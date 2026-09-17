@@ -95,6 +95,17 @@ describe("failureFromTrust", () => {
     expect(silent.class).toBe("transport");
   });
 
+  test("cursor --resume-last with no session is native, never trust-refused (RFC-06 Phase 5 ordering note)", () => {
+    // Observed (RFC-06 probes 02, 15): the no-session check fires before
+    // the trust gate on --continue, so this stderr reaches the tail scan
+    // on a turn the trust gate never saw. It stays a native failure with
+    // verbatim stderr, not a refusal: the check cannot separate true-empty
+    // from wrong store root.
+    const f = failureFromStderrTail(cursorCli, 1, ["No previous chats found."]);
+    expect(f.class).toBe("native");
+    expect(f.retryable).toBe(retryableOf("native"));
+  });
+
   test("a trust line on stderr fails the turn as trust-refused, not tail", async () => {
     const emitted: HarnessEvent[] = [];
     const failed: FailureSummary[] = [];

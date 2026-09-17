@@ -19,9 +19,12 @@ import {
   buildLaunchArgv,
   buildResumeArgv,
   buildSessionArgv,
+  buildSpawnArgv,
   type SessionOptions,
+  type SpawnArgvOptions,
   type TurnOptions,
 } from "../../src/interpretation/argv.js";
+import { buildContextInspectionArgv } from "../../src/interpretation/context-inspection.js";
 import {
   type ConfigTiers,
   FloorExceededError,
@@ -94,6 +97,46 @@ const turnCases = (h: HarnessDescriptor): ReadonlyArray<readonly [string, TurnOp
   ["explicit-dash-prompt", { prompt: { text: "-x", explicit: true } }],
   ["implicit-dash-prompt", { prompt: "-x" }],
 ];
+
+/** Resume-last cases (RFC-06 Phase 2): the observed grammars byte-for-byte
+ * in turnTail order with the before-prompt segment in builder order. The
+ * codex sandbox row pins the --sandbox/-s negatives (the resume spelling
+ * is -c sandbox_mode, never --sandbox); the claude rows pin prompt before
+ * the tool grant (probe 12b: prompt-after-tools is invalid); the muse and
+ * cursor rows pin the unsupported-option refusal; the claude isolation row
+ * pins the resume-phase refusal. */
+const resumeLastCases = (
+  h: HarnessDescriptor,
+): ReadonlyArray<readonly [string, SpawnArgvOptions]> => {
+  const base: ReadonlyArray<readonly [string, SpawnArgvOptions]> = [
+    ["bare", { prompt: "hi", resumeLast: true }],
+    ["model", { prompt: "hi", model: modelFor(h), resumeLast: true }],
+  ];
+  if (h.name === "claude") {
+    return [
+      ...base,
+      ["tools", { prompt: "hi", tools: ["read", "shell"], resumeLast: true }],
+      ["autonomy", { prompt: "hi", autonomy: true, resumeLast: true }],
+      ["isolation-refuses", { prompt: "hi", isolation: "tool-free", resumeLast: true }],
+    ];
+  }
+  if (h.name === "codex") {
+    return [
+      ...base,
+      ["sandbox-read-only", { prompt: "hi", sandbox: "read-only", resumeLast: true }],
+    ];
+  }
+  if (h.name === "pi") {
+    return [...base, ["tools", { prompt: "hi", tools: ["read", "shell"], resumeLast: true }]];
+  }
+  if (h.name === "cursor") {
+    // RFC-06 Phase 5: autonomy renders --force after the model per
+    // turnTail; Phase 4 re-verifies the position live (probe 14 carried
+    // --force before --continue).
+    return [...base, ["autonomy", { prompt: "hi", autonomy: true, resumeLast: true }]];
+  }
+  return base;
+};
 
 const sessionCases = (h: HarnessDescriptor): ReadonlyArray<readonly [string, SessionOptions]> => [
   ["fresh", { sessionId: SESSION_ID }],
@@ -185,27 +228,46 @@ const buildCorpus = (): Record<string, unknown> => {
   const corpus: {
     launch: Record<string, Record<string, Outcome>>;
     resume: Record<string, Record<string, Outcome>>;
+    resumeLast: Record<string, Record<string, Outcome>>;
     session: Record<string, Record<string, Outcome>>;
     resolve: Record<string, Record<string, Outcome>>;
   } = {
     launch: {},
     resume: {},
+    resumeLast: {},
     session: {},
     resolve: {},
   };
   for (const h of HARNESSES) {
     const launch: Record<string, Outcome> = {};
     const resume: Record<string, Outcome> = {};
+    const resumeLast: Record<string, Outcome> = {};
     const session: Record<string, Outcome> = {};
     const resolve: Record<string, Outcome> = {};
     corpus.launch[h.name] = launch;
     corpus.resume[h.name] = resume;
+    corpus.resumeLast[h.name] = resumeLast;
     corpus.session[h.name] = session;
     corpus.resolve[h.name] = resolve;
     for (const [label, opts] of turnCases(h)) {
       launch[label] = outcomeOf(() => ({ argv: buildLaunchArgv(h, opts) }));
       resume[label] = outcomeOf(() => ({
         argv: buildResumeArgv(h, { ...opts, sessionId: SESSION_ID }),
+      }));
+    }
+    for (const [label, opts] of resumeLastCases(h)) {
+      resumeLast[label] = outcomeOf(() => ({ argv: buildSpawnArgv(h, opts) }));
+    }
+    // Most-recent and a named id refuse together, through the same owner.
+    resumeLast["id-and-last-refuse"] = outcomeOf(() => ({
+      argv: buildSpawnArgv(h, { prompt: "hi", resume: SESSION_ID, resumeLast: true }),
+    }));
+    if (h.name === "claude") {
+      // inspect --context --resume-last carries exactly one --fork-session:
+      // the resume-last builder renders it and context inspection appends
+      // nothing on the id-less path.
+      resumeLast["inspect-context"] = outcomeOf(() => ({
+        argv: buildContextInspectionArgv(h, { prompt: "hi", resumeLast: true }),
       }));
     }
     for (const [label, opts] of sessionCases(h)) {

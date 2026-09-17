@@ -199,7 +199,12 @@ export const failureFromUnavailable = (detail?: string): FailureSummary => ({
 
 /** RFC-05: Cursor refused an untrusted workspace before any inference ran.
  * Retryable derives true from the provider-unavailable family; the
- * messageFor arm names the remedy. */
+ * messageFor arm names the remedy.
+ * RFC-06 Phase 5 ordering note: on `--continue` the no-session check
+ * (`No previous chats found.`, exit 1) fires before the trust gate, so a
+ * resume-last turn in an untrusted empty cwd fails as native, never
+ * trust-refused. That stderr never matches trustMatchers; it falls
+ * through to the native arm with verbatim stderr. */
 export const failureFromTrust = (detail?: string): FailureSummary => ({
   class: "trust-refused",
   retryable: retryableOf("trust-refused"),
