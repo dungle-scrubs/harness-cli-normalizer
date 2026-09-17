@@ -9,6 +9,7 @@ import type { HarnessEvent } from "../../src/execution/events.js";
 import {
   failureFromApprovalUnobserved,
   failureFromBlockedApproval,
+  failureFromMuseIncompatibleSurface,
   retryableOf,
 } from "../../src/execution/failure.js";
 import { APPROVAL_STUCK_POLLS } from "../../src/execution/muse-approvals.js";
@@ -40,6 +41,21 @@ describe("failureFromBlockedApproval", () => {
     // --native-approvals is a Codex-only lane; naming it on muse would
     // point at a remedy that refuses.
     expect(f.message).not.toMatch(/--native-approvals/);
+  });
+
+  test("an incompatible muse surface is a non-retryable native naming version and remedies", () => {
+    // L5: classed native per ADR 0001 - the harness failed on hcn's own
+    // protocol call, so retrying the same muse route cannot help.
+    const f = failureFromMuseIncompatibleSurface("muse", "1.1.1", "approval/listPending", -32601);
+    expect(f.class).toBe("native");
+    expect(f.retryable).toBe(false);
+    expect(f.retryable).toBe(retryableOf("native"));
+    expect(f.message).toMatch(/muse/);
+    expect(f.message).toMatch(/1\.1\.1/);
+    expect(f.message).toMatch(/approval\/listPending/);
+    expect(f.message).toMatch(/-32601/);
+    expect(f.message).toMatch(/update hcn/i);
+    expect(f.message).toMatch(/--autonomy/);
   });
 
   test("an unobservable pending set is a retryable transport, never an empty approval list", () => {
@@ -145,6 +161,52 @@ describe("a pending native approval during a muse turn", () => {
     const failure = events.find((e) => e.kind === "failure");
     expect(failure).toMatchObject({ kind: "failure", class: "transport", retryable: true });
     expect(JSON.stringify(failure)).toMatch(/could not be observed/);
+    expect(events.at(-1)).toMatchObject({ kind: "done", cause: "failed" });
+    expect(clock.pendingTimerCount).toBe(0);
+  });
+
+  test("a renamed listPending ends the turn as non-retryable native", async () => {
+    // L5: the helper answers method-not-found - the turn ends at once
+    // with the incompatible-surface failure, not retryable transport.
+    const execProc = new FakeProcess();
+    const serveProc = new FakeProcess({ exitOnStdinEnd: false });
+    const spawner = fakeSpawner([execProc, serveProc]);
+    const sig = fakeSignal();
+    const clock = new FakeClock();
+    const events: HarnessEvent[] = [];
+    const pending = (async () => {
+      for await (const event of streamTurn(
+        museCode,
+        { prompt: "hi" },
+        {
+          spawn: spawner.spawn,
+          clock,
+          signal: sig.signal,
+        },
+      )) {
+        events.push(event);
+      }
+    })();
+    execProc.emitLine(JSON.stringify({ stream: { id: "eb04301d-8756-4a8b-ae3e-aac0e71f7265" } }));
+    await flush();
+    serveProc.emitLine(JSON.stringify({ id: 1, jsonrpc: "2.0", result: {} }));
+    await flush();
+    serveProc.emitLine(
+      JSON.stringify({
+        id: 2,
+        jsonrpc: "2.0",
+        error: { code: -32601, message: "Method not found" },
+      }),
+    );
+    await flush();
+    if (!execProc.hasExited) execProc.exit(0);
+    if (!serveProc.hasExited) serveProc.exit(0);
+    await pending;
+    const failure = events.find((e) => e.kind === "failure");
+    expect(failure).toMatchObject({ kind: "failure", class: "native", retryable: false });
+    expect(JSON.stringify(failure)).toMatch(/MSP surface incompatible/);
+    expect(JSON.stringify(failure)).toMatch(/update hcn/i);
+    expect(JSON.stringify(failure)).toMatch(/--autonomy/);
     expect(events.at(-1)).toMatchObject({ kind: "done", cause: "failed" });
     expect(clock.pendingTimerCount).toBe(0);
   });

@@ -32,9 +32,33 @@ const MAX_UNREADABLE_POLLS = 3;
  * be reported. Counted in polls like the stuck window, so the wait only
  * elapses while observation is actually flowing. */
 const AUTO_RESOLVE_MARGIN_POLLS = 5;
+/** L5: JSON-RPC errors that mark the helper's surface as incompatible
+ * with hcn instead of one skipped sample. Method-not-found on any
+ * request means the installed muse renamed the operation; a rejected
+ * handshake (bad request, bad params - e.g. an unknown capability)
+ * means it speaks a different MSP revision. Server errors (-32000 and
+ * below) stay transient samples: the helper is up but unhappy. */
+const JSON_RPC_INVALID_PARAMS = -32602;
+const JSON_RPC_INVALID_REQUEST = -32600;
+const JSON_RPC_METHOD_NOT_FOUND = -32601;
+/** L4: upper bound on the `autoResolutionMs` wait, counted in polls. Past
+ * 5 minutes the field reads as a client-screen timer rather than a
+ * self-resolution deadline: if exec never resolves the input, an
+ * unbounded wait is the #179 hang again (forever without --timeout).
+ * 300 polls at gaps of at least 1s is at least 5 minutes of flowing
+ * observation. */
+export const MAX_AUTO_RESOLVE_POLLS = 300;
 
 export interface MuseApprovalObserver {
   readonly close: () => Promise<void>;
+}
+
+/** L5: the installed muse helper speaks an MSP surface hcn cannot use -
+ * the operation or handshake hcn sent was rejected as unknown. Carries
+ * the rejected method and the JSON-RPC error code for the message. */
+export interface MuseSurfaceIncompatibility {
+  readonly code: number | null;
+  readonly method: string;
 }
 
 /** Issue #179: muse exec omits pending approvals from stdout, so a
@@ -58,6 +82,7 @@ export function watchMuseApprovals(
   sessionId: string,
   blocked: (subject: "approval" | "input", kind: string) => void,
   unavailable: () => void,
+  incompatible?: (info: MuseSurfaceIncompatibility) => void,
 ): MuseApprovalObserver {
   let proc: SpawnedProcess;
   try {
@@ -85,6 +110,21 @@ export function watchMuseApprovals(
     if (closed || reported) return;
     reported = true;
     clearTimer();
+    unavailable();
+  };
+  /** L5: the helper's surface is incompatible with hcn - retrying the
+   * same route cannot help, so end the turn at once with a message
+   * naming the surface instead of failing closed as transport. Without
+   * a handler (unit tests that predate the seam) fall back to the
+   * fail-closed path so the turn still ends. */
+  const reportIncompatible = (method: string, code: number | null): void => {
+    if (closed || reported) return;
+    reported = true;
+    clearTimer();
+    if (incompatible !== undefined) {
+      incompatible({ code, method });
+      return;
+    }
     unavailable();
   };
   /** One poll produced no readable sample: skip it and try the next poll.
@@ -161,7 +201,10 @@ export function watchMuseApprovals(
     if (typeof autoMs !== "number" || !Number.isFinite(autoMs) || autoMs <= 0) {
       return APPROVAL_STUCK_POLLS;
     }
-    return Math.max(APPROVAL_STUCK_POLLS, Math.ceil(autoMs / POLL_MS) + AUTO_RESOLVE_MARGIN_POLLS);
+    return Math.min(
+      MAX_AUTO_RESOLVE_POLLS,
+      Math.max(APPROVAL_STUCK_POLLS, Math.ceil(autoMs / POLL_MS) + AUTO_RESOLVE_MARGIN_POLLS),
+    );
   };
   // Stability tracking: identity -> consecutive-poll count plus the latest
   // report payload for the message. A cleared identity is forgotten, so
@@ -210,6 +253,19 @@ export function watchMuseApprovals(
     clearTimer();
     const result = asRecord(value.result);
     if (value.error !== undefined || !result) {
+      const code = asRecord(value.error)?.code;
+      if (typeof code === "number" && code === JSON_RPC_METHOD_NOT_FOUND) {
+        reportIncompatible(!initialized ? "initialize" : "approval/listPending", code);
+        return;
+      }
+      if (
+        value.error !== undefined &&
+        !initialized &&
+        (code === JSON_RPC_INVALID_REQUEST || code === JSON_RPC_INVALID_PARAMS)
+      ) {
+        reportIncompatible("initialize", code);
+        return;
+      }
       unreadable();
       return;
     }

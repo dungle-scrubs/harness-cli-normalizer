@@ -44,6 +44,7 @@ import {
   failureFromApprovalUnobserved,
   failureFromBlockedApproval,
   failureFromLimit,
+  failureFromMuseIncompatibleSurface,
   failureFromRejected,
   failureFromStderrTail,
   failureFromTerminalError,
@@ -381,6 +382,12 @@ export async function* streamTurn(
           failureFromApprovalUnobserved(h.name),
           "approval_unobserved",
           `${h.name} approval status could not be observed - hcn could not watch the pending approval set; ending the turn`,
+        ),
+      (info) =>
+        stopForApproval(
+          failureFromMuseIncompatibleSurface(h.name, h.verifiedAgainst, info.method, info.code),
+          "approval_incompatible",
+          `${h.name} MSP surface is incompatible with hcn - ending the turn`,
         ),
     );
   };

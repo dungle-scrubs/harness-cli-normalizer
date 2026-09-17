@@ -5,14 +5,21 @@
  * operation - no session load, no lease, no decision.
  */
 import { describe, expect, test } from "vitest";
-import { APPROVAL_STUCK_POLLS, watchMuseApprovals } from "../../src/execution/muse-approvals.js";
+import {
+  APPROVAL_STUCK_POLLS,
+  MAX_AUTO_RESOLVE_POLLS,
+  watchMuseApprovals,
+} from "../../src/execution/muse-approvals.js";
 import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
 
 const flush = async (): Promise<void> => {
   for (let i = 0; i < 40; i++) await Promise.resolve();
 };
 
-const setup = (autoExit = true) => {
+const setup = (
+  autoExit = true,
+  incompatible?: (info: { method: string; code: number | null }) => void,
+) => {
   const proc = new FakeProcess({ exitOnStdinEnd: false });
   const clock = new FakeClock();
   const sig = fakeSignal({ autoExit });
@@ -28,10 +35,23 @@ const setup = (autoExit = true) => {
     () => {
       unavailable += 1;
     },
+    incompatible,
   );
   const reply = (id: number, result: unknown): void =>
     proc.emitLine(JSON.stringify({ id, jsonrpc: "2.0", result }));
-  return { proc, clock, sig, spawner, seen, watch, reply, unavailable: () => unavailable };
+  const replyError = (id: number, code: number): void =>
+    proc.emitLine(JSON.stringify({ id, jsonrpc: "2.0", error: { code, message: "probe" } }));
+  return {
+    proc,
+    clock,
+    sig,
+    spawner,
+    seen,
+    watch,
+    reply,
+    replyError,
+    unavailable: () => unavailable,
+  };
 };
 
 describe("watchMuseApprovals", () => {
@@ -168,6 +188,13 @@ describe("watchMuseApprovals", () => {
     // stays at one sighting: still nothing reported, still observing.
     expect(s.seen).toEqual([]);
     expect(s.unavailable()).toBe(0);
+    // L2: one more pending reply after the jump is only the second
+    // sighting. Wall-clock time alone must never stabilize the window -
+    // a wall-clock condition (elapsed >= 30s reports) fails this test.
+    s.reply(3, pending);
+    await flush();
+    expect(s.seen).toEqual([]);
+    expect(s.unavailable()).toBe(0);
     await s.watch.close();
     expect(s.clock.pendingTimerCount).toBe(0);
   });
@@ -297,6 +324,112 @@ describe("watchMuseApprovals", () => {
     await flush();
     expect(s.unavailable()).toBe(0);
     expect(s.seen).toEqual([]);
+    await s.watch.close();
+    expect(s.clock.pendingTimerCount).toBe(0);
+  });
+
+  test("a large pending reply on consecutive polls is readable, never unobservable", async () => {
+    // L3: pins OBSERVER_LINE_MAX above real approval frames. The same
+    // 70KB pending reply on 3 polls in a row is three normal samples
+    // (count 3, far below the stuck window) - not three unreadable
+    // samples. Lowering the limit back to 64KB fails this test.
+    const s = setup();
+    s.reply(1, {});
+    await flush();
+    const pending = {
+      approvals: [{ approvalId: "a", subject: { kind: "shell" }, rawArgs: "x".repeat(70_000) }],
+      userInputs: [],
+    };
+    for (let id = 2; id <= 4; id++) {
+      if (id > 2) {
+        s.clock.advance(1_000);
+        await flush();
+      }
+      s.reply(id, pending);
+      await flush();
+      expect(s.unavailable()).toBe(0);
+      expect(s.seen).toEqual([]);
+    }
+    await s.watch.close();
+    expect(s.clock.pendingTimerCount).toBe(0);
+  });
+
+  test("a very large autoResolutionMs is capped at 5 minutes of polls", async () => {
+    // L4: a user input carrying a very large autoResolutionMs must not
+    // hold the turn past 5 minutes of polls. Past that the field reads
+    // as a client-screen timer, not a self-resolution deadline - an
+    // unbounded wait is the #179 hang again when exec never resolves it.
+    const s = setup();
+    s.reply(1, {});
+    await flush();
+    const pending = {
+      approvals: [],
+      userInputs: [{ userInputId: "u", autoResolutionMs: 3_600_000 }],
+    };
+    for (let id = 2; id <= MAX_AUTO_RESOLVE_POLLS; id++) {
+      if (id > 2) {
+        s.clock.advance(1_000);
+        await flush();
+      }
+      s.reply(id, pending);
+      await flush();
+      expect(s.seen).toEqual([]);
+    }
+    expect(s.unavailable()).toBe(0);
+    s.clock.advance(1_000);
+    await flush();
+    s.reply(MAX_AUTO_RESOLVE_POLLS + 1, pending);
+    await flush();
+    expect(s.seen).toEqual([{ subject: "input", kind: "input" }]);
+    await s.watch.close();
+    expect(s.clock.pendingTimerCount).toBe(0);
+  });
+
+  test("a method-not-found poll error reports an incompatible surface at once", async () => {
+    // L5: a muse release that renames approval/listPending answers
+    // -32601. Retrying the same route cannot help, so this reports at
+    // once instead of failing closed as retryable transport.
+    const incompatible: Array<{ method: string; code: number | null }> = [];
+    const s = setup(true, (info) => incompatible.push(info));
+    s.reply(1, {});
+    await flush();
+    s.replyError(2, -32601);
+    await flush();
+    expect(incompatible).toEqual([{ method: "approval/listPending", code: -32601 }]);
+    expect(s.unavailable()).toBe(0);
+    expect(s.seen).toEqual([]);
+    await s.watch.close();
+    expect(s.clock.pendingTimerCount).toBe(0);
+  });
+
+  test("a handshake rejection reports an incompatible surface, a server error stays transient", async () => {
+    // L5: a live helper that rejects initialize with method-not-found,
+    // invalid-request, or invalid-params speaks a different MSP surface.
+    // A server-error (-32020) on the handshake is still one skipped
+    // sample: observation continues.
+    for (const code of [-32601, -32600, -32602]) {
+      const incompatible: Array<{ method: string; code: number | null }> = [];
+      const s = setup(true, (info) => incompatible.push(info));
+      s.replyError(1, code);
+      await flush();
+      expect(incompatible).toEqual([{ method: "initialize", code }]);
+      expect(s.unavailable()).toBe(0);
+      await s.watch.close();
+      expect(s.clock.pendingTimerCount).toBe(0);
+    }
+    const incompatible: Array<{ method: string; code: number | null }> = [];
+    const s = setup(true, (info) => incompatible.push(info));
+    s.replyError(1, -32020);
+    await flush();
+    expect(incompatible).toEqual([]);
+    expect(s.unavailable()).toBe(0);
+    // Observation is still alive: the handshake is retried and a poll follows.
+    s.reply(2, {});
+    await flush();
+    s.reply(3, { approvals: [], userInputs: [] });
+    await flush();
+    expect(s.unavailable()).toBe(0);
+    expect(incompatible).toEqual([]);
     await s.watch.close();
     expect(s.clock.pendingTimerCount).toBe(0);
   });

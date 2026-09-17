@@ -249,6 +249,41 @@ export const failureFromUnavailable = (detail?: string): FailureSummary => ({
   message: messageFor("unavailable", detail),
 });
 
+/** L5: the installed muse helper speaks an MSP surface hcn cannot use
+ * (an operation or the handshake was rejected as unknown). Classed
+ * `native`, not `transport`: per ADR 0001 the harness failing on hcn's
+ * own protocol call is a harness-side failure, not a verdict on the
+ * model's work (`task`) and not hcn refusing to build the call
+ * (`rejected`). Native is non-retryable, so a caller that retries the
+ * same muse route cannot loop the way retryable transport would - the
+ * remedy is a newer hcn, a different harness, or --autonomy, never the
+ * same call again. */
+export const failureFromMuseIncompatibleSurface = (
+  harness: import("../knowledge/descriptor.js").HarnessName,
+  verifiedAgainst: string,
+  method: string,
+  code: number | null,
+): FailureSummary => {
+  const reason =
+    code === -32601
+      ? "method-not-found -32601"
+      : code === -32600
+        ? "invalid-request -32600"
+        : code === -32602
+          ? "invalid-params -32602"
+          : code === null
+            ? "rejected handshake"
+            : `error ${code}`;
+  return {
+    class: "native",
+    retryable: retryableOf("native"),
+    message: messageFor(
+      "native",
+      `${harness} speaks an MSP surface incompatible with hcn (verified against ${harness} ${verifiedAgainst}; ${method} answered ${reason}) - update hcn to a version that supports this ${harness} release, or rerun with --autonomy only if unattended approvals are acceptable`,
+    ),
+  };
+};
+
 /** RFC-05: Cursor refused an untrusted workspace before any inference ran.
  * Retryable derives true from the provider-unavailable family; the
  * messageFor arm names the remedy.
