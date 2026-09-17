@@ -87,7 +87,12 @@ export const museCode: HarnessDescriptor = deepFreeze({
   // `muse resume --last` exists (muse resume --help) but needs a
   // terminal: parse data for `parse-resume.ts` only, never a render
   // target, since no headless grammar exists.
-  resumeLast: { flag: "--last", headless: false },
+  resumeLast: {
+    flag: "--last",
+    headless: false,
+    warning:
+      "hcn: --resume-last resumes the most-recent muse session in {cwd}; the most recent session may be a killed, failed, or unrelated run's session; muse starts a fresh session with exit 0 when no session is resumable in {cwd}; a run from inside a live muse session in the same directory re-enters that session",
+  },
   stdin: "inherit",
   presence: {
     headlessMarkers: ["exec"],

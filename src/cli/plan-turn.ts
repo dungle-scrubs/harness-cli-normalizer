@@ -14,6 +14,7 @@ import { nodeNativeSettingsInspector } from "../execution/node-deps.js";
 import { redactArgv, type TurnRunOptions } from "../execution/stream-turn.js";
 import { verifyNativeSettings } from "../execution/verified-native-settings.js";
 import {
+  assertResumeLastRenderable,
   buildSpawnArgv,
   buildTurnEnv,
   promptTextOf,
@@ -251,9 +252,42 @@ export const planTurn = async (
     turnOpts = parseTurnOptions(values);
     extra = parseRunExtra(values);
     assertIsolationCombination(h, { ...turnOpts, passthrough });
+    // RFC-06: the id-less most-recent path refuses here - before skill
+    // resolution, config load, and argv build - with the same
+    // unsupported-option/resumeLast shape the builder raises at spawn
+    // time, so it fires first on harnesses with no headless grammar.
+    if (extra.resumeLast === true) assertResumeLastRenderable(h);
   } catch (err) {
     if (err instanceof ArgvRefusalError) return refused(err);
     throw err;
+  }
+
+  // RFC-06: the native approval plan and the verified-settings render
+  // both bind to one exact session id, which an id-less most-recent turn
+  // never has. Refuse here, ahead of the nativeApprovalPlan dispatch
+  // below and the streamTurn dispatch, with invalid-option-value.
+  if (extra.resumeLast === true && values["native-approvals"] === true) {
+    return refused(
+      new ArgvRefusalError({
+        issue: "invalid-option-value",
+        harness: h.name,
+        message:
+          "--native-approvals with --resume-last is refused: the native approval plan binds to one exact session turn, and there is no id to bind",
+        supported: ["--resume <id> with --native-approvals for a bound turn"],
+      }),
+    );
+  }
+  if (extra.resumeLast === true && values["native-settings-fingerprint"] !== undefined) {
+    return refused(
+      new ArgvRefusalError({
+        issue: "invalid-option-value",
+        harness: h.name,
+        option: "nativeSettingsFingerprint",
+        message:
+          "--native-settings-fingerprint with --resume-last is refused: the saved settings must match one exact session id, and there is no id to match",
+        supported: ["--resume <id> with --native-settings-fingerprint for a bound turn"],
+      }),
+    );
   }
 
   // issue #38: skill names resolve against the caller's registry root (an

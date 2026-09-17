@@ -263,6 +263,27 @@ export interface SpawnArgvOptions extends TurnOptions {
   readonly verifiedNativeSettings?: NativeSettingsSnapshot;
 }
 
+/** Refuse an id-less most-recent turn on a harness with no renderable
+ * most-recent grammar (RFC-06). One owner for the refusal shape: the
+ * resume-last builder and planTurn both raise it from here, so the plan
+ * fires first with the same unsupported-option/resumeLast shape the
+ * builder would raise at spawn time. */
+export const assertResumeLastRenderable = (
+  h: HarnessDescriptor,
+): NonNullable<HarnessDescriptor["resumeLast"]> => {
+  const resumeLast = h.resumeLast;
+  if (resumeLast?.headless === true) return resumeLast;
+  const by = supportedBy(defaultDescriptors(), "resumeLast");
+  throw new ArgvRefusalError({
+    issue: "unsupported-option",
+    harness: h.name,
+    option: "resumeLast",
+    supported: by.map((e) => `${e.harness} ${e.spelling}`),
+    supportedBy: by,
+    hint: hintFor(h.name, "resumeLast"),
+  });
+};
+
 /** The resume-last argv: most-recent resolution stays inside the harness,
  * hcn only renders the native grammar (RFC-06). A `--continue` harness
  * (flag-style resume) gets the launch grammar plus the flag, with the fork
@@ -276,18 +297,7 @@ const resumeLastArgv = (
   opts: SpawnArgvOptions,
   nativeSettingsArgs: readonly string[],
 ): string[] => {
-  const resumeLast = h.resumeLast;
-  if (resumeLast === null || !resumeLast.headless) {
-    const by = supportedBy(defaultDescriptors(), "resumeLast");
-    throw new ArgvRefusalError({
-      issue: "unsupported-option",
-      harness: h.name,
-      option: "resumeLast",
-      supported: by.map((e) => `${e.harness} ${e.spelling}`),
-      supportedBy: by,
-      hint: hintFor(h.name, "resumeLast"),
-    });
-  }
+  const resumeLast = assertResumeLastRenderable(h);
   assertAccessExclusivity(h, opts);
   const beforePrompt = renderTurnOptions(h, opts, "resume", "before-prompt").tokens;
   const afterPrompt = renderTurnOptions(h, opts, "resume", "after-prompt").tokens;

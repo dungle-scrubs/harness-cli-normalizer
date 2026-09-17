@@ -441,6 +441,7 @@ support; its native 10MB input cap still applies.
 | `--env KEY=VAL` | `env` | Repeatable; `KEY=` deletes |
 | `--resume <uuid>` | `resume` | Resume session |
 | `--session-id <uuid>` | `resume` | Alias for `--resume`; UUID of session to resume or re-enter |
+| `--resume-last` | `resumeLast` | Resume the harness's most recent session in the spawn cwd, without naming an id (claude, codex, pi; muse and cursor refuse). Mutually exclusive with `--resume`/`--session-id`; refused on `hcn session`, with `--native-approvals`, and with `--native-settings-fingerprint` |
 | `--skills <a,b>` | `skills` | Skill allowlist; claude, pi and codex (pi strict via --skill, claude via --settings skillOverrides, codex via -c skills.config) |
 | `--timeout <seconds>` | `timeoutSeconds` | Wall-clock budget for the run (hcn-enforced; 0 disables; no default) |
 | `--escalate-questions` / `--no-escalate-questions` | `escalateQuestions` | Let worker ask when blocked (DEFAULT) / never ask, state assumption and continue |
@@ -464,6 +465,26 @@ model and effort defaults still apply.
 Claude uses bare mode, which requires authentication that works in that mode;
 OAuth-only installations may fail. A caller doing optional naming must keep
 its fallback on failure. See the [native CLI reference](https://code.claude.com/docs/en/cli-reference).
+
+### Resume-last
+
+`hcn run <harness> --resume-last "prompt"` resumes the harness's most
+recent session in the exact spawn cwd through each harness's own
+most-recent grammar (claude `--continue --fork-session`, codex
+`exec resume --last`, pi `--continue`; muse and cursor refuse with
+`unsupported-option`). Most-recent resolution stays inside the harness;
+hcn only renders. A resume-last turn is resume-semantics: no defaults
+profile runs, so a silently created session runs with native defaults.
+
+Every resume-last turn emits one fixed pre-spawn warning event plus a
+`store root <root> for scope <cwd>` diagnostic event before any harness
+output, and warns (never refuses) when the per-cwd store directory is
+absent. The `identity` event carries `resumeLast: true`:
+the announced id was picked by the harness as most-recent, never
+requested by the caller, and MAY be a fresh session or a stranger
+session (another run's session, including a killed, failed, or unrelated
+run's). On claude the announced id is the fork id, never the source id.
+Callers that need strict continuation store ids and use `--resume`.
 
 ## Defaults, config, provenance
 
@@ -668,7 +689,7 @@ Every refusal names an alternative in `supported` and `message`, not only a nega
 ## Reference
 
 - Descriptors live in `src/knowledge/` (`claude-code.ts`, `codex.ts`, `pi.ts`, `muse.ts`), with shared types in `descriptor.ts`.
-- The normalized event surface is `HarnessEvent` in `src/execution/events.ts`: `identity`, `token`, `message`, `progress`, `tool`, `context` (reserved - emitted only when a harness exposes context-window usage on its stream; none does at this version), `limit`, `error`, `failure`, `question` (issue #41), `done` (with `done.failure`; `done.cause` includes `awaiting-input`). Event kinds and failure classes are additive across releases; a consumer ignores a kind or class it does not recognize and still waits for `done`.
+- The normalized event surface is `HarnessEvent` in `src/execution/events.ts`: `identity`, `token`, `message`, `progress`, `tool`, `context` (reserved - emitted only when a harness exposes context-window usage on its stream; none does at this version), `limit`, `error`, `failure`, `question` (issue #41), `done` (with `done.failure`; `done.cause` includes `awaiting-input`). Event kinds and failure classes are additive across releases; a consumer ignores a kind or class it does not recognize and still waits for `done`. Additive optional fields (such as `resumeLast: true` on `identity`) never break that rule: branch on presence, never on prose.
 - Narrow or override a descriptor's facts with `parseOverrides` (`src/knowledge/overrides.ts`). An override a harness cannot satisfy throws `OverrideRefusalError` instead of producing a broken argv. `limitMatchers`/`authMatchers` are now serializable `{pattern, flags, code/kind}` objects so they can be overridden from JSON; bad patterns are refused at load with file and harness named.
 - `DROPPABLE_KINDS` (`token`, `progress`, `context`) marks events safe to drop when you only need the full messages. `failure` is never droppable.
 

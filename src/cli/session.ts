@@ -65,6 +65,26 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   }
 
   const values = parsed.values as Record<string, unknown>;
+  // RFC-06: a session holds one stable identity across turns;
+  // most-recent resolution per turn defeats it.
+  if (values["resume-last"] === true) {
+    const { refusalOf, refuse } = await import("./refuse.js");
+    refuse(
+      refusalOf(
+        new ArgvRefusalError({
+          issue: "invalid-option-value",
+          harness: h.name,
+          option: "resumeLast",
+          message:
+            "hcn session cannot re-resolve the most recent session per turn: a session holds one stable identity across turns",
+          supported: ["--resume <id> (or --session-id) to continue one stable session"],
+        }),
+      ),
+      jsonMode,
+      "closed",
+    );
+    return;
+  }
   if (values.isolation !== undefined) {
     const { refuse, refusalOf } = await import("./refuse.js");
     refuse(
@@ -414,7 +434,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
           })
         | null = null;
       for await (const event of turn) {
-        renderEvent(event, state);
+        renderEvent(event, state, h);
         if (event.kind === "question") asked = event;
       }
       if (asked !== null) {
@@ -447,7 +467,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
         if (answerTurn === undefined) break;
         const answerState = createRenderState();
         for await (const event of answerTurn) {
-          renderEvent(event, answerState);
+          renderEvent(event, answerState, h);
         }
       }
     }

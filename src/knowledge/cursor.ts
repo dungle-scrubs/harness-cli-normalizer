@@ -583,7 +583,12 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
   // observed on 2026.09.15-d2fe57e, 2026-09-17). Parse-only until the
   // RFC-06 conditional phase flips headless after RFC-05 lands: parse data
   // for parse-resume.ts only, never rendered into spawn argv.
-  resumeLast: { flag: "--continue", headless: false },
+  resumeLast: {
+    flag: "--continue",
+    headless: false,
+    warning:
+      "hcn: --resume-last resumes the most-recent cursor session in {cwd}; the most recent session may be a killed, failed, or unrelated run's session; cursor errors with exit 1 when no session is resumable, and the same error means the store root resolved away from the session; a run from inside a live cursor session in the same directory re-enters that session",
+  },
   // A positional prompt plus open stdin emits `result` then never exits,
   // so stdin is closed at spawn (notes 07).
   stdin: "close-required",

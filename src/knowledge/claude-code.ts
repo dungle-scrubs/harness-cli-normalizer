@@ -167,7 +167,12 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
   // RFC-06: `-c, --continue` continues the most recent conversation
   // (observed on 2.1.274, 2026-09-17). The fork half renders from the
   // single contextInspection.forkFlag, always on this path.
-  resumeLast: { flag: "--continue", headless: true },
+  resumeLast: {
+    flag: "--continue",
+    headless: true,
+    warning:
+      "hcn: --resume-last forks the most-recent claude session in {cwd} under a new fork id; the most recent session may be a killed, failed, or unrelated run's session; claude starts a fresh session with exit 0 when no session is resumable in {cwd}",
+  },
   stdin: "inherit",
   presence: {
     headlessMarkers: ["-p", "--print"],

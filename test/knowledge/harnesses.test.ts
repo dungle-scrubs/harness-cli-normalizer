@@ -35,7 +35,7 @@ describe("codex descriptor (v1 scars)", () => {
   });
 
   test("resumeLast surface is --last, and exec resume <id> parses positionally after the subcommand", () => {
-    expect(codexCli.resumeLast).toEqual({ flag: "--last", headless: true });
+    expect(codexCli.resumeLast).toMatchObject({ flag: "--last", headless: true });
     expect(parseResumeCommand([codexCli], `codex exec resume ${uuid} --json`)).toMatchObject({
       harness: "codex",
       sessionId: uuid,

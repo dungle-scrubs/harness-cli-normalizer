@@ -538,10 +538,17 @@ export interface HarnessDescriptor {
   } | null;
   /** Most-recent resume support, or null. `flag` stays the parse key for
    * `parse-resume.ts` (shell history carrying `muse resume --last` still
-   * parses); `headless` decides whether a builder may render it. The
-   * harness owns most-recent resolution; the pre-spawn warning plus the
-   * identity signal bound the stranger race. */
-  readonly resumeLast: { readonly flag: string; readonly headless: boolean } | null;
+   * parses); `headless` decides whether a builder may render it. `warning`
+   * is the verbatim pre-spawn text (RFC-06 Safety item 4) with `{cwd}`
+   * placeholders for the realpath scope - the CLI layer renders it, the
+   * execution layer only emits the rendered line. The harness owns
+   * most-recent resolution; the pre-spawn warning plus the identity
+   * signal bound the stranger race. */
+  readonly resumeLast: {
+    readonly flag: string;
+    readonly headless: boolean;
+    readonly warning: string;
+  } | null;
   /** Whether backgrounded headless calls must have stdin closed (pi hangs
    * without `< /dev/null`). */
   readonly stdin: StdinPolicy;

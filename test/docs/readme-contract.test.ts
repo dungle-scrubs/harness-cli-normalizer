@@ -92,6 +92,11 @@ describe("README contract", () => {
     }
   });
 
+  it("documents the resume-last signal (RFC-06 Phase 3)", () => {
+    expect(readme).toContain("--resume-last");
+    expect(readme).toContain("resumeLast: true");
+  });
+
   it("documents toolMap with verification disclaimer", () => {
     expect(readme).toContain("toolMap");
     expect(readme).toContain(

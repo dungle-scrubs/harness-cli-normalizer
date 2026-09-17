@@ -48,6 +48,12 @@ export type HarnessEvent =
       readonly sessionId: string;
       readonly authority: "caller-assigned" | "harness-minted";
       readonly capabilities: CapabilityResult;
+      /** RFC-06: present only on a turn that rendered through the
+       * resume-last builder. The announced id was picked by the harness
+       * as most-recent in the spawn cwd, never requested by the caller;
+       * it MAY be a fresh session or a stranger session. On claude the
+       * announced id is the fork id, never the source id. */
+      readonly resumeLast?: true;
     }
   | { readonly kind: "token"; readonly text: string }
   | { readonly kind: "message"; readonly role: string; readonly text: string }

@@ -283,9 +283,8 @@ export const parseRunExtra = (
   if (values.cwd !== undefined) extra.cwd = String(values.cwd);
   const resume = resumeIdOf(values);
   if (resume !== undefined) extra.resume = resume;
-  // The --resume-last flag reaches the parse table in Phase 3; until then
-  // this reads the raw values key so the plan discriminants below already
-  // treat an id-less most-recent turn as resume-semantics.
+  // --resume-last is most-recent resolution without an id (RFC-06); the
+  // plan treats it as resume-semantics everywhere resume applies.
   if (values["resume-last"] === true) extra.resumeLast = true;
   if (values.env !== undefined) {
     // parseArgs with multiple:true gives string[] ; else string
@@ -332,6 +331,7 @@ const KNOWN_FLAGS = new Set([
   "--env",
   "--resume",
   "--session-id",
+  "--resume-last",
   "--json",
   "--argv",
   "--runtime",
@@ -515,6 +515,7 @@ export const parseCommonFlags = (
       env: { type: "string" as const, multiple: true },
       resume: { type: "string" as const },
       "session-id": { type: "string" as const },
+      "resume-last": { type: "boolean" as const },
       timeout: { type: "string" as const },
       json: { type: "boolean" as const },
       argv: { type: "boolean" as const },
