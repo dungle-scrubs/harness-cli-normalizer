@@ -1,0 +1,79 @@
+{
+  "allVerified": true,
+  "citations": [
+    {
+      "url": "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/app-server-protocol/src/protocol/thread_history.rs#L1318-L1342",
+      "verified": true,
+      "sourceLines": 4794
+    },
+    {
+      "url": "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/thread-store/src/local/read_thread.rs#L32-L99",
+      "verified": true,
+      "sourceLines": 1553
+    },
+    {
+      "url": "https://github.com/dungle-scrubs/harness-cli-normalizer/blob/2e19ca2abdfc877a6a373941def104c175f2faca/src/knowledge/claude-code.ts#L20-L25",
+      "verified": true,
+      "sourceLines": 234
+    },
+    {
+      "url": "https://github.com/dungle-scrubs/harness-cli-normalizer/blob/2e19ca2abdfc877a6a373941def104c175f2faca/src/knowledge/codex.ts#L10-L14",
+      "verified": true,
+      "sourceLines": 196
+    },
+    {
+      "url": "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/app-server/README.md#L534-L590",
+      "verified": true,
+      "sourceLines": 2493
+    },
+    {
+      "url": "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/app-server-protocol/src/protocol/v2/thread.rs#L1470-L1583",
+      "verified": true,
+      "sourceLines": 1727
+    },
+    {
+      "url": "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/app-server/src/request_processors/thread_processor.rs#L2275-L2520",
+      "verified": true,
+      "sourceLines": 5465
+    },
+    {
+      "url": "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/app-server/src/request_processors/thread_processor.rs#L2476-L2508",
+      "verified": true,
+      "sourceLines": 5465
+    },
+    {
+      "url": "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/rollout/src/recorder.rs#L981-L1055",
+      "verified": true,
+      "sourceLines": 2073
+    },
+    {
+      "url": "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/rollout/src/policy.rs#L8-L145",
+      "verified": true,
+      "sourceLines": 184
+    },
+    {
+      "url": "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/thread-store/src/local/read_thread.rs#L101-L161",
+      "verified": true,
+      "sourceLines": 1553
+    },
+    {
+      "url": "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/app-server-protocol/src/protocol/v2/item.rs#L226-L399",
+      "verified": true,
+      "sourceLines": 1693
+    },
+    {
+      "url": "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/app-server/tests/suite/v2/thread_read.rs#L101-L299",
+      "verified": true,
+      "sourceLines": 2287
+    },
+    {
+      "url": "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/app-server/tests/suite/v2/thread_read.rs#L1080-L1146",
+      "verified": true,
+      "sourceLines": 2287
+    }
+  ],
+  "mechanicalVerifierNotes": [
+    "Full-file verifier was run against both repositories. Each foreign-repository hash resolves in its owning repository.",
+    "The npm SHA-1 is an archive checksum, 20260911 is a date in a probe path, and branch by is prose rather than a Git branch claim. These are parser false positives."
+  ]
+}
