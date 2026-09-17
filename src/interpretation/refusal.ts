@@ -24,6 +24,7 @@ export const REFUSAL_ISSUES = deepFreeze([
   "no-session-mode",
   "native-settings-unavailable",
   "native-settings-changed",
+  "unsupported-passthrough",
 ] as const);
 export type RefusalIssue = (typeof REFUSAL_ISSUES)[number];
 
@@ -107,6 +108,12 @@ export const buildRefusalMessage = (
       return `saved native settings are unavailable${forHarness}${detailSuffix}; read the same native session again before retrying`;
     case "native-settings-changed":
       return `saved native settings changed${forHarness}; inspect the same native session again before retrying`;
+    case "unsupported-passthrough":
+      // RFC-05: cursor joins post-`--` tokens into the positional prompt
+      // as text (probe 41), so a non-empty tail refuses before spawn. The
+      // offending tokens ride `detail`; the stay-on-harness hint is set at
+      // the raise site in Phase 3.
+      return `${who} joins tokens after the -- separator into the prompt as text${detailSuffix}; ${supportedStr} - remove the tokens after -- and re-run; to pass native flags, invoke agent directly`;
     default: {
       const exhaustive: never = issue;
       return `${exhaustive as string}${forHarness}${optionPart}${detailSuffix}; ${supportedStr}`;

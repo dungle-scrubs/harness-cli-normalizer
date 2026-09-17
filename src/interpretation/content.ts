@@ -246,6 +246,10 @@ const READERS: Record<HarnessName, (r: Record<string, unknown>) => ContentEvent[
   codex,
   pi,
   muse,
+  // RFC-05 Phase 1: the slot exists so the closed table compiles. The
+  // stream-json reader lands in Phase 2; until then cursor decodes to no
+  // events rather than misreading records.
+  cursor: () => [],
 };
 
 export const contentEventsOf = (harness: HarnessName, raw: unknown): ContentEvent[] => {

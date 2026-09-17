@@ -27,6 +27,11 @@ const slugFor = (h: HarnessDescriptor, cwd: string): string => {
       return `--${normalized.replace(/^\//, "").replace(/\//g, "-")}--`;
     case "verbatim":
       return normalized;
+    case "md5-hex":
+      // RFC-05 Phase 1: the member exists so the cursor descriptor
+      // compiles. The vendored pure-md5 arm lands in Phase 2; until then a
+      // cursor store path refuses rather than resolving to a wrong path.
+      throw new Error("md5-hex slug resolves in Phase 2 (RFC-05)");
     default: {
       const exhaustive: never = h.store.cwdSlug;
       return exhaustive;

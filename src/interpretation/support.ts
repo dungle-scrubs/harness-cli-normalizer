@@ -32,6 +32,9 @@ const spellingOf = (h: HarnessDescriptor, option: RefusalOption): string | null 
       if (read === "tool-preset") return h.tools.includeFlag ?? h.tools.excludeFlag ?? null;
       if (read === null) return null;
       if (read.render.kind === "env") return `${read.render.name}=${read.render.value}`;
+      // RFC-05: the in-model render carries no argv spelling. Access never
+      // renders through it; the effort spelling arm lands in Phase 2.
+      if (read.render.kind === "in-model") return null;
       return read.render.kind === "flag-list" ? (read.render.flags[0] ?? null) : read.render.flag;
     }
     case "tools":

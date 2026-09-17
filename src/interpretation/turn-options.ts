@@ -454,6 +454,21 @@ export const renderTurnOptions = (
         sequences.push([...tokensFor(render, String(raw), "verbatim")]);
         break;
       }
+      case "effort-in-model": {
+        // RFC-05 Phase 1: the kind exists so the cursor descriptor
+        // compiles. Word validation and zero-token emission land in Phase
+        // 2; until then effort on cursor refuses rather than rendering a
+        // wrong argv.
+        throw new ArgvRefusalError({
+          issue: "unsupported-option",
+          harness: h.name,
+          option: key,
+          supported: [...h.vocabulary.efforts],
+          supportedBy: supportedBy(defaultDescriptors(), key),
+          detail: "effort-in-model renders in Phase 2",
+          hint: hintFor(h.name, key),
+        });
+      }
       default: {
         const _exhaustive: never = spec;
         throw new ArgvRefusalError({

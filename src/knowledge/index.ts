@@ -11,6 +11,7 @@
  */
 export { claudeCode } from "./claude-code.js";
 export { codexCli } from "./codex.js";
+export { cursorCli } from "./cursor.js";
 export * from "./descriptor.js";
 export {
   SHARED_AUTH_MATCHERS,

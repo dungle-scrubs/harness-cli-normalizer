@@ -39,6 +39,7 @@ export const FAILURE_CLASSES = Object.freeze([
   "rejected",
   "native",
   "timeout",
+  "trust-refused",
 ] as const);
 export type FailureClass = (typeof FAILURE_CLASSES)[number];
 
@@ -236,6 +237,9 @@ const PRECEDENCE: Record<FailureClass, number> = {
   // terminal-by-classification, never reduced into anything else.
   rejected: 0,
   native: 0,
+  // RFC-05: the trust gate fires before any inference, so it shares the
+  // provider-unavailable family; the messageFor arm lands in Phase 3.
+  "trust-refused": 2,
 };
 
 export const reduceFailures = (failures: readonly FailureSummary[]): FailureSummary | undefined => {

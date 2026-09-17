@@ -1,0 +1,747 @@
+/**
+ * The cursor descriptor: facts about the Cursor CLI (`agent`) as data,
+ * verified against agent 2026.09.10-fd3934a (spike: scratchpad/cursor-spike,
+ * probes 01-55). The v1 scars this encodes: identity is harness-minted (no
+ * caller-assigned id flag; the hidden --new-session-id is not used), an
+ * untrusted workspace refuses unless --force bypasses the trust gate per
+ * run, effort resolves into the --model slug via effortSlugs, and sessions
+ * file under chats/<md5-of-cwd> below a root that follows CURSOR_CONFIG_DIR
+ * / XDG_CONFIG_HOME.
+ */
+import { deepFreeze, type HarnessDescriptor, UUID_SHAPE } from "./descriptor.js";
+import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
+
+/** Hcn effort words, for Stem-rule matching below. */
+const EFFORT_WORDS: ReadonlySet<string> = new Set([
+  "minimal",
+  "none",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+]);
+
+/** One Stem-rule key: the table stem, the hcn effort word (undefined for
+ * bare forms), and whether the slug carries one trailing `-fast` suffix. */
+export interface StemKey {
+  readonly stem: string;
+  readonly effort: string | undefined;
+  readonly fast: boolean;
+}
+
+const wordOf = (match: RegExpExecArray | null, index: number): string | undefined => {
+  if (match === null) return undefined;
+  const word = match[index];
+  return word === undefined || !EFFORT_WORDS.has(word) ? undefined : word;
+};
+
+/** The RFC-05 Stem rule, applied in order: strip one trailing `-fast`,
+ * infixed `-thinking-<effort>`, suffixed `-<effort>-thinking`, bare
+ * `-thinking` forms, `-<effort>` suffixes (`-extra-high` reads as `xhigh`),
+ * else the slug is its own stem. Pure syntax: a bare slug with a table row
+ * resolves to that row's medium value in checkEffortTable, not here. */
+export const stemKeyOfSlug = (slug: string): StemKey => {
+  let rest = slug;
+  let fast = false;
+  if (rest.endsWith("-fast")) {
+    fast = true;
+    rest = rest.slice(0, -"-fast".length);
+  }
+  const infixed = /^(.*)-thinking-([A-Za-z0-9]+)$/.exec(rest);
+  const infixedEffort = wordOf(infixed, 2);
+  if (infixed !== null && infixed[1] !== undefined && infixedEffort !== undefined) {
+    return { stem: `${infixed[1]}-thinking`, effort: infixedEffort, fast };
+  }
+  const suffixed = /^(.*)-([A-Za-z0-9]+)-thinking$/.exec(rest);
+  const suffixedEffort = wordOf(suffixed, 2);
+  if (suffixed !== null && suffixed[1] !== undefined && suffixedEffort !== undefined) {
+    return { stem: `${suffixed[1]}-thinking`, effort: suffixedEffort, fast };
+  }
+  if (rest.endsWith("-thinking")) {
+    return { stem: rest, effort: undefined, fast };
+  }
+  if (rest.endsWith("-extra-high")) {
+    return { stem: rest.slice(0, -"-extra-high".length), effort: "xhigh", fast };
+  }
+  const tailed = /^(.*)-([A-Za-z0-9]+)$/.exec(rest);
+  const tailEffort = wordOf(tailed, 2);
+  if (tailed !== null && tailed[1] !== undefined && tailEffort !== undefined) {
+    return { stem: tailed[1], effort: tailEffort, fast };
+  }
+  return { stem: rest, effort: undefined, fast };
+};
+
+/** Transcription guard: every slug in `models` must be reachable from
+ * exactly one `(stem, effort[, fast])` key through `effortSlugs`, or be a
+ * bare-only stem with no row. A bare slug that shares its stem with an
+ * explicit `-medium` slug throws rather than double-mapping medium, as
+ * does any unreachable slug, duplicate key, or row value naming no listed
+ * slug. Phase 2's resolver reuses stemKeyOfSlug; this check owns the
+ * table's shape. */
+export const checkEffortTable = (
+  models: readonly string[],
+  effortSlugs: Readonly<Record<string, Readonly<Record<string, string>>>>,
+): void => {
+  const modelSet = new Set(models);
+  const seen = new Set<string>();
+  const claim = (stem: string, effort: string, fast: boolean): void => {
+    const id = `${stem} ${effort} ${fast ? "fast" : "plain"}`;
+    if (seen.has(id)) throw new Error(`cursor effort table: duplicate key ${id}`);
+    seen.add(id);
+  };
+  for (const slug of models) {
+    const key = stemKeyOfSlug(slug);
+    const row = Object.hasOwn(effortSlugs, key.stem)
+      ? (effortSlugs[key.stem] as Readonly<Record<string, string>>)
+      : undefined;
+    if (key.effort === undefined) {
+      const base = key.fast ? slug.slice(0, -"-fast".length) : slug;
+      if (row === undefined) {
+        if (!modelSet.has(base)) {
+          throw new Error(
+            `cursor effort table: ${slug} strips to ${base}, which is not a listed slug`,
+          );
+        }
+        claim(key.stem, "-", key.fast);
+        continue;
+      }
+      const medium = row.medium;
+      const want = medium === undefined ? undefined : key.fast ? `${medium}-fast` : medium;
+      if (slug !== want) {
+        throw new Error(
+          `cursor effort table: bare slug ${slug} shares its stem with an explicit -medium slug ${medium ?? "(none)"} - transcription must fail rather than double-map medium`,
+        );
+      }
+      claim(key.stem, "medium", key.fast);
+      continue;
+    }
+    const value = row?.[key.effort];
+    const want = value === undefined ? undefined : key.fast ? `${value}-fast` : value;
+    if (slug !== want) {
+      throw new Error(
+        `cursor effort table: ${slug} is not reachable from (${key.stem}, ${key.effort}${key.fast ? ", fast" : ""})`,
+      );
+    }
+    claim(key.stem, key.effort, key.fast);
+  }
+  for (const [stem, row] of Object.entries(effortSlugs)) {
+    for (const [effort, value] of Object.entries(row)) {
+      if (!modelSet.has(value)) {
+        throw new Error(
+          `cursor effort table: row ${stem}/${effort} names ${value}, which is not a listed slug`,
+        );
+      }
+    }
+  }
+};
+
+export const cursorCli: HarnessDescriptor = deepFreeze({
+  name: "cursor",
+  // Out of v1 by owner decision: transcript reads report divergence.
+  transcript: null,
+  bin: "agent",
+  verifiedAgainst: "2026.09.10-fd3934a",
+  // The installed agent has since moved to 2026.09.15-d2fe57e (probes
+  // 60-61, 70-71 ran there); Phase 5 re-verifies and bumps this anchor.
+  // No npm package exists (script install only), so drift detection falls
+  // back to the local `agent --version`, skipped where absent.
+  versionSource: { kind: "installed" },
+  launch: {
+    // Every headless probe runs `-p` (print mode, with write and shell).
+    baseFlags: ["-p"],
+    // No subcommand: the prompt is positional.
+    subcommands: [],
+    promptStyle: "positional",
+    // No documented `--` handling: tokens after hcn's bare `--` join the
+    // positional prompt as text (probes 40/41), so a non-empty tail
+    // refuses before spawn instead of silently rewriting the prompt.
+    passthrough: "prompt-joins",
+    // Token-granular stream: the partial flag adds per-fragment deltas and
+    // changes nothing else (probes 11, 11b, 43).
+    streamFlags: ["--output-format", "stream-json", "--stream-partial-output"],
+    // No caller-assigned id flag in the documented surface; the hidden
+    // --new-session-id is not used (owner decision).
+    idFlag: null,
+  },
+  resume: {
+    // `-p --resume <id>` re-enters headless under the same session_id
+    // with turn-1 facts recalled (probes 21a/21b).
+    style: "flag",
+    flag: "--resume",
+    aliases: [],
+    // `--resume not-a-uuid` fails fast: ids must be UUIDs (probe 25).
+    idShape: UUID_SHAPE,
+    // Resume never inherits launch flags, so -p rides along; --model, the
+    // stream flags and --force render through the normal paths.
+    extraFlags: ["-p"],
+    // An unknown UUID returns exit 0 and files a fresh session under the
+    // given id (probe 24): create, not error.
+    onMissing: "create",
+  },
+  sessionMode: null,
+  output: {
+    // Partial deltas are token events; bare stream-json carries full-text
+    // assistant records plus thinking events (probes 11, 11b).
+    pins: [
+      {
+        flags: ["--output-format", "stream-json", "--stream-partial-output"],
+        granularity: "token",
+      },
+      { flags: ["--output-format", "stream-json"], granularity: "message" },
+    ],
+    // `text` emits only the final text; `json` one terminal object
+    // (probe 09).
+    floor: "none",
+    flagAliases: {},
+  },
+  identity: {
+    authority: "harness-minted",
+    // init carries session_id, re-emitted on every line including resumes
+    // (probes 03, 11, 21/22). `model` is the display name (Composer 2.5
+    // Fast, GPT-5.2 Medium), never the slug.
+    announce: { match: { type: "system", subtype: "init" }, idField: "session_id" },
+  },
+  limitMatchers: [...SHARED_LIMIT_MATCHERS],
+  authMatchers: [
+    // Documented mechanism with research-observed strings; the spike ran
+    // logged in throughout, so Phase 4 re-verifies both on logged-out runs.
+    { pattern: "Authentication required. Please run 'agent login' first", kind: "not-logged-in" },
+    { pattern: "The provided API key is invalid", kind: "invalid-key" },
+    ...SHARED_AUTH_MATCHERS,
+  ],
+  trustMatchers: [
+    // An untrusted workspace without bypass exits 1 with empty stdout and
+    // this stderr text (probes 01/02).
+    { pattern: "Workspace Trust Required", flags: "i" },
+  ],
+  // --force runs edits and non-allowlisted shell with no approval lines
+  // and bypasses the trust gate per run without persisting anything
+  // (probes 16/17, 31/32). --yolo is the same bypass; hcn renders --force.
+  autonomy: { flag: "--force" },
+  vocabulary: {
+    modelFlag: "--model",
+    // Full slug list transcribed from out/models.txt at verifiedAgainst
+    // (227 lines: 223 entries plus header, blank, and tip lines). The file
+    // is not sorted, so the snapshot test compares as sets.
+    models: [
+      "auto",
+      "gpt-5.3-codex-low",
+      "gpt-5.3-codex-low-fast",
+      "gpt-5.3-codex",
+      "gpt-5.3-codex-fast",
+      "gpt-5.3-codex-high",
+      "gpt-5.3-codex-high-fast",
+      "gpt-5.3-codex-xhigh",
+      "gpt-5.3-codex-xhigh-fast",
+      "gpt-5.2",
+      "cursor-grok-4.6-high-fast",
+      "composer-2.5",
+      "claude-opus-5-thinking-high",
+      "claude-opus-5-thinking-high-fast",
+      "gpt-5.6-sol-high",
+      "gpt-5.6-sol-high-fast",
+      "gpt-5.6-sol-xhigh",
+      "gpt-5.6-sol-xhigh-fast",
+      "claude-fable-5-thinking-high",
+      "claude-fable-5-thinking-xhigh",
+      "cursor-grok-4.5-high",
+      "cursor-grok-4.5-high-fast",
+      "gemini-3.7-flash-high",
+      "claude-sonnet-5-thinking-high",
+      "claude-sonnet-5-thinking-xhigh",
+      "gpt-5.6-luna-high",
+      "cursor-grok-4.6-low",
+      "cursor-grok-4.6-low-fast",
+      "cursor-grok-4.6-medium",
+      "cursor-grok-4.6-medium-fast",
+      "cursor-grok-4.6-high",
+      "cursor-grok-4.6-xhigh",
+      "cursor-grok-4.6-xhigh-fast",
+      "composer-2.5-fast",
+      "claude-opus-5-low",
+      "claude-opus-5-low-fast",
+      "claude-opus-5-medium",
+      "claude-opus-5-medium-fast",
+      "claude-opus-5-high",
+      "claude-opus-5-high-fast",
+      "claude-opus-5-thinking-low",
+      "claude-opus-5-thinking-low-fast",
+      "claude-opus-5-thinking-medium",
+      "claude-opus-5-thinking-medium-fast",
+      "claude-opus-5-thinking-xhigh",
+      "claude-opus-5-thinking-xhigh-fast",
+      "claude-opus-5-thinking-max",
+      "claude-opus-5-thinking-max-fast",
+      "claude-opus-4-8-low",
+      "claude-opus-4-8-low-fast",
+      "claude-opus-4-8-medium",
+      "claude-opus-4-8-medium-fast",
+      "claude-opus-4-8-high",
+      "claude-opus-4-8-high-fast",
+      "claude-opus-4-8-xhigh",
+      "claude-opus-4-8-xhigh-fast",
+      "claude-opus-4-8-max",
+      "claude-opus-4-8-max-fast",
+      "claude-opus-4-8-thinking-low",
+      "claude-opus-4-8-thinking-low-fast",
+      "claude-opus-4-8-thinking-medium",
+      "claude-opus-4-8-thinking-medium-fast",
+      "claude-opus-4-8-thinking-high",
+      "claude-opus-4-8-thinking-high-fast",
+      "claude-opus-4-8-thinking-xhigh",
+      "claude-opus-4-8-thinking-xhigh-fast",
+      "claude-opus-4-8-thinking-max",
+      "claude-opus-4-8-thinking-max-fast",
+      "gpt-5.6-sol-none",
+      "gpt-5.6-sol-none-fast",
+      "gpt-5.6-sol-low",
+      "gpt-5.6-sol-low-fast",
+      "gpt-5.6-sol-medium",
+      "gpt-5.6-sol-medium-fast",
+      "gpt-5.6-sol-max",
+      "gpt-5.6-sol-max-fast",
+      "gpt-5.5-none",
+      "gpt-5.5-none-fast",
+      "gpt-5.5-low",
+      "gpt-5.5-low-fast",
+      "gpt-5.5-medium",
+      "gpt-5.5-medium-fast",
+      "gpt-5.5-high",
+      "gpt-5.5-high-fast",
+      "gpt-5.5-extra-high",
+      "gpt-5.5-extra-high-fast",
+      "claude-fable-5-1-low",
+      "claude-fable-5-1-medium",
+      "claude-fable-5-1-high",
+      "claude-fable-5-1-xhigh",
+      "claude-fable-5-1-max",
+      "claude-fable-5-1-thinking-low",
+      "claude-fable-5-1-thinking-medium",
+      "claude-fable-5-1-thinking-high",
+      "claude-fable-5-1-thinking-xhigh",
+      "claude-fable-5-1-thinking-max",
+      "claude-fable-5-low",
+      "claude-fable-5-medium",
+      "claude-fable-5-high",
+      "claude-fable-5-xhigh",
+      "claude-fable-5-max",
+      "claude-fable-5-thinking-low",
+      "claude-fable-5-thinking-medium",
+      "claude-fable-5-thinking-max",
+      "cursor-grok-4.5-low",
+      "cursor-grok-4.5-low-fast",
+      "cursor-grok-4.5-medium",
+      "cursor-grok-4.5-medium-fast",
+      "gemini-3.8-flash-low",
+      "gemini-3.8-flash-medium",
+      "gemini-3.8-flash-high",
+      "gemini-3.7-flash-low",
+      "gemini-3.7-flash-medium",
+      "muse-spark-1.3-minimal",
+      "muse-spark-1.3-low",
+      "muse-spark-1.3-medium",
+      "muse-spark-1.3-high",
+      "muse-spark-1.3-xhigh",
+      "muse-spark-1.3-max",
+      "gpt-5.6-terra-none",
+      "gpt-5.6-terra-none-fast",
+      "gpt-5.6-terra-low",
+      "gpt-5.6-terra-low-fast",
+      "gpt-5.6-terra-medium",
+      "gpt-5.6-terra-medium-fast",
+      "gpt-5.6-terra-high",
+      "gpt-5.6-terra-high-fast",
+      "gpt-5.6-terra-xhigh",
+      "gpt-5.6-terra-xhigh-fast",
+      "gpt-5.6-terra-max",
+      "gpt-5.6-terra-max-fast",
+      "claude-sonnet-5-low",
+      "claude-sonnet-5-medium",
+      "claude-sonnet-5-high",
+      "claude-sonnet-5-xhigh",
+      "claude-sonnet-5-max",
+      "claude-sonnet-5-thinking-low",
+      "claude-sonnet-5-thinking-medium",
+      "claude-sonnet-5-thinking-max",
+      "claude-4.6-sonnet-medium",
+      "claude-4.6-sonnet-medium-thinking",
+      "claude-opus-4-7-low",
+      "claude-opus-4-7-low-fast",
+      "claude-opus-4-7-medium",
+      "claude-opus-4-7-medium-fast",
+      "claude-opus-4-7-high",
+      "claude-opus-4-7-high-fast",
+      "claude-opus-4-7-xhigh",
+      "claude-opus-4-7-xhigh-fast",
+      "claude-opus-4-7-max",
+      "claude-opus-4-7-max-fast",
+      "claude-opus-4-7-thinking-low",
+      "claude-opus-4-7-thinking-low-fast",
+      "claude-opus-4-7-thinking-medium",
+      "claude-opus-4-7-thinking-medium-fast",
+      "claude-opus-4-7-thinking-high",
+      "claude-opus-4-7-thinking-high-fast",
+      "claude-opus-4-7-thinking-xhigh",
+      "claude-opus-4-7-thinking-xhigh-fast",
+      "claude-opus-4-7-thinking-max",
+      "claude-opus-4-7-thinking-max-fast",
+      "gpt-5.4-low",
+      "gpt-5.4-medium",
+      "gpt-5.4-medium-fast",
+      "gpt-5.4-high",
+      "gpt-5.4-high-fast",
+      "gpt-5.4-xhigh",
+      "gpt-5.4-xhigh-fast",
+      "claude-4.6-opus-high",
+      "claude-4.6-opus-max",
+      "claude-4.6-opus-high-thinking",
+      "claude-4.6-opus-max-thinking",
+      "claude-4.5-opus-high",
+      "claude-4.5-opus-high-thinking",
+      "gpt-5.2-low",
+      "gpt-5.2-low-fast",
+      "gpt-5.2-fast",
+      "gpt-5.2-high",
+      "gpt-5.2-high-fast",
+      "gpt-5.2-xhigh",
+      "gpt-5.2-xhigh-fast",
+      "gpt-5.6-luna-none",
+      "gpt-5.6-luna-none-fast",
+      "gpt-5.6-luna-low",
+      "gpt-5.6-luna-low-fast",
+      "gpt-5.6-luna-medium",
+      "gpt-5.6-luna-medium-fast",
+      "gpt-5.6-luna-high-fast",
+      "gpt-5.6-luna-xhigh",
+      "gpt-5.6-luna-xhigh-fast",
+      "gpt-5.6-luna-max",
+      "gpt-5.6-luna-max-fast",
+      "gemini-3.6-flash-minimal",
+      "gemini-3.6-flash-low",
+      "gemini-3.6-flash-medium",
+      "gemini-3.6-flash-high",
+      "gemini-3.1-pro",
+      "gpt-5.4-mini-none",
+      "gpt-5.4-mini-low",
+      "gpt-5.4-mini-medium",
+      "gpt-5.4-mini-high",
+      "gpt-5.4-mini-xhigh",
+      "gpt-5.4-nano-none",
+      "gpt-5.4-nano-low",
+      "gpt-5.4-nano-medium",
+      "gpt-5.4-nano-high",
+      "gpt-5.4-nano-xhigh",
+      "claude-4.5-sonnet",
+      "claude-4.5-sonnet-thinking",
+      "gpt-5.1-low",
+      "gpt-5.1",
+      "gpt-5.1-high",
+      "gemini-3-flash",
+      "gemini-3.5-flash",
+      "claude-4-sonnet",
+      "claude-4-sonnet-thinking",
+      "gpt-5-mini",
+      "kimi-k3-low",
+      "kimi-k3-high",
+      "kimi-k3-max",
+      "kimi-k2.7-code",
+      "glm-5.2-high",
+      "glm-5.2-max",
+    ],
+    aliases: {},
+    // Union of hcn effort words offered anywhere; resolution runs through
+    // effortSlugs below.
+    efforts: ["minimal", "none", "low", "medium", "high", "xhigh", "max"],
+    // Stem rows produced by applying the Stem rule to out/models.txt:
+    // bare slugs with variants are the medium tier (probes 29/48/49),
+    // -extra-high reads as xhigh, each thinking form is its own stem, and
+    // -fast twins are not row members (they pin effort by idempotence).
+    effortSlugs: {
+      "claude-4.5-opus": {
+        high: "claude-4.5-opus-high",
+      },
+      "claude-4.5-opus-thinking": {
+        high: "claude-4.5-opus-high-thinking",
+      },
+      "claude-4.6-opus": {
+        high: "claude-4.6-opus-high",
+        max: "claude-4.6-opus-max",
+      },
+      "claude-4.6-opus-thinking": {
+        high: "claude-4.6-opus-high-thinking",
+        max: "claude-4.6-opus-max-thinking",
+      },
+      "claude-4.6-sonnet": {
+        medium: "claude-4.6-sonnet-medium",
+      },
+      "claude-4.6-sonnet-thinking": {
+        medium: "claude-4.6-sonnet-medium-thinking",
+      },
+      "claude-fable-5": {
+        low: "claude-fable-5-low",
+        medium: "claude-fable-5-medium",
+        high: "claude-fable-5-high",
+        xhigh: "claude-fable-5-xhigh",
+        max: "claude-fable-5-max",
+      },
+      "claude-fable-5-1": {
+        low: "claude-fable-5-1-low",
+        medium: "claude-fable-5-1-medium",
+        high: "claude-fable-5-1-high",
+        xhigh: "claude-fable-5-1-xhigh",
+        max: "claude-fable-5-1-max",
+      },
+      "claude-fable-5-1-thinking": {
+        low: "claude-fable-5-1-thinking-low",
+        medium: "claude-fable-5-1-thinking-medium",
+        high: "claude-fable-5-1-thinking-high",
+        xhigh: "claude-fable-5-1-thinking-xhigh",
+        max: "claude-fable-5-1-thinking-max",
+      },
+      "claude-fable-5-thinking": {
+        low: "claude-fable-5-thinking-low",
+        medium: "claude-fable-5-thinking-medium",
+        high: "claude-fable-5-thinking-high",
+        xhigh: "claude-fable-5-thinking-xhigh",
+        max: "claude-fable-5-thinking-max",
+      },
+      "claude-opus-4-7": {
+        low: "claude-opus-4-7-low",
+        medium: "claude-opus-4-7-medium",
+        high: "claude-opus-4-7-high",
+        xhigh: "claude-opus-4-7-xhigh",
+        max: "claude-opus-4-7-max",
+      },
+      "claude-opus-4-7-thinking": {
+        low: "claude-opus-4-7-thinking-low",
+        medium: "claude-opus-4-7-thinking-medium",
+        high: "claude-opus-4-7-thinking-high",
+        xhigh: "claude-opus-4-7-thinking-xhigh",
+        max: "claude-opus-4-7-thinking-max",
+      },
+      "claude-opus-4-8": {
+        low: "claude-opus-4-8-low",
+        medium: "claude-opus-4-8-medium",
+        high: "claude-opus-4-8-high",
+        xhigh: "claude-opus-4-8-xhigh",
+        max: "claude-opus-4-8-max",
+      },
+      "claude-opus-4-8-thinking": {
+        low: "claude-opus-4-8-thinking-low",
+        medium: "claude-opus-4-8-thinking-medium",
+        high: "claude-opus-4-8-thinking-high",
+        xhigh: "claude-opus-4-8-thinking-xhigh",
+        max: "claude-opus-4-8-thinking-max",
+      },
+      "claude-opus-5": {
+        low: "claude-opus-5-low",
+        medium: "claude-opus-5-medium",
+        high: "claude-opus-5-high",
+      },
+      "claude-opus-5-thinking": {
+        low: "claude-opus-5-thinking-low",
+        medium: "claude-opus-5-thinking-medium",
+        high: "claude-opus-5-thinking-high",
+        xhigh: "claude-opus-5-thinking-xhigh",
+        max: "claude-opus-5-thinking-max",
+      },
+      "claude-sonnet-5": {
+        low: "claude-sonnet-5-low",
+        medium: "claude-sonnet-5-medium",
+        high: "claude-sonnet-5-high",
+        xhigh: "claude-sonnet-5-xhigh",
+        max: "claude-sonnet-5-max",
+      },
+      "claude-sonnet-5-thinking": {
+        low: "claude-sonnet-5-thinking-low",
+        medium: "claude-sonnet-5-thinking-medium",
+        high: "claude-sonnet-5-thinking-high",
+        xhigh: "claude-sonnet-5-thinking-xhigh",
+        max: "claude-sonnet-5-thinking-max",
+      },
+      "cursor-grok-4.5": {
+        low: "cursor-grok-4.5-low",
+        medium: "cursor-grok-4.5-medium",
+        high: "cursor-grok-4.5-high",
+      },
+      "cursor-grok-4.6": {
+        low: "cursor-grok-4.6-low",
+        medium: "cursor-grok-4.6-medium",
+        high: "cursor-grok-4.6-high",
+        xhigh: "cursor-grok-4.6-xhigh",
+      },
+      "gemini-3.6-flash": {
+        minimal: "gemini-3.6-flash-minimal",
+        low: "gemini-3.6-flash-low",
+        medium: "gemini-3.6-flash-medium",
+        high: "gemini-3.6-flash-high",
+      },
+      "gemini-3.7-flash": {
+        low: "gemini-3.7-flash-low",
+        medium: "gemini-3.7-flash-medium",
+        high: "gemini-3.7-flash-high",
+      },
+      "gemini-3.8-flash": {
+        low: "gemini-3.8-flash-low",
+        medium: "gemini-3.8-flash-medium",
+        high: "gemini-3.8-flash-high",
+      },
+      "glm-5.2": {
+        high: "glm-5.2-high",
+        max: "glm-5.2-max",
+      },
+      "gpt-5.1": {
+        low: "gpt-5.1-low",
+        medium: "gpt-5.1",
+        high: "gpt-5.1-high",
+      },
+      "gpt-5.2": {
+        low: "gpt-5.2-low",
+        medium: "gpt-5.2",
+        high: "gpt-5.2-high",
+        xhigh: "gpt-5.2-xhigh",
+      },
+      "gpt-5.3-codex": {
+        low: "gpt-5.3-codex-low",
+        medium: "gpt-5.3-codex",
+        high: "gpt-5.3-codex-high",
+        xhigh: "gpt-5.3-codex-xhigh",
+      },
+      "gpt-5.4": {
+        low: "gpt-5.4-low",
+        medium: "gpt-5.4-medium",
+        high: "gpt-5.4-high",
+        xhigh: "gpt-5.4-xhigh",
+      },
+      "gpt-5.4-mini": {
+        none: "gpt-5.4-mini-none",
+        low: "gpt-5.4-mini-low",
+        medium: "gpt-5.4-mini-medium",
+        high: "gpt-5.4-mini-high",
+        xhigh: "gpt-5.4-mini-xhigh",
+      },
+      "gpt-5.4-nano": {
+        none: "gpt-5.4-nano-none",
+        low: "gpt-5.4-nano-low",
+        medium: "gpt-5.4-nano-medium",
+        high: "gpt-5.4-nano-high",
+        xhigh: "gpt-5.4-nano-xhigh",
+      },
+      "gpt-5.5": {
+        none: "gpt-5.5-none",
+        low: "gpt-5.5-low",
+        medium: "gpt-5.5-medium",
+        high: "gpt-5.5-high",
+        xhigh: "gpt-5.5-extra-high",
+      },
+      "gpt-5.6-luna": {
+        none: "gpt-5.6-luna-none",
+        low: "gpt-5.6-luna-low",
+        medium: "gpt-5.6-luna-medium",
+        high: "gpt-5.6-luna-high",
+        xhigh: "gpt-5.6-luna-xhigh",
+        max: "gpt-5.6-luna-max",
+      },
+      "gpt-5.6-sol": {
+        none: "gpt-5.6-sol-none",
+        low: "gpt-5.6-sol-low",
+        medium: "gpt-5.6-sol-medium",
+        high: "gpt-5.6-sol-high",
+        xhigh: "gpt-5.6-sol-xhigh",
+        max: "gpt-5.6-sol-max",
+      },
+      "gpt-5.6-terra": {
+        none: "gpt-5.6-terra-none",
+        low: "gpt-5.6-terra-low",
+        medium: "gpt-5.6-terra-medium",
+        high: "gpt-5.6-terra-high",
+        xhigh: "gpt-5.6-terra-xhigh",
+        max: "gpt-5.6-terra-max",
+      },
+      "kimi-k3": {
+        low: "kimi-k3-low",
+        high: "kimi-k3-high",
+        max: "kimi-k3-max",
+      },
+      "muse-spark-1.3": {
+        minimal: "muse-spark-1.3-minimal",
+        low: "muse-spark-1.3-low",
+        medium: "muse-spark-1.3-medium",
+        high: "muse-spark-1.3-high",
+        xhigh: "muse-spark-1.3-xhigh",
+        max: "muse-spark-1.3-max",
+      },
+    },
+    // Unknown slugs are refused pre-flight with the full slug list on
+    // stderr (probe 26).
+    extensible: false,
+  },
+  store: {
+    // chats/<md5-of-cwd>: md5 over the UTF-8 bytes of the physical
+    // absolute cwd, no trailing slash (probes 30, 36-38, 44-46). Vectors:
+    // ws-main files as 6fd4032ededd13cf85abaa78342f2203, and ws-café
+    // (UTF-8 realpath) as 4fe2ebd9c22e4f5f59adc829aef37279. A --workspace
+    // trailing slash normalizes to the same md5 (probe 38).
+    template: "{root}/chats/{cwdSlug}",
+    cwdSlug: "md5-hex",
+    // CURSOR_CONFIG_DIR wins over XDG_CONFIG_HOME (probe 44); with neither
+    // set the store lives under {home}/.cursor (probe 45). Set-but-empty
+    // counts as unset (probe 53); relative values resolve against the cwd
+    // (probe 54).
+    rootEnv: [
+      { name: "CURSOR_CONFIG_DIR", suffix: "" },
+      { name: "XDG_CONFIG_HOME", suffix: "cursor" },
+    ],
+    defaultRoot: "{home}/.cursor",
+  },
+  contextHook: null,
+  contextInspection: null,
+  // result.usage token counts exist (probe 10) but no window size is
+  // known, so no usedPct can be computed.
+  nativeContextManagement: null,
+  // `-p --continue` resumes the most recently touched session (probe 22);
+  // parse data for parse-resume.ts only, never rendered into spawn argv.
+  resumeLast: { flag: "--continue" },
+  // A positional prompt plus open stdin emits `result` then never exits,
+  // so stdin is closed at spawn (notes 07).
+  stdin: "close-required",
+  presence: {
+    headlessMarkers: ["-p"],
+  },
+  capabilities: {
+    // No image or vision surface was probed; curated claims stay
+    // conservative (false until observed).
+    vision: false,
+    images: false,
+    streamingByMode: {
+      "headless-turn": "token",
+      "headless-session": "none",
+      interactive: "none",
+    },
+    session: false,
+  },
+  // No probe exists yet; smoke:questions during rollout decides whether a
+  // probe record is added.
+  escalation: { supported: false },
+  turnOptions: {
+    // No effort flag exists on cursor: effort resolves into the --model
+    // slug via effortSlugs. No other turn option is expressed in v1, and
+    // no sandbox spelling confines headless (probes 60-61, 70-71), so an
+    // explicit --sandbox refuses unsupported-option.
+    effort: { kind: "effort-in-model", render: { kind: "in-model" } },
+  },
+  // No per-skill CLI surface (config trust scoping only).
+  skills: null,
+  tools: {
+    // Allow/deny lists live in config files only (default allow Shell(ls)
+    // observed); hcn can neither grant nor deny per call, so --tools
+    // refuses instead of pretending.
+    includeFlag: null,
+    excludeFlag: null,
+    includeIsStrictAllowlist: false,
+    builtins: [],
+    categories: [],
+    denySemantics: "no-lists",
+  },
+});
