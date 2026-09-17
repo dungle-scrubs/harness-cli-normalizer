@@ -65,4 +65,24 @@ describe("descriptor key coverage", () => {
       for (const k of keys) expect(expected).toContain(k);
     }
   });
+
+  test("resumeLast headless dimension: renderable set vs parse-only set (RFC-06 Phase 5: cursor renders)", () => {
+    const renderable = [claudeCode, codexCli, piCli, cursorCli].map((h) => h.name).sort();
+    const parseOnly = [museCode].map((h) => h.name).sort();
+    for (const h of [claudeCode, codexCli, piCli, museCode, cursorCli]) {
+      expect(h.resumeLast).not.toBeNull();
+    }
+    expect(
+      [claudeCode, codexCli, piCli, museCode, cursorCli]
+        .filter((h) => h.resumeLast?.headless === true)
+        .map((h) => h.name)
+        .sort(),
+    ).toEqual(renderable);
+    expect(
+      [claudeCode, codexCli, piCli, museCode, cursorCli]
+        .filter((h) => h.resumeLast?.headless === false)
+        .map((h) => h.name)
+        .sort(),
+    ).toEqual(parseOnly);
+  });
 });

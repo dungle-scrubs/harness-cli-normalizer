@@ -55,6 +55,10 @@ const spellingOf = (h: HarnessDescriptor, option: RefusalOption): string | null 
     }
     case "autonomy":
       return h.autonomy?.flag ?? null;
+    case "resumeLast":
+      // RFC-06: the refusal and the renderable list key on headless, so
+      // the parse-only muse never appears in its own refusal.
+      return h.resumeLast?.headless === true ? h.resumeLast.flag : null;
     case "memory": {
       const spec = h.turnOptions.memory;
       if (spec === undefined) return null;

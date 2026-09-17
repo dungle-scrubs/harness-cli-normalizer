@@ -1,4 +1,5 @@
 import type { HarnessEvent } from "../execution/events.js";
+import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 
 const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
 const cyan = (s: string) => `\x1b[36m${s}\x1b[0m`;
@@ -13,11 +14,27 @@ export interface RenderState {
 
 export const createRenderState = (): RenderState => ({ streamed: false });
 
-export const renderEvent = (event: HarnessEvent, state: RenderState): void => {
+export const renderEvent = (
+  event: HarnessEvent,
+  state: RenderState,
+  h?: HarnessDescriptor,
+): void => {
   switch (event.kind) {
-    case "identity":
+    case "identity": {
       process.stdout.write(dim(`  ● session ${event.sessionId} (${event.authority})\n`));
+      // RFC-06: a resume-last turn names how the id was picked. The fork
+      // line renders when the descriptor carries a fork flag
+      // (contextInspection.forkFlag, claude only): the announced id is
+      // the fork id, never the source id.
+      if (event.resumeLast === true) {
+        const line =
+          h?.contextInspection?.forkFlag !== undefined
+            ? `forked most-recent session as ${event.sessionId} (exact-cwd scope)`
+            : `resumed most-recent ${event.sessionId} (exact-cwd scope)`;
+        process.stdout.write(dim(`  ● ${line}\n`));
+      }
       break;
+    }
     case "token":
       process.stdout.write(event.text);
       state.streamed = true;

@@ -5952,6 +5952,333 @@
       }
     }
   },
+  "resumeLast": {
+    "claude": {
+      "bare": {
+        "argv": [
+          "claude",
+          "-p",
+          "--continue",
+          "--fork-session",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--verbose",
+          "--include-partial-messages"
+        ]
+      },
+      "model": {
+        "argv": [
+          "claude",
+          "-p",
+          "--continue",
+          "--fork-session",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--verbose",
+          "--include-partial-messages",
+          "--model",
+          "claude-sonnet-5"
+        ]
+      },
+      "tools": {
+        "argv": [
+          "claude",
+          "-p",
+          "--continue",
+          "--fork-session",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--verbose",
+          "--include-partial-messages",
+          "--allowedTools",
+          "Read,Bash",
+          "--disallowedTools",
+          "Edit,Glob,Grep,Write,WebFetch,WebSearch,Monitor,Task,Skill,NotebookEdit,LSP"
+        ]
+      },
+      "autonomy": {
+        "argv": [
+          "claude",
+          "-p",
+          "--continue",
+          "--fork-session",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--verbose",
+          "--include-partial-messages",
+          "--dangerously-skip-permissions"
+        ]
+      },
+      "isolation-refuses": {
+        "refusal": {
+          "issue": "unsupported-on-resume",
+          "harness": "claude",
+          "option": "isolation",
+          "supported": [
+            "effort",
+            "discovery",
+            "memory",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "access"
+          ],
+          "message": "\"isolation\" cannot be expressed on resume for claude; supported: effort, discovery, memory, systemPrompt, appendSystemPrompt, access - re-launch instead of resuming or drop the option"
+        }
+      },
+      "id-and-last-refuse": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "claude",
+          "supported": [
+            "--resume or --resume-last, not both (most-recent and a named id are two answers to one question)"
+          ],
+          "message": "claude cannot combine (both --resume and --resume-last given); supported: --resume or --resume-last, not both (most-recent and a named id are two answers to one question) - pass exactly one of them"
+        }
+      },
+      "inspect-context": {
+        "argv": [
+          "claude",
+          "-p",
+          "--continue",
+          "--fork-session",
+          "",
+          "--output-format",
+          "stream-json",
+          "--verbose",
+          "--include-partial-messages",
+          "--input-format",
+          "stream-json",
+          "--no-session-persistence",
+          "--replay-user-messages"
+        ]
+      }
+    },
+    "codex": {
+      "bare": {
+        "argv": [
+          "codex",
+          "exec",
+          "resume",
+          "--last",
+          "--json",
+          "--skip-git-repo-check",
+          "hi"
+        ]
+      },
+      "model": {
+        "argv": [
+          "codex",
+          "exec",
+          "resume",
+          "--last",
+          "--json",
+          "--skip-git-repo-check",
+          "hi",
+          "--model",
+          "gpt-6-astra"
+        ]
+      },
+      "sandbox-read-only": {
+        "argv": [
+          "codex",
+          "exec",
+          "resume",
+          "--last",
+          "--json",
+          "--skip-git-repo-check",
+          "-c",
+          "sandbox_mode=\"read-only\"",
+          "hi"
+        ]
+      },
+      "id-and-last-refuse": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "codex",
+          "supported": [
+            "--resume or --resume-last, not both (most-recent and a named id are two answers to one question)"
+          ],
+          "message": "codex cannot combine (both --resume and --resume-last given); supported: --resume or --resume-last, not both (most-recent and a named id are two answers to one question) - pass exactly one of them"
+        }
+      }
+    },
+    "pi": {
+      "bare": {
+        "argv": [
+          "pi",
+          "-p",
+          "--mode",
+          "json",
+          "--continue",
+          "hi"
+        ]
+      },
+      "model": {
+        "argv": [
+          "pi",
+          "-p",
+          "--mode",
+          "json",
+          "--continue",
+          "hi",
+          "--model",
+          "zai/glm-5.2"
+        ]
+      },
+      "tools": {
+        "argv": [
+          "pi",
+          "-p",
+          "--mode",
+          "json",
+          "--continue",
+          "hi",
+          "--tools",
+          "read,bash"
+        ]
+      },
+      "id-and-last-refuse": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "pi",
+          "supported": [
+            "--resume or --resume-last, not both (most-recent and a named id are two answers to one question)"
+          ],
+          "message": "pi cannot combine (both --resume and --resume-last given); supported: --resume or --resume-last, not both (most-recent and a named id are two answers to one question) - pass exactly one of them"
+        }
+      }
+    },
+    "muse": {
+      "bare": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "muse",
+          "option": "resumeLast",
+          "supported": [
+            "claude --continue",
+            "codex --last",
+            "pi --continue",
+            "cursor --continue"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--continue"
+            },
+            {
+              "harness": "codex",
+              "spelling": "--last"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--continue"
+            },
+            {
+              "harness": "cursor",
+              "spelling": "--continue"
+            }
+          ],
+          "hint": "muse has no headless most-recent spelling; keep the session id from the identity event and re-enter with hcn run muse --resume <id> - there is no --last on exec",
+          "message": "muse cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue, cursor --continue - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "model": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "muse",
+          "option": "resumeLast",
+          "supported": [
+            "claude --continue",
+            "codex --last",
+            "pi --continue",
+            "cursor --continue"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--continue"
+            },
+            {
+              "harness": "codex",
+              "spelling": "--last"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--continue"
+            },
+            {
+              "harness": "cursor",
+              "spelling": "--continue"
+            }
+          ],
+          "hint": "muse has no headless most-recent spelling; keep the session id from the identity event and re-enter with hcn run muse --resume <id> - there is no --last on exec",
+          "message": "muse cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue, cursor --continue - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "id-and-last-refuse": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "muse",
+          "supported": [
+            "--resume or --resume-last, not both (most-recent and a named id are two answers to one question)"
+          ],
+          "message": "muse cannot combine (both --resume and --resume-last given); supported: --resume or --resume-last, not both (most-recent and a named id are two answers to one question) - pass exactly one of them"
+        }
+      }
+    },
+    "cursor": {
+      "bare": {
+        "argv": [
+          "agent",
+          "-p",
+          "--continue",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--stream-partial-output"
+        ]
+      },
+      "model": {
+        "argv": [
+          "agent",
+          "-p",
+          "--continue",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--stream-partial-output",
+          "--model",
+          "auto"
+        ]
+      },
+      "autonomy": {
+        "argv": [
+          "agent",
+          "-p",
+          "--continue",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--stream-partial-output",
+          "--force"
+        ]
+      },
+      "id-and-last-refuse": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "cursor",
+          "supported": [
+            "--resume or --resume-last, not both (most-recent and a named id are two answers to one question)"
+          ],
+          "message": "cursor cannot combine (both --resume and --resume-last given); supported: --resume or --resume-last, not both (most-recent and a named id are two answers to one question) - pass exactly one of them"
+        }
+      }
+    }
+  },
   "session": {
     "claude": {
       "fresh": {

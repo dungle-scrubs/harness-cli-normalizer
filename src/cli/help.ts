@@ -128,6 +128,9 @@ Options:
                             (exit 2) for harnesses that would otherwise
                             create a fresh session silently (pi, muse, cursor)
   --session-id <uuid>       Alias for --resume (mutually exclusive with --resume)
+  --resume-last             Resume the most recent session in the spawn cwd
+                            (claude, codex, pi, cursor; muse refuses).
+                            Mutually exclusive with --resume/--session-id.
   --native-settings-fingerprint <hash>
                             Codex resume only, with explicit --cwd. Re-read saved
                             model, effort and recorded provider before native spawn.
@@ -297,6 +300,7 @@ Options:
                             rides the run prompt, not a harness flag)
   --cwd <path>
   --env KEY=VAL
+  --resume-last
   --resume <uuid>
   -h, --help                Show help
 `;

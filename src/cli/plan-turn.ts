@@ -14,6 +14,7 @@ import { nodeNativeSettingsInspector } from "../execution/node-deps.js";
 import { redactArgv, type TurnRunOptions } from "../execution/stream-turn.js";
 import { verifyNativeSettings } from "../execution/verified-native-settings.js";
 import {
+  assertResumeLastRenderable,
   buildSpawnArgv,
   buildTurnEnv,
   promptTextOf,
@@ -251,9 +252,42 @@ export const planTurn = async (
     turnOpts = parseTurnOptions(values);
     extra = parseRunExtra(values);
     assertIsolationCombination(h, { ...turnOpts, passthrough });
+    // RFC-06: the id-less most-recent path refuses here - before skill
+    // resolution, config load, and argv build - with the same
+    // unsupported-option/resumeLast shape the builder raises at spawn
+    // time, so it fires first on harnesses with no headless grammar.
+    if (extra.resumeLast === true) assertResumeLastRenderable(h);
   } catch (err) {
     if (err instanceof ArgvRefusalError) return refused(err);
     throw err;
+  }
+
+  // RFC-06: the native approval plan and the verified-settings render
+  // both bind to one exact session id, which an id-less most-recent turn
+  // never has. Refuse here, ahead of the nativeApprovalPlan dispatch
+  // below and the streamTurn dispatch, with invalid-option-value.
+  if (extra.resumeLast === true && values["native-approvals"] === true) {
+    return refused(
+      new ArgvRefusalError({
+        issue: "invalid-option-value",
+        harness: h.name,
+        message:
+          "--native-approvals with --resume-last is refused: the native approval plan binds to one exact session turn, and there is no id to bind",
+        supported: ["--resume <id> with --native-approvals for a bound turn"],
+      }),
+    );
+  }
+  if (extra.resumeLast === true && values["native-settings-fingerprint"] !== undefined) {
+    return refused(
+      new ArgvRefusalError({
+        issue: "invalid-option-value",
+        harness: h.name,
+        option: "nativeSettingsFingerprint",
+        message:
+          "--native-settings-fingerprint with --resume-last is refused: the saved settings must match one exact session id, and there is no id to match",
+        supported: ["--resume <id> with --native-settings-fingerprint for a bound turn"],
+      }),
+    );
   }
 
   // issue #38: skill names resolve against the caller's registry root (an
@@ -297,7 +331,7 @@ export const planTurn = async (
   let effectiveTurnOpts = turnOpts;
   let provenance: readonly ProvenanceEntry[] = [];
   let unrenderable: readonly UnrenderableEntry[] = [];
-  if (extra.resume === undefined) {
+  if (extra.resume === undefined && extra.resumeLast !== true) {
     try {
       const resolved = resolveEffectiveOptions(h, { ...turnOpts, prompt }, tiers as ConfigTiers);
       const { prompt: _prompt, ...rest } = resolved.options;
@@ -346,7 +380,9 @@ export const planTurn = async (
     }
     if (slug !== undefined && slug !== effortModel) {
       effectiveTurnOpts = { ...effectiveTurnOpts, model: slug };
-      if (extra.resume === undefined) {
+      // RFC-06: a resume-last turn never carries launch-only provenance
+      // (RFC-05 landed, so this guard's discriminant applies now).
+      if (extra.resume === undefined && extra.resumeLast !== true) {
         provenance = provenance.some((p) => p.key === "model")
           ? provenance.map((p) => (p.key === "model" ? { ...p, value: slug } : p))
           : [...provenance, { key: "model", value: slug, tier: "arg" }];
@@ -368,6 +404,7 @@ export const planTurn = async (
     ...(extra.cwd !== undefined ? { cwd: extra.cwd } : {}),
     ...(extra.env !== undefined ? { env: extra.env } : {}),
     ...(extra.resume !== undefined ? { resume: extra.resume } : {}),
+    ...(extra.resumeLast === true ? { resumeLast: true as const } : {}),
     ...(values["native-settings-fingerprint"] !== undefined
       ? { nativeSettingsFingerprint: String(values["native-settings-fingerprint"]) }
       : {}),
@@ -431,7 +468,7 @@ export const writePlanDiagnostics = (
   const env = buildTurnEnv(
     h,
     plan.options,
-    plan.options.resume === undefined ? "launch" : "resume",
+    plan.options.resume === undefined && plan.options.resumeLast !== true ? "launch" : "resume",
   );
   if (Object.keys(env).length > 0) {
     process.stderr.write(

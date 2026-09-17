@@ -218,13 +218,33 @@ export const parseTurnOptions = (values: Record<string, unknown>): ParsedTurnOpt
 };
 
 /** `--resume` and `--session-id` are aliases for one session id; both at
- * once refuses. The one check every command calls (run, inspect, session). */
+ * once refuses. `--resume-last` is most-recent resolution without an id:
+ * with either alias it refuses too (two answers to one question). The one
+ * check every command calls (run, inspect, session). */
 export const resumeIdOf = (values: Record<string, unknown>): string | undefined => {
   if (values.resume !== undefined && values["session-id"] !== undefined) {
     throw new ArgvRefusalError({
       issue: "mutually-exclusive-options",
       supported: ["--resume or --session-id, not both (--session-id is an alias for --resume)"],
       detail: "both --resume and --session-id given",
+    });
+  }
+  if (values["resume-last"] === true && values.resume !== undefined) {
+    throw new ArgvRefusalError({
+      issue: "mutually-exclusive-options",
+      supported: [
+        "--resume or --resume-last, not both (most-recent and a named id are two answers to one question)",
+      ],
+      detail: "both --resume and --resume-last given",
+    });
+  }
+  if (values["resume-last"] === true && values["session-id"] !== undefined) {
+    throw new ArgvRefusalError({
+      issue: "mutually-exclusive-options",
+      supported: [
+        "--session-id or --resume-last, not both (most-recent and a named id are two answers to one question)",
+      ],
+      detail: "both --session-id and --resume-last given",
     });
   }
   if (values.resume !== undefined) return String(values.resume);
@@ -238,12 +258,14 @@ export const parseRunExtra = (
   cwd?: string;
   env?: Record<string, string>;
   resume?: string;
+  resumeLast?: true;
   timeoutSeconds?: number;
 } => {
   const extra: {
     cwd?: string;
     env?: Record<string, string>;
     resume?: string;
+    resumeLast?: true;
     timeoutSeconds?: number;
   } = {};
   if (values.timeout !== undefined) {
@@ -261,6 +283,9 @@ export const parseRunExtra = (
   if (values.cwd !== undefined) extra.cwd = String(values.cwd);
   const resume = resumeIdOf(values);
   if (resume !== undefined) extra.resume = resume;
+  // --resume-last is most-recent resolution without an id (RFC-06); the
+  // plan treats it as resume-semantics everywhere resume applies.
+  if (values["resume-last"] === true) extra.resumeLast = true;
   if (values.env !== undefined) {
     // parseArgs with multiple:true gives string[] ; else string
     const list = values.env as string | string[];
@@ -306,6 +331,7 @@ const KNOWN_FLAGS = new Set([
   "--env",
   "--resume",
   "--session-id",
+  "--resume-last",
   "--json",
   "--argv",
   "--runtime",
@@ -489,6 +515,7 @@ export const parseCommonFlags = (
       env: { type: "string" as const, multiple: true },
       resume: { type: "string" as const },
       "session-id": { type: "string" as const },
+      "resume-last": { type: "boolean" as const },
       timeout: { type: "string" as const },
       json: { type: "boolean" as const },
       argv: { type: "boolean" as const },

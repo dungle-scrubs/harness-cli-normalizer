@@ -128,3 +128,15 @@ describe("spellingOf in-model arm (RFC-05)", () => {
     expect(by).toContainEqual({ harness: "cursor", spelling: "--model" });
   });
 });
+
+describe("spellingOf resumeLast arm (RFC-06 Phase 2)", () => {
+  it("keys on headless: renderable spellings only, muse absent (RFC-06 Phase 5: cursor renders)", () => {
+    const by = supportedBy(defaultDescriptors(), "resumeLast");
+    expect(by).toEqual([
+      { harness: "claude", spelling: "--continue" },
+      { harness: "codex", spelling: "--last" },
+      { harness: "pi", spelling: "--continue" },
+      { harness: "cursor", spelling: "--continue" },
+    ]);
+  });
+});

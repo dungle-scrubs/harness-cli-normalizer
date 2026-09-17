@@ -13,8 +13,10 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
+import { buildSpawnArgv } from "../../src/interpretation/argv.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
+import { cursorCli } from "../../src/knowledge/cursor.js";
 import { museCode } from "../../src/knowledge/muse.js";
 import { piCli } from "../../src/knowledge/pi.js";
 
@@ -68,5 +70,32 @@ describe("every descriptor field has a consumer outside the knowledge layer", ()
     expect(access.test(text), `descriptor field ${path} has no reader outside knowledge`).toBe(
       true,
     );
+  });
+});
+
+describe("resumeLast renderable split (RFC-06 Phase 1)", () => {
+  test("five descriptor values: four renderable, muse parse-only (RFC-06 Phase 5: cursor flipped)", () => {
+    expect(claudeCode.resumeLast).toMatchObject({ flag: "--continue", headless: true });
+    expect(piCli.resumeLast).toMatchObject({ flag: "--continue", headless: true });
+    expect(codexCli.resumeLast).toMatchObject({ flag: "--last", headless: true });
+    expect(museCode.resumeLast).toMatchObject({ flag: "--last", headless: false });
+    expect(cursorCli.resumeLast).toMatchObject({ flag: "--continue", headless: true });
+  });
+
+  test("the parse-only arm carries no warning text: muse has no renderable warning to drift", () => {
+    expect(museCode.resumeLast).not.toBeNull();
+    expect(museCode.resumeLast).not.toHaveProperty("warning");
+    for (const h of [claudeCode, piCli, codexCli, cursorCli]) {
+      expect(h.resumeLast).toHaveProperty("warning");
+    }
+  });
+
+  test("claude resume-last renders --continue --fork-session from the single contextInspection.forkFlag; codex and pi render no fork flag (Resolved Question 3: --fork-session designs the parent-file write out)", () => {
+    const claude = buildSpawnArgv(claudeCode, { prompt: "hi", resumeLast: true });
+    expect(claude).toContain("--continue");
+    expect(claude.filter((token) => token === "--fork-session")).toHaveLength(1);
+    for (const h of [codexCli, piCli]) {
+      expect(buildSpawnArgv(h, { prompt: "hi", resumeLast: true })).not.toContain("--fork-session");
+    }
   });
 });

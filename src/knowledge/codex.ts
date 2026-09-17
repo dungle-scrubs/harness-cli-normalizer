@@ -95,8 +95,15 @@ export const codexCli: HarnessDescriptor = deepFreeze({
   contextInspection: null,
   // Codex 0.153.4 core/session/turn.rs runs native automatic compaction.
   nativeContextManagement: { kind: "auto-compaction", modes: ["headless-turn"] },
-  // Valid only in the `exec resume` context: `codex exec resume --last`.
-  resumeLast: { flag: "--last" },
+  // Valid only in the `exec resume` context: `codex exec resume --last`
+  // (re-verified on 0.154.0, 2026-09-17). No fork mechanism is probed on
+  // codex, so none is rendered.
+  resumeLast: {
+    flag: "--last",
+    headless: true,
+    warning:
+      "hcn: --resume-last resumes the most-recent codex session in {cwd}; the most recent session may be a killed, failed, or unrelated run's session; codex starts a fresh session with exit 0 when no session is resumable in {cwd}; a run from inside a live codex session in the same directory re-enters that session",
+  },
   // codex exec appends piped stdin as a <stdin> block and can block on an
   // open stdin - close it (verified 0.147.0: "Reading additional input
   // from stdin...").

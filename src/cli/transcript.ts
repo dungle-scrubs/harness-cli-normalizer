@@ -12,6 +12,7 @@ import { parseTranscriptOptions, transcriptHarness } from "../interpretation/tra
 import { readerForMethod } from "../interpretation/transcript/readers.js";
 import { transcriptCapabilities } from "../interpretation/transcript-capabilities.js";
 import { resolveHarness } from "./resolve-harness.js";
+import { transcriptStoreRoot } from "./store-root.js";
 import { getVersion } from "./version.js";
 
 export function writeTranscriptLine(line: string): Promise<void> {
@@ -111,22 +112,11 @@ export async function transcript(raw: string[]): Promise<void> {
     return;
   }
   const workspace = resolve(options.cwd ?? process.cwd());
-  const storeRoot =
-    options.harness === "codex"
-      ? resolve(process.env.CODEX_HOME ?? resolve(homedir(), ".codex"))
-      : options.harness === "claude"
-        ? resolve(process.env.CLAUDE_CONFIG_DIR ?? resolve(homedir(), ".claude"), "projects")
-        : options.harness === "muse"
-          ? resolve(
-              process.env.XDG_DATA_HOME ?? resolve(homedir(), ".local", "share"),
-              "muse",
-              "sessions",
-            )
-          : resolve(
-              process.env.PI_CODING_AGENT_DIR ?? resolve(homedir(), ".pi", "agent"),
-              "sessions",
-              `--${workspace.replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`,
-            );
+  const storeRoot = transcriptStoreRoot(options.harness, {
+    env: process.env,
+    cwd: workspace,
+    home: homedir(),
+  });
   const request: ReadTranscriptRequest = {
     nativeStoreRoot: storeRoot,
     selection: options.id

@@ -21,8 +21,10 @@ export interface ParsedResume {
   readonly autonomy: boolean;
 }
 
-/** A recorded `--last` resume: no id to anchor - corroboration ranking
- * (rankResumeLast) decides what it names. */
+/** A recorded `--last` resume: no id to anchor - the harness decides what
+ * it names at spawn. Most-recent resolution stays inside the harness, so
+ * `rankResumeLast` (resume-last.ts) has no production caller and stays
+ * exported for unit tests only. */
 export interface ParsedResumeLast {
   readonly harness: HarnessName;
   readonly resumeLast: true;

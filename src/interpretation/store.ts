@@ -19,7 +19,10 @@ export interface StorePathInputs {
   readonly root?: string;
 }
 
-const slugFor = (h: HarnessDescriptor, cwd: string): string => {
+/** The store slug for a cwd under a descriptor's slugging rule. Exported
+ * for the resume-last guard's per-cwd scope directory, which must name the
+ * same directory the harness files sessions under. */
+export const slugFor = (h: HarnessDescriptor, cwd: string): string => {
   const normalized = cwd.length > 1 ? cwd.replace(/\/+$/, "") : cwd;
   switch (h.store.cwdSlug) {
     case "dash-separators":
