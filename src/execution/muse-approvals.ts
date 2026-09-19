@@ -22,7 +22,9 @@ export const OBSERVER_LINE_MAX = 4_194_304;
  * validation): judge-decided approvals for ordinary tool calls appear
  * briefly mid-turn, then clear - a single non-empty sample must not stop
  * a healthy turn. A judge-escalated approval reports at once instead: a
- * human was asked, and headless has no human. */
+ * human was asked, and headless has no human. Issue #189: a sandbox
+ * escalation reports at once too - muse never sends that class to its
+ * approval judge, so no wait can resolve it. */
 export const APPROVAL_STUCK_POLLS = 30;
 /** H1: consecutive unreadable polls (oversized frame, malformed JSON, RPC
  * error, unreadable shape) before the pending set counts as
@@ -67,10 +69,12 @@ export interface MuseSurfaceIncompatibility {
  * process using only the approval/listPending operation - a log fold that
  * takes no lease, works on loaded and unloaded sessions, and never
  * subscribes. It never loads a session, never decides an approval, and
- * never copies request payloads: only the blocked subject (approval vs
- * input) and the approval's subject kind leave the helper. The caller owns
- * both this helper and the one turn it observes, and reaps it with the
- * child. Dual-runtime: only injected spawn/clock/signal primitives. */
+ * never copies request payloads (no command, host, path, or tool args
+ * leave the helper): only the blocked subject (approval vs input), the
+ * approval's subject kind, and one boolean - whether the pending approval
+ * is a sandbox escalation - leave the helper. The caller owns both this
+ * helper and the one turn it observes, and reaps it with the child.
+ * Dual-runtime: only injected spawn/clock/signal primitives. */
 export function watchMuseApprovals(
   bin: string,
   options: Pick<SpawnOptions, "cwd" | "env">,
@@ -80,7 +84,7 @@ export function watchMuseApprovals(
     readonly spawn: (argv: readonly string[], opts: SpawnOptions) => SpawnedProcess;
   },
   sessionId: string,
-  blocked: (subject: "approval" | "input", kind: string) => void,
+  blocked: (subject: "approval" | "input", kind: string, sandboxEscalation: boolean) => void,
   unavailable: () => void,
   incompatible?: (info: MuseSurfaceIncompatibility) => void,
 ): MuseApprovalObserver {
@@ -191,6 +195,24 @@ export function watchMuseApprovals(
     const kind = subject?.kind;
     return typeof kind === "string" ? kind : "";
   };
+  /** Issue #189: a sandbox-escalation approval asks to run outside the
+   * muse shell sandbox - the tool-call `rawArgs` carry
+   * `sandbox_permissions: "require_escalated"`. Muse never sends this
+   * class to its approval judge (a human is asked instead), so no wait
+   * can resolve it headless: it reports at once like a judge escalation.
+   * The args are parsed only to read this one field; absent or
+   * unparseable args read as ordinary, and the parse never throws. No
+   * payload value from the args leaves the helper - only this boolean
+   * does (the #179 rule). */
+  const sandboxEscalationOf = (approval: unknown): boolean => {
+    const rawArgs = asRecord(approval)?.rawArgs;
+    if (typeof rawArgs !== "string") return false;
+    try {
+      return asRecord(JSON.parse(rawArgs))?.sandbox_permissions === "require_escalated";
+    } catch {
+      return false;
+    }
+  };
   /** M2: a request that resolves itself carries its own deadline. The
    * schema declares `autoResolutionMs` on user inputs (and the reader
    * below accepts it on approvals if a future schema carries it there):
@@ -217,27 +239,28 @@ export function watchMuseApprovals(
     key: string,
     subject: "approval" | "input",
     kind: string,
-    escalated: boolean,
+    judgeEscalated: boolean,
+    sandboxEscalation: boolean,
     item: unknown,
   ): void => {
     if (reported || closed) return;
     const known = seen.get(key);
     if (known === undefined) {
       seen.set(key, { count: 1, required: requiredPollsFor(item), subject, kind });
-      if (escalated) {
+      if (judgeEscalated || sandboxEscalation) {
         reported = true;
         clearTimer();
-        blocked(subject, kind);
+        blocked(subject, kind, sandboxEscalation);
       }
       return;
     }
     known.kind = kind;
     known.count += 1;
     known.required = Math.max(known.required, requiredPollsFor(item));
-    if (escalated || known.count >= known.required) {
+    if (judgeEscalated || sandboxEscalation || known.count >= known.required) {
       reported = true;
       clearTimer();
-      blocked(known.subject, known.kind);
+      blocked(known.subject, known.kind, sandboxEscalation);
     }
   };
   const receive = (line: string): void => {
@@ -314,6 +337,7 @@ export function watchMuseApprovals(
         "approval",
         subjectKindOf(approval),
         asRecord(approval)?.judgeEscalated === true,
+        sandboxEscalationOf(approval),
         approval,
       );
       if (reported) return;
@@ -321,7 +345,7 @@ export function watchMuseApprovals(
     for (const input of result.userInputs) {
       const id = asRecord(input)?.userInputId;
       if (typeof id !== "string" || id === "") continue;
-      track(`u:${id}`, "input", "input", false, input);
+      track(`u:${id}`, "input", "input", false, false, input);
       if (reported) return;
     }
     if (!reported) timer = deps.clock.setTimeout(poll, POLL_MS);

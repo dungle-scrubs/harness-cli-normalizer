@@ -2,8 +2,11 @@
  * Issue #179: a headless muse turn blocked on a pending native approval
  * hangs silently - muse exec omits approvals from stdout and hcn run arms
  * no stall clock. The turn must end promptly with a typed failure naming
- * the blocked subject kind and the remedies.
+ * the blocked subject kind and the remedies. Issue #189: a sandbox
+ * escalation (the command asked to run outside the muse sandbox) reports
+ * at once and names -- --sandbox-network enabled ahead of --autonomy.
  */
+import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import type { HarnessEvent } from "../../src/execution/events.js";
 import {
@@ -23,17 +26,40 @@ const flush = async (): Promise<void> => {
 
 describe("failureFromBlockedApproval", () => {
   test("a blocked network approval is a non-retryable task naming the kind and --autonomy", () => {
-    const f = failureFromBlockedApproval("muse", "approval", "network");
+    const f = failureFromBlockedApproval("muse", "approval", "network", false);
     expect(f.class).toBe("task");
     expect(f.retryable).toBe(false);
     expect(f.retryable).toBe(retryableOf("task"));
     expect(f.message).toMatch(/muse/);
     expect(f.message).toMatch(/network/);
     expect(f.message).toMatch(/--autonomy/);
+    // Byte-identical to the pre-#189 text: the ordinary class keeps it.
+    expect(f.message).toBe(
+      "Task failed (muse is waiting on a network approval this headless run cannot answer - the run was stopped; answer it in muse, or rerun with --autonomy only if unattended approvals are acceptable) - surface to caller, do not auto-route",
+    );
+  });
+
+  test("a sandbox escalation names the command, then --sandbox-network enabled before --autonomy", () => {
+    // Issue #189: the caller misread "rerun with --autonomy" as the
+    // remedy for a command that only needed the network sandbox opened.
+    // The message now says what the command asked for and names the
+    // narrow passthrough first - it keeps approvals and the filesystem
+    // sandbox - with --autonomy demoted to the unattended-approvals case.
+    const f = failureFromBlockedApproval("muse", "approval", "shell", true);
+    expect(f.class).toBe("task");
+    expect(f.retryable).toBe(false);
+    expect(f.message).toMatch(/asked to run outside the muse sandbox/);
+    expect(f.message).toContain("-- --sandbox-network enabled");
+    expect(f.message).toMatch(/keeps approvals and the filesystem sandbox/);
+    expect(f.message).toMatch(/answer it in muse/);
+    expect(f.message).toMatch(/--autonomy only if unattended approvals are acceptable/);
+    expect(f.message.indexOf("--sandbox-network enabled")).toBeLessThan(
+      f.message.indexOf("--autonomy"),
+    );
   });
 
   test("user input and an unsafe kind render without payload leakage or --native-approvals", () => {
-    const f = failureFromBlockedApproval("muse", "input", "../../x");
+    const f = failureFromBlockedApproval("muse", "input", "../../x", false);
     expect(f.class).toBe("task");
     expect(f.message).toMatch(/user input/);
     expect(f.message).toMatch(/--autonomy/);
@@ -127,6 +153,61 @@ describe("a pending native approval during a muse turn", () => {
     expect(events.at(-1)).toMatchObject({ kind: "done", cause: "failed", exitCode: null });
     expect((events.at(-1) as { failure?: { class: string } }).failure?.class).toBe("task");
     expect(sig.sent.some((s) => s.proc === execProc && s.sig === "SIGTERM")).toBe(true);
+    expect(clock.pendingTimerCount).toBe(0);
+  });
+
+  test("a sandbox escalation from the captured frame ends the turn at once", async () => {
+    // Issue #189: the fixture frame (Muse Code 1.3.0) carries
+    // sandbox_permissions require_escalated in rawArgs. The turn ends on
+    // the first sample - no 30-poll window - with the failure naming
+    // -- --sandbox-network enabled ahead of --autonomy. This exercises
+    // the third blocked-argument threading through streamTurn.
+    const execProc = new FakeProcess();
+    const serveProc = new FakeProcess({ exitOnStdinEnd: false });
+    const spawner = fakeSpawner([execProc, serveProc]);
+    const sig = fakeSignal();
+    const clock = new FakeClock();
+    const events: HarnessEvent[] = [];
+    const pending = (async () => {
+      for await (const event of streamTurn(
+        museCode,
+        { prompt: "hi" },
+        {
+          spawn: spawner.spawn,
+          clock,
+          signal: sig.signal,
+        },
+      )) {
+        events.push(event);
+      }
+    })();
+    execProc.emitLine(JSON.stringify({ stream: { id: "eb04301d-8756-4a8b-ae3e-aac0e71f7265" } }));
+    await flush();
+    serveProc.emitLine(JSON.stringify({ id: 1, jsonrpc: "2.0", result: {} }));
+    await flush();
+    const frame = JSON.parse(
+      readFileSync(
+        new URL("../fixtures/msp-1.3.0/listPending.sandbox-escalation.json", import.meta.url),
+        "utf8",
+      ),
+    );
+    // First sample, no clock advance: the turn ends at once.
+    serveProc.emitLine(JSON.stringify({ id: 2, jsonrpc: "2.0", result: frame }));
+    await flush();
+    if (!execProc.hasExited) execProc.exit(0);
+    if (!serveProc.hasExited) serveProc.exit(0);
+    await pending;
+    const error = events.find((e) => e.kind === "error");
+    expect(JSON.stringify(error)).toMatch(/outside the muse sandbox/);
+    const failure = events.find((e) => e.kind === "failure");
+    expect(failure).toMatchObject({ kind: "failure", class: "task", retryable: false });
+    expect(JSON.stringify(failure)).toMatch(/outside the muse sandbox/);
+    expect(JSON.stringify(failure)).toMatch(/--sandbox-network enabled/);
+    expect(
+      JSON.stringify(failure).indexOf("--sandbox-network enabled") <
+        JSON.stringify(failure).indexOf("--autonomy"),
+    ).toBe(true);
+    expect(events.at(-1)).toMatchObject({ kind: "done", cause: "failed", exitCode: null });
     expect(clock.pendingTimerCount).toBe(0);
   });
 
