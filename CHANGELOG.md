@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.20](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.19...v0.6.20) (2026-09-19)
+
+
+### Fixed
+
+* **package:** read the npm 12 pack output in the package check, and run that check under npm@latest in CI ([#196](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/196)) ([c52b8e0](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/c52b8e046d7b18fc490c8f29968fa2c878f1dbf4))
+
 ## [0.6.19](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.18...v0.6.19) (2026-09-19)
 
 
