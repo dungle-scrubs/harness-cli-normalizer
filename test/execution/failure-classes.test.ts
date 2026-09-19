@@ -1,8 +1,9 @@
 import { describe, expect, test } from "vitest";
 import type { HarnessEvent } from "../../src/execution/events.js";
-import { retryableOf } from "../../src/execution/failure.js";
+import { failureFromTerminalError, retryableOf } from "../../src/execution/failure.js";
 import { streamTurn } from "../../src/execution/stream-turn.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
+import { codexCli } from "../../src/knowledge/codex.js";
 import { museCode } from "../../src/knowledge/muse.js";
 import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
 
@@ -190,7 +191,33 @@ describe("failure classes via streamTurn", () => {
     expect(done.failure?.retryable).toBe(retryableOf("timeout"));
     expect(done.failure?.retryable).toBe(false);
   });
+});
 
+describe("failureFromTerminalError limit walls (issue #198)", () => {
+  const wall =
+    "You’ve hit your usage limit. Visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at Sep 24th, 2026 7:24 AM.";
+
+  test("codex usage wall with U+2019 returns usage-limit, retryable", () => {
+    expect(wall).toContain("’ve");
+    const failure = failureFromTerminalError(codexCli, wall);
+    expect(failure.class).toBe("usage-limit");
+    expect(failure.retryable).toBe(true);
+  });
+
+  test("an auth message still returns auth", () => {
+    const failure = failureFromTerminalError(codexCli, "401 unauthorized - session expired");
+    expect(failure.class).toBe("auth");
+    expect(failure.retryable).toBe(true);
+  });
+
+  test("an ordinary error still returns task", () => {
+    const failure = failureFromTerminalError(codexCli, "codex failed");
+    expect(failure.class).toBe("task");
+    expect(failure.retryable).toBe(false);
+  });
+});
+
+describe("failure classes via streamTurn (continued)", () => {
   test("unavailable class and retryable", async () => {
     const proc = new FakeProcess();
     const d = deps(proc);

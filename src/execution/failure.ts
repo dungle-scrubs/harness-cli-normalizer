@@ -15,6 +15,7 @@
 
 import {
   detectAuthFailureInLine,
+  detectLimitInLine,
   detectTransportInLine,
   detectTrustRefusal,
   detectUnavailableInLine,
@@ -161,12 +162,21 @@ export const failureFromAuth = (kind: AuthFailureKind): FailureSummary => ({
   authKind: kind,
 });
 
+/** Whether a summary is a limit failure (rate-limit, usage-limit, quota):
+ * the classes a limit wall decodes to. Consumers that classify outside the
+ * limit-event path use this to record the wall the same way. */
+export const isLimitFailure = (failure: FailureSummary): boolean =>
+  failure.class === "rate-limit" || failure.class === "usage-limit" || failure.class === "quota";
+
 /** A terminal error the harness reported on its stream: classify by what
- * it says. An auth wall or a transport fault reached no verdict on the
- * work (retryable); anything else is the model's own failure (task). */
+ * it says. An auth wall, a limit wall, or a transport fault reached no
+ * verdict on the work (retryable); anything else is the model's own
+ * failure (task). */
 export const failureFromTerminalError = (h: HarnessDescriptor, message: string): FailureSummary => {
   const auth = detectAuthFailureInLine(h, message);
   if (auth !== null) return failureFromAuth(auth);
+  const limit = detectLimitInLine(h, message);
+  if (limit !== null) return failureFromLimit(limit, message);
   if (detectTrustRefusal(h, message)) return failureFromTrust(message);
   if (detectTransportInLine(message)) return failureFromTransport(message);
   if (detectUnavailableInLine(message)) return failureFromUnavailable(message);

@@ -42,6 +42,7 @@ import {
   failureFromLimit,
   failureFromTerminalError,
   failureFromTransport,
+  isLimitFailure,
   reduceFailures,
 } from "./failure.js";
 import { LineBuffer } from "./lines.js";
@@ -398,7 +399,12 @@ export const openSession = (
     await routeEvent(event);
     if (event.kind === "limit") await pushFailure(failureFromLimit(event.code));
     if (event.kind === "error" && event.terminal === true) {
-      await pushFailure(failureFromTerminalError(h, event.message));
+      const failure = failureFromTerminalError(h, event.message);
+      if (isLimitFailure(failure)) {
+        state.limitSeen = true;
+        turnLimitSeen = true;
+      }
+      await pushFailure(failure);
     }
   };
 
@@ -612,6 +618,10 @@ export const openSession = (
     if (activeTurn !== null) {
       for (const event of settleProvisionalError(state)) {
         const failure = failureFromTerminalError(h, event.message);
+        if (isLimitFailure(failure)) {
+          state.limitSeen = true;
+          turnLimitSeen = true;
+        }
         turnFailures.push(failure);
         void routeEvent(event);
         void routeEvent({ kind: "failure", ...failure });

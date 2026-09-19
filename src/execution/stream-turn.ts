@@ -50,6 +50,7 @@ import {
   failureFromTerminalError,
   failureFromTimeout,
   failureFromTransport,
+  isLimitFailure,
   reduceFailures,
 } from "./failure.js";
 import { LineBuffer } from "./lines.js";
@@ -548,7 +549,11 @@ export async function* streamTurn(
       }
       if (event.kind === "error") {
         await queue.push(event);
-        if (event.terminal === true) await pushFailure(failureFromTerminalError(h, event.message));
+        if (event.terminal === true) {
+          const failure = failureFromTerminalError(h, event.message);
+          if (isLimitFailure(failure)) state.limitSeen = true;
+          await pushFailure(failure);
+        }
         return;
       }
       sup.noteEvent(event);
