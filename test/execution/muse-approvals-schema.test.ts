@@ -210,14 +210,15 @@ const setup = () => {
   const clock = new FakeClock();
   const sig = fakeSignal();
   const spawner = fakeSpawner([proc]);
-  const seen: Array<{ subject: "approval" | "input"; kind: string }> = [];
+  const seen: Array<{ subject: "approval" | "input"; kind: string; sandboxEscalation: boolean }> =
+    [];
   let unavailable = 0;
   const watch = watchMuseApprovals(
     "/selected/muse",
     { cwd: "/work" },
     { clock, signal: sig.signal, spawn: spawner.spawn },
     "session-179",
-    (subject, kind) => seen.push({ subject, kind }),
+    (subject, kind, sandboxEscalation) => seen.push({ subject, kind, sandboxEscalation }),
     () => {
       unavailable += 1;
     },
@@ -253,6 +254,21 @@ describe("muse listPending against the published MSP schema (issue #179)", () =>
     }
   });
 
+  test("the captured sandbox-escalation frame validates against the schema", () => {
+    // Issue #189: the live frame that pins the escalation signal - rawArgs
+    // JSON carrying sandbox_permissions require_escalated - is
+    // schema-conformant, so the observer's read of it is a read of the
+    // published surface, not a hand-written shape.
+    const defs = loadSchema();
+    const frame = JSON.parse(
+      readFileSync(
+        new URL("../fixtures/msp-1.3.0/listPending.sandbox-escalation.json", import.meta.url),
+        "utf8",
+      ),
+    ) as unknown;
+    assertValid(defs, { $ref: "#/$defs/ApprovalListPendingResult" }, frame, "listPending");
+  });
+
   test("the observer reads kind from a schema-conformant stuck approval", async () => {
     const defs = loadSchema();
     const s = setup();
@@ -272,7 +288,7 @@ describe("muse listPending against the published MSP schema (issue #179)", () =>
       await flush();
       if (id <= APPROVAL_STUCK_POLLS) expect(s.seen).toEqual([]);
     }
-    expect(s.seen).toEqual([{ subject: "approval", kind: "network" }]);
+    expect(s.seen).toEqual([{ subject: "approval", kind: "network", sandboxEscalation: false }]);
     await s.watch.close();
   });
 
@@ -288,7 +304,7 @@ describe("muse listPending against the published MSP schema (issue #179)", () =>
     assertValid(defs, { $ref: "#/$defs/ApprovalListPendingResult" }, pending, "listPending");
     s.reply(2, pending);
     await flush();
-    expect(s.seen).toEqual([{ subject: "approval", kind: "network" }]);
+    expect(s.seen).toEqual([{ subject: "approval", kind: "network", sandboxEscalation: false }]);
     await s.watch.close();
   });
 
@@ -308,7 +324,7 @@ describe("muse listPending against the published MSP schema (issue #179)", () =>
       await flush();
       if (id <= APPROVAL_STUCK_POLLS) expect(s.seen).toEqual([]);
     }
-    expect(s.seen).toEqual([{ subject: "input", kind: "input" }]);
+    expect(s.seen).toEqual([{ subject: "input", kind: "input", sandboxEscalation: false }]);
     await s.watch.close();
   });
 
@@ -332,7 +348,7 @@ describe("muse listPending against the published MSP schema (issue #179)", () =>
       // 30 consecutive polls pass with no report; the 65th reports.
       if (id < 66) expect(s.seen).toEqual([]);
     }
-    expect(s.seen).toEqual([{ subject: "input", kind: "input" }]);
+    expect(s.seen).toEqual([{ subject: "input", kind: "input", sandboxEscalation: false }]);
     await s.watch.close();
   });
 
@@ -359,7 +375,7 @@ describe("muse listPending against the published MSP schema (issue #179)", () =>
     }
     later(APPROVAL_STUCK_POLLS + 2);
     await flush();
-    expect(s.seen).toEqual([{ subject: "approval", kind: "network" }]);
+    expect(s.seen).toEqual([{ subject: "approval", kind: "network", sandboxEscalation: false }]);
     await s.watch.close();
   });
 });

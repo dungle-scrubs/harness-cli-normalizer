@@ -191,15 +191,21 @@ export const failureFromTransport = (detail?: string): FailureSummary => ({
   message: messageFor("transport", detail),
 });
 
-/** Short detail shared by the blocked-approval error event and failure. */
+/** Short detail shared by the blocked-approval error event and failure.
+ * Issue #189: a sandbox escalation (the command asked to run outside the
+ * harness shell sandbox) says so in the detail, so the failure can name
+ * the narrow sandbox-network remedy instead of only --autonomy. */
 export const blockedApprovalDetail = (
   harness: import("../knowledge/descriptor.js").HarnessName,
   subject: "approval" | "input",
   kind: string,
+  sandboxEscalation: boolean,
 ): string => {
   const safe = /^[A-Za-z]+$/.test(kind) ? kind : "native";
-  return subject === "input"
-    ? `${harness} is waiting on user input this headless run cannot answer`
+  if (subject === "input")
+    return `${harness} is waiting on user input this headless run cannot answer`;
+  return sandboxEscalation
+    ? `${harness} is waiting on a ${safe} approval for a command that asked to run outside the ${harness} sandbox`
     : `${harness} is waiting on a ${safe} approval this headless run cannot answer`;
 };
 
@@ -211,18 +217,27 @@ export const blockedApprovalDetail = (
  * never auto-routing the same work elsewhere. The subject kind names the
  * blocked subject (network, shell, fileAccess, process, tool, or user
  * input); native payload values (commands, hosts, paths) are never copied
- * here. */
+ * here. Issue #189: a sandbox escalation (sandboxEscalation true) names a
+ * narrow remedy first - the sandbox-network passthrough keeps approvals
+ * and the filesystem sandbox and fits a command that needs network or a
+ * local listening socket - because --autonomy renders muse's --yolo,
+ * which turns off approvals, the sandbox, and workspace trust together.
+ * The ordinary text is unchanged. */
 export const failureFromBlockedApproval = (
   harness: import("../knowledge/descriptor.js").HarnessName,
   subject: "approval" | "input",
   kind: string,
+  sandboxEscalation: boolean,
 ): FailureSummary => {
+  const remedy = sandboxEscalation
+    ? `the run was stopped; rerun with -- --sandbox-network enabled (keeps approvals and the filesystem sandbox, and fits a command that needs network or a local listening socket), answer it in ${harness}, or rerun with --autonomy only if unattended approvals are acceptable`
+    : `the run was stopped; answer it in ${harness}, or rerun with --autonomy only if unattended approvals are acceptable`;
   return {
     class: "task",
     retryable: retryableOf("task"),
     message: messageFor(
       "task",
-      `${blockedApprovalDetail(harness, subject, kind)} - the run was stopped; answer it in ${harness}, or rerun with --autonomy only if unattended approvals are acceptable`,
+      `${blockedApprovalDetail(harness, subject, kind, sandboxEscalation)} - ${remedy}`,
     ),
   };
 };
