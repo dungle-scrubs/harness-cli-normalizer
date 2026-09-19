@@ -143,6 +143,29 @@ describe("F-07 terminal error record ends clean", () => {
     });
   });
 
+  test("issue #198: codex usage wall on a JSON error event classifies usage-limit with cause limit", async () => {
+    const wall =
+      "You’ve hit your usage limit. Visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at Sep 24th, 2026 7:24 AM.";
+    expect(wall).toContain("’ve");
+    const proc = new FakeProcess();
+    const turn = streamTurn(codexCli, { prompt: "hi", questions: "none" }, depsFor(proc));
+    proc.emitLine(JSON.stringify({ type: "thread.started", thread_id: "t-1" }));
+    proc.emitLine(JSON.stringify({ type: "error", message: wall }));
+    proc.exit(1);
+    const events = await collect(turn);
+    expect(events).toContainEqual({ kind: "error", message: wall, terminal: true });
+    const failures = events.filter(
+      (e): e is Extract<HarnessEvent, { kind: "failure" }> => e.kind === "failure",
+    );
+    expect(failures).toHaveLength(1);
+    expect(failures[0]).toMatchObject({ class: "usage-limit", retryable: true });
+    expect(events.at(-1)).toMatchObject({
+      kind: "done",
+      cause: "limit",
+      failure: { class: "usage-limit" },
+    });
+  });
+
   test("muse run_terminal failed yields task failure", async () => {
     const proc = new FakeProcess();
     const d = depsFor(proc);

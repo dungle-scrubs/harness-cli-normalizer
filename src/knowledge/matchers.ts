@@ -47,7 +47,7 @@ export const compileMatcher = (pattern: string, flags: string | undefined): RegE
 };
 
 export const SHARED_LIMIT_MATCHERS: ReadonlyArray<LimitMatcher> = [
-  { pattern: "you'?ve hit your usage limit", flags: "i", code: "usage-limit" },
+  { pattern: "you['’]?ve hit your usage limit", flags: "i", code: "usage-limit" },
   { pattern: "usage limit (?:reached|exceeded)", flags: "i", code: "usage-limit" },
   {
     pattern: "purchase more credits|insufficient credits|out of credits",

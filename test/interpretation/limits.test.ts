@@ -251,6 +251,20 @@ describe("detectUnavailableInLine", () => {
   });
 });
 
+describe("issue #198: codex usage wall with U+2019", () => {
+  const wall =
+    "You’ve hit your usage limit. Visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at Sep 24th, 2026 7:24 AM.";
+
+  test("curly apostrophe detects usage-limit (first match wins over credits)", () => {
+    expect(wall).toContain("’ve");
+    expect(detectLimitInLine(codexCli, wall)).toBe("usage-limit");
+  });
+
+  test("ASCII form still detects usage-limit", () => {
+    expect(detectLimitInLine(codexCli, wall.replace("’", "'"))).toBe("usage-limit");
+  });
+});
+
 describe("detectTrustRefusal (cursor)", () => {
   test("names the probe-01 trust gate stderr, case-insensitively", () => {
     expect(detectTrustRefusal(cursorCli, "Workspace Trust Required")).toBe(true);
