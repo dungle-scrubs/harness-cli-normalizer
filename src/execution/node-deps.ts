@@ -12,7 +12,7 @@ import type { Readable } from "node:stream";
 import type { Clock, ProcessStart, RunnerDeps, SpawnedProcess, SpawnOptions } from "./deps.js";
 import { mergeEnvironment } from "./environment.js";
 import { inspectNativeSettings, type NativeSettingsInspector } from "./native-settings.js";
-import { readNativeProcessOwner } from "./process-identity.js";
+import { readNativeProcessOwner, waitForChildExec } from "./process-identity.js";
 
 const children = new WeakMap<SpawnedProcess, ChildProcess>();
 
@@ -106,20 +106,37 @@ const realSpawn = (argv: readonly string[], opts: SpawnOptions): SpawnedProcess 
     ],
   });
   const started = new Promise<ProcessStart>((resolve) => {
+    let settled = false;
+    const settle = (value: ProcessStart): void => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
     let spawned = false;
     child.once("spawn", () => {
       spawned = true;
-      resolve({
-        kind: "started",
-        owner:
-          opts.output === "inherit" && child.pid !== undefined
-            ? readNativeProcessOwner(child.pid)
-            : undefined,
-      });
+      if (opts.output !== "inherit" || child.pid === undefined) {
+        settle({ kind: "started", owner: undefined });
+        return;
+      }
+      const pid = child.pid;
+      // Under Bun on Linux, spawn can fire before the child has exec'd.
+      // Wait for the post-exec image before reading the owner; "unknown"
+      // stays ownerless and interactive launch fails closed. The error
+      // handler below still wins when the spawn fails: whichever settles
+      // first decides, and this async arm never settles twice.
+      void waitForChildExec(pid).then(
+        (state) =>
+          settle({
+            kind: "started",
+            owner: state === "exec'd" ? readNativeProcessOwner(pid) : undefined,
+          }),
+        () => settle({ kind: "started", owner: undefined }),
+      );
     });
     child.once("error", (cause: NodeJS.ErrnoException) => {
       const knownNoChild = ["ENOENT", "EACCES", "ENOTDIR", "ENOEXEC", "EAGAIN", "ENOMEM"];
-      resolve(
+      settle(
         !spawned && child.pid === undefined && cause.code && knownNoChild.includes(cause.code)
           ? { code: cause.code, kind: "not-started" }
           : { kind: "uncertain" },
