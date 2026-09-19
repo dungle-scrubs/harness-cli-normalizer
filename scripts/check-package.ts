@@ -54,9 +54,32 @@ for (const forbidden of ["dist/index.js", "dist/index.d.ts"]) {
   assert.equal(files.has(forbidden), false, `packed package must not carry ${forbidden}`);
 }
 
+// Issue #193: npm publish rewrites a "./"-prefixed bin path and reports the
+// entry as "invalid and removed". The form `npm pkg fix` writes is the only
+// one npm publishes untouched.
 assert.ok(
-  manifest.bin?.hcn === "./dist/cli.js",
-  `package.json bin.hcn must be "./dist/cli.js", got ${JSON.stringify(manifest.bin?.hcn)}`,
+  manifest.bin?.hcn === "dist/cli.js",
+  `package.json bin.hcn must be "dist/cli.js", got ${JSON.stringify(manifest.bin?.hcn)}`,
+);
+// The guard that matters: npm must publish the manifest as written. A
+// dry-run publish runs the same normalization as a real one, and any
+// auto-correction means the published manifest differs from package.json -
+// a dropped bin would ship a package with no `hcn` command. The exit status
+// is not asserted: between releases the version is already published, and
+// npm exits 1 for that after it has normalized and packed.
+const publish = spawnSync("npm", ["publish", "--dry-run", "--ignore-scripts"], {
+  cwd: repositoryRoot,
+  encoding: "utf8",
+});
+assert.match(
+  publish.stderr,
+  /npm notice name:/,
+  `npm publish --dry-run never reached packing:\n${publish.stderr}`,
+);
+assert.doesNotMatch(
+  publish.stderr,
+  /auto-corrected|was invalid and removed/,
+  "npm publish would rewrite package.json - run `npm pkg fix`",
 );
 assert.ok(files.has("dist/cli.js"), "dist/cli.js must be packed");
 assert.ok(files.has("dist/cli/index.js"), "dist/cli/index.js must be packed");

@@ -11,7 +11,7 @@
   "homepage": "https://github.com/dungle-scrubs/harness-cli-normalizer#readme",
   "type": "module",
   "bin": {
-    "hcn": "./dist/cli.js"
+    "hcn": "dist/cli.js"
   },
   "files": [
     "dist",
