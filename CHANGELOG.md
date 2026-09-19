@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.18](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.17...v0.6.18) (2026-09-19)
+
+
+### Fixed
+
+* **muse:** end a sandbox-escalation approval at once and name --sandbox-network before --autonomy ([#190](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/190)) ([6278f5e](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/6278f5e4ec7bb8b48132bb63a8c6b2b6d38abde8))
+
 ## [0.6.17](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.16...v0.6.17) (2026-09-17)
 
 
