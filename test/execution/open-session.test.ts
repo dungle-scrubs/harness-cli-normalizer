@@ -179,6 +179,41 @@ describe("openSession (claude, fake process)", () => {
     await session.close();
   });
 
+  test("issue #198: a limit wall on a terminal result error ends the turn usage-limit with cause limit", async () => {
+    const wall =
+      "You’ve hit your usage limit. Visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at Sep 24th, 2026 7:24 AM.";
+    expect(wall).toContain("’ve");
+    const proc = new FakeProcess();
+    const d = makeDeps(proc);
+    const session = openSession(claudeCode, { sessionId: sid }, d);
+    session.send({ id: "s", text: "walled turn" });
+    const turnsIter = session.turns[Symbol.asyncIterator]();
+    const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
+    proc.emitLine(init);
+    proc.emitLine(
+      JSON.stringify({
+        type: "result",
+        subtype: "error_usage_limit",
+        is_error: true,
+        result: wall,
+      }),
+    );
+    const events = await drainTurn(turn1);
+    const failures = events.filter(
+      (e): e is Extract<HarnessEvent, { kind: "failure" }> => e.kind === "failure",
+    );
+    expect(failures).toHaveLength(1);
+    expect(failures[0]).toMatchObject({ class: "usage-limit", retryable: true });
+    expect(events.at(-1)).toMatchObject({
+      kind: "done",
+      cause: "limit",
+      failure: { class: "usage-limit" },
+    });
+    const closed = session.close();
+    proc.exit(0);
+    await closed;
+  });
+
   test("a process that dies mid-turn ends the live turn with a crash done and completes the session", async () => {
     const proc = new FakeProcess();
     const d = makeDeps(proc);
