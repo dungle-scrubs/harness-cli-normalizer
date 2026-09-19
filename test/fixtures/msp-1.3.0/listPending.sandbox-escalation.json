@@ -1,0 +1,57 @@
+{
+ "approvals": [
+  {
+   "sessionId": "01a0b743-a622-72b0-be13-df28e2c1f7eb",
+   "approvalId": "01a0b743-becc-7d53-80e6-697d0c487056",
+   "turnId": "515a1ac1-d372-40ff-8a53-411531b88c72",
+   "taskId": "01a0b743-becc-7d53-80e6-697d0c487056",
+   "itemId": "01a0b743-becc-7d53-80e6-697d0c487056",
+   "toolCallId": "call_01a0b743b4b37266943f2467b47cf3c5",
+   "toolName": "bash",
+   "rawArgs": "{\"command\":\"npx vitest run tests/codex-subscription-relay.test.ts -t \\\"denies a wrong model\\\" 2>&1 | tail -8\",\"description\":\"Run specified vitest filter test\",\"sandbox_permissions\":\"require_escalated\"}",
+   "viewCursor": "v:01a0b743-a622-72b0-be13-df28e2c1f7eb:8",
+   "sourceRange": {
+    "stream": {
+     "kind": "session",
+     "id": "01a0b743-a622-72b0-be13-df28e2c1f7eb"
+    },
+    "first": {
+     "id": "e81496d1-a27e-4649-b9b2-c96a583b8173",
+     "sequence": 61
+    },
+    "last": {
+     "id": "e81496d1-a27e-4649-b9b2-c96a583b8173",
+     "sequence": 61
+    }
+   },
+   "subject": {
+    "kind": "shell",
+    "command": "npx vitest run tests/codex-subscription-relay.test.ts -t \"denies a wrong model\" 2>&1 | tail -8",
+    "workspaceRoot": "/Users/kevin/dev/trevor",
+    "stages": []
+   },
+   "currentRequirementId": {
+    "approvalId": "01a0b743-becc-7d53-80e6-697d0c487056",
+    "sourceIndex": 0
+   },
+   "availableChoices": [
+    {
+     "choiceId": "allow_once",
+     "label": "Allow once",
+     "decision": "approved",
+     "scope": "once"
+    },
+    {
+     "choiceId": "abort",
+     "label": "Reject",
+     "decision": "abort",
+     "scope": "once",
+     "acceptsFeedback": true
+    }
+   ],
+   "protectedWrite": false,
+   "judgeEscalated": false
+  }
+ ],
+ "userInputs": []
+}

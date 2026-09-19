@@ -371,11 +371,11 @@ export async function* streamTurn(
       },
       { spawn: deps.spawn, clock: deps.clock, signal: deps.signal },
       sessionId,
-      (subject, kind) =>
+      (subject, kind, sandboxEscalation) =>
         stopForApproval(
-          failureFromBlockedApproval(h.name, subject, kind),
+          failureFromBlockedApproval(h.name, subject, kind, sandboxEscalation),
           "approval_blocked",
-          `${blockedApprovalDetail(h.name, subject, kind)} - ending the turn`,
+          `${blockedApprovalDetail(h.name, subject, kind, sandboxEscalation)} - ending the turn`,
         ),
       () =>
         stopForApproval(

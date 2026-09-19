@@ -684,17 +684,22 @@ clock; `--stall` is session-only). While a muse turn runs, hcn polls the
 read-only MSP `approval/listPending` operation through a helper `muse serve`
 process owned by that turn and reaped with it. The helper never loads the
 session, never decides anything, and carries only the blocked subject
-(approval vs input) and the approval's subject kind - never request
-payloads.
+(approval vs input), the approval's subject kind, and whether the approval
+is a sandbox escalation - never request payloads.
 
 A single non-empty sample stops nothing: judge-decided approvals for
 ordinary tool calls appear briefly, then clear. The turn ends only when the
 same request identity persists across 30 consecutive polls (about 30
 seconds), or at once when an approval is judge-escalated (a human was
-asked, and a headless run has none). A request that resolves itself
-(`autoResolutionMs`) is never reported before its deadline plus a margin.
-Either way the turn emits an `error` naming the blocked subject, then
-`failure class=task` (`retryable: false` - answer it in muse, or rerun with
+asked, and a headless run has none) or asks to run outside the muse
+sandbox (`sandbox_permissions: require_escalated` in the tool args - muse
+never sends that class to its approval judge, so no wait can resolve it).
+A request that resolves itself (`autoResolutionMs`) is never reported
+before its deadline plus a margin. Either way the turn emits an `error`
+naming the blocked subject, then `failure class=task` (`retryable: false` -
+a sandbox escalation names `-- --sandbox-network enabled` first: it keeps
+approvals and the filesystem sandbox and fits a command that needs network
+or a local listening socket; otherwise answer it in muse, or rerun with
 `--autonomy` only if unattended approvals are acceptable; never auto-route)
 and `done cause=failed` with exit 1. When the pending set itself cannot be
 read (the helper is slow to start, crashes, or answers unreadably three

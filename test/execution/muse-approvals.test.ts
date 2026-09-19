@@ -4,6 +4,7 @@
  * `muse serve` process using only the read-only approval/listPending
  * operation - no session load, no lease, no decision.
  */
+import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import {
   APPROVAL_STUCK_POLLS,
@@ -24,14 +25,15 @@ const setup = (
   const clock = new FakeClock();
   const sig = fakeSignal({ autoExit });
   const spawner = fakeSpawner([proc]);
-  const seen: Array<{ subject: "approval" | "input"; kind: string }> = [];
+  const seen: Array<{ subject: "approval" | "input"; kind: string; sandboxEscalation: boolean }> =
+    [];
   let unavailable = 0;
   const watch = watchMuseApprovals(
     "/selected/muse",
     { cwd: "/work" },
     { clock, signal: sig.signal, spawn: spawner.spawn },
     "native-session",
-    (subject, kind) => seen.push({ subject, kind }),
+    (subject, kind, sandboxEscalation) => seen.push({ subject, kind, sandboxEscalation }),
     () => {
       unavailable += 1;
     },
@@ -105,7 +107,7 @@ describe("watchMuseApprovals", () => {
     await flush();
     s.reply(APPROVAL_STUCK_POLLS + 1, pending);
     await flush();
-    expect(s.seen).toEqual([{ subject: "approval", kind: "network" }]);
+    expect(s.seen).toEqual([{ subject: "approval", kind: "network", sandboxEscalation: false }]);
     const methods = s.proc.stdinLines.map(
       (line) => (JSON.parse(line) as { method?: string }).method,
     );
@@ -123,7 +125,102 @@ describe("watchMuseApprovals", () => {
       userInputs: [],
     });
     await flush();
-    expect(s.seen).toEqual([{ subject: "approval", kind: "shell" }]);
+    expect(s.seen).toEqual([{ subject: "approval", kind: "shell", sandboxEscalation: false }]);
+    await s.watch.close();
+    expect(s.clock.pendingTimerCount).toBe(0);
+  });
+
+  test("the fixture sandbox escalation reports on the first poll with the boolean", async () => {
+    // Issue #189: an approval whose tool args ask to run outside the muse
+    // sandbox (sandbox_permissions require_escalated) never reaches the
+    // approval judge - it waits on a human - so no wait can resolve it
+    // headless. It reports at once, like a judge escalation, carrying the
+    // boolean so the failure can name the narrow remedy. The frame is the
+    // captured live listPending reply (Muse Code 1.3.0).
+    const frame = JSON.parse(
+      readFileSync(
+        new URL("../fixtures/msp-1.3.0/listPending.sandbox-escalation.json", import.meta.url),
+        "utf8",
+      ),
+    );
+    const s = setup();
+    s.reply(1, {});
+    await flush();
+    s.reply(2, frame);
+    await flush();
+    expect(s.seen).toEqual([{ subject: "approval", kind: "shell", sandboxEscalation: true }]);
+    const methods = s.proc.stdinLines.map(
+      (line) => (JSON.parse(line) as { method?: string }).method,
+    );
+    expect(methods).not.toContain("approval/decide");
+    await s.watch.close();
+    expect(s.clock.pendingTimerCount).toBe(0);
+  });
+
+  test("an ordinary approval with parsable rawArgs still needs the stuck window", async () => {
+    // rawArgs present and JSON, but no sandbox_permissions: ordinary. The
+    // stuck window applies and the report carries the boolean false.
+    const s = setup();
+    s.reply(1, {});
+    await flush();
+    const pending = {
+      approvals: [
+        { approvalId: "a", subject: { kind: "shell" }, rawArgs: '{"command":"npm test"}' },
+      ],
+      userInputs: [],
+    };
+    s.reply(2, pending);
+    await flush();
+    expect(s.seen).toEqual([]);
+    for (let id = 3; id <= APPROVAL_STUCK_POLLS; id++) {
+      s.clock.advance(1_000);
+      await flush();
+      s.reply(id, pending);
+      await flush();
+      expect(s.seen).toEqual([]);
+    }
+    s.clock.advance(1_000);
+    await flush();
+    s.reply(APPROVAL_STUCK_POLLS + 1, pending);
+    await flush();
+    expect(s.seen).toEqual([{ subject: "approval", kind: "shell", sandboxEscalation: false }]);
+    await s.watch.close();
+    expect(s.clock.pendingTimerCount).toBe(0);
+  });
+
+  test("malformed rawArgs reads as ordinary, never as a sandbox escalation", async () => {
+    // rawArgs that does not parse as JSON must not throw and must not
+    // report at once: the boolean is false and the stuck window applies.
+    const s = setup();
+    s.reply(1, {});
+    await flush();
+    const pending = {
+      approvals: [
+        {
+          approvalId: "a",
+          subject: { kind: "shell" },
+          rawArgs: "npx vitest run tests/x.test.ts 2>&1 | tail -8",
+        },
+      ],
+      userInputs: [],
+    };
+    s.reply(2, pending);
+    await flush();
+    expect(s.seen).toEqual([]);
+    expect(s.unavailable()).toBe(0);
+    for (let id = 3; id <= APPROVAL_STUCK_POLLS; id++) {
+      s.clock.advance(1_000);
+      await flush();
+      s.reply(id, pending);
+      await flush();
+      expect(s.seen).toEqual([]);
+      expect(s.unavailable()).toBe(0);
+    }
+    s.clock.advance(1_000);
+    await flush();
+    s.reply(APPROVAL_STUCK_POLLS + 1, pending);
+    await flush();
+    expect(s.seen).toEqual([{ subject: "approval", kind: "shell", sandboxEscalation: false }]);
     await s.watch.close();
     expect(s.clock.pendingTimerCount).toBe(0);
   });
@@ -165,7 +262,7 @@ describe("watchMuseApprovals", () => {
     await flush();
     s.reply(APPROVAL_STUCK_POLLS + 1, pending);
     await flush();
-    expect(s.seen).toEqual([{ subject: "input", kind: "input" }]);
+    expect(s.seen).toEqual([{ subject: "input", kind: "input", sandboxEscalation: false }]);
     await s.watch.close();
   });
 
@@ -380,7 +477,7 @@ describe("watchMuseApprovals", () => {
     await flush();
     s.reply(MAX_AUTO_RESOLVE_POLLS + 1, pending);
     await flush();
-    expect(s.seen).toEqual([{ subject: "input", kind: "input" }]);
+    expect(s.seen).toEqual([{ subject: "input", kind: "input", sandboxEscalation: false }]);
     await s.watch.close();
     expect(s.clock.pendingTimerCount).toBe(0);
   });
