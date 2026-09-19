@@ -49,6 +49,15 @@ jobs:
       - run: pnpm test:bun
       - run: pnpm check:package
 
+      # publish.yml publishes with npm@latest, which can differ from the
+      # runner's npm (npm 12 changed the `npm pack --json` shape). Run the
+      # package check under it here, last, so a break shows on the pull
+      # request instead of at release time.
+      - name: Package check under the npm that publishes
+        run: |
+          npm install --global npm@latest
+          pnpm check:package
+
   release-please:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [check, native]
