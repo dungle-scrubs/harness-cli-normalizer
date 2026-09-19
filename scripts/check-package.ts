@@ -34,8 +34,15 @@ const result = spawnSync("npm", ["pack", "--dry-run", "--json", "--ignore-script
 
 assert.equal(result.status, 0, result.stderr);
 
-const [pack] = JSON.parse(result.stdout) as readonly PackResult[];
-assert.ok(pack, "npm pack returned no package result");
+// npm 11 prints an array of pack results; npm 12 prints an object keyed by
+// package name. The publish workflow runs this check under npm@latest, so
+// both shapes are read.
+const packed = JSON.parse(result.stdout) as
+  | readonly PackResult[]
+  | Readonly<Record<string, PackResult>>;
+const results: readonly PackResult[] = Array.isArray(packed) ? packed : Object.values(packed);
+const [pack] = results;
+assert.ok(pack?.files, "npm pack returned no package result");
 
 const files = new Set(pack.files.map(({ path }) => path));
 // CLI-only surface (Phase 7): the bin is the product. No root export, no
