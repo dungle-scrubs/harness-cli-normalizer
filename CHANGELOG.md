@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.21](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.20...v0.6.21) (2026-09-19)
+
+
+### Fixed
+
+* **failure:** classify a limit wall carried in a terminal error message ([#200](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/200)) ([ba6e724](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/ba6e7240f4b5caa44b5047274e88e0f223b18175))
+* **interactive:** record the launch owner only after the child has exec'd ([#199](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/199)) ([70331a5](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/70331a51b4cdf3799285657b480ee7e99244fd62))
+
 ## [0.6.20](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.19...v0.6.20) (2026-09-19)
 
 
