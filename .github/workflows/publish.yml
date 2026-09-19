@@ -60,5 +60,10 @@ jobs:
       - name: Use an npm CLI with trusted publishing support
         run: npm install --global npm@latest
 
+      # Issue #193: the package check above ran under the runner's npm. Run it
+      # again under the npm that publishes, so a manifest this npm would
+      # rewrite stops the release instead of shipping.
+      - run: pnpm check:package
+
       - name: Publish public package
         run: npm publish --access public
