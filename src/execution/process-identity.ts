@@ -107,6 +107,78 @@ function darwinProbe(): OwnerProbe {
 
 let darwin: OwnerProbe | undefined;
 
+/** Exec readiness of a spawned child. "unknown" fails closed: the caller
+ * reports no owner rather than a possibly pre-exec one. */
+export type ChildExecReadiness = "exec'd" | "unknown";
+
+export interface ExecWaitOptions {
+  readonly platform?: NodeJS.Platform;
+  readonly readCmdline?: (pid: number) => string;
+  readonly now?: () => number;
+  readonly sleep?: (ms: number) => Promise<void>;
+  readonly budgetMs?: number;
+  readonly pollMs?: number;
+}
+
+const EXEC_WAIT_BUDGET_MS = 2000;
+const EXEC_WAIT_POLL_MS = 2;
+
+const readProcCmdline = (pid: number): string => readFileSync(`/proc/${pid}/cmdline`, "utf8");
+
+const defaultSleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+/** Wait until a spawned child has exec'd, Linux only.
+ *
+ * Cause: under Bun on Linux the `spawn` event can fire before the child has
+ * called exec, so `/proc/<pid>/exe` still names the parent's executable and
+ * the start-time guard in `linuxOwner` cannot see the swap (exec does not
+ * change the start time). The signal is `/proc/<pid>/cmdline`: before exec
+ * it equals the parent's `/proc/self/cmdline` (read once per wait), during
+ * the swap it is briefly empty, and after exec it is the child's argv. This
+ * assumes the child's argv never equals hcn's own argv (hcn never execs
+ * itself with its own arguments).
+ *
+ * Bounded: stops after 2000 ms and reports "unknown", yielding to the event
+ * loop between samples, never spinning. A read error (process gone) ends the
+ * wait with "unknown" at once.
+ *
+ * On every non-Linux platform it returns "exec'd" at once. On macOS, Node
+ * reports spawn only after exec and Bun spawns through posix_spawn, and
+ * the interactive owner test has shown no pre-exec reading there. Issue
+ * #191 holds the Linux measurements. */
+export async function waitForChildExec(
+  pid: number,
+  options: ExecWaitOptions = {},
+): Promise<ChildExecReadiness> {
+  if ((options.platform ?? process.platform) !== "linux") return "exec'd";
+  const readCmdline = options.readCmdline ?? readProcCmdline;
+  const now = options.now ?? Date.now;
+  const sleep = options.sleep ?? defaultSleep;
+  const budgetMs = options.budgetMs ?? EXEC_WAIT_BUDGET_MS;
+  const pollMs = options.pollMs ?? EXEC_WAIT_POLL_MS;
+  let parent: string;
+  try {
+    parent = readCmdline(process.pid);
+  } catch {
+    return "unknown";
+  }
+  const deadline = now() + budgetMs;
+  for (;;) {
+    let child: string;
+    try {
+      child = readCmdline(pid);
+    } catch {
+      return "unknown";
+    }
+    if (child !== "" && child !== parent) return "exec'd";
+    if (now() >= deadline) return "unknown";
+    await sleep(pollMs);
+  }
+}
+
 /** Fresh kernel identity. Failure means unknown, never confirmed process absence. */
 export function readNativeProcessOwner(pid: number): NativeProcessOwner | undefined {
   if (!Number.isSafeInteger(pid) || pid <= 0 || pid > 2_147_483_647) return undefined;
