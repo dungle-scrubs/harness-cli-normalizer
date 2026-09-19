@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.19](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.18...v0.6.19) (2026-09-19)
+
+
+### Fixed
+
+* **package:** publish the bin path npm accepts, and fail the release if npm would rewrite the manifest ([#194](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/194)) ([6c94ac3](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/6c94ac37896bc97db4d23e8853a2da73c4ecdb9e))
+
 ## [0.6.18](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.17...v0.6.18) (2026-09-19)
 
 
