@@ -9,6 +9,7 @@ import type {
 import type { HarnessName } from "../../knowledge/descriptor.js";
 import type {
   HarnessListing,
+  SessionBlock,
   SessionListResult,
   SessionListSource,
   SessionRow,
@@ -20,30 +21,38 @@ import type { TranscriptFiles } from "./files.js";
  * its workspace far inside this, and the cap keeps one oversized log from
  * reading a whole store into memory. */
 const MAX_PREFIX_BYTES = 4 * 1024 * 1024;
-/** How many of a store's sources are open at once. Each candidate is read
+/** How many of a call's sources are open at once. Each candidate is read
  * independently, and a store holds thousands, so reading them one at a time
- * spends the whole listing waiting on the filesystem. */
+ * spends the whole listing waiting on the filesystem. The listings run
+ * concurrently, so this ceiling is the whole call's rather than one store's.
+ */
 const OPEN_SOURCES = 32;
 
-/** `run` over every item, with at most `limit` in flight. */
-async function mapBounded<TItem, TResult>(
-  items: readonly TItem[],
-  limit: number,
-  run: (item: TItem) => Promise<TResult>,
-): Promise<TResult[]> {
-  const results = new Array<TResult>(items.length);
-  let next = 0;
-  await Promise.all(
-    Array.from({ length: Math.min(limit, items.length) }, async () => {
-      for (;;) {
-        const index = next++;
-        const item = items[index];
-        if (index >= items.length || item === undefined) return;
-        results[index] = await run(item);
-      }
-    }),
-  );
-  return results;
+/** Runs one source read at a time per free slot, holding the rest until a
+ * slot frees. A released slot passes straight to the next waiter, so the
+ * count cannot drift when several stores ask at once. */
+function openBudget(limit: number): <TResult>(run: () => Promise<TResult>) => Promise<TResult> {
+  let free = limit;
+  const waiting: (() => void)[] = [];
+  return async (run) => {
+    if (free > 0) free--;
+    else await new Promise<void>((resolve) => waiting.push(resolve));
+    try {
+      return await run();
+    } finally {
+      const next = waiting.shift();
+      if (next) next();
+      else free++;
+    }
+  };
+}
+type OpenBudget = ReturnType<typeof openBudget>;
+
+/** What one store's walk contributed. A null outcome is a store that saw the
+ * caller's interruption and has nothing to report. */
+interface HarnessWalk {
+  readonly outcome: HarnessListing | null;
+  readonly rows: readonly SessionRow[];
 }
 
 export interface HarnessListingRequest {
@@ -53,6 +62,9 @@ export interface HarnessListingRequest {
   readonly listingRoot: string | null;
   /** Whether `transcript read` has a verified method for this harness. */
   readonly readable: boolean;
+  /** Sibling suffixes this harness's reader requires absent or empty around a
+   * capture, as the reader declares them. Empty where it requires none. */
+  readonly quiescentSiblings: readonly string[];
   /** Why this harness contributes no listing; null when it contributes one. */
   readonly divergence: string | null;
 }
@@ -63,6 +75,9 @@ export interface ListSessionsRequest {
   readonly workspace: string | null;
   readonly headless: boolean;
   readonly limit: number | null;
+  /** Sources written before this UTC instant are not opened at all, or null
+   * to open every one. */
+  readonly sinceTime: string | null;
 }
 export interface ListSessionsDeps {
   readonly files: TranscriptFiles;
@@ -129,6 +144,44 @@ async function captureIndex(
   }
 }
 
+/** One session and the precondition, if any, that a read of it would refuse
+ * on right now. */
+interface WalkedSession {
+  readonly session: ListedSession;
+  /** The row's own source, from the stat the walk already takes. */
+  readonly sizeBytes: number;
+  readonly blocked: SessionBlock | null;
+}
+
+/**
+ * The cheap precondition a read of this source would fail on, or null when
+ * none was observed to. This is the same check `captureSource` makes before a
+ * read, and the same one `captureIndex` already makes for a store-wide index;
+ * running it here lets a consumer tell "no method for this" from "busy right
+ * now". A sibling that cannot be stat'd leaves the answer null: the listing
+ * does not know, and the read still decides.
+ */
+async function blockedBy(
+  path: string,
+  siblings: readonly string[],
+  files: TranscriptFiles,
+): Promise<SessionBlock | null> {
+  for (const suffix of siblings) {
+    let sibling: Awaited<ReturnType<TranscriptFiles["version"]>>;
+    try {
+      sibling = await files.version(`${path}${suffix}`);
+    } catch {
+      continue;
+    }
+    if (sibling.size !== 0)
+      return {
+        issue: "guarantee-unmet",
+        reason: `The native source holds uncheckpointed writes in its ${suffix} sibling; read it after the native session closes.`,
+      };
+  }
+  return null;
+}
+
 /** One candidate's markers, growing the prefix until the listing has them. */
 async function readSession(
   listing: TranscriptListing,
@@ -172,12 +225,14 @@ async function listHarness(
   },
   deps: ListSessionsDeps,
   checkAbort: () => void,
-): Promise<{ readonly sessions: readonly ListedSession[]; readonly unreadable: number }> {
+  openSource: OpenBudget,
+  sinceTime: string | null,
+): Promise<{ readonly sessions: readonly WalkedSession[]; readonly unreadable: number }> {
   const { listing, listingRoot: root } = entry;
-  const writeTime = deps.files.writeTime;
-  if (!deps.files.list || !writeTime)
+  const sourceStat = deps.files.sourceStat;
+  if (!deps.files.list || !sourceStat)
     throw new TranscriptError("source-inaccessible", "Native store listing is unavailable.");
-  const index = await captureIndex(listing, root, deps);
+  const index = await openSource(() => captureIndex(listing, root, deps));
   checkAbort();
   const candidates: ListingCandidate[] = [];
   for (const directory of listing.directories) {
@@ -190,22 +245,42 @@ async function listHarness(
   }
   const files = deps.files;
   let unreadable = 0;
-  const read = await mapBounded(candidates, OPEN_SOURCES, async (candidate) => {
-    checkAbort();
-    try {
-      const lastWriteAt = await writeTime(join(root, candidate.file));
-      const session = await readSession(listing, candidate, root, index, lastWriteAt, files);
-      return session ? { ...session, file: join(root, session.file) } : null;
-    } catch (error) {
-      // One source that vanished or cannot be opened is a gap in this
-      // harness's coverage, not a failure of the listing.
-      if (error instanceof TranscriptError && error.issue === "interrupted") throw error;
-      unreadable++;
-      return null;
-    }
-  });
+  const read = await Promise.all(
+    candidates.map((candidate) =>
+      openSource(async () => {
+        checkAbort();
+        try {
+          // One stat of the row's own source, whichever file the markers came
+          // from: Cursor reads its `meta.json` for those and reports the size
+          // of the `store.db` beside it.
+          const stat = await sourceStat(join(root, candidate.file));
+          // The whole point of the window: an unchanged source costs this one
+          // stat and is never opened, so neither its prefix read nor its
+          // prefix parse happens. Inclusive, so a row written exactly at the
+          // instant asked for is in.
+          if (sinceTime !== null && stat.lastWriteAt < sinceTime) return null;
+          const found = await readSession(listing, candidate, root, index, stat.lastWriteAt, files);
+          if (!found) return null;
+          const file = join(root, found.file);
+          return {
+            session: { ...found, file },
+            sizeBytes: stat.size,
+            blocked: entry.quiescentSiblings.length
+              ? await blockedBy(file, entry.quiescentSiblings, files)
+              : null,
+          };
+        } catch (error) {
+          // One source that vanished or cannot be opened is a gap in this
+          // harness's coverage, not a failure of the listing.
+          if (error instanceof TranscriptError && error.issue === "interrupted") throw error;
+          unreadable++;
+          return null;
+        }
+      }),
+    ),
+  );
   return {
-    sessions: read.filter((session): session is ListedSession => session !== null),
+    sessions: read.filter((walked): walked is WalkedSession => walked !== null),
     unreadable,
   };
 }
@@ -227,68 +302,92 @@ export async function listSessions(
       workspace: request.workspace,
       headless: request.headless,
       limit: request.limit,
+      sinceTime: request.sinceTime,
     },
   };
-  const outcomes: HarnessListing[] = [];
-  const rows: SessionRow[] = [];
-  let interrupted: unknown = null;
-  for (const entry of request.harnesses) {
-    if (!entry.listing || !entry.listingRoot) {
-      outcomes.push({
-        harness: entry.harness,
-        state: "divergent",
-        storeRoot: entry.listingRoot,
-        rows: 0,
-        reason: entry.divergence ?? `${entry.harness} has no transcript listing method.`,
-        issue: "transcript-divergence",
-      });
-      continue;
-    }
-    const scoped = { ...entry, listing: entry.listing, listingRoot: entry.listingRoot };
-    try {
-      const { sessions, unreadable } = await listHarness(scoped, deps, checkAbort);
-      const kept = sessions.filter(
-        (session) =>
-          (request.workspace === null || session.cwd === request.workspace) &&
-          (request.headless || session.mode !== "headless"),
-      );
-      for (const session of kept)
-        rows.push({
-          schemaVersion: 1,
-          kind: "session",
-          harness: entry.harness,
-          id: session.id,
-          file: session.file,
-          cwd: session.cwd,
-          lastWriteAt: session.lastWriteAt,
-          mode: session.mode,
-          readable: entry.readable && session.readable,
-        });
-      outcomes.push({
-        harness: entry.harness,
-        state: "listed",
-        storeRoot: entry.listingRoot,
-        rows: kept.length,
-        reason: unreadable
-          ? `${unreadable} native source(s) under this store could not be read.`
-          : null,
-        issue: unreadable ? "source-inaccessible" : null,
-      });
-    } catch (error) {
-      if (error instanceof TranscriptError && error.issue === "interrupted") {
-        interrupted = error;
-        break;
+  // The six stores are unrelated directories sharing no state, so the call is
+  // bounded by the slowest walk rather than by their sum. Each listing keeps
+  // its own rows and outcome, which are assembled in request order below, so
+  // the concurrency cannot reorder the result.
+  const openSource = openBudget(OPEN_SOURCES);
+  const walked = await Promise.all(
+    request.harnesses.map(async (entry): Promise<HarnessWalk> => {
+      if (!entry.listing || !entry.listingRoot)
+        return {
+          outcome: {
+            harness: entry.harness,
+            state: "divergent",
+            storeRoot: entry.listingRoot,
+            rows: 0,
+            reason: entry.divergence ?? `${entry.harness} has no transcript listing method.`,
+            issue: "transcript-divergence",
+          },
+          rows: [],
+        };
+      const scoped = { ...entry, listing: entry.listing, listingRoot: entry.listingRoot };
+      try {
+        const { sessions, unreadable } = await listHarness(
+          scoped,
+          deps,
+          checkAbort,
+          openSource,
+          request.sinceTime,
+        );
+        const kept = sessions.filter(
+          ({ session }) =>
+            (request.workspace === null || session.cwd === request.workspace) &&
+            (request.headless || session.mode !== "headless"),
+        );
+        return {
+          outcome: {
+            harness: entry.harness,
+            state: "listed",
+            storeRoot: entry.listingRoot,
+            rows: kept.length,
+            reason: unreadable
+              ? `${unreadable} native source(s) under this store could not be read.`
+              : null,
+            issue: unreadable ? "source-inaccessible" : null,
+          },
+          rows: kept.map(({ session, sizeBytes, blocked }) => ({
+            schemaVersion: 1,
+            kind: "session",
+            harness: entry.harness,
+            id: session.id,
+            file: session.file,
+            cwd: session.cwd,
+            lastWriteAt: session.lastWriteAt,
+            startedAt: session.startedAt,
+            sizeBytes,
+            mode: session.mode,
+            readable: entry.readable && session.readable,
+            blocked,
+          })),
+        };
+      } catch (error) {
+        // Several stores can see the same interruption at once; the call
+        // reports one, and a store that had already finished keeps its outcome.
+        if (error instanceof TranscriptError && error.issue === "interrupted")
+          return { outcome: null, rows: [] };
+        return {
+          outcome: {
+            harness: entry.harness,
+            state: "failed",
+            storeRoot: entry.listingRoot,
+            rows: 0,
+            reason: reasonOf(error),
+            issue: issueOf(error),
+          },
+          rows: [],
+        };
       }
-      outcomes.push({
-        harness: entry.harness,
-        state: "failed",
-        storeRoot: entry.listingRoot,
-        rows: 0,
-        reason: reasonOf(error),
-        issue: issueOf(error),
-      });
-    }
-  }
+    }),
+  );
+  const interrupted = walked.some((walk) => walk.outcome === null);
+  const outcomes = walked
+    .map((walk) => walk.outcome)
+    .filter((outcome): outcome is HarnessListing => outcome !== null);
+  const rows = walked.flatMap((walk) => walk.rows);
   rows.sort(
     (a, b) =>
       b.lastWriteAt.localeCompare(a.lastWriteAt) ||

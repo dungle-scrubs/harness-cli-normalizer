@@ -1,10 +1,17 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { listSessions } from "../../src/execution/transcript/list.js";
-import { IDS, WORKSPACE_A, WORKSPACE_B, WRITE_TIMES, writeSyntheticStores } from "./list-store.js";
+import {
+  IDS,
+  START_TIMES,
+  WORKSPACE_A,
+  WORKSPACE_B,
+  WRITE_TIMES,
+  writeSyntheticStores,
+} from "./list-store.js";
 
 interface Row {
   readonly kind: string;
@@ -13,8 +20,11 @@ interface Row {
   readonly file: string;
   readonly cwd: string | null;
   readonly lastWriteAt: string;
+  readonly startedAt: string | null;
+  readonly sizeBytes: number;
   readonly mode: string;
   readonly readable: boolean;
+  readonly blocked: { readonly issue: string; readonly reason: string } | null;
 }
 interface HarnessOutcome {
   readonly harness: string;
@@ -107,6 +117,42 @@ test("every harness contributes its saved sessions for one workspace, newest fir
   expect(listing.rows.every((row) => row.readable)).toBe(true);
 });
 
+test("each row carries the start time its own native header names", () => {
+  const rows = list(["--cwd", WORKSPACE_A, "--headless"]).rows;
+  const started = (harness: string): string | null | undefined =>
+    rows.find((row) => row.harness === harness)?.startedAt;
+  // Four shapes in, one shape out: ISO with milliseconds from claude, codex
+  // and pi, epoch microseconds from muse, epoch milliseconds from cursor, and
+  // second-precision ISO from antigravity.
+  expect(started("claude")).toBe(START_TIMES.claudeInteractive);
+  expect(started("codex")).toBe(START_TIMES.codexInteractive);
+  expect(started("pi")).toBe(START_TIMES.pi);
+  expect(started("muse")).toBe(START_TIMES.muse);
+  expect(started("cursor")).toBe(START_TIMES.cursor);
+  expect(started("antigravity")).toBe("2026-09-19T00:00:00.000Z");
+  // The store's own time, never the filesystem's: every start time here is a
+  // day behind the write time beside it.
+  for (const row of rows) expect(row.startedAt, row.harness).not.toBe(row.lastWriteAt);
+});
+
+test("a session whose store names no workspace still reports its start time", () => {
+  const row = list(["--all-workspaces", "--headless"]).rows.find(
+    (item) => item.id === IDS.museUnmarked,
+  );
+  // The workspace is genuinely absent, so the row says so.
+  expect(row?.cwd).toBeNull();
+  // The prefix the scan already read carries the time, so the row reports it.
+  // A missing workspace is not a reason to drop a fact the store does record.
+  expect(row?.startedAt).toBe(START_TIMES.museUnmarked);
+});
+
+test("a source with no readable header reports no start time", () => {
+  const row = list(["--all-workspaces", "--headless"]).rows.find(
+    (item) => item.id === IDS.codexCompressed,
+  );
+  expect(row?.startedAt).toBeNull();
+});
+
 test("each row names the native source transcript read accepts", () => {
   const rows = list(["--cwd", WORKSPACE_A, "--headless"]).rows;
   const file = (harness: string): string => rows.find((row) => row.harness === harness)?.file ?? "";
@@ -186,6 +232,53 @@ test("child conversations are not rows", () => {
   expect(all).toContain(`antigravity:${IDS.antigravity}`);
 });
 
+test("each row reports its own native source in bytes", () => {
+  const rows = list(["--cwd", WORKSPACE_A, "--headless"]).rows;
+  for (const row of rows) {
+    // The row's own file, not whichever file its markers came from: Cursor
+    // reads `meta.json` for those and reports the `store.db` beside it.
+    expect(row.sizeBytes, `${row.harness}:${row.id}`).toBe(statSync(row.file).size);
+    expect(row.sizeBytes, `${row.harness}:${row.id}`).toBeGreaterThan(0);
+  }
+  const cursor = rows.find((row) => row.harness === "cursor");
+  const meta = join(dirname(cursor?.file ?? ""), "meta.json");
+  expect(cursor?.sizeBytes).not.toBe(statSync(meta).size);
+});
+
+test("a chat whose WAL still holds writes lists readable and names what blocks the read", () => {
+  const store = join(home, ".cursor", "chats", "0".repeat(32), IDS.cursor, "store.db");
+  const wal = `${store}-wal`;
+  // What a Cursor turn in progress leaves behind: committed writes the main
+  // file does not hold yet.
+  writeFileSync(wal, "uncheckpointed");
+  try {
+    const row = list(["--cwd", WORKSPACE_A, "--headless"]).rows.find(
+      (item) => item.harness === "cursor",
+    );
+    // A verified method still addresses this source; it is the source that is
+    // busy, and the two are different answers.
+    expect(row?.readable).toBe(true);
+    expect(row?.blocked?.issue).toBe("guarantee-unmet");
+    expect(row?.blocked?.reason).toContain("-wal");
+    // The read refuses on exactly the precondition the row named.
+    const read = spawnSync(
+      "bun",
+      [resolve("src/cli/index.ts"), "transcript", "read", "cursor", "--file", store],
+      { encoding: "utf8", env: { ...storeEnv, PATH: process.env.PATH, TMPDIR: tmpdir() } },
+    );
+    expect(read.status, read.stderr).not.toBe(0);
+    expect(read.stdout).toContain("guarantee-unmet");
+  } finally {
+    rmSync(wal, { force: true });
+  }
+});
+
+test("a source with nothing blocking it names no blocker", () => {
+  const rows = list(["--cwd", WORKSPACE_A, "--headless"]).rows;
+  expect(rows.length).toBeGreaterThan(0);
+  expect(rows.filter((row) => row.blocked !== null)).toEqual([]);
+});
+
 test("a source transcript read refuses on sight is listed as unreadable", () => {
   const row = list(["--all-workspaces", "--headless"]).rows.find(
     (item) => item.id === IDS.codexCompressed,
@@ -210,6 +303,35 @@ test("--harness narrows the result and --limit caps the rows", () => {
   expect(outcome(limited, "claude").rows).toBe(2);
   const unlimited = list(["--cwd", WORKSPACE_A, "--headless"]);
   expect(unlimited.result.more).toBe(false);
+});
+
+test("--since-time admits only sources written at or after that instant", () => {
+  const listing = list([
+    "--all-workspaces",
+    "--headless",
+    "--since-time",
+    WRITE_TIMES.codexInteractive,
+  ]);
+  expect(listing.code, JSON.stringify(listing.result)).toBe(0);
+  expect(identify(listing.rows)).toEqual([
+    `claude:${IDS.claudeInteractive}`,
+    `claude:${IDS.claudeHeadless}`,
+    `claude:${IDS.claudeOther}`,
+    // Written exactly at the instant asked for, so it is in.
+    `codex:${IDS.codexInteractive}`,
+  ]);
+  expect(listing.source.scope).toMatchObject({ sinceTime: WRITE_TIMES.codexInteractive });
+  // A harness whose every source is older still lists, with no rows.
+  expect(outcome(listing, "muse")).toMatchObject({ state: "listed", rows: 0 });
+});
+
+test("--since-time takes a UTC instant and refuses anything else", () => {
+  for (const value of ["2026-09-20", "2026-09-20T09:00:00", "2026-09-20T09:00:00+02:00", "now"]) {
+    const listing = list(["--all-workspaces", "--since-time", value]);
+    expect(listing.code, value).toBe(2);
+    expect(listing.result.failure?.issue, value).toBe("invalid-option-value");
+    expect(listing.rows).toEqual([]);
+  }
 });
 
 test("an unknown flag and a bad --limit refuse with exit 2", () => {
@@ -239,6 +361,7 @@ test("a harness with no listing method is reported with its reason and keeps exi
           listing: null,
           listingRoot: null,
           readable: true,
+          quiescentSiblings: [],
           divergence: "cursor has no transcript listing method in v1.",
         },
       ],
@@ -246,6 +369,7 @@ test("a harness with no listing method is reported with its reason and keeps exi
       workspace: null,
       headless: true,
       limit: null,
+      sinceTime: null,
     },
     {
       files: {
