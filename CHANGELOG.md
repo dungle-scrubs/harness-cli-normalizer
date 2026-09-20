@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.22](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.21...v0.6.22) (2026-09-20)
+
+
+### Added
+
+* add native Antigravity harness and transcript access ([9b5333a](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/9b5333ab17153eb3be14828a48094f1599c6b953))
+
 ## [0.6.21](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.20...v0.6.21) (2026-09-19)
 
 
