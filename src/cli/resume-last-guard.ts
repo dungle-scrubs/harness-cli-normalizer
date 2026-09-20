@@ -8,8 +8,8 @@
  *
  * Roots resolve through the descriptor's precedence table first
  * (`resolveStoreRoot`: cursor in v1), else through the shared
- * transcript-style roots (`transcriptStoreRoot`: the fixed home-path
- * harnesses) - the same directory `transcript.ts` reads. The caller
+ * native-store roots (`transcriptStoreRoot`: the fixed home-path
+ * harnesses). The caller
  * passes the child's effective environment (`effectiveGuardEnv`: --env
  * merged over the process env with the spawn's delete rule, plus the
  * descriptor turn env), so a --env store relocation moves the guard with

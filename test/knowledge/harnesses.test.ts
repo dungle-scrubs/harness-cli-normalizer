@@ -10,6 +10,7 @@ import { parseResumeCommand } from "../../src/interpretation/parse-resume.js";
 import { isInteractive } from "../../src/interpretation/presence.js";
 import { storePath } from "../../src/interpretation/store.js";
 import { validateEffort, validateModel } from "../../src/interpretation/vocabulary.js";
+import { antigravityCli } from "../../src/knowledge/antigravity.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
 import { museCode } from "../../src/knowledge/muse.js";
@@ -111,9 +112,16 @@ describe("muse descriptor (v1 scars)", () => {
 });
 
 describe("registry", () => {
-  test("all five harnesses have code defaults", () => {
+  test("all six harnesses have code defaults", () => {
     const all = defaultDescriptors();
-    expect(Object.keys(all).sort()).toEqual(["claude", "codex", "cursor", "muse", "pi"]);
+    expect(Object.keys(all).sort()).toEqual([
+      "antigravity",
+      "claude",
+      "codex",
+      "cursor",
+      "muse",
+      "pi",
+    ]);
   });
 });
 
@@ -199,6 +207,7 @@ describe("M2.3 boundary-review regression pins", () => {
       expect(Object.isFrozen(d.vocabulary)).toBe(true);
       expect(Object.isFrozen(d.capabilities.streamingByMode)).toBe(true);
     }
+    expect(Object.isFrozen(antigravityCli)).toBe(true);
   });
 });
 
@@ -243,18 +252,19 @@ describe("phase-2 codex-review regression pins", () => {
   });
 });
 
-describe("resume-of-missing behavior (verified live, #5)", () => {
-  test("claude and codex error on an unknown session; pi and muse create-if-missing", () => {
+describe("resume-of-missing behavior", () => {
+  test("error and create contracts stay explicit", () => {
     expect(claudeCode.resume.onMissing).toBe("error");
     expect(codexCli.resume.onMissing).toBe("error");
     expect(piCli.resume.onMissing).toBe("create");
     expect(museCode.resume.onMissing).toBe("create");
+    expect(antigravityCli.resume.onMissing).toBe("unknown");
   });
 });
 
 describe("version anchor (harness-update pipeline)", () => {
   test("every descriptor records the CLI version its facts were verified against", () => {
-    for (const d of [claudeCode, codexCli, piCli, museCode]) {
+    for (const d of [claudeCode, codexCli, piCli, museCode, antigravityCli]) {
       expect(d.verifiedAgainst).toMatch(/^\d+\.\d+/); // a version string
     }
   });

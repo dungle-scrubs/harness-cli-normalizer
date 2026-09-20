@@ -12,6 +12,8 @@
  * closed string vocabularies are enforced, and any path whose default
  * carries a RegExp cannot be overridden from JSON.
  */
+
+import { antigravityCli } from "./antigravity.js";
 import { claudeCode } from "./claude-code.js";
 import { codexCli } from "./codex.js";
 import { cursorCli } from "./cursor.js";
@@ -19,6 +21,7 @@ import {
   HARNESS_NAMES,
   type HarnessDescriptor,
   type HarnessName,
+  RESUME_ON_MISSING,
   SESSION_INPUT_KINDS,
 } from "./descriptor.js";
 import { compileMatcher, MAX_MATCHERS_PER_KIND } from "./matchers.js";
@@ -34,6 +37,7 @@ const SHARED_DESCRIPTORS: DescriptorSet = {
   muse: museCode,
   // RFC-05: the cursor entry is also what makes `hcn ls` list it.
   cursor: cursorCli,
+  antigravity: antigravityCli,
 };
 
 export const defaultDescriptors = (): DescriptorSet => SHARED_DESCRIPTORS;
@@ -77,6 +81,9 @@ const enumAt = (keyPath: readonly string[]): readonly string[] | null => {
   if (keyPath[0] === "capabilities" && keyPath[1] === "streamingByMode") {
     return ["token", "message", "none"];
   }
+  if (keyPath[keyPath.length - 1] === "argvPlacement") {
+    return ["before-prompt", "after-prompt"];
+  }
   switch (keyPath.join(".")) {
     case "stdin":
       return ["inherit", "close-required"];
@@ -84,6 +91,10 @@ const enumAt = (keyPath: readonly string[]): readonly string[] | null => {
       return ["dash-separators", "pi-dash-wrapped", "verbatim", "md5-hex"];
     case "resume.style":
       return ["flag", "positional"];
+    case "resume.onMissing":
+      return RESUME_ON_MISSING;
+    case "resumeLast.flagPlacement":
+      return ["before-extra-flags", "after-extra-flags"];
     case "identity.authority":
       return ["caller-assigned", "harness-minted"];
     case "output.floor":

@@ -1,6 +1,6 @@
 import { constants } from "node:fs";
 import type { FileHandle } from "node:fs/promises";
-import { open, opendir, stat } from "node:fs/promises";
+import { open, opendir, realpath, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 export interface FileVersion {
@@ -14,9 +14,18 @@ export interface TranscriptFile {
 }
 export interface TranscriptFiles {
   snapshot?(path: string): Promise<TranscriptFile>;
-  list?(path: string, recursive?: boolean): AsyncIterable<string>;
+  /** Regular files under `path`. `prune` drops a directory before it is
+   * opened, so a store's child conversations cost no walk. */
+  list?(
+    path: string,
+    recursive?: boolean,
+    prune?: (name: string) => boolean,
+  ): AsyncIterable<string>;
   open(path: string): Promise<TranscriptFile>;
+  realpath?(path: string): Promise<string>;
   version(path: string): Promise<FileVersion>;
+  /** The last native write to one regular file, as an ISO 8601 UTC time. */
+  writeTime?(path: string): Promise<string>;
 }
 async function version(handle: FileHandle): Promise<FileVersion> {
   const result = await handle.stat({ bigint: true });
@@ -28,6 +37,7 @@ async function* listDirectory(
   path: string,
   recursive: boolean,
   missingRoot: boolean,
+  prune: (name: string) => boolean = () => false,
 ): AsyncGenerator<string> {
   let directory: Awaited<ReturnType<typeof opendir>>;
   try {
@@ -48,7 +58,8 @@ async function* listDirectory(
     for await (const entry of directory) {
       started = true;
       if (recursive && entry.isDirectory()) {
-        for await (const child of listDirectory(join(path, entry.name), true, false))
+        if (prune(entry.name)) continue;
+        for await (const child of listDirectory(join(path, entry.name), true, false, prune))
           yield join(entry.name, child);
       } else if (!entry.isDirectory()) yield entry.name;
     }
@@ -67,8 +78,8 @@ async function* listDirectory(
   }
 }
 export const nodeTranscriptFiles: TranscriptFiles = {
-  async *list(path, recursive = false) {
-    yield* listDirectory(path, recursive, true);
+  async *list(path, recursive = false, prune) {
+    yield* listDirectory(path, recursive, true, prune);
   },
   async open(path) {
     const handle = await open(path, constants.O_RDONLY | constants.O_NONBLOCK);
@@ -91,6 +102,10 @@ export const nodeTranscriptFiles: TranscriptFiles = {
       },
       version: () => version(handle),
     };
+  },
+  realpath: (path) => realpath(path),
+  async writeTime(path) {
+    return (await stat(path)).mtime.toISOString();
   },
   async version(path) {
     const result = await stat(path, { bigint: true });

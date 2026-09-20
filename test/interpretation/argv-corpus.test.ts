@@ -30,6 +30,7 @@ import {
   FloorExceededError,
   resolveEffectiveOptions,
 } from "../../src/interpretation/resolve-options.js";
+import { antigravityCli } from "../../src/knowledge/antigravity.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
 import { cursorCli } from "../../src/knowledge/cursor.js";
@@ -41,7 +42,14 @@ import { piCli } from "../../src/knowledge/pi.js";
 // effort rendering zero tokens because slug resolution lives at the
 // plan-turn step, autonomy as --force) and resume argv; the effort
 // matrix itself lives at the resolver and plan-turn seams.
-const HARNESSES: readonly HarnessDescriptor[] = [claudeCode, codexCli, piCli, museCode, cursorCli];
+const HARNESSES: readonly HarnessDescriptor[] = [
+  claudeCode,
+  codexCli,
+  piCli,
+  museCode,
+  cursorCli,
+  antigravityCli,
+];
 const SESSION_ID = "0199a4c5-1111-2222-3333-444455556666";
 const SNAPSHOT = join(import.meta.dirname, "argv-corpus.snapshot.json");
 
@@ -139,7 +147,7 @@ const resumeLastCases = (
 };
 
 /** Passthrough-tail cases (ADR 0003): a tail after hcn's bare `--`
- * reaches buildSpawnArgv on launch and resume alike. All five harnesses
+ * reaches buildSpawnArgv on launch and resume alike. All six harnesses
  * declare after-argv placement, so every row carries the tail verbatim
  * past hcn's own argv; a prompt-joins harness would refuse instead (none
  * declares it today - that refusal is pinned in

@@ -42,6 +42,15 @@ function nativeResolver(
     return paths;
   };
   return async (id) => {
+    if (reader.lookup.locate) {
+      const relative = reader.lookup.locate(id);
+      if (!root || relative === null)
+        throw new TranscriptError(
+          "source-not-found",
+          "The requested native conversation does not exist.",
+        );
+      return join(root, relative);
+    }
     // A lineage shares one namespace observation; Pi's one-source lookup stays streaming.
     if (reader.ancestry && !inventory) inventory = collect();
     const candidates = inventory ? await inventory : scan();
@@ -125,27 +134,63 @@ export async function captureSource(
       "A passive filesystem snapshot is required.",
       "consistency",
     );
+  // Siblings sit beside the real file, so a symlinked source is resolved first.
+  const target =
+    reader.quiescentSiblings?.length && files.realpath ? await files.realpath(path) : path;
+  await requireQuiescentSiblings(target, reader, files);
   const file =
     reader.consistency === "snapshot" && files.snapshot
-      ? await files.snapshot(path)
-      : await files.open(path);
+      ? await files.snapshot(target)
+      : await files.open(target);
   opened.push(file);
   checkAbort();
   const before = await file.version();
   if (cutoff !== null && cutoff > before.size)
     throw new TranscriptError("guarantee-unmet", "Native base cutoff is beyond the source.");
   const size = cutoff ?? before.size;
-  const bytes = await file.read(size);
-  if (bytes.length !== size)
+  const raw = await file.read(size);
+  if (raw.length !== size)
     throw new TranscriptError("source-changed", "Native source shrank during the read.");
   if (reader.consistency === "append-only")
-    await verifySource({ before, bytes, file, path }, files, checkAbort);
+    await verifySource({ before, bytes: raw, file, path }, files, checkAbort);
+  await requireQuiescentSiblings(target, reader, files);
   checkAbort();
+  const bytes = reader.frame ? reader.frame(raw) : raw;
   const completeBytes = bytes.lastIndexOf(10) + 1;
   if (cutoff !== null && cutoff !== completeBytes)
     throw new TranscriptError("guarantee-unmet", "Native base cutoff splits a framing unit.");
   const history = reader.parse(bytes.subarray(0, completeBytes));
-  return { before, bytes, completeBytes, file, history, nativeId: reader.nativeId(history), path };
+  return {
+    before,
+    bytes,
+    completeBytes,
+    file,
+    history,
+    nativeId: reader.nativeId(history, path),
+    path,
+  };
+}
+/** A sibling such as a SQLite write-ahead log holds writes the cloned file lacks. */
+async function requireQuiescentSiblings(
+  path: string,
+  reader: TranscriptReader,
+  files: TranscriptFiles,
+): Promise<void> {
+  for (const suffix of reader.quiescentSiblings ?? []) {
+    let sibling: FileVersion;
+    try {
+      sibling = await files.version(`${path}${suffix}`);
+    } catch (error) {
+      if (missing(error)) continue;
+      throw error;
+    }
+    if (sibling.size !== 0)
+      throw new TranscriptError(
+        "guarantee-unmet",
+        "The native store holds uncheckpointed writes; read it after the native session closes.",
+        "consistency",
+      );
+  }
 }
 
 interface CaptureDeps {

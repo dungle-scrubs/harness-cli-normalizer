@@ -1,11 +1,11 @@
 # harness-cli-normalizer
 
-One stable interface to five coding-agent CLIs.
+One stable interface to six coding-agent CLIs.
 
 [![CI](https://github.com/dungle-scrubs/harness-cli-normalizer/actions/workflows/ci.yml/badge.svg)](https://github.com/dungle-scrubs/harness-cli-normalizer/actions/workflows/ci.yml) [![npm](https://img.shields.io/npm/v/@dungle-scrubs/harness-cli-normalizer.svg)](https://www.npmjs.com/package/@dungle-scrubs/harness-cli-normalizer) [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 <!-- D-001 / v1: CLI-only -->
-harness-cli-normalizer is a CLI, `hcn`, that normalizes five coding-agent harnesses - Claude Code, Codex, pi, Muse, and Cursor CLI (binary `agent`) - into one surface: normalized flags, ratified behavior defaults, a single `HarnessEvent` NDJSON stream, and one exit-code contract. It normalizes the interface and the defaults, and reports divergence where a harness cannot express a dimension - it does not pretend parity. There is no library API; the `hcn` binary is the product. Descriptors are pinned to their verified CLI version and a weekly check flags when a harness has moved ahead (npm harnesses via registry; `muse` and Cursor CLI via their local version probes, skipped in CI where not installed - see Version-pinning and drift).
+harness-cli-normalizer is a CLI, `hcn`, that normalizes six coding-agent harnesses - Claude Code, Codex, pi, Muse, Cursor CLI (binary `agent`), and Antigravity CLI (binary `agy`) - into one surface: normalized flags, ratified behavior defaults, a single `HarnessEvent` NDJSON stream, and one exit-code contract. It normalizes the interface and the defaults, and reports divergence where a harness cannot express a dimension - it does not pretend parity. There is no library API; the `hcn` binary is the product. Descriptors are pinned to their verified CLI version and a weekly check flags when a harness has moved ahead (npm harnesses via registry; `muse`, Cursor CLI, and Antigravity CLI via their local version probes, skipped in CI where not installed - see Version-pinning and drift).
 
 ```bash
 pnpm add @dungle-scrubs/harness-cli-normalizer
@@ -39,6 +39,7 @@ hcn run claude "explain a monad in one sentence"
 hcn run codex "what is 2+2" --model gpt-5.6-sol
 hcn run pi "name three primes" --model zai/glm-5.2
 hcn run muse "say hi" --no-write
+hcn run antigravity "summarize this repository"
 ```
 
 Piped JSON for programmatic use:
@@ -48,12 +49,13 @@ hcn run claude "say hi" --json | jq .
 hcn run claude "hi" --json | head -n 5  # abandonment-safe, no hanging handles
 ```
 
-Session (claude, pi):
+Session (claude, pi, Antigravity):
 
 ```bash
 hcn session claude
 hcn session claude --model opus --session-id 550e8400-e29b-41d4-a716-446655440000
 hcn session pi --effort high
+hcn session antigravity --effort medium
 ```
 
 Sessions resolve the memory dimension at spawn - default off, same as
@@ -68,15 +70,22 @@ Inspect and export retained messages and tool results without resuming a model:
 ```sh
 hcn inspect pi --transcript
 hcn transcript read pi --file /path/to/native.jsonl > transcript.jsonl
+hcn transcript ls --limit 20
 ```
+
+`hcn transcript ls` lists the saved native sessions of every harness for one
+workspace, newest first, computed from the native stores on each call.
 
 Pi v3 supports full reads, batches, and caller-held bookmarks. Codex 0.147.0
 legacy and paginated rollouts support full reads, ID lookup, batches, and
 bookmarks, including verified inherited ranges. Compressed sources are
 unsupported. Claude main-file history and Muse schema-1 session logs support
 ID/file reads, batches and bookmarks through a passive filesystem clone on
-supported macOS/Linux filesystems. See [native transcript reads](docs/transcripts.md)
-for capability checks, failure handling, custom Pi conditions, and consumer rules.
+supported macOS/Linux filesystems. Cursor chat stores and Antigravity step logs
+use the same clone. A Cursor chat refuses while a turn is still writing it and
+reads normally once the turn ends. See [native transcripts](docs/transcripts.md)
+for the listing contract, capability checks, failure handling, custom Pi
+conditions, and consumer rules.
 
 ### Native terminal resume (`hcn interactive`)
 
@@ -393,7 +402,7 @@ fact; it does not detect whether native compaction is currently enabled.
 JSON containing redacted argv, the resolved executable path and version,
 the adapter's verified version, and native-resume compatibility. This runs
 only a version probe. The argv is a diagnostic preview, not a command to
-execute. All five harnesses use invocation-based resume admission, including
+execute. All six harnesses use invocation-based resume admission, including
 supported persistent sessions. A resolved executable and a supported invocation
 are required; missing or different version metadata does not reject them.
 The native operation can still fail on changed flags, protocol, or session state.
@@ -425,7 +434,7 @@ support; its native 10MB input cap still applies.
 | `--isolation <tool-free>` | `isolation` | Fresh Claude run only; no tools or native discovery; invocation-only |
 | `--model <id>` | `model` | Validated via `validateModel` |
 | `--effort <value>` | `effort` | Validated via `validateEffort` |
-| `--sandbox <value>` | `sandbox` | Codex only |
+| `--sandbox <value>` | `sandbox` | Codex; Antigravity accepts normalized `workspace-write` and renders its boolean `--sandbox` flag |
 | `--context-window <tokens>` | `contextWindow` | Codex, integer 1-272000; launch default 272000 |
 | `--provider <value>` | `provider` | pi only |
 | `--tools <a,b>` | `tools` | Canonical names (read, write, edit, shell, grep, glob, list, web-fetch, web-search, subagent, skill); `native:<name>` passes a harness-native or extension tool through. Per-tool allowlist; claude and pi (pi strict, claude via grant + deny-complement). A bare name matching a configured toolset expands to it |
@@ -441,7 +450,7 @@ support; its native 10MB input cap still applies.
 | `--env KEY=VAL` | `env` | Repeatable; `KEY=` deletes |
 | `--resume <uuid>` | `resume` | Resume session |
 | `--session-id <uuid>` | `resume` | Alias for `--resume`; UUID of session to resume or re-enter |
-| `--resume-last` | `resumeLast` | Resume the harness's most recent session in the spawn cwd, without naming an id (claude, codex, pi, cursor; muse refuses). Mutually exclusive with `--resume`/`--session-id`; refused on `hcn session`, with `--native-approvals`, and with `--native-settings-fingerprint` |
+| `--resume-last` | `resumeLast` | Resume the harness's most recent session in the spawn cwd, without naming an id (claude, codex, pi, cursor, antigravity; muse refuses). Mutually exclusive with `--resume`/`--session-id`; refused on `hcn session`, with `--native-approvals`, and with `--native-settings-fingerprint` |
 | `--skills <a,b>` | `skills` | Skill allowlist; claude, pi and codex (pi strict via --skill, claude via --settings skillOverrides, codex via -c skills.config) |
 | `--timeout <seconds>` | `timeoutSeconds` | Wall-clock budget for the run (hcn-enforced; 0 disables; no default) |
 | `--escalate-questions` / `--no-escalate-questions` | `escalateQuestions` | Let worker ask when blocked (DEFAULT) / never ask, state assumption and continue |
@@ -471,7 +480,8 @@ its fallback on failure. See the [native CLI reference](https://code.claude.com/
 `hcn run <harness> --resume-last "prompt"` resumes the harness's most
 recent session in the exact spawn cwd through each harness's own
 most-recent grammar (claude `--continue --fork-session`, codex
-`exec resume --last`, pi `--continue`, cursor `--continue`; muse refuses with
+`exec resume --last`, pi `--continue`, cursor `--continue`, Antigravity
+`--continue`; muse refuses with
 `unsupported-option`). Most-recent resolution stays inside the harness;
 hcn only renders. A resume-last turn is resume-semantics: no defaults
 profile runs, so a silently created session runs with native defaults.
@@ -496,9 +506,9 @@ args  >  .hcn/config.json (git root, auto-discovered)  >  ~/.config/hcn/config.j
 ```
 
 The built-in profile pins the ratified defaults: effort `medium` (the only
-value in all four uniform ladders; profile-tier effort reports divergence on
-cursor, whose ladders are per-family), sandbox `workspace-write` (codex-only; reported
-as divergence elsewhere), context window `272000` (codex-only; divergence
+value in all five uniform ladders; profile-tier effort reports divergence on
+cursor, whose ladders are per-family), sandbox `workspace-write` (codex and
+Antigravity; reported as divergence elsewhere), context window `272000` (codex-only; divergence
 elsewhere), discovery fully on, autonomy off, memory off. A dimension a
 harness cannot express is reported as divergence, never a silent skip and
 never a refusal. Resume turns bypass turn-option resolution and pass explicit
@@ -720,7 +730,7 @@ Every refusal names an alternative in `supported` and `message`, not only a nega
 
 ## Reference
 
-- Descriptors live in `src/knowledge/` (`claude-code.ts`, `codex.ts`, `pi.ts`, `muse.ts`), with shared types in `descriptor.ts`.
+- Descriptors live in `src/knowledge/` (`claude-code.ts`, `codex.ts`, `pi.ts`, `muse.ts`, `cursor.ts`, `antigravity.ts`), with shared types in `descriptor.ts`.
 - The normalized event surface is `HarnessEvent` in `src/execution/events.ts`: `identity`, `token`, `message`, `progress`, `tool`, `context` (reserved - emitted only when a harness exposes context-window usage on its stream; none does at this version), `limit`, `error`, `failure`, `question` (issue #41), `done` (with `done.failure`; `done.cause` includes `awaiting-input`). Event kinds and failure classes are additive across releases; a consumer ignores a kind or class it does not recognize and still waits for `done`. Additive optional fields (such as `resumeLast: true` on `identity`) never break that rule: branch on presence, never on prose.
 - Narrow or override a descriptor's facts with `parseOverrides` (`src/knowledge/overrides.ts`). An override a harness cannot satisfy throws `OverrideRefusalError` instead of producing a broken argv. `limitMatchers`/`authMatchers` are now serializable `{pattern, flags, code/kind}` objects so they can be overridden from JSON; bad patterns are refused at load with file and harness named.
 - `DROPPABLE_KINDS` (`token`, `progress`, `context`) marks events safe to drop when you only need the full messages. `failure` is never droppable.
@@ -731,14 +741,16 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). The short version: run `pnpm check` befo
 
 ## Status
 
-1.0. CLI-only surface. Five harnesses are described (Claude Code, Codex,
-pi, Muse, Cursor CLI); one-shot turns are normalized across all five with a ratified
+1.0. CLI-only surface. Six harnesses are described (Claude Code, Codex,
+pi, Muse, Cursor CLI, Antigravity CLI); one-shot turns are normalized across all six with a ratified
 defaults profile, user and project config tiers, tool selection
 (include/exclude with floors and named toolsets), passthrough with native
 error labeling, and provenance on every resolved setting. Persistent
-sessions (`hcn session`) are available for claude and pi. Drift detection runs weekly
-in CI for the three npm harnesses; Muse and Cursor CLI are `installed` and only checked
-locally via `muse --version` and `agent --version`. Re-verifying a descriptor's capability
+sessions (`hcn session`) are available for claude, pi, and Antigravity. Antigravity's
+authenticated contract is verified against `1.2.7`; its account model list stays
+extensible because plan eligibility and configured custom models can differ. Drift detection runs weekly
+in CI for the three npm harnesses; Muse, Cursor CLI, and Antigravity CLI are `installed`
+and only checked locally via their native version commands. Re-verifying a descriptor's capability
 claims against a new CLI version follows the [harness update procedure](docs/harness-updates.md):
 local behavioral probes and fixture capture. CI tests version-independent
 admission and the recorded contracts; a version difference alone never disables
@@ -750,7 +762,7 @@ end user's own session.
 
 ## Prior art
 
-The five harness CLIs this normalizes: [Claude Code](https://www.npmjs.com/package/@anthropic-ai/claude-code), [Codex](https://www.npmjs.com/package/@openai/codex), [pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent), Muse (installed from source, not on a registry), and Cursor CLI (installed via script, binary `agent`, not on a registry).
+The six harness CLIs this normalizes: [Claude Code](https://www.npmjs.com/package/@anthropic-ai/claude-code), [Codex](https://www.npmjs.com/package/@openai/codex), [pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent), Muse (installed from source, not on a registry), Cursor CLI (installed via script, binary `agent`, not on a registry), and [Antigravity CLI](https://antigravity.google/docs/cli/).
 
 ## License
 

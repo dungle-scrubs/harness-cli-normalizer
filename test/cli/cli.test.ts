@@ -106,12 +106,14 @@ describe("hcn version and help", () => {
 });
 
 describe("hcn ls", () => {
-  test("lists claude@, codex@, pi@, muse@ with versionSource", async () => {
+  test("lists every registered harness with versionSource", async () => {
     const out = await captureDispatch(["ls"]);
     expect(out.stdout).toContain("claude@2.1.274");
     expect(out.stdout).toContain("codex@0.154.0");
     expect(out.stdout).toContain("pi@0.85.1");
     expect(out.stdout).toContain("muse@1.3.0");
+    expect(out.stdout).toContain("cursor@2026.09.15-d2fe57e");
+    expect(out.stdout).toContain("antigravity@1.2.7");
     expect(out.stdout).toContain("npm:");
     expect(out.stdout).toContain("installed:");
     expect(out.exitCode === undefined || out.exitCode === 0).toBe(true);

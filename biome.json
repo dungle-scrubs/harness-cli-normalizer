@@ -14,6 +14,7 @@
       "!.plans",
       "!.lucid",
       "!.e2e",
+      "!reports",
       "!**/*.snapshot.json",
       "!test/fixtures/msp-1.3.0/listPending.sandbox-escalation.json"
     ]

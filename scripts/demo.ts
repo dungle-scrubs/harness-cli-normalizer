@@ -8,9 +8,10 @@
  *   bun run demo codex  "what is 2+2"
  *   bun run demo pi     "name three primes"      # uses pi's default provider
  *   bun run demo muse   "say hi"
- *   bun run demo --chat claude                    # interactive session (claude)
+ *   bun run demo antigravity "say hi"
+ *   bun run demo --chat claude                    # interactive session
  *
- * Flags: --model <id>, --chat (session mode, claude only).
+ * Flags: --model <id>, --chat (session mode).
  */
 
 import { randomUUID } from "node:crypto";
@@ -20,6 +21,7 @@ import type { HarnessEvent } from "../src/execution/events.js";
 import { nodeRunnerDeps } from "../src/execution/node-deps.js";
 import { openSession } from "../src/execution/open-session.js";
 import { streamTurn } from "../src/execution/stream-turn.js";
+import { antigravityCli } from "../src/knowledge/antigravity.js";
 import { claudeCode } from "../src/knowledge/claude-code.js";
 import { codexCli } from "../src/knowledge/codex.js";
 import type { HarnessDescriptor } from "../src/knowledge/descriptor.js";
@@ -34,6 +36,7 @@ const DESCRIPTORS: Record<string, HarnessDescriptor> = {
   codex: codexCli,
   pi: piCli,
   muse: museCode,
+  antigravity: antigravityCli,
 };
 
 const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;

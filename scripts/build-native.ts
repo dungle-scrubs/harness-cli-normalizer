@@ -1,7 +1,16 @@
 import { strict as assert } from "node:assert";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -16,8 +25,7 @@ const sha256 = (path: string): string =>
 const sourceSha256 = sha256(source);
 const builderSha256 = sha256(fileURLToPath(import.meta.url));
 
-function verified(target: string): boolean {
-  const directory = join(root, ".native-artifacts", target);
+function verifiedDirectory(directory: string, target: string): boolean {
   try {
     const manifest = JSON.parse(readFileSync(join(directory, "manifest.json"), "utf8")) as {
       executableSha256: string;
@@ -35,6 +43,9 @@ function verified(target: string): boolean {
     return false;
   }
 }
+
+const verified = (target: string): boolean =>
+  verifiedDirectory(join(root, ".native-artifacts", target), target);
 
 if (!release && targets.includes(current) && !verified(current)) {
   const directory = join(root, ".native-artifacts", current);
@@ -85,8 +96,24 @@ if (release || process.argv.includes("--stage")) {
     }
     assert.ok(verified(target), `Snapshot helper source or binary mismatch: ${target}`);
     const destination = join(root, "dist/execution/transcript/native", target);
+    if (verifiedDirectory(destination, target)) {
+      chmodSync(join(destination, "hcn-transcript-clone"), 0o755);
+      continue;
+    }
     mkdirSync(destination, { recursive: true });
-    cpSync(directory, destination, { recursive: true });
-    chmodSync(join(destination, "hcn-transcript-clone"), 0o755);
+    const executable = join(destination, "hcn-transcript-clone");
+    const manifest = join(destination, "manifest.json");
+    const temporaryExecutable = `${executable}.${process.pid}.tmp`;
+    const temporaryManifest = `${manifest}.${process.pid}.tmp`;
+    try {
+      copyFileSync(join(directory, "hcn-transcript-clone"), temporaryExecutable);
+      chmodSync(temporaryExecutable, 0o755);
+      renameSync(temporaryExecutable, executable);
+      copyFileSync(join(directory, "manifest.json"), temporaryManifest);
+      renameSync(temporaryManifest, manifest);
+    } finally {
+      rmSync(temporaryExecutable, { force: true });
+      rmSync(temporaryManifest, { force: true });
+    }
   }
 }

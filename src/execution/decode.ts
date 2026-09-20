@@ -160,6 +160,10 @@ export const decodeParsed = (
     state.identityEmitted = true;
     state.emittedModel = state.observedModel;
   };
+  const authorityOf = (sessionId: string): "caller-assigned" | "harness-minted" =>
+    state.requestedId !== null && sessionId === state.requestedId
+      ? "caller-assigned"
+      : "harness-minted";
   const decoded = decodeIdentity(h, raw, state.lastSeenId, state.requestedId);
   if (decoded.sessionId !== null) state.lastSeenId = decoded.sessionId;
   // The attestation is orthogonal to the session-id announcement: thread
@@ -169,8 +173,7 @@ export const decodeParsed = (
     state.observedProvider = decoded.observedModel.provider ?? null;
   }
   if (decoded.identity !== null) {
-    const authority = state.requestedId !== null ? "caller-assigned" : "harness-minted";
-    emitIdentity(decoded.identity, authority);
+    emitIdentity(decoded.identity, authorityOf(decoded.identity));
   } else if (decoded.outcome === "malformed" || decoded.outcome === "rotated") {
     if (decoded.outcome === "rotated") {
       const requested = state.requestedId ?? "unknown";
@@ -201,8 +204,7 @@ export const decodeParsed = (
     // attestation with no identity context emits nothing on its own, and
     // on model change so one attestation means one re-emit, not one per
     // assistant record.
-    const authority = state.requestedId !== null ? "caller-assigned" : "harness-minted";
-    emitIdentity(state.lastSeenId, authority);
+    emitIdentity(state.lastSeenId, authorityOf(state.lastSeenId));
   }
 
   // Content (message/token/tool/error/budget/limit) is per-harness;

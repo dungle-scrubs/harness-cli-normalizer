@@ -270,7 +270,7 @@ export interface SpawnArgvOptions extends TurnOptions {
  * builder would raise at spawn time. */
 export const assertResumeLastRenderable = (
   h: HarnessDescriptor,
-): NonNullable<HarnessDescriptor["resumeLast"]> => {
+): Extract<NonNullable<HarnessDescriptor["resumeLast"]>, { readonly headless: true }> => {
   const resumeLast = h.resumeLast;
   if (resumeLast?.headless === true) return resumeLast;
   const by = supportedBy(defaultDescriptors(), "resumeLast");
@@ -314,16 +314,14 @@ const resumeLastArgv = (
       ...afterPrompt,
     ];
   }
-  // Flag-style resumes render subcommands plus the resume grammar's own
-  // extra flags (never inherited launch-only base flags), the same order
-  // rule `resumeArgv` follows. Identical output on every current
-  // descriptor (`baseFlags` equals `subcommands + resume.extraFlags` on
-  // each); pinned by the corpus snapshot.
+  const resumePrefix =
+    resumeLast.flagPlacement === "before-extra-flags"
+      ? [resumeLast.flag, ...h.resume.extraFlags]
+      : [...h.resume.extraFlags, resumeLast.flag];
   return [
     h.bin,
     ...h.launch.subcommands,
-    ...h.resume.extraFlags,
-    resumeLast.flag,
+    ...resumePrefix,
     ...(h.contextInspection?.forkFlag !== undefined ? [h.contextInspection.forkFlag] : []),
     ...beforePrompt,
     ...nativeSettingsArgs,
@@ -454,6 +452,7 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
  * grammar is unknowable from outside. */
 const flagMapOf = (h: HarnessDescriptor, argv: readonly string[]): Map<string, string | true> => {
   const map = new Map<string, string | true>();
+  // Stryker disable next-line UpdateOperator: decrementing cannot terminate this bounded scan.
   for (let i = 1; i < argv.length; i++) {
     const token = argv[i];
     if (token === undefined || !token.startsWith("-")) continue;
@@ -467,6 +466,7 @@ const flagMapOf = (h: HarnessDescriptor, argv: readonly string[]): Map<string, s
     const next = argv[i + 1];
     if (next !== undefined && !next.startsWith("-")) {
       map.set(name, next);
+      // Stryker disable next-line UpdateOperator: decrementing cancels the loop increment.
       i++;
     } else {
       map.set(name, true);
@@ -479,6 +479,7 @@ const pinSatisfied = (
   pin: readonly string[],
   flags: ReadonlyMap<string, string | true>,
 ): boolean => {
+  // Stryker disable next-line UpdateOperator: decrementing cannot terminate this bounded scan.
   for (let i = 0; i < pin.length; i++) {
     const member = pin[i];
     if (member === undefined || !member.startsWith("-")) continue;

@@ -11,11 +11,11 @@
  */
 import { deepFreeze, type HarnessDescriptor, UUID_SHAPE } from "./descriptor.js";
 import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
+import { CURSOR_TRANSCRIPT } from "./transcript/cursor.js";
 
 export const cursorCli: HarnessDescriptor = deepFreeze({
   name: "cursor",
-  // Out of v1 by owner decision: transcript reads report divergence.
-  transcript: null,
+  transcript: CURSOR_TRANSCRIPT,
   bin: "agent",
   verifiedAgainst: "2026.09.15-d2fe57e",
   // Re-verified 2026-09-17: smoke:seven (6 pass / 1 n/a) and

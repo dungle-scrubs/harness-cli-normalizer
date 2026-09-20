@@ -405,6 +405,7 @@ export const reduceFailures = (failures: readonly FailureSummary[]): FailureSumm
   // Sort by precedence, then by earliest (stable). Lower precedence number wins.
   let best = first;
   let bestPrec = PRECEDENCE[best.class] ?? 99;
+  // Stryker disable next-line UpdateOperator: decrementing cannot terminate this bounded scan.
   for (let i = 1; i < failures.length; i++) {
     const cur = failures[i];
     if (cur === undefined) continue;

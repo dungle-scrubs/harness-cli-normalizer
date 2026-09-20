@@ -5,11 +5,12 @@ Shared, harness-independent guidance for any agent working in this repo.
 ## What this is
 
 A CLI product (`hcn`) that normalizes the differences between AI coding-agent
-CLIs (Claude Code, Codex, pi, Muse, Cursor CLI) into one stable surface. Each harness is
-described as pure data; interpretation and execution layers consume those
-descriptors. The `hcn` binary is the product; internal library layers are not an
-install surface. The package is published to npm as `@dungle-scrubs/harness-cli-normalizer`
-(`publishConfig.access: public`) and is source-public.
+CLIs (Claude Code, Codex, pi, Muse, Cursor CLI, Antigravity CLI) into one stable
+surface. Each harness is described as pure data; interpretation and execution
+layers consume those descriptors. The `hcn` binary is the product; internal
+library layers are not an install surface. The package is published to npm as
+`@dungle-scrubs/harness-cli-normalizer` (`publishConfig.access: public`) and is
+source-public.
 
 ## Roadmap
 
@@ -24,7 +25,8 @@ knowledge        -> interpretation        -> execution
 ```
 
 - `src/knowledge/` - immutable harness **descriptors** as pure data. One file
-  per harness (`claude-code.ts`, `codex.ts`, `pi.ts`, `muse.ts`, `cursor.ts`)
+  per harness (`claude-code.ts`, `codex.ts`, `pi.ts`, `muse.ts`, `cursor.ts`,
+  `antigravity.ts`)
   plus shared types in `descriptor.ts`. Descriptors are `deepFreeze`'d. Vocabularies that
   consumers branch on (`LimitCode`, `AuthFailureKind`, `HarnessMode`) are
   closed unions on purpose - a descriptor cannot invent a code a consumer has
@@ -40,7 +42,7 @@ standalone.
 
 ## Scope - the test a new feature must pass
 
-hcn does two jobs: it **normalizes** five harness interfaces, and it
+hcn does two jobs: it **normalizes** six harness interfaces, and it
 **supervises** one process while that process runs. `CONTEXT.md` says which
 existing code does which; ADR 0007 states the boundary.
 
@@ -116,6 +118,21 @@ bun scripts/check-versions.ts       # compare descriptors to published versions
   run `scripts/check-claims.sh` against the updated binary and
   `scripts/check-claims.test.sh` from that skill directory; report any remaining
   mismatch or blocker.
+- When a harness ships, update the harness rosters in `AGENTS.md`, `CONTEXT.md`,
+  `README.md`, and `CONTRIBUTING.md` in the same change.
+- A hand-written reader for an external binary format ships with byte-level
+  malformed-input tests beside its happy-path checks: truncated and oversized
+  declared lengths, out-of-bounds offsets, cyclic chains, and cross-boundary
+  reads. Cross-checking against a reference implementation proves only that
+  well-formed input agrees. Close that parser's independent review before
+  updating help text, docs, README, or the vendored hcn skill on top of it.
+- Survey a native store through this repository's own resolution, never a
+  hardcoded default path. `src/cli/store-root.ts` (`transcriptStoreRoot`,
+  `transcriptListingRoot`) applies each harness's environment overrides
+  (`PI_CODING_AGENT_DIR`, `CODEX_HOME`, `CLAUDE_CONFIG_DIR`, `XDG_*`,
+  `CURSOR_CONFIG_DIR`), and `docs/transcripts.md` documents the same
+  precedence. A probe that skips the resolver can find an empty default
+  directory while the populated store sits elsewhere.
 - Commits follow [Conventional Commits](https://www.conventionalcommits.org/)
   (`feat:`, `fix:`, `perf:`, `refactor:`, `docs:`, `chore:`, `ci:`, `test:`).
   release-please reads these to cut releases and write `CHANGELOG.md`.

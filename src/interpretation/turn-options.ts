@@ -63,11 +63,18 @@ export const renderTurnOptions = (
   for (const key of TURN_OPTION_KEYS) {
     const spec = h.turnOptions[key];
     const raw = (opts as unknown as Record<string, unknown>)[key];
+    const accessRender =
+      key === "access" && spec?.kind === "access" && opts.access !== undefined
+        ? spec.renders[opts.access]
+        : undefined;
     const afterPrompt =
-      key === "access" &&
-      spec?.kind === "access" &&
-      opts.access !== undefined &&
-      spec.renders[opts.access] === "tool-preset";
+      accessRender === "tool-preset" ||
+      (accessRender !== null &&
+        typeof accessRender === "object" &&
+        accessRender.argvPlacement === "after-prompt") ||
+      (spec?.kind !== "access" &&
+        spec?.kind !== "discovery" &&
+        spec?.argvPlacement === "after-prompt");
     if (placement === "before-prompt" && afterPrompt) continue;
     if (placement === "after-prompt" && !afterPrompt) continue;
 

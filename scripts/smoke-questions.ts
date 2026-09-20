@@ -22,6 +22,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import type { HarnessEvent } from "../src/execution/events.js";
 import { streamTurn } from "../src/execution/stream-turn.js";
+import { antigravityCli } from "../src/knowledge/antigravity.js";
 import { claudeCode } from "../src/knowledge/claude-code.js";
 import { codexCli } from "../src/knowledge/codex.js";
 import { cursorCli } from "../src/knowledge/cursor.js";
@@ -32,7 +33,14 @@ import { smokeCwd, smokeDeps, smokeHarnesses } from "./smoke-options.js";
 
 delete process.env.HERDR_ENV;
 
-const HARNESSES = smokeHarnesses([claudeCode, codexCli, piCli, museCode, cursorCli]);
+const HARNESSES = smokeHarnesses([
+  claudeCode,
+  codexCli,
+  piCli,
+  museCode,
+  cursorCli,
+  antigravityCli,
+]);
 
 const modelFor = (h: HarnessDescriptor): string | undefined =>
   process.env.SMOKE_MODEL ??

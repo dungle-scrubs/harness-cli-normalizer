@@ -1,0 +1,1 @@
+{"event":"step_update","step_update":{"conversation_id":"5cb6f3d9-5047-4864-8b9a-0f031e53828f","step_index":2,"state":"DONE","step_type":"tool","tool_name":"run_command","duration_seconds":0.247284,"tool_info":{"name":"run_command","parameters":{"CommandLine":"echo seventest"},"output":"seventest\r\n"}}}

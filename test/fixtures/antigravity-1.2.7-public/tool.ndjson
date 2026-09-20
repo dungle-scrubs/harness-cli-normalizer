@@ -1,0 +1,1 @@
+{"event":"step_update","step_update":{"conversation_id":"c3b4fe40-7c75-4f22-b863-51061aa8b20b","step_index":2,"state":"DONE","step_type":"tool","tool_name":"run_command","tool_info":{"name":"run_command","parameters":{"CommandLine":"echo hello_headless_demo"},"output":"hello_headless_demo\r\n"}}}

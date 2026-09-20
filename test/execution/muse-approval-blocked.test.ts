@@ -84,6 +84,23 @@ describe("failureFromBlockedApproval", () => {
     expect(f.message).toMatch(/--autonomy/);
   });
 
+  test.each([
+    [-32600, "invalid-request -32600"],
+    [-32602, "invalid-params -32602"],
+    [null, "rejected handshake"],
+    [42, "error 42"],
+  ] as const)("an incompatible muse surface explains native code %s", (code, reason) => {
+    const failure = failureFromMuseIncompatibleSurface(
+      "muse",
+      "1.1.1",
+      "approval/listPending",
+      code,
+    );
+
+    expect(failure).toMatchObject({ class: "native", retryable: false });
+    expect(failure.message).toContain(reason);
+  });
+
   test("an unobservable pending set is a retryable transport, never an empty approval list", () => {
     // M1: hcn's own supervision broke, not the model's work - retryable
     // transport naming hcn's inability to observe, never "update muse".

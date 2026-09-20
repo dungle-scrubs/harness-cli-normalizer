@@ -1,6 +1,6 @@
 # Native transcript readers: selected-version evidence
 
-Checked September 12, 2026. This continues the selected-version research linked from [RFC-03](rfc/03_native-transcript-retrieval.rfc.md). Only public distributions, documentation and synthetic histories were read. No private native transcript or credential was read. The implemented methods read native files directly under the separate [filesystem snapshot rule](transcript-snapshot.md). These findings do not change a harness's broader `verifiedAgainst` pin.
+Checked September 12, 2026. This continues the selected-version research linked from [RFC-03](rfc/03_native-transcript-retrieval.rfc.md). For Muse and Claude, only public distributions, documentation and synthetic histories were read. No private native transcript or credential was read. The Cursor and Antigravity sections below rest on structural observation of local stores written by hcn's own runs; they say exactly what was inspected. The implemented methods read native files directly under the separate [filesystem snapshot rule](transcript-snapshot.md). These findings do not change a harness's broader `verifiedAgainst` pin.
 
 Method applicability is a format contract: one identified native conversation in the declared local format, preserved native objects, physical record order and a successfully acquired filesystem clone. These conditions do not require guessing the last writer's build. Selected-build evidence is reported separately from that format applicability. The inference is bounded: unknown fields can remain opaque, but an alternate storage format, schema, identity model or source assembly does not qualify merely because some fields match. No source writer build is inferred. Claude's per-record `version` remains in each original; neither format establishes one build for the whole file.
 
@@ -49,3 +49,34 @@ Earlier matched Agent SDK 0.3.233 research remains applicable: `getSessionMessag
 ID lookup scans exact `<id>.jsonl` names under `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects`, rejects duplicate matches and checks the embedded session ID. Current [official settings documentation](https://code.claude.com/docs/en/settings) confirms that `CLAUDE_CONFIG_DIR` relocates session history. This current location-setting documentation is separate from the selected 2.1.233 field evidence. An explicit file can address another known local location without scanning native stores.
 
 The snapshot rule covers in-place changes without invoking the SDK or writer. HCN preserves complete pre-compaction rows and abandoned branches that remain in that view. Disk compaction may already have removed data; the reader does not reconstruct it or promise lifetime completeness. The selected `compact_boundary` record can expose `compactMetadata.preservedSegment.headUuid` as a first-kept-entry reference. Unknown future rows stay opaque. A native format label is not authentication of an arbitrary customized writer, and no claim is made that the selected 2.1.233 evidence re-verifies every behavior in 2.1.263.
+
+## Cursor 2026.09.15-d2fe57e
+
+Checked September 19, 2026, on macOS with the installed `agent` 2026.09.15-d2fe57e. No vendor source or format documentation was found, so this method rests on observed local stores. All 71 stores under `$XDG_CONFIG_HOME/cursor/chats` on the verification machine were written by hcn smoke, qualification and end-to-end runs. The inspection recorded schemas, field names, part types, counts and ordering only. No store or message content was copied into this repository.
+
+Observed format:
+
+- Each chat is `chats/<md5-of-cwd>/<agent-id>/store.db` with a sibling `meta.json`. The database uses WAL mode, 4096-byte pages and UTF-8 text.
+- The schema has exactly two tables: `blobs (id TEXT PRIMARY KEY, data BLOB)` and `meta (key TEXT PRIMARY KEY, value TEXT)`. One meta row with key `0` holds hex-encoded JSON with `agentId`, `latestRootBlobId`, `name`, `mode`, `isRunEverything`, `createdAt` and `blobEncryptionKey`.
+- A blob ID is the SHA-256 of its bytes. The latest root blob is protobuf. Its repeated field 1 holds 32-byte message blob IDs in conversation order; the other fields hold context accounting, the workspace URI and client metadata.
+- Message blobs are AI SDK message JSON: `system`, `user`, `assistant` and `tool` roles; string content or `text`, `reasoning`, `redacted-reasoning`, `tool-call` and `tool-result` parts. All 386 referenced messages across the 71 stores parsed as single JSON objects.
+- Every store also retained earlier root blobs, and every earlier root's message list was a prefix of the latest root. No summarization rewrite was observed; the reader fails closed if one appears.
+- After a turn ends, the WAL is empty or deleted. During a live turn it is nonempty for the whole turn: 54 of 60 reads taken while a resumed turn ran were refused with `guarantee-unmet`, 6 completed before the turn wrote, and none returned a malformed or partial view.
+
+Verification: `cursor-store-v1` read all 71 stores under Node and Bun. Its message IDs, order and originals matched a `node:sqlite` query of the same stores for all 386 records, and no output contained a `blobEncryptionKey`. An end-to-end `hcn run cursor`, `transcript read`, `run --resume`, `transcript read --since` sequence returned only the resumed turn with a verified continuation.
+
+The meta `blobEncryptionKey` suggests Cursor can encrypt blobs. Every observed blob was plaintext; an encrypted or otherwise non-JSON message blob fails as `source-malformed`.
+
+## Antigravity 1.2.7
+
+Checked September 19, 2026, on macOS with the installed `agy` 1.2.7. The store location comes from the [harness assessment](research/2026-09-19-antigravity-cli-harness-assessment.md); the step-log format rests on observed local logs. All 29 conversations under `~/.gemini/antigravity-cli/brain` were written by hcn qualification and end-to-end runs. Only field names, step types, counts and byte comparisons were recorded.
+
+Observed format:
+
+- Each conversation directory holds `.system_generated/logs/transcript.jsonl` and `transcript_full.jsonl`, plus chunked copies under `logs/chunks/`. One conversation had no logs directory.
+- Steps are JSON objects with `step_index`, `source`, `type`, `status` and `created_at`. Types seen: `USER_INPUT`, `PLANNER_RESPONSE` (with `thinking`, `content` and `tool_calls` of `{name, args}`), `GENERIC` (tool execution output, with `error` when `status` is `ERROR`) and `SYSTEM_MESSAGE`.
+- `transcript.jsonl` truncates long fields, marks them in `truncated_fields` and re-quotes tool arguments. `transcript_full.jsonl` carried no truncation marker in any log, so the method reads only that file.
+- In all 28 logs, `step_index` started at 0 and increased by 1 per line. Every log ended with a line feed. Each log fit in one chunk; chunk rollover was not observed, so the reader refuses a log that does not start at step 0.
+- Steps carry no conversation ID, record ID or tool call ID. Identity comes from the `brain/<id>` directory.
+
+Verification: `antigravity-file-v1` read all 28 logs under Node and Bun. An end-to-end run, read, resume and `--since` sequence returned only the resumed turn's steps with a verified continuation.

@@ -4,8 +4,8 @@
  * and args. Every entry here is a ratified dimension; unratified dimensions
  * stay absent and defer to the harness.
  *
- * effort: "medium" - the only value present in all four effort ladders
- * (claude/pi/muse/codex-per-model). Live probe on claude 2.1.233 showed the
+ * effort: "medium" - the only value present in all five uniform effort
+ * ladders (claude/pi/muse/antigravity/codex-per-model). Live probe on claude 2.1.233 showed the
  * internal default is above medium and nondeterministic (599-1482 thinking
  * tokens on identical tasks vs 436 at medium); pinning makes bare runs
  * cheaper on claude, uniform everywhere, and knowable from the outside.
@@ -14,10 +14,8 @@ import { deepFreeze } from "./descriptor.js";
 
 export const DEFAULT_TURN_PROFILE = deepFreeze({
   effort: "medium",
-  // codex-only (the only harness with a sandbox dimension). Promotes the
-  // descriptor's implicit workspace-write default into the visible
-  // profile tier. On the other three the dimension is unrenderable and
-  // reports as divergence.
+  // Codex and Antigravity express the workspace-write sandbox dimension.
+  // Other harnesses report it as divergence.
   sandbox: "workspace-write",
   contextWindow: 272000,
   // Ratified: discovery fully ON. The harnesses' bare runs already

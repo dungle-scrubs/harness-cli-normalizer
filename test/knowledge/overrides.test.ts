@@ -104,6 +104,15 @@ describe("boundary-review regression pins", () => {
     expect(() => parseOverrides(JSON.stringify({ claude: { stdin: "sometimes" } }), PATH)).toThrow(
       /inherit/,
     );
+    expect(() =>
+      parseOverrides(
+        JSON.stringify({ antigravity: { turnOptions: { effort: { argvPlacement: "later" } } } }),
+        PATH,
+      ),
+    ).toThrow(/before-prompt/);
+    expect(() =>
+      parseOverrides(JSON.stringify({ antigravity: { resume: { onMissing: "guess" } } }), PATH),
+    ).toThrow(/unknown/);
   });
 
   test("the cursor md5-hex slug survives override validation", () => {
