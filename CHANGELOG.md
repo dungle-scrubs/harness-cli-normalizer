@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.23](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.22...v0.6.23) (2026-09-20)
+
+
+### Fixed
+
+* **transcript:** read Codex rollouts from any writer build ([#207](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/207)) ([528dd5f](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/528dd5f924c65eef98563cd62f8d7cc9acee5194))
+
 ## [0.6.22](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.21...v0.6.22) (2026-09-20)
 
 
