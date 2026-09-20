@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterAll, beforeAll, expect, test } from "vitest";
@@ -23,6 +23,7 @@ interface Row {
   readonly startedAt: string | null;
   readonly mode: string;
   readonly readable: boolean;
+  readonly blocked: { readonly issue: string; readonly reason: string } | null;
 }
 interface HarnessOutcome {
   readonly harness: string;
@@ -219,6 +220,40 @@ test("child conversations are not rows", () => {
   expect(all).toContain(`antigravity:${IDS.antigravity}`);
 });
 
+test("a chat whose WAL still holds writes lists readable and names what blocks the read", () => {
+  const store = join(home, ".cursor", "chats", "0".repeat(32), IDS.cursor, "store.db");
+  const wal = `${store}-wal`;
+  // What a Cursor turn in progress leaves behind: committed writes the main
+  // file does not hold yet.
+  writeFileSync(wal, "uncheckpointed");
+  try {
+    const row = list(["--cwd", WORKSPACE_A, "--headless"]).rows.find(
+      (item) => item.harness === "cursor",
+    );
+    // A verified method still addresses this source; it is the source that is
+    // busy, and the two are different answers.
+    expect(row?.readable).toBe(true);
+    expect(row?.blocked?.issue).toBe("guarantee-unmet");
+    expect(row?.blocked?.reason).toContain("-wal");
+    // The read refuses on exactly the precondition the row named.
+    const read = spawnSync(
+      "bun",
+      [resolve("src/cli/index.ts"), "transcript", "read", "cursor", "--file", store],
+      { encoding: "utf8", env: { ...storeEnv, PATH: process.env.PATH, TMPDIR: tmpdir() } },
+    );
+    expect(read.status, read.stderr).not.toBe(0);
+    expect(read.stdout).toContain("guarantee-unmet");
+  } finally {
+    rmSync(wal, { force: true });
+  }
+});
+
+test("a source with nothing blocking it names no blocker", () => {
+  const rows = list(["--cwd", WORKSPACE_A, "--headless"]).rows;
+  expect(rows.length).toBeGreaterThan(0);
+  expect(rows.filter((row) => row.blocked !== null)).toEqual([]);
+});
+
 test("a source transcript read refuses on sight is listed as unreadable", () => {
   const row = list(["--all-workspaces", "--headless"]).rows.find(
     (item) => item.id === IDS.codexCompressed,
@@ -272,6 +307,7 @@ test("a harness with no listing method is reported with its reason and keeps exi
           listing: null,
           listingRoot: null,
           readable: true,
+          quiescentSiblings: [],
           divergence: "cursor has no transcript listing method in v1.",
         },
       ],

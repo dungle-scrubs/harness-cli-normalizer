@@ -81,6 +81,7 @@ async function rows(order: readonly HarnessName[] = REQUESTED): Promise<string[]
       listing,
       listingRoot: `/${harness}`,
       readable: true,
+      quiescentSiblings: [],
       divergence: null,
     })),
     hcnVersion: "0.0.0-test",

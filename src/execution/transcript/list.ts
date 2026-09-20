@@ -9,6 +9,7 @@ import type {
 import type { HarnessName } from "../../knowledge/descriptor.js";
 import type {
   HarnessListing,
+  SessionBlock,
   SessionListResult,
   SessionListSource,
   SessionRow,
@@ -61,6 +62,9 @@ export interface HarnessListingRequest {
   readonly listingRoot: string | null;
   /** Whether `transcript read` has a verified method for this harness. */
   readonly readable: boolean;
+  /** Sibling suffixes this harness's reader requires absent or empty around a
+   * capture, as the reader declares them. Empty where it requires none. */
+  readonly quiescentSiblings: readonly string[];
   /** Why this harness contributes no listing; null when it contributes one. */
   readonly divergence: string | null;
 }
@@ -137,6 +141,42 @@ async function captureIndex(
   }
 }
 
+/** One session and the precondition, if any, that a read of it would refuse
+ * on right now. */
+interface WalkedSession {
+  readonly session: ListedSession;
+  readonly blocked: SessionBlock | null;
+}
+
+/**
+ * The cheap precondition a read of this source would fail on, or null when
+ * none was observed to. This is the same check `captureSource` makes before a
+ * read, and the same one `captureIndex` already makes for a store-wide index;
+ * running it here lets a consumer tell "no method for this" from "busy right
+ * now". A sibling that cannot be stat'd leaves the answer null: the listing
+ * does not know, and the read still decides.
+ */
+async function blockedBy(
+  path: string,
+  siblings: readonly string[],
+  files: TranscriptFiles,
+): Promise<SessionBlock | null> {
+  for (const suffix of siblings) {
+    let sibling: Awaited<ReturnType<TranscriptFiles["version"]>>;
+    try {
+      sibling = await files.version(`${path}${suffix}`);
+    } catch {
+      continue;
+    }
+    if (sibling.size !== 0)
+      return {
+        issue: "guarantee-unmet",
+        reason: `The native source holds uncheckpointed writes in its ${suffix} sibling; read it after the native session closes.`,
+      };
+  }
+  return null;
+}
+
 /** One candidate's markers, growing the prefix until the listing has them. */
 async function readSession(
   listing: TranscriptListing,
@@ -181,7 +221,7 @@ async function listHarness(
   deps: ListSessionsDeps,
   checkAbort: () => void,
   openSource: OpenBudget,
-): Promise<{ readonly sessions: readonly ListedSession[]; readonly unreadable: number }> {
+): Promise<{ readonly sessions: readonly WalkedSession[]; readonly unreadable: number }> {
   const { listing, listingRoot: root } = entry;
   const writeTime = deps.files.writeTime;
   if (!deps.files.list || !writeTime)
@@ -205,8 +245,15 @@ async function listHarness(
         checkAbort();
         try {
           const lastWriteAt = await writeTime(join(root, candidate.file));
-          const session = await readSession(listing, candidate, root, index, lastWriteAt, files);
-          return session ? { ...session, file: join(root, session.file) } : null;
+          const found = await readSession(listing, candidate, root, index, lastWriteAt, files);
+          if (!found) return null;
+          const file = join(root, found.file);
+          return {
+            session: { ...found, file },
+            blocked: entry.quiescentSiblings.length
+              ? await blockedBy(file, entry.quiescentSiblings, files)
+              : null,
+          };
         } catch (error) {
           // One source that vanished or cannot be opened is a gap in this
           // harness's coverage, not a failure of the listing.
@@ -218,7 +265,7 @@ async function listHarness(
     ),
   );
   return {
-    sessions: read.filter((session): session is ListedSession => session !== null),
+    sessions: read.filter((walked): walked is WalkedSession => walked !== null),
     unreadable,
   };
 }
@@ -265,7 +312,7 @@ export async function listSessions(
       try {
         const { sessions, unreadable } = await listHarness(scoped, deps, checkAbort, openSource);
         const kept = sessions.filter(
-          (session) =>
+          ({ session }) =>
             (request.workspace === null || session.cwd === request.workspace) &&
             (request.headless || session.mode !== "headless"),
         );
@@ -280,7 +327,7 @@ export async function listSessions(
               : null,
             issue: unreadable ? "source-inaccessible" : null,
           },
-          rows: kept.map((session) => ({
+          rows: kept.map(({ session, blocked }) => ({
             schemaVersion: 1,
             kind: "session",
             harness: entry.harness,
@@ -291,6 +338,7 @@ export async function listSessions(
             startedAt: session.startedAt,
             mode: session.mode,
             readable: entry.readable && session.readable,
+            blocked,
           })),
         };
       } catch (error) {

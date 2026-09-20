@@ -8,6 +8,16 @@ import type { Issue, TranscriptFailure } from "./wire.js";
  */
 export type SessionMode = "interactive" | "headless" | "unknown";
 
+/**
+ * A cheap precondition a read of this source would refuse on right now. It is
+ * an observation taken while listing, not a promise about the read: a native
+ * session can open between the two.
+ */
+export interface SessionBlock {
+  readonly issue: Issue;
+  readonly reason: string;
+}
+
 /** One saved native session. */
 export interface SessionRow {
   readonly schemaVersion: 1;
@@ -28,8 +38,13 @@ export interface SessionRow {
    * four shapes the stores write. `lastWriteAt` is never substituted for it. */
   readonly startedAt: string | null;
   readonly mode: SessionMode;
-  /** Whether `transcript read` has a verified method for this source. */
+  /** Whether `transcript read` has a verified method for this source. This
+   * answers "is there a method", not "will the read succeed". */
   readonly readable: boolean;
+  /** The precondition a read would refuse on right now, or null when no cheap
+   * check was observed to fail. Null is not a promise that the read will
+   * succeed: it means nothing this listing could check cheaply said otherwise. */
+  readonly blocked: SessionBlock | null;
 }
 
 /**

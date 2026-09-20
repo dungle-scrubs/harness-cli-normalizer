@@ -110,6 +110,7 @@ async function run(): Promise<{
       listing,
       listingRoot: `/${harness}`,
       readable: true,
+      quiescentSiblings: [],
       divergence: null,
     })),
     hcnVersion: "0.0.0-test",
