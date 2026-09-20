@@ -1,0 +1,23 @@
+{
+  "ranAt": "2026-09-20T16:06:34.534Z",
+  "results": {
+    "claude": {
+      "status": "pass",
+      "observedOn": {
+        "harness": "claude",
+        "model": "sonnet",
+        "version": "2.1.278",
+        "date": "2026-09-20"
+      },
+      "detail": "question \"deploy-target.txt must name ei\""
+    }
+  },
+  "observations": {
+    "claude": {
+      "harness": "claude",
+      "model": "sonnet",
+      "version": "2.1.278",
+      "date": "2026-09-20"
+    }
+  }
+}

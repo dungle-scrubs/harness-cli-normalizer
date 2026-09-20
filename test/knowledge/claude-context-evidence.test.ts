@@ -4,7 +4,7 @@ import { contextInspectionOf } from "../../src/interpretation/context-inspection
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 
 const read = (file: string): string =>
-  readFileSync(new URL(`../fixtures/claude-2.1.274/${file}`, import.meta.url), "utf8");
+  readFileSync(new URL(`../fixtures/claude-2.1.278/${file}`, import.meta.url), "utf8");
 
 const events = (file: string): Record<string, unknown>[] =>
   read(file)

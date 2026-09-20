@@ -45,28 +45,28 @@ describe("RFC-06 Phase 4 filed resume-last captures", () => {
     // yields no identity event on this fixture, asserted below. The fork
     // id is read structurally from result.session_id instead, while the
     // recall marker goes through decode like the other harnesses.
-    const resultLine = read("claude-2.1.274")
+    const resultLine = read("claude-2.1.278")
       .trim()
       .split("\n")
       .find((line) => JSON.parse(line).type === "result");
     if (resultLine === undefined) throw new Error("Missing result record in claude fixture");
     const native = JSON.parse(resultLine) as { session_id: string; result: string };
     expect(native.session_id).toBe("561ce3da-4d80-4c7e-adb9-c3226512c9da");
-    const events = decoded(claudeCode, "claude-2.1.274", "claude-haiku-4-5-20251001");
+    const events = decoded(claudeCode, "claude-2.1.278", "claude-haiku-4-5-20251001");
     expect(identities(events)).toEqual([]);
     expect(messages(events).join("\n")).toMatch(/HERON-4/);
     expect(events.some((e) => e.kind === "error")).toBe(false);
   });
 
   test("codex resume-last resumes the planted thread and recalls", () => {
-    const events = decoded(codexCli, "codex-0.154.0", "gpt-5.5");
+    const events = decoded(codexCli, "codex-0.155.1", "gpt-5.5");
     expect(identities(events)).toContain("01a0ae03-fd99-72d0-b1cf-1d6e6f1866ad");
     expect(messages(events).join("\n")).toMatch(/JUNIPER-6/);
     expect(events.some((e) => e.kind === "error")).toBe(false);
   });
 
   test("pi resume-last resumes the planted session and recalls", () => {
-    const events = decoded(piCli, "pi-0.85.1", "zai/glm-5.2");
+    const events = decoded(piCli, "pi-0.86.1", "zai/glm-5.2");
     expect(identities(events)).toContain("01a0adf4-7a11-74d8-9071-1d3a78312617");
     expect(messages(events).join("\n")).toMatch(/HERON-4/);
     expect(events.some((e) => e.kind === "error")).toBe(false);
@@ -83,9 +83,9 @@ describe("RFC-06 Phase 4 filed resume-last captures", () => {
     const secret =
       /crsr_|sk-[A-Za-z0-9]{8,}|key_[A-Za-z0-9]{8,}|eyJ[A-Za-z0-9_-]+\.eyJ|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}|(API_KEY|TOKEN|SECRET|PASSWORD)=|user\.email/;
     for (const dir of [
-      "claude-2.1.274",
-      "codex-0.154.0",
-      "pi-0.85.1",
+      "claude-2.1.278",
+      "codex-0.155.1",
+      "pi-0.86.1",
       "cursor-2026.09.15-d2fe57e",
     ]) {
       const text = read(dir);
