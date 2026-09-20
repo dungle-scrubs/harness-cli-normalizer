@@ -171,7 +171,7 @@ export async function readTranscript(
         kind: "file",
         location: item.path,
         nativeId: item.nativeId,
-        writerBuild: { buildId: null, version: reader.writerVersion },
+        writerBuild: reader.writerBuild?.(item.history) ?? { buildId: null, version: null },
       })),
       verification: [reader.evidence],
     });

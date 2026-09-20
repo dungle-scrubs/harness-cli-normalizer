@@ -795,3 +795,82 @@ test("transcript help and version describe passive export without opening histor
   expect(help.out).toContain("--since");
   expect(command(["transcript", "--version"]).code).toBe(0);
 });
+
+test("a Codex rollout from an unverified writer build reads and reports the build its header names", () => {
+  const directory = mkdtempSync(join(tmpdir(), "hcn-codex-writer-"));
+  const file = join(directory, "synthetic.jsonl");
+  const rows = [
+    {
+      type: "session_meta",
+      ordinal: 0,
+      payload: {
+        id: "11111111-2222-4333-8444-555555555555",
+        cwd: directory,
+        cli_version: "0.155.1",
+        history_mode: "paginated",
+      },
+    },
+    {
+      type: "response_item",
+      ordinal: 1,
+      payload: {
+        type: "message",
+        role: "assistant",
+        content: [{ type: "output_text", text: "written by a newer build" }],
+      },
+    },
+  ];
+  writeFileSync(file, `${rows.map((row) => JSON.stringify(row)).join("\n")}\n`);
+  try {
+    const run = command(["transcript", "read", "codex", "--file", file]);
+    expect(run.code).toBe(0);
+    const output = run.out
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    expect(output[0].sources[0].writerBuild).toEqual({ buildId: null, version: "0.155.1" });
+    expect(output[1].normalized.parts[0].text).toBe("written by a newer build");
+    expect(output.at(-1).status).toBe("complete");
+    expect(output.at(-1).compatibility.state).toBe("verified");
+  } finally {
+    rmSync(directory, { force: true, recursive: true });
+  }
+});
+
+test("Codex refusals name the structural fact that failed, whatever build wrote the rollout", () => {
+  const directory = mkdtempSync(join(tmpdir(), "hcn-codex-structure-"));
+  const file = join(directory, "synthetic.jsonl");
+  const id = "11111111-2222-4333-8444-555555555555";
+  const write = (payload: Record<string, unknown>, entries: unknown[] = []): void => {
+    const header = {
+      type: "session_meta",
+      ordinal: 0,
+      payload: { id, cwd: directory, cli_version: "0.155.1", ...payload },
+    };
+    writeFileSync(file, `${[header, ...entries].map((row) => JSON.stringify(row)).join("\n")}\n`);
+  };
+  const refusal = (): { issue: string; message: string } => {
+    const run = command(["transcript", "read", "codex", "--file", file]);
+    expect(run.code).toBe(1);
+    return JSON.parse(run.out.trim().split("\n").at(-1) ?? "{}").failure;
+  };
+  try {
+    write({ history_mode: "compacted" });
+    expect(refusal().message).toContain('"compacted"');
+    write({
+      history_mode: "legacy",
+      history_base: { thread_id: id, end_byte_offset: 1, end_ordinal_exclusive: 1 },
+    });
+    expect(refusal().message).toContain("history base");
+    write({ history_mode: "paginated" }, [
+      {
+        type: "response_item",
+        ordinal: 2,
+        payload: { type: "message", role: "user", content: [] },
+      },
+    ]);
+    expect(refusal().message).toContain("contiguous");
+  } finally {
+    rmSync(directory, { force: true, recursive: true });
+  }
+});

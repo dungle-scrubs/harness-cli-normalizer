@@ -9,7 +9,7 @@ export const CODEX_TRANSCRIPT_EVIDENCE: Evidence = deepFreeze({
     formatVersions: [],
     readerBuilds: [],
     scope:
-      "Codex 0.147.0 uncompressed legacy and ordinal-bearing paginated rollouts; explicit history_base prefixes are assembled within the selected native namespace.",
+      "Codex uncompressed legacy and ordinal-bearing paginated rollouts, documented against the 0.147.0 recorder and applied to any writer build whose rollout meets those structural rules; each source reports the cli_version its own header names. Explicit history_base prefixes are assembled within the selected native namespace.",
     writerBuilds: [{ buildId: "be6e8eac029b183056b7e4402879f15d2c85f61b", version: "0.147.0" }],
   },
   reference:
@@ -51,7 +51,7 @@ const rules = [
   [
     "codex-rollout-format-v1",
     "compatibility",
-    "Require a session_meta header identifying cli_version 0.147.0 and a native thread ID. Absent history_mode means legacy. Paginated sources require contiguous exact ordinals, including metadata, and complete subagent initialization. Follow only history_base storage references; validate native identity, acyclic lineage, exact complete-line byte cutoff and exclusive ordinal cutoff. Reject unknown modes, legacy bases, missing ranges and compressed sources.",
+    "Require a session_meta header naming a native thread ID, and report the cli_version that header declares rather than requiring a particular one; the writer build is evidence for the caller, not an admission gate. Absent history_mode means legacy. Paginated sources require contiguous exact ordinals, including metadata, and complete subagent initialization. Follow only history_base storage references; validate native identity, acyclic lineage, exact complete-line byte cutoff and exclusive ordinal cutoff. Reject unknown modes, legacy bases, missing ranges and compressed sources.",
   ],
   [
     "codex-rollout-passive-v1",

@@ -29,7 +29,7 @@ import {
   PI_TRANSCRIPT_EVIDENCE,
   PI_TRANSCRIPT_METHOD,
 } from "../../knowledge/transcript/pi.js";
-import type { Evidence } from "../../knowledge/transcript/schema.js";
+import type { Build, Evidence } from "../../knowledge/transcript/schema.js";
 import { TRANSCRIPT_SNAPSHOT } from "../../knowledge/transcript/snapshot.js";
 import type {
   BranchObservation,
@@ -52,6 +52,7 @@ import { claudeBranch, normalizeClaude, parseClaudeHistory } from "./claude.js";
 import {
   codexBase,
   codexNativeId,
+  codexWriterBuild,
   normalizeCodex,
   parseCodexHistory,
   validateCodexBase,
@@ -89,7 +90,9 @@ export interface TranscriptReader {
     decode(token: string): Bookmark;
     encode(value: Omit<Bookmark, "methodId" | "bookmarkVersion">): string;
   } | null;
-  readonly writerVersion: string | null;
+  /** The writer build one source's own header names, where the format carries
+   * one; absent where it does not. */
+  readonly writerBuild?: (history: NativeHistory) => Build;
   branch(history: NativeHistory, id: string): BranchObservation;
   nativeId(history: NativeHistory, path: string): string;
   normalize(entry: NativeEntry, id: string): RecordEnvelope;
@@ -161,7 +164,6 @@ export function readerForMethod(method: Method): TranscriptReader | null {
       nativeId: (history) => string(object(history.identityRecord.stream)?.id) ?? "",
       normalize: normalizeMuse,
       parse: parseMuseHistory,
-      writerVersion: null,
     };
   }
   if (method.id === CLAUDE_TRANSCRIPT_METHOD.id) {
@@ -179,7 +181,6 @@ export function readerForMethod(method: Method): TranscriptReader | null {
       nativeId: (history) => string(history.identityRecord.sessionId) ?? "",
       normalize: normalizeClaude,
       parse: parseClaudeHistory,
-      writerVersion: null,
     };
   }
   if (method.id === PI_TRANSCRIPT_METHOD.id) {
@@ -197,7 +198,6 @@ export function readerForMethod(method: Method): TranscriptReader | null {
       nativeId: (history) => string(history.identityRecord.id) ?? "",
       normalize: normalizePi,
       parse: parsePiHistory,
-      writerVersion: null,
     };
   }
   if (method.id === CODEX_TRANSCRIPT_METHOD.id) {
@@ -218,7 +218,7 @@ export function readerForMethod(method: Method): TranscriptReader | null {
       nativeId: codexNativeId,
       normalize: normalizeCodex,
       parse: parseCodexHistory,
-      writerVersion: CODEX_TRANSCRIPT_EVIDENCE.appliesTo.writerBuilds[0]?.version ?? null,
+      writerBuild: codexWriterBuild,
     };
   }
   if (method.id === CURSOR_TRANSCRIPT_METHOD.id) {
@@ -238,7 +238,6 @@ export function readerForMethod(method: Method): TranscriptReader | null {
       nativeId: (history) => string(history.identityRecord.agentId) ?? "",
       normalize: normalizeCursor,
       parse: parseCursorHistory,
-      writerVersion: null,
     };
   }
   if (method.id === ANTIGRAVITY_TRANSCRIPT_METHOD.id) {
@@ -261,7 +260,6 @@ export function readerForMethod(method: Method): TranscriptReader | null {
       nativeId: (_history, path) => antigravityConversationId(path),
       normalize: normalizeAntigravity,
       parse: parseAntigravityHistory,
-      writerVersion: null,
     };
   }
   return null;

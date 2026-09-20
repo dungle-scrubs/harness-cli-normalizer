@@ -1,4 +1,4 @@
-import { CODEX_TRANSCRIPT_EVIDENCE } from "../../knowledge/transcript/codex.js";
+import type { Build } from "../../knowledge/transcript/schema.js";
 import type { Part, RecordEnvelope, Reference } from "../../knowledge/transcript/wire.js";
 import type { Json } from "./json.js";
 import { equalsInteger, JsonNumber, object, string, TranscriptError } from "./json.js";
@@ -13,23 +13,31 @@ export function parseCodexHistory(text: string | Uint8Array): NativeHistory {
   const metadata = object(header?.payload);
   if (header?.type !== "session_meta" || !metadata || !string(metadata.id))
     throw new TranscriptError("source-malformed", "Missing native rollout identity.");
+  // The writer build is reported, not required. Every rollout carries its own
+  // cli_version, and admitting exactly one build refused every rollout on disk
+  // (#205).
   if (
-    metadata.cli_version !== CODEX_TRANSCRIPT_EVIDENCE.appliesTo.writerBuilds[0]?.version ||
-    (metadata.history_mode !== undefined &&
-      metadata.history_mode !== "legacy" &&
-      metadata.history_mode !== "paginated") ||
-    (metadata.history_mode !== "paginated" &&
-      metadata.history_base !== undefined &&
-      metadata.history_base !== null)
+    metadata.history_mode !== undefined &&
+    metadata.history_mode !== "legacy" &&
+    metadata.history_mode !== "paginated"
   )
     throw new TranscriptError(
       "guarantee-unmet",
-      "The selected rollout has an unsupported writer version or history mode.",
+      `The selected rollout declares history mode ${describe(metadata.history_mode)}, which this reader has no format evidence for.`,
+    );
+  if (
+    metadata.history_mode !== "paginated" &&
+    metadata.history_base !== undefined &&
+    metadata.history_base !== null
+  )
+    throw new TranscriptError(
+      "guarantee-unmet",
+      "The selected legacy rollout carries a history base, which only paginated history defines.",
     );
   if (rows.some((row) => row.original.type === "session_meta"))
     throw new TranscriptError(
       "guarantee-unmet",
-      "Additional native source metadata requires separate format evidence.",
+      "The selected rollout carries a second session_meta record. An inlined parent prefix, as a spawned agent thread writes, needs separate format evidence.",
     );
   if (metadata.history_mode === "paginated") {
     const start =
@@ -52,6 +60,15 @@ export function parseCodexHistory(text: string | Uint8Array): NativeHistory {
       );
   }
   return { entries: rows, identityRecord: header, headers: [header] };
+}
+function describe(value: Json | undefined): string {
+  const text = string(value);
+  return text === null ? "a non-string value" : JSON.stringify(text);
+}
+/** The writer build the rollout's own header names. The recorder writes one
+ * `cli_version` per rollout and no build hash, so the version stands alone. */
+export function codexWriterBuild(history: NativeHistory): Build {
+  return { buildId: null, version: string(object(history.identityRecord.payload)?.cli_version) };
 }
 function integer(value: Json | undefined): number {
   if (
