@@ -10,7 +10,7 @@ import type { TranscriptKnowledge } from "./transcript/wire.js";
  * a key without a consumer arm would be dead data that can only drift.
  */
 
-export const HARNESS_NAMES = ["claude", "codex", "pi", "muse", "cursor"] as const;
+export const HARNESS_NAMES = ["claude", "codex", "pi", "muse", "cursor", "antigravity"] as const;
 export type HarnessName = (typeof HARNESS_NAMES)[number];
 
 /** Descriptors are process-wide defaults shared by reference into merged
@@ -70,19 +70,19 @@ export const RESUME_STYLES = deepFreeze(["flag", "positional"] as const);
 export type ResumeStyle = (typeof RESUME_STYLES)[number];
 
 /** Where tokens after hcn's bare `--` go in the harness argv. The
- * separator itself is never rendered: every probed harness parses trailing
+ * separator itself is never rendered: probed harnesses parse trailing
  * native flags once the `--` is gone (ADR 0003), so `after-argv` appends
  * past hcn's own argv. `prompt-joins` refuses before spawn on harnesses
  * where no placement parses. Absent means `after-argv`: trailing flags
- * parsed on all five harnesses, so an unverified descriptor gets the
- * working default, never the separator that broke every harness. The
+ * keep the established default and never restore the separator that broke
+ * every harness. The
  * `before-prompt` splice was removed (L5): no harness needed it, and on
  * claude a variadic tail placed before the prompt would be taken as a
  * directory by flags like `--add-dir`. */
 export const LAUNCH_PASSTHROUGHS = deepFreeze(["after-argv", "prompt-joins"] as const);
 export type LaunchPassthrough = (typeof LAUNCH_PASSTHROUGHS)[number];
 
-export const RESUME_ON_MISSING = deepFreeze(["error", "create"] as const);
+export const RESUME_ON_MISSING = deepFreeze(["error", "create", "unknown"] as const);
 export type ResumeOnMissing = (typeof RESUME_ON_MISSING)[number];
 
 export const IDENTITY_AUTHORITIES = deepFreeze(["caller-assigned", "harness-minted"] as const);
@@ -105,7 +105,11 @@ export type VersionSourceKind = (typeof VERSION_SOURCE_KINDS)[number];
 export const ACCESS_VALUES = deepFreeze(["read", "write"] as const);
 export type AccessValue = (typeof ACCESS_VALUES)[number];
 
-export const SESSION_INPUT_KINDS = ["claude-sdk-user-message", "pi-rpc-prompt"] as const;
+export const SESSION_INPUT_KINDS = [
+  "claude-sdk-user-message",
+  "pi-rpc-prompt",
+  "antigravity-stream-user",
+] as const;
 export type SessionInputKind = (typeof SESSION_INPUT_KINDS)[number];
 
 /** How the runner observes a pending native approval the harness omits
@@ -119,7 +123,7 @@ export interface SessionInputContract {
   readonly kind: SessionInputKind;
 }
 
-export const SESSION_RESUME_FLAGS = ["--resume", "--session-id"] as const;
+export const SESSION_RESUME_FLAGS = ["--resume", "--session-id", "--conversation"] as const;
 export type SessionResumeFlag = (typeof SESSION_RESUME_FLAGS)[number];
 
 /** Consumers branch on these (session-limit: wait for reset; weekly-limit:
@@ -244,15 +248,25 @@ export interface SpecBase {
   readonly resumeRender?: OptionRender | null;
 }
 
+export interface PositionedSpecBase extends SpecBase {
+  /** Where argv tokens from this option sit relative to the prompt.
+   * Most harness flags precede a positional prompt. Use `after-prompt`
+   * when a prompt flag consumes the immediately following token. */
+  readonly argvPlacement?: "before-prompt" | "after-prompt";
+}
+
 /** How one access value renders on one harness (RFC-02 change 3): the
  * marker for "render the read preset through the tool list", null for
  * "emit nothing", or a phase-aware render carrying the harness value it
  * maps to (codex: `read` is `--sandbox read-only`). */
-export type AccessRender = "tool-preset" | null | (SpecBase & { readonly value?: string });
+export type AccessRender =
+  | "tool-preset"
+  | null
+  | (PositionedSpecBase & { readonly value?: string });
 
 export type TurnOptionSpec =
   /** Closed value vocabulary. `default` renders on LAUNCH ONLY. */
-  | (SpecBase & {
+  | (PositionedSpecBase & {
       readonly kind: "enum";
       readonly values: readonly string[];
       readonly default?: string;
@@ -267,19 +281,22 @@ export type TurnOptionSpec =
       readonly claims?: TurnOptionKey;
     }
   /** Ladder comes from vocabulary.efforts / effortsByModel, not from here. */
-  | (SpecBase & { readonly kind: "effort" })
+  | (PositionedSpecBase & { readonly kind: "effort" })
   /** Effort resolved into the model slug (cursor): the ladder comes from
    *  vocabulary.effortSlugs, and the render is always `in-model`. */
-  | (SpecBase & { readonly kind: "effort-in-model" })
+  | (PositionedSpecBase & { readonly kind: "effort-in-model" })
   /** Open selector, CLEAN_SELECTOR-validated. */
-  | (SpecBase & { readonly kind: "selector" })
+  | (PositionedSpecBase & { readonly kind: "selector" })
   /** Free-form prompt text (issue #48): systemPrompt / appendSystemPrompt.
    * Values are prose, never a closed vocabulary - no validation beyond
    * non-emptiness, rendering is verbatim. */
-  | (SpecBase & { readonly kind: "prompt-text" })
+  | (PositionedSpecBase & { readonly kind: "prompt-text" })
   /** `polarity: "disables"` emits the render when the caller asks for FALSE. */
-  | (SpecBase & { readonly kind: "toggle"; readonly polarity: "enables" | "disables" })
-  | (SpecBase & { readonly kind: "integer"; readonly min: number; readonly max: number })
+  | (PositionedSpecBase & {
+      readonly kind: "toggle";
+      readonly polarity: "enables" | "disables";
+    })
+  | (PositionedSpecBase & { readonly kind: "integer"; readonly min: number; readonly max: number })
   /** Per-facet toggles; a facet absent from the table cannot be expressed. */
   | {
       readonly kind: "discovery";
@@ -409,9 +426,11 @@ export interface HarnessDescriptor {
      * <id>`) recognized when pasted, but never built - the builder uses
      * `style`/`flag`. */
     readonly positionalParseWord?: string;
-    /** What resuming a NONEXISTENT id does (verified live): "error" -
+    /** What resuming a NONEXISTENT id does: "error" -
      * claude/codex refuse an unknown session; "create" - pi/muse treat the
      * id as create-if-missing and silently start a FRESH session under it.
+     * Those values require live evidence; "unknown" leaves the native
+     * result authoritative until the behavior is qualified.
      * The protocol layer must know this: a consumer resuming a session it
      * believes exists gets a blank session, not an error, on a "create"
      * harness. */
@@ -570,6 +589,10 @@ export interface HarnessDescriptor {
     | {
         readonly flag: string;
         readonly headless: true;
+        /** Most harnesses place the most-recent flag after the resume
+         * grammar's extra flags. A prompt-consuming extra flag must stay
+         * adjacent to the prompt, so its most-recent flag goes first. */
+        readonly flagPlacement?: "before-extra-flags" | "after-extra-flags";
         readonly warning: string;
       }
     | {

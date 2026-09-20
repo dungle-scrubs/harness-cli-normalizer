@@ -1,4 +1,9 @@
 import {
+  ANTIGRAVITY_TRANSCRIPT,
+  ANTIGRAVITY_TRANSCRIPT_EVIDENCE,
+  ANTIGRAVITY_TRANSCRIPT_METHOD,
+} from "../../knowledge/transcript/antigravity.js";
+import {
   CLAUDE_TRANSCRIPT,
   CLAUDE_TRANSCRIPT_EVIDENCE,
   CLAUDE_TRANSCRIPT_METHOD,
@@ -9,6 +14,11 @@ import {
   CODEX_TRANSCRIPT_EVIDENCE,
   CODEX_TRANSCRIPT_METHOD,
 } from "../../knowledge/transcript/codex.js";
+import {
+  CURSOR_TRANSCRIPT,
+  CURSOR_TRANSCRIPT_EVIDENCE,
+  CURSOR_TRANSCRIPT_METHOD,
+} from "../../knowledge/transcript/cursor.js";
 import {
   MUSE_TRANSCRIPT,
   MUSE_TRANSCRIPT_EVIDENCE,
@@ -30,6 +40,12 @@ import type {
   Rule,
   TranscriptKnowledge,
 } from "../../knowledge/transcript/wire.js";
+import {
+  antigravityConversationId,
+  antigravityLogPath,
+  normalizeAntigravity,
+  parseAntigravityHistory,
+} from "./antigravity.js";
 import type { Bookmark } from "./bookmark.js";
 import { decodeBookmark, encodeBookmark } from "./bookmark.js";
 import { claudeBranch, normalizeClaude, parseClaudeHistory } from "./claude.js";
@@ -40,6 +56,7 @@ import {
   parseCodexHistory,
   validateCodexBase,
 } from "./codex.js";
+import { frameCursorStore, normalizeCursor, parseCursorHistory } from "./cursor.js";
 import { object, string } from "./json.js";
 import { normalizeMuse, parseMuseHistory } from "./muse.js";
 import type { NativeBase, NativeEntry, NativeHistory } from "./native.js";
@@ -55,7 +72,13 @@ export interface TranscriptReader {
     readonly directories: readonly string[];
     readonly recursive: boolean;
     matches(name: string, id: string): boolean;
+    /** The one path an ID can name, relative to the store root; null when the ID cannot name any. */
+    locate?(id: string): string | null;
   };
+  /** Projects a native container onto LF-framed JSON entries; absent for JSONL sources. */
+  readonly frame?: (bytes: Uint8Array) => Uint8Array;
+  /** Sibling path suffixes that must be absent or empty around the capture. */
+  readonly quiescentSiblings?: readonly string[];
   readonly method: Method;
   readonly historicalLoss: HistoricalLoss;
   readonly evidence: Evidence;
@@ -68,13 +91,34 @@ export interface TranscriptReader {
   } | null;
   readonly writerVersion: string | null;
   branch(history: NativeHistory, id: string): BranchObservation;
-  nativeId(history: NativeHistory): string;
+  nativeId(history: NativeHistory, path: string): string;
   normalize(entry: NativeEntry, id: string): RecordEnvelope;
   parse(bytes: string | Uint8Array): NativeHistory;
 }
-function rulesFor(knowledge: TranscriptKnowledge, method: Method): readonly Rule[] {
-  return knowledge.rules.filter((rule) => method.ruleIds.includes(rule.id));
+function methodRules(
+  knowledge: TranscriptKnowledge,
+  method: Method,
+): Pick<TranscriptReader, "method" | "rules" | "consistencyRuleIds" | "continuation"> {
+  const rules = knowledge.rules.filter((rule) => method.ruleIds.includes(rule.id));
+  return {
+    method,
+    rules,
+    consistencyRuleIds: rules
+      .filter((rule) => rule.purpose === "consistency")
+      .map((rule) => rule.id),
+    continuation: {
+      ruleIds: rules.filter((rule) => rule.purpose === "continuation").map((rule) => rule.id),
+      decode: (token) => decodeBookmark(token, method.id),
+      encode: (value) => encodeBookmark({ ...value, methodId: method.id, bookmarkVersion: 1 }),
+    },
+  };
 }
+const noBranch = (): BranchObservation => ({
+  evidence: [],
+  selection: null,
+  state: "unknown",
+  view: "unknown",
+});
 export function recordFromSource(record: RecordEnvelope, sourceKey: string): RecordEnvelope {
   const relocate = (relation: Relation): Relation => ({
     ...relation,
@@ -103,11 +147,10 @@ export function recordFromSource(record: RecordEnvelope, sourceKey: string): Rec
 }
 export function readerForMethod(method: Method): TranscriptReader | null {
   if (method.id === MUSE_TRANSCRIPT_METHOD.id) {
-    const rules = rulesFor(MUSE_TRANSCRIPT, method);
     return {
+      ...methodRules(MUSE_TRANSCRIPT, method),
       consistency: TRANSCRIPT_SNAPSHOT.consistency,
-      method,
-      branch: () => ({ evidence: [], selection: null, state: "unknown", view: "unknown" }),
+      branch: noBranch,
       lookup: {
         directories: [""],
         recursive: true,
@@ -115,15 +158,6 @@ export function readerForMethod(method: Method): TranscriptReader | null {
       },
       historicalLoss: { state: "unknown", details: [], evidence: [MUSE_TRANSCRIPT_EVIDENCE] },
       evidence: MUSE_TRANSCRIPT_EVIDENCE,
-      rules,
-      consistencyRuleIds: rules
-        .filter((rule) => rule.purpose === "consistency")
-        .map((rule) => rule.id),
-      continuation: {
-        ruleIds: rules.filter((rule) => rule.purpose === "continuation").map((rule) => rule.id),
-        decode: (token) => decodeBookmark(token, method.id),
-        encode: (value) => encodeBookmark({ ...value, methodId: method.id, bookmarkVersion: 1 }),
-      },
       nativeId: (history) => string(object(history.identityRecord.stream)?.id) ?? "",
       normalize: normalizeMuse,
       parse: parseMuseHistory,
@@ -131,10 +165,9 @@ export function readerForMethod(method: Method): TranscriptReader | null {
     };
   }
   if (method.id === CLAUDE_TRANSCRIPT_METHOD.id) {
-    const rules = rulesFor(CLAUDE_TRANSCRIPT, method);
     return {
+      ...methodRules(CLAUDE_TRANSCRIPT, method),
       consistency: TRANSCRIPT_SNAPSHOT.consistency,
-      method,
       branch: claudeBranch,
       lookup: {
         directories: [""],
@@ -143,15 +176,6 @@ export function readerForMethod(method: Method): TranscriptReader | null {
       },
       historicalLoss: { state: "unknown", details: [], evidence: [CLAUDE_TRANSCRIPT_EVIDENCE] },
       evidence: CLAUDE_TRANSCRIPT_EVIDENCE,
-      rules,
-      consistencyRuleIds: rules
-        .filter((rule) => rule.purpose === "consistency")
-        .map((rule) => rule.id),
-      continuation: {
-        ruleIds: rules.filter((rule) => rule.purpose === "continuation").map((rule) => rule.id),
-        decode: (token) => decodeBookmark(token, method.id),
-        encode: (value) => encodeBookmark({ ...value, methodId: method.id, bookmarkVersion: 1 }),
-      },
       nativeId: (history) => string(history.identityRecord.sessionId) ?? "",
       normalize: normalizeClaude,
       parse: parseClaudeHistory,
@@ -159,10 +183,9 @@ export function readerForMethod(method: Method): TranscriptReader | null {
     };
   }
   if (method.id === PI_TRANSCRIPT_METHOD.id) {
-    const rules = rulesFor(PI_TRANSCRIPT, method);
     return {
+      ...methodRules(PI_TRANSCRIPT, method),
       consistency: "append-only",
-      method,
       branch: piBranch,
       lookup: {
         directories: [""],
@@ -171,15 +194,6 @@ export function readerForMethod(method: Method): TranscriptReader | null {
       },
       historicalLoss: { state: "unknown", details: [], evidence: [] },
       evidence: PI_TRANSCRIPT_EVIDENCE,
-      rules,
-      consistencyRuleIds: rules
-        .filter((rule) => rule.purpose === "consistency")
-        .map((rule) => rule.id),
-      continuation: {
-        ruleIds: rules.filter((rule) => rule.purpose === "continuation").map((rule) => rule.id),
-        decode: (token) => decodeBookmark(token, method.id),
-        encode: (value) => encodeBookmark({ ...value, methodId: method.id, bookmarkVersion: 1 }),
-      },
       nativeId: (history) => string(history.identityRecord.id) ?? "",
       normalize: normalizePi,
       parse: parsePiHistory,
@@ -187,12 +201,11 @@ export function readerForMethod(method: Method): TranscriptReader | null {
     };
   }
   if (method.id === CODEX_TRANSCRIPT_METHOD.id) {
-    const rules = rulesFor(CODEX_TRANSCRIPT, method);
     return {
+      ...methodRules(CODEX_TRANSCRIPT, method),
       consistency: "append-only",
       ancestry: { base: codexBase, validate: validateCodexBase },
-      method,
-      branch: () => ({ evidence: [], selection: null, state: "unknown", view: "unknown" }),
+      branch: noBranch,
       lookup: {
         directories: ["sessions", "archived_sessions"],
         recursive: true,
@@ -202,19 +215,53 @@ export function readerForMethod(method: Method): TranscriptReader | null {
       },
       historicalLoss: CODEX_HISTORICAL_LOSS,
       evidence: CODEX_TRANSCRIPT_EVIDENCE,
-      rules,
-      consistencyRuleIds: rules
-        .filter((rule) => rule.purpose === "consistency")
-        .map((rule) => rule.id),
-      continuation: {
-        ruleIds: rules.filter((rule) => rule.purpose === "continuation").map((rule) => rule.id),
-        decode: (token) => decodeBookmark(token, method.id),
-        encode: (value) => encodeBookmark({ ...value, methodId: method.id, bookmarkVersion: 1 }),
-      },
       nativeId: codexNativeId,
       normalize: normalizeCodex,
       parse: parseCodexHistory,
       writerVersion: CODEX_TRANSCRIPT_EVIDENCE.appliesTo.writerBuilds[0]?.version ?? null,
+    };
+  }
+  if (method.id === CURSOR_TRANSCRIPT_METHOD.id) {
+    return {
+      ...methodRules(CURSOR_TRANSCRIPT, method),
+      consistency: TRANSCRIPT_SNAPSHOT.consistency,
+      branch: noBranch,
+      frame: frameCursorStore,
+      quiescentSiblings: ["-wal", "-journal"],
+      lookup: {
+        directories: ["chats"],
+        recursive: true,
+        matches: (name, id) => name.endsWith(`/${id}/store.db`),
+      },
+      historicalLoss: { state: "unknown", details: [], evidence: [CURSOR_TRANSCRIPT_EVIDENCE] },
+      evidence: CURSOR_TRANSCRIPT_EVIDENCE,
+      nativeId: (history) => string(history.identityRecord.agentId) ?? "",
+      normalize: normalizeCursor,
+      parse: parseCursorHistory,
+      writerVersion: null,
+    };
+  }
+  if (method.id === ANTIGRAVITY_TRANSCRIPT_METHOD.id) {
+    return {
+      ...methodRules(ANTIGRAVITY_TRANSCRIPT, method),
+      consistency: TRANSCRIPT_SNAPSHOT.consistency,
+      branch: noBranch,
+      lookup: {
+        directories: [""],
+        recursive: false,
+        matches: () => false,
+        locate: antigravityLogPath,
+      },
+      historicalLoss: {
+        state: "unknown",
+        details: [],
+        evidence: [ANTIGRAVITY_TRANSCRIPT_EVIDENCE],
+      },
+      evidence: ANTIGRAVITY_TRANSCRIPT_EVIDENCE,
+      nativeId: (_history, path) => antigravityConversationId(path),
+      normalize: normalizeAntigravity,
+      parse: parseAntigravityHistory,
+      writerVersion: null,
     };
   }
   return null;

@@ -1,6 +1,6 @@
 # harness-cli-normalizer
 
-`hcn` is a CLI that drives five coding-agent harnesses through one surface. It
+`hcn` is a CLI that drives six coding-agent harnesses through one surface. It
 does two different jobs, and the difference matters enough to name: it
 **normalizes** the harnesses' interfaces, and it **supervises** the runs it
 starts. This file says which parts are which.
@@ -13,7 +13,7 @@ There is no supported way to import them.
 
 ### The two jobs
 
-**Normalize**: express what five harnesses each do in one vocabulary, deciding
+**Normalize**: express what six harnesses each do in one vocabulary, deciding
 nothing. A normalizing part translates. Remove it and you write the translation
 yourself, but the same runs succeed and fail at the same moments. _Avoid_:
 "abstract", "wrap".
@@ -30,7 +30,8 @@ says "this is not available here" instead of pretending parity. _Avoid_:
 
 ### The domain
 
-**Harness**: one coding-agent CLI that hcn drives - claude, codex, pi, muse, or cursor.
+**Harness**: one coding-agent CLI that hcn drives - claude, codex, pi, muse, cursor,
+or antigravity.
 _Avoid_: "provider" (that is the model vendor), "agent" (that is the model).
 
 **Descriptor**: the immutable data describing one harness - its flags, its
@@ -44,8 +45,8 @@ native operation's result determine whether work can run.
 
 **Turn**: one prompt in, one result out. The unit hcn spawns and reports on.
 
-**Session**: one harness process held open across several turns. Only claude
-and pi have one.
+**Session**: one harness process held open across several turns. Claude, pi,
+and Antigravity have one.
 
 **Turn option**: a per-call dimension hcn can express, keyed by a closed
 vocabulary. A harness that cannot express one reports divergence.

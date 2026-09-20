@@ -1,0 +1,3 @@
+{"event":"init","conversation_id":"c3b4fe40-7c75-4f22-b863-51061aa8b20b","init":{"cwd":"/home/user/project","tools":["ask_permission","run_command","write_to_file"],"permission_mode":"request-review"}}
+{"event":"step_update","step_update":{"conversation_id":"c3b4fe40-7c75-4f22-b863-51061aa8b20b","step_index":1,"state":"ACTIVE","step_type":"agent_response","text_delta":"Hello from Antigravity"}}
+{"event":"result","result":{"conversation_id":"c3b4fe40-7c75-4f22-b863-51061aa8b20b","status":"SUCCESS","response":"Hello from Antigravity","usage":{"input_tokens":12,"output_tokens":4,"thinking_tokens":0,"cache_read_tokens":0,"total_tokens":16}}}

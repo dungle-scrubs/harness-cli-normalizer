@@ -56,6 +56,8 @@ export const encodeSessionInput = (input: SessionInputContract, text: string): s
       // fixture 05), so a mid-turn send would need streamingBehavior - a
       // pending change, not expressed here yet.
       return `${JSON.stringify({ id: SEND_ID, type: "prompt", message: text })}\n`;
+    case "antigravity-stream-user":
+      return `${JSON.stringify({ event: "user", message: { content: text } })}\n`;
   }
 };
 
@@ -70,6 +72,8 @@ export const encodeIdentityProbe = (h: HarnessDescriptor): string | null => {
     case "pi-rpc-prompt":
       return `${JSON.stringify({ id: IDENTITY_PROBE_ID, type: mode.identityProbe.command })}\n`;
     case "claude-sdk-user-message":
+      return null;
+    case "antigravity-stream-user":
       return null;
   }
 };
@@ -126,7 +130,10 @@ export const decodeSessionRecord = (
   if (matchesTurnEnd(parsed, mode.turnEnd)) {
     // claude's result record carries is_error; pi's agent_settled has no
     // error flag of its own.
-    const isError = mode.input.kind === "claude-sdk-user-message" && parsed.is_error === true;
+    const isError =
+      (mode.input.kind === "claude-sdk-user-message" && parsed.is_error === true) ||
+      (mode.input.kind === "antigravity-stream-user" &&
+        readPath(parsed, "result.status") !== "SUCCESS");
     return { kind: "turn-end", isError };
   }
   return { kind: "content" };

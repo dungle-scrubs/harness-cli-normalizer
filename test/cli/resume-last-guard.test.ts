@@ -2,8 +2,7 @@
  * RFC-06 Phase 3: the resume-last CLI guard - store-root and scope-dir
  * resolution plus the emitted notice lines. Roots resolve through the
  * descriptor's precedence table first (`resolveStoreRoot`: cursor) else
- * the shared transcript-style roots (claude, codex, pi - the same
- * directory `transcript.ts` reads). The per-cwd scope directory derives
+ * the shared native-store roots (claude, codex, pi, antigravity). The per-cwd scope directory derives
  * from the store template, never a name: templates without `{cwdSlug}`
  * (codex, muse) carry no check. Real temp dirs for the existence check;
  * never runs a real harness CLI.
@@ -18,6 +17,7 @@ import {
   resumeLastStoreRoot,
 } from "../../src/cli/resume-last-guard.js";
 import { transcriptStoreRoot } from "../../src/cli/store-root.js";
+import { antigravityCli } from "../../src/knowledge/antigravity.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
 import { cursorCli } from "../../src/knowledge/cursor.js";
@@ -52,6 +52,12 @@ describe("RFC-06 Phase 3: store-root and scope-dir resolution", () => {
     expect(resumeLastStoreRoot(piCli, { env: { PI_CODING_AGENT_DIR: "/tmp/ps" }, cwd, home })).toBe(
       "/tmp/ps/sessions/--tmp-ws-main--",
     );
+  });
+
+  test("antigravity resolves the documented brain root with no per-cwd scope dir", () => {
+    const root = resumeLastStoreRoot(antigravityCli, { env: {}, cwd, home });
+    expect(root).toBe("/tmp/fake-home/.gemini/antigravity-cli/brain");
+    expect(resumeLastScopeDir(antigravityCli, { root, cwd, home })).toBeNull();
   });
 
   test("cursor resolves the first set rootEnv entry, else the default root", () => {
@@ -89,8 +95,18 @@ describe("RFC-06 Phase 3: store-root and scope-dir resolution", () => {
     ).toBe(resolve(process.cwd(), ".alt", "projects"));
   });
 
-  test("cursor never falls through to a pi root", () => {
-    expect(() => transcriptStoreRoot("cursor", { env: {}, cwd, home })).toThrow();
+  test("cursor resolves through its descriptor precedence table, never a pi root", () => {
+    expect(transcriptStoreRoot("cursor", { env: {}, cwd, home })).toBe(`${home}/.cursor`);
+    expect(transcriptStoreRoot("cursor", { env: { XDG_CONFIG_HOME: "/xdg" }, cwd, home })).toBe(
+      "/xdg/cursor",
+    );
+    expect(
+      transcriptStoreRoot("cursor", {
+        env: { CURSOR_CONFIG_DIR: "/cursor", XDG_CONFIG_HOME: "/xdg" },
+        cwd,
+        home,
+      }),
+    ).toBe("/cursor");
   });
 });
 

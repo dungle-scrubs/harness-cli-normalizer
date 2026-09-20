@@ -17,6 +17,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import type { HarnessEvent } from "../src/execution/events.js";
 import { openSession } from "../src/execution/open-session.js";
 import { streamTurn, type TurnRunOptions } from "../src/execution/stream-turn.js";
+import { antigravityCli } from "../src/knowledge/antigravity.js";
 import { claudeCode } from "../src/knowledge/claude-code.js";
 import { codexCli } from "../src/knowledge/codex.js";
 import { cursorCli } from "../src/knowledge/cursor.js";
@@ -27,7 +28,14 @@ import { smokeCwd, smokeDeps, smokeHarnesses } from "./smoke-options.js";
 
 delete process.env.HERDR_ENV;
 
-const HARNESSES = smokeHarnesses([claudeCode, codexCli, piCli, museCode, cursorCli]);
+const HARNESSES = smokeHarnesses([
+  claudeCode,
+  codexCli,
+  piCli,
+  museCode,
+  cursorCli,
+  antigravityCli,
+]);
 const cwd = smokeCwd;
 // pi is pinned to the free local model; the others use their defaults.
 // SMOKE_PI_MODEL overrides the id for environments whose registry resolves

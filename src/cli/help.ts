@@ -1,10 +1,10 @@
-export const TOP_LEVEL_HELP = `hcn - One stable interface to five coding-agent CLIs
+export const TOP_LEVEL_HELP = `hcn - One stable interface to six coding-agent CLIs
 
 Usage: hcn <command> [options] [prompt]
 
 Commands:
   run <harness> [prompt]    One-shot headless turn (streamTurn)
-  session <harness>         Interactive session (openSession, claude + pi)
+  session <harness>         Interactive session (openSession, claude + pi + antigravity)
   interactive <harness>     Strict native terminal resume with a separate control pipe
   inspect <harness>         Descriptor / argv / capability inspection (no spawn)
   transcript read <harness> Passive native transcript export (JSONL)
@@ -49,7 +49,7 @@ export const RUN_HELP = `hcn run - One-shot headless turn
 Usage: hcn run <harness> [prompt] [options]
 
 Arguments:
-  <harness>                 claude | codex | pi | muse | cursor
+  <harness>                 claude | codex | pi | muse | cursor | antigravity
   [prompt]                  Prompt text (positional). Must not start with '-'.
                             Use --prompt or --prompt-file for leading '-' or multi-line.
 
@@ -58,7 +58,7 @@ Options:
   --prompt-file <path|->    Read prompt from file, or stdin when '-'
   --model <id>              Model id (validated per harness)
   --effort <value>          Effort level (validated per harness/model)
-  --sandbox <value>         Sandbox mode (codex only)
+  --sandbox <value>         Sandbox mode (codex; antigravity workspace-write)
   --context-window <tokens> Context window (codex, integer 1-272000;
                             launch default 272000; config: contextWindow)
   --provider <value>        Provider (pi only)
@@ -72,7 +72,7 @@ Options:
   --exclude-tools <a,b>     Complement over known tools - canonical names
                             (same vocabulary, native:<name> passthrough);
                             mutually exclusive with --tools (claude, pi)
-  --autonomy                Enable autonomy flag (claude/codex/muse/cursor)
+  --autonomy                Enable autonomy flag (claude/codex/muse/cursor/antigravity)
   --no-autonomy             Disable autonomy
   --write                   Enable write (muse)
   --no-write                Disable write
@@ -83,7 +83,7 @@ Options:
                             on when native settings disable it
   --no-memory               Disable persistent memory (claude: env var;
                             codex: --disable memories; pi: no-op, no built-in
-                            memory; muse/cursor: refuse - no off switch, reported
+                            memory; muse/cursor/antigravity: refuse - no off switch, reported
                             as divergence by the default profile)
   --questions <ask|assume|none>
                             Which preamble to inject: ask = escalation
@@ -93,7 +93,7 @@ Options:
                             nothing
   --system-prompt <text>    Replace the built-in system prompt (claude, pi:
                             flag; codex: -c instructions=<text-or-path>;
-                            muse/cursor refuse. claude pairs the dynamic-section
+                            muse/cursor/antigravity refuse. claude pairs the dynamic-section
                             exclusion automatically. Opt-in; no default)
   --append-system-prompt <text>
                             Append to the built-in prompt (claude, pi only)
@@ -101,7 +101,7 @@ Options:
                             (canonical: read, grep, glob, list, web-fetch,
                             web-search; claude/pi via --tools, codex via
                             --sandbox read-only, muse via --disable-write
-                            --disable-shell, cursor refuses); write = no restriction;
+                            --disable-shell, cursor/antigravity refuse); write = no restriction;
                             mutually exclusive with --tools/--exclude-tools
                             and with --sandbox on codex; no default
   --max-steps <n>           Max steps (muse, 1-10000)
@@ -123,13 +123,13 @@ Options:
                             path for question escalation: resume with the
                             chosen answer as the prompt; id continuity per
                             harness (claude stable, pi/muse caller-assigned,
-                            codex/cursor minted via identity event)
+                            codex/cursor/antigravity minted via identity event)
                             Note: hcn refuses an unknown id before spawn
-                            (exit 2) for harnesses that would otherwise
-                            create a fresh session silently (pi, muse, cursor)
+                            (exit 2) for pi, muse, and cursor. Antigravity
+                            accepts the id and may announce a fresh conversation.
   --session-id <uuid>       Alias for --resume (mutually exclusive with --resume)
   --resume-last             Resume the most recent session in the spawn cwd
-                            (claude, codex, pi, cursor; muse refuses).
+                            (claude, codex, pi, cursor, antigravity; muse refuses).
                             Mutually exclusive with --resume/--session-id.
   --native-settings-fingerprint <hash>
                             Codex resume only, with explicit --cwd. Re-read saved
@@ -154,11 +154,12 @@ Defaults with no flags:
   Every launch resolves args > project config (.hcn/config.json at the
   git root) > user config (~/.config/hcn/config.json) > built-in profile
   > harness default. The profile pins: effort medium, sandbox
-  workspace-write (codex only; other harnesses report divergence),
+  workspace-write (codex and antigravity; other harnesses report divergence),
   context window 272000 (codex only; divergence elsewhere), discovery on,
   autonomy off, write/shell on. timeout, max-steps and
   access have no default; harness default applies (access write emits
-  nothing on claude/pi/muse/cursor, --sandbox workspace-write on codex via
+  nothing on claude/pi/muse/cursor/antigravity, --sandbox workspace-write on
+  codex and antigravity via
   profile). toolMap is config-only (no flag) - canonical -> native
   mapping per harness. A bare pi run renders no --tools list: pi's list
   is a strict allowlist and would drop extension and MCP tools; name
@@ -168,12 +169,12 @@ Defaults with no flags:
   'hcn inspect <harness>' for the resolved argv of a bare run.
 `;
 
-export const SESSION_HELP = `hcn session - Interactive session (claude, pi)
+export const SESSION_HELP = `hcn session - Interactive session (claude, pi, antigravity)
 
 Usage: hcn session <harness> [options]
 
 Arguments:
-  <harness>               claude | pi (others have no sessionMode)
+  <harness>               claude | pi | antigravity (others have no sessionMode)
 
 Options:
   --json                    Machine surface: NDJSON events on stdout, NDJSON
@@ -219,7 +220,7 @@ export const INSPECT_HELP = `hcn inspect - Descriptor / argv inspection
 Usage: hcn inspect <harness> [options]
 
 Arguments:
-  <harness>                 claude | codex | pi | muse | cursor
+  <harness>                 claude | codex | pi | muse | cursor | antigravity
 
 Options:
   --transcript              Report passive transcript methods and evidence;
@@ -328,7 +329,7 @@ export const TRANSCRIPT_HELP = `hcn transcript - Passive native transcript expor
 
 Usage: hcn transcript read <harness> (--id <native-id> | --file <path>) [options]
 
-Harnesses: claude | codex | pi | muse
+Harnesses: claude | codex | pi | muse | cursor | antigravity
 Inspect support first: hcn inspect <harness> --transcript
 
 Options:
@@ -354,4 +355,8 @@ Claude main JSONL and Muse schema-1 session logs support ID/file reads,
 batches and bookmarks through a passive filesystem clone on supported
 macOS/Linux filesystems. Native formats and clone prerequisites apply.
 Compatible customized Pi must preserve the declared v3 storage semantics.
+Cursor chat stores (chats/*/<id>/store.db) and Antigravity untruncated step
+logs (brain/<id>/.system_generated/logs/transcript_full.jsonl) support ID/file
+reads, batches and bookmarks through the same clone. A Cursor chat whose
+store.db-wal holds writes (a running turn) refuses until the turn ends.
 `;

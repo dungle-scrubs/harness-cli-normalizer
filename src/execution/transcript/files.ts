@@ -1,6 +1,6 @@
 import { constants } from "node:fs";
 import type { FileHandle } from "node:fs/promises";
-import { open, opendir, stat } from "node:fs/promises";
+import { open, opendir, realpath, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 export interface FileVersion {
@@ -16,6 +16,7 @@ export interface TranscriptFiles {
   snapshot?(path: string): Promise<TranscriptFile>;
   list?(path: string, recursive?: boolean): AsyncIterable<string>;
   open(path: string): Promise<TranscriptFile>;
+  realpath?(path: string): Promise<string>;
   version(path: string): Promise<FileVersion>;
 }
 async function version(handle: FileHandle): Promise<FileVersion> {
@@ -92,6 +93,7 @@ export const nodeTranscriptFiles: TranscriptFiles = {
       version: () => version(handle),
     };
   },
+  realpath: (path) => realpath(path),
   async version(path) {
     const result = await stat(path, { bigint: true });
     return { identity: `${result.dev}:${result.ino}`, size: Number(result.size) };

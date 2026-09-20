@@ -132,6 +132,10 @@
             {
               "harness": "codex",
               "spelling": "--sandbox"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--sandbox"
             }
           ],
           "hint": "claude has no sandbox modes; approximate with a per-tool allowlist (--tools Read,Bash) or --disallowedTools to keep tools out, and run untrusted work in a disposable directory or container",
@@ -1270,6 +1274,10 @@
             {
               "harness": "codex",
               "spelling": "--sandbox"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--sandbox"
             }
           ],
           "hint": "pi has no sandbox dimension; approximate with a minimal tool grant (--tools read,grep,find,ls) so the run cannot write or execute, or sandbox the process yourself (container, VM)",
@@ -1602,7 +1610,8 @@
             "claude --dangerously-skip-permissions",
             "codex --yolo",
             "muse --yolo",
-            "cursor --force"
+            "cursor --force",
+            "antigravity --dangerously-skip-permissions"
           ],
           "supportedBy": [
             {
@@ -1620,10 +1629,14 @@
             {
               "harness": "cursor",
               "spelling": "--force"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--dangerously-skip-permissions"
             }
           ],
           "hint": "pi has no unattended-run flag; approximate with a per-tool allowlist (--tools read,bash) if you need unattended behavior on pi",
-          "message": "pi has no unattended-run flag; supported: claude --dangerously-skip-permissions, codex --yolo, muse --yolo, cursor --force - drop autonomy or route to a supporting harness"
+          "message": "pi has no unattended-run flag; supported: claude --dangerously-skip-permissions, codex --yolo, muse --yolo, cursor --force, antigravity --dangerously-skip-permissions - drop autonomy or route to a supporting harness"
         }
       },
       "explicit-dash-prompt": {
@@ -1765,6 +1778,10 @@
           "supportedBy": [
             {
               "harness": "codex",
+              "spelling": "--sandbox"
+            },
+            {
+              "harness": "antigravity",
               "spelling": "--sandbox"
             }
           ],
@@ -2485,6 +2502,10 @@
             {
               "harness": "codex",
               "spelling": "--sandbox"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--sandbox"
             }
           ],
           "message": "cursor cannot express option \"sandbox\" (read-only); supported: effort - drop the option or route this work to a harness that supports it"
@@ -2908,6 +2929,519 @@
           "message": "positional prompt may not start with '-'; it would be parsed as a flag by cursor (it would be parsed as a flag by agent); supported: prompt must not start with '-' - remove leading '-' or prefix with a space"
         }
       }
+    },
+    "antigravity": {
+      "bare": {
+        "argv": [
+          "agy",
+          "--print",
+          "hi",
+          "--output-format",
+          "stream-json"
+        ]
+      },
+      "tool-free": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "isolation",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--bare"
+            }
+          ],
+          "message": "antigravity cannot express option \"isolation\" (tool-free); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tool-free-conflict": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "antigravity",
+          "option": "isolation",
+          "supported": [
+            "tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough"
+          ],
+          "message": "antigravity cannot combine option \"isolation\" (discovery); supported: tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough - pass exactly one of them"
+        }
+      },
+      "model": {
+        "argv": [
+          "agy",
+          "--print",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--model",
+          "gemini-3.8-flash-high"
+        ]
+      },
+      "effort-high": {
+        "argv": [
+          "agy",
+          "--print",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--effort",
+          "high"
+        ]
+      },
+      "effort-with-model": {
+        "argv": [
+          "agy",
+          "--print",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--model",
+          "gemini-3.8-flash-high",
+          "--effort",
+          "high"
+        ]
+      },
+      "effort-unknown": {
+        "refusal": {
+          "issue": "unknown-effort",
+          "harness": "antigravity",
+          "option": "effort",
+          "supported": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "message": "unknown effort for antigravity \"bogus\"; supported: low, medium, high - use one of the ladder values"
+        }
+      },
+      "model-unknown": {
+        "argv": [
+          "agy",
+          "--print",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--model",
+          "no-such-model"
+        ]
+      },
+      "sandbox-read-only": {
+        "refusal": {
+          "issue": "invalid-option-value",
+          "harness": "antigravity",
+          "option": "sandbox",
+          "supported": [
+            "workspace-write"
+          ],
+          "message": "invalid value for option \"sandbox\" on antigravity (read-only); supported: workspace-write - use a supported value instead"
+        }
+      },
+      "context-window": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "contextWindow",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "supportedBy": [
+            {
+              "harness": "codex",
+              "spelling": "-c"
+            }
+          ],
+          "message": "antigravity cannot express option \"contextWindow\" (100000); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "provider": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "provider",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "supportedBy": [
+            {
+              "harness": "pi",
+              "spelling": "--provider"
+            }
+          ],
+          "message": "antigravity cannot express option \"provider\" (zai); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-tools": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "discovery",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "message": "antigravity cannot express option \"discovery\" (tools); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-instruction-files": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "discovery",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "message": "antigravity cannot express option \"discovery\" (instructionFiles); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-extensions": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "discovery",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "message": "antigravity cannot express option \"discovery\" (extensions); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-skills": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "discovery",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "message": "antigravity cannot express option \"discovery\" (skills); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "discovery-all-on": {
+        "argv": [
+          "agy",
+          "--print",
+          "hi",
+          "--output-format",
+          "stream-json"
+        ]
+      },
+      "write-off": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "write",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "supportedBy": [
+            {
+              "harness": "muse",
+              "spelling": "--disable-write"
+            }
+          ],
+          "message": "antigravity cannot express option \"write\" (false); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "shell-off": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "shell",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "supportedBy": [
+            {
+              "harness": "muse",
+              "spelling": "--disable-shell"
+            }
+          ],
+          "message": "antigravity cannot express option \"shell\" (false); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "max-steps": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "maxSteps",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "supportedBy": [
+            {
+              "harness": "muse",
+              "spelling": "--max-model-steps"
+            }
+          ],
+          "message": "antigravity cannot express option \"maxSteps\" (5); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "system-prompt": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "systemPrompt",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "supportedBy": [],
+          "message": "antigravity cannot express option \"systemPrompt\" (you are terse); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "append-system-prompt": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "appendSystemPrompt",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "supportedBy": [],
+          "message": "antigravity cannot express option \"appendSystemPrompt\" (and polite); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "access-read": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "access",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "message": "antigravity cannot express option \"access\" (read); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "access-write": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "access",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "message": "antigravity cannot express option \"access\" (write); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "access-read-no-tools": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "discovery",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "message": "antigravity cannot express option \"discovery\" (tools); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-include": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "Read"
+            },
+            {
+              "harness": "pi",
+              "spelling": "read"
+            }
+          ],
+          "message": "antigravity cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-include-native": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "Read"
+            },
+            {
+              "harness": "pi",
+              "spelling": "read"
+            }
+          ],
+          "message": "antigravity cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-include-empty": {
+        "argv": [
+          "agy",
+          "--print",
+          "hi",
+          "--output-format",
+          "stream-json"
+        ]
+      },
+      "tools-exclude": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "excludeTools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "Bash"
+            },
+            {
+              "harness": "pi",
+              "spelling": "bash"
+            },
+            {
+              "harness": "muse",
+              "spelling": "shell"
+            }
+          ],
+          "message": "antigravity cannot express option \"excludeTools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-exclude-native": {
+        "argv": [
+          "agy",
+          "--print",
+          "hi",
+          "--output-format",
+          "stream-json"
+        ]
+      },
+      "tools-both": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "antigravity",
+          "option": "tools",
+          "supported": [
+            "--tools (exact allowlist) or --exclude-tools (complement), never both"
+          ],
+          "message": "antigravity cannot combine option \"tools\" (mutual exclusion); supported: --tools (exact allowlist) or --exclude-tools (complement), never both - pass exactly one of them"
+        }
+      },
+      "tools-via-toolmap": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "WebSearch"
+            },
+            {
+              "harness": "muse",
+              "spelling": "web"
+            }
+          ],
+          "message": "antigravity cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-unknown-name": {
+        "refusal": {
+          "issue": "unknown-tool-name",
+          "harness": "antigravity",
+          "option": "tools",
+          "supported": [
+            "edit",
+            "glob",
+            "grep",
+            "list",
+            "read",
+            "shell",
+            "skill",
+            "subagent",
+            "web-fetch",
+            "web-search",
+            "write"
+          ],
+          "hint": "use native:<name> for an extension or MCP tool",
+          "message": "antigravity cannot compute a tool complement around an unknown name (unknown tool name(s) frobnicate); supported: edit, glob, grep, list, read, shell, skill, subagent, web-fetch, web-search, write - exclude only curated names, or pass the unknown name through an include list instead"
+        }
+      },
+      "skills-pick": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "skills",
+          "supported": [
+            "caller-directed skill sets"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "skillOverrides"
+            },
+            {
+              "harness": "codex",
+              "spelling": "-c skills.config"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--skill"
+            }
+          ],
+          "hint": "muse scopes skills by workspace trust with no per-skill surface - include the skill content in the prompt or use --trust-workspace for the whole registry",
+          "message": "antigravity cannot express option \"skills\"; supported: caller-directed skill sets - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "autonomy": {
+        "argv": [
+          "agy",
+          "--print",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--dangerously-skip-permissions"
+        ]
+      },
+      "explicit-dash-prompt": {
+        "argv": [
+          "agy",
+          "--print",
+          "-x",
+          "--output-format",
+          "stream-json"
+        ]
+      },
+      "implicit-dash-prompt": {
+        "refusal": {
+          "issue": "prompt-flag-injection",
+          "harness": "antigravity",
+          "supported": [
+            "prompt must not start with '-'"
+          ],
+          "message": "positional prompt may not start with '-'; it would be parsed as a flag by antigravity (it would be parsed as a flag by agy); supported: prompt must not start with '-' - remove leading '-' or prefix with a space"
+        }
+      }
     }
   },
   "resume": {
@@ -3049,6 +3583,10 @@
           "supportedBy": [
             {
               "harness": "codex",
+              "spelling": "--sandbox"
+            },
+            {
+              "harness": "antigravity",
               "spelling": "--sandbox"
             }
           ],
@@ -4236,6 +4774,10 @@
             {
               "harness": "codex",
               "spelling": "--sandbox"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--sandbox"
             }
           ],
           "hint": "pi has no sandbox dimension; approximate with a minimal tool grant (--tools read,grep,find,ls) so the run cannot write or execute, or sandbox the process yourself (container, VM)",
@@ -4600,7 +5142,8 @@
             "claude --dangerously-skip-permissions",
             "codex --yolo",
             "muse --yolo",
-            "cursor --force"
+            "cursor --force",
+            "antigravity --dangerously-skip-permissions"
           ],
           "supportedBy": [
             {
@@ -4618,10 +5161,14 @@
             {
               "harness": "cursor",
               "spelling": "--force"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--dangerously-skip-permissions"
             }
           ],
           "hint": "pi has no unattended-run flag; approximate with a per-tool allowlist (--tools read,bash) if you need unattended behavior on pi",
-          "message": "pi has no unattended-run flag; supported: claude --dangerously-skip-permissions, codex --yolo, muse --yolo, cursor --force - drop autonomy or route to a supporting harness"
+          "message": "pi has no unattended-run flag; supported: claude --dangerously-skip-permissions, codex --yolo, muse --yolo, cursor --force, antigravity --dangerously-skip-permissions - drop autonomy or route to a supporting harness"
         }
       },
       "explicit-dash-prompt": {
@@ -4773,6 +5320,10 @@
           "supportedBy": [
             {
               "harness": "codex",
+              "spelling": "--sandbox"
+            },
+            {
+              "harness": "antigravity",
               "spelling": "--sandbox"
             }
           ],
@@ -5525,6 +6076,10 @@
             {
               "harness": "codex",
               "spelling": "--sandbox"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--sandbox"
             }
           ],
           "message": "cursor cannot express option \"sandbox\" (read-only); supported: effort - drop the option or route this work to a harness that supports it"
@@ -5954,6 +6509,539 @@
           "message": "positional prompt may not start with '-'; it would be parsed as a flag by cursor (it would be parsed as a flag by agent); supported: prompt must not start with '-' - remove leading '-' or prefix with a space"
         }
       }
+    },
+    "antigravity": {
+      "bare": {
+        "argv": [
+          "agy",
+          "--conversation",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "--print",
+          "hi",
+          "--output-format",
+          "stream-json"
+        ]
+      },
+      "tool-free": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "isolation",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--bare"
+            }
+          ],
+          "message": "antigravity cannot express option \"isolation\" (tool-free); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tool-free-conflict": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "antigravity",
+          "option": "isolation",
+          "supported": [
+            "tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough"
+          ],
+          "message": "antigravity cannot combine option \"isolation\" (discovery); supported: tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough - pass exactly one of them"
+        }
+      },
+      "model": {
+        "argv": [
+          "agy",
+          "--conversation",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "--print",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--model",
+          "gemini-3.8-flash-high"
+        ]
+      },
+      "effort-high": {
+        "argv": [
+          "agy",
+          "--conversation",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "--print",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--effort",
+          "high"
+        ]
+      },
+      "effort-with-model": {
+        "argv": [
+          "agy",
+          "--conversation",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "--print",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--model",
+          "gemini-3.8-flash-high",
+          "--effort",
+          "high"
+        ]
+      },
+      "effort-unknown": {
+        "refusal": {
+          "issue": "unknown-effort",
+          "harness": "antigravity",
+          "option": "effort",
+          "supported": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "message": "unknown effort for antigravity \"bogus\"; supported: low, medium, high - use one of the ladder values"
+        }
+      },
+      "model-unknown": {
+        "argv": [
+          "agy",
+          "--conversation",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "--print",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--model",
+          "no-such-model"
+        ]
+      },
+      "sandbox-read-only": {
+        "refusal": {
+          "issue": "invalid-option-value",
+          "harness": "antigravity",
+          "option": "sandbox",
+          "supported": [
+            "workspace-write"
+          ],
+          "message": "invalid value for option \"sandbox\" on antigravity (read-only); supported: workspace-write - use a supported value instead"
+        }
+      },
+      "context-window": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "contextWindow",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "supportedBy": [
+            {
+              "harness": "codex",
+              "spelling": "-c"
+            }
+          ],
+          "message": "antigravity cannot express option \"contextWindow\" (100000); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "provider": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "provider",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "supportedBy": [
+            {
+              "harness": "pi",
+              "spelling": "--provider"
+            }
+          ],
+          "message": "antigravity cannot express option \"provider\" (zai); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-tools": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "discovery",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "message": "antigravity cannot express option \"discovery\" (tools); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-instruction-files": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "discovery",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "message": "antigravity cannot express option \"discovery\" (instructionFiles); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-extensions": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "discovery",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "message": "antigravity cannot express option \"discovery\" (extensions); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-skills": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "discovery",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "message": "antigravity cannot express option \"discovery\" (skills); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "discovery-all-on": {
+        "argv": [
+          "agy",
+          "--conversation",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "--print",
+          "hi",
+          "--output-format",
+          "stream-json"
+        ]
+      },
+      "write-off": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "write",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "supportedBy": [
+            {
+              "harness": "muse",
+              "spelling": "--disable-write"
+            }
+          ],
+          "message": "antigravity cannot express option \"write\" (false); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "shell-off": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "shell",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "supportedBy": [
+            {
+              "harness": "muse",
+              "spelling": "--disable-shell"
+            }
+          ],
+          "message": "antigravity cannot express option \"shell\" (false); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "max-steps": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "maxSteps",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "supportedBy": [
+            {
+              "harness": "muse",
+              "spelling": "--max-model-steps"
+            }
+          ],
+          "message": "antigravity cannot express option \"maxSteps\" (5); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "system-prompt": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "systemPrompt",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "supportedBy": [],
+          "message": "antigravity cannot express option \"systemPrompt\" (you are terse); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "append-system-prompt": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "appendSystemPrompt",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "supportedBy": [],
+          "message": "antigravity cannot express option \"appendSystemPrompt\" (and polite); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "access-read": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "access",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "message": "antigravity cannot express option \"access\" (read); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "access-write": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "access",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "message": "antigravity cannot express option \"access\" (write); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "access-read-no-tools": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "discovery",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "message": "antigravity cannot express option \"discovery\" (tools); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-include": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "Read"
+            },
+            {
+              "harness": "pi",
+              "spelling": "read"
+            }
+          ],
+          "message": "antigravity cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-include-native": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "Read"
+            },
+            {
+              "harness": "pi",
+              "spelling": "read"
+            }
+          ],
+          "message": "antigravity cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-include-empty": {
+        "argv": [
+          "agy",
+          "--conversation",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "--print",
+          "hi",
+          "--output-format",
+          "stream-json"
+        ]
+      },
+      "tools-exclude": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "excludeTools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "Bash"
+            },
+            {
+              "harness": "pi",
+              "spelling": "bash"
+            },
+            {
+              "harness": "muse",
+              "spelling": "shell"
+            }
+          ],
+          "message": "antigravity cannot express option \"excludeTools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-exclude-native": {
+        "argv": [
+          "agy",
+          "--conversation",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "--print",
+          "hi",
+          "--output-format",
+          "stream-json"
+        ]
+      },
+      "tools-both": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "antigravity",
+          "option": "tools",
+          "supported": [
+            "--tools (exact allowlist) or --exclude-tools (complement), never both"
+          ],
+          "message": "antigravity cannot combine option \"tools\" (mutual exclusion); supported: --tools (exact allowlist) or --exclude-tools (complement), never both - pass exactly one of them"
+        }
+      },
+      "tools-via-toolmap": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "WebSearch"
+            },
+            {
+              "harness": "muse",
+              "spelling": "web"
+            }
+          ],
+          "message": "antigravity cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-unknown-name": {
+        "refusal": {
+          "issue": "unknown-tool-name",
+          "harness": "antigravity",
+          "option": "tools",
+          "supported": [
+            "edit",
+            "glob",
+            "grep",
+            "list",
+            "read",
+            "shell",
+            "skill",
+            "subagent",
+            "web-fetch",
+            "web-search",
+            "write"
+          ],
+          "hint": "use native:<name> for an extension or MCP tool",
+          "message": "antigravity cannot compute a tool complement around an unknown name (unknown tool name(s) frobnicate); supported: edit, glob, grep, list, read, shell, skill, subagent, web-fetch, web-search, write - exclude only curated names, or pass the unknown name through an include list instead"
+        }
+      },
+      "skills-pick": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "skills",
+          "supported": [
+            "caller-directed skill sets"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "skillOverrides"
+            },
+            {
+              "harness": "codex",
+              "spelling": "-c skills.config"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--skill"
+            }
+          ],
+          "hint": "muse scopes skills by workspace trust with no per-skill surface - include the skill content in the prompt or use --trust-workspace for the whole registry",
+          "message": "antigravity cannot express option \"skills\"; supported: caller-directed skill sets - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "autonomy": {
+        "argv": [
+          "agy",
+          "--conversation",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "--print",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--dangerously-skip-permissions"
+        ]
+      },
+      "explicit-dash-prompt": {
+        "argv": [
+          "agy",
+          "--conversation",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "--print",
+          "-x",
+          "--output-format",
+          "stream-json"
+        ]
+      },
+      "implicit-dash-prompt": {
+        "refusal": {
+          "issue": "prompt-flag-injection",
+          "harness": "antigravity",
+          "supported": [
+            "prompt must not start with '-'"
+          ],
+          "message": "positional prompt may not start with '-'; it would be parsed as a flag by antigravity (it would be parsed as a flag by agy); supported: prompt must not start with '-' - remove leading '-' or prefix with a space"
+        }
+      }
     }
   },
   "resumeLast": {
@@ -6166,7 +7254,8 @@
             "claude --continue",
             "codex --last",
             "pi --continue",
-            "cursor --continue"
+            "cursor --continue",
+            "antigravity --continue"
           ],
           "supportedBy": [
             {
@@ -6184,10 +7273,14 @@
             {
               "harness": "cursor",
               "spelling": "--continue"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--continue"
             }
           ],
           "hint": "muse has no headless most-recent spelling; keep the session id from the identity event and re-enter with hcn run muse --resume <id> - there is no --last on exec",
-          "message": "muse cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue, cursor --continue - drop the option or route this work to a harness that supports it"
+          "message": "muse cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue, cursor --continue, antigravity --continue - drop the option or route this work to a harness that supports it"
         }
       },
       "model": {
@@ -6199,7 +7292,8 @@
             "claude --continue",
             "codex --last",
             "pi --continue",
-            "cursor --continue"
+            "cursor --continue",
+            "antigravity --continue"
           ],
           "supportedBy": [
             {
@@ -6217,10 +7311,14 @@
             {
               "harness": "cursor",
               "spelling": "--continue"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--continue"
             }
           ],
           "hint": "muse has no headless most-recent spelling; keep the session id from the identity event and re-enter with hcn run muse --resume <id> - there is no --last on exec",
-          "message": "muse cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue, cursor --continue - drop the option or route this work to a harness that supports it"
+          "message": "muse cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue, cursor --continue, antigravity --continue - drop the option or route this work to a harness that supports it"
         }
       },
       "id-and-last-refuse": {
@@ -6279,6 +7377,40 @@
             "--resume or --resume-last, not both (most-recent and a named id are two answers to one question)"
           ],
           "message": "cursor cannot combine (both --resume and --resume-last given); supported: --resume or --resume-last, not both (most-recent and a named id are two answers to one question) - pass exactly one of them"
+        }
+      }
+    },
+    "antigravity": {
+      "bare": {
+        "argv": [
+          "agy",
+          "--continue",
+          "--print",
+          "hi",
+          "--output-format",
+          "stream-json"
+        ]
+      },
+      "model": {
+        "argv": [
+          "agy",
+          "--continue",
+          "--print",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--model",
+          "gemini-3.8-flash-high"
+        ]
+      },
+      "id-and-last-refuse": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "antigravity",
+          "supported": [
+            "--resume or --resume-last, not both (most-recent and a named id are two answers to one question)"
+          ],
+          "message": "antigravity cannot combine (both --resume and --resume-last given); supported: --resume or --resume-last, not both (most-recent and a named id are two answers to one question) - pass exactly one of them"
         }
       }
     }
@@ -6458,6 +7590,39 @@
           "--native-flag"
         ]
       }
+    },
+    "antigravity": {
+      "empty": {
+        "argv": [
+          "agy",
+          "--print",
+          "hi",
+          "--output-format",
+          "stream-json"
+        ]
+      },
+      "tail": {
+        "argv": [
+          "agy",
+          "--print",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--native-flag"
+        ]
+      },
+      "tail-resume": {
+        "argv": [
+          "agy",
+          "--conversation",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "--print",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--native-flag"
+        ]
+      }
     }
   },
   "session": {
@@ -6592,9 +7757,10 @@
           "harness": "codex",
           "supported": [
             "claude",
-            "pi"
+            "pi",
+            "antigravity"
           ],
-          "message": "codex declares no persistent headless session mode; supported: claude, pi - use hcn run --resume <id>"
+          "message": "codex declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
         }
       },
       "model": {
@@ -6603,9 +7769,10 @@
           "harness": "codex",
           "supported": [
             "claude",
-            "pi"
+            "pi",
+            "antigravity"
           ],
-          "message": "codex declares no persistent headless session mode; supported: claude, pi - use hcn run --resume <id>"
+          "message": "codex declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
         }
       },
       "effort": {
@@ -6614,9 +7781,10 @@
           "harness": "codex",
           "supported": [
             "claude",
-            "pi"
+            "pi",
+            "antigravity"
           ],
-          "message": "codex declares no persistent headless session mode; supported: claude, pi - use hcn run --resume <id>"
+          "message": "codex declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
         }
       },
       "model-effort": {
@@ -6625,9 +7793,10 @@
           "harness": "codex",
           "supported": [
             "claude",
-            "pi"
+            "pi",
+            "antigravity"
           ],
-          "message": "codex declares no persistent headless session mode; supported: claude, pi - use hcn run --resume <id>"
+          "message": "codex declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
         }
       },
       "provider": {
@@ -6636,9 +7805,10 @@
           "harness": "codex",
           "supported": [
             "claude",
-            "pi"
+            "pi",
+            "antigravity"
           ],
-          "message": "codex declares no persistent headless session mode; supported: claude, pi - use hcn run --resume <id>"
+          "message": "codex declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
         }
       },
       "resume": {
@@ -6647,9 +7817,10 @@
           "harness": "codex",
           "supported": [
             "claude",
-            "pi"
+            "pi",
+            "antigravity"
           ],
-          "message": "codex declares no persistent headless session mode; supported: claude, pi - use hcn run --resume <id>"
+          "message": "codex declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
         }
       },
       "bad-id": {
@@ -6658,9 +7829,10 @@
           "harness": "codex",
           "supported": [
             "claude",
-            "pi"
+            "pi",
+            "antigravity"
           ],
-          "message": "codex declares no persistent headless session mode; supported: claude, pi - use hcn run --resume <id>"
+          "message": "codex declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
         }
       }
     },
@@ -6747,9 +7919,10 @@
           "harness": "muse",
           "supported": [
             "claude",
-            "pi"
+            "pi",
+            "antigravity"
           ],
-          "message": "muse declares no persistent headless session mode; supported: claude, pi - use hcn run --resume <id>"
+          "message": "muse declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
         }
       },
       "model": {
@@ -6758,9 +7931,10 @@
           "harness": "muse",
           "supported": [
             "claude",
-            "pi"
+            "pi",
+            "antigravity"
           ],
-          "message": "muse declares no persistent headless session mode; supported: claude, pi - use hcn run --resume <id>"
+          "message": "muse declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
         }
       },
       "effort": {
@@ -6769,9 +7943,10 @@
           "harness": "muse",
           "supported": [
             "claude",
-            "pi"
+            "pi",
+            "antigravity"
           ],
-          "message": "muse declares no persistent headless session mode; supported: claude, pi - use hcn run --resume <id>"
+          "message": "muse declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
         }
       },
       "model-effort": {
@@ -6780,9 +7955,10 @@
           "harness": "muse",
           "supported": [
             "claude",
-            "pi"
+            "pi",
+            "antigravity"
           ],
-          "message": "muse declares no persistent headless session mode; supported: claude, pi - use hcn run --resume <id>"
+          "message": "muse declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
         }
       },
       "provider": {
@@ -6791,9 +7967,10 @@
           "harness": "muse",
           "supported": [
             "claude",
-            "pi"
+            "pi",
+            "antigravity"
           ],
-          "message": "muse declares no persistent headless session mode; supported: claude, pi - use hcn run --resume <id>"
+          "message": "muse declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
         }
       },
       "resume": {
@@ -6802,9 +7979,10 @@
           "harness": "muse",
           "supported": [
             "claude",
-            "pi"
+            "pi",
+            "antigravity"
           ],
-          "message": "muse declares no persistent headless session mode; supported: claude, pi - use hcn run --resume <id>"
+          "message": "muse declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
         }
       },
       "bad-id": {
@@ -6813,9 +7991,10 @@
           "harness": "muse",
           "supported": [
             "claude",
-            "pi"
+            "pi",
+            "antigravity"
           ],
-          "message": "muse declares no persistent headless session mode; supported: claude, pi - use hcn run --resume <id>"
+          "message": "muse declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
         }
       }
     },
@@ -6826,9 +8005,10 @@
           "harness": "cursor",
           "supported": [
             "claude",
-            "pi"
+            "pi",
+            "antigravity"
           ],
-          "message": "cursor declares no persistent headless session mode; supported: claude, pi - use hcn run --resume <id>"
+          "message": "cursor declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
         }
       },
       "model": {
@@ -6837,9 +8017,10 @@
           "harness": "cursor",
           "supported": [
             "claude",
-            "pi"
+            "pi",
+            "antigravity"
           ],
-          "message": "cursor declares no persistent headless session mode; supported: claude, pi - use hcn run --resume <id>"
+          "message": "cursor declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
         }
       },
       "effort": {
@@ -6848,9 +8029,10 @@
           "harness": "cursor",
           "supported": [
             "claude",
-            "pi"
+            "pi",
+            "antigravity"
           ],
-          "message": "cursor declares no persistent headless session mode; supported: claude, pi - use hcn run --resume <id>"
+          "message": "cursor declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
         }
       },
       "model-effort": {
@@ -6859,9 +8041,10 @@
           "harness": "cursor",
           "supported": [
             "claude",
-            "pi"
+            "pi",
+            "antigravity"
           ],
-          "message": "cursor declares no persistent headless session mode; supported: claude, pi - use hcn run --resume <id>"
+          "message": "cursor declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
         }
       },
       "provider": {
@@ -6870,9 +8053,10 @@
           "harness": "cursor",
           "supported": [
             "claude",
-            "pi"
+            "pi",
+            "antigravity"
           ],
-          "message": "cursor declares no persistent headless session mode; supported: claude, pi - use hcn run --resume <id>"
+          "message": "cursor declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
         }
       },
       "resume": {
@@ -6881,9 +8065,10 @@
           "harness": "cursor",
           "supported": [
             "claude",
-            "pi"
+            "pi",
+            "antigravity"
           ],
-          "message": "cursor declares no persistent headless session mode; supported: claude, pi - use hcn run --resume <id>"
+          "message": "cursor declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
         }
       },
       "bad-id": {
@@ -6892,9 +8077,95 @@
           "harness": "cursor",
           "supported": [
             "claude",
-            "pi"
+            "pi",
+            "antigravity"
           ],
-          "message": "cursor declares no persistent headless session mode; supported: claude, pi - use hcn run --resume <id>"
+          "message": "cursor declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
+        }
+      }
+    },
+    "antigravity": {
+      "fresh": {
+        "argv": [
+          "agy",
+          "--input-format",
+          "stream-json",
+          "--output-format",
+          "stream-json"
+        ]
+      },
+      "model": {
+        "argv": [
+          "agy",
+          "--input-format",
+          "stream-json",
+          "--output-format",
+          "stream-json",
+          "--model",
+          "gemini-3.8-flash-high"
+        ]
+      },
+      "effort": {
+        "argv": [
+          "agy",
+          "--input-format",
+          "stream-json",
+          "--output-format",
+          "stream-json",
+          "--effort",
+          "high"
+        ]
+      },
+      "model-effort": {
+        "argv": [
+          "agy",
+          "--input-format",
+          "stream-json",
+          "--output-format",
+          "stream-json",
+          "--model",
+          "gemini-3.8-flash-high",
+          "--effort",
+          "high"
+        ]
+      },
+      "provider": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "provider",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "supportedBy": [
+            {
+              "harness": "pi",
+              "spelling": "--provider"
+            }
+          ],
+          "message": "antigravity cannot express option \"provider\" (zai); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "resume": {
+        "argv": [
+          "agy",
+          "--input-format",
+          "stream-json",
+          "--output-format",
+          "stream-json",
+          "--conversation",
+          "0199a4c5-1111-2222-3333-444455556666"
+        ]
+      },
+      "bad-id": {
+        "refusal": {
+          "issue": "invalid-option-value",
+          "harness": "antigravity",
+          "supported": [
+            "a session id of letters, digits, '.', '_', ':', '@', '-' only, starting with a letter or digit, at most 128 chars"
+          ],
+          "message": "antigravity cannot resume session id \"../etc\" is not a usable id: must match /^[A-Za-z0-9][A-Za-z0-9._:@-]*$/ and be at most 128 chars"
         }
       }
     }
@@ -11348,6 +12619,725 @@
               "key": "sandbox",
               "tier": "profile"
             },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
+          ]
+        }
+      }
+    },
+    "antigravity": {
+      "bare": {
+        "resolved": {
+          "options": {
+            "effort": "medium",
+            "sandbox": "workspace-write"
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": "all-known",
+              "tier": "harness"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "access-read": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "access",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "message": "antigravity cannot express option \"access\" (read); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "access-read-explicit-sandbox": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "access",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "message": "antigravity cannot express option \"access\" (read); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "access-read-config-sandbox": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "access",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "message": "antigravity cannot express option \"access\" (read); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "access-and-tools": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "antigravity",
+          "option": "access",
+          "supported": [
+            "--access is a preset allowlist, not a filter over --tools/--exclude-tools"
+          ],
+          "message": "antigravity cannot combine option \"access\" (mutual exclusion); supported: --access is a preset allowlist, not a filter over --tools/--exclude-tools - pass exactly one of them"
+        }
+      },
+      "access-from-project": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "access",
+          "supported": [
+            "effort",
+            "sandbox"
+          ],
+          "message": "antigravity cannot express option \"access\" (read); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "access-invalid": {
+        "refusal": {
+          "issue": "invalid-option-value",
+          "harness": "antigravity",
+          "option": "access",
+          "supported": [
+            "read",
+            "write"
+          ],
+          "message": "invalid value for option \"access\" on antigravity (rw); supported: read, write - use a supported value instead"
+        }
+      },
+      "tools-within-floor": {
+        "resolved": {
+          "options": {
+            "tools": [
+              "read"
+            ],
+            "effort": "medium",
+            "sandbox": "workspace-write"
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": [
+                "read"
+              ],
+              "tier": "arg"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "tools-exceeds-floor": {
+        "refusal": {
+          "name": "FloorExceededError",
+          "excess": [
+            "shell"
+          ],
+          "floor": [
+            "read"
+          ],
+          "message": "tool grant exceeds the project floor: [\"shell\"] not in floor [\"read\"] - request a grant within the floor or raise the floor in the project config"
+        }
+      },
+      "tools-empty-floor": {
+        "refusal": {
+          "name": "FloorExceededError",
+          "excess": [
+            "read"
+          ],
+          "floor": [],
+          "message": "tool grant exceeds the project floor: [\"read\"] not in floor [] - request a grant within the floor or raise the floor in the project config"
+        }
+      },
+      "toolset": {
+        "resolved": {
+          "options": {
+            "tools": [
+              "read",
+              "grep"
+            ],
+            "effort": "medium",
+            "sandbox": "workspace-write"
+          },
+          "provenance": [
+            {
+              "key": "tools",
+              "value": [
+                "read",
+                "grep"
+              ],
+              "tier": "arg"
+            },
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": [
+                "read",
+                "grep"
+              ],
+              "tier": "arg"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "toolmap-tiers": {
+        "resolved": {
+          "options": {
+            "toolMap": {
+              "pi": {
+                "web-search": {
+                  "native": "ws_project",
+                  "tier": "project-config"
+                }
+              }
+            },
+            "effort": "medium",
+            "sandbox": "workspace-write"
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": "all-known",
+              "tier": "harness"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "discovery-tools-off": {
+        "resolved": {
+          "options": {
+            "discovery": {
+              "tools": false
+            },
+            "effort": "medium",
+            "sandbox": "workspace-write"
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": false
+              },
+              "tier": "arg"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": "all-known",
+              "tier": "harness"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "effort-tiers": {
+        "resolved": {
+          "options": {
+            "effort": "low",
+            "sandbox": "workspace-write"
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "low",
+              "tier": "project-config"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": "all-known",
+              "tier": "harness"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "effort-arg-wins": {
+        "resolved": {
+          "options": {
+            "effort": "max",
+            "sandbox": "workspace-write"
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "max",
+              "tier": "arg"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": "all-known",
+              "tier": "harness"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "behaviour-keys": {
+        "resolved": {
+          "options": {
+            "effort": "medium",
+            "sandbox": "workspace-write",
+            "questions": "assume",
+            "timeout": 30
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": "all-known",
+              "tier": "harness"
+            },
+            {
+              "key": "questions",
+              "value": "assume",
+              "tier": "user-config"
+            },
+            {
+              "key": "timeout",
+              "value": 30,
+              "tier": "user-config"
+            }
+          ],
+          "unrenderable": [
             {
               "key": "contextWindow",
               "tier": "profile"

@@ -1,13 +1,14 @@
 import { isAbsolute, resolve } from "node:path";
+import { cursorCli } from "../knowledge/cursor.js";
 import type { HarnessName } from "../knowledge/descriptor.js";
+import { resolveStoreRoot } from "./resume-guard.js";
 
 /** The transcript store root for one harness, resolved impurely from the
  * environment. Single source for `transcript.ts` and the resume-last CLI
  * guard: both must name the same directory the harness files sessions
  * under, so the branches live here once rather than copied per caller.
- * Where a descriptor carries its own root table (`store.rootEnv` /
- * `store.defaultRoot`, cursor in v1) the guard prefers that descriptor
- * data; this helper covers the fixed home-path harnesses. */
+ * Cursor carries its own root table (`store.rootEnv` / `store.defaultRoot`),
+ * so its branch reads that descriptor data; the others are fixed home paths. */
 export const transcriptStoreRoot = (
   harness: HarnessName,
   opts: {
@@ -55,14 +56,14 @@ export const transcriptStoreRoot = (
       `--${opts.cwd.replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`,
     );
   }
-  // Cursor never reaches here: `transcript.ts` refuses cursor
-  // (`transcript: null`) before root computation, and the resume-last
-  // guard resolves cursor through the descriptor table first. Throw
-  // rather than silently handing cursor a pi root.
+  if (harness === "antigravity") {
+    return resolve(opts.home, ".gemini", "antigravity-cli", "brain");
+  }
   if (harness === "cursor") {
-    throw new Error(
-      "cursor store root resolves through the descriptor table (resolveStoreRoot), never here",
-    );
+    // Cursor's root follows its descriptor precedence table (probes 44-54).
+    const root = resolveStoreRoot(cursorCli, opts);
+    if (root === undefined) throw new Error("cursor descriptor declares no store root");
+    return root;
   }
   const exhaustive: never = harness;
   throw new Error(`transcriptStoreRoot: unreachable harness ${String(exhaustive)}`);

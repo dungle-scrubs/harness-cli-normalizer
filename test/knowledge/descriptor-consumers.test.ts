@@ -14,6 +14,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { buildSpawnArgv } from "../../src/interpretation/argv.js";
+import { antigravityCli } from "../../src/knowledge/antigravity.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
 import { cursorCli } from "../../src/knowledge/cursor.js";
@@ -56,7 +57,9 @@ const PENDING: Readonly<Record<string, string>> = {};
 
 describe("every descriptor field has a consumer outside the knowledge layer", () => {
   const paths = new Set<string>();
-  for (const h of [claudeCode, codexCli, piCli, museCode]) fieldPaths(h, "", 1, paths);
+  for (const h of [claudeCode, codexCli, piCli, museCode, cursorCli, antigravityCli]) {
+    fieldPaths(h, "", 1, paths);
+  }
   // turnOptions keys are the closed TurnOptionKey vocabulary, read by
   // name through the tuple, not as property accesses.
   const candidates = [...paths].filter(
@@ -74,18 +77,19 @@ describe("every descriptor field has a consumer outside the knowledge layer", ()
 });
 
 describe("resumeLast renderable split (RFC-06 Phase 1)", () => {
-  test("five descriptor values: four renderable, muse parse-only (RFC-06 Phase 5: cursor flipped)", () => {
+  test("six descriptor values: five renderable, muse parse-only", () => {
     expect(claudeCode.resumeLast).toMatchObject({ flag: "--continue", headless: true });
     expect(piCli.resumeLast).toMatchObject({ flag: "--continue", headless: true });
     expect(codexCli.resumeLast).toMatchObject({ flag: "--last", headless: true });
     expect(museCode.resumeLast).toMatchObject({ flag: "--last", headless: false });
     expect(cursorCli.resumeLast).toMatchObject({ flag: "--continue", headless: true });
+    expect(antigravityCli.resumeLast).toMatchObject({ flag: "--continue", headless: true });
   });
 
   test("the parse-only arm carries no warning text: muse has no renderable warning to drift", () => {
     expect(museCode.resumeLast).not.toBeNull();
     expect(museCode.resumeLast).not.toHaveProperty("warning");
-    for (const h of [claudeCode, piCli, codexCli, cursorCli]) {
+    for (const h of [claudeCode, piCli, codexCli, cursorCli, antigravityCli]) {
       expect(h.resumeLast).toHaveProperty("warning");
     }
   });

@@ -7,8 +7,8 @@
  * before spawn on harnesses where no placement parses. The `before-prompt`
  * splice was removed (L5): no harness needed it, and a variadic tail ahead
  * of the prompt is a hazard (claude would take the prompt as a directory).
- * Absent means `after-argv`: trailing flags parsed on all five harnesses,
- * so an unverified descriptor gets the working default, never the
+ * Absent means `after-argv`: new descriptors keep the established default,
+ * never the
  * separator that broke every harness.
  *
  * Probe evidence (prompt "Reply with exactly OK", scrubbed env):
@@ -23,10 +23,11 @@
  * - cursor 2026.09.15: appended `--model gpt-5-mini` switched the run's
  *   model; bogus rejected. The RFC-05 prompt-joins verdict was the same
  *   `--` artifact, not the harness.
- * Resume checked on all five with the same placement.
+ * Resume checked on the five previously shipped harnesses with the same placement.
  */
 import { describe, expect, test } from "vitest";
 import { ArgvRefusalError, buildSpawnArgv } from "../../src/interpretation/argv.js";
+import { antigravityCli } from "../../src/knowledge/antigravity.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
 import { cursorCli } from "../../src/knowledge/cursor.js";
@@ -47,7 +48,14 @@ const refusalOf = (work: () => unknown): ArgvRefusalError => {
   throw new Error("expected an ArgvRefusalError");
 };
 
-const AFTER: readonly HarnessDescriptor[] = [claudeCode, codexCli, piCli, museCode, cursorCli];
+const AFTER: readonly HarnessDescriptor[] = [
+  claudeCode,
+  codexCli,
+  piCli,
+  museCode,
+  cursorCli,
+  antigravityCli,
+];
 
 describe("after-argv placement", () => {
   for (const h of AFTER) {

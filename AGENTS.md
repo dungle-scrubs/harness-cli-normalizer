@@ -116,6 +116,12 @@ bun scripts/check-versions.ts       # compare descriptors to published versions
   run `scripts/check-claims.sh` against the updated binary and
   `scripts/check-claims.test.sh` from that skill directory; report any remaining
   mismatch or blocker.
+- A hand-written reader for an external binary format ships with byte-level
+  malformed-input tests beside its happy-path checks: truncated and oversized
+  declared lengths, out-of-bounds offsets, cyclic chains, and cross-boundary
+  reads. Cross-checking against a reference implementation proves only that
+  well-formed input agrees. Close that parser's independent review before
+  updating help text, docs, README, or the vendored hcn skill on top of it.
 - Commits follow [Conventional Commits](https://www.conventionalcommits.org/)
   (`feat:`, `fix:`, `perf:`, `refactor:`, `docs:`, `chore:`, `ci:`, `test:`).
   release-please reads these to cut releases and write `CHANGELOG.md`.

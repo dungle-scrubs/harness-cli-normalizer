@@ -1,0 +1,1 @@
+{"event":"result","result":{"conversation_id":"c3b4fe40-7c75-4f22-b863-51061aa8b20b","status":"ERROR","response":"","error":"Authentication required. Please sign in.","usage":{"input_tokens":0,"output_tokens":0,"thinking_tokens":0,"cache_read_tokens":0,"total_tokens":0}}}

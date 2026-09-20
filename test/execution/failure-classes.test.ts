@@ -1,6 +1,14 @@
 import { describe, expect, test } from "vitest";
 import type { HarnessEvent } from "../../src/execution/events.js";
-import { failureFromTerminalError, retryableOf } from "../../src/execution/failure.js";
+import {
+  failureFromNative,
+  failureFromLimit,
+  failureFromTerminalError,
+  failureFromTimeout,
+  failureFromTrust,
+  isLimitFailure,
+  retryableOf,
+} from "../../src/execution/failure.js";
 import { streamTurn } from "../../src/execution/stream-turn.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
@@ -242,5 +250,70 @@ describe("failure classes via streamTurn (continued)", () => {
     // Stream path for unavailable via stderr tail after transport check
     expect(done.failure?.class).toBe("unavailable");
     expect(done.failure?.retryable).toBe(true);
+  });
+});
+
+describe("failure message contracts", () => {
+  test("timeout and trust failures keep their actionable remedies", () => {
+    expect(failureFromTimeout()).toEqual({
+      class: "timeout",
+      message:
+        "Timeout: run exceeded its wall-clock budget and was killed (SIGTERM, then SIGKILL after grace) - raise --timeout for this workload or split the task",
+      retryable: false,
+    });
+    expect(failureFromTrust("untrusted workspace")).toEqual({
+      class: "trust-refused",
+      message:
+        "Workspace trust refused (untrusted workspace) - run `agent` interactively in that directory once, or use a directory Cursor already trusts; --autonomy grants unattended edits and shell for that run without persisting trust",
+      retryable: true,
+    });
+  });
+
+  test("native failures retain only the last three stderr lines and the native exit code", () => {
+    expect(failureFromNative(7, ["first", "second", "third", "fourth"])).toEqual({
+      class: "native",
+      message:
+        "NATIVE ERROR from harness: second | third | fourth - the harness rejected or failed on its own arguments; this is not an hcn error",
+      nativeExitCode: 7,
+      retryable: false,
+    });
+    expect(failureFromNative(null, [])).toEqual({
+      class: "native",
+      message:
+        "NATIVE ERROR from harness: exit null - the harness rejected or failed on its own arguments; this is not an hcn error",
+      nativeExitCode: undefined,
+      retryable: false,
+    });
+  });
+
+  test("limit codes retain their normalized class and limit identity", () => {
+    expect(failureFromLimit("rate-limit")).toMatchObject({
+      class: "rate-limit",
+      code: "rate-limit",
+      retryable: true,
+    });
+    expect(failureFromLimit("credits")).toMatchObject({
+      class: "quota",
+      code: "credits",
+      retryable: true,
+    });
+    expect(failureFromLimit("quota")).toMatchObject({
+      class: "quota",
+      code: "quota",
+      retryable: true,
+    });
+    expect(failureFromLimit("weekly-limit")).toMatchObject({
+      class: "usage-limit",
+      code: "weekly-limit",
+      retryable: true,
+    });
+  });
+
+  test("only normalized limit failures satisfy the limit predicate", () => {
+    for (const code of ["rate-limit", "credits", "weekly-limit"] as const) {
+      expect(isLimitFailure(failureFromLimit(code))).toBe(true);
+    }
+    expect(isLimitFailure(failureFromTrust())).toBe(false);
+    expect(isLimitFailure(failureFromTimeout())).toBe(false);
   });
 });

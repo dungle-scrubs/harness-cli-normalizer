@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { rankResumeLast, resumeLastWarning } from "../../src/interpretation/resume-last.js";
+import { antigravityCli } from "../../src/knowledge/antigravity.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
 import { cursorCli } from "../../src/knowledge/cursor.js";
@@ -94,11 +95,17 @@ describe("RFC-06 Phase 3: pinned resume-last warning texts", () => {
     );
   });
 
+  test("antigravity warns about cached most-recent fallback", () => {
+    expect(resumeLastWarning(antigravityCli, cwd)).toBe(
+      `hcn: --resume-last resumes Antigravity CLI's most-recent conversation for ${cwd}; the cached conversation may be failed or unrelated, and Antigravity starts a fresh conversation when its workspace cache is missing or stale`,
+    );
+  });
+
   test("the warning carries no session id on any renderable harness", () => {
     // The renderer substitutes only the scope cwd into a fixed template,
     // so no UUID-shaped token can appear unless the cwd itself carries
     // one - the fixed cwd here carries none.
-    for (const h of [claudeCode, codexCli, piCli, cursorCli]) {
+    for (const h of [claudeCode, codexCli, piCli, cursorCli, antigravityCli]) {
       expect(resumeLastWarning(h, cwd)).not.toMatch(UUID_SHAPE);
     }
   });

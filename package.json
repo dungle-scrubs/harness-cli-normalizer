@@ -1,7 +1,7 @@
 {
   "name": "@dungle-scrubs/harness-cli-normalizer",
   "version": "0.6.21",
-  "description": "One stable CLI to four coding-agent harnesses: normalized flags, defaults, and events.",
+  "description": "One stable CLI to six coding-agent harnesses: normalized flags, defaults, and events.",
   "license": "MIT",
   "author": "Kevin Frilot",
   "repository": {
@@ -35,6 +35,11 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:bun": "bun test",
+    "test:mutation": "pnpm test:mutation:failure && pnpm test:mutation:argv && pnpm test:mutation:content && pnpm test:mutation:session-input",
+    "test:mutation:argv": "stryker run --mutate src/interpretation/argv.ts",
+    "test:mutation:content": "stryker run --mutate src/interpretation/content.ts",
+    "test:mutation:failure": "stryker run --mutate src/execution/failure.ts",
+    "test:mutation:session-input": "stryker run --mutate src/interpretation/session-input.ts",
     "prepare": "node scripts/install-hooks.ts",
     "prepack": "pnpm build:release",
     "smoke:claude": "bun scripts/smoke-claude.ts",
@@ -46,6 +51,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.12",
+    "@stryker-mutator/core": "10.0.0",
     "@types/node": "^26.4.1",
     "lefthook": "^2.1.12",
     "typescript": "^7.0.2",

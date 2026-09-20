@@ -73,11 +73,6 @@ export async function transcript(raw: string[]): Promise<void> {
     process.exitCode = 2;
     return;
   }
-  // RFC-05: a harness whose descriptor carries transcript: null (cursor
-  // in v1) refuses as divergence BEFORE root computation, so the request
-  // can never fall into the pi-default else branch below and resolve a pi
-  // root for it. Descriptor-driven: no harness-name branch, and the else
-  // stays pi-only with no resolving cursor branch.
   const knowledge = resolveHarness(options.harness).transcript;
   if (knowledge === null) {
     const request: ReadTranscriptRequest = {
