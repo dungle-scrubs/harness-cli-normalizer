@@ -72,7 +72,8 @@ process boundaries belongs to the caller, because only the caller knows what a
 unit of work is.
 
 Recorded as ADR 0007. `AGENTS.md` carries it as the test applied before adding
-functionality.
+functionality. ADR 0008 adds a second gate on top of it: the supervising list
+below is closed, and a new supervising part needs the maintainer to ask for it.
 
 ## What hcn normalizes
 
@@ -94,8 +95,13 @@ These own state, a clock, or a policy that no harness has. Each is deliberate.
 - **The escalation preamble.** hcn writes instructions into the model's context.
   Furthest from normalization: hcn becomes a participant in the conversation,
   and the run's output is partly downstream of hcn's own text.
+- **The native-approvals responder.** Under `--native-approvals` hcn answers
+  Codex permission requests itself: it offers the choices, tracks decision ids,
+  refuses a conflicting re-answer, and expires the answer right once the request
+  clears. The largest supervising part, and the only one with its own state
+  machine.
 - **Killing on stall or deadline.** hcn ends the child process and synthesizes
-  the failure.
+  the failure. `--timeout` is a wall clock hcn enforces; no harness has one.
 - **The stall clock.** `stall` appears in no descriptor. hcn invented the idea
   that a turn can be too quiet.
 - **`retryable`.** No harness says whether a caller should try again. hcn
@@ -131,7 +137,7 @@ These own state, a clock, or a policy that no harness has. Each is deliberate.
   API by shape. The first claim is about packaging, the second about interface.
   Neither cancels the other, and the README should say which it means.
 
-- **"Normalizer"** describes hcn's identity but not all of its code. Eight parts
+- **"Normalizer"** describes hcn's identity but not all of its code. Nine parts
   supervise, listed above. Calling the whole product a normalizer overstates
   roughly a third of it.
 
@@ -139,6 +145,15 @@ These own state, a clock, or a policy that no harness has. Each is deliberate.
   prompt* is the harness asking about its own tool use, and every harness has
   one. An *open decision question* is the model asking about the work, and no
   harness can answer one headlessly. **Escalation** means only the second.
+
+- **"Access preset"** sits on the line between the two jobs. The per-harness
+  renders are descriptor data, and a harness that cannot express a value reports
+  divergence rather than getting invented behaviour, which is normalizing.
+  Deciding that `read` means the tool preset on claude and `--sandbox read-only`
+  on codex is hcn's judgment, recorded once per harness instead of decided per
+  call. Classified as normalizing because removing it changes no run's outcome,
+  only who writes the flag. A 2026-09-20 review read it as supervision; ADR 0008
+  keeps the classification and records the disagreement.
 
 - **"Provider"** is the model vendor on pi, not the harness and not the model.
   hcn's `--provider` flag is pi-only for this reason.
