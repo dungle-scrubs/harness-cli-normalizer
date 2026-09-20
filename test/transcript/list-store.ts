@@ -25,6 +25,8 @@ export const WRITE_TIMES = {
   muse: "2026-09-20T03:00:00.000Z",
   museSubagent: "2026-09-20T02:00:00.000Z",
   cursor: "2026-09-20T01:00:00.000Z",
+  // Older than every other source, so a time window cannot pick it up.
+  museUnmarked: "2026-09-20T00:30:00.000Z",
   antigravity: "2026-09-20T00:00:00.000Z",
 } as const;
 
@@ -47,6 +49,7 @@ export const START_TIMES = {
   muse: "2026-09-19T03:00:00.000Z",
   museSubagent: "2026-09-19T02:00:00.000Z",
   cursor: "2026-09-19T01:00:00.000Z",
+  museUnmarked: "2026-09-19T00:30:00.000Z",
   antigravity: "2026-09-19T00:00:00Z",
 } as const;
 
@@ -64,6 +67,7 @@ export const IDS = {
   muse: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
   museSubagent: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
   cursor: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+  museUnmarked: "01010101-0101-4101-8101-010101010101",
   antigravity: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
   antigravityChild: "ffffffff-ffff-4fff-8fff-ffffffffffff",
 } as const;
@@ -126,6 +130,20 @@ function museRecord(workspaceRoot: string, startedAt: string): unknown {
     record_type: "observed",
     payload_type: "runtime.session.metadata",
     payload: { kind: "metadata", record: { workspace_root: workspaceRoot } },
+  };
+}
+/** A Muse session whose store never wrote the metadata record naming its
+ * workspace. Four of the 990 Muse sources on the machine this was written
+ * against are like this; they still carry `recorded_at` on every record. */
+function museUnmarkedRecord(startedAt: string): unknown {
+  return {
+    schema_version: 1,
+    stream: { kind: "session", id: "01a0b000-0000-7000-8000-000000000002" },
+    sequence: 0,
+    recorded_at: Date.parse(startedAt) * 1000,
+    record_type: "event",
+    payload_type: "runtime.session",
+    payload: { kind: "run", event: { kind: "started" } },
   };
 }
 function antigravityStep(startedAt: string): string {
@@ -299,6 +317,23 @@ export async function writeSyntheticStores(home: string): Promise<SyntheticStore
     }),
   );
   touch(join(cursorChat, "store.db"), WRITE_TIMES.cursor);
+
+  const museUnmarked = join(
+    home,
+    ".local",
+    "share",
+    "muse",
+    "sessions",
+    "2026",
+    "09",
+    "20",
+    IDS.museUnmarked,
+  );
+  write(
+    join(museUnmarked, "session.jsonl"),
+    lines([museUnmarkedRecord(START_TIMES.museUnmarked)]),
+    WRITE_TIMES.museUnmarked,
+  );
 
   const brain = join(home, ".gemini", "antigravity-cli", "brain");
   for (const id of [IDS.antigravity, IDS.antigravityChild])

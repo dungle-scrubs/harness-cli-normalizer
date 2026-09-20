@@ -99,14 +99,22 @@ const millisTime = (value: Json | undefined): string | null => {
  * A session whose store names no workspace and no mode. The default workspace
  * scope drops it, so it surfaces only under `--all-workspaces`, where dropping
  * it outright would hide a saved session.
+ *
+ * A missing workspace does not make the start time missing too: the prefix the
+ * scan already read can carry one, and the caller passes what it found.
  */
-function unmarked(candidate: ListingCandidate, markers: ListingMarkers, id?: string): ListedResult {
+function unmarked(
+  candidate: ListingCandidate,
+  markers: ListingMarkers,
+  startedAt: string | null = null,
+  id?: string,
+): ListedResult {
   return found({
     id: id ?? candidate.id,
     file: candidate.file,
     cwd: null,
     lastWriteAt: markers.lastWriteAt,
-    startedAt: null,
+    startedAt,
     mode: "unknown",
     readable: candidate.readable,
   });
@@ -188,7 +196,7 @@ const claudeListing: TranscriptListing = {
       startedAt ??= isoTime(entry.timestamp);
       if (identity && entrypoint !== null && startedAt !== null) break;
     }
-    if (!identity) return markers.final ? unmarked(candidate, markers) : TRUNCATED;
+    if (!identity) return markers.final ? unmarked(candidate, markers, startedAt) : TRUNCATED;
     // A sidechain file is the agent's own conversation, not the session's.
     if (identity.isSidechain === true) return SKIP;
     return found({
@@ -316,7 +324,8 @@ const museListing: TranscriptListing = {
       startedAt ??= microsTime(entry.recorded_at);
       if (workspace !== undefined && startedAt !== null) break;
     }
-    if (workspace === undefined) return markers.final ? unmarked(candidate, markers) : TRUNCATED;
+    if (workspace === undefined)
+      return markers.final ? unmarked(candidate, markers, startedAt) : TRUNCATED;
     return found({
       id: candidate.id,
       file: candidate.file,

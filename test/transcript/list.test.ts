@@ -135,6 +135,17 @@ test("each row carries the start time its own native header names", () => {
   for (const row of rows) expect(row.startedAt, row.harness).not.toBe(row.lastWriteAt);
 });
 
+test("a session whose store names no workspace still reports its start time", () => {
+  const row = list(["--all-workspaces", "--headless"]).rows.find(
+    (item) => item.id === IDS.museUnmarked,
+  );
+  // The workspace is genuinely absent, so the row says so.
+  expect(row?.cwd).toBeNull();
+  // The prefix the scan already read carries the time, so the row reports it.
+  // A missing workspace is not a reason to drop a fact the store does record.
+  expect(row?.startedAt).toBe(START_TIMES.museUnmarked);
+});
+
 test("a source with no readable header reports no start time", () => {
   const row = list(["--all-workspaces", "--headless"]).rows.find(
     (item) => item.id === IDS.codexCompressed,
