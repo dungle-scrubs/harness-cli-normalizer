@@ -88,6 +88,7 @@ async function rows(order: readonly HarnessName[] = REQUESTED): Promise<string[]
     workspace: null,
     headless: true,
     limit: null,
+    sinceTime: null,
   };
   const lines: string[] = [];
   await listSessions(request, {

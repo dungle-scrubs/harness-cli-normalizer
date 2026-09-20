@@ -112,6 +112,7 @@ async function refuseList(version: string, error: unknown, raw: readonly string[
       workspace: raw.includes("--all-workspaces") ? null : process.cwd(),
       headless: raw.includes("--headless"),
       limit: null,
+      sinceTime: null,
     },
   };
   const result: SessionListResult = {
@@ -159,6 +160,7 @@ export async function transcriptList(raw: readonly string[]): Promise<void> {
         workspace: options.allWorkspaces ? null : cwd,
         headless: options.headless,
         limit: options.limit,
+        sinceTime: options.sinceTime,
       },
       {
         files: nodeTranscriptFiles,

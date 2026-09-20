@@ -4,6 +4,7 @@ import type { Guarantee } from "../../knowledge/transcript/schema.js";
 import { GUARANTEES } from "../../knowledge/transcript/schema.js";
 import { validateBookmarkEncoding } from "./bookmark.js";
 import { TranscriptError } from "./json.js";
+import { utcTime } from "./time.js";
 
 export interface TranscriptOptions {
   readonly acceptedLimits: readonly Guarantee[];
@@ -21,11 +22,15 @@ export interface TranscriptListOptions {
   readonly harnesses: readonly HarnessName[];
   readonly headless: boolean;
   readonly limit: number | null;
+  /** Admit only sources written at or after this UTC instant, or null for all
+   * of them. Normalized to `YYYY-MM-DDTHH:MM:SS.mmmZ` so it compares against
+   * a row's `lastWriteAt` directly. */
+  readonly sinceTime: string | null;
 }
 export function transcriptHarness(value: string | undefined): HarnessName | null {
   return HARNESS_NAMES.find((name) => name === value) ?? null;
 }
-const LIST_VALUES = ["--cwd", "--harness", "--limit"];
+const LIST_VALUES = ["--cwd", "--harness", "--limit", "--since-time"];
 const LIST_FLAGS = ["--all-workspaces", "--headless"];
 export function parseTranscriptListOptions(raw: readonly string[]): TranscriptListOptions {
   const invalid = (): never => {
@@ -65,6 +70,13 @@ export function parseTranscriptListOptions(raw: readonly string[]): TranscriptLi
     (!/^[0-9]+$/.test(limit) || !Number.isSafeInteger(Number(limit)) || Number(limit) < 1)
   )
     throw new TranscriptError("invalid-option-value", "Invalid positive row limit.");
+  const rawSince = values.get("--since-time");
+  const sinceTime = rawSince === undefined ? null : utcTime(rawSince);
+  if (rawSince !== undefined && sinceTime === null)
+    throw new TranscriptError(
+      "invalid-option-value",
+      "--since-time takes a UTC instant, as YYYY-MM-DDTHH:MM:SS[.mmm]Z.",
+    );
   const names = values.get("--harness")?.split(",") ?? [];
   if (names.some((name) => transcriptHarness(name) === null))
     throw new TranscriptError("invalid-option-value", "Unknown harness in --harness.");
@@ -74,6 +86,7 @@ export function parseTranscriptListOptions(raw: readonly string[]): TranscriptLi
     harnesses: HARNESS_NAMES.filter((name) => names.includes(name)),
     headless: flags.has("--headless"),
     limit: limit === undefined ? null : Number(limit),
+    sinceTime,
   };
 }
 export function parseTranscriptOptions(raw: readonly string[]): TranscriptOptions {

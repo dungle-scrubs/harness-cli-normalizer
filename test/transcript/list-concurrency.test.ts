@@ -117,6 +117,7 @@ async function run(): Promise<{
     workspace: null,
     headless: true,
     limit: null,
+    sinceTime: null,
   };
   const lines: string[] = [];
   const exitCode = await listSessions(request, {

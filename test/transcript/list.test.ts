@@ -294,6 +294,35 @@ test("--harness narrows the result and --limit caps the rows", () => {
   expect(unlimited.result.more).toBe(false);
 });
 
+test("--since-time admits only sources written at or after that instant", () => {
+  const listing = list([
+    "--all-workspaces",
+    "--headless",
+    "--since-time",
+    WRITE_TIMES.codexInteractive,
+  ]);
+  expect(listing.code, JSON.stringify(listing.result)).toBe(0);
+  expect(identify(listing.rows)).toEqual([
+    `claude:${IDS.claudeInteractive}`,
+    `claude:${IDS.claudeHeadless}`,
+    `claude:${IDS.claudeOther}`,
+    // Written exactly at the instant asked for, so it is in.
+    `codex:${IDS.codexInteractive}`,
+  ]);
+  expect(listing.source.scope).toMatchObject({ sinceTime: WRITE_TIMES.codexInteractive });
+  // A harness whose every source is older still lists, with no rows.
+  expect(outcome(listing, "muse")).toMatchObject({ state: "listed", rows: 0 });
+});
+
+test("--since-time takes a UTC instant and refuses anything else", () => {
+  for (const value of ["2026-09-20", "2026-09-20T09:00:00", "2026-09-20T09:00:00+02:00", "now"]) {
+    const listing = list(["--all-workspaces", "--since-time", value]);
+    expect(listing.code, value).toBe(2);
+    expect(listing.result.failure?.issue, value).toBe("invalid-option-value");
+    expect(listing.rows).toEqual([]);
+  }
+});
+
 test("an unknown flag and a bad --limit refuse with exit 2", () => {
   for (const [args, issue] of [
     [["--nope"], "invalid-option-value"],
@@ -329,6 +358,7 @@ test("a harness with no listing method is reported with its reason and keeps exi
       workspace: null,
       headless: true,
       limit: null,
+      sinceTime: null,
     },
     {
       files: {

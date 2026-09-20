@@ -75,6 +75,9 @@ export interface ListSessionsRequest {
   readonly workspace: string | null;
   readonly headless: boolean;
   readonly limit: number | null;
+  /** Sources written before this UTC instant are not opened at all, or null
+   * to open every one. */
+  readonly sinceTime: string | null;
 }
 export interface ListSessionsDeps {
   readonly files: TranscriptFiles;
@@ -223,6 +226,7 @@ async function listHarness(
   deps: ListSessionsDeps,
   checkAbort: () => void,
   openSource: OpenBudget,
+  sinceTime: string | null,
 ): Promise<{ readonly sessions: readonly WalkedSession[]; readonly unreadable: number }> {
   const { listing, listingRoot: root } = entry;
   const sourceStat = deps.files.sourceStat;
@@ -250,6 +254,11 @@ async function listHarness(
           // from: Cursor reads its `meta.json` for those and reports the size
           // of the `store.db` beside it.
           const stat = await sourceStat(join(root, candidate.file));
+          // The whole point of the window: an unchanged source costs this one
+          // stat and is never opened, so neither its prefix read nor its
+          // prefix parse happens. Inclusive, so a row written exactly at the
+          // instant asked for is in.
+          if (sinceTime !== null && stat.lastWriteAt < sinceTime) return null;
           const found = await readSession(listing, candidate, root, index, stat.lastWriteAt, files);
           if (!found) return null;
           const file = join(root, found.file);
@@ -293,6 +302,7 @@ export async function listSessions(
       workspace: request.workspace,
       headless: request.headless,
       limit: request.limit,
+      sinceTime: request.sinceTime,
     },
   };
   // The six stores are unrelated directories sharing no state, so the call is
@@ -316,7 +326,13 @@ export async function listSessions(
         };
       const scoped = { ...entry, listing: entry.listing, listingRoot: entry.listingRoot };
       try {
-        const { sessions, unreadable } = await listHarness(scoped, deps, checkAbort, openSource);
+        const { sessions, unreadable } = await listHarness(
+          scoped,
+          deps,
+          checkAbort,
+          openSource,
+          request.sinceTime,
+        );
         const kept = sessions.filter(
           ({ session }) =>
             (request.workspace === null || session.cwd === request.workspace) &&

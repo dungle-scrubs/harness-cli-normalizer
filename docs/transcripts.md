@@ -15,9 +15,12 @@ hcn transcript read pi --file /path/to/native.jsonl --since OPAQUE_BOOKMARK --li
 hcn transcript ls
 hcn transcript ls --all-workspaces --limit 20
 hcn transcript ls --cwd /path/to/project --headless --harness claude,codex
+hcn transcript ls --all-workspaces --since-time 2026-09-20T12:00:00Z
 ```
 
 It walks each native store on the call and computes the rows from it. There is no index, no cache and no persistent state, and the walk grows with the store. Stdout is JSONL: one `session-list-source` header, one `session` row per saved session, one `session-list-result`. A row carries `harness`, `id`, `file`, `cwd`, `lastWriteAt`, `startedAt`, `sizeBytes`, `mode`, `readable` and `blocked`; its `id` and `file` are what `transcript read --id` and `--file` accept, and `readable` says whether a verified read method addresses that source. `--cwd` admits only the sessions whose workspace is exactly that directory and defaults to the invocation directory; `--all-workspaces` drops the filter and cannot be combined with `--cwd`. Headless runs are omitted unless `--headless` is given.
+
+`--since-time <instant>` admits only the sources written at or after that UTC instant, inclusive. It takes `YYYY-MM-DDTHH:MM:SS[.mmm]Z` and refuses anything else, including an offset, rather than reading it as UTC. It is the one filter that makes the call cheaper rather than only the output smaller: it is applied to the stat the walk already takes, before the source is opened, so a source outside the window costs one stat and no prefix read and no prefix parse. On this machine those two together measure about 450 ms of a 2.09 s call. The directory walk, about 800 ms, is not avoidable this way, because the walk is how candidates are found at all.
 
 `--limit` truncates the rows the call prints. It does not reduce the walk: every store is walked, every row is built, and the whole set is sorted before the limit applies, so a limited call costs what an unlimited one costs. `more` in the result says rows existed beyond the limit. There is no continuation token and no cursor, so a consumer that needs the rest re-runs without `--limit` and pages the listing itself. Rows are ordered `lastWriteAt` descending, then `harness` ascending, then `id` ascending; that triple is the whole order, including for rows that share a `lastWriteAt`.
 

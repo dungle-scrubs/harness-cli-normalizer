@@ -81,6 +81,8 @@ export interface SessionListSource {
     /** Whether headless runs are admitted. */
     readonly headless: boolean;
     readonly limit: number | null;
+    /** The UTC instant sources must have been written at or after, or null. */
+    readonly sinceTime: string | null;
   };
 }
 
