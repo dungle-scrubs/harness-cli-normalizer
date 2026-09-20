@@ -25,8 +25,9 @@ reporting, transcript-aware prompt and tool updates, an offline Radius
 catalog and per-model compaction budgets, and 0.86.1 adds the Meta provider.
 
 pi does run its own auto-compaction, which `nativeContextManagement: null`
-does not describe. That gap predates this bump and is filed separately; it is
-not a 0.86.x change and nothing here asserts a compaction capability for pi.
+does not describe. That gap predates this bump and is filed as issue #227; it
+is not a 0.86.x change and nothing here asserts a compaction capability for
+pi.
 
 ## Normalization
 
