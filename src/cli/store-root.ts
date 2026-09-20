@@ -1,4 +1,4 @@
-import { isAbsolute, resolve } from "node:path";
+import { dirname, isAbsolute, resolve } from "node:path";
 import { cursorCli } from "../knowledge/cursor.js";
 import type { HarnessName } from "../knowledge/descriptor.js";
 import { resolveStoreRoot } from "./resume-guard.js";
@@ -68,3 +68,18 @@ export const transcriptStoreRoot = (
   const exhaustive: never = harness;
   throw new Error(`transcriptStoreRoot: unreachable harness ${String(exhaustive)}`);
 };
+
+/** The directory `transcript ls` walks for one harness.
+ *
+ * Four harnesses list from the same directory they read from. Pi files each
+ * session under a per-workspace directory, and Antigravity keeps the
+ * conversation index that names each workspace beside its `brain` directory,
+ * so both list from one level up. The branch stays here rather than in
+ * `transcriptStoreRoot`, which keeps naming the directory a read resolves in. */
+export const transcriptListingRoot = (
+  harness: HarnessName,
+  opts: Parameters<typeof transcriptStoreRoot>[1],
+): string =>
+  harness === "pi" || harness === "antigravity"
+    ? dirname(transcriptStoreRoot(harness, opts))
+    : transcriptStoreRoot(harness, opts);

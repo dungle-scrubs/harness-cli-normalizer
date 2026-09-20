@@ -187,9 +187,7 @@ describe("F-07 terminal error record ends clean", () => {
 
   test("reduceFailures precedence unavailable beats task", async () => {
     const { reduceFailures, failureFromTask, failureFromTransport, failureFromUnavailable } =
-      await import(
-      "../../src/execution/failure.js"
-    );
+      await import("../../src/execution/failure.js");
     const unavailable = failureFromUnavailable("model_not_found");
     const task = failureFromTask("some task error");
     const transport = failureFromTransport("connection reset");

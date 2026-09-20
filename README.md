@@ -70,7 +70,11 @@ Inspect and export retained messages and tool results without resuming a model:
 ```sh
 hcn inspect pi --transcript
 hcn transcript read pi --file /path/to/native.jsonl > transcript.jsonl
+hcn transcript ls --limit 20
 ```
+
+`hcn transcript ls` lists the saved native sessions of every harness for one
+workspace, newest first, computed from the native stores on each call.
 
 Pi v3 supports full reads, batches, and caller-held bookmarks. Codex 0.147.0
 legacy and paginated rollouts support full reads, ID lookup, batches, and
@@ -79,8 +83,9 @@ unsupported. Claude main-file history and Muse schema-1 session logs support
 ID/file reads, batches and bookmarks through a passive filesystem clone on
 supported macOS/Linux filesystems. Cursor chat stores and Antigravity step logs
 use the same clone. A Cursor chat refuses while a turn is still writing it and
-reads normally once the turn ends. See [native transcript reads](docs/transcripts.md)
-for capability checks, failure handling, custom Pi conditions, and consumer rules.
+reads normally once the turn ends. See [native transcripts](docs/transcripts.md)
+for the listing contract, capability checks, failure handling, custom Pi
+conditions, and consumer rules.
 
 ### Native terminal resume (`hcn interactive`)
 

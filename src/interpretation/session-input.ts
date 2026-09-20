@@ -68,14 +68,8 @@ export const encodeSessionInput = (input: SessionInputContract, text: string): s
 export const encodeIdentityProbe = (h: HarnessDescriptor): string | null => {
   const mode = h.sessionMode;
   if (mode === null || mode.identityProbe === null) return null;
-  switch (mode.input.kind) {
-    case "pi-rpc-prompt":
-      return `${JSON.stringify({ id: IDENTITY_PROBE_ID, type: mode.identityProbe.command })}\n`;
-    case "claude-sdk-user-message":
-      return null;
-    case "antigravity-stream-user":
-      return null;
-  }
+  if (mode.input.kind !== "pi-rpc-prompt") return null;
+  return `${JSON.stringify({ id: IDENTITY_PROBE_ID, type: mode.identityProbe.command })}\n`;
 };
 
 /** What one parsed stdout record means to a session, as a closed kind. */

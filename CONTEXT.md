@@ -84,6 +84,7 @@ These translate and decide nothing:
 - the tool vocabulary, with `native:` passthrough for names hcn cannot vouch for
 - access presets rendered per harness (`--tools`, `--sandbox`, category switches)
 - session store paths
+- the saved-session listing: one row shape over six store layouts
 - divergence reporting
 
 ## What hcn supervises

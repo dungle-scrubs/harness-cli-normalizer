@@ -14,8 +14,67 @@ export interface TranscriptOptions {
   readonly limit: number | null;
   readonly since: string | null;
 }
+export interface TranscriptListOptions {
+  readonly allWorkspaces: boolean;
+  readonly cwd: string | null;
+  /** The harnesses to list; empty means every harness with a listing method. */
+  readonly harnesses: readonly HarnessName[];
+  readonly headless: boolean;
+  readonly limit: number | null;
+}
 export function transcriptHarness(value: string | undefined): HarnessName | null {
   return HARNESS_NAMES.find((name) => name === value) ?? null;
+}
+const LIST_VALUES = ["--cwd", "--harness", "--limit"];
+const LIST_FLAGS = ["--all-workspaces", "--headless"];
+export function parseTranscriptListOptions(raw: readonly string[]): TranscriptListOptions {
+  const invalid = (): never => {
+    throw new TranscriptError("invalid-option-value", "Invalid or repeated transcript option.");
+  };
+  const values = new Map<string, string>();
+  const flags = new Set<string>();
+  for (let index = 0; index < raw.length; index++) {
+    const token = raw[index];
+    if (token === undefined) break;
+    if (LIST_FLAGS.includes(token)) {
+      if (flags.has(token)) invalid();
+      flags.add(token);
+      continue;
+    }
+    const equal = token.indexOf("=");
+    const key = equal < 0 ? token : token.slice(0, equal);
+    const value = equal < 0 ? raw[++index] : token.slice(equal + 1);
+    if (
+      !LIST_VALUES.includes(key) ||
+      !value ||
+      value.startsWith("--") ||
+      value.includes("\0") ||
+      values.has(key)
+    )
+      invalid();
+    values.set(key, value as string);
+  }
+  if (values.has("--cwd") && flags.has("--all-workspaces"))
+    throw new TranscriptError(
+      "mutually-exclusive-options",
+      "Choose either --cwd or --all-workspaces.",
+    );
+  const limit = values.get("--limit");
+  if (
+    limit !== undefined &&
+    (!/^[0-9]+$/.test(limit) || !Number.isSafeInteger(Number(limit)) || Number(limit) < 1)
+  )
+    throw new TranscriptError("invalid-option-value", "Invalid positive row limit.");
+  const names = values.get("--harness")?.split(",") ?? [];
+  if (names.some((name) => transcriptHarness(name) === null))
+    throw new TranscriptError("invalid-option-value", "Unknown harness in --harness.");
+  return {
+    allWorkspaces: flags.has("--all-workspaces"),
+    cwd: values.get("--cwd") ?? null,
+    harnesses: HARNESS_NAMES.filter((name) => names.includes(name)),
+    headless: flags.has("--headless"),
+    limit: limit === undefined ? null : Number(limit),
+  };
 }
 export function parseTranscriptOptions(raw: readonly string[]): TranscriptOptions {
   const harness = transcriptHarness(raw[1]);

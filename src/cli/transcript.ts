@@ -2,17 +2,29 @@ import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { nodeRunnerDeps } from "../execution/node-deps.js";
 import { nodeTranscriptFiles } from "../execution/transcript/files.js";
+import type { HarnessListingRequest } from "../execution/transcript/list.js";
+import { listSessions } from "../execution/transcript/list.js";
 import { emptyTranscript, failure, readTranscript } from "../execution/transcript/read.js";
 import { snapshotTranscriptFiles } from "../execution/transcript/snapshot.js";
 import type { ReadTranscriptRequest } from "../interpretation/transcript/envelopes.js";
 import { encodeJson, TranscriptError } from "../interpretation/transcript/json.js";
+import { listingForHarness } from "../interpretation/transcript/listings.js";
 import { chooseTranscriptMethod } from "../interpretation/transcript/methods.js";
-import type { TranscriptOptions } from "../interpretation/transcript/options.js";
-import { parseTranscriptOptions, transcriptHarness } from "../interpretation/transcript/options.js";
+import type {
+  TranscriptListOptions,
+  TranscriptOptions,
+} from "../interpretation/transcript/options.js";
+import {
+  parseTranscriptListOptions,
+  parseTranscriptOptions,
+  transcriptHarness,
+} from "../interpretation/transcript/options.js";
 import { readerForMethod } from "../interpretation/transcript/readers.js";
 import { transcriptCapabilities } from "../interpretation/transcript-capabilities.js";
+import { HARNESS_NAMES } from "../knowledge/descriptor.js";
+import type { SessionListResult, SessionListSource } from "../knowledge/transcript/listing.js";
 import { resolveHarness } from "./resolve-harness.js";
-import { transcriptStoreRoot } from "./store-root.js";
+import { transcriptListingRoot, transcriptStoreRoot } from "./store-root.js";
 import { getVersion } from "./version.js";
 
 export function writeTranscriptLine(line: string): Promise<void> {
@@ -46,7 +58,114 @@ export async function inspectTranscript(
     `${encodeJson(transcriptCapabilities(resolveHarness(harness), getVersion()))}\n`,
   );
 }
+/** Whether `transcript read` has a verified method for this harness. */
+function transcriptReadable(harness: (typeof HARNESS_NAMES)[number]): boolean {
+  const selection = chooseTranscriptMethod(resolveHarness(harness).transcript, {
+    acceptedLimits: [],
+    selector: "id",
+    incremental: false,
+    paging: false,
+  });
+  return selection.method !== null && readerForMethod(selection.method) !== null;
+}
+function listingRequests(
+  harnesses: readonly (typeof HARNESS_NAMES)[number][],
+  cwd: string,
+): HarnessListingRequest[] {
+  const opts = { env: process.env, cwd, home: homedir() };
+  return harnesses.map((harness) => {
+    const listing = listingForHarness(harness);
+    let listingRoot: string | null = null;
+    try {
+      listingRoot = listing ? transcriptListingRoot(harness, opts) : null;
+    } catch {
+      listingRoot = null;
+    }
+    return {
+      harness,
+      listing: listingRoot ? listing : null,
+      listingRoot,
+      readable: transcriptReadable(harness),
+      divergence: listing
+        ? listingRoot
+          ? null
+          : `${harness} declares no resolvable native session store.`
+        : `${harness} has no transcript listing method in v1; listing reports divergence.`,
+    };
+  });
+}
+async function refuseList(version: string, error: unknown, raw: readonly string[]): Promise<void> {
+  const source: SessionListSource = {
+    schemaVersion: 1,
+    kind: "session-list-source",
+    hcnVersion: version,
+    harnesses: [],
+    scope: {
+      workspace: raw.includes("--all-workspaces") ? null : process.cwd(),
+      headless: raw.includes("--headless"),
+      limit: null,
+    },
+  };
+  const result: SessionListResult = {
+    schemaVersion: 1,
+    kind: "session-list-result",
+    exitCode: 2,
+    status: "refused",
+    rowsReturned: 0,
+    more: false,
+    harnesses: [],
+    failure: failure(
+      error instanceof TranscriptError ? error.issue : "invalid-option-value",
+      "validate",
+      "input",
+      error instanceof TranscriptError ? error.message : "Invalid transcript list arguments.",
+    ),
+  };
+  await writeTranscriptLine(`${encodeJson(source)}\n`);
+  await writeTranscriptLine(`${encodeJson(result)}\n`);
+  process.exitCode = 2;
+}
+export async function transcriptList(raw: readonly string[]): Promise<void> {
+  const version = getVersion();
+  let options: TranscriptListOptions;
+  try {
+    options = parseTranscriptListOptions(raw);
+  } catch (error) {
+    await refuseList(version, error, raw);
+    return;
+  }
+  const cwd = resolve(options.cwd ?? process.cwd());
+  const abort = new AbortController();
+  const interrupt = (): void => abort.abort();
+  process.on("SIGINT", interrupt);
+  process.on("SIGTERM", interrupt);
+  try {
+    const deps = nodeRunnerDeps();
+    process.exitCode = await listSessions(
+      {
+        harnesses: listingRequests(
+          options.harnesses.length ? options.harnesses : [...HARNESS_NAMES],
+          cwd,
+        ),
+        hcnVersion: version,
+        workspace: options.allWorkspaces ? null : cwd,
+        headless: options.headless,
+        limit: options.limit,
+      },
+      {
+        files: nodeTranscriptFiles,
+        snapshotFiles: snapshotTranscriptFiles({ deps, signal: abort.signal }),
+        signal: abort.signal,
+        write: writeTranscriptLine,
+      },
+    );
+  } finally {
+    process.off("SIGINT", interrupt);
+    process.off("SIGTERM", interrupt);
+  }
+}
 export async function transcript(raw: string[]): Promise<void> {
+  if (raw[0] === "ls") return transcriptList(raw.slice(1));
   const version = getVersion();
   let options: TranscriptOptions;
   try {

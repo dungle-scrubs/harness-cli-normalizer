@@ -167,9 +167,10 @@ describe("session record decoding", () => {
     } as HarnessDescriptor;
 
     expect(decodeSessionRecord(twoFieldTurnEnd, { type: "result" })).toEqual({ kind: "content" });
-    expect(
-      decodeSessionRecord(twoFieldTurnEnd, { type: "result", subtype: "complete" }),
-    ).toEqual({ kind: "turn-end", isError: false });
+    expect(decodeSessionRecord(twoFieldTurnEnd, { type: "result", subtype: "complete" })).toEqual({
+      kind: "turn-end",
+      isError: false,
+    });
   });
 
   test("Antigravity result status alone determines the session verdict", () => {

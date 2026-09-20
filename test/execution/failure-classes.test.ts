@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 import type { HarnessEvent } from "../../src/execution/events.js";
 import {
-  failureFromNative,
   failureFromLimit,
+  failureFromNative,
   failureFromTerminalError,
   failureFromTimeout,
   failureFromTrust,

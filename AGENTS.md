@@ -122,6 +122,13 @@ bun scripts/check-versions.ts       # compare descriptors to published versions
   reads. Cross-checking against a reference implementation proves only that
   well-formed input agrees. Close that parser's independent review before
   updating help text, docs, README, or the vendored hcn skill on top of it.
+- Survey a native store through this repository's own resolution, never a
+  hardcoded default path. `src/cli/store-root.ts` (`transcriptStoreRoot`,
+  `transcriptListingRoot`) applies each harness's environment overrides
+  (`PI_CODING_AGENT_DIR`, `CODEX_HOME`, `CLAUDE_CONFIG_DIR`, `XDG_*`,
+  `CURSOR_CONFIG_DIR`), and `docs/transcripts.md` documents the same
+  precedence. A probe that skips the resolver can find an empty default
+  directory while the populated store sits elsewhere.
 - Commits follow [Conventional Commits](https://www.conventionalcommits.org/)
   (`feat:`, `fix:`, `perf:`, `refactor:`, `docs:`, `chore:`, `ci:`, `test:`).
   release-please reads these to cut releases and write `CHANGELOG.md`.

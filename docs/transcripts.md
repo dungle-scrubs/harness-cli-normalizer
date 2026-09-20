@@ -1,6 +1,6 @@
-# Native transcript reads
+# Native transcripts
 
-Use `hcn inspect <harness> --transcript` to inspect passive read methods and their evidence. Use `hcn transcript read` to export one native conversation as JSONL. These commands do not resume a model, load instructions or extensions, or modify native history.
+Use `hcn inspect <harness> --transcript` to inspect passive read methods and their evidence. Use `hcn transcript read` to export one native conversation as JSONL, and `hcn transcript ls` to list the saved sessions. These commands do not resume a model, load instructions or extensions, or modify native history, and they write nothing to a native store.
 
 ```sh
 hcn inspect pi --transcript
@@ -8,6 +8,20 @@ hcn transcript read pi --file /path/to/native.jsonl > transcript.jsonl
 hcn transcript read pi --id NATIVE_ID --cwd /path/to/project --limit 100
 hcn transcript read pi --file /path/to/native.jsonl --since OPAQUE_BOOKMARK --limit 100
 ```
+
+`hcn transcript ls` lists the saved native sessions each harness kept, newest first, without resuming or reading one.
+
+```sh
+hcn transcript ls
+hcn transcript ls --all-workspaces --limit 20
+hcn transcript ls --cwd /path/to/project --headless --harness claude,codex
+```
+
+It walks each native store on the call and computes the rows from it. There is no index, no cache and no persistent state, and the walk grows with the store. Stdout is JSONL: one `session-list-source` header, one `session` row per saved session, one `session-list-result`. A row carries `harness`, `id`, `file`, `cwd`, `lastWriteAt`, `mode` and `readable`; its `id` and `file` are what `transcript read --id` and `--file` accept, and `readable` says whether a verified read method addresses that source. `--cwd` admits only the sessions whose workspace is exactly that directory and defaults to the invocation directory; `--all-workspaces` drops the filter and cannot be combined with `--cwd`. Headless runs are omitted unless `--headless` is given.
+
+`mode` is `interactive`, `headless`, or `unknown` where the store carries no marker; a consumer treats `unknown` as interactive unless it knows better. Claude reads `entrypoint` (`cli` against the `sdk-` callers) and Codex reads `session_meta` `source`/`originator` (`exec` and `codex_exec` are headless). Pi, Muse, Cursor and Antigravity carry no observed marker, so their rows report `unknown`. Child conversations are not rows: Claude sidechains, Codex spawned agent threads, Muse `subagent/` sessions and Antigravity nested conversations. A row whose store names no workspace reports `cwd: null` and appears only under `--all-workspaces`.
+
+Each harness that was asked for is reported in the result with its state. `divergent` is a harness with no listing method and `failed` is one whose store could not be read; both carry the reason, the exit code stays 0, and the status reads `partial` so a consumer can report the coverage gap. Invalid arguments refuse with exit 2, as `transcript read` does. Cursor's workspace comes from the `meta.json` beside each chat store, never from the store's own meta row, which holds credential fields. Antigravity's workspace comes from `conversation_summaries.db` beside the `brain` directory, read through the same passive filesystem clone the readers use; that index names a workspace only for the conversations it recorded one for.
 
 The file path identifies a native conversation. It is not an HCN capture or consumer ID. Pi ID lookup uses the selected workspace's native session directory under `PI_CODING_AGENT_DIR`, or `~/.pi/agent`. An explicit file is useful for native custom session directories. Missing sources fail; HCN never creates them. Codex ID lookup searches exact native filenames under CODEX_HOME/sessions and CODEX_HOME/archived_sessions (default ~/.codex). Database-only or renamed locations require an explicit file. Inherited storage still resolves within CODEX_HOME. Referenced attachments and separate parent/child conversations stay references. A Codex history_base is an explicit bounded storage range, not permission to export the rest of that parent conversation.
 

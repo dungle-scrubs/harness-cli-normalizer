@@ -8,6 +8,7 @@ Commands:
   interactive <harness>     Strict native terminal resume with a separate control pipe
   inspect <harness>         Descriptor / argv / capability inspection (no spawn)
   transcript read <harness> Passive native transcript export (JSONL)
+  transcript ls             List saved native sessions, newest first (JSONL)
   ls                        List harnesses with verifiedAgainst versions
   check                     Drift check (published version vs verifiedAgainst)
 
@@ -328,16 +329,28 @@ Options:
 export const TRANSCRIPT_HELP = `hcn transcript - Passive native transcript export
 
 Usage: hcn transcript read <harness> (--id <native-id> | --file <path>) [options]
+       hcn transcript ls [--cwd <dir> | --all-workspaces] [--headless]
+                         [--harness <names>] [--limit <rows>]
 
 Harnesses: claude | codex | pi | muse | cursor | antigravity
 Inspect support first: hcn inspect <harness> --transcript
 
-Options:
+read options:
   --cwd <directory>         Resolution workspace (default invocation directory)
   --since <bookmark>        Validate caller-held progress before continuing
   --limit <entry-count>     Positive whole-entry batch limit
   --accept-limits <names>   Explicit coverage opt-ins, comma-separated:
                             history,branches,original-records,embedded-content
+
+ls options:
+  --cwd <directory>         Only sessions whose workspace is exactly this
+                            directory (default invocation directory)
+  --all-workspaces          Every workspace; not combinable with --cwd
+  --headless                Also return headless runs (default: omit them)
+  --harness <names>         Comma-separated harnesses (default: all of them)
+  --limit <rows>            Positive row limit
+
+Common options:
   -h, --help                Show help
   -V, --version             Show version
 
@@ -359,4 +372,18 @@ Cursor chat stores (chats/*/<id>/store.db) and Antigravity untruncated step
 logs (brain/<id>/.system_generated/logs/transcript_full.jsonl) support ID/file
 reads, batches and bookmarks through the same clone. A Cursor chat whose
 store.db-wal holds writes (a running turn) refuses until the turn ends.
+
+ls walks each native store on every call and computes the rows from it; there
+is no index, no cache and no persistent state. Stdout is JSONL: one
+session-list-source header, one session row per saved session newest first,
+one session-list-result. A row carries harness, id, file, cwd, lastWriteAt,
+mode and readable. Its id and file are what transcript read --id and --file
+accept. mode is interactive, headless, or unknown where the store carries no
+marker; treat unknown as interactive unless you know better. Claude reads
+entrypoint and Codex reads session_meta source/originator; Pi, Muse, Cursor
+and Antigravity carry no observed marker. Child conversations are not rows:
+Claude sidechains, Codex spawned agent threads, Muse subagent/ sessions and
+Antigravity nested conversations. A harness with no listing method, and one
+whose store could not be read, are reported per harness in the result with
+the reason; the exit code stays 0 and the status reads partial.
 `;
