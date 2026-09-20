@@ -28,6 +28,28 @@ export const WRITE_TIMES = {
   antigravity: "2026-09-20T00:00:00.000Z",
 } as const;
 
+/**
+ * Native start times, taken from each store's own header rather than the
+ * filesystem. They are a day behind the write times so a row that reported
+ * the filesystem's answer for `startedAt` could not pass. Antigravity writes
+ * second precision, as the real logs do.
+ */
+export const START_TIMES = {
+  claudeInteractive: "2026-09-19T13:00:00.000Z",
+  claudeHeadless: "2026-09-19T12:00:00.000Z",
+  claudeSidechain: "2026-09-19T11:00:00.000Z",
+  claudeOther: "2026-09-19T10:00:00.000Z",
+  codexInteractive: "2026-09-19T09:00:00.000Z",
+  codexHeadless: "2026-09-19T08:00:00.000Z",
+  codexSubagent: "2026-09-19T07:00:00.000Z",
+  codexArchived: "2026-09-19T06:00:00.000Z",
+  pi: "2026-09-19T04:00:00.000Z",
+  muse: "2026-09-19T03:00:00.000Z",
+  museSubagent: "2026-09-19T02:00:00.000Z",
+  cursor: "2026-09-19T01:00:00.000Z",
+  antigravity: "2026-09-19T00:00:00Z",
+} as const;
+
 export const IDS = {
   claudeInteractive: "11111111-1111-4111-8111-111111111111",
   claudeHeadless: "22222222-2222-4222-8222-222222222222",
@@ -62,6 +84,7 @@ function claudeRecord(
   id: string,
   cwd: string,
   entrypoint: string | null,
+  startedAt: string,
   isSidechain = false,
 ): unknown {
   return {
@@ -69,7 +92,7 @@ function claudeRecord(
     isSidechain,
     type: "user",
     uuid: `${id.slice(0, 8)}-0000-4000-8000-000000000001`,
-    timestamp: "2026-09-20T00:00:00.000Z",
+    timestamp: startedAt,
     userType: "external",
     ...(entrypoint === null ? {} : { entrypoint }),
     cwd,
@@ -78,34 +101,41 @@ function claudeRecord(
     message: { role: "user", content: "synthetic question" },
   };
 }
-function codexRollout(id: string, cwd: string, payload: Record<string, unknown>): string {
+function codexRollout(
+  id: string,
+  cwd: string,
+  startedAt: string,
+  payload: Record<string, unknown>,
+): string {
   return lines([
     {
-      timestamp: "2026-09-20T00:00:00.000Z",
+      timestamp: startedAt,
       type: "session_meta",
       payload: { session_id: id, id, cwd, ...payload },
     },
   ]);
 }
-function museRecord(workspaceRoot: string): unknown {
+/** Muse counts `recorded_at` in microseconds since the epoch, as the real
+ * store does; the opening frame envelope carries none. */
+function museRecord(workspaceRoot: string, startedAt: string): unknown {
   return {
     schema_version: 1,
     stream: { kind: "session", id: "01a0b000-0000-7000-8000-000000000001" },
     sequence: 0,
-    recorded_at: "2026-09-20T00:00:00.000Z",
+    recorded_at: Date.parse(startedAt) * 1000,
     record_type: "observed",
     payload_type: "runtime.session.metadata",
     payload: { kind: "metadata", record: { workspace_root: workspaceRoot } },
   };
 }
-function antigravityStep(): string {
+function antigravityStep(startedAt: string): string {
   return lines([
     {
       step_index: 0,
       source: "USER",
       type: "USER_INPUT",
       status: "DONE",
-      created_at: "2026-09-20T00:00:00.000Z",
+      created_at: startedAt,
       content: "synthetic question",
     },
   ]);
@@ -142,29 +172,31 @@ export async function writeSyntheticStores(home: string): Promise<SyntheticStore
   const claudeProjects = join(home, ".claude", "projects", "-synthetic-alpha");
   write(
     join(claudeProjects, `${IDS.claudeInteractive}.jsonl`),
-    lines([claudeRecord(IDS.claudeInteractive, WORKSPACE_A, "cli")]),
+    lines([claudeRecord(IDS.claudeInteractive, WORKSPACE_A, "cli", START_TIMES.claudeInteractive)]),
     WRITE_TIMES.claudeInteractive,
   );
   write(
     join(claudeProjects, `${IDS.claudeHeadless}.jsonl`),
-    lines([claudeRecord(IDS.claudeHeadless, WORKSPACE_A, "sdk-cli")]),
+    lines([claudeRecord(IDS.claudeHeadless, WORKSPACE_A, "sdk-cli", START_TIMES.claudeHeadless)]),
     WRITE_TIMES.claudeHeadless,
   );
   write(
     join(claudeProjects, `${IDS.claudeSidechain}.jsonl`),
-    lines([claudeRecord(IDS.claudeSidechain, WORKSPACE_A, "cli", true)]),
+    lines([
+      claudeRecord(IDS.claudeSidechain, WORKSPACE_A, "cli", START_TIMES.claudeSidechain, true),
+    ]),
     WRITE_TIMES.claudeSidechain,
   );
   write(
     join(home, ".claude", "projects", "-synthetic-beta", `${IDS.claudeOther}.jsonl`),
-    lines([claudeRecord(IDS.claudeOther, WORKSPACE_B, "cli")]),
+    lines([claudeRecord(IDS.claudeOther, WORKSPACE_B, "cli", START_TIMES.claudeOther)]),
     WRITE_TIMES.claudeOther,
   );
 
   const codexDay = join(home, ".codex", "sessions", "2026", "09", "20");
   write(
     join(codexDay, `rollout-2026-09-20T00-00-00-${IDS.codexInteractive}.jsonl`),
-    codexRollout(IDS.codexInteractive, WORKSPACE_A, {
+    codexRollout(IDS.codexInteractive, WORKSPACE_A, START_TIMES.codexInteractive, {
       source: "cli",
       originator: "codex-tui",
     }),
@@ -172,7 +204,7 @@ export async function writeSyntheticStores(home: string): Promise<SyntheticStore
   );
   write(
     join(codexDay, `rollout-2026-09-20T00-00-00-${IDS.codexHeadless}.jsonl`),
-    codexRollout(IDS.codexHeadless, WORKSPACE_A, {
+    codexRollout(IDS.codexHeadless, WORKSPACE_A, START_TIMES.codexHeadless, {
       source: "exec",
       originator: "codex_exec",
     }),
@@ -180,7 +212,7 @@ export async function writeSyntheticStores(home: string): Promise<SyntheticStore
   );
   write(
     join(codexDay, `rollout-2026-09-20T00-00-00-${IDS.codexSubagent}.jsonl`),
-    codexRollout(IDS.codexSubagent, WORKSPACE_A, {
+    codexRollout(IDS.codexSubagent, WORKSPACE_A, START_TIMES.codexSubagent, {
       source: {
         subagent: {
           thread_spawn: {
@@ -201,7 +233,10 @@ export async function writeSyntheticStores(home: string): Promise<SyntheticStore
       "archived_sessions",
       `rollout-2026-09-20T00-00-00-${IDS.codexArchived}.jsonl`,
     ),
-    codexRollout(IDS.codexArchived, WORKSPACE_B, { source: "vscode", originator: "codex-vscode" }),
+    codexRollout(IDS.codexArchived, WORKSPACE_B, START_TIMES.codexArchived, {
+      source: "vscode",
+      originator: "codex-vscode",
+    }),
     WRITE_TIMES.codexArchived,
   );
   write(
@@ -219,7 +254,9 @@ export async function writeSyntheticStores(home: string): Promise<SyntheticStore
       "--synthetic-alpha--",
       `2026-09-20T00-00-00-000Z_${IDS.pi}.jsonl`,
     ),
-    lines([{ type: "session", version: 3, id: IDS.pi, cwd: WORKSPACE_A }]),
+    lines([
+      { type: "session", version: 3, id: IDS.pi, cwd: WORKSPACE_A, timestamp: START_TIMES.pi },
+    ]),
     WRITE_TIMES.pi,
   );
 
@@ -234,10 +271,14 @@ export async function writeSyntheticStores(home: string): Promise<SyntheticStore
     "20",
     IDS.muse,
   );
-  write(join(museSession, "session.jsonl"), lines([museRecord(WORKSPACE_A)]), WRITE_TIMES.muse);
+  write(
+    join(museSession, "session.jsonl"),
+    lines([museRecord(WORKSPACE_A, START_TIMES.muse)]),
+    WRITE_TIMES.muse,
+  );
   write(
     join(museSession, "subagent", IDS.museSubagent, "session.jsonl"),
-    lines([museRecord(WORKSPACE_A)]),
+    lines([museRecord(WORKSPACE_A, START_TIMES.museSubagent)]),
     WRITE_TIMES.museSubagent,
   );
 
@@ -251,9 +292,9 @@ export async function writeSyntheticStores(home: string): Promise<SyntheticStore
     join(cursorChat, "meta.json"),
     JSON.stringify({
       schemaVersion: 1,
-      createdAtMs: 1789643942579,
+      createdAtMs: Date.parse(START_TIMES.cursor),
       hasConversation: true,
-      updatedAtMs: 1789643942580,
+      updatedAtMs: Date.parse(START_TIMES.cursor) + 1,
       cwd: WORKSPACE_A,
     }),
   );
@@ -263,7 +304,7 @@ export async function writeSyntheticStores(home: string): Promise<SyntheticStore
   for (const id of [IDS.antigravity, IDS.antigravityChild])
     write(
       join(brain, id, ".system_generated", "logs", "transcript_full.jsonl"),
-      antigravityStep(),
+      antigravityStep(START_TIMES.antigravity),
       WRITE_TIMES.antigravity,
     );
   await writeDatabase(join(home, ".gemini", "antigravity-cli", "conversation_summaries.db"), [

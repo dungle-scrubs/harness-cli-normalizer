@@ -48,6 +48,7 @@ const listing: TranscriptListing = {
       file: candidate.file,
       cwd: "/synthetic",
       lastWriteAt: markers.lastWriteAt,
+      startedAt: null,
       mode: "unknown",
       readable: true,
     },

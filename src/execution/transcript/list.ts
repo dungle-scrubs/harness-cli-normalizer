@@ -288,6 +288,7 @@ export async function listSessions(
             file: session.file,
             cwd: session.cwd,
             lastWriteAt: session.lastWriteAt,
+            startedAt: session.startedAt,
             mode: session.mode,
             readable: entry.readable && session.readable,
           })),

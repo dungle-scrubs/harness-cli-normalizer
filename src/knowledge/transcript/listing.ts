@@ -19,7 +19,14 @@ export interface SessionRow {
   readonly file: string;
   /** The workspace the session ran in, or null where the store names none. */
   readonly cwd: string | null;
+  /** The last native write to the source, as the filesystem reports it. It is
+   * the sort key because it is the one time every store can produce, not
+   * because it is the best time available: a copy or a restore rewrites it. */
   readonly lastWriteAt: string;
+  /** When the native header says the session began, or null where the store
+   * records no start time. Normalized to `YYYY-MM-DDTHH:MM:SS.mmmZ` from the
+   * four shapes the stores write. `lastWriteAt` is never substituted for it. */
+  readonly startedAt: string | null;
   readonly mode: SessionMode;
   /** Whether `transcript read` has a verified method for this source. */
   readonly readable: boolean;

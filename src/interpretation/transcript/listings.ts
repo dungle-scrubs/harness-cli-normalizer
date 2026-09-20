@@ -2,8 +2,9 @@ import type { HarnessName } from "../../knowledge/descriptor.js";
 import { UUID_SHAPE } from "../../knowledge/descriptor.js";
 import type { SessionMode } from "../../knowledge/transcript/listing.js";
 import type { Json, JsonObject } from "./json.js";
-import { object, parseNativeJson, string } from "./json.js";
+import { integer, object, parseNativeJson, string } from "./json.js";
 import { SqliteImage } from "./sqlite.js";
+import { utcTime, utcTimeFromEpochMicros, utcTimeFromEpochMillis } from "./time.js";
 
 /** One walked path a harness recognizes as a saved session. */
 export interface ListingCandidate {
@@ -25,6 +26,9 @@ export interface ListedSession {
   readonly file: string;
   readonly cwd: string | null;
   readonly lastWriteAt: string;
+  /** When the native header says the session began, or null where the store
+   * records no start time. A filesystem observation is never substituted. */
+  readonly startedAt: string | null;
   readonly mode: SessionMode;
   readonly readable: boolean;
 }
@@ -75,6 +79,38 @@ function found(session: ListedSession): ListedResult {
   return { kind: "session", session };
 }
 
+/** A native ISO 8601 UTC marker, normalized to millisecond precision. */
+const isoTime = (value: Json | undefined): string | null => {
+  const text = string(value);
+  return text === null ? null : utcTime(text);
+};
+/** Muse counts a record's time in microseconds since the epoch. */
+const microsTime = (value: Json | undefined): string | null => {
+  const micros = integer(value);
+  return micros === null ? null : utcTimeFromEpochMicros(micros);
+};
+/** Cursor counts its chat's creation in milliseconds since the epoch. */
+const millisTime = (value: Json | undefined): string | null => {
+  const millis = integer(value);
+  return millis === null ? null : utcTimeFromEpochMillis(millis);
+};
+
+/** The first start time the prefix's records name under `key`, or null when
+ * none of the records this prefix holds carries a readable one. The scan does
+ * not grow the prefix on its own: a store that stopped writing the marker
+ * would otherwise cost every row the whole read cap. */
+function firstTime(
+  entries: readonly JsonObject[],
+  key: string,
+  read: (value: Json | undefined) => string | null,
+): string | null {
+  for (const entry of entries) {
+    const time = read(entry[key]);
+    if (time !== null) return time;
+  }
+  return null;
+}
+
 /**
  * A session whose store names no workspace and no mode. The default workspace
  * scope drops it, so it surfaces only under `--all-workspaces`, where dropping
@@ -86,6 +122,7 @@ function unmarked(candidate: ListingCandidate, markers: ListingMarkers, id?: str
     file: candidate.file,
     cwd: null,
     lastWriteAt: markers.lastWriteAt,
+    startedAt: null,
     mode: "unknown",
     readable: candidate.readable,
   });
@@ -153,6 +190,9 @@ const claudeListing: TranscriptListing = {
       file: candidate.file,
       cwd: string(identity.cwd),
       lastWriteAt: markers.lastWriteAt,
+      // A transcript opens with settings records that carry no time, so the
+      // start is the first record that does, not the first record.
+      startedAt: firstTime(entries, "timestamp", isoTime),
       mode: claudeMode(entrypoint),
       readable: candidate.readable,
     });
@@ -199,6 +239,8 @@ const codexListing: TranscriptListing = {
       file: candidate.file,
       cwd: string(payload.cwd),
       lastWriteAt: markers.lastWriteAt,
+      // The rollout's time is on the `session_meta` record, not its payload.
+      startedAt: isoTime(meta?.timestamp),
       mode: codexMode(string(payload.source), string(payload.originator)),
       readable: true,
     });
@@ -237,6 +279,7 @@ const piListing: TranscriptListing = {
       file: candidate.file,
       cwd: string(header.cwd),
       lastWriteAt: markers.lastWriteAt,
+      startedAt: isoTime(header.timestamp),
       // No observed Pi record separates a headless run from a terminal one.
       mode: "unknown",
       readable: candidate.readable,
@@ -272,6 +315,8 @@ const museListing: TranscriptListing = {
       file: candidate.file,
       cwd: workspace,
       lastWriteAt: markers.lastWriteAt,
+      // The opening frame envelope carries no time; the payload records do.
+      startedAt: firstTime(entries, "recorded_at", microsTime),
       // `runtime.session.route_facts` records terminal facts for headless and
       // terminal sessions alike, so it does not separate the two.
       mode: "unknown",
@@ -317,6 +362,7 @@ const cursorListing: TranscriptListing = {
       file: candidate.file,
       cwd: string(meta.cwd),
       lastWriteAt: markers.lastWriteAt,
+      startedAt: millisTime(meta.createdAtMs),
       // No observed Cursor chat store separates a headless run from a terminal one.
       mode: "unknown",
       readable: candidate.readable,
@@ -393,7 +439,9 @@ function antigravitySummaries(bytes: Uint8Array): Map<string, AntigravitySummary
 /**
  * Antigravity files one untruncated step log per conversation directory. The
  * log carries no workspace, so the workspace and the parent link come from the
- * conversation index that sits beside the brain directory.
+ * conversation index that sits beside the brain directory. The log's own first
+ * step carries the start time, which the index does not: `last_modified_time`
+ * is a modification, not a beginning.
  */
 const antigravityListing: TranscriptListing = {
   directories: ["brain"],
@@ -405,16 +453,23 @@ const antigravityListing: TranscriptListing = {
   },
   candidate(path) {
     const id = ANTIGRAVITY_LOG.exec(path)?.[1];
-    return id ? { id, file: path, readable: true, read: null } : null;
+    return id
+      ? { id, file: path, readable: true, read: { path, bytes: LISTING_PREFIX_BYTES } }
+      : null;
   },
   session(candidate, markers) {
     const summary = markers.index ? antigravitySummaries(markers.index).get(candidate.id) : null;
     if (summary?.child) return SKIP;
+    const entries = prefixObjects(markers.bytes);
+    // A step longer than the first prefix is the only reason to read more; a
+    // log that simply stopped writing `created_at` reports null instead.
+    if (entries.length === 0 && !markers.final) return TRUNCATED;
     return found({
       id: candidate.id,
       file: candidate.file,
       cwd: summary?.workspace ?? null,
       lastWriteAt: markers.lastWriteAt,
+      startedAt: firstTime(entries, "created_at", isoTime),
       // No observed Antigravity record separates a headless run from a terminal one.
       mode: "unknown",
       readable: candidate.readable,

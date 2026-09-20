@@ -4,7 +4,14 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { listSessions } from "../../src/execution/transcript/list.js";
-import { IDS, WORKSPACE_A, WORKSPACE_B, WRITE_TIMES, writeSyntheticStores } from "./list-store.js";
+import {
+  IDS,
+  START_TIMES,
+  WORKSPACE_A,
+  WORKSPACE_B,
+  WRITE_TIMES,
+  writeSyntheticStores,
+} from "./list-store.js";
 
 interface Row {
   readonly kind: string;
@@ -13,6 +20,7 @@ interface Row {
   readonly file: string;
   readonly cwd: string | null;
   readonly lastWriteAt: string;
+  readonly startedAt: string | null;
   readonly mode: string;
   readonly readable: boolean;
 }
@@ -105,6 +113,31 @@ test("every harness contributes its saved sessions for one workspace, newest fir
   ]);
   expect(new Set(listing.rows.map((row) => row.cwd))).toEqual(new Set([WORKSPACE_A]));
   expect(listing.rows.every((row) => row.readable)).toBe(true);
+});
+
+test("each row carries the start time its own native header names", () => {
+  const rows = list(["--cwd", WORKSPACE_A, "--headless"]).rows;
+  const started = (harness: string): string | null | undefined =>
+    rows.find((row) => row.harness === harness)?.startedAt;
+  // Four shapes in, one shape out: ISO with milliseconds from claude, codex
+  // and pi, epoch microseconds from muse, epoch milliseconds from cursor, and
+  // second-precision ISO from antigravity.
+  expect(started("claude")).toBe(START_TIMES.claudeInteractive);
+  expect(started("codex")).toBe(START_TIMES.codexInteractive);
+  expect(started("pi")).toBe(START_TIMES.pi);
+  expect(started("muse")).toBe(START_TIMES.muse);
+  expect(started("cursor")).toBe(START_TIMES.cursor);
+  expect(started("antigravity")).toBe("2026-09-19T00:00:00.000Z");
+  // The store's own time, never the filesystem's: every start time here is a
+  // day behind the write time beside it.
+  for (const row of rows) expect(row.startedAt, row.harness).not.toBe(row.lastWriteAt);
+});
+
+test("a source with no readable header reports no start time", () => {
+  const row = list(["--all-workspaces", "--headless"]).rows.find(
+    (item) => item.id === IDS.codexCompressed,
+  );
+  expect(row?.startedAt).toBeNull();
 });
 
 test("each row names the native source transcript read accepts", () => {
