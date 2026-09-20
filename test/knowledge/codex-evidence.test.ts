@@ -5,13 +5,13 @@ import type { HarnessEvent } from "../../src/execution/events.js";
 import { detectQuestionBlock } from "../../src/interpretation/question.js";
 import { codexCli } from "../../src/knowledge/codex.js";
 
-const read = (file: string, dir = "codex-0.154.0"): string =>
+const read = (file: string, dir = "codex-0.155.1"): string =>
   readFileSync(new URL(`../fixtures/${dir}/${file}`, import.meta.url), "utf8");
 
 const decoded = (
   file: string,
   requestedId: string | null = null,
-  dir = "codex-0.154.0",
+  dir = "codex-0.155.1",
 ): HarnessEvent[] => {
   const state = freshDecodeState(requestedId);
   return read(file, dir)
@@ -73,11 +73,11 @@ test("native automatic compaction installs replacement history and a later proce
   }
 });
 
-// The 0.154.0 question run read a local skill file into its native output,
-// so its raw stream is not kept; the 0.153.4 recording stays the decoding
-// evidence and questions.snapshot.json records the 0.154.0 pass.
+// The 0.155.1 question run answered without reading any local file, so its
+// own raw stream is the decoding evidence. The 0.154.0 run could not be kept
+// for this: the model read a local skill file into its native output.
 test("the native decision response contains a valid escalation block", () => {
-  const text = decoded("question.ndjson", null, "codex-0.153.4")
+  const text = decoded("question.ndjson")
     .filter(
       (event): event is Extract<HarnessEvent, { kind: "message" }> => event.kind === "message",
     )

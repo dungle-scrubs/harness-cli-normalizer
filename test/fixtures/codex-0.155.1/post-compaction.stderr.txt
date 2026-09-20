@@ -1,0 +1,2 @@
+spawn: codex exec resume 01a0bf97-3140-7572-be60-44a1b6d01c85 --json --skip-git-repo-check [prompt:53ch] --model gpt-6-astra
+provenance: questions = none (arg)
