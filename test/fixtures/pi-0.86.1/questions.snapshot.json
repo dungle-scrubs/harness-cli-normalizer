@@ -1,0 +1,23 @@
+{
+  "ranAt": "2026-09-20T16:10:51.028Z",
+  "results": {
+    "pi": {
+      "status": "pass",
+      "observedOn": {
+        "harness": "pi",
+        "model": "zai/glm-5.2",
+        "version": "0.86.1",
+        "date": "2026-09-20"
+      },
+      "detail": "question \"deploy-target.txt must name ei\""
+    }
+  },
+  "observations": {
+    "pi": {
+      "harness": "pi",
+      "model": "zai/glm-5.2",
+      "version": "0.86.1",
+      "date": "2026-09-20"
+    }
+  }
+}

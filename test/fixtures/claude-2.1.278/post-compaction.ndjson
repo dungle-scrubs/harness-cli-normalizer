@@ -1,0 +1,11 @@
+{"kind":"identity","sessionId":"6021e4f0-b835-47ec-97a9-85984e1c9d60","authority":"caller-assigned","capabilities":{"vision":true,"images":true,"streaming":"token","session":true,"source":"curated","confidence":"medium","escalation":{"supported":true,"source":"runtime-verified","confidence":"high","observedOn":{"harness":"claude","model":"sonnet","version":"2.1.274","date":"2026-09-17"}}}}
+{"kind":"progress","label":"hook_started"}
+{"kind":"progress","label":"hook_started"}
+{"kind":"progress","label":"hook_started"}
+{"kind":"progress","label":"hook_response"}
+{"kind":"progress","label":"hook_response"}
+{"kind":"progress","label":"hook_response"}
+{"kind":"progress","label":"status"}
+{"kind":"token","text":"HERON-517"}
+{"kind":"message","role":"assistant","text":"HERON-517"}
+{"kind":"done","exitCode":0,"cause":"clean","escalation":{"mode":"none","detection":"none"}}
