@@ -49,7 +49,7 @@ describe("closed descriptor vocabularies are runtime arrays", () => {
   test("harness modes, streaming granularities, and resume-on-missing are declared once", () => {
     expect([...HARNESS_MODES]).toEqual(["headless-turn", "headless-session", "interactive"]);
     expect([...STREAMING_GRANULARITIES]).toEqual(["token", "message", "none"]);
-    expect([...RESUME_ON_MISSING]).toEqual(["error", "create"]);
+    expect([...RESUME_ON_MISSING]).toEqual(["error", "create", "unknown"]);
     expect(Object.isFrozen(HARNESS_MODES)).toBe(true);
   });
 });

@@ -519,6 +519,17 @@ export async function* streamTurn(
       droppableBuffer.length = 0;
     };
     const handleEvent = async (event: HarnessEvent): Promise<void> => {
+      // A caller-requested stop or HCN deadline owns the terminal verdict.
+      // Harnesses may report their own cancellation as a structured task
+      // error while shutting down, but that must not replace the known cause.
+      const stoppingWithKnownCause =
+        killedByAbort || (killedByWatchdog && watchdogReason === "turn-deadline");
+      if (
+        stoppingWithKnownCause &&
+        (event.kind === "failure" || (event.kind === "error" && event.terminal === true))
+      ) {
+        return;
+      }
       if (!identitySeen) {
         if (event.kind === "identity") {
           identitySeen = true;
@@ -671,14 +682,15 @@ export async function* streamTurn(
       // Need to emit this failure before done, even though queue is closed
       yield { kind: "failure", ...f };
     }
-    // Stall watchdog also implies a transport failure if not already present
-    if (killedByWatchdog && !killedByAbort && failures.length === 0) {
-      // D11: a wall-clock deadline kill is a timeout, not a stall - the
-      // run was not necessarily silent, it simply outlived its budget.
-      const f =
-        watchdogReason === "turn-deadline"
-          ? failureFromTimeout()
-          : failureFromTransport(`stalled: ${watchdogReason ?? "inactivity"}`);
+    // A wall-clock deadline is HCN's authoritative reason for stopping the
+    // turn. Some harnesses emit their own cancellation error while they are
+    // shutting down, but that result does not replace the timeout cause.
+    if (killedByWatchdog && !killedByAbort && watchdogReason === "turn-deadline") {
+      const f = failureFromTimeout();
+      failures.push(f);
+      yield { kind: "failure", ...f };
+    } else if (killedByWatchdog && !killedByAbort && failures.length === 0) {
+      const f = failureFromTransport(`stalled: ${watchdogReason ?? "inactivity"}`);
       failures.push(f);
       yield { kind: "failure", ...f };
     }
@@ -700,7 +712,11 @@ export async function* streamTurn(
               : startupFailed
                 ? "failed"
                 : "crash";
-    const reduced = blockingFailure ?? reduceFailures(failures);
+    const reduced = killedByAbort
+      ? undefined
+      : killedByWatchdog && watchdogReason === "turn-deadline"
+        ? failureFromTimeout()
+        : (blockingFailure ?? reduceFailures(failures));
     // The approval stop kills a live process on purpose, so the signal
     // death it caused reports as "failed" with the typed failure, not
     // "killed" (which names external cancellation).

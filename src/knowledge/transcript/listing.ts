@@ -1,0 +1,73 @@
+import type { HarnessName } from "../descriptor.js";
+import type { Issue, TranscriptFailure } from "./wire.js";
+
+/**
+ * Whether a saved session was driven from a terminal or by a headless caller.
+ * `unknown` is the answer where the native store carries no marker; a consumer
+ * treats it as interactive unless it knows otherwise.
+ */
+export type SessionMode = "interactive" | "headless" | "unknown";
+
+/** One saved native session. */
+export interface SessionRow {
+  readonly schemaVersion: 1;
+  readonly kind: "session";
+  readonly harness: HarnessName;
+  /** The native ID, as `transcript read --id` accepts it. */
+  readonly id: string;
+  /** The native path, as `transcript read --file` accepts it. */
+  readonly file: string;
+  /** The workspace the session ran in, or null where the store names none. */
+  readonly cwd: string | null;
+  readonly lastWriteAt: string;
+  readonly mode: SessionMode;
+  /** Whether `transcript read` has a verified method for this source. */
+  readonly readable: boolean;
+}
+
+/**
+ * What one harness contributed. `divergent` is a harness with no listing
+ * method - the dimension it cannot express, reported rather than faked.
+ */
+export type HarnessListingState = "listed" | "divergent" | "failed";
+
+export interface HarnessListing {
+  readonly harness: HarnessName;
+  readonly state: HarnessListingState;
+  readonly storeRoot: string | null;
+  /** Rows this harness contributed to the result, before `--limit`. */
+  readonly rows: number;
+  readonly reason: string | null;
+  readonly issue: Issue | null;
+}
+
+export interface SessionListSource {
+  readonly schemaVersion: 1;
+  readonly kind: "session-list-source";
+  readonly hcnVersion: string;
+  readonly harnesses: readonly HarnessName[];
+  readonly scope: {
+    /** The workspace rows must match exactly, or null under --all-workspaces. */
+    readonly workspace: string | null;
+    /** Whether headless runs are admitted. */
+    readonly headless: boolean;
+    readonly limit: number | null;
+  };
+}
+
+export interface SessionListResult {
+  readonly schemaVersion: 1;
+  readonly kind: "session-list-result";
+  readonly exitCode: 0 | 1 | 2;
+  /**
+   * `complete` when every requested harness listed, `partial` when one was
+   * divergent or failed, `failed` when the listing itself could not be
+   * emitted, `refused` for invalid arguments.
+   */
+  readonly status: "complete" | "partial" | "failed" | "refused";
+  readonly rowsReturned: number;
+  /** Whether rows existed beyond `--limit`. */
+  readonly more: boolean;
+  readonly harnesses: readonly HarnessListing[];
+  readonly failure: TranscriptFailure | null;
+}

@@ -1,7 +1,8 @@
 # Contributing
 
 Thanks for your interest in `harness-cli-normalizer`. This CLI product (`hcn`) normalizes
-the differences between AI coding-agent CLIs (Claude Code, Codex, pi, Muse)
+the differences between AI coding-agent CLIs (Claude Code, Codex, pi, Muse, Cursor CLI,
+Antigravity CLI)
 into pure data descriptors plus interpretation and execution layers. The `hcn`
 binary is the product; internal library layers are not an install surface.
 
@@ -26,12 +27,24 @@ pnpm lint        # biome check .
 pnpm typecheck   # tsc --noEmit
 pnpm test        # vitest run
 pnpm test:bun    # bun test
+pnpm test:mutation # optional focused mutation audit of pure normalization code
 ```
 
 `pnpm check` is what CI runs. Run it locally before pushing; both test lanes
 (vitest and bun) must pass. The build runs first because dist/ is git-ignored
 and the CLI stub tests fail when it is missing or stale. `pnpm test` on its
 own needs a fresh `pnpm build` first for the same reason.
+
+`pnpm test:mutation` runs four isolated Stryker passes over failure classification,
+argv construction, content decoding, and persistent-session input. It is a manual,
+non-blocking audit and is not part of `pnpm check` or CI. Run one module with a
+`test:mutation:<module>` script when reviewing a local change. Each lane writes its
+actionable report to `reports/mutation/<module>.json` and enforces its own reviewed
+regression floor. The command runner cannot identify changed test files, so do not
+enable Stryker incremental mode for these lanes.
+Run mutation lanes sequentially. Treat a `Timeout` mutant as undetected until the
+smallest matching `--mutate` scope reproduces non-termination in isolation. Recheck
+every Stryker disable directive when `@stryker-mutator/core` crosses a major version.
 
 ## Architecture and invariants
 

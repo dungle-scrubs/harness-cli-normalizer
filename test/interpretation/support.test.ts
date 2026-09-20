@@ -17,13 +17,14 @@ import { defaultDescriptors } from "../../src/knowledge/overrides.js";
 import { piCli } from "../../src/knowledge/pi.js";
 
 describe("supportedBy derivation (D7)", () => {
-  it("autonomy: four harnesses with their native spellings", () => {
+  it("autonomy: five harnesses with their native spellings", () => {
     const by = supportedBy(defaultDescriptors(), "autonomy");
     expect(by).toEqual([
       { harness: "claude", spelling: "--dangerously-skip-permissions" },
       { harness: "codex", spelling: "--yolo" },
       { harness: "muse", spelling: "--yolo" },
       { harness: "cursor", spelling: "--force" },
+      { harness: "antigravity", spelling: "--dangerously-skip-permissions" },
     ]);
   });
 
@@ -33,8 +34,11 @@ describe("supportedBy derivation (D7)", () => {
     expect(by.map((e) => e.spelling)).toEqual(["--allowedTools", "--tools"]);
   });
 
-  it("sandbox: codex only", () => {
-    expect(supportedBy(defaultDescriptors(), "sandbox").map((e) => e.harness)).toEqual(["codex"]);
+  it("sandbox: codex and Antigravity", () => {
+    expect(supportedBy(defaultDescriptors(), "sandbox").map((e) => e.harness)).toEqual([
+      "codex",
+      "antigravity",
+    ]);
   });
 
   it("write: muse only; provider: pi only", () => {
@@ -57,6 +61,7 @@ describe("refusals carry the structured fields (D8 order)", () => {
         { harness: "codex", spelling: "--yolo" },
         { harness: "muse", spelling: "--yolo" },
         { harness: "cursor", spelling: "--force" },
+        { harness: "antigravity", spelling: "--dangerously-skip-permissions" },
       ]);
       expect(r.hint).toMatch(/pi has no unattended-run flag/);
       // the hardcoded array is gone: supported comes from the derivation
@@ -137,6 +142,7 @@ describe("spellingOf resumeLast arm (RFC-06 Phase 2)", () => {
       { harness: "codex", spelling: "--last" },
       { harness: "pi", spelling: "--continue" },
       { harness: "cursor", spelling: "--continue" },
+      { harness: "antigravity", spelling: "--continue" },
     ]);
   });
 });

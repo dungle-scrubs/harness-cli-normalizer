@@ -1,3 +1,11 @@
 allowBuilds:
   koffi: true
   lefthook: true
+
+# Stryker 10 still uses the TypeScript 6 compiler API to rewrite sandboxed
+# tsconfig files. Give only Stryker that dependency while the project stays on
+# the TypeScript 7 native compiler. Remove this when upstream issue #6111 ships.
+packageExtensions:
+  "@stryker-mutator/core@10.0.0":
+    dependencies:
+      typescript: "npm:@typescript/typescript6@6.0.2"

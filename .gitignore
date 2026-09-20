@@ -2,6 +2,7 @@ node_modules/
 dist/
 .native-artifacts/
 coverage/
+reports/
 *.tsbuildinfo
 .DS_Store
 .lefthook-local/

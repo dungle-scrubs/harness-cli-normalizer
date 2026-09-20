@@ -30,7 +30,7 @@ export type ContentEvent =
       readonly message: string;
       readonly terminal?: boolean;
       readonly provisional?: boolean;
-      /** A refused tool call or rejected question (cursor only in v1):
+      /** A refused tool call or rejected question:
        * the native tool name and the harness's reason, which may be
        * empty. Machine consumers branch on presence, never on prose. */
       readonly denial?: { readonly tool: string; readonly reason: string };
@@ -252,6 +252,79 @@ const muse = (r: Record<string, unknown>): ContentEvent[] => {
   return [];
 };
 
+const compactDetail = (value: unknown): string => {
+  if (typeof value === "string") return value.slice(0, 512);
+  try {
+    return JSON.stringify(value).slice(0, 512);
+  } catch {
+    return String(value).slice(0, 512);
+  }
+};
+
+/** Antigravity stream-json contract. Permission errors are decoded
+ * only from structured tool_info.error fields. General model prose is not
+ * evidence that a native permission rule denied a call. */
+const antigravity = (r: Record<string, unknown>): ContentEvent[] => {
+  if (r.event === "step_update") {
+    const step = asRecord(r.step_update);
+    if (step === null) return [];
+    if (step.step_type === "agent_response" && typeof step.text_delta === "string") {
+      return [{ kind: "token", text: step.text_delta }];
+    }
+    if (step.step_type !== "tool" || (step.state !== "DONE" && step.state !== "ERROR")) return [];
+
+    const info = asRecord(step.tool_info);
+    const name =
+      typeof info?.name === "string"
+        ? info.name
+        : typeof step.tool_name === "string"
+          ? step.tool_name
+          : "tool";
+    const tool: ContentEvent = {
+      kind: "tool",
+      name,
+      ...(info !== null && Object.hasOwn(info, "parameters") ? { input: info.parameters } : {}),
+    };
+    const nativeError = info?.error;
+    if (nativeError === undefined || nativeError === null) return [tool];
+
+    const error = asRecord(nativeError);
+    const type = typeof error?.type === "string" ? error.type : "";
+    const reason = typeof error?.message === "string" ? error.message : compactDetail(nativeError);
+    const isDenial = /permission|denied|rejected|not[_ -]?allowed/i.test(`${type} ${reason}`);
+    return [
+      tool,
+      {
+        kind: "error",
+        message: `antigravity tool ${name} failed: ${reason}`,
+        ...(isDenial ? { denial: { tool: name, reason } } : {}),
+      },
+    ];
+  }
+
+  if (r.event !== "result") return [];
+  const result = asRecord(r.result);
+  if (result === null) {
+    return [{ kind: "error", message: "antigravity result was malformed", terminal: true }];
+  }
+  const status = typeof result.status === "string" ? result.status : "INVALID";
+  if (status !== "SUCCESS") {
+    const detail = Object.hasOwn(result, "error")
+      ? compactDetail(result.error)
+      : "no native error detail";
+    return [
+      {
+        kind: "error",
+        message: `antigravity turn ended with status ${status}: ${detail}`,
+        terminal: true,
+      },
+    ];
+  }
+  return typeof result.response === "string" && result.response !== ""
+    ? [{ kind: "message", role: "assistant", text: result.response }]
+    : [];
+};
+
 /** Opaque per-reader decoder state (cursor only in v1): pending tool
  * call ids, tombstoned ids evicted from pending that must never re-emit
  * a tool event, completed ids that must not re-emit on a duplicate
@@ -285,6 +358,7 @@ const STATE_FACTORIES: Record<HarnessName, () => ReaderState> = {
   pi: () => null,
   muse: () => null,
   cursor: freshCursorReaderState,
+  antigravity: () => null,
 };
 
 export const freshReaderState = (harness: HarnessName): ReaderState => STATE_FACTORIES[harness]();
@@ -514,16 +588,13 @@ const stateless =
   (read: (r: Record<string, unknown>) => ContentEvent[]): StatefulReader =>
   (r, state) => ({ events: read(r), state });
 
-/** Stateful reader dispatch, next to STATE_FACTORIES above: cursor threads
- * its opaque per-reader state through cursorWithState below, the four
- * stateless readers ignore it and pass it through. The closed table keeps
- * every harness named once; the call site below names no harness. */
 const STATEFUL_READERS: Record<HarnessName, StatefulReader> = {
   claude: stateless(claude),
   codex: stateless(codex),
   pi: stateless(pi),
   muse: stateless(muse),
   cursor: (r, state) => cursorWithState(r, state ?? freshCursorReaderState()),
+  antigravity: stateless(antigravity),
 };
 
 /** Stateful entry point: every harness returns { events, state }.
