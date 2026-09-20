@@ -132,7 +132,10 @@ bun scripts/check-versions.ts       # compare descriptors to published versions
   (`PI_CODING_AGENT_DIR`, `CODEX_HOME`, `CLAUDE_CONFIG_DIR`, `XDG_*`,
   `CURSOR_CONFIG_DIR`), and `docs/transcripts.md` documents the same
   precedence. A probe that skips the resolver can find an empty default
-  directory while the populated store sits elsewhere.
+  directory while the populated store sits elsewhere. This covers throwaway
+  measurement probes and scratch scripts, not only shipped code. A probe whose
+  numbers reach a ticket, a document, or a commit message is evidence, and it
+  resolves roots and candidates the same way.
 - Commits follow [Conventional Commits](https://www.conventionalcommits.org/)
   (`feat:`, `fix:`, `perf:`, `refactor:`, `docs:`, `chore:`, `ci:`, `test:`).
   release-please reads these to cut releases and write `CHANGELOG.md`.
