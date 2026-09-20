@@ -331,6 +331,7 @@ export const TRANSCRIPT_HELP = `hcn transcript - Passive native transcript expor
 Usage: hcn transcript read <harness> (--id <native-id> | --file <path>) [options]
        hcn transcript ls [--cwd <dir> | --all-workspaces] [--headless]
                          [--harness <names>] [--limit <rows>]
+                         [--since-time <utc-instant>]
 
 Harnesses: claude | codex | pi | muse | cursor | antigravity
 Inspect support first: hcn inspect <harness> --transcript
@@ -348,7 +349,11 @@ ls options:
   --all-workspaces          Every workspace; not combinable with --cwd
   --headless                Also return headless runs (default: omit them)
   --harness <names>         Comma-separated harnesses (default: all of them)
-  --limit <rows>            Positive row limit
+  --limit <rows>            Positive row limit; truncates the rows printed,
+                            not the walk
+  --since-time <instant>    Only sources written at or after this UTC instant,
+                            as YYYY-MM-DDTHH:MM:SS[.mmm]Z. An older source is
+                            never opened, so it costs one stat and no parse
 
 Common options:
   -h, --help                Show help

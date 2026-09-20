@@ -26,6 +26,13 @@ export function object(value: Json | undefined): JsonObject | null {
 export function string(value: Json | undefined): string | null {
   return typeof value === "string" ? value : null;
 }
+/** A native JSON integer as a JavaScript number, or null when it is not an
+ * integer token or cannot be held exactly. */
+export function integer(value: Json | undefined): number | null {
+  if (!(value instanceof JsonNumber) || !/^-?\d+$/.test(value.text)) return null;
+  const parsed = Number(value.text);
+  return Number.isSafeInteger(parsed) ? parsed : null;
+}
 
 /** Parse numbers as decimal tokens and reject duplicate decoded member names. */
 export function parseNativeJson(text: string): Json {

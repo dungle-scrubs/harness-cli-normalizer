@@ -2,8 +2,9 @@ import type { HarnessName } from "../../knowledge/descriptor.js";
 import { UUID_SHAPE } from "../../knowledge/descriptor.js";
 import type { SessionMode } from "../../knowledge/transcript/listing.js";
 import type { Json, JsonObject } from "./json.js";
-import { object, parseNativeJson, string } from "./json.js";
+import { integer, object, parseNativeJson, string } from "./json.js";
 import { SqliteImage } from "./sqlite.js";
+import { utcTime, utcTimeFromEpochMicros, utcTimeFromEpochMillis } from "./time.js";
 
 /** One walked path a harness recognizes as a saved session. */
 export interface ListingCandidate {
@@ -25,6 +26,9 @@ export interface ListedSession {
   readonly file: string;
   readonly cwd: string | null;
   readonly lastWriteAt: string;
+  /** When the native header says the session began, or null where the store
+   * records no start time. A filesystem observation is never substituted. */
+  readonly startedAt: string | null;
   readonly mode: SessionMode;
   readonly readable: boolean;
 }
@@ -75,43 +79,84 @@ function found(session: ListedSession): ListedResult {
   return { kind: "session", session };
 }
 
+/** A native ISO 8601 UTC marker, normalized to millisecond precision. */
+const isoTime = (value: Json | undefined): string | null => {
+  const text = string(value);
+  return text === null ? null : utcTime(text);
+};
+/** Muse counts a record's time in microseconds since the epoch. */
+const microsTime = (value: Json | undefined): string | null => {
+  const micros = integer(value);
+  return micros === null ? null : utcTimeFromEpochMicros(micros);
+};
+/** Cursor counts its chat's creation in milliseconds since the epoch. */
+const millisTime = (value: Json | undefined): string | null => {
+  const millis = integer(value);
+  return millis === null ? null : utcTimeFromEpochMillis(millis);
+};
+
 /**
  * A session whose store names no workspace and no mode. The default workspace
  * scope drops it, so it surfaces only under `--all-workspaces`, where dropping
  * it outright would hide a saved session.
+ *
+ * A missing workspace does not make the start time missing too: the prefix the
+ * scan already read can carry one, and the caller passes what it found.
  */
-function unmarked(candidate: ListingCandidate, markers: ListingMarkers, id?: string): ListedResult {
+function unmarked(
+  candidate: ListingCandidate,
+  markers: ListingMarkers,
+  startedAt: string | null = null,
+  id?: string,
+): ListedResult {
   return found({
     id: id ?? candidate.id,
     file: candidate.file,
     cwd: null,
     lastWriteAt: markers.lastWriteAt,
+    startedAt,
     mode: "unknown",
     readable: candidate.readable,
   });
 }
 
 /**
- * The complete LF-framed JSON objects of a prefix. A line this listing cannot
- * parse is not a marker, so it is skipped rather than failing the harness.
+ * The complete LF-framed JSON objects of a prefix, one at a time. A line this
+ * listing cannot parse is not a marker, so it is skipped rather than failing
+ * the harness.
+ *
+ * Every caller wants the first record carrying a marker, not all of them, and
+ * the parse is the largest cost in the call: on a real store claude parses
+ * 18.4 records per candidate to use 3.4, and codex parses 5.3 to use 1. So
+ * each line is sliced, decoded and parsed only when the caller asks for it,
+ * and a caller that has its markers stops the scan by returning.
  */
-function prefixObjects(bytes: Uint8Array): JsonObject[] {
+function* prefixEntries(bytes: Uint8Array): Generator<JsonObject> {
   const end = bytes.lastIndexOf(10);
-  if (end < 0) return [];
-  const text = new TextDecoder("utf-8", { fatal: false }).decode(bytes.subarray(0, end));
-  const objects: JsonObject[] = [];
-  for (const line of text.split("\n")) {
-    if (!line) continue;
-    let value: Json;
-    try {
-      value = parseNativeJson(line);
-    } catch {
-      continue;
+  if (end < 0) return;
+  const decoder = new TextDecoder("utf-8", { fatal: false });
+  let start = 0;
+  while (start < end) {
+    let stop = bytes.indexOf(10, start);
+    if (stop < 0 || stop > end) stop = end;
+    if (stop > start) {
+      let value: Json;
+      try {
+        value = parseNativeJson(decoder.decode(bytes.subarray(start, stop)));
+      } catch {
+        value = null;
+      }
+      const entry = object(value);
+      if (entry) yield entry;
     }
-    const entry = object(value);
-    if (entry) objects.push(entry);
+    start = stop + 1;
   }
-  return objects;
+}
+
+/** The first record satisfying `want`, or null when the prefix holds none. */
+function firstEntry(bytes: Uint8Array, want: (entry: JsonObject) => boolean): JsonObject | null {
+  for (const entry of prefixEntries(bytes)) if (want(entry)) return entry;
+  return null;
 }
 
 function basename(path: string): string {
@@ -140,19 +185,26 @@ const claudeListing: TranscriptListing = {
     return { id, file: path, readable: true, read: { path, bytes: LISTING_PREFIX_BYTES } };
   },
   session(candidate, markers) {
-    const entries = prefixObjects(markers.bytes);
-    const identity = entries.find((entry) => string(entry.cwd) !== null);
-    if (!identity) return markers.final ? unmarked(candidate, markers) : TRUNCATED;
+    // Three markers off one pass, each taken from the first record carrying
+    // it. A transcript opens with settings records that carry none of them.
+    let identity: JsonObject | null = null;
+    let entrypoint: string | null = null;
+    let startedAt: string | null = null;
+    for (const entry of prefixEntries(markers.bytes)) {
+      if (!identity && string(entry.cwd) !== null) identity = entry;
+      entrypoint ??= string(entry.entrypoint);
+      startedAt ??= isoTime(entry.timestamp);
+      if (identity && entrypoint !== null && startedAt !== null) break;
+    }
+    if (!identity) return markers.final ? unmarked(candidate, markers, startedAt) : TRUNCATED;
     // A sidechain file is the agent's own conversation, not the session's.
     if (identity.isSidechain === true) return SKIP;
-    const entrypoint = string(
-      entries.find((entry) => string(entry.entrypoint) !== null)?.entrypoint,
-    );
     return found({
       id: candidate.id,
       file: candidate.file,
       cwd: string(identity.cwd),
       lastWriteAt: markers.lastWriteAt,
+      startedAt,
       mode: claudeMode(entrypoint),
       readable: candidate.readable,
     });
@@ -188,7 +240,7 @@ const codexListing: TranscriptListing = {
   },
   session(candidate, markers) {
     if (!candidate.readable) return unmarked(candidate, markers);
-    const meta = prefixObjects(markers.bytes).find((entry) => entry.type === "session_meta");
+    const meta = firstEntry(markers.bytes, (entry) => entry.type === "session_meta");
     const payload = object(meta?.payload);
     if (!payload) return markers.final ? unmarked(candidate, markers) : TRUNCATED;
     // A spawned agent thread carries its parent in `source`; it is a child
@@ -199,6 +251,8 @@ const codexListing: TranscriptListing = {
       file: candidate.file,
       cwd: string(payload.cwd),
       lastWriteAt: markers.lastWriteAt,
+      // The rollout's time is on the `session_meta` record, not its payload.
+      startedAt: isoTime(meta?.timestamp),
       mode: codexMode(string(payload.source), string(payload.originator)),
       readable: true,
     });
@@ -227,7 +281,7 @@ const piListing: TranscriptListing = {
     return { id: "", file: path, readable: true, read: { path, bytes: LISTING_PREFIX_BYTES } };
   },
   session(candidate, markers) {
-    const [header] = prefixObjects(markers.bytes);
+    const [header] = prefixEntries(markers.bytes);
     if (!header) return markers.final ? SKIP : TRUNCATED;
     const id = string(header.id);
     if (header.type !== "session" || !id || !basename(candidate.file).endsWith(`_${id}.jsonl`))
@@ -237,6 +291,7 @@ const piListing: TranscriptListing = {
       file: candidate.file,
       cwd: string(header.cwd),
       lastWriteAt: markers.lastWriteAt,
+      startedAt: isoTime(header.timestamp),
       // No observed Pi record separates a headless run from a terminal one.
       mode: "unknown",
       readable: candidate.readable,
@@ -262,16 +317,22 @@ const museListing: TranscriptListing = {
     return { id, file: path, readable: true, read: { path, bytes: LISTING_PREFIX_BYTES } };
   },
   session(candidate, markers) {
-    const entries = prefixObjects(markers.bytes);
-    const workspace = entries
-      .map((entry) => string(object(object(entry.payload)?.record)?.workspace_root))
-      .find((value) => value !== null && value !== undefined);
-    if (workspace === undefined) return markers.final ? unmarked(candidate, markers) : TRUNCATED;
+    let workspace: string | undefined;
+    let startedAt: string | null = null;
+    for (const entry of prefixEntries(markers.bytes)) {
+      workspace ??= string(object(object(entry.payload)?.record)?.workspace_root) ?? undefined;
+      startedAt ??= microsTime(entry.recorded_at);
+      if (workspace !== undefined && startedAt !== null) break;
+    }
+    if (workspace === undefined)
+      return markers.final ? unmarked(candidate, markers, startedAt) : TRUNCATED;
     return found({
       id: candidate.id,
       file: candidate.file,
       cwd: workspace,
       lastWriteAt: markers.lastWriteAt,
+      // The opening frame envelope carries no time; the payload records do.
+      startedAt,
       // `runtime.session.route_facts` records terminal facts for headless and
       // terminal sessions alike, so it does not separate the two.
       mode: "unknown",
@@ -317,6 +378,7 @@ const cursorListing: TranscriptListing = {
       file: candidate.file,
       cwd: string(meta.cwd),
       lastWriteAt: markers.lastWriteAt,
+      startedAt: millisTime(meta.createdAtMs),
       // No observed Cursor chat store separates a headless run from a terminal one.
       mode: "unknown",
       readable: candidate.readable,
@@ -393,7 +455,9 @@ function antigravitySummaries(bytes: Uint8Array): Map<string, AntigravitySummary
 /**
  * Antigravity files one untruncated step log per conversation directory. The
  * log carries no workspace, so the workspace and the parent link come from the
- * conversation index that sits beside the brain directory.
+ * conversation index that sits beside the brain directory. The log's own first
+ * step carries the start time, which the index does not: `last_modified_time`
+ * is a modification, not a beginning.
  */
 const antigravityListing: TranscriptListing = {
   directories: ["brain"],
@@ -405,16 +469,29 @@ const antigravityListing: TranscriptListing = {
   },
   candidate(path) {
     const id = ANTIGRAVITY_LOG.exec(path)?.[1];
-    return id ? { id, file: path, readable: true, read: null } : null;
+    return id
+      ? { id, file: path, readable: true, read: { path, bytes: LISTING_PREFIX_BYTES } }
+      : null;
   },
   session(candidate, markers) {
     const summary = markers.index ? antigravitySummaries(markers.index).get(candidate.id) : null;
     if (summary?.child) return SKIP;
+    let steps = 0;
+    let startedAt: string | null = null;
+    for (const entry of prefixEntries(markers.bytes)) {
+      steps++;
+      startedAt = isoTime(entry.created_at);
+      if (startedAt !== null) break;
+    }
+    // A step longer than the first prefix is the only reason to read more; a
+    // log that simply stopped writing `created_at` reports null instead.
+    if (steps === 0 && !markers.final) return TRUNCATED;
     return found({
       id: candidate.id,
       file: candidate.file,
       cwd: summary?.workspace ?? null,
       lastWriteAt: markers.lastWriteAt,
+      startedAt,
       // No observed Antigravity record separates a headless run from a terminal one.
       mode: "unknown",
       readable: candidate.readable,

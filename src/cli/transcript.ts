@@ -58,15 +58,21 @@ export async function inspectTranscript(
     `${encodeJson(transcriptCapabilities(resolveHarness(harness), getVersion()))}\n`,
   );
 }
-/** Whether `transcript read` has a verified method for this harness. */
-function transcriptReadable(harness: (typeof HARNESS_NAMES)[number]): boolean {
+/** What `transcript read` can do with this harness: whether a verified method
+ * addresses it, and the sibling files that method requires quiet. The listing
+ * reports both, so a row can say "no method" apart from "busy right now". */
+function transcriptReadMethod(harness: (typeof HARNESS_NAMES)[number]): {
+  readonly readable: boolean;
+  readonly quiescentSiblings: readonly string[];
+} {
   const selection = chooseTranscriptMethod(resolveHarness(harness).transcript, {
     acceptedLimits: [],
     selector: "id",
     incremental: false,
     paging: false,
   });
-  return selection.method !== null && readerForMethod(selection.method) !== null;
+  const reader = selection.method ? readerForMethod(selection.method) : null;
+  return { readable: reader !== null, quiescentSiblings: reader?.quiescentSiblings ?? [] };
 }
 function listingRequests(
   harnesses: readonly (typeof HARNESS_NAMES)[number][],
@@ -75,6 +81,7 @@ function listingRequests(
   const opts = { env: process.env, cwd, home: homedir() };
   return harnesses.map((harness) => {
     const listing = listingForHarness(harness);
+    const read = transcriptReadMethod(harness);
     let listingRoot: string | null = null;
     try {
       listingRoot = listing ? transcriptListingRoot(harness, opts) : null;
@@ -85,7 +92,8 @@ function listingRequests(
       harness,
       listing: listingRoot ? listing : null,
       listingRoot,
-      readable: transcriptReadable(harness),
+      readable: read.readable,
+      quiescentSiblings: read.quiescentSiblings,
       divergence: listing
         ? listingRoot
           ? null
@@ -104,6 +112,7 @@ async function refuseList(version: string, error: unknown, raw: readonly string[
       workspace: raw.includes("--all-workspaces") ? null : process.cwd(),
       headless: raw.includes("--headless"),
       limit: null,
+      sinceTime: null,
     },
   };
   const result: SessionListResult = {
@@ -151,6 +160,7 @@ export async function transcriptList(raw: readonly string[]): Promise<void> {
         workspace: options.allWorkspaces ? null : cwd,
         headless: options.headless,
         limit: options.limit,
+        sinceTime: options.sinceTime,
       },
       {
         files: nodeTranscriptFiles,
