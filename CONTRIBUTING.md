@@ -1,7 +1,8 @@
 # Contributing
 
 Thanks for your interest in `harness-cli-normalizer`. This CLI product (`hcn`) normalizes
-the differences between AI coding-agent CLIs (Claude Code, Codex, pi, Muse)
+the differences between AI coding-agent CLIs (Claude Code, Codex, pi, Muse, Cursor CLI,
+Antigravity CLI)
 into pure data descriptors plus interpretation and execution layers. The `hcn`
 binary is the product; internal library layers are not an install surface.
 
@@ -37,7 +38,13 @@ own needs a fresh `pnpm build` first for the same reason.
 `pnpm test:mutation` runs four isolated Stryker passes over failure classification,
 argv construction, content decoding, and persistent-session input. It is a manual,
 non-blocking audit and is not part of `pnpm check` or CI. Run one module with a
-`test:mutation:<module>` script when reviewing a local change.
+`test:mutation:<module>` script when reviewing a local change. Each lane writes its
+actionable report to `reports/mutation/<module>.json` and enforces its own reviewed
+regression floor. The command runner cannot identify changed test files, so do not
+enable Stryker incremental mode for these lanes.
+Run mutation lanes sequentially. Treat a `Timeout` mutant as undetected until the
+smallest matching `--mutate` scope reproduces non-termination in isolation. Recheck
+every Stryker disable directive when `@stryker-mutator/core` crosses a major version.
 
 ## Architecture and invariants
 

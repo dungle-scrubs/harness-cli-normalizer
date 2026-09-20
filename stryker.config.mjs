@@ -1,8 +1,26 @@
+import os from "node:os";
 import path from "node:path";
 
 const mutateFlagIndex = process.argv.indexOf("--mutate");
 const mutatedFile = mutateFlagIndex === -1 ? undefined : process.argv[mutateFlagIndex + 1];
-const lane = mutatedFile === undefined ? "all" : path.basename(mutatedFile, path.extname(mutatedFile));
+const lanes = {
+  "src/execution/failure.ts": { floor: 75, name: "failure" },
+  "src/interpretation/argv.ts": { floor: 84, name: "argv" },
+  "src/interpretation/content.ts": { floor: 81, name: "content" },
+  "src/interpretation/session-input.ts": { floor: 99, name: "session-input" },
+};
+const selectedLane = mutatedFile === undefined ? undefined : lanes[mutatedFile];
+
+if (selectedLane === undefined) {
+  const received = mutatedFile === undefined ? "no --mutate target" : `--mutate ${mutatedFile}`;
+  throw new Error(
+    `Unsupported Stryker mutation lane (${received}). Run one of: ` +
+      "pnpm test:mutation:failure, pnpm test:mutation:argv, " +
+      "pnpm test:mutation:content, pnpm test:mutation:session-input.",
+  );
+}
+
+const lane = selectedLane.name;
 
 /** @type {import("@stryker-mutator/api/core").PartialStrykerOptions} */
 const config = {
@@ -36,9 +54,10 @@ const config = {
     "src/interpretation/session-input.ts",
   ],
   reporters: ["clear-text", "progress", "json"],
+  tempDirName: path.join(os.tmpdir(), "hcn-stryker", lane),
   testRunner: "command",
   thresholds: {
-    break: null,
+    break: selectedLane.floor,
     high: 80,
     low: 60,
   },

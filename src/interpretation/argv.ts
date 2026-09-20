@@ -452,6 +452,7 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
  * grammar is unknowable from outside. */
 const flagMapOf = (h: HarnessDescriptor, argv: readonly string[]): Map<string, string | true> => {
   const map = new Map<string, string | true>();
+  // Stryker disable next-line UpdateOperator: decrementing cannot terminate this bounded scan.
   for (let i = 1; i < argv.length; i++) {
     const token = argv[i];
     if (token === undefined || !token.startsWith("-")) continue;
@@ -465,6 +466,7 @@ const flagMapOf = (h: HarnessDescriptor, argv: readonly string[]): Map<string, s
     const next = argv[i + 1];
     if (next !== undefined && !next.startsWith("-")) {
       map.set(name, next);
+      // Stryker disable next-line UpdateOperator: decrementing cancels the loop increment.
       i++;
     } else {
       map.set(name, true);
@@ -477,6 +479,7 @@ const pinSatisfied = (
   pin: readonly string[],
   flags: ReadonlyMap<string, string | true>,
 ): boolean => {
+  // Stryker disable next-line UpdateOperator: decrementing cannot terminate this bounded scan.
   for (let i = 0; i < pin.length; i++) {
     const member = pin[i];
     if (member === undefined || !member.startsWith("-")) continue;

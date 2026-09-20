@@ -524,4 +524,3 @@ Each entry states the final owner answer and the date; the body text already mat
 - `docs/rfc/02_one-owner-per-rule.rfc.md` - one owner per rule, no `h.name` branches, closed vocabularies declared once.
 - `docs/rfc/03_native-transcript-retrieval.rfc.md` - house style for normative tables and the transcript-divergence path cursor reuses by carrying `transcript: null`.
 - `ROADMAP.md` - the Cursor item this RFC discharges and the Grok item it leaves blocked.
-

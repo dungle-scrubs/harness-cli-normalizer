@@ -48,6 +48,18 @@ describe("identity probe encoding", () => {
       }),
     ).toEqual({ kind: "ignored" });
   });
+
+  test("a non-prompt wire contract never emits an identity command", () => {
+    const malformedProbe = {
+      ...claudeCode,
+      sessionMode: {
+        ...claudeCode.sessionMode,
+        identityProbe: { command: "get_state", responseIdField: "data.sessionId" },
+      },
+    } as HarnessDescriptor;
+
+    expect(encodeIdentityProbe(malformedProbe)).toBeNull();
+  });
 });
 
 describe("session record decoding", () => {
