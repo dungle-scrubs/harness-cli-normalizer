@@ -95,22 +95,6 @@ const millisTime = (value: Json | undefined): string | null => {
   return millis === null ? null : utcTimeFromEpochMillis(millis);
 };
 
-/** The first start time the prefix's records name under `key`, or null when
- * none of the records this prefix holds carries a readable one. The scan does
- * not grow the prefix on its own: a store that stopped writing the marker
- * would otherwise cost every row the whole read cap. */
-function firstTime(
-  entries: readonly JsonObject[],
-  key: string,
-  read: (value: Json | undefined) => string | null,
-): string | null {
-  for (const entry of entries) {
-    const time = read(entry[key]);
-    if (time !== null) return time;
-  }
-  return null;
-}
-
 /**
  * A session whose store names no workspace and no mode. The default workspace
  * scope drops it, so it surfaces only under `--all-workspaces`, where dropping
@@ -129,26 +113,42 @@ function unmarked(candidate: ListingCandidate, markers: ListingMarkers, id?: str
 }
 
 /**
- * The complete LF-framed JSON objects of a prefix. A line this listing cannot
- * parse is not a marker, so it is skipped rather than failing the harness.
+ * The complete LF-framed JSON objects of a prefix, one at a time. A line this
+ * listing cannot parse is not a marker, so it is skipped rather than failing
+ * the harness.
+ *
+ * Every caller wants the first record carrying a marker, not all of them, and
+ * the parse is the largest cost in the call: on a real store claude parses
+ * 18.4 records per candidate to use 3.4, and codex parses 5.3 to use 1. So
+ * each line is sliced, decoded and parsed only when the caller asks for it,
+ * and a caller that has its markers stops the scan by returning.
  */
-function prefixObjects(bytes: Uint8Array): JsonObject[] {
+function* prefixEntries(bytes: Uint8Array): Generator<JsonObject> {
   const end = bytes.lastIndexOf(10);
-  if (end < 0) return [];
-  const text = new TextDecoder("utf-8", { fatal: false }).decode(bytes.subarray(0, end));
-  const objects: JsonObject[] = [];
-  for (const line of text.split("\n")) {
-    if (!line) continue;
-    let value: Json;
-    try {
-      value = parseNativeJson(line);
-    } catch {
-      continue;
+  if (end < 0) return;
+  const decoder = new TextDecoder("utf-8", { fatal: false });
+  let start = 0;
+  while (start < end) {
+    let stop = bytes.indexOf(10, start);
+    if (stop < 0 || stop > end) stop = end;
+    if (stop > start) {
+      let value: Json;
+      try {
+        value = parseNativeJson(decoder.decode(bytes.subarray(start, stop)));
+      } catch {
+        value = null;
+      }
+      const entry = object(value);
+      if (entry) yield entry;
     }
-    const entry = object(value);
-    if (entry) objects.push(entry);
+    start = stop + 1;
   }
-  return objects;
+}
+
+/** The first record satisfying `want`, or null when the prefix holds none. */
+function firstEntry(bytes: Uint8Array, want: (entry: JsonObject) => boolean): JsonObject | null {
+  for (const entry of prefixEntries(bytes)) if (want(entry)) return entry;
+  return null;
 }
 
 function basename(path: string): string {
@@ -177,22 +177,26 @@ const claudeListing: TranscriptListing = {
     return { id, file: path, readable: true, read: { path, bytes: LISTING_PREFIX_BYTES } };
   },
   session(candidate, markers) {
-    const entries = prefixObjects(markers.bytes);
-    const identity = entries.find((entry) => string(entry.cwd) !== null);
+    // Three markers off one pass, each taken from the first record carrying
+    // it. A transcript opens with settings records that carry none of them.
+    let identity: JsonObject | null = null;
+    let entrypoint: string | null = null;
+    let startedAt: string | null = null;
+    for (const entry of prefixEntries(markers.bytes)) {
+      if (!identity && string(entry.cwd) !== null) identity = entry;
+      entrypoint ??= string(entry.entrypoint);
+      startedAt ??= isoTime(entry.timestamp);
+      if (identity && entrypoint !== null && startedAt !== null) break;
+    }
     if (!identity) return markers.final ? unmarked(candidate, markers) : TRUNCATED;
     // A sidechain file is the agent's own conversation, not the session's.
     if (identity.isSidechain === true) return SKIP;
-    const entrypoint = string(
-      entries.find((entry) => string(entry.entrypoint) !== null)?.entrypoint,
-    );
     return found({
       id: candidate.id,
       file: candidate.file,
       cwd: string(identity.cwd),
       lastWriteAt: markers.lastWriteAt,
-      // A transcript opens with settings records that carry no time, so the
-      // start is the first record that does, not the first record.
-      startedAt: firstTime(entries, "timestamp", isoTime),
+      startedAt,
       mode: claudeMode(entrypoint),
       readable: candidate.readable,
     });
@@ -228,7 +232,7 @@ const codexListing: TranscriptListing = {
   },
   session(candidate, markers) {
     if (!candidate.readable) return unmarked(candidate, markers);
-    const meta = prefixObjects(markers.bytes).find((entry) => entry.type === "session_meta");
+    const meta = firstEntry(markers.bytes, (entry) => entry.type === "session_meta");
     const payload = object(meta?.payload);
     if (!payload) return markers.final ? unmarked(candidate, markers) : TRUNCATED;
     // A spawned agent thread carries its parent in `source`; it is a child
@@ -269,7 +273,7 @@ const piListing: TranscriptListing = {
     return { id: "", file: path, readable: true, read: { path, bytes: LISTING_PREFIX_BYTES } };
   },
   session(candidate, markers) {
-    const [header] = prefixObjects(markers.bytes);
+    const [header] = prefixEntries(markers.bytes);
     if (!header) return markers.final ? SKIP : TRUNCATED;
     const id = string(header.id);
     if (header.type !== "session" || !id || !basename(candidate.file).endsWith(`_${id}.jsonl`))
@@ -305,10 +309,13 @@ const museListing: TranscriptListing = {
     return { id, file: path, readable: true, read: { path, bytes: LISTING_PREFIX_BYTES } };
   },
   session(candidate, markers) {
-    const entries = prefixObjects(markers.bytes);
-    const workspace = entries
-      .map((entry) => string(object(object(entry.payload)?.record)?.workspace_root))
-      .find((value) => value !== null && value !== undefined);
+    let workspace: string | undefined;
+    let startedAt: string | null = null;
+    for (const entry of prefixEntries(markers.bytes)) {
+      workspace ??= string(object(object(entry.payload)?.record)?.workspace_root) ?? undefined;
+      startedAt ??= microsTime(entry.recorded_at);
+      if (workspace !== undefined && startedAt !== null) break;
+    }
     if (workspace === undefined) return markers.final ? unmarked(candidate, markers) : TRUNCATED;
     return found({
       id: candidate.id,
@@ -316,7 +323,7 @@ const museListing: TranscriptListing = {
       cwd: workspace,
       lastWriteAt: markers.lastWriteAt,
       // The opening frame envelope carries no time; the payload records do.
-      startedAt: firstTime(entries, "recorded_at", microsTime),
+      startedAt,
       // `runtime.session.route_facts` records terminal facts for headless and
       // terminal sessions alike, so it does not separate the two.
       mode: "unknown",
@@ -460,16 +467,22 @@ const antigravityListing: TranscriptListing = {
   session(candidate, markers) {
     const summary = markers.index ? antigravitySummaries(markers.index).get(candidate.id) : null;
     if (summary?.child) return SKIP;
-    const entries = prefixObjects(markers.bytes);
+    let steps = 0;
+    let startedAt: string | null = null;
+    for (const entry of prefixEntries(markers.bytes)) {
+      steps++;
+      startedAt = isoTime(entry.created_at);
+      if (startedAt !== null) break;
+    }
     // A step longer than the first prefix is the only reason to read more; a
     // log that simply stopped writing `created_at` reports null instead.
-    if (entries.length === 0 && !markers.final) return TRUNCATED;
+    if (steps === 0 && !markers.final) return TRUNCATED;
     return found({
       id: candidate.id,
       file: candidate.file,
       cwd: summary?.workspace ?? null,
       lastWriteAt: markers.lastWriteAt,
-      startedAt: firstTime(entries, "created_at", isoTime),
+      startedAt,
       // No observed Antigravity record separates a headless run from a terminal one.
       mode: "unknown",
       readable: candidate.readable,
