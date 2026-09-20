@@ -7,6 +7,14 @@ export interface FileVersion {
   readonly identity: string;
   readonly size: number;
 }
+/** What one stat of a listed source tells the listing. Both facts come from
+ * the same call: taking the mtime and discarding the size would cost a second
+ * stat to get it back. */
+export interface SourceStat {
+  /** The last native write, as an ISO 8601 UTC time. */
+  readonly lastWriteAt: string;
+  readonly size: number;
+}
 export interface TranscriptFile {
   close(): Promise<void>;
   read(length: number, start?: number): Promise<Uint8Array>;
@@ -24,8 +32,8 @@ export interface TranscriptFiles {
   open(path: string): Promise<TranscriptFile>;
   realpath?(path: string): Promise<string>;
   version(path: string): Promise<FileVersion>;
-  /** The last native write to one regular file, as an ISO 8601 UTC time. */
-  writeTime?(path: string): Promise<string>;
+  /** The write time and size of one listed regular file. */
+  sourceStat?(path: string): Promise<SourceStat>;
 }
 async function version(handle: FileHandle): Promise<FileVersion> {
   const result = await handle.stat({ bigint: true });
@@ -104,8 +112,12 @@ export const nodeTranscriptFiles: TranscriptFiles = {
     };
   },
   realpath: (path) => realpath(path),
-  async writeTime(path) {
-    return (await stat(path)).mtime.toISOString();
+  async sourceStat(path) {
+    const result = await stat(path, { bigint: true });
+    return {
+      lastWriteAt: result.mtime.toISOString(),
+      size: result.size > BigInt(Number.MAX_SAFE_INTEGER) ? 0 : Number(result.size),
+    };
   },
   async version(path) {
     const result = await stat(path, { bigint: true });

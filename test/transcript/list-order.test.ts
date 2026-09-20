@@ -60,11 +60,11 @@ const files: ListSessionsDeps["files"] = {
     const store = path.split("/")[1] ?? "";
     for (const [id] of SOURCES[store] ?? []) yield id;
   },
-  writeTime: async (path) => {
+  sourceStat: async (path: string) => {
     const [, store = "", id = ""] = path.split("/");
     const found = SOURCES[store]?.find(([name]) => name === id);
     if (!found) throw new Error(`no write time for ${path}`);
-    return found[1];
+    return { lastWriteAt: found[1], size: 0 };
   },
   open: () => Promise.reject(new Error("unused")),
   version: () => Promise.reject(new Error("unused")),

@@ -37,6 +37,10 @@ export interface SessionRow {
    * records no start time. Normalized to `YYYY-MM-DDTHH:MM:SS.mmmZ` from the
    * four shapes the stores write. `lastWriteAt` is never substituted for it. */
   readonly startedAt: string | null;
+  /** The row's own native source in bytes, from the stat the walk already
+   * takes. It says what a `transcript read` of this row would have to get
+   * through; it is not a record count, which no store makes cheap. */
+  readonly sizeBytes: number;
   readonly mode: SessionMode;
   /** Whether `transcript read` has a verified method for this source. This
    * answers "is there a method", not "will the read succeed". */
@@ -57,7 +61,10 @@ export interface HarnessListing {
   readonly harness: HarnessName;
   readonly state: HarnessListingState;
   readonly storeRoot: string | null;
-  /** Rows this harness contributed to the result, before `--limit`. */
+  /** Rows this harness contributed, after the workspace and headless filters
+   * and before `--limit`. It is not the number printed: `--limit` applies to
+   * the sorted set of every harness's rows, and the printed count is the
+   * result's `rowsReturned`. */
   readonly rows: number;
   readonly reason: string | null;
   readonly issue: Issue | null;
@@ -87,8 +94,11 @@ export interface SessionListResult {
    * emitted, `refused` for invalid arguments.
    */
   readonly status: "complete" | "partial" | "failed" | "refused";
+  /** Rows actually printed: the whole sorted set, or `--limit` of it. A
+   * per-harness `rows` can exceed this, and normally does. */
   readonly rowsReturned: number;
-  /** Whether rows existed beyond `--limit`. */
+  /** Whether rows existed beyond `--limit`. There is no continuation token;
+   * a consumer that needs the rest re-runs without `--limit`. */
   readonly more: boolean;
   readonly harnesses: readonly HarnessListing[];
   readonly failure: TranscriptFailure | null;

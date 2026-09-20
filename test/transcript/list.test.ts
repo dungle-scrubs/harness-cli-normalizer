@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { listSessions } from "../../src/execution/transcript/list.js";
 import {
@@ -21,6 +21,7 @@ interface Row {
   readonly cwd: string | null;
   readonly lastWriteAt: string;
   readonly startedAt: string | null;
+  readonly sizeBytes: number;
   readonly mode: string;
   readonly readable: boolean;
   readonly blocked: { readonly issue: string; readonly reason: string } | null;
@@ -218,6 +219,19 @@ test("child conversations are not rows", () => {
   expect(all).toContain(`codex:${IDS.codexInteractive}`);
   expect(all).toContain(`muse:${IDS.muse}`);
   expect(all).toContain(`antigravity:${IDS.antigravity}`);
+});
+
+test("each row reports its own native source in bytes", () => {
+  const rows = list(["--cwd", WORKSPACE_A, "--headless"]).rows;
+  for (const row of rows) {
+    // The row's own file, not whichever file its markers came from: Cursor
+    // reads `meta.json` for those and reports the `store.db` beside it.
+    expect(row.sizeBytes, `${row.harness}:${row.id}`).toBe(statSync(row.file).size);
+    expect(row.sizeBytes, `${row.harness}:${row.id}`).toBeGreaterThan(0);
+  }
+  const cursor = rows.find((row) => row.harness === "cursor");
+  const meta = join(dirname(cursor?.file ?? ""), "meta.json");
+  expect(cursor?.sizeBytes).not.toBe(statSync(meta).size);
 });
 
 test("a chat whose WAL still holds writes lists readable and names what blocks the read", () => {

@@ -145,6 +145,8 @@ async function captureIndex(
  * on right now. */
 interface WalkedSession {
   readonly session: ListedSession;
+  /** The row's own source, from the stat the walk already takes. */
+  readonly sizeBytes: number;
   readonly blocked: SessionBlock | null;
 }
 
@@ -223,8 +225,8 @@ async function listHarness(
   openSource: OpenBudget,
 ): Promise<{ readonly sessions: readonly WalkedSession[]; readonly unreadable: number }> {
   const { listing, listingRoot: root } = entry;
-  const writeTime = deps.files.writeTime;
-  if (!deps.files.list || !writeTime)
+  const sourceStat = deps.files.sourceStat;
+  if (!deps.files.list || !sourceStat)
     throw new TranscriptError("source-inaccessible", "Native store listing is unavailable.");
   const index = await openSource(() => captureIndex(listing, root, deps));
   checkAbort();
@@ -244,12 +246,16 @@ async function listHarness(
       openSource(async () => {
         checkAbort();
         try {
-          const lastWriteAt = await writeTime(join(root, candidate.file));
-          const found = await readSession(listing, candidate, root, index, lastWriteAt, files);
+          // One stat of the row's own source, whichever file the markers came
+          // from: Cursor reads its `meta.json` for those and reports the size
+          // of the `store.db` beside it.
+          const stat = await sourceStat(join(root, candidate.file));
+          const found = await readSession(listing, candidate, root, index, stat.lastWriteAt, files);
           if (!found) return null;
           const file = join(root, found.file);
           return {
             session: { ...found, file },
+            sizeBytes: stat.size,
             blocked: entry.quiescentSiblings.length
               ? await blockedBy(file, entry.quiescentSiblings, files)
               : null,
@@ -327,7 +333,7 @@ export async function listSessions(
               : null,
             issue: unreadable ? "source-inaccessible" : null,
           },
-          rows: kept.map(({ session, blocked }) => ({
+          rows: kept.map(({ session, sizeBytes, blocked }) => ({
             schemaVersion: 1,
             kind: "session",
             harness: entry.harness,
@@ -336,6 +342,7 @@ export async function listSessions(
             cwd: session.cwd,
             lastWriteAt: session.lastWriteAt,
             startedAt: session.startedAt,
+            sizeBytes,
             mode: session.mode,
             readable: entry.readable && session.readable,
             blocked,
