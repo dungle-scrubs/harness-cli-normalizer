@@ -65,6 +65,23 @@ Two habits that follow:
 - **A feature that fails the test is not necessarily wrong** - it may belong in
   the caller. Say where it belongs rather than only that it does not belong here.
 
+### Supervision is frozen
+
+The supervising parts are the list in `CONTEXT.md` ("What hcn supervises"), and
+that list is closed. Adding a part, or widening one so it owns a new decision,
+happens only when the maintainer asks for it in the request. Passing the scope
+test above is not enough: a supervising feature has to pass the test *and* be
+asked for.
+
+These are not additions and need no ask: rendering an existing preset onto a
+harness being added, fixing a supervising part that behaves wrong, removing
+supervision or handing a policy back to a harness that gained the native
+mechanism, and reporting a new observation.
+
+Found a candidate anyway? Record it in `ROADMAP.md` under "Declined -
+supervision" with the date and the reason, then stop. Recorded as ADR 0008,
+which also carries the four surfaces the maintainer marked for later review.
+
 ## Invariants - enforced by tests, not promised in comments
 
 These gates exist because the layer boundaries are load-bearing. Do not weaken
@@ -132,7 +149,10 @@ bun scripts/check-versions.ts       # compare descriptors to published versions
   (`PI_CODING_AGENT_DIR`, `CODEX_HOME`, `CLAUDE_CONFIG_DIR`, `XDG_*`,
   `CURSOR_CONFIG_DIR`), and `docs/transcripts.md` documents the same
   precedence. A probe that skips the resolver can find an empty default
-  directory while the populated store sits elsewhere.
+  directory while the populated store sits elsewhere. This covers throwaway
+  measurement probes and scratch scripts, not only shipped code. A probe whose
+  numbers reach a ticket, a document, or a commit message is evidence, and it
+  resolves roots and candidates the same way.
 - Commits follow [Conventional Commits](https://www.conventionalcommits.org/)
   (`feat:`, `fix:`, `perf:`, `refactor:`, `docs:`, `chore:`, `ci:`, `test:`).
   release-please reads these to cut releases and write `CHANGELOG.md`.

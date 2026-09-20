@@ -34,3 +34,11 @@ Planned work for hcn. Each item must pass the scope test in `AGENTS.md`.
   selection, tool use, and subscription usage accounting with a harmless
   authenticated run. Keep billing credentials in the native provider
   configuration.
+
+## Declined - supervision
+
+ADR 0008 closed the supervising list in `CONTEXT.md`. A supervising candidate
+declined under that rule is recorded here with its date and reason, so the next
+session that thinks of it reads the answer instead of judging it from scratch.
+
+None yet.
