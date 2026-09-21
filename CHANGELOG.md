@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.25](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.24...v0.6.25) (2026-09-20)
+
+
+### Fixed
+
+* re-verify the claude, codex and pi descriptors against their current releases ([#226](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/226)) ([b3d714e](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/b3d714eb25c7f4651a7cef8613116af036a396e8))
+
+
+### Changed
+
+* freeze the supervising list (ADR 0008) and extend the store-resolution rule to probes ([#224](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/224)) ([5c79728](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/5c79728871b206e5d5adde5375d5aee251a78803))
+
 ## [0.6.24](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.23...v0.6.24) (2026-09-20)
 
 
