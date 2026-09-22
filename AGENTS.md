@@ -163,3 +163,18 @@ bun scripts/check-versions.ts       # compare descriptors to published versions
 - Test fixtures under `test/fixtures/` are captured real harness output kept as
   evidence. They legitimately contain absolute paths and session metadata -
   do not scrub or "clean" them.
+- **One class of content is redacted from a capture, and only this one: the
+  operator's own agent configuration.** Several harnesses echo their discovered
+  context back into the stream, so a capture taken on a configured machine can
+  contain the operator's global instruction file, their skill library, their
+  local docs paths and their tool descriptions verbatim. That is machine
+  configuration, not harness behaviour, and this repository is source-public.
+  Pi carries it in `message.sections` (`project_context`, `docs`, `skills`) and
+  in `toolsAdded[].description`; claude carries hook stdout the same way. Every
+  other field stays byte for byte as the harness emitted it, the tests that
+  consume the fixture must still pass unchanged, and the replacement names the
+  field and keeps the original length, as in
+  `<redacted: operator agent configuration (skills), 24748 chars>`.
+  A credential scanner does not catch this: the content holds no secrets, so
+  TruffleHog passes it. Grep a new capture for your own configuration by hand
+  before committing it, and before publishing any probe capture anywhere.
