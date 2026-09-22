@@ -51,6 +51,17 @@ export const renderEvent = (
     case "context":
       process.stdout.write(dim(`\n  ▪ context ${event.usedPct}%`));
       break;
+    case "compaction": {
+      // ADR 0009. The counts are the harness's own; hcn derives none, and
+      // three of the six report none at all, so the line has to read
+      // without them.
+      const counts =
+        event.tokensBefore !== undefined && event.tokensAfter !== undefined
+          ? ` ${event.tokensBefore} → ${event.tokensAfter}`
+          : "";
+      process.stdout.write(dim(`\n  ⇄ compaction ${event.state}${counts}`));
+      break;
+    }
     case "limit":
       process.stdout.write(yellow(`\n  ⚠ limit: ${event.code} ${event.message}`));
       break;

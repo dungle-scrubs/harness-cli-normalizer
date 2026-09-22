@@ -17,7 +17,7 @@
 
 import type { CapabilityResult } from "../interpretation/capabilities.js";
 import type { QuestionMode } from "../interpretation/question.js";
-import type { LimitCode } from "../knowledge/descriptor.js";
+import type { CompactionState, CompactionTrigger, LimitCode } from "../knowledge/descriptor.js";
 import type { NativeApprovalEvent } from "../knowledge/native-approvals.js";
 import type { FailureSummary } from "./failure.js";
 
@@ -60,6 +60,23 @@ export type HarnessEvent =
   | { readonly kind: "progress"; readonly label: string }
   | { readonly kind: "tool"; readonly name: string; readonly input?: unknown }
   | { readonly kind: "context"; readonly usedPct: number }
+  /** ADR 0009: the harness compacted its own context. Lossless and ordered -
+   * a dropped compaction event is a boundary the caller cannot rebuild from
+   * anything else on the stream, and a caller that missed it does not know
+   * the history it sent was replaced by a summary. Every numeric field is
+   * the harness's own report; hcn derives none of them, and no harness
+   * pushes an occupancy percentage on a live signal. `detail` is the
+   * harness's own reason or error text: prose, so machine consumers branch
+   * on `state` and never on it (ADR 0002). */
+  | {
+      readonly kind: "compaction";
+      readonly state: CompactionState;
+      readonly trigger?: CompactionTrigger;
+      readonly tokensBefore?: number;
+      readonly tokensAfter?: number;
+      readonly durationMs?: number;
+      readonly detail?: string;
+    }
   | {
       /** issue #41: the worker asked the caller's user a question (the
        * final message carried an hcn-question block). Structured-first:
