@@ -89,12 +89,15 @@ if (process.argv.includes("--json")) {
         [r.verifiedAgainst, r.latest ?? "?", r.installed ?? "?"].map((v) => v.length),
       ),
     ) + 2;
+  // Derived, not hardcoded: a fixed 9 was set before a harness named
+  // `antigravity` existed, and that name ran into the next column.
+  const nameWidth = Math.max("harness".length, ...rows.map((r) => r.harness.length)) + 2;
   console.log(
-    `\n${"harness".padEnd(9)}${"verified".padEnd(width)}${"latest".padEnd(width)}${"installed".padEnd(width)}status`,
+    `\n${"harness".padEnd(nameWidth)}${"verified".padEnd(width)}${"latest".padEnd(width)}${"installed".padEnd(width)}status`,
   );
   for (const r of rows) {
     console.log(
-      `${r.harness.padEnd(9)}${r.verifiedAgainst.padEnd(width)}${(r.latest ?? "?").padEnd(width)}${(r.installed ?? "?").padEnd(width)}${mark(r.status)}`,
+      `${r.harness.padEnd(nameWidth)}${r.verifiedAgainst.padEnd(width)}${(r.latest ?? "?").padEnd(width)}${(r.installed ?? "?").padEnd(width)}${mark(r.status)}`,
     );
   }
   if (drift.length > 0) {
