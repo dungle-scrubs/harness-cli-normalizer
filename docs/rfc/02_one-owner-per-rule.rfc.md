@@ -37,7 +37,7 @@ Out of scope, each with its reason:
 
 - **Whether the override file feature stays.** `parseOverrides` has no caller outside its own index. Keeping it means threading a `DescriptorSet` through five interpretation functions; deleting it removes about 280 lines. That is a functionality decision under the fit check and is Open Question 1.
 - **Whether the lucid-era modules stay.** `parse-resume.ts`, `presence.ts`, and `resume-last.ts` have only test callers. Deleting them narrows the codebase, not the product, but it is the user's call. Open Question 2.
-- **Whether `contextHook` stays.** No execution code calls `contextEventFrom`; README calls the `context` event reserved. Open Question 3.
+- ~~**Whether `contextHook` stays.**~~ Resolved by ADR 0009: the field, the decoder, and the `context` event kind are all gone. Open Question 3.
 - **Any new capability.** This RFC adds no flag, no event kind, no config key. Two latent bugs are fixed because the single owner cannot reproduce them; they are named in Risk Assessment.
 - **Restructuring `content.ts`, `hints.ts`, `AsyncChannel`, `LineBuffer`, or `node-deps.ts`.** The audit examined each and cleared it.
 
@@ -251,7 +251,7 @@ Owner: `src/knowledge/descriptor.ts` for the shape; the named consumer for each 
 - `launch.toolsFlag` MUST be deleted; `hcn inspect` MUST print `tools.includeFlag` in its place (R4).
 - `src/interpretation/dimensions.ts` MUST be deleted; `stream-turn.ts` reads `h.stdin` directly.
 - `test/knowledge/dimensions-coverage.test.ts` MUST be re-anchored to the `HarnessDescriptor` type's key set rather than the absent PLAN.md table. The test keeps its purpose: a key added without a consumer fails it.
-- `contextHook`, `resumeLast`, and `presence` are decided by Open Questions 2 and 3.
+- `resumeLast` and `presence` are decided by Open Question 2. `contextHook` was Open Question 3, resolved by ADR 0009.
 
 ### 8. One toolMap shape; helpers are called
 
@@ -393,7 +393,7 @@ Open Questions 1 through 3 SHOULD be answered before phase 2 begins, because the
 
 1. **Does the override file feature stay?** `parseOverrides` has no caller outside its own index, so the feature README's Reference section describes cannot be reached from the CLI. Options: (a) wire it as a config tier and thread a `DescriptorSet` through `argv.ts`, `tool-selection.ts`, and `resolve-options.ts`, honouring the rule `support.ts:10-12` states; (b) delete `parseOverrides`, `matcherOverridesOf`, `enumAt`, the `matcherOverrides` field on the spawn log, and `test/knowledge/overrides.test.ts`, and let `defaultDescriptors()` be the constant set. Fit check: no user reaches the feature today; the need it served (patching facts ahead of a release) is served by `verifiedAgainst`, `hcn check`, and a release. Recommended: (b), a narrowing. This is the user's decision because it removes documented functionality.
 2. **Do the lucid-era modules stay?** `parse-resume.ts`, `presence.ts`, and `resume-last.ts` have only test callers, and they alone keep the `resumeLast` and `presence` descriptor fields alive. Options: keep as reserved capability, or delete the three modules, the two fields, and their tests. Recommended: delete; `hcn` exposes no command that needs them and ADR 0007 places cross-run correlation with the caller. The user's decision because it narrows.
-3. **Does `contextHook` stay?** No execution code calls `contextEventFrom`, and README calls the `context` event reserved. Options: keep the field and the decoder until a statusline channel is wired, or delete both and keep only the event kind reserved. Recommended: delete the field and decoder, keep the kind. User's decision.
+3. ~~**Does `contextHook` stay?**~~ **Resolved by ADR 0009** (2026-09-22), and resolved further than this question recommended. The field and the decoder go, and so does the `context` event kind: a reservation no channel hcn reads can fill describes a permanent vacancy, not a pending feature. Re-adding the kind later stays additive if a harness ever pushes occupancy on a channel hcn does read.
 4. **Machine-made: the scope of this RFC.** The audit's High, Medium, and relocation-only Low candidates are specified in one RFC rather than one RFC per High candidate, on the basis that they share one design decision (one owner per rule, in its layer) and one regression net. Reversible by splitting the numbered changes into separate RFCs; the change numbering is stable for that purpose.
 5. **Machine-made: the RFC type.** Taken as `refactor` without confirmation. Every change restructures existing code and none adds a capability. Reversible by re-running the init script.
 6. **Is the `hcn inspect <harness>` descriptor dump a compatibility surface?** R4 changes its shape. README says the command prints the descriptor and promises no schema. Recommended: not a contract; note the change in the commit body and CHANGELOG entry rather than marking a breaking release. Settled by whoever owns a consumer of that output, if one exists.

@@ -6,7 +6,7 @@
  * it (a decoded mid-stream error, then a crash-exit stderr tail, etc.), so
  * a consumer treats `error` as informational and waits for `done`.
  *
- * Event classes are load-bearing for backpressure: token/progress/context
+ * Event classes are load-bearing for backpressure: token and progress
  * are droppable (coalescible, latest-wins); the rest are lossless. The
  * split is DECLARED here because the normalizer emits the events; the
  * coalescing policy that consumes it lives in the chat layer (lucid-v2).
@@ -59,7 +59,6 @@ export type HarnessEvent =
   | { readonly kind: "message"; readonly role: string; readonly text: string }
   | { readonly kind: "progress"; readonly label: string }
   | { readonly kind: "tool"; readonly name: string; readonly input?: unknown }
-  | { readonly kind: "context"; readonly usedPct: number }
   /** ADR 0009: the harness compacted its own context. Lossless and ordered -
    * a dropped compaction event is a boundary the caller cannot rebuild from
    * anything else on the stream, and a caller that missed it does not know
@@ -107,4 +106,4 @@ export type HarnessEvent =
       readonly escalation: EscalationRecord;
     };
 
-export const DROPPABLE_KINDS = new Set(["token", "progress", "context"]);
+export const DROPPABLE_KINDS = new Set(["token", "progress"]);
