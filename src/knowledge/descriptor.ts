@@ -142,6 +142,21 @@ export type LimitCode =
  * other sends the human to fix the wrong thing. */
 export type AuthFailureKind = "not-logged-in" | "expired" | "invalid-key";
 
+/** Compaction states (ADR 0009). Closed, like `LimitCode`, so a consumer
+ * branches with no default arm. A member exists only where a caller would do
+ * something different: `started` says a pause is beginning and the silence
+ * that follows is not a stall; `compacted` says earlier history is now a
+ * summary, so context the caller sent is gone; `noop`, `failed` and `aborted`
+ * all leave the context unchanged, and they are separate because "nothing to
+ * compact" and "compaction broke and the run may die" are not the same fact. */
+export type CompactionState = "started" | "compacted" | "noop" | "failed" | "aborted";
+
+/** What set the compaction off, where the harness reports it. A
+ * threshold-triggered compaction is automatic, so it normalizes onto `auto`;
+ * `overflow` is pi's separate final-attempt recovery, which means the context
+ * had already overflowed. */
+export type CompactionTrigger = "auto" | "manual" | "overflow";
+
 /** Serializable wall matcher: pattern and flags are data, not a RegExp
  * literal, so an override file can extend them. `compileMatchers` turns
  * these into RegExps with bounds (pattern length, count, allowed flags)
