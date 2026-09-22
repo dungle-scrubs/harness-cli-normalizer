@@ -24,7 +24,6 @@ const HARNESS_EVENT_KINDS = [
   "message",
   "progress",
   "tool",
-  "context",
   "compaction",
   "question",
   "limit",

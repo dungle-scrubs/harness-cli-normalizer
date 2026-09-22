@@ -577,7 +577,6 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
     ],
     defaultRoot: "{home}/.cursor",
   },
-  contextHook: null,
   contextInspection: null,
   // result.usage token counts exist (probe 10) but no window size is
   // known, so no usedPct can be computed.

@@ -266,9 +266,11 @@ stdin carries one command per line (blank lines are ignored):
 
 - Every well-formed `send`/`answer` gets exactly one `disposition` event,
   in command order. `started`: the text was written to the harness. When
-  no turn was open, a turn opened; when one was, the harness holds the
-  text natively and the next turn consumes it (hcn keeps no queue of its
-  own - ADR 0007). `rejected`: the text was not delivered and will not be.
+  no turn was open, a turn opened. During a Pi turn, a send becomes the
+  native `steer` command and joins the current turn. Other session harnesses
+  retain their native busy-input behavior, which may consume the text on the
+  next turn. HCN keeps no queue of its own (ADR 0007). `rejected`: the text
+  was not delivered and will not be.
   Rejected reasons: `closed` (session closing or harness dead),
   `no-open-question` (`answer` with no `awaiting-input` turn to answer),
   `write-failed` (the harness's stdin pipe broke; a `closed` follows).
@@ -731,9 +733,9 @@ Every refusal names an alternative in `supported` and `message`, not only a nega
 ## Reference
 
 - Descriptors live in `src/knowledge/` (`claude-code.ts`, `codex.ts`, `pi.ts`, `muse.ts`, `cursor.ts`, `antigravity.ts`), with shared types in `descriptor.ts`.
-- The normalized event surface is `HarnessEvent` in `src/execution/events.ts`: `identity`, `token`, `message`, `progress`, `tool`, `context` (reserved - emitted only when a harness exposes context-window usage on its stream; none does at this version), `compaction`, `limit`, `error`, `failure`, `question` (issue #41), `done` (with `done.failure`; `done.cause` includes `awaiting-input`). Event kinds and failure classes are additive across releases; a consumer ignores a kind or class it does not recognize and still waits for `done`. Additive optional fields (such as `resumeLast: true` on `identity`) never break that rule: branch on presence, never on prose.
+- The normalized event surface is `HarnessEvent` in `src/execution/events.ts`: `identity`, `token`, `message`, `progress`, `tool`, `compaction`, `limit`, `error`, `failure`, `question` (issue #41), `done` (with `done.failure`; `done.cause` includes `awaiting-input`). Event kinds and failure classes are additive across releases; a consumer ignores a kind or class it does not recognize and still waits for `done`. Additive optional fields (such as `resumeLast: true` on `identity`) never break that rule: branch on presence, never on prose.
 - Narrow or override a descriptor's facts with `parseOverrides` (`src/knowledge/overrides.ts`). An override a harness cannot satisfy throws `OverrideRefusalError` instead of producing a broken argv. `limitMatchers`/`authMatchers` are now serializable `{pattern, flags, code/kind}` objects so they can be overridden from JSON; bad patterns are refused at load with file and harness named.
-- `DROPPABLE_KINDS` (`token`, `progress`, `context`) marks events safe to drop when you only need the full messages. `failure` is never droppable, and neither is `compaction`.
+- `DROPPABLE_KINDS` (`token`, `progress`) marks events safe to drop when you only need the full messages. `failure` is never droppable, and neither is `compaction`.
 - `compaction` reports that the harness compacted its own context (ADR 0009). It carries `state`, a closed union of `started`, `compacted`, `noop`, `failed` and `aborted`, so a consumer branches with no default arm. `trigger` (`auto`, `manual`, `overflow`), `tokensBefore`, `tokensAfter` and `durationMs` are present only where the harness itself reported them; hcn derives none of them, and no harness pushes a context-occupancy percentage on a live signal. `detail` carries the harness's own reason or error text, so branch on `state` and never on it. Claude emits `started` and `compacted`, with `failed` on a failed compaction; the other harnesses arrive in later releases, and a harness with no live signal reports none at all. Silence is not evidence that no compaction happened. **Count `compacted`, not `started`:** hcn reports each record the harness sends, and claude has been observed sending two `compacting` status records for one compaction, so a start can repeat.
 - **Compaction pauses the stream.** A harness goes quiet while it compacts: measured 25 to 47 s on claude, 24 to 33 s on codex, 25 to 39 s on cursor, 4.5 to 18 s on antigravity, 7 to 10 s on pi and about 7 s on muse (`docs/research/2026-09-22-compaction-signals/`). Set `--stall` above those, or a healthy run is killed mid-compaction. `--stall` is opt-in and unset by default.
 

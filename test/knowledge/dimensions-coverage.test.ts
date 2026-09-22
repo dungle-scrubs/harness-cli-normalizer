@@ -32,7 +32,6 @@ const DESCRIPTOR_KEYS = [
   "autonomy",
   "vocabulary",
   "store",
-  "contextHook",
   "contextInspection",
   "nativeContextManagement",
   "resumeLast",

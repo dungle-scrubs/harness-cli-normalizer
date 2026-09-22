@@ -93,7 +93,6 @@ export const museCode: HarnessDescriptor = deepFreeze({
     template: "{home}/.local/share/muse/sessions",
     cwdSlug: "verbatim",
   },
-  contextHook: null,
   contextInspection: null,
   // Automatic replacement installation and later process recall captured on
   // 1.1.1 and again on 1.3.0. Native growth handling is not a pending-prompt count or a guarantee
