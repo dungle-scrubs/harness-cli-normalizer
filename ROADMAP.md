@@ -42,14 +42,18 @@ Planned, decided, not yet built. hcn reports live harness compaction as
 [ADR 0009](docs/adr/0009-compaction-status-event.md); the decision map is
 [#229](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/229).
 
-Implementation is nine tickets. One is in `dungle-scrubs/lucid` and must merge
-first, because lucid's context projector throws on an hcn event kind it does
-not list.
+Implementation is nine tickets. Two have shipped; the event exists and claude
+reports on it.
 
-- lucid [#296](https://github.com/dungle-scrubs/lucid/issues/296) - accept the
-  kind. Blocks everything below.
+- lucid [#296](https://github.com/dungle-scrubs/lucid/issues/296) - **shipped.**
+  Lucid accepts the kind, classes it lossless and renders it. It had to land
+  first, because lucid's context projector throws on an hcn event kind it does
+  not list.
 - [#238](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/238) -
-  the event, and claude's mapping. The tracer bullet.
+  **shipped.** The event vocabulary, and claude's mapping end to end. The
+  fixture was re-captured live: 50467 to 4182 tokens over 47.1 s. That capture
+  also showed claude sending two `compacting` status records for one
+  compaction, so starts repeat and a counting consumer counts ends.
 - [#239](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/239) -
   pi's mapping.
 - [#240](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/240) -
@@ -65,6 +69,8 @@ not list.
   [#227](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/227).
 - [#245](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/245) -
   audit the vendored hcn skill.
+
+Takeable now: #239, #240, #241, #242 and #244.
 
 ## Declined - supervision
 
