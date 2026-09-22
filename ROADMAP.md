@@ -15,12 +15,16 @@ Planned work for hcn. Each item must pass the scope test in `AGENTS.md`.
 
 ## Shipped harnesses
 
-- **Antigravity CLI 1.2.7** - authenticated qualification covers headless
+- **Antigravity CLI 1.2.8** - authenticated qualification covers headless
   streaming, native permissions, cancellation, timeout, model selection,
   persistent sessions, named resume, resume last, native store creation,
   native transcript reads, and structured failures. Quota exhaustion remains
   uncaptured. See the
   [assessment](docs/research/2026-09-19-antigravity-cli-harness-assessment.md).
+  The behavioural corpus behind that list was captured on 1.2.7
+  (`test/fixtures/antigravity-1.2.7`) and stands; the anchor moved to 1.2.8
+  when the capability tripwires were re-run on it
+  (`test/fixtures/antigravity-1.2.8`).
 
 ## Provider configurations
 
@@ -68,7 +72,10 @@ reports on it, and the vacancy it replaced is gone.
 - [#243](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/243) -
   `compactionReporting` and the divergence surface.
 - [#244](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/244) -
-  descriptor re-verification across four harnesses. Unblocked; closes
+  descriptor re-verification across four harnesses. **Done**: pi, cursor and
+  antigravity record their probed compaction facts, pi anchors 0.87.0,
+  antigravity anchors 1.2.8, and muse records its moved build at an unchanged
+  1.3.0. Closes
   [#227](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/227).
 - [#245](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/245) -
   audit the vendored hcn skill.

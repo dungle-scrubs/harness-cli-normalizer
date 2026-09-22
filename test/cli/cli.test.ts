@@ -110,10 +110,10 @@ describe("hcn ls", () => {
     const out = await captureDispatch(["ls"]);
     expect(out.stdout).toContain("claude@2.1.278");
     expect(out.stdout).toContain("codex@0.155.1");
-    expect(out.stdout).toContain("pi@0.86.1");
+    expect(out.stdout).toContain("pi@0.87.0");
     expect(out.stdout).toContain("muse@1.3.0");
     expect(out.stdout).toContain("cursor@2026.09.15-d2fe57e");
-    expect(out.stdout).toContain("antigravity@1.2.7");
+    expect(out.stdout).toContain("antigravity@1.2.8");
     expect(out.stdout).toContain("npm:");
     expect(out.stdout).toContain("installed:");
     expect(out.exitCode === undefined || out.exitCode === 0).toBe(true);
@@ -234,6 +234,27 @@ describe("hcn inspect (pure)", () => {
       modes: ["headless-turn"],
     });
     expect(muse.contextInspection).toBeNull();
+    // Probed live 2026-09-22 (docs/research/2026-09-22-compaction-signals).
+    // pi announces both edges on the stream and compacts in both headless
+    // modes; cursor and antigravity announce nothing, and each is evidenced
+    // in one mode only. None of the three exposes an occupancy readout.
+    const pi = JSON.parse((await captureDispatch(["inspect", "pi"])).stdout);
+    expect(pi.nativeContextManagement).toEqual({
+      kind: "auto-compaction",
+      modes: ["headless-turn", "headless-session"],
+    });
+    expect(pi.contextInspection).toBeNull();
+    const cursor = JSON.parse((await captureDispatch(["inspect", "cursor"])).stdout);
+    expect(cursor.nativeContextManagement).toEqual({
+      kind: "auto-compaction",
+      modes: ["headless-turn"],
+    });
+    const antigravity = JSON.parse((await captureDispatch(["inspect", "antigravity"])).stdout);
+    expect(antigravity.nativeContextManagement).toEqual({
+      kind: "auto-compaction",
+      modes: ["headless-session"],
+    });
+    expect(antigravity.contextInspection).toBeNull();
   });
 });
 

@@ -386,12 +386,16 @@ zero-turn results are permitted, including nonzero aggregate usage.
 resolved; `resume.reason` supplies that safe explanation. Otherwise transport
 denotes a failure to open or use the process channel.
 
-Descriptor inspection separately exposes `nativeContextManagement`: Codex
-0.154.0 and Muse 1.3.0 declare `{ kind: "auto-compaction", modes: ["headless-turn"] }`.
-Claude declares `{ kind: "native-session-auto-compaction", modes: ["headless-turn"] }`.
-This covers native session growth; callers must still prepare imported history.
+Descriptor inspection separately exposes `nativeContextManagement`. Codex,
+Muse and Cursor CLI declare `{ kind: "auto-compaction", modes: ["headless-turn"] }`,
+Antigravity CLI declares the same kind for `["headless-session"]`, and Pi
+declares it for both headless modes. Claude declares
+`{ kind: "native-session-auto-compaction", modes: ["headless-turn"] }`.
+Only the mode a live probe observed is claimed, so a null or a missing mode is
+unknown support, never a denial. This covers native session growth; callers
+must still prepare imported history.
 Fresh mandatory content can exceed the native request limit, and compaction
-does not promise lossless recall. Pi emits null.
+does not promise lossless recall.
 These declarations describe native handling, not a count or a
 successful budget check. Callers decide whether to delegate context management
 after verifying the selected executable and mode. Codex and Muse preflight accounting
@@ -749,7 +753,7 @@ defaults profile, user and project config tiers, tool selection
 (include/exclude with floors and named toolsets), passthrough with native
 error labeling, and provenance on every resolved setting. Persistent
 sessions (`hcn session`) are available for claude, pi, and Antigravity. Antigravity's
-authenticated contract is verified against `1.2.7`; its account model list stays
+authenticated contract is verified against `1.2.8`; its account model list stays
 extensible because plan eligibility and configured custom models can differ. Drift detection runs weekly
 in CI for the three npm harnesses; Muse, Cursor CLI, and Antigravity CLI are `installed`
 and only checked locally via their native version commands. Re-verifying a descriptor's capability
