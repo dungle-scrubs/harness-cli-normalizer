@@ -37,13 +37,13 @@ Planned work for hcn. Each item must pass the scope test in `AGENTS.md`.
 
 ## Compaction reporting
 
-Planned, decided, not yet built. hcn reports live harness compaction as
+Partly built. hcn reports live harness compaction as
 `HarnessEvent` kind `compaction`. The design is settled in
 [ADR 0009](docs/adr/0009-compaction-status-event.md); the decision map is
 [#229](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/229).
 
-Implementation is nine tickets. Two have shipped; the event exists and claude
-reports on it.
+Implementation is nine tickets. Three have shipped: the event exists, claude
+reports on it, and the vacancy it replaced is gone.
 
 - lucid [#296](https://github.com/dungle-scrubs/lucid/issues/296) - **shipped.**
   Lucid accepts the kind, classes it lossless and renders it. It had to land
@@ -61,7 +61,10 @@ reports on it.
 - [#241](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/241) -
   muse's mapping, through the MSP view.
 - [#242](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/242) -
-  retire the reserved `context` event.
+  **shipped.** The reserved `context` event is gone, with its decoder, its
+  `DROPPABLE_KINDS` entry and the `contextHook` descriptor field on all six
+  harnesses. This also resolved RFC-02 open question 3, which had recommended
+  keeping the kind.
 - [#243](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/243) -
   `compactionReporting` and the divergence surface.
 - [#244](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/244) -
@@ -70,7 +73,7 @@ reports on it.
 - [#245](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/245) -
   audit the vendored hcn skill.
 
-Takeable now: #239, #240, #241, #242 and #244.
+Takeable now: #239, #240, #241 and #244.
 
 ## Declined - supervision
 
