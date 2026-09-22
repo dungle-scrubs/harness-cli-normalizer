@@ -10,7 +10,12 @@
  * payload-discriminated records - for the flat match/field spec that
  * identity decoding uses.)
  */
-import type { HarnessName, LimitCode } from "../knowledge/descriptor.js";
+import type {
+  CompactionState,
+  CompactionTrigger,
+  HarnessName,
+  LimitCode,
+} from "../knowledge/descriptor.js";
 import { asRecord, readPath as at } from "./shape.js";
 
 export type ContentEvent =
@@ -18,6 +23,17 @@ export type ContentEvent =
   | { readonly kind: "message"; readonly role: string; readonly text: string }
   | { readonly kind: "tool"; readonly name: string; readonly input?: unknown }
   | { readonly kind: "progress"; readonly label: string }
+  /** ADR 0009: the harness compacted its own context. Passes through
+   * `decode.ts` unchanged, so this shape matches the HarnessEvent arm. */
+  | {
+      readonly kind: "compaction";
+      readonly state: CompactionState;
+      readonly trigger?: CompactionTrigger;
+      readonly tokensBefore?: number;
+      readonly tokensAfter?: number;
+      readonly durationMs?: number;
+      readonly detail?: string;
+    }
   /** `terminal: true` marks an error that ended the turn (a failed result
    * record); the runner turns it into a task failure. Other errors are
    * informational and the turn goes on. `provisional: true` qualifies a
@@ -56,6 +72,55 @@ const textOfBlocks = (content: unknown): string =>
         .join("")
     : "";
 
+const numberOr = (value: unknown): number | undefined =>
+  typeof value === "number" && Number.isFinite(value) ? value : undefined;
+
+/** claude reports `auto` and `manual`; anything else is left unset rather
+ * than guessed, because a wrong trigger is worse than a missing one. */
+const claudeTrigger = (value: unknown): CompactionTrigger | undefined =>
+  value === "auto" || value === "manual" ? value : undefined;
+
+/** ADR 0009. claude emits up to four records around one compaction, and this
+ * decoder reads one record at a time with no state between them, so exactly
+ * one record produces the end event. The boundary is that record, because it
+ * is the only one carrying numbers. Returning `null` means "not a compaction
+ * record", which falls through to the generic progress arm. */
+const claudeCompaction = (r: Record<string, unknown>): ContentEvent[] | null => {
+  if (r.subtype === "compact_boundary") {
+    const meta = asRecord(r.compact_metadata) ?? {};
+    const trigger = claudeTrigger(meta.trigger);
+    return [
+      {
+        kind: "compaction",
+        state: "compacted",
+        ...(trigger !== undefined ? { trigger } : {}),
+        // The live stream is snake_case; the saved transcript is camelCase
+        // for the same data, and transcript/claude.ts reads that one.
+        ...(numberOr(meta.pre_tokens) !== undefined
+          ? { tokensBefore: numberOr(meta.pre_tokens) }
+          : {}),
+        ...(numberOr(meta.post_tokens) !== undefined
+          ? { tokensAfter: numberOr(meta.post_tokens) }
+          : {}),
+        ...(numberOr(meta.duration_ms) !== undefined
+          ? { durationMs: numberOr(meta.duration_ms) }
+          : {}),
+      },
+    ];
+  }
+  if (r.subtype !== "status") return null;
+  if (r.status === "compacting") return [{ kind: "compaction", state: "started" }];
+  if (r.compact_result === "failed") {
+    const detail = typeof r.compact_error === "string" ? r.compact_error : "";
+    return [{ kind: "compaction", state: "failed", ...(detail !== "" ? { detail } : {}) }];
+  }
+  // The success status is deliberately silent: the boundary record that
+  // follows carries the end, and emitting both would give two ends for one
+  // compaction, so a caller counting boundaries would double-count.
+  if (r.compact_result === "success") return [];
+  return null;
+};
+
 const claude = (r: Record<string, unknown>): ContentEvent[] => {
   const events: ContentEvent[] = [];
   if (r.type === "assistant") {
@@ -77,10 +142,14 @@ const claude = (r: Record<string, unknown>): ContentEvent[] => {
       events.push({ kind: "token", text: d.text });
     }
   } else if (r.type === "system" && r.subtype !== "init" && typeof r.subtype === "string") {
+    // Compaction records are lossless and replace the progress label they
+    // used to carry (ADR 0009); everything else stays droppable progress.
     // Non-init system lines (hook_started etc.) surface as droppable
     // progress, as the pre-refactor decoder did. The init line is the
     // identity announcement, handled upstream.
-    events.push({ kind: "progress", label: r.subtype });
+    const compaction = claudeCompaction(r);
+    if (compaction !== null) events.push(...compaction);
+    else events.push({ kind: "progress", label: r.subtype });
   } else if (r.type === "result" && r.is_error === true) {
     // A result line marked is_error is a failed turn (max-turns, execution
     // error, auth wall) - surface it so a streamTurn consumer sees the

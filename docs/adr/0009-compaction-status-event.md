@@ -155,6 +155,15 @@ The success status record produces nothing on purpose. Emitting it as well as
 the boundary would give two ends for one compaction, and a caller counting
 boundaries would double-count.
 
+**A start can repeat, and is not deduplicated.** Implementing this found
+claude sending two `status: "compacting"` records for one compaction
+(`test/fixtures/claude-2.1.278/compaction.ndjson`, re-captured 2026-09-22),
+where the research probe saw one. The decoder reports each record it reads.
+Suppressing the second would mean holding state across records and deciding
+that the harness repeated itself, which is the line this ADR does not cross.
+So `compacted` is the one-per-compaction event, `started` is not, and a
+counting consumer counts ends.
+
 The live stream and the saved transcript disagree on casing for the same data:
 the stream record is `compact_metadata` with `pre_tokens` and `post_tokens`,
 while the transcript row is `compactMetadata` with `preTokens` and `postTokens`.

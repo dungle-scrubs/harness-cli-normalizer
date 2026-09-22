@@ -58,7 +58,27 @@ test("forked resume accounting counts recalled history and leaves the source ses
 
 test("native compaction surfaces its boundary and a later process recalls the marker", () => {
   const compaction = events("compaction.ndjson");
-  expect(compaction).toContainEqual({ kind: "progress", label: "compact_boundary" });
+  // ADR 0009 replaced the `progress` `compact_boundary` label with the
+  // lossless compaction event. The numbers are claude's own; hcn derives
+  // none of them.
+  expect(compaction).toContainEqual({
+    kind: "compaction",
+    state: "compacted",
+    trigger: "auto",
+    tokensBefore: 50467,
+    tokensAfter: 4182,
+    durationMs: 47139,
+  });
+  expect(compaction).toContainEqual({ kind: "compaction", state: "started" });
+  expect(compaction).not.toContainEqual({ kind: "progress", label: "compact_boundary" });
+  // Exactly one end for one compaction: the success status record is
+  // deliberately silent, so only the boundary reports it. Starts are not
+  // deduplicated and this capture holds two, which is why the end is the
+  // one a counting consumer counts.
+  const compactionStates = compaction
+    .filter((e) => e.kind === "compaction")
+    .map((e) => e.state as string);
+  expect(compactionStates.filter((state) => state === "compacted")).toHaveLength(1);
   expect(compaction).toContainEqual({ kind: "message", role: "assistant", text: "HERON-517" });
   expect(compaction.at(-1)).toMatchObject({ kind: "done", cause: "clean", exitCode: 0 });
   const later = events("post-compaction.ndjson");
