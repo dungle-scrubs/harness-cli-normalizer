@@ -46,8 +46,10 @@ Partly built. hcn reports live harness compaction as
 [ADR 0009](docs/adr/0009-compaction-status-event.md); the decision map is
 [#229](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/229).
 
-Implementation is nine tickets. Three have shipped: the event exists, claude
-reports on it, and the vacancy it replaced is gone.
+Implementation is nine tickets. Six have shipped: the event exists, claude, pi
+and antigravity report on it, the descriptors are re-verified, and the vacancy
+it replaced is gone. Muse (#241) and the divergence surface (#243) remain,
+then the skill audit (#245).
 
 - lucid [#296](https://github.com/dungle-scrubs/lucid/issues/296) - **shipped.**
   Lucid accepts the kind, classes it lossless and renders it. It had to land
@@ -59,9 +61,13 @@ reports on it, and the vacancy it replaced is gone.
   also showed claude sending two `compacting` status records for one
   compaction, so starts repeat and a counting consumer counts ends.
 - [#239](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/239) -
-  pi's mapping.
+  **shipped.** pi's mapping. `threshold` normalizes to `auto`; a resultless
+  end record reports `aborted` or `failed`, because pi drops the `result` key
+  rather than setting it to null as its docs say. A pi compaction can also
+  land outside the turn markers and reach the caller on the next turn.
 - [#240](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/240) -
-  antigravity's mapping.
+  **shipped.** antigravity's mapping. One `checkpoint` record in state DONE,
+  carrying only a duration, so `compacted` is the only state it can report.
 - [#241](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/241) -
   muse's mapping, through the MSP view.
 - [#242](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/242) -
@@ -80,7 +86,7 @@ reports on it, and the vacancy it replaced is gone.
 - [#245](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/245) -
   audit the vendored hcn skill.
 
-Takeable now: #239, #240, #241 and #244.
+Takeable now: #241 and #243.
 
 ## Declined - supervision
 

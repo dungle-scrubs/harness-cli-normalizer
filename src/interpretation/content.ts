@@ -410,6 +410,31 @@ const antigravity = (r: Record<string, unknown>): ContentEvent[] => {
     if (step.step_type === "agent_response" && typeof step.text_delta === "string") {
       return [{ kind: "token", text: step.text_delta }];
     }
+    // ADR 0009 / #240. Antigravity announces compaction with one record and
+    // no payload: a `checkpoint` step in state DONE. There is no ACTIVE
+    // phase, no summary, no reason and no token counts - every compaction
+    // in the 1.2.8 probe emitted exactly this shape and nothing else, so
+    // `compacted` is the only state antigravity can report and no `started`
+    // precedes it (docs/research/2026-09-22-compaction-signals/antigravity).
+    //
+    // DONE is the record's own completion evidence, and it is the only
+    // outcome evidence it carries. The token count on the surrounding
+    // records is deliberately NOT read as a signal: it drops with and
+    // without compaction, so it would report compactions that never ran.
+    if (step.step_type === "checkpoint") {
+      if (step.state !== "DONE") return [];
+      // Antigravity reports seconds and this event's unit is milliseconds,
+      // so the value is converted and rounded to the millisecond. That
+      // conversion is the whole of it; no other number is derived.
+      const seconds = numberOr(step.duration_seconds);
+      return [
+        {
+          kind: "compaction",
+          state: "compacted",
+          ...(seconds !== undefined ? { durationMs: Math.round(seconds * 1000) } : {}),
+        },
+      ];
+    }
     if (step.step_type !== "tool" || (step.state !== "DONE" && step.state !== "ERROR")) return [];
 
     const info = asRecord(step.tool_info);
