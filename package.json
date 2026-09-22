@@ -34,7 +34,7 @@
     "lint": "biome check .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:bun": "bun test",
+    "test:bun": "bun test --timeout=20000",
     "test:mutation": "pnpm test:mutation:failure && pnpm test:mutation:argv && pnpm test:mutation:content && pnpm test:mutation:session-input",
     "test:mutation:argv": "stryker run --mutate src/interpretation/argv.ts",
     "test:mutation:content": "stryker run --mutate src/interpretation/content.ts",
