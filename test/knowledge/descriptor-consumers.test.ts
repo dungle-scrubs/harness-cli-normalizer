@@ -6,9 +6,10 @@
  * at least one source file outside the knowledge layer. A field only the
  * descriptors and their type mention is dead data.
  *
- * The lucid-era fields (contextHook, resumeLast, presence) pass through
- * their interpretation readers; whether those readers stay is RFC-02 open
- * questions 2 and 3, not this test's decision.
+ * The lucid-era fields (resumeLast, presence) pass through their
+ * interpretation readers; whether those readers stay is RFC-02 open
+ * question 2, not this test's decision. `contextHook` was the third, and
+ * ADR 0009 retired it with the `context` event.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";

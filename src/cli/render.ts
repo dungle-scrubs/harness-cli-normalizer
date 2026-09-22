@@ -48,9 +48,6 @@ export const renderEvent = (
     case "progress":
       // droppable
       break;
-    case "context":
-      process.stdout.write(dim(`\n  ▪ context ${event.usedPct}%`));
-      break;
     case "compaction": {
       // ADR 0009. The counts are the harness's own; hcn derives none, and
       // three of the six report none at all, so the line has to read

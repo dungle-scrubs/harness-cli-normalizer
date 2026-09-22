@@ -155,13 +155,6 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     template: "{home}/.claude/projects/{cwdSlug}/{sessionId}.jsonl",
     cwdSlug: "dash-separators",
   },
-  contextHook: {
-    // claude statusline payload: { context_window: { used_percentage } }.
-    // This arrives on the statusline channel, never on stream-json stdout -
-    // route accordingly, do not call per stdout line.
-    object: "context_window",
-    usedPctField: "used_percentage",
-  },
   nativeContextManagement: {
     kind: "native-session-auto-compaction",
     modes: ["headless-turn"],

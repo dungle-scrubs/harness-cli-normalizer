@@ -85,7 +85,6 @@ export const antigravityCli: HarnessDescriptor = deepFreeze({
       "{home}/.gemini/antigravity-cli/brain/{sessionId}/.system_generated/logs/transcript.jsonl",
     cwdSlug: "verbatim",
   },
-  contextHook: null,
   contextInspection: null,
   nativeContextManagement: null,
   resumeLast: {

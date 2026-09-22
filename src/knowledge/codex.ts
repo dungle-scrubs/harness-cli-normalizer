@@ -98,7 +98,6 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     template: "{home}/.codex/sessions",
     cwdSlug: "verbatim",
   },
-  contextHook: null,
   contextInspection: null,
   // Codex core/session/turn.rs runs native automatic compaction; live
   // compaction and later-process recall captured on 0.155.1.

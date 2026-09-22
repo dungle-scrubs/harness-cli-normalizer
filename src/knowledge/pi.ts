@@ -124,7 +124,6 @@ export const piCli: HarnessDescriptor = deepFreeze({
     template: "{home}/.pi/sessions/{cwdSlug}",
     cwdSlug: "pi-dash-wrapped",
   },
-  contextHook: null,
   contextInspection: null,
   nativeContextManagement: null,
   // RFC-06: `--continue` continues the previous session (observed on

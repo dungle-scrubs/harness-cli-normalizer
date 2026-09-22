@@ -566,12 +566,6 @@ export interface HarnessDescriptor {
      * with `{home}` expanded by the existing home mechanism. */
     readonly defaultRoot?: string;
   };
-  /** How the harness exposes context-window usage; the interpretation layer
-   * surfaces it as a `context` HarnessEvent. */
-  readonly contextHook: {
-    readonly object: string;
-    readonly usedPctField: string;
-  } | null;
   /** Disposable native context accounting; the exchange validates support.
    * Null is unknown support, never a model-window estimate. `forkFlag` has
    * two consumers: context inspection (a resume there forks, leaving the
