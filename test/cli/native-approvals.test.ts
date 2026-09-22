@@ -67,156 +67,192 @@ test("public native approval refusal proves that no process or prompt was attemp
   }
 });
 
-test("a broken public output pipe terminates the owned approval process before HCN exits", async () => {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), "hcn-native-broken-output-")));
-  try {
-    const { env, fingerprint, nativeLog } = nativeApprovalFixture(root);
-    const peer = join(root, "bin", "codex");
-    writeFileSync(
-      peer,
-      readFileSync(peer, "utf8") +
-        '\nprocess.on("SIGTERM",()=>{save({signal:"SIGTERM"});process.exit(0);});\n',
-    );
-    const child = spawn(
-      bun,
-      [
-        cli,
-        "run",
-        "codex",
-        "--json",
-        "--native-approvals",
-        "--resume",
-        sessionId,
-        "--cwd",
-        root,
-        "--native-settings-fingerprint",
-        fingerprint,
-        "--questions",
-        "none",
-        "--prompt",
-        "fixture",
-      ],
-      { cwd: root, env, stdio: "pipe" },
-    );
-    let output = "";
-    let disconnected = false;
-    child.stderr.resume();
-    child.stdin.on("error", () => {});
-    child.stdout.on("data", (chunk) => {
-      output += String(chunk);
-      if (!disconnected && output.includes('"approval-request"')) {
-        disconnected = true;
-        child.stdout.destroy();
-        child.stdin.write('{"op":"invalid"}\n');
-      }
-    });
-    const watchdog = setTimeout(() => child.kill("SIGKILL"), 4000);
-    const code = await new Promise<number | null>((resolveExit, reject) => {
-      child.once("error", reject);
-      child.once("close", resolveExit);
-    });
-    clearTimeout(watchdog);
-    expect(disconnected).toBe(true);
-    const calls = readFileSync(nativeLog, "utf8")
-      .trim()
-      .split("\n")
-      .map((line) => JSON.parse(line));
-    expect(calls.some((call) => call.signal === "SIGTERM")).toBe(true);
-    expect(calls.filter((call) => call.id === 7 && call.result)).toEqual([]);
-    expect(code).toBe(1);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
+/**
+ * Both process tests below wait on a real child: spawn, stream, signal,
+ * exit. The watchdog is a last resort against a genuine hang, NOT a
+ * deadline for the work - a watchdog inside the range a loaded runner
+ * needs turns "slow machine" into "wrong answer". CI failed this file at
+ * 4054 ms against a 4000 ms watchdog: the SIGKILL landed first, so the
+ * child never sent SIGTERM to the peer and `code` came back null.
+ *
+ * So the watchdog sits far above any plausible run (local: ~600 ms), the
+ * per-test timeout sits above the watchdog so the watchdog is what fires,
+ * and a fired watchdog is asserted directly - a hang then reports as a
+ * hang instead of as a confusing exit-code mismatch.
+ */
+const WATCHDOG_MS = 20_000;
+const TEST_TIMEOUT_MS = 40_000;
 
-test("public native approvals resume the exact thread and answer one live request before cleanup", async () => {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), "hcn-native-approval-")));
-  try {
-    const { env, fingerprint, nativeLog } = nativeApprovalFixture(root);
-    const child = spawn(
-      bun,
-      [
-        cli,
-        "run",
-        "codex",
-        "--native-approvals",
-        "--json",
-        "--resume",
-        sessionId,
-        "--cwd",
-        root,
-        "--native-settings-fingerprint",
-        fingerprint,
-        "--prompt",
-        "EXACT_INPUT",
-        "--questions",
-        "none",
-      ],
-      { cwd: root, env, stdio: "pipe" },
-    );
-    const events: Record<string, unknown>[] = [];
-    let pending = "";
-    let stderr = "";
-    let parseError: unknown;
-    child.stderr.on("data", (chunk) => {
-      stderr += String(chunk);
-    });
-    child.stdout.on("data", (chunk) => {
-      pending += String(chunk);
-      while (pending.includes("\n")) {
-        const end = pending.indexOf("\n");
-        const line = pending.slice(0, end);
-        pending = pending.slice(end + 1);
-        try {
-          const event = JSON.parse(line);
-          events.push(event);
-          if (event.kind === "approval-request") {
-            const choice = event.choices.find((c: { scope: string }) => c.scope === "once");
-            child.stdin.write(
-              `${JSON.stringify({ v: 1, op: "approval", id: "107feafe-e82b-4df4-91ba-4f1aeb987508", requestId: event.requestId, choiceId: choice?.id })}\n`,
-            );
-          }
-        } catch (cause) {
-          parseError = cause;
-          child.kill("SIGTERM");
+test(
+  "a broken public output pipe terminates the owned approval process before HCN exits",
+  async () => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), "hcn-native-broken-output-")));
+    try {
+      const { env, fingerprint, nativeLog } = nativeApprovalFixture(root);
+      const peer = join(root, "bin", "codex");
+      writeFileSync(
+        peer,
+        readFileSync(peer, "utf8") +
+          '\nprocess.on("SIGTERM",()=>{save({signal:"SIGTERM"});process.exit(0);});\n',
+      );
+      const child = spawn(
+        bun,
+        [
+          cli,
+          "run",
+          "codex",
+          "--json",
+          "--native-approvals",
+          "--resume",
+          sessionId,
+          "--cwd",
+          root,
+          "--native-settings-fingerprint",
+          fingerprint,
+          "--questions",
+          "none",
+          "--prompt",
+          "fixture",
+        ],
+        { cwd: root, env, stdio: "pipe" },
+      );
+      let output = "";
+      let disconnected = false;
+      child.stderr.resume();
+      child.stdin.on("error", () => {});
+      child.stdout.on("data", (chunk) => {
+        output += String(chunk);
+        if (!disconnected && output.includes('"approval-request"')) {
+          disconnected = true;
+          child.stdout.destroy();
+          child.stdin.write('{"op":"invalid"}\n');
         }
-      }
-    });
-    const watchdog = setTimeout(() => child.kill("SIGKILL"), 8000);
-    const code = await new Promise<number | null>((resolveExit, reject) => {
-      child.once("error", reject);
-      child.once("close", resolveExit);
-    });
-    clearTimeout(watchdog);
-    expect(parseError).toBeUndefined();
-    expect(code, stderr + JSON.stringify(events)).toBe(0);
-    expect(events.filter((e) => e.kind === "approval-request")).toMatchObject([
-      { v: 1, sessionId, turnId: "native-turn", category: "command" },
-    ]);
-    expect(events.some((e) => e.kind === "approval-disposition" && e.status === "sent")).toBe(true);
-    expect(events.some((e) => e.kind === "message" && e.text === "FIXTURE_DONE")).toBe(true);
-    expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
-    const calls = readFileSync(nativeLog, "utf8")
-      .trim()
-      .split("\n")
-      .map((line) => JSON.parse(line));
-    expect(calls[0]).toEqual({ argv: ["app-server", "--listen", "stdio://"] });
-    expect(calls.find((c) => c.method === "thread/resume")?.params).toMatchObject({
-      threadId: sessionId,
-      sandbox: "read-only",
-    });
-    expect(calls.filter((c) => c.method === "turn/start")).toHaveLength(1);
-    expect(calls.find((c) => c.method === "turn/start")?.params.input).toEqual([
-      { type: "text", text: "EXACT_INPUT" },
-    ]);
-    expect(calls.filter((c) => c.id === 7 && c.result)).toEqual([
-      { id: 7, result: { decision: "accept" } },
-    ]);
-    expect(calls.at(-1)).toEqual({ closed: true });
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
+      });
+      let watchdogFired = false;
+      const watchdog = setTimeout(() => {
+        watchdogFired = true;
+        child.kill("SIGKILL");
+      }, WATCHDOG_MS);
+      const code = await new Promise<number | null>((resolveExit, reject) => {
+        child.once("error", reject);
+        child.once("close", resolveExit);
+      });
+      clearTimeout(watchdog);
+      expect(watchdogFired, `HCN did not exit within ${WATCHDOG_MS} ms`).toBe(false);
+      expect(disconnected).toBe(true);
+      const calls = readFileSync(nativeLog, "utf8")
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line));
+      expect(calls.some((call) => call.signal === "SIGTERM")).toBe(true);
+      expect(calls.filter((call) => call.id === 7 && call.result)).toEqual([]);
+      expect(code).toBe(1);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  },
+  TEST_TIMEOUT_MS,
+);
+
+test(
+  "public native approvals resume the exact thread and answer one live request before cleanup",
+  async () => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), "hcn-native-approval-")));
+    try {
+      const { env, fingerprint, nativeLog } = nativeApprovalFixture(root);
+      const child = spawn(
+        bun,
+        [
+          cli,
+          "run",
+          "codex",
+          "--native-approvals",
+          "--json",
+          "--resume",
+          sessionId,
+          "--cwd",
+          root,
+          "--native-settings-fingerprint",
+          fingerprint,
+          "--prompt",
+          "EXACT_INPUT",
+          "--questions",
+          "none",
+        ],
+        { cwd: root, env, stdio: "pipe" },
+      );
+      const events: Record<string, unknown>[] = [];
+      let pending = "";
+      let stderr = "";
+      let parseError: unknown;
+      child.stderr.on("data", (chunk) => {
+        stderr += String(chunk);
+      });
+      child.stdout.on("data", (chunk) => {
+        pending += String(chunk);
+        while (pending.includes("\n")) {
+          const end = pending.indexOf("\n");
+          const line = pending.slice(0, end);
+          pending = pending.slice(end + 1);
+          try {
+            const event = JSON.parse(line);
+            events.push(event);
+            if (event.kind === "approval-request") {
+              const choice = event.choices.find((c: { scope: string }) => c.scope === "once");
+              child.stdin.write(
+                `${JSON.stringify({ v: 1, op: "approval", id: "107feafe-e82b-4df4-91ba-4f1aeb987508", requestId: event.requestId, choiceId: choice?.id })}\n`,
+              );
+            }
+          } catch (cause) {
+            parseError = cause;
+            child.kill("SIGTERM");
+          }
+        }
+      });
+      let watchdogFired = false;
+      const watchdog = setTimeout(() => {
+        watchdogFired = true;
+        child.kill("SIGKILL");
+      }, WATCHDOG_MS);
+      const code = await new Promise<number | null>((resolveExit, reject) => {
+        child.once("error", reject);
+        child.once("close", resolveExit);
+      });
+      clearTimeout(watchdog);
+      expect(watchdogFired, `HCN did not exit within ${WATCHDOG_MS} ms`).toBe(false);
+      expect(parseError).toBeUndefined();
+      expect(code, stderr + JSON.stringify(events)).toBe(0);
+      expect(events.filter((e) => e.kind === "approval-request")).toMatchObject([
+        { v: 1, sessionId, turnId: "native-turn", category: "command" },
+      ]);
+      expect(events.some((e) => e.kind === "approval-disposition" && e.status === "sent")).toBe(
+        true,
+      );
+      expect(events.some((e) => e.kind === "message" && e.text === "FIXTURE_DONE")).toBe(true);
+      expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+      const calls = readFileSync(nativeLog, "utf8")
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line));
+      expect(calls[0]).toEqual({ argv: ["app-server", "--listen", "stdio://"] });
+      expect(calls.find((c) => c.method === "thread/resume")?.params).toMatchObject({
+        threadId: sessionId,
+        sandbox: "read-only",
+      });
+      expect(calls.filter((c) => c.method === "turn/start")).toHaveLength(1);
+      expect(calls.find((c) => c.method === "turn/start")?.params.input).toEqual([
+        { type: "text", text: "EXACT_INPUT" },
+      ]);
+      expect(calls.filter((c) => c.id === 7 && c.result)).toEqual([
+        { id: 7, result: { decision: "accept" } },
+      ]);
+      expect(calls.at(-1)).toEqual({ closed: true });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  },
+  TEST_TIMEOUT_MS,
+);
 
 function nativeApprovalFixture(root: string): {
   readonly env: Record<string, string>;
