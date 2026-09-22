@@ -19,7 +19,16 @@ export const museCode: HarnessDescriptor = deepFreeze({
   // No npm package - `hcn check` falls back to `muse --version` locally and
   // is skipped in CI where the binary is absent, so this harness is exempt
   // from automated drift detection (see README Version-pinning and drift).
-  versionSource: { kind: "installed" }, // Re-checked with muse --version, 2026-09-17.
+  // `versionSource: installed` pins only the 1.3.0 triple, and the build
+  // behind it moves. The fixtures in test/fixtures/muse-1.3.0 were captured on
+  // build 1.3.0-R3233.1; the binary probed on 2026-09-22 reported
+  // `Muse Code 1.3.0 (1.3.0-R3401.1)`
+  // (docs/research/2026-09-22-compaction-signals/muse). The major.minor.patch
+  // is unchanged, so no anchor bump is implied and none was made - recorded
+  // because the build moved under the fixtures and the drift check cannot see
+  // it. That probe re-observed native compaction on the moved build, so the
+  // nativeContextManagement fact below still holds.
+  versionSource: { kind: "installed" }, // Re-checked with muse --version, 2026-09-22.
   launch: {
     // exec --json emits the payload_type/stream records the runner decodes
     // (verified 0.1.0); bare exec streams human text.

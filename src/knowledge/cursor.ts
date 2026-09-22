@@ -25,6 +25,15 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
   // Phase 5 (same version) re-probed the sandbox: no confinement.
   // No npm package exists (script install only), so drift detection falls
   // back to the local `agent --version`, skipped where absent.
+  //
+  // This anchor is not stable under the CLI's own updater. On 2026-09-22 the
+  // binary behind `agent` moved from 2026.09.15-d2fe57e to 2026.09.18-9a7762b
+  // mid-probe, between two runs minutes apart, with no way found to turn the
+  // updater off (docs/research/2026-09-22-compaction-signals/cursor). So a
+  // later `agent --version` can disagree with the version that served an
+  // earlier run, and `verifiedAgainst` names the version the facts were
+  // verified on, not necessarily the one a given run used. `versionSource`
+  // has no field for that, so it is recorded here.
   versionSource: { kind: "installed" },
   launch: {
     // Every headless probe runs `-p` (print mode, with write and shell).
@@ -577,10 +586,24 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
     ],
     defaultRoot: "{home}/.cursor",
   },
+  // The `preCompact` hook declares `context_usage_percent`, `context_tokens`
+  // and `context_window_size`, and the harness reports all three as `0` on
+  // every automatic compaction (11/11 captures, both 2026.09.15-d2fe57e and
+  // 2026.09.18-9a7762b; docs/research/2026-09-22-compaction-signals/cursor).
+  // The occupancy triple is dead, and the `message_count` /
+  // `messages_to_compact` fields that ARE populated are a per-compaction
+  // notification, not a usage readout. No occupancy readout exists to
+  // inspect.
   contextInspection: null,
-  // result.usage token counts exist (probe 10) but no window size is
-  // known, so no usedPct can be computed.
-  nativeContextManagement: null,
+  // Automatic compaction observed live in headless-turn, 11 times on
+  // 2026-09-22 against this anchor version, with one cross-version replication
+  // on the auto-updated 2026.09.18-9a7762b
+  // (docs/research/2026-09-22-compaction-signals/cursor). The stream itself
+  // carries no compaction record - the print-mode emitter has no such code
+  // path - so this is a curated fact, not a decoded signal. result.usage token
+  // counts exist (probe 10) but no window size is known, and the harness
+  // reports it as 0, so no usedPct can be computed.
+  nativeContextManagement: { kind: "auto-compaction", modes: ["headless-turn"] },
   // `-p --continue` resumes the most recently touched session (probe 22;
   // observed on 2026.09.15-d2fe57e, 2026-09-17). RFC-06 Phase 5 renders headless after RFC-05
   // landed (merge to main).

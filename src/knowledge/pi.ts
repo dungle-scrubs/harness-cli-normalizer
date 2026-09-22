@@ -1,6 +1,6 @@
 /**
  * The pi descriptor: facts about the `pi` CLI as data, verified against
- * pi 0.86.1 (test/fixtures/pi-0.86.1). Descriptor groundwork only (D-003). The load-bearing scars:
+ * pi 0.87.0 (test/fixtures/pi-0.87.0). Descriptor groundwork only (D-003). The load-bearing scars:
  * pi reads stdin even in -p mode (a backgrounded call without `< /dev/null`
  * hangs forever), it auto-discovers instruction files/skills/extensions
  * unless disabled, and its model registry is runtime-extensible (D-008) -
@@ -14,7 +14,7 @@ export const piCli: HarnessDescriptor = deepFreeze({
   name: "pi",
   transcript: PI_TRANSCRIPT,
   bin: "pi",
-  verifiedAgainst: "0.86.1",
+  verifiedAgainst: "0.87.0",
   versionSource: { kind: "npm", package: "@earendil-works/pi-coding-agent" },
   launch: {
     // -p --mode json: bare -p prints plain text; --mode json emits the
@@ -125,7 +125,24 @@ export const piCli: HarnessDescriptor = deepFreeze({
     cwdSlug: "pi-dash-wrapped",
   },
   contextInspection: null,
-  nativeContextManagement: null,
+  // Native auto-compaction, observed live on 0.87.0, 2026-09-22
+  // (docs/research/2026-09-22-compaction-signals/pi). It fires when
+  // contextTokens exceeds contextWindow - reserveTokens, in headless-turn
+  // (`-p --mode json`, including the resume grammar) and in headless-session
+  // (`--mode rpc`). interactive is untested, so it is not claimed.
+  //
+  // The stream announces both edges: `compaction_start` carries `reason`
+  // ("manual" | "threshold" | "overflow"), and `compaction_end` carries the
+  // whole payload - summary, firstKeptEntryId, tokensBefore,
+  // estimatedTokensAfter, the summarizer's usage, and details. Between them
+  // the stream is silent for 7 to 10 s. hcn's pi decoder drops both records
+  // today; closing that gap is issue #239, and nothing here changes it. A
+  // threshold compaction can also land outside any agent_start/agent_settled
+  // pair, so a consumer keyed on turn boundaries can miss it.
+  nativeContextManagement: {
+    kind: "auto-compaction",
+    modes: ["headless-turn", "headless-session"],
+  },
   // RFC-06: `--continue` continues the previous session (observed on
   // 0.85.1, 2026-09-17; `--continue` example in `pi --help`). No fork
   // mechanism is probed on pi, so none is rendered.
@@ -161,7 +178,7 @@ export const piCli: HarnessDescriptor = deepFreeze({
   // untouched; the observed value is display only.
   escalation: {
     supported: true,
-    observedOn: { harness: "pi", model: "zai/glm-5.2", version: "0.86.1", date: "2026-09-20" },
+    observedOn: { harness: "pi", model: "zai/glm-5.2", version: "0.87.0", date: "2026-09-22" },
   },
   turnOptions: {
     effort: { kind: "effort", render: { kind: "flag-value", flag: "--thinking" } },

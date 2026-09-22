@@ -66,7 +66,7 @@ describe("RFC-06 Phase 4 filed resume-last captures", () => {
   });
 
   test("pi resume-last resumes the planted session and recalls", () => {
-    const events = decoded(piCli, "pi-0.86.1", "zai/glm-5.2");
+    const events = decoded(piCli, "pi-0.87.0", "zai/glm-5.2");
     expect(identities(events)).toContain("01a0adf4-7a11-74d8-9071-1d3a78312617");
     expect(messages(events).join("\n")).toMatch(/HERON-4/);
     expect(events.some((e) => e.kind === "error")).toBe(false);
@@ -85,7 +85,7 @@ describe("RFC-06 Phase 4 filed resume-last captures", () => {
     for (const dir of [
       "claude-2.1.278",
       "codex-0.155.1",
-      "pi-0.86.1",
+      "pi-0.87.0",
       "cursor-2026.09.15-d2fe57e",
     ]) {
       const text = read(dir);

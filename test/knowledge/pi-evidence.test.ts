@@ -6,7 +6,7 @@ import { detectQuestionBlock } from "../../src/interpretation/question.js";
 import { piCli } from "../../src/knowledge/pi.js";
 
 const read = (file: string): string =>
-  readFileSync(new URL(`../fixtures/pi-0.86.1/${file}`, import.meta.url), "utf8");
+  readFileSync(new URL(`../fixtures/pi-0.87.0/${file}`, import.meta.url), "utf8");
 
 const decoded = (file: string): HarnessEvent[] => {
   const state = freshDecodeState(null);
@@ -30,8 +30,8 @@ test("pi's verification anchor has passing native capability and question captur
 // The 0.85.1 anchor needed a second question run: a locally installed pi
 // extension queued a follow-up and pushed the turn past the runner's
 // 90-second deadline. That was local configuration, and its first-attempt
-// snapshot stays in test/fixtures/pi-0.85.1. The 0.86.1 run passed on the
-// first attempt, so the current anchor has no retry to assert.
+// snapshot stays in test/fixtures/pi-0.85.1. The 0.86.1 and 0.87.0 runs
+// passed on the first attempt, so the current anchor has no retry to assert.
 
 test("a native pi turn still decodes identity, tokens and the final message", () => {
   const events = decoded("fresh.ndjson");
