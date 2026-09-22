@@ -227,7 +227,77 @@ const codex = (r: Record<string, unknown>): ContentEvent[] => {
   return [];
 };
 
+/**
+ * pi's compaction `reason` onto ADR 0009's shared trigger vocabulary.
+ * `threshold` is pi's automatic trigger - it fires when contextTokens
+ * exceeds contextWindow - reserveTokens - so it normalizes to `auto`.
+ * `manual` and `overflow` carry over by name.
+ *
+ * Only `threshold` was observed live on 0.87.0; the other two are read
+ * from pi's own source and docs/rpc.md
+ * (docs/research/2026-09-22-compaction-signals/pi).
+ */
+const piTrigger = (value: unknown): CompactionTrigger | undefined => {
+  if (value === "threshold") return "auto";
+  if (value === "manual" || value === "overflow") return value;
+  return undefined;
+};
+
+/**
+ * pi brackets every compaction with `compaction_start` and
+ * `compaction_end`. Both carry `reason`; the end record carries the
+ * payload. Returns null for a record that is not one of the two, so the
+ * caller falls through to the rest of the pi decoder.
+ *
+ * Either record can arrive OUTSIDE an agent_start/agent_settled pair -
+ * before the turn exists, or after a run completes - so nothing here keys
+ * off turn boundaries. openSession buffers between-turn events for the
+ * next turn, and `compaction` is not droppable, so it survives that wait.
+ */
+const piCompaction = (r: Record<string, unknown>): ContentEvent[] | null => {
+  const trigger = piTrigger(r.reason);
+  const withTrigger = trigger !== undefined ? { trigger } : {};
+  if (r.type === "compaction_start") {
+    return [{ kind: "compaction", state: "started", ...withTrigger }];
+  }
+  if (r.type !== "compaction_end") return null;
+  // pi emits `result: undefined` on all three abort and failure paths, and
+  // both modes serialize through JSON.stringify, which drops
+  // undefined-valued keys. On the wire the key is therefore ABSENT, not
+  // null - docs/rpc.md says null, the implementation and the serializer say
+  // absent. asRecord answers the same for absent, null and non-object, so
+  // this arm holds whichever of the two is true on a given build.
+  const result = asRecord(r.result);
+  if (result === null) {
+    // `aborted` separates a stopped run from a failed one. Neither was
+    // observed live; both are source readings, and each reports its own
+    // state rather than a `compacted` that carries no numbers.
+    return [
+      { kind: "compaction", state: r.aborted === true ? "aborted" : "failed", ...withTrigger },
+    ];
+  }
+  return [
+    {
+      kind: "compaction",
+      state: "compacted",
+      ...withTrigger,
+      ...(numberOr(result.tokensBefore) !== undefined
+        ? { tokensBefore: numberOr(result.tokensBefore) }
+        : {}),
+      // pi's own name for the after-count is an estimate, and hcn reports
+      // it as the harness gave it rather than recomputing anything.
+      ...(numberOr(result.estimatedTokensAfter) !== undefined
+        ? { tokensAfter: numberOr(result.estimatedTokensAfter) }
+        : {}),
+    },
+  ];
+};
+
 const pi = (r: Record<string, unknown>): ContentEvent[] => {
+  // ADR 0009. Ahead of everything else: these two record types collide with
+  // nothing below, and a null return falls straight through.
+  const compaction = piCompaction(r);
+  if (compaction !== null) return compaction;
   // One clean tool event per invocation (the toolcall_start/delta/end and
   // tool_execution_update stream is noise; tool_execution_start fires once).
   if (r.type === "tool_execution_start" && typeof r.toolName === "string") {
