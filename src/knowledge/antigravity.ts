@@ -1,7 +1,11 @@
 /**
  * Antigravity CLI descriptor. Current Google documentation and authenticated
- * probes against the installed 1.2.7 binary establish the argv, stream,
- * permission, session, resume, model, and escalation contracts.
+ * probes establish the argv, stream, permission, session, resume, model, and
+ * escalation contracts. The anchor is 1.2.8: the capability tripwires, the
+ * escalation probe and the compaction observation were run against that
+ * binary (test/fixtures/antigravity-1.2.8). The permission, sandbox, store
+ * and validation corpus behind the remaining claims was captured on 1.2.7
+ * (test/fixtures/antigravity-1.2.7) and still stands.
  */
 import { deepFreeze, type HarnessDescriptor, UUID_SHAPE } from "./descriptor.js";
 import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
@@ -11,7 +15,7 @@ export const antigravityCli: HarnessDescriptor = deepFreeze({
   name: "antigravity",
   transcript: ANTIGRAVITY_TRANSCRIPT,
   bin: "agy",
-  verifiedAgainst: "1.2.7",
+  verifiedAgainst: "1.2.8",
   // The installed signed binary supplied the qualified version anchor.
   versionSource: { kind: "installed" },
   launch: {
@@ -85,8 +89,27 @@ export const antigravityCli: HarnessDescriptor = deepFreeze({
       "{home}/.gemini/antigravity-cli/brain/{sessionId}/.system_generated/logs/transcript.jsonl",
     cwdSlug: "verbatim",
   },
+  // No headless occupancy readout exists. `/context` opens the interactive
+  // context panel and is refused in print mode with a purpose-built error
+  // (observed 2026-09-22 on 1.2.8), and no other command or stream field
+  // reports a window size, a percentage or a remaining budget.
   contextInspection: null,
-  nativeContextManagement: null,
+  // Native auto-compaction, observed live on 1.2.8, 2026-09-22
+  // (docs/research/2026-09-22-compaction-signals/antigravity): four
+  // compactions inside one 8-turn `--input-format stream-json` session, so
+  // headless-session is evidenced. headless-turn is not claimed - a one-shot
+  // turn has no second request to shrink, and none was probed.
+  //
+  // The stream says nothing while it runs and one bare record afterwards: a
+  // `step_update` with `step_type: "checkpoint"`, `state: "DONE"` and a
+  // `duration_seconds` that measures the pause (4.5 to 18 s observed). There
+  // is no ACTIVE phase, no summary, no reason and no token count on it - the
+  // summary is written to the brain store instead. hcn's antigravity reader
+  // drops the record today; reporting it upward is ADR 0009's work, not this
+  // descriptor's. 1.2.8 is also the release that resized the compaction
+  // budgets from the model's full window, so these facts are anchored to
+  // 1.2.8 and must not be read back onto 1.2.7.
+  nativeContextManagement: { kind: "auto-compaction", modes: ["headless-session"] },
   resumeLast: {
     flag: "--continue",
     headless: true,
@@ -113,8 +136,8 @@ export const antigravityCli: HarnessDescriptor = deepFreeze({
     observedOn: {
       harness: "antigravity",
       model: "gemini-3.8-flash-medium",
-      version: "1.2.7",
-      date: "2026-09-19",
+      version: "1.2.8",
+      date: "2026-09-22",
     },
   },
   turnOptions: {
