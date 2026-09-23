@@ -583,6 +583,23 @@ export interface HarnessDescriptor {
     readonly kind: "auto-compaction" | "native-session-auto-compaction";
     readonly modes: readonly HarnessMode[];
   } | null;
+  /** ADR 0009: whether this harness REPORTS its compaction to hcn, and on
+   * which channel. Distinct from `nativeContextManagement`, which says
+   * whether the harness compacts at all - a harness can compact and say
+   * nothing, and codex and cursor both do.
+   *
+   * This exists so silence is never read as "no compaction happened". A
+   * caller checks the field once and knows whether to expect events.
+   * `source` is the channel hcn reads: `stream` is the harness's own
+   * stdout, `view` is a side surface hcn already attaches to (muse's MSP
+   * view). `states` are the states this harness can actually produce, not
+   * the whole union. `tokens` says whether token counts arrive.
+   * Null means no live signal on any channel hcn reads. */
+  readonly compactionReporting: {
+    readonly source: "stream" | "view";
+    readonly states: readonly CompactionState[];
+    readonly tokens: boolean;
+  } | null;
   /** Most-recent resume support, or null. `flag` stays the parse key for
    * `parse-resume.ts` (shell history carrying `muse resume --last` still
    * parses); `headless` decides whether a builder may render it. A

@@ -167,6 +167,16 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
   // RFC-06: `-c, --continue` continues the most recent conversation
   // (observed on 2.1.274, 2026-09-17). The fork half renders from the
   // single contextInspection.forkFlag, always on this path.
+  // Claude's system records carry both edges: a `compacting` status opens
+  // the pause and the `compact_boundary` record closes it with the counts.
+  // A failed compaction reports through the status record's
+  // `compact_result`. Claude has been observed sending two `compacting`
+  // records for one compaction, so a counting consumer counts ends.
+  compactionReporting: {
+    source: "stream",
+    states: ["started", "compacted", "failed"],
+    tokens: true,
+  },
   resumeLast: {
     flag: "--continue",
     headless: true,

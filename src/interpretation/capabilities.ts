@@ -7,6 +7,7 @@
  * source to runtime-verified. An LLM self-asserting capability is neither.
  */
 import type {
+  CompactionState,
   HarnessDescriptor,
   HarnessMode,
   StreamingGranularity,
@@ -43,6 +44,19 @@ export interface CapabilityResult {
   readonly source: "runtime-verified" | "curated" | "unknown";
   readonly confidence: "high" | "medium" | "none";
   readonly escalation: EscalationClaim;
+  /** ADR 0009: whether this harness reports its compaction, and on which
+   * channel, or null where nothing hcn reads carries it. It rides the
+   * identity event so a caller branching on compaction events gets the
+   * answer once per session, on the same channel, with no stderr parsing.
+   *
+   * Unlike the claims above, this does NOT degrade for an uncurated
+   * model. It is a fact about which channel carries the signal, and the
+   * MSP view or a `compact_boundary` record exists whatever model runs. */
+  readonly compactionReporting: {
+    readonly source: "stream" | "view";
+    readonly states: readonly CompactionState[];
+    readonly tokens: boolean;
+  } | null;
 }
 
 const escalationOf = (h: HarnessDescriptor): EscalationClaim => {
@@ -90,6 +104,7 @@ export const capabilitiesOf = (
       source: "unknown",
       confidence: "none",
       escalation: { supported: false, source: "unknown", confidence: "none" },
+      compactionReporting: h.compactionReporting,
     };
   }
   return {
@@ -100,5 +115,6 @@ export const capabilitiesOf = (
     source: "curated",
     confidence: "medium",
     escalation: escalationOf(h),
+    compactionReporting: h.compactionReporting,
   };
 };
