@@ -390,6 +390,13 @@ export async function* streamTurn(
           "approval_incompatible",
           `${h.name} MSP surface is incompatible with hcn - ending the turn`,
         ),
+      // ADR 0009 / #241: muse's stdout carries no compaction signal at
+      // all, so the event comes off the same MSP view this helper already
+      // reads. `itemId` is the view's identity for deduping and is not
+      // part of the reported event.
+      ({ itemId: _itemId, ...found }) => {
+        void queue.push({ kind: "compaction", ...found });
+      },
     );
   };
 
