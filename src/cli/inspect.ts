@@ -182,6 +182,9 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
     },
     resume: h.resume,
     contextInspection: h.contextInspection ?? null,
+    // ADR 0009: printed for planning - a caller sees before it runs
+    // whether this harness will report compaction at all.
+    compactionReporting: h.compactionReporting,
     nativeContextManagement:
       h.nativeContextManagement === null
         ? null

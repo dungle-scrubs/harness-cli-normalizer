@@ -34,6 +34,9 @@ const DESCRIPTOR_KEYS = [
   "store",
   "contextInspection",
   "nativeContextManagement",
+  // ADR 0009 adds the compaction-reporting key: which channel carries a
+  // harness's compaction, or null where none does.
+  "compactionReporting",
   "resumeLast",
   "stdin",
   "presence",

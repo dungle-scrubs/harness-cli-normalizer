@@ -134,6 +134,15 @@ export const museCode: HarnessDescriptor = deepFreeze({
   // the parse-only arm of `resumeLast` carries no `warning` (a muse
   // warning would never be emitted, and its no-session claim was never
   // probed).
+  // ADR 0009 / #241: muse stdout says NOTHING about compaction, so the
+  // signal comes off the MSP view of the approval helper. Only that
+  // view's terminal item carries an outcome, so muse announces no
+  // `started`. Its own `cancelled` is reported as `aborted`.
+  compactionReporting: {
+    source: "view",
+    states: ["compacted", "noop", "failed", "aborted"],
+    tokens: true,
+  },
   resumeLast: {
     flag: "--last",
     headless: false,

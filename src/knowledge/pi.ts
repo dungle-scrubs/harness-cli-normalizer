@@ -146,6 +146,14 @@ export const piCli: HarnessDescriptor = deepFreeze({
   // RFC-06: `--continue` continues the previous session (observed on
   // 0.85.1, 2026-09-17; `--continue` example in `pi --help`). No fork
   // mechanism is probed on pi, so none is rendered.
+  // pi brackets every compaction with compaction_start / compaction_end,
+  // both carrying `reason`. A resultless end record reports `aborted` or
+  // `failed` - pi drops the `result` key rather than nulling it.
+  compactionReporting: {
+    source: "stream",
+    states: ["started", "compacted", "failed", "aborted"],
+    tokens: true,
+  },
   resumeLast: {
     flag: "--continue",
     headless: true,

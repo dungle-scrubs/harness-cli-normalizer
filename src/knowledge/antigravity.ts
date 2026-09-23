@@ -110,6 +110,9 @@ export const antigravityCli: HarnessDescriptor = deepFreeze({
   // budgets from the model's full window, so these facts are anchored to
   // 1.2.8 and must not be read back onto 1.2.7.
   nativeContextManagement: { kind: "auto-compaction", modes: ["headless-session"] },
+  // One `checkpoint` step in state DONE, carrying a duration and nothing
+  // else: no start phase, no reason, and no token counts at all.
+  compactionReporting: { source: "stream", states: ["compacted"], tokens: false },
   resumeLast: {
     flag: "--continue",
     headless: true,
