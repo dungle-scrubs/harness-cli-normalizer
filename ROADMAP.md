@@ -46,10 +46,10 @@ Partly built. hcn reports live harness compaction as
 [ADR 0009](docs/adr/0009-compaction-status-event.md); the decision map is
 [#229](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/229).
 
-Implementation is nine tickets. Eight have shipped: the event exists, claude,
-pi, antigravity and muse report on it, a caller can ask which harnesses do, the
-descriptors are re-verified, and the vacancy it replaced is gone. Only the
-skill audit (#245) remains.
+**All nine have shipped.** The event exists; claude, pi, antigravity and muse
+report on it; a caller can ask which harnesses do and set a stall budget above
+the measured pause bands; the descriptors are re-verified; the vacancy the
+event replaced is gone; and the vendored skill matches the shipped CLI.
 
 - lucid [#296](https://github.com/dungle-scrubs/lucid/issues/296) - **shipped.**
   Lucid accepts the kind, classes it lossless and renders it. It had to land
@@ -90,9 +90,12 @@ skill audit (#245) remains.
   1.3.0. Closes
   [#227](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/227).
 - [#245](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/245) -
-  audit the vendored hcn skill.
+  **shipped.** The vendored skill no longer documents the retired `context`
+  event, carries the compaction contract, the reporting roster and the pause
+  bands, and its claim check now reads the roster off the binary so it cannot
+  drift silently. Source: `~/dev/skills/skills/vendor/hcn` at f590116.
 
-Takeable now: #245.
+Nothing here is takeable: the map is complete.
 
 ## Declined - supervision
 
