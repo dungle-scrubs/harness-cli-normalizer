@@ -80,6 +80,27 @@ export const museCode: HarnessDescriptor = deepFreeze({
   // through the read-only MSP approval/listPending operation (verified
   // against the 1.3.0 schema export: a log-fold read, no lease, works on
   // loaded and unloaded sessions, never subscribes).
+  // ADR 0009 / #241: the same helper also folds the MSP view for
+  // compaction, because `muse exec --json` emits NO compaction signal on
+  // stdout - a run that compacted 68,376 tokens to 22,388 produced a
+  // stream identical, record for record, to one that compacted nothing.
+  //
+  // Attach timing is the risk that had to close here, and it closes by
+  // how the view works, not by luck. Muse compacts pre-turn and blocking
+  // (`hard_threshold_blocking` / `pre_turn` in its durable log), while
+  // this observer starts on the identity event - so the compaction is
+  // already over before the helper is up. The view is a durable
+  // cursor-paged log rather than a live subscription: the probe read the
+  // compaction item from a `muse serve` started after its runs had
+  // finished, by paging forward from the beginning. hcn therefore takes
+  // its first page with NO anchor. `anchor: "latestCompaction"` would
+  // lose it - that anchor resolves to the boundary and pages strictly
+  // after it, excluding the compaction item itself, which is the wrong
+  // conclusion the probe drew first and recorded.
+  //
+  // Not claimed: `soft_threshold_async`. Only the blocking pre-turn path
+  // was produced, and an async compaction overlaps the turn rather than
+  // preceding it, so whether the view reports it in time is unverified.
   approvalObserver: "msp-list-pending",
   vocabulary: {
     modelFlag: "--model",

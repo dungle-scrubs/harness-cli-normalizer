@@ -46,10 +46,10 @@ Partly built. hcn reports live harness compaction as
 [ADR 0009](docs/adr/0009-compaction-status-event.md); the decision map is
 [#229](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/229).
 
-Implementation is nine tickets. Six have shipped: the event exists, claude, pi
-and antigravity report on it, the descriptors are re-verified, and the vacancy
-it replaced is gone. Muse (#241) and the divergence surface (#243) remain,
-then the skill audit (#245).
+Implementation is nine tickets. Seven have shipped: the event exists, claude,
+pi, antigravity and muse report on it, the descriptors are re-verified, and the
+vacancy it replaced is gone. The divergence surface (#243) remains, then the
+skill audit (#245).
 
 - lucid [#296](https://github.com/dungle-scrubs/lucid/issues/296) - **shipped.**
   Lucid accepts the kind, classes it lossless and renders it. It had to land
@@ -69,7 +69,10 @@ then the skill audit (#245).
   **shipped.** antigravity's mapping. One `checkpoint` record in state DONE,
   carrying only a duration, so `compacted` is the only state it can report.
 - [#241](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/241) -
-  muse's mapping, through the MSP view.
+  **shipped.** muse's mapping, through the MSP view - its stdout carries no
+  compaction signal at all. The attach-timing risk closed by mechanism: the
+  view is a durable cursor-paged log, so hcn's first page is taken with no
+  anchor and still returns a compaction that ran before the observer attached.
 - [#242](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/242) -
   **shipped.** The reserved `context` event is gone, with its decoder, its
   `DROPPABLE_KINDS` entry and the `contextHook` descriptor field on all six
@@ -86,7 +89,7 @@ then the skill audit (#245).
 - [#245](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/245) -
   audit the vendored hcn skill.
 
-Takeable now: #241 and #243.
+Takeable now: #243, then #245.
 
 ## Declined - supervision
 
