@@ -1,3 +1,4 @@
+import { type MuseCompaction, museViewPageOf } from "../interpretation/muse-compaction.js";
 import { asRecord } from "../interpretation/shape.js";
 import type { Clock, SignalName, SpawnedProcess, SpawnOptions, TimerHandle } from "./deps.js";
 import { LineBuffer } from "./lines.js";
@@ -87,6 +88,10 @@ export function watchMuseApprovals(
   blocked: (subject: "approval" | "input", kind: string, sandboxEscalation: boolean) => void,
   unavailable: () => void,
   incompatible?: (info: MuseSurfaceIncompatibility) => void,
+  /** ADR 0009 / #241: every terminal compaction the MSP view reports,
+   * once each. Optional - an omitted sink turns the view fold off, which
+   * is what every caller predating it gets. */
+  compaction?: (found: MuseCompaction) => void,
 ): MuseApprovalObserver {
   let proc: SpawnedProcess;
   try {
@@ -102,6 +107,29 @@ export function watchMuseApprovals(
   let requestId = 0;
   let initialized = false;
   let unreadableStreak = 0;
+  // ---- #241: the MSP view fold. -------------------------------------
+  // It rides the same helper but NOT the same request channel. The
+  // approval poll's cadence and its consecutive-poll counting are the
+  // basis of the blocked-approval verdict, so nothing here may sit
+  // between two approval polls: a view page that answers slowly would
+  // delay a verdict by its whole budget. View requests therefore carry
+  // their own string id space (`v1`, `v2`, ...), their own timer, and at
+  // most one in flight. The approval path below is untouched.
+  let viewEnabled = compaction !== undefined;
+  let viewRequestId = 0;
+  let viewInFlight: string | null = null;
+  let viewTimer: TimerHandle | null = null;
+  /** Paging forward from here. Null means "from the beginning", which is
+   * what closes the attach-timing risk: muse compacts pre-turn and
+   * blocking, and this observer starts on the identity event, so the
+   * compaction is over before the helper is up. The view is a durable
+   * cursor-paged log, not a live subscription, so a first page with no
+   * anchor returns items recorded before attach. `anchor:
+   * "latestCompaction"` would NOT - it resolves to the boundary and pages
+   * strictly after it, excluding the compaction item itself. */
+  let viewCursor: string | null = null;
+  /** One compaction reports once, across repeated or overlapping pages. */
+  const reportedCompactions = new Set<string>();
   let cleanup: Promise<void> | null = null;
   const termination = superviseTermination(deps.clock, (sig) => deps.signal(proc, sig));
   const clearTimer = (): void => {
@@ -189,7 +217,63 @@ export function watchMuseApprovals(
       HELPER_START_MS,
     );
   };
-  const poll = (): void => request("approval/listPending", { sessionId }, POLL_RESPONSE_MS);
+  const poll = (): void => {
+    request("approval/listPending", { sessionId }, POLL_RESPONSE_MS);
+    // Fire-and-forget beside the poll: the reply is matched by its own id
+    // and settles on its own timer, so it can neither delay nor fail the
+    // approval poll that just went out.
+    pollView();
+  };
+  const clearViewTimer = (): void => {
+    if (viewTimer !== null) deps.clock.clearTimeout(viewTimer);
+    viewTimer = null;
+  };
+  /** #241: one page per approval poll, at most one in flight. A page that
+   * never answers is abandoned on its own budget and simply retried with
+   * the next poll. */
+  const pollView = (): void => {
+    if (!viewEnabled || closed || reported || viewInFlight !== null) return;
+    viewRequestId += 1;
+    const id = `v${viewRequestId}`;
+    const sent = write({
+      id,
+      jsonrpc: "2.0",
+      method: "view/page",
+      params: { sessionId, ...(viewCursor !== null ? { cursor: viewCursor } : {}) },
+    });
+    if (!sent) return;
+    viewInFlight = id;
+    clearViewTimer();
+    viewTimer = deps.clock.setTimeout(() => {
+      viewTimer = null;
+      viewInFlight = null;
+    }, POLL_RESPONSE_MS);
+  };
+  /** A view reply. Returns true when it was one, so `receive` can stop.
+   * Nothing here touches `reported`, `unreadableStreak` or the approval
+   * timer: the fold is additive and never decides a turn. */
+  const receiveView = (value: Record<string, unknown>): boolean => {
+    if (typeof value.id !== "string" || value.id !== viewInFlight) return false;
+    viewInFlight = null;
+    clearViewTimer();
+    const result = asRecord(value.result);
+    if (value.error !== undefined || !result) {
+      // A muse with no `view/page` supervises approvals perfectly well; it
+      // just has no compaction view. Turn the fold off rather than end the
+      // turn as an incompatible surface.
+      if (asRecord(value.error)?.code === JSON_RPC_METHOD_NOT_FOUND) viewEnabled = false;
+      return true;
+    }
+    const page = museViewPageOf(result);
+    if (page === null) return true;
+    for (const found of page.compactions) {
+      if (reportedCompactions.has(found.itemId)) continue;
+      reportedCompactions.add(found.itemId);
+      compaction?.(found);
+    }
+    if (page.nextCursor !== null) viewCursor = page.nextCursor;
+    return true;
+  };
   const subjectKindOf = (approval: unknown): string => {
     const subject = asRecord(asRecord(approval)?.subject);
     const kind = subject?.kind;
@@ -272,6 +356,7 @@ export function watchMuseApprovals(
       unreadable();
       return;
     }
+    if (value !== null && receiveView(value)) return;
     if (value?.id !== requestId) return;
     clearTimer();
     const result = asRecord(value.result);
@@ -388,6 +473,7 @@ export function watchMuseApprovals(
       if (cleanup) return cleanup;
       closed = true;
       clearTimer();
+      clearViewTimer();
       // Terminate the exact helper; its session was never loaded, so no
       // execution is interrupted. Probed on Muse Code 1.3.0: serve exits
       // 0 about 4s after stdin EOF with no signal, so even a SIGKILLed hcn
