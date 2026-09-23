@@ -46,10 +46,10 @@ Partly built. hcn reports live harness compaction as
 [ADR 0009](docs/adr/0009-compaction-status-event.md); the decision map is
 [#229](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/229).
 
-Implementation is nine tickets. Seven have shipped: the event exists, claude,
-pi, antigravity and muse report on it, the descriptors are re-verified, and the
-vacancy it replaced is gone. The divergence surface (#243) remains, then the
-skill audit (#245).
+Implementation is nine tickets. Eight have shipped: the event exists, claude,
+pi, antigravity and muse report on it, a caller can ask which harnesses do, the
+descriptors are re-verified, and the vacancy it replaced is gone. Only the
+skill audit (#245) remains.
 
 - lucid [#296](https://github.com/dungle-scrubs/lucid/issues/296) - **shipped.**
   Lucid accepts the kind, classes it lossless and renders it. It had to land
@@ -79,7 +79,10 @@ skill audit (#245).
   harnesses. This also resolved RFC-02 open question 3, which had recommended
   keeping the kind.
 - [#243](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/243) -
-  `compactionReporting` and the divergence surface.
+  **shipped.** `compactionReporting` on every descriptor, carried onto the
+  identity event and printed by inspect, so silence is never read as no
+  compaction happening. Codex and cursor are null: both compact, neither
+  reports. No per-run divergence line - nobody asks for the key.
 - [#244](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/244) -
   descriptor re-verification across four harnesses. **Done**: pi, cursor and
   antigravity record their probed compaction facts, pi anchors 0.87.0,
@@ -89,7 +92,7 @@ skill audit (#245).
 - [#245](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/245) -
   audit the vendored hcn skill.
 
-Takeable now: #243, then #245.
+Takeable now: #245.
 
 ## Declined - supervision
 

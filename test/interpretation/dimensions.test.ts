@@ -55,7 +55,28 @@ describe("capabilitiesOf (claude)", () => {
         confidence: "high",
         observedOn: claudeCode.escalation.observedOn,
       },
+      // ADR 0009: the reporting fact rides the identity event, so a caller
+      // branching on compaction events reads it once per session.
+      compactionReporting: {
+        source: "stream",
+        states: ["started", "compacted", "failed"],
+        tokens: true,
+      },
     });
+  });
+
+  test("compaction reporting rides the identity capabilities, and does not degrade", () => {
+    // It is a fact about which channel carries the signal, not a model
+    // capability: muse's MSP view and claude's compact_boundary record
+    // exist whatever model runs. So it survives the uncurated-model
+    // degrade that zeroes the claims beside it.
+    const degraded = capabilitiesOf(claudeCode, "not-a-curated-model", "headless-turn");
+    expect(degraded.source).toBe("unknown");
+    expect(degraded.streaming).toBe("none");
+    expect(degraded.compactionReporting).toEqual(claudeCode.compactionReporting);
+    // A silent harness says so explicitly, so a caller never reads silence
+    // as "no compaction happened".
+    expect(capabilitiesOf(codexCli, "", "headless-turn").compactionReporting).toBeNull();
   });
 
   test("a descriptor whose observation is behind verifiedAgainst reports lower confidence than one that is current", () => {

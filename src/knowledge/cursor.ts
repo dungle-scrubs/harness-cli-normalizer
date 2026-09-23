@@ -607,6 +607,10 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
   // `-p --continue` resumes the most recently touched session (probe 22;
   // observed on 2026.09.15-d2fe57e, 2026-09-17). RFC-06 Phase 5 renders headless after RFC-05
   // landed (merge to main).
+  // Cursor compacts automatically - 11 times on the anchor version - and
+  // emits nothing on stream-json stdout for it. Null, so a caller knows
+  // silence here is absence of reporting, not absence of compaction.
+  compactionReporting: null,
   resumeLast: {
     flag: "--continue",
     headless: true,

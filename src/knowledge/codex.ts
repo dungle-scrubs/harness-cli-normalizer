@@ -105,6 +105,10 @@ export const codexCli: HarnessDescriptor = deepFreeze({
   // Valid only in the `exec resume` context: `codex exec resume --last`
   // (re-verified on 0.154.0, 2026-09-17). No fork mechanism is probed on
   // codex, so none is rendered.
+  // Codex compacts natively and reports nothing hcn can read: no record
+  // on its stream marks the boundary. Null, so a caller knows silence
+  // here is absence of reporting, not absence of compaction.
+  compactionReporting: null,
   resumeLast: {
     flag: "--last",
     headless: true,
