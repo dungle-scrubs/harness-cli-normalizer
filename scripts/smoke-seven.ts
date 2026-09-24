@@ -24,6 +24,7 @@ import { cursorCli } from "../src/knowledge/cursor.js";
 import type { HarnessDescriptor } from "../src/knowledge/descriptor.js";
 import { museCode } from "../src/knowledge/muse.js";
 import { piCli } from "../src/knowledge/pi.js";
+import { popeyeCli } from "../src/knowledge/popeye.js";
 import { smokeCwd, smokeDeps, smokeHarnesses } from "./smoke-options.js";
 
 delete process.env.HERDR_ENV;
@@ -35,6 +36,7 @@ const HARNESSES = smokeHarnesses([
   museCode,
   cursorCli,
   antigravityCli,
+  popeyeCli,
 ]);
 const cwd = smokeCwd;
 // pi is pinned to the free local model; the others use their defaults.
