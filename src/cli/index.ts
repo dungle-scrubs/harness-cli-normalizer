@@ -2,9 +2,14 @@
 import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import type { FailureSummary } from "../execution/failure.js";
 import { HARNESS_NAMES } from "../knowledge/descriptor.js";
+import { installCrashHandlers, reportMainCrash } from "./crash.js";
+import { EXIT_REFUSAL } from "./exit-codes.js";
 import { TOP_LEVEL_HELP } from "./help.js";
+import { beginCommandRecord } from "./ledger.js";
 import { handleOutputError } from "./output-errors.js";
+import { writeFailurePair } from "./refuse.js";
 import { getVersion } from "./version.js";
 
 /** The one harness list, read from the descriptor vocabulary. */
@@ -25,18 +30,31 @@ const printTopHelp = (): void => {
   process.stdout.write(TOP_LEVEL_HELP);
 };
 
-export const failUnknownHarness = (name: string): never => {
-  process.stderr.write(
-    `unknown harness ${JSON.stringify(name)}; supported: ${SUPPORTED.join(", ")}\n`,
-  );
-  process.stderr.write(`supported: ${SUPPORTED.join(", ")}\n`);
-  process.exitCode = 2;
-  // Use process.exit to ensure exit code is set even if async
-  process.exit(2);
+/** Dispatch-level usage failure: stderr for humans, the structured pair a
+ * --json stream is owed when --json is in argv, exit 2 either way. */
+const usageFailureSummary = (message: string): FailureSummary => ({
+  class: "rejected",
+  retryable: false,
+  message,
+});
+
+const usageFailure = (message: string, json: boolean, help = false): void => {
+  process.stderr.write(`${message}\n`);
+  if (help) process.stderr.write(TOP_LEVEL_HELP);
+  if (json) writeFailurePair(usageFailureSummary(message));
+  process.exitCode = EXIT_REFUSAL;
+};
+
+export const failUnknownHarness = (name: string, json = false): void => {
+  usageFailure(`unknown harness ${JSON.stringify(name)}; supported: ${SUPPORTED.join(", ")}`, json);
 };
 
 export const dispatch = async (raw: string[]): Promise<void> => {
   strictOutput = raw[0] === "transcript" || (raw[0] === "inspect" && raw.includes("--transcript"));
+  // Dispatch-level usage failures must join the output contract too: when
+  // --json is anywhere in argv, the pair goes to stdout even though the
+  // command never ran (standards-cli: parser errors join the output contract).
+  const jsonOutput = raw.includes("--json");
   // Shared dispatch for programmatic use (tests) - mirrors main but takes argv slice
   // Global --help / --version without command
   if (raw.length === 0 || raw[0] === "--help" || raw[0] === "-h") {
@@ -88,8 +106,7 @@ export const dispatch = async (raw: string[]): Promise<void> => {
         const extra = raw.slice(1);
         const hasUnknown = extra.some((a) => a.startsWith("-"));
         if (hasUnknown) {
-          process.stderr.write(`unknown flag for ls: ${extra.join(" ")}\n`);
-          process.exitCode = 2;
+          usageFailure(`unknown flag for ls: ${extra.join(" ")}`, jsonOutput);
           return;
         }
       }
@@ -115,11 +132,13 @@ export const dispatch = async (raw: string[]): Promise<void> => {
       }
       const harness = raw[1];
       if (!harness || harness.startsWith("-")) {
-        process.stderr.write(`inspect requires <harness>; supported: ${SUPPORTED.join(", ")}\n`);
-        process.exitCode = 2;
+        usageFailure(`inspect requires <harness>; supported: ${SUPPORTED.join(", ")}`, jsonOutput);
         return;
       }
-      if (!(SUPPORTED as readonly string[]).includes(harness)) failUnknownHarness(harness);
+      if (!(SUPPORTED as readonly string[]).includes(harness)) {
+        failUnknownHarness(harness, jsonOutput);
+        return;
+      }
       const { inspect } = await import("./inspect.js");
       await inspect(harness, raw.slice(2));
       return;
@@ -136,11 +155,13 @@ export const dispatch = async (raw: string[]): Promise<void> => {
       }
       const harness = raw[1];
       if (!harness || harness.startsWith("-")) {
-        process.stderr.write(`run requires <harness>; supported: ${SUPPORTED.join(", ")}\n`);
-        process.exitCode = 2;
+        usageFailure(`run requires <harness>; supported: ${SUPPORTED.join(", ")}`, jsonOutput);
         return;
       }
-      if (!(SUPPORTED as readonly string[]).includes(harness)) failUnknownHarness(harness);
+      if (!(SUPPORTED as readonly string[]).includes(harness)) {
+        failUnknownHarness(harness, jsonOutput);
+        return;
+      }
       const { run } = await import("./run.js");
       await run(harness, raw.slice(2));
       return;
@@ -153,11 +174,13 @@ export const dispatch = async (raw: string[]): Promise<void> => {
       }
       const harness = raw[1];
       if (!harness || harness.startsWith("-")) {
-        process.stderr.write(`session requires <harness>; supported: ${SUPPORTED.join(", ")}\n`);
-        process.exitCode = 2;
+        usageFailure(`session requires <harness>; supported: ${SUPPORTED.join(", ")}`, jsonOutput);
         return;
       }
-      if (!(SUPPORTED as readonly string[]).includes(harness)) failUnknownHarness(harness);
+      if (!(SUPPORTED as readonly string[]).includes(harness)) {
+        failUnknownHarness(harness, jsonOutput);
+        return;
+      }
       const { session } = await import("./session.js");
       await session(harness, raw.slice(2));
       return;
@@ -170,14 +193,10 @@ export const dispatch = async (raw: string[]): Promise<void> => {
     }
     default: {
       if ((SUPPORTED as readonly string[]).includes(cmd)) {
-        process.stderr.write(`missing command; did you mean 'hcn run ${cmd} <prompt>'?\n`);
-        process.stderr.write(TOP_LEVEL_HELP);
-        process.exitCode = 2;
+        usageFailure(`missing command; did you mean 'hcn run ${cmd} <prompt>'?`, jsonOutput, true);
         return;
       }
-      process.stderr.write(`unknown command ${JSON.stringify(cmd)}\n`);
-      process.stderr.write(TOP_LEVEL_HELP);
-      process.exitCode = 2;
+      usageFailure(`unknown command ${JSON.stringify(cmd)}`, jsonOutput, true);
       return;
     }
   }
@@ -189,12 +208,16 @@ export const main = async (): Promise<void> => {
 
 // The bin entry invokes this directly. Auto-run below covers direct
 // execution of this module itself (node dist/cli/index.js, bun src/cli/index.ts).
+// Crash handlers and the durable ledger live here, not in dispatch, so
+// programmatic dispatch (tests) stays side-effect free.
 export const run = (): void => {
+  installCrashHandlers();
+  beginCommandRecord(process.argv[2]);
+  // The ledger's end line is written by the process exit handler with the
+  // final exit code, so a crash after the stream finished still records
+  // the truthful code. Only the crash path needs a catch here.
   main().catch((err: unknown) => {
-    const message = err instanceof Error ? err.message : String(err);
-    process.stderr.write(`fatal: ${message}\n`);
-    if (err instanceof Error && err.stack) process.stderr.write(`${err.stack}\n`);
-    process.exitCode = 1;
+    reportMainCrash("uncaught in main", err);
   });
 };
 

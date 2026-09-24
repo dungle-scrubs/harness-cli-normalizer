@@ -42,6 +42,9 @@ export const FAILURE_CLASSES = Object.freeze([
   "native",
   "timeout",
   "trust-refused",
+  /** hcn's own bug, not a harness outcome. Terminal: never reduced into
+   * or masked by another class, never retryable. */
+  "internal",
 ] as const);
 export type FailureClass = (typeof FAILURE_CLASSES)[number];
 
@@ -68,7 +71,12 @@ export interface FailureSummary {
 }
 
 export const retryableOf = (cls: FailureClass): boolean =>
-  cls !== "task" && cls !== "budget" && cls !== "rejected" && cls !== "native" && cls !== "timeout";
+  cls !== "task" &&
+  cls !== "budget" &&
+  cls !== "rejected" &&
+  cls !== "native" &&
+  cls !== "timeout" &&
+  cls !== "internal";
 
 const messageFor = (cls: FailureClass, detail?: string): string => {
   switch (cls) {
@@ -108,6 +116,8 @@ const messageFor = (cls: FailureClass, detail?: string): string => {
       // (codex exits 2 on usage errors - the same code hcn uses for
       // refusals, so hcn owns its own exit code and reports the native one).
       return `NATIVE ERROR from harness${detail ? `: ${detail}` : ""} - the harness rejected or failed on its own arguments; this is not an hcn error`;
+    case "internal":
+      return `Internal hcn failure${detail ? `: ${detail}` : ""} - hcn hit a bug, not a harness failure; the process exits 4 with the structured pair when streaming JSON`;
     default:
       return `Failure${detail ? ` (${detail})` : ""}`;
   }
@@ -131,6 +141,14 @@ export const failureFromNative = (
     stderrTail.slice(-3).join(" | ").slice(0, 512) || `exit ${nativeExitCode}`,
   ),
   nativeExitCode: nativeExitCode ?? undefined,
+});
+
+/** hcn's own bug: the crash tier. Terminal and non-retryable; the process
+ * exits 4 and (in a --json stream) the failure/done pair follows. */
+export const failureFromInternal = (detail: string): FailureSummary => ({
+  class: "internal",
+  retryable: retryableOf("internal"),
+  message: messageFor("internal", detail),
 });
 
 /** A limit, from a wall phrasing (detail defaults to the code) or from a
@@ -389,9 +407,11 @@ const PRECEDENCE: Record<FailureClass, number> = {
   transport: 4,
   timeout: 3,
   // rejected stands alone (checked before precedence applies); native is
-  // terminal-by-classification, never reduced into anything else.
+  // terminal-by-classification, never reduced into anything else. internal
+  // (hcn's own bug) outranks every harness outcome the same way.
   rejected: 0,
   native: 0,
+  internal: 0,
   // RFC-05: the trust gate fires before any inference, so it shares the
   // provider-unavailable family with the messageFor arm above.
   "trust-refused": 2,

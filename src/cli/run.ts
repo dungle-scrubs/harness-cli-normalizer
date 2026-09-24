@@ -6,6 +6,7 @@ import { streamTurn } from "../execution/stream-turn.js";
 import { KILL_GRACE_MS } from "../execution/supervisor.js";
 import { buildTurnEnv } from "../interpretation/argv.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
+import { markJsonCrashStream } from "./crash.js";
 import { EXIT_FAILURE, exitCodeForCause } from "./exit-codes.js";
 import { ownOutputErrors } from "./output-errors.js";
 import { planTurn, writePlanDiagnostics } from "./plan-turn.js";
@@ -34,6 +35,7 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   }
   const { plan } = outcome;
   const { wantJson } = plan;
+  markJsonCrashStream(wantJson);
   writePlanDiagnostics(h, plan, "spawn");
 
   // A harness that creates a session when the id is unknown would turn a
@@ -212,6 +214,7 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     process.exitCode = EXIT_FAILURE;
     return;
   } finally {
+    markJsonCrashStream(false);
     releaseOutputErrors();
     if (escalationTimer !== null) {
       clearTimeout(escalationTimer);
