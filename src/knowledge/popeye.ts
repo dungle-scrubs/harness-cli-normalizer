@@ -8,10 +8,11 @@
  */
 import { deepFreeze, type HarnessDescriptor } from "./descriptor.js";
 import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
+import { POPEYE_TRANSCRIPT } from "./transcript/popeye.js";
 
 export const popeyeCli: HarnessDescriptor = deepFreeze({
   name: "popeye",
-  transcript: null,
+  transcript: POPEYE_TRANSCRIPT,
   bin: "popeye",
   verifiedAgainst: "0.1.0",
   // No npm package: never distributed via Homebrew or npm per author
