@@ -287,7 +287,11 @@ disposition, and the session continues.
 
 Exit codes: 0 when `closed.cause` is `clean`; 1 otherwise; 2 for a refusal
 before the stream opens (invalid flag, no-session-mode harness, unknown
-model, unknown effort, provider off pi, bad `--stall`). A refusal still owes the stream its
+model, unknown effort, provider off pi, bad `--stall`); 4 for an hcn
+internal crash - an `internal` failure and a `closed` pair with `cause`
+`crash` reach stdout when the crash handler runs, and a hard kill (no
+handler output at all) leaves the durable command ledger's start line
+without an end (see "Crash tier and the command ledger"). A refusal still owes the stream its
 terminal pair: the prose goes to stderr, and stdout carries
 `{"kind":"failure",...}` then `{"kind":"closed","cause":"failed"}`. A spawn
 failure (harness binary missing) writes a `transport` failure and the same
@@ -671,7 +675,7 @@ its normalized spelling.
 Every failure - provider, work, transport, or refusal - arrives as a typed `failure` event and reduces to one self-sufficient summary on `done`:
 
 ```ts
-type FailureClass = "rate-limit" | "usage-limit" | "quota" | "auth" | "budget" | "task" | "transport" | "unavailable" | "rejected" | "native" | "timeout" | "trust-refused";
+type FailureClass = "rate-limit" | "usage-limit" | "quota" | "auth" | "budget" | "task" | "transport" | "unavailable" | "rejected" | "native" | "timeout" | "trust-refused" | "internal";
 interface FailureSummary { class: FailureClass; retryable: boolean; message: string; code?: LimitCode; authKind?: AuthFailureKind; resetsAt?: number; issue?: RefusalIssue; option?: TurnOptionKey; facet?: DiscoveryFacet; supported?: readonly string[]; supportedBy?: ReadonlyArray<{ harness: string; spelling: string }>; hint?: string; nativeExitCode?: number; }
 type HarnessEvent = ... | ({ kind: "failure" } & FailureSummary) | { kind: "done"; exitCode: number | null; cause: ExitCause; failure?: FailureSummary };
 type ExitCause = "clean" | "limit" | "crash" | "stall" | "killed" | "failed" | "awaiting-input";
@@ -686,7 +690,26 @@ if (done.failure) {
 }
 ```
 
-`retryable` is `false` for `task`, `budget`, `rejected`, `native`, `timeout` and `true` for the rest. `unavailable` is a provider that cannot serve the requested model or route (model not found, not loaded); retryable, route elsewhere. `rejected` is non-retryable across the whole model chain because the remedy is different options or a different harness.
+`retryable` is `false` for `task`, `budget`, `rejected`, `native`, `timeout`, `internal` and `true` for the rest. `unavailable` is a provider that cannot serve the requested model or route (model not found, not loaded); retryable, route elsewhere. `rejected` is non-retryable across the whole model chain because the remedy is different options or a different harness.
+
+### Crash tier and the command ledger
+
+`internal` is hcn's own bug, not a harness outcome. An uncaught exception,
+an unhandled rejection, or a rejected main loop routes to one crash handler:
+stderr carries the message and stack; a `--json` stream additionally gets
+`{"kind":"failure","class":"internal",...}` then
+`{"kind":"done","exitCode":4,"cause":"crash",...}` (a session stream ends
+with `closed` instead); the process exits **4**, a code no ordinary class
+uses. A dispatch-level usage error (unknown command, unknown harness,
+missing harness) exits 2 and, when `--json` is anywhere in argv, writes the
+same `failure`/terminal pair so a parser never sees an empty stream.
+
+Every invocation also appends two lines to a durable command ledger at
+`$HCN_STATE_DIR`/`$XDG_STATE_HOME`/`~/.local/state` + `hcn/commands.jsonl`:
+a `start` line (command, pid, timestamp) before work and an `end` line
+(exit, ok) after. A crash appends its end line with `crashed: true`. A
+`start` with no `end` is the trace of a hung or killed invocation. Appends
+are diagnostics: a failed append never fails the command.
 
 `resetsAt` is present only when the harness reports a reset time (today:
 claude's `rate_limit_event`); a consumer treats its absence as unknown,

@@ -1,6 +1,7 @@
 import type { FailureSummary } from "../execution/failure.js";
 import { failureFromRejected } from "../execution/failure.js";
 import type { ArgvRefusalError, RefusalIssue } from "../interpretation/refusal.js";
+import { markJsonCrashStream } from "./crash.js";
 import { EXIT_REFUSAL } from "./exit-codes.js";
 import { writeEventNdjson } from "./render.js";
 
@@ -44,6 +45,9 @@ export const writeFailurePair = (
 };
 
 export const refuse = (r: Refusal, json: boolean, terminal: "done" | "closed" = "done"): void => {
+  // A refused --json stream is still a --json stream: if the process dies
+  // after this refusal, the crash tier owes the same channel a pair.
+  markJsonCrashStream(json);
   process.stderr.write(`${r.message}\n`);
   if (r.hint) process.stderr.write(`hint: ${r.hint}\n`);
   if (r.supportedBy?.length) {

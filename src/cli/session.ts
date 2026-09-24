@@ -14,6 +14,7 @@ import type { BehaviorTier } from "../interpretation/resolve-options.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { splitPassthrough } from "./args.js";
+import { markJsonCrashStream } from "./crash.js";
 import { createRenderState, renderEvent } from "./render.js";
 import { resolveHarness } from "./resolve-harness.js";
 
@@ -21,6 +22,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   // Decided before any refusal can fire: a refused --json session still owes
   // the stream a failure and a terminal `closed` (RFC-01 rule 3).
   const jsonMode = rawArgs.includes("--json");
+  markJsonCrashStream(jsonMode);
   // issue #44: the gate is the descriptor's sessionMode (claude stream-json,
   // pi --mode rpc), not a hardcoded name list - a harness that grows a
   // session mode is available the moment its descriptor declares one.
@@ -380,6 +382,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
       getCloseInfo: () => closeInfo,
       getDroppedIds: () => droppedIds,
     });
+    markJsonCrashStream(false);
     return;
   }
 
@@ -495,6 +498,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
     process.stderr.write(`session error: ${err instanceof Error ? err.message : String(err)}\n`);
     process.exitCode = 1;
   } finally {
+    markJsonCrashStream(false);
     process.off("SIGINT", doClose);
     process.off("SIGTERM", doClose);
     try {

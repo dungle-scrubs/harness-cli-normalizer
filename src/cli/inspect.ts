@@ -4,6 +4,7 @@ import { HARNESS_MODES, type HarnessMode } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { parseCommonFlags } from "./args.js";
 import { ConfigError, loadProjectConfig, loadUserConfig } from "./config.js";
+import { markJsonCrashStream } from "./crash.js";
 import { EXIT_REFUSAL } from "./exit-codes.js";
 import { inspectContextCommand } from "./inspect-context.js";
 import { inspectNativeSettingsCommand } from "./inspect-native-settings.js";
@@ -28,6 +29,9 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
     throw err;
   }
   const values = parsed.values as Record<string, unknown>;
+  // A --json inspect stream is owed the crash pair like every other json
+  // stream; refused streams get the marking from refuse() itself.
+  markJsonCrashStream(values.json === true);
 
   if (values.help === true) {
     const { INSPECT_HELP } = await import("./help.js");
