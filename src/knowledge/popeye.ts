@@ -1,7 +1,7 @@
 /**
  * The popeye descriptor: facts about the `popeye` CLI as data, verified
- * against popeye 0.1.0 (probes in /tmp/popeye-probe, 2026-09-24; fixtures
- * land with the transcript reader arm). Descriptor entry only (RFC-02 P5):
+ * against popeye 0.1.0 (fixtures in test/fixtures/popeye-0.1.0, fake
+ * provider, 2026-09-24). Descriptor entry only (RFC-02 P5):
  * launch, resume, session, and grant surfaces are live-verified below, but
  * content decoding (READERS arm) and transcript mapping are later units,
  * so `transcript` is null and `hcn run` against popeye refuses until then.
@@ -37,6 +37,8 @@ export const popeyeCli: HarnessDescriptor = deepFreeze({
     style: "flag",
     flag: "--resume",
     aliases: [],
+    // Probe-observed only (12 base64url bytes); SessionIdSchema brands
+    // any string, so treat the length as verifiedAgainst-0.1.0 evidence.
     idShape: /^[A-Za-z0-9_-]{16}$/,
     onMissing: "error",
     // -p only: launch streamFlags already append --mode hcn.
@@ -48,12 +50,16 @@ export const popeyeCli: HarnessDescriptor = deepFreeze({
     // `prompt` needs attach in the same process (probed: cross-process
     // prompt refuses session_not_found). Turn end is the prompt response
     // with result._tag snapshot; close emits the terminal closed shape.
+    // P2 divergences, verified against popeye's RPC bridge: close and
+    // abort ride the control bypass around the session FIFO lane; the
+    // turn queue is bounded (TurnQueueFull refuses); abort settles into
+    // timeout-to-fallback, never a kill.
     flags: ["-p", "--mode", "rpc"],
     idFlag: null,
     resumeFlag: "--resume",
     input: { kind: "popeye-rpc-prompt" },
     turnEnd: { result: "snapshot" },
-    identityProbe: { command: "get-snapshot", responseIdField: "result.sessionId" },
+    identityProbe: { command: "create", responseIdField: "result.sessionId" },
   },
   output: {
     // --mode hcn emits token records plus the message/done envelopes.
@@ -82,9 +88,12 @@ export const popeyeCli: HarnessDescriptor = deepFreeze({
   store: {
     // Flat directory: <sessionDir>/<sessionId>.jsonl, default
     // <cwd>/.popeye/sessions (probed: session files land beside the
-    // spawn cwd; --session-dir overrides). No cwd component, no slug.
+    // spawn cwd; --session-dir overrides). The root is the spawn cwd,
+    // declared here so the resume guard resolves the same directory the
+    // child files sessions under. No slug component.
     template: "{root}/.popeye/sessions",
     cwdSlug: "verbatim",
+    defaultRoot: "{cwd}",
   },
   contextInspection: null,
   // Compaction is journal-native (compaction entries, summary payloads),

@@ -220,7 +220,7 @@ export const openSession = (
   let closing = false;
   // Popeye mints the session via the create probe: sends before the
   // response carry no session id and refuse. Buffer them; identity flushes.
-  const popeyePending: Array<{ busy: boolean; input: SessionInput }> = [];
+  const popeyePending: Array<{ input: SessionInput }> = [];
   let finalized = false;
   let exitCode: number | null = null;
   let resultError = false;
@@ -477,9 +477,12 @@ export const openSession = (
     if (identityAnnounced) return;
     const flushPopeye = (): void => {
       for (const pending of popeyePending.splice(0)) {
-        const written = writeUser(pending.input, pending.busy);
+        // Re-check busyness at flush time: every pre-identity send
+        // recorded idle, but an earlier flush entry may own the turn.
+        const busy = activeTurn !== null;
+        const written = writeUser(pending.input, busy);
         if (!written.written) continue;
-        if (pending.busy) {
+        if (busy) {
           pendingIds.push(pending.input.id);
           pendingLengths.push(pending.input.text.length);
         } else {
@@ -659,6 +662,13 @@ export const openSession = (
       settle({ disposition: "rejected", reason: "closed" });
     }
     pendingNativeReceipts.clear();
+    if (popeyePending.length > 0) {
+      const dropped = popeyePending.splice(0).map((pending) => pending.input.id);
+      void routeEvent({
+        kind: "error",
+        message: `${dropped.length} buffered send(s) died before session identity: ${dropped.join(", ")}`,
+      });
+    }
     if (pendingIds.length > 0) {
       const droppedIds = [...pendingIds];
       const droppedLengths = [...pendingLengths];
@@ -783,7 +793,7 @@ export const openSession = (
       // Popeye sends before the create response wait for identity; the
       // flush replays them with the minted session id bound.
       if (sessionInput.kind === "popeye-rpc-prompt" && state.lastSeenId === null) {
-        popeyePending.push({ busy: wasBusy, input });
+        popeyePending.push({ input });
         return { disposition: "started" };
       }
       const written = writeUser(input, wasBusy);

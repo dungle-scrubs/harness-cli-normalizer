@@ -89,7 +89,7 @@ export const encodeIdentityProbe = (h: HarnessDescriptor): string | null => {
   const mode = h.sessionMode;
   if (mode === null || mode.identityProbe === null) return null;
   if (mode.input.kind === "popeye-rpc-prompt")
-    return `${JSON.stringify({ _tag: "create", id: IDENTITY_PROBE_ID })}\n`;
+    return `${JSON.stringify({ _tag: mode.identityProbe.command, id: IDENTITY_PROBE_ID })}\n`;
   if (mode.input.kind !== "pi-rpc-prompt") return null;
   return `${JSON.stringify({ id: IDENTITY_PROBE_ID, type: mode.identityProbe.command })}\n`;
 };
@@ -175,7 +175,17 @@ export const decodeSessionRecord = (
       }
       // A prompt response carries the settled snapshot: the turn is over
       // in the same record (no native receipt; the send settled at write).
-      return { kind: "turn-end", isError: false };
+      // A trailing error/aborted assistant entry marks the turn failed.
+      const entries = Array.isArray(result.entries) ? result.entries : [];
+      const reasons = entries.flatMap((line) => {
+        const entry = asRecord(line);
+        const payload = asRecord(entry?.payload);
+        return entry?.kind === "message" && payload?.role === "assistant"
+          ? [payload.stopReason]
+          : [];
+      });
+      const lastReason = reasons.at(-1);
+      return { kind: "turn-end", isError: lastReason === "error" || lastReason === "aborted" };
     }
     return { kind: "content" };
   }

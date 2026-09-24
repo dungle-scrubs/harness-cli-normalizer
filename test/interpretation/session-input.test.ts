@@ -210,3 +210,18 @@ describe("popeye session records", () => {
     ).toMatchObject({ inputId: "s1", kind: "command-failed" });
   });
 });
+
+test("a prompt snapshot with a failed assistant entry ends the turn failed", () => {
+  expect(
+    decodeSessionRecord(popeyeCli, {
+      id: `${SEND_ID}:s1`,
+      result: {
+        _tag: "snapshot",
+        entries: [
+          { kind: "message", payload: { content: "x", role: "assistant", stopReason: "error" } },
+        ],
+        sessionId: "sess01",
+      },
+    }),
+  ).toEqual({ kind: "turn-end", isError: true });
+});

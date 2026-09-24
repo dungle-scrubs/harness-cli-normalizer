@@ -113,7 +113,7 @@ export function normalizePopeye(entry: NativeEntry, conversationId: string): Rec
   const payload = object(item?.payload);
   const role = string(payload?.role);
   const parts: Part[] = [];
-  const content = payload === null ? undefined : payload.content;
+  const content = payload === null || type === "record" ? undefined : payload.content;
   if (typeof content === "string" && content !== "")
     parts.push({
       contentStatus: "included",

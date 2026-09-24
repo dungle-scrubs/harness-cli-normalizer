@@ -102,3 +102,14 @@ describe("popeye transcript reader (RFC-02 P5)", () => {
     ).toThrow();
   });
 });
+
+test("duplicate ids and wrong versions refuse", () => {
+  const header =
+    '{"v":1,"payload":{"format":"popeye_journal","sessionId":"s1","type":"journal_header","version":1}}\n';
+  const root = (id: string) =>
+    `{"v":1,"payload":{"item":{"id":"${id}","kind":"session_root","parentId":null,"payload":{}},"sessionId":"s1","type":"entry"}}\n`;
+  expect(() => parsePopeyeHistory(`${header}${root("e1")}${root("e1")}`)).toThrow();
+  expect(() =>
+    parsePopeyeHistory(header.replace('"version":1', '"version":2') + root("e1")),
+  ).toThrow();
+});

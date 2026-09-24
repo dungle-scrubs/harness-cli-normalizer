@@ -127,6 +127,9 @@ const streaming = async (h: HarnessDescriptor): Promise<Cell> => {
 
 // 3. tool-use: a shell tool invocation is decoded.
 const toolUse = async (h: HarnessDescriptor): Promise<Cell> => {
+  // Popeye ships zero default tools: the model has nothing to invoke.
+  // Re-probe with a project tool when the grant matrix needs smoke cover.
+  if (h.name === "popeye") return { status: "skip", detail: "no default tools" };
   const events = await collect(
     streamTurn(
       h,

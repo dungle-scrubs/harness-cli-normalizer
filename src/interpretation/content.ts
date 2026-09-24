@@ -413,6 +413,8 @@ const popeyeReader = (r: Record<string, unknown>): ContentEvent[] => {
   if (r.kind === "message" && r.role === "assistant" && typeof r.text === "string") {
     return r.text === "" ? [] : [{ kind: "message", role: "assistant", text: r.text }];
   }
+  // No popeye hcn stream carries a tool record today (toolCalls stay
+  // kernel-side per the P1 taxonomy); the branch decodes one if it lands.
   if (r.kind === "tool" && typeof r.name === "string") {
     return [{ kind: "tool", name: r.name, input: r.input }];
   }
