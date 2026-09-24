@@ -42,6 +42,13 @@ describe("buildLaunchArgv (claude)", () => {
       expect(argv.indexOf("Reply OK")).toBeLessThan(argv.indexOf("--tools"));
     }
   });
+  test.each(["claude-opus-5-5", "opus"])("routes %s to Opus 5.5", (model) => {
+    const launch = buildLaunchArgv(claudeCode, { model, prompt: "hello" });
+    const session = buildSessionArgv(claudeCode, { model, sessionId: "opus-check" });
+    expect(launch[launch.indexOf("--model") + 1]).toBe("claude-opus-5-5");
+    expect(session[session.indexOf("--model") + 1]).toBe("claude-opus-5-5");
+  });
+
   test.each(["claude-fable-5-1", "fable"])("routes %s to Fable 5.1", (model) => {
     const launch = buildLaunchArgv(claudeCode, { model, prompt: "hello" });
     const session = buildSessionArgv(claudeCode, { model, sessionId: "fable-check" });
@@ -174,7 +181,7 @@ describe("buildSessionArgv effort", () => {
       model: "opus",
       effort: "high",
     });
-    expect(argv[argv.indexOf("--model") + 1]).toBe("claude-opus-5");
+    expect(argv[argv.indexOf("--model") + 1]).toBe("claude-opus-5-5");
     expect(argv[argv.indexOf("--effort") + 1]).toBe("high");
     expect(argv.indexOf("--model")).toBeLessThan(argv.indexOf("--effort"));
   });
@@ -253,7 +260,7 @@ describe("shared spawn-boundary guards", () => {
       autonomy: true,
       tools: ["read"],
     });
-    expect(argv[argv.indexOf("--model") + 1]).toBe("claude-opus-5");
+    expect(argv[argv.indexOf("--model") + 1]).toBe("claude-opus-5-5");
     expect(argv).toContain("--dangerously-skip-permissions");
     // The tools flags stay LAST so nothing after them can be swallowed; on
     // claude an include renders grant + deny-complement, and the final
