@@ -173,10 +173,6 @@ export const decodeSessionRecord = (
           ? { kind: "identity", sessionId: announced }
           : { kind: "probe-failed", message: "create response carried no sessionId" };
       }
-      const inputId =
-        typeof parsed.id === "string" && parsed.id.startsWith(SEND_ID_PREFIX)
-          ? parsed.id.slice(SEND_ID_PREFIX.length)
-          : undefined;
       // A prompt response carries the settled snapshot: the turn is over
       // in the same record (no native receipt; the send settled at write).
       return { kind: "turn-end", isError: false };
