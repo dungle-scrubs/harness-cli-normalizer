@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.7.1...v0.7.2) (2026-09-24)
+
+
+### Fixed
+
+* **execution:** replace a muse approval helper that fails its start phase ([#276](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/276)) ([dba2405](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/dba2405dac75fc3f366fdc54a74a93b86ac782c8))
+
 ## [0.7.1](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.7.0...v0.7.1) (2026-09-24)
 
 
