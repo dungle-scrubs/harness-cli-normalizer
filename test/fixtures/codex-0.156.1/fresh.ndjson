@@ -1,0 +1,12 @@
+{"type":"thread.started","thread_id":"01a0d28c-32e6-70b2-9419-a35ff906a832"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"alpha"}}
+{"type":"turn.completed","usage":{"input_tokens":31276,"cached_input_tokens":7040,"cache_write_input_tokens":0,"output_tokens":5,"reasoning_output_tokens":0}}
+{"type":"thread.started","thread_id":"01a0d28d-071d-77d1-bed2-7ed2f0f3d244"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"alpha"}}
+{"type":"turn.completed","usage":{"input_tokens":31724,"cached_input_tokens":7040,"cache_write_input_tokens":0,"output_tokens":5,"reasoning_output_tokens":0}}
+{"type":"thread.started","thread_id":"01a0d28e-28f9-7fb0-abc6-332e2c8bd834"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"```hcn-question\n{\"question\":\"Which environment must deploy-target.txt contain?\",\"options\":[\"staging\",\"production\"],\"recommended\":\"staging\"}\n```"}}
+{"type":"turn.completed","usage":{"input_tokens":32008,"cached_input_tokens":7040,"cache_write_input_tokens":0,"output_tokens":95,"reasoning_output_tokens":58}}

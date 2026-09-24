@@ -17,7 +17,7 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
   name: "cursor",
   transcript: CURSOR_TRANSCRIPT,
   bin: "agent",
-  verifiedAgainst: "2026.09.15-d2fe57e",
+  verifiedAgainst: "2026.09.23-86fc751",
   // Re-verified 2026-09-17: smoke:seven (6 pass / 1 n/a) and
   // smoke:questions pass on this version, the decoding corpus is
   // re-captured in test/fixtures/cursor-2026.09.15-d2fe57e, and `agent
@@ -596,9 +596,12 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
   // inspect.
   contextInspection: null,
   // Automatic compaction observed live in headless-turn, 11 times on
-  // 2026-09-22 against this anchor version, with one cross-version replication
+  // 2026-09-22 against 2026.09.15-d2fe57e, with one cross-version replication
   // on the auto-updated 2026.09.18-9a7762b
-  // (docs/research/2026-09-22-compaction-signals/cursor). The stream itself
+  // (docs/research/2026-09-22-compaction-signals/cursor). Not re-probed on
+  // 2026.09.23-86fc751: this cycle's filler turns crossed no boundary, and
+  // hcn events carry no timestamps, so no silent gap could be measured
+  // (test/fixtures/cursor-2026.09.23-86fc751/VERIFICATION.md). The stream itself
   // carries no compaction record - the print-mode emitter has no such code
   // path - so this is a curated fact, not a decoded signal. result.usage token
   // counts exist (probe 10) but no window size is known, and the harness
@@ -640,7 +643,7 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
   // test/fixtures/cursor-2026.09.15-d2fe57e/questions.snapshot.json.
   escalation: {
     supported: true,
-    observedOn: { harness: "cursor", model: "", version: "2026.09.15-d2fe57e", date: "2026-09-17" },
+    observedOn: { harness: "cursor", model: "", version: "2026.09.23-86fc751", date: "2026-09-24" },
   },
   turnOptions: {
     // No effort flag exists on cursor: effort resolves into the --model

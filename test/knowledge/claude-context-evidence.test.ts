@@ -4,7 +4,7 @@ import { contextInspectionOf } from "../../src/interpretation/context-inspection
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 
 const read = (file: string): string =>
-  readFileSync(new URL(`../fixtures/claude-2.1.278/${file}`, import.meta.url), "utf8");
+  readFileSync(new URL(`../fixtures/claude-2.1.281/${file}`, import.meta.url), "utf8");
 
 const events = (file: string): Record<string, unknown>[] =>
   read(file)
@@ -65,23 +65,23 @@ test("native compaction surfaces its boundary and a later process recalls the ma
     kind: "compaction",
     state: "compacted",
     trigger: "auto",
-    tokensBefore: 50467,
-    tokensAfter: 4182,
-    durationMs: 47139,
+    tokensBefore: 41893,
+    tokensAfter: 4643,
+    durationMs: 66545,
   });
   expect(compaction).toContainEqual({ kind: "compaction", state: "started" });
   expect(compaction).not.toContainEqual({ kind: "progress", label: "compact_boundary" });
   // Exactly one end for one compaction: the success status record is
   // deliberately silent, so only the boundary reports it. Starts are not
-  // deduplicated and this capture holds two, which is why the end is the
+  // deduplicated and this capture holds three, which is why the end is the
   // one a counting consumer counts.
   const compactionStates = compaction
     .filter((e) => e.kind === "compaction")
     .map((e) => e.state as string);
   expect(compactionStates.filter((state) => state === "compacted")).toHaveLength(1);
-  expect(compaction).toContainEqual({ kind: "message", role: "assistant", text: "HERON-517" });
+  expect(compaction).toContainEqual({ kind: "message", role: "assistant", text: "HERON-518" });
   expect(compaction.at(-1)).toMatchObject({ kind: "done", cause: "clean", exitCode: 0 });
   const later = events("post-compaction.ndjson");
-  expect(later).toContainEqual({ kind: "message", role: "assistant", text: "HERON-517" });
+  expect(later).toContainEqual({ kind: "message", role: "assistant", text: "HERON-518" });
   expect(later.at(-1)).toMatchObject({ kind: "done", cause: "clean", exitCode: 0 });
 });

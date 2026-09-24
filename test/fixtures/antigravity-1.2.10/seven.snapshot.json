@@ -1,0 +1,35 @@
+{
+  "ranAt": "2026-09-24T08:40:24.542Z",
+  "results": {
+    "antigravity": {
+      "single-turn": {
+        "status": "pass",
+        "detail": "done=clean text=\"alpha\n\""
+      },
+      "streaming": {
+        "status": "pass",
+        "detail": "tokens=\"four five six\n\" msg=\"four five six\n\""
+      },
+      "tool-use": {
+        "status": "pass",
+        "detail": "1 tool events"
+      },
+      "session-cont(1proc)": {
+        "status": "pass",
+        "detail": "recall=\"kestrel\n\""
+      },
+      "resume-continuity": {
+        "status": "pass",
+        "detail": "resumed ecc14102 recall=\"marlin\n\""
+      },
+      "kill-and-resume": {
+        "status": "pass",
+        "detail": "killed@2ev recall=\"otter\n\""
+      },
+      "error-prop": {
+        "status": "pass",
+        "detail": "done=failed err=true"
+      }
+    }
+  }
+}
