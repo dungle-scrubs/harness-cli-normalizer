@@ -108,12 +108,12 @@ describe("hcn version and help", () => {
 describe("hcn ls", () => {
   test("lists every registered harness with versionSource", async () => {
     const out = await captureDispatch(["ls"]);
-    expect(out.stdout).toContain("claude@2.1.278");
-    expect(out.stdout).toContain("codex@0.155.1");
-    expect(out.stdout).toContain("pi@0.87.0");
+    expect(out.stdout).toContain("claude@2.1.281");
+    expect(out.stdout).toContain("codex@0.156.1");
+    expect(out.stdout).toContain("pi@0.87.1");
     expect(out.stdout).toContain("muse@1.3.0");
-    expect(out.stdout).toContain("cursor@2026.09.15-d2fe57e");
-    expect(out.stdout).toContain("antigravity@1.2.8");
+    expect(out.stdout).toContain("cursor@2026.09.23-86fc751");
+    expect(out.stdout).toContain("antigravity@1.2.10");
     expect(out.stdout).toContain("npm:");
     expect(out.stdout).toContain("installed:");
     expect(out.exitCode === undefined || out.exitCode === 0).toBe(true);
@@ -237,7 +237,7 @@ describe("hcn inspect (pure)", () => {
     const out = await captureDispatch(["inspect", "claude"]);
     const parsed = JSON.parse(out.stdout);
     expect(parsed.bin).toBe("claude");
-    expect(parsed.verifiedAgainst).toBe("2.1.278");
+    expect(parsed.verifiedAgainst).toBe("2.1.281");
     expect(parsed.launch.streamFlags).toContain("--output-format");
     expect(parsed.launch.stdinPrompt).toEqual({ argument: "", aboveBytes: 65_536 });
     expect(parsed.resume.flag).toBe("--resume");

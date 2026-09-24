@@ -14,7 +14,7 @@ export const piCli: HarnessDescriptor = deepFreeze({
   name: "pi",
   transcript: PI_TRANSCRIPT,
   bin: "pi",
-  verifiedAgainst: "0.87.0",
+  verifiedAgainst: "0.87.1",
   versionSource: { kind: "npm", package: "@earendil-works/pi-coding-agent" },
   launch: {
     // -p --mode json: bare -p prints plain text; --mode json emits the
@@ -143,6 +143,14 @@ export const piCli: HarnessDescriptor = deepFreeze({
     kind: "auto-compaction",
     modes: ["headless-turn", "headless-session"],
   },
+  // 0.87.1 re-probe: not reproduced. Seven forcing attempts (194k-token
+  // resumed context, project and user compaction.reserveTokens at 500k,
+  // 950k and 5M) produced no compaction records on a `-p --mode json`
+  // resume, so the declaration keeps its 0.87.0 live evidence
+  // (docs/research/2026-09-22-compaction-signals/pi,
+  // test/fixtures/pi-0.87.1/VERIFICATION.md). The 0.87.x changelog keeps
+  // compaction under active development; the miss is unexplained, not
+  // evidence of removal.
   // RFC-06: `--continue` continues the previous session (observed on
   // 0.85.1, 2026-09-17; `--continue` example in `pi --help`). No fork
   // mechanism is probed on pi, so none is rendered.
@@ -186,7 +194,7 @@ export const piCli: HarnessDescriptor = deepFreeze({
   // untouched; the observed value is display only.
   escalation: {
     supported: true,
-    observedOn: { harness: "pi", model: "zai/glm-5.2", version: "0.87.0", date: "2026-09-22" },
+    observedOn: { harness: "pi", model: "zai/glm-5.2", version: "0.87.1", date: "2026-09-24" },
   },
   turnOptions: {
     effort: { kind: "effort", render: { kind: "flag-value", flag: "--thinking" } },

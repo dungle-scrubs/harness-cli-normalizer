@@ -1,0 +1,6 @@
+{"type":"system","subtype":"init","apiKeySource":"login","cwd":"<resume-last-scratch>/ws80-cursor","session_id":"a2f00bd8-6202-4386-9fa5-1cad56055092","model":"Claude Sonnet 4.6 200K Medium No Thinking","permissionMode":"default"}
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"What is the code word? Do not call any tools. Reply with just the code word."}]},"session_id":"a2f00bd8-6202-4386-9fa5-1cad56055092"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"H"}]},"session_id":"a2f00bd8-6202-4386-9fa5-1cad56055092","timestamp_ms":1789625952482}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"ERON-4"}]},"session_id":"a2f00bd8-6202-4386-9fa5-1cad56055092","timestamp_ms":1789625952543}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"HERON-4"}]},"session_id":"a2f00bd8-6202-4386-9fa5-1cad56055092"}
+{"type":"result","subtype":"success","duration_ms":4406,"duration_api_ms":4406,"is_error":false,"result":"HERON-4","session_id":"a2f00bd8-6202-4386-9fa5-1cad56055092","request_id":"a79aa106-e642-4e8a-aa0d-e608abb5c0dc","usage":{"inputTokens":3,"outputTokens":8,"cacheReadTokens":0,"cacheWriteTokens":24726}}

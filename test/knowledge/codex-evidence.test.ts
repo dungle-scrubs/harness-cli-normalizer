@@ -5,13 +5,13 @@ import type { HarnessEvent } from "../../src/execution/events.js";
 import { detectQuestionBlock } from "../../src/interpretation/question.js";
 import { codexCli } from "../../src/knowledge/codex.js";
 
-const read = (file: string, dir = "codex-0.155.1"): string =>
+const read = (file: string, dir = "codex-0.156.1"): string =>
   readFileSync(new URL(`../fixtures/${dir}/${file}`, import.meta.url), "utf8");
 
 const decoded = (
   file: string,
   requestedId: string | null = null,
-  dir = "codex-0.155.1",
+  dir = "codex-0.156.1",
 ): HarnessEvent[] => {
   const state = freshDecodeState(requestedId);
   return read(file, dir)
@@ -60,15 +60,22 @@ test("native resume retains the announced session and recalls its earlier prompt
 
 test("native automatic compaction installs replacement history and a later process recalls", () => {
   const records = JSON.parse(read("compaction-rollout-records.json"));
-  expect(records.filter((record: { type: string }) => record.type === "compacted")).toHaveLength(2);
-  expect(records).toContainEqual(expect.objectContaining({ item_type: "ContextCompaction" }));
+  // 0.156.1 carries each compaction as an `item_completed` record whose
+  // item is a bare ContextCompaction reference: id and type, no encrypted
+  // summary and no token counts, unlike 0.155.1's `compacted` payloads.
+  expect(records).toHaveLength(4);
+  for (const record of records)
+    expect(record).toMatchObject({
+      payload_type: "item_completed",
+      item_type: "ContextCompaction",
+    });
   const events = (file: string): Record<string, unknown>[] =>
     read(file)
       .trim()
       .split("\n")
       .map((line) => JSON.parse(line));
   for (const file of ["compaction-recall.ndjson", "post-compaction.ndjson"]) {
-    expect(events(file)).toContainEqual({ kind: "message", role: "assistant", text: "HERON-517" });
+    expect(events(file)).toContainEqual({ kind: "message", role: "assistant", text: "HERON-519" });
     expect(events(file).at(-1)).toMatchObject({ kind: "done", cause: "clean", exitCode: 0 });
   }
 });

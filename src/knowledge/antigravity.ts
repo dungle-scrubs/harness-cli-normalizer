@@ -15,7 +15,7 @@ export const antigravityCli: HarnessDescriptor = deepFreeze({
   name: "antigravity",
   transcript: ANTIGRAVITY_TRANSCRIPT,
   bin: "agy",
-  verifiedAgainst: "1.2.8",
+  verifiedAgainst: "1.2.10",
   // The installed signed binary supplied the qualified version anchor.
   versionSource: { kind: "installed" },
   launch: {
@@ -98,7 +98,12 @@ export const antigravityCli: HarnessDescriptor = deepFreeze({
   // (docs/research/2026-09-22-compaction-signals/antigravity): four
   // compactions inside one 8-turn `--input-format stream-json` session, so
   // headless-session is evidenced. headless-turn is not claimed - a one-shot
-  // turn has no second request to shrink, and none was probed.
+  // turn has no second request to shrink, and none was probed. Not
+  // re-observed on 1.2.10: three multi-turn sessions (8 turns gemini, 8 and
+  // 10 turns gpt-oss-120b-medium with 75 KB filler reads) crossed no
+  // checkpoint; the 1.2.10 changelog still ships compaction-checkpoint
+  // fixes, so the claim keeps its 1.2.8 evidence
+  // (test/fixtures/antigravity-1.2.10/VERIFICATION.md).
   //
   // The stream says nothing while it runs and one bare record afterwards: a
   // `step_update` with `step_type: "checkpoint"`, `state: "DONE"` and a
@@ -139,8 +144,8 @@ export const antigravityCli: HarnessDescriptor = deepFreeze({
     observedOn: {
       harness: "antigravity",
       model: "gemini-3.8-flash-medium",
-      version: "1.2.8",
-      date: "2026-09-22",
+      version: "1.2.10",
+      date: "2026-09-24",
     },
   },
   turnOptions: {
