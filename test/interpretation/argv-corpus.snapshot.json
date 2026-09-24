@@ -2056,6 +2056,10 @@
             {
               "harness": "pi",
               "spelling": "read"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "read"
             }
           ],
           "hint": "muse has no per-tool name lists; gate execution with --disable-write, --disable-shell, --disable-web-tools - there is no allowlist",
@@ -2077,6 +2081,10 @@
             },
             {
               "harness": "pi",
+              "spelling": "read"
+            },
+            {
+              "harness": "popeye",
               "spelling": "read"
             }
           ],
@@ -3341,6 +3349,10 @@
             {
               "harness": "pi",
               "spelling": "read"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "read"
             }
           ],
           "message": "antigravity cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
@@ -3361,6 +3373,10 @@
             },
             {
               "harness": "pi",
+              "spelling": "read"
+            },
+            {
+              "harness": "popeye",
               "spelling": "read"
             }
           ],
@@ -3437,6 +3453,10 @@
             {
               "harness": "muse",
               "spelling": "web"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "web-search"
             }
           ],
           "message": "antigravity cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
@@ -3851,7 +3871,9 @@
           "-p",
           "hi",
           "--mode",
-          "hcn"
+          "hcn",
+          "--tools",
+          "read,grep,glob,list,web-fetch,web-search"
         ]
       },
       "access-write": {
@@ -3890,38 +3912,31 @@
           "supportedBy": [
             {
               "harness": "claude",
-              "spelling": "Read"
+              "spelling": "Bash"
             },
             {
               "harness": "pi",
-              "spelling": "read"
+              "spelling": "bash"
+            },
+            {
+              "harness": "muse",
+              "spelling": "shell"
             }
           ],
-          "hint": "add toolMap.popeye.read to ~/.config/hcn/config.json or pass native:read",
+          "hint": "add toolMap.popeye.shell to ~/.config/hcn/config.json or pass native:shell",
           "message": "popeye cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
         }
       },
       "tools-include-native": {
-        "refusal": {
-          "issue": "unsupported-option",
-          "harness": "popeye",
-          "option": "tools",
-          "supported": [
-            "per-tool name lists"
-          ],
-          "supportedBy": [
-            {
-              "harness": "claude",
-              "spelling": "Read"
-            },
-            {
-              "harness": "pi",
-              "spelling": "read"
-            }
-          ],
-          "hint": "add toolMap.popeye.read to ~/.config/hcn/config.json or pass native:read",
-          "message": "popeye cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
-        }
+        "argv": [
+          "popeye",
+          "-p",
+          "hi",
+          "--mode",
+          "hcn",
+          "--tools",
+          "read,web_search"
+        ]
       },
       "tools-include-empty": {
         "refusal": {
@@ -3966,9 +3981,9 @@
           "harness": "popeye",
           "option": "excludeTools",
           "supported": [
-            "known tool names: "
+            "known tool names: read, grep, glob, list, web-fetch, web-search"
           ],
-          "message": "popeye cannot compute a tool complement around an unknown name (cannot exclude unknown name(s) web_search: the complement cannot be computed); supported: known tool names:  - exclude only curated names, or pass the unknown name through an include list instead"
+          "message": "popeye cannot compute a tool complement around an unknown name (cannot exclude unknown name(s) web_search: the complement cannot be computed); supported: known tool names: read, grep, glob, list, web-fetch, web-search - exclude only curated names, or pass the unknown name through an include list instead"
         }
       },
       "tools-both": {
@@ -3983,26 +3998,15 @@
         }
       },
       "tools-via-toolmap": {
-        "refusal": {
-          "issue": "unsupported-option",
-          "harness": "popeye",
-          "option": "tools",
-          "supported": [
-            "per-tool name lists"
-          ],
-          "supportedBy": [
-            {
-              "harness": "claude",
-              "spelling": "WebSearch"
-            },
-            {
-              "harness": "muse",
-              "spelling": "web"
-            }
-          ],
-          "hint": "add toolMap.popeye.web-search to ~/.config/hcn/config.json or pass native:web-search",
-          "message": "popeye cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
-        }
+        "argv": [
+          "popeye",
+          "-p",
+          "hi",
+          "--mode",
+          "hcn",
+          "--tools",
+          "web-search"
+        ]
       },
       "tools-unknown-name": {
         "refusal": {
@@ -6276,6 +6280,10 @@
             {
               "harness": "pi",
               "spelling": "read"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "read"
             }
           ],
           "hint": "muse has no per-tool name lists; gate execution with --disable-write, --disable-shell, --disable-web-tools - there is no allowlist",
@@ -6297,6 +6305,10 @@
             },
             {
               "harness": "pi",
+              "spelling": "read"
+            },
+            {
+              "harness": "popeye",
               "spelling": "read"
             }
           ],
@@ -7599,6 +7611,10 @@
             {
               "harness": "pi",
               "spelling": "read"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "read"
             }
           ],
           "message": "antigravity cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
@@ -7619,6 +7635,10 @@
             },
             {
               "harness": "pi",
+              "spelling": "read"
+            },
+            {
+              "harness": "popeye",
               "spelling": "read"
             }
           ],
@@ -7699,6 +7719,10 @@
             {
               "harness": "muse",
               "spelling": "web"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "web-search"
             }
           ],
           "message": "antigravity cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
@@ -8137,7 +8161,9 @@
           "-p",
           "hi",
           "--mode",
-          "hcn"
+          "hcn",
+          "--tools",
+          "read,grep,glob,list,web-fetch,web-search"
         ]
       },
       "access-write": {
@@ -8178,38 +8204,33 @@
           "supportedBy": [
             {
               "harness": "claude",
-              "spelling": "Read"
+              "spelling": "Bash"
             },
             {
               "harness": "pi",
-              "spelling": "read"
+              "spelling": "bash"
+            },
+            {
+              "harness": "muse",
+              "spelling": "shell"
             }
           ],
-          "hint": "add toolMap.popeye.read to ~/.config/hcn/config.json or pass native:read",
+          "hint": "add toolMap.popeye.shell to ~/.config/hcn/config.json or pass native:shell",
           "message": "popeye cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
         }
       },
       "tools-include-native": {
-        "refusal": {
-          "issue": "unsupported-option",
-          "harness": "popeye",
-          "option": "tools",
-          "supported": [
-            "per-tool name lists"
-          ],
-          "supportedBy": [
-            {
-              "harness": "claude",
-              "spelling": "Read"
-            },
-            {
-              "harness": "pi",
-              "spelling": "read"
-            }
-          ],
-          "hint": "add toolMap.popeye.read to ~/.config/hcn/config.json or pass native:read",
-          "message": "popeye cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
-        }
+        "argv": [
+          "popeye",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "hi",
+          "--mode",
+          "hcn",
+          "--tools",
+          "read,web_search"
+        ]
       },
       "tools-include-empty": {
         "refusal": {
@@ -8254,9 +8275,9 @@
           "harness": "popeye",
           "option": "excludeTools",
           "supported": [
-            "known tool names: "
+            "known tool names: read, grep, glob, list, web-fetch, web-search"
           ],
-          "message": "popeye cannot compute a tool complement around an unknown name (cannot exclude unknown name(s) web_search: the complement cannot be computed); supported: known tool names:  - exclude only curated names, or pass the unknown name through an include list instead"
+          "message": "popeye cannot compute a tool complement around an unknown name (cannot exclude unknown name(s) web_search: the complement cannot be computed); supported: known tool names: read, grep, glob, list, web-fetch, web-search - exclude only curated names, or pass the unknown name through an include list instead"
         }
       },
       "tools-both": {
@@ -8271,26 +8292,17 @@
         }
       },
       "tools-via-toolmap": {
-        "refusal": {
-          "issue": "unsupported-option",
-          "harness": "popeye",
-          "option": "tools",
-          "supported": [
-            "per-tool name lists"
-          ],
-          "supportedBy": [
-            {
-              "harness": "claude",
-              "spelling": "WebSearch"
-            },
-            {
-              "harness": "muse",
-              "spelling": "web"
-            }
-          ],
-          "hint": "add toolMap.popeye.web-search to ~/.config/hcn/config.json or pass native:web-search",
-          "message": "popeye cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
-        }
+        "argv": [
+          "popeye",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "hi",
+          "--mode",
+          "hcn",
+          "--tools",
+          "web-search"
+        ]
       },
       "tools-unknown-name": {
         "refusal": {
