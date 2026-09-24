@@ -426,6 +426,24 @@ const popeyeReader = (r: Record<string, unknown>): ContentEvent[] => {
         : { kind: "error", message: r.message },
     ];
   }
+  // RPC session records: progress assistantText streams as tokens; the
+  // settled snapshot carries the turn's assistant entries as its message.
+  if (r._tag === "assistantText" && typeof r.text === "string") {
+    return [{ kind: "token", text: r.text }];
+  }
+  const result = asRecord(r.result);
+  if (result !== null && result._tag === "snapshot" && Array.isArray(result.entries)) {
+    const texts: string[] = [];
+    for (const line of result.entries) {
+      const entry = asRecord(line);
+      const payload = asRecord(entry?.payload);
+      if (entry?.kind === "message" && payload?.role === "assistant") {
+        const text = typeof payload.content === "string" ? payload.content : "";
+        if (text !== "") texts.push(text);
+      }
+    }
+    if (texts.length > 0) return [{ kind: "message", role: "assistant", text: texts.join("\n") }];
+  }
   return [];
 };
 

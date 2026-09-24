@@ -83,10 +83,13 @@ export const encodeSessionInput = (
 /** The record the runner writes at spawn to learn the session id, or null
  * when the harness announces identity on its stream unprompted. pi rpc is
  * identity-silent at startup (spike fixtures); the response echoes the
- * marker id. */
+ * marker id. Popeye rpc is likewise silent: the probe is a create frame,
+ * and the snapshot response mints the session. */
 export const encodeIdentityProbe = (h: HarnessDescriptor): string | null => {
   const mode = h.sessionMode;
   if (mode === null || mode.identityProbe === null) return null;
+  if (mode.input.kind === "popeye-rpc-prompt")
+    return `${JSON.stringify({ _tag: "create", id: IDENTITY_PROBE_ID })}\n`;
   if (mode.input.kind !== "pi-rpc-prompt") return null;
   return `${JSON.stringify({ id: IDENTITY_PROBE_ID, type: mode.identityProbe.command })}\n`;
 };
@@ -148,6 +151,37 @@ export const decodeSessionRecord = (
       };
     }
     return { kind: "ignored" };
+  }
+  if (mode.input.kind === "popeye-rpc-prompt") {
+    const result = asRecord(parsed.result);
+    const error = asRecord(parsed.error);
+    if (error !== null || (result === null && parsed.id !== undefined)) {
+      const inputId =
+        typeof parsed.id === "string" && parsed.id.startsWith(SEND_ID_PREFIX)
+          ? parsed.id.slice(SEND_ID_PREFIX.length)
+          : undefined;
+      return {
+        ...(inputId === undefined ? {} : { inputId }),
+        kind: "command-failed",
+        message: `rpc command failed: ${JSON.stringify(error ?? parsed)}`,
+      };
+    }
+    if (result !== null && result._tag === "snapshot") {
+      const announced = readPath(parsed, "result.sessionId");
+      if (parsed.id === IDENTITY_PROBE_ID) {
+        return typeof announced === "string"
+          ? { kind: "identity", sessionId: announced }
+          : { kind: "probe-failed", message: "create response carried no sessionId" };
+      }
+      const inputId =
+        typeof parsed.id === "string" && parsed.id.startsWith(SEND_ID_PREFIX)
+          ? parsed.id.slice(SEND_ID_PREFIX.length)
+          : undefined;
+      // A prompt response carries the settled snapshot: the turn is over
+      // in the same record (no native receipt; the send settled at write).
+      return { kind: "turn-end", isError: false };
+    }
+    return { kind: "content" };
   }
   if (matchesTurnEnd(parsed, mode.turnEnd)) {
     // claude's result record carries is_error; pi's agent_settled has no

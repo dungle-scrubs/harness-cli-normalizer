@@ -60,7 +60,9 @@ export interface SessionSendResult {
   /** Present when rejected. `write-failed` is a broken stdin pipe, which is
    * a different remedy from a session the caller already closed - the two
    * must stay distinguishable. */
-  readonly reason?: "write-failed";
+  readonly reason?: "closed" | "native-rejected" | "write-failed";
+  /** Resolves when a harness with command receipts accepts or rejects the input. */
+  readonly settled?: Promise<SessionSendResult>;
 }
 
 /** One turn's event stream, tagged with the id of the send that opened it.
@@ -205,6 +207,7 @@ export const openSession = (
   let activeTurnId = "";
   const pendingIds: string[] = [];
   const pendingLengths: number[] = [];
+  const pendingNativeReceipts = new Map<string, (result: SessionSendResult) => void>();
   // close() waits here while a turn is open. Ending the child's stdin
   // mid-turn is fatal on pi: rpc treats EOF as "finish up and exit", so the
   // prompt it has buffered never runs and the turn ends clean with no
@@ -215,6 +218,9 @@ export const openSession = (
   const preTurnEvents: HarnessEvent[] = [];
   let dead = false;
   let closing = false;
+  // Popeye mints the session via the create probe: sends before the
+  // response carry no session id and refuse. Buffer them; identity flushes.
+  const popeyePending: Array<{ busy: boolean; input: SessionInput }> = [];
   let finalized = false;
   let exitCode: number | null = null;
   let resultError = false;
@@ -266,13 +272,38 @@ export const openSession = (
     },
   });
 
-  const writeUser = (text: string): boolean => {
+  const writeUser = (
+    input: SessionInput,
+    busy: boolean,
+  ): { readonly settled?: Promise<SessionSendResult>; readonly written: boolean } => {
+    let settleNative: ((result: SessionSendResult) => void) | undefined;
+    const settled =
+      sessionInput.kind === "pi-rpc-prompt"
+        ? new Promise<SessionSendResult>((resolve) => {
+            settleNative = resolve;
+            pendingNativeReceipts.set(input.id, resolve);
+          })
+        : undefined;
     try {
       stdin.write(
-        encodeSessionInput(sessionInput, composeEscalatedPrompt(text, questionMode, "session")),
+        encodeSessionInput(
+          sessionInput,
+          composeEscalatedPrompt(input.text, questionMode, "session"),
+          {
+            busy,
+            id: input.id,
+            // Popeye prompt frames carry the minted session id; the
+            // create probe response binds it before any send.
+            ...(sessionInput.kind !== "popeye-rpc-prompt" || state.lastSeenId === null
+              ? {}
+              : { sessionId: state.lastSeenId }),
+          },
+        ),
       );
-      return true;
+      return { ...(settled === undefined ? {} : { settled }), written: true };
     } catch {
+      pendingNativeReceipts.delete(input.id);
+      settleNative?.({ disposition: "rejected", reason: "write-failed" });
       // A broken stdin pipe ends the session: there is no way to drive the
       // child any more. Surface it as its own event, stop accepting sends,
       // and END the child - marking it dead here instead would suppress the
@@ -280,7 +311,7 @@ export const openSession = (
       void routeEvent({ kind: "error", message: "send failed: session stdin is gone" });
       closing = true;
       sup.escalate();
-      return false;
+      return { written: false };
     }
   };
 
@@ -444,12 +475,25 @@ export const openSession = (
   };
   const announceIdentity = async (announced: string): Promise<void> => {
     if (identityAnnounced) return;
+    const flushPopeye = (): void => {
+      for (const pending of popeyePending.splice(0)) {
+        const written = writeUser(pending.input, pending.busy);
+        if (!written.written) continue;
+        if (pending.busy) {
+          pendingIds.push(pending.input.id);
+          pendingLengths.push(pending.input.text.length);
+        } else {
+          startTurn(pending.input.id);
+        }
+      }
+    };
     if (sessionInputMode?.idFlag === null) {
       // Harness-MINTED identity (pi rpc: `--session` refuses unknown ids,
       // so fresh sessions omit the flag). The minted id IS the identity;
       // opts.sessionId stays the caller-side handle.
       identityAnnounced = true;
       state.lastSeenId = announced;
+      flushPopeye();
       await routeEvent({
         kind: "identity",
         sessionId: announced,
@@ -502,13 +546,32 @@ export const openSession = (
       // on the kind (ADR 0005: no harness field names here).
       const record = decodeSessionRecord(h, parsed);
       switch (record.kind) {
+        case "command-accepted": {
+          const settle = pendingNativeReceipts.get(record.inputId);
+          pendingNativeReceipts.delete(record.inputId);
+          settle?.({ disposition: "started" });
+          return;
+        }
         case "identity":
           await announceIdentity(record.sessionId);
           return;
         case "probe-failed":
-        case "command-failed":
           await routeEvent({ kind: "error", message: record.message });
           return;
+        case "command-failed": {
+          if (record.inputId !== undefined) {
+            const settle = pendingNativeReceipts.get(record.inputId);
+            pendingNativeReceipts.delete(record.inputId);
+            const pendingIndex = pendingIds.indexOf(record.inputId);
+            if (pendingIndex >= 0) {
+              pendingIds.splice(pendingIndex, 1);
+              pendingLengths.splice(pendingIndex, 1);
+            }
+            settle?.({ disposition: "rejected", reason: "native-rejected" });
+          }
+          await routeEvent({ kind: "error", message: record.message });
+          return;
+        }
         case "ignored":
           return;
         case "turn-end": {
@@ -592,6 +655,10 @@ export const openSession = (
     if (pumpError !== null) {
       void routeEvent({ kind: "error", message: `session pump failed: ${String(pumpError)}` });
     }
+    for (const settle of pendingNativeReceipts.values()) {
+      settle({ disposition: "rejected", reason: "closed" });
+    }
+    pendingNativeReceipts.clear();
     if (pendingIds.length > 0) {
       const droppedIds = [...pendingIds];
       const droppedLengths = [...pendingLengths];
@@ -713,7 +780,14 @@ export const openSession = (
     send(input: SessionInput): SessionSendResult {
       if (dead || closing) throw new SessionClosedError();
       const wasBusy = activeTurn !== null;
-      if (!writeUser(input.text)) {
+      // Popeye sends before the create response wait for identity; the
+      // flush replays them with the minted session id bound.
+      if (sessionInput.kind === "popeye-rpc-prompt" && state.lastSeenId === null) {
+        popeyePending.push({ busy: wasBusy, input });
+        return { disposition: "started" };
+      }
+      const written = writeUser(input, wasBusy);
+      if (!written.written) {
         log({
           event: "send",
           sessionId: opts.sessionId,
@@ -737,7 +811,10 @@ export const openSession = (
         inputId: input.id,
         disposition: "started",
       });
-      return { disposition: "started" };
+      return {
+        disposition: "started",
+        ...(written.settled === undefined ? {} : { settled: written.settled }),
+      };
     },
     close,
   };

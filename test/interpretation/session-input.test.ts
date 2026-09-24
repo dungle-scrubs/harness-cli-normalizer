@@ -11,6 +11,8 @@ import {
 import { antigravityCli } from "../../src/knowledge/antigravity.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import type { HarnessDescriptor } from "../../src/knowledge/descriptor.js";
+import { piCli } from "../../src/knowledge/pi.js";
+import { popeyeCli } from "../../src/knowledge/popeye.js";
 
 describe("session input encoding", () => {
   test("encodes one exact Claude SDK user-message record for arbitrary user text", () => {
@@ -29,6 +31,70 @@ describe("session input encoding", () => {
       '{"event":"user","message":{"content":"say \\"hello\\"\\nnext"}}\n',
     );
     expect(antigravityCli.sessionMode?.input).toEqual({ kind: "antigravity-stream-user" });
+  });
+
+  test("encodes correlated Pi prompts and uses native steer only while busy", () => {
+    expect(encodeSessionInput({ kind: "pi-rpc-prompt" }, "legacy")).toBe(
+      '{"id":"hcn-send","message":"legacy","type":"prompt"}\n',
+    );
+    expect(encodeSessionInput({ kind: "pi-rpc-prompt" }, "idle", { busy: false, id: "in-1" })).toBe(
+      '{"id":"hcn-send:in-1","message":"idle","type":"prompt"}\n',
+    );
+    expect(encodeSessionInput({ kind: "pi-rpc-prompt" }, "busy", { busy: true, id: "in-2" })).toBe(
+      '{"id":"hcn-send:in-2","message":"busy","streamingBehavior":"steer","type":"prompt"}\n',
+    );
+  });
+
+  test("correlates accepted and rejected Pi prompt responses to their input ids", () => {
+    expect(
+      decodeSessionRecord(piCli, {
+        command: "prompt",
+        id: "hcn-send:in-1",
+        success: true,
+        type: "response",
+      }),
+    ).toEqual({ inputId: "in-1", kind: "command-accepted" });
+    expect(
+      decodeSessionRecord(piCli, {
+        command: "prompt",
+        error: "busy",
+        id: "hcn-send:in-2",
+        success: false,
+        type: "response",
+      }),
+    ).toEqual({
+      inputId: "in-2",
+      kind: "command-failed",
+      message: 'rpc command failed: "prompt" - "busy"',
+    });
+    expect(
+      decodeSessionRecord(piCli, {
+        command: "prompt",
+        id: "other",
+        success: true,
+        type: "response",
+      }),
+    ).toEqual({ kind: "ignored" });
+    expect(
+      decodeSessionRecord(piCli, {
+        command: "get_state",
+        id: "hcn-send:in-3",
+        success: true,
+        type: "response",
+      }),
+    ).toEqual({ kind: "ignored" });
+    expect(
+      decodeSessionRecord(piCli, {
+        command: "prompt",
+        error: "uncorrelated",
+        id: "other",
+        success: false,
+        type: "response",
+      }),
+    ).toEqual({
+      kind: "command-failed",
+      message: 'rpc command failed: "prompt" - "uncorrelated"',
+    });
   });
 
   test("uses Antigravity result status as the persistent-session turn verdict", () => {
@@ -103,5 +169,44 @@ describe("session input encoding", () => {
         name: "SessionInputRefusalError",
       }),
     );
+  });
+});
+
+describe("popeye session records", () => {
+  test("encodes the popeye prompt frame with the minted session id", () => {
+    expect(
+      encodeSessionInput({ kind: "popeye-rpc-prompt" }, "hello", {
+        busy: false,
+        id: "s1",
+        sessionId: "sess01",
+      }),
+    ).toBe('{"_tag":"prompt","content":"hello","id":"hcn-send:s1","sessionId":"sess01"}\n');
+  });
+
+  test("the create response announces harness-minted identity", () => {
+    expect(
+      decodeSessionRecord(popeyeCli, {
+        id: IDENTITY_PROBE_ID,
+        result: { _tag: "snapshot", sessionId: "sess01" },
+      }),
+    ).toEqual({ kind: "identity", sessionId: "sess01" });
+  });
+
+  test("a prompt snapshot ends the turn", () => {
+    expect(
+      decodeSessionRecord(popeyeCli, {
+        id: `${SEND_ID}:s1`,
+        result: { _tag: "snapshot", sessionId: "sess01" },
+      }),
+    ).toEqual({ kind: "turn-end", isError: false });
+  });
+
+  test("a failed command surfaces with its input id", () => {
+    expect(
+      decodeSessionRecord(popeyeCli, {
+        error: { code: "session_not_found" },
+        id: `${SEND_ID}:s1`,
+      }),
+    ).toMatchObject({ inputId: "s1", kind: "command-failed" });
   });
 });
