@@ -167,7 +167,8 @@ export const decodeSessionRecord = (
       };
     }
     if (result !== null && result._tag === "snapshot") {
-      const announced = readPath(parsed, "result.sessionId");
+      const probe = mode.identityProbe;
+      const announced = probe === null ? undefined : readPath(parsed, probe.responseIdField);
       if (parsed.id === IDENTITY_PROBE_ID) {
         return typeof announced === "string"
           ? { kind: "identity", sessionId: announced }

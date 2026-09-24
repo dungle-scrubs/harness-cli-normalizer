@@ -51,9 +51,10 @@ export const popeyeCli: HarnessDescriptor = deepFreeze({
     // prompt refuses session_not_found). Turn end is the prompt response
     // with result._tag snapshot; close emits the terminal closed shape.
     // P2 divergences, verified against popeye's RPC bridge: close and
-    // abort ride the control bypass around the session FIFO lane; the
-    // turn queue is bounded (TurnQueueFull refuses); abort settles into
-    // timeout-to-fallback, never a kill.
+    // abort ride the control bypass around the session FIFO lane;
+    // both queues are bounded (dispatcher overflow refuses
+    // protocol_error, turn-input overflow refuses turn_queue_full);
+    // abort settles into timeout-to-fallback, never a kill.
     flags: ["-p", "--mode", "rpc"],
     idFlag: null,
     resumeFlag: "--resume",
@@ -99,9 +100,14 @@ export const popeyeCli: HarnessDescriptor = deepFreeze({
   // Compaction is journal-native (compaction entries, summary payloads),
   // never model-window auto-compaction: no native signal exists.
   nativeContextManagement: null,
-  // The hcn head reports started/compacted on its own stream; the harness
+  // The hcn head reports started/compacted on its own stream
+  // (fixture: hcn-stream.ndjson identity capabilities); the harness
   // binary emits no compaction channel of its own.
-  compactionReporting: null,
+  compactionReporting: {
+    source: "stream",
+    states: ["started", "compacted"],
+    tokens: false,
+  },
   // --resume-last is refused at config (flat dir, no workspace binding).
   resumeLast: null,
   stdin: "inherit",
