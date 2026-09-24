@@ -15,6 +15,12 @@ Planned work for hcn. Each item must pass the scope test in `AGENTS.md`.
 
 ## Shipped harnesses
 
+- **Popeye 0.1.0** - descriptor entry plus journal reader, session
+  driving, and smoke wiring (RFC-02 P5). Verified: create/prompt
+  snapshot turns, buffered pre-identity sends, close with grace,
+  torn-tail report-only export. Deferred: full argv-corpus snapshot
+  and hosted fixture re-capture.
+
 - **Antigravity CLI 1.2.8** - authenticated qualification covers headless
   streaming, native permissions, cancellation, timeout, model selection,
   persistent sessions, named resume, resume last, native store creation,

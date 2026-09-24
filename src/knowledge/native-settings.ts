@@ -9,6 +9,7 @@ export const NATIVE_SETTINGS_SOURCES = deepFreeze({
   // RFC-05: no settings source observed; reads report unsupported-harness.
   cursor: null,
   antigravity: null,
+  popeye: null,
 } as const);
 
 export const NATIVE_SETTINGS_FINGERPRINT_SHAPE = /^[a-f0-9]{64}$/;

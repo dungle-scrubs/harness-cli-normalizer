@@ -42,7 +42,7 @@ standalone.
 
 ## Scope - the test a new feature must pass
 
-hcn does two jobs: it **normalizes** six harness interfaces, and it
+hcn does two jobs: it **normalizes** seven harness interfaces, and it
 **supervises** one process while that process runs. `CONTEXT.md` says which
 existing code does which; ADR 0007 states the boundary.
 

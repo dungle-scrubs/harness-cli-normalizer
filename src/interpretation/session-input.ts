@@ -26,6 +26,14 @@ export class SessionInputRefusalError extends Error {
  * responses cannot be confused with anything user-visible. */
 export const IDENTITY_PROBE_ID = "hcn-identity";
 export const SEND_ID = "hcn-send";
+const SEND_ID_PREFIX = `${SEND_ID}:`;
+
+export interface SessionInputEncodingOptions {
+  readonly busy: boolean;
+  readonly id: string;
+  /** Popeye prompt frames carry the session id; other kinds ignore it. */
+  readonly sessionId?: string;
+}
 
 const isSessionInputKind = (value: unknown): value is SessionInputKind =>
   SESSION_INPUT_KINDS.some((kind) => kind === value);
@@ -42,7 +50,11 @@ export const resolveSessionInput = (harness: HarnessDescriptor): SessionInputCon
   return { kind: input.kind };
 };
 
-export const encodeSessionInput = (input: SessionInputContract, text: string): string => {
+export const encodeSessionInput = (
+  input: SessionInputContract,
+  text: string,
+  options?: SessionInputEncodingOptions,
+): string => {
   switch (input.kind) {
     case "claude-sdk-user-message":
       return `${JSON.stringify({
@@ -50,24 +62,34 @@ export const encodeSessionInput = (input: SessionInputContract, text: string): s
         message: { role: "user", content: [{ type: "text", text }] },
       })}\n`;
     case "pi-rpc-prompt":
-      // Verified against pi 0.84.2 rpc (spike fixtures): a prompt command
-      // while idle. hcn keeps no queue (ADR 0007) and writes a send when it
-      // arrives; pi refuses a bare prompt mid-run with success:false (spike
-      // fixture 05), so a mid-turn send would need streamingBehavior - a
-      // pending change, not expressed here yet.
-      return `${JSON.stringify({ id: SEND_ID, type: "prompt", message: text })}\n`;
+      return `${JSON.stringify({
+        id: options === undefined ? SEND_ID : `${SEND_ID_PREFIX}${options.id}`,
+        message: text,
+        ...(options?.busy === true ? { streamingBehavior: "steer" } : {}),
+        type: "prompt",
+      })}\n`;
     case "antigravity-stream-user":
       return `${JSON.stringify({ event: "user", message: { content: text } })}\n`;
+    case "popeye-rpc-prompt":
+      return `${JSON.stringify({
+        _tag: "prompt",
+        content: text,
+        id: options === undefined ? SEND_ID : `${SEND_ID_PREFIX}${options.id}`,
+        ...(options?.sessionId === undefined ? {} : { sessionId: options.sessionId }),
+      })}\n`;
   }
 };
 
 /** The record the runner writes at spawn to learn the session id, or null
  * when the harness announces identity on its stream unprompted. pi rpc is
  * identity-silent at startup (spike fixtures); the response echoes the
- * marker id. */
+ * marker id. Popeye rpc is likewise silent: the probe is a create frame,
+ * and the snapshot response mints the session. */
 export const encodeIdentityProbe = (h: HarnessDescriptor): string | null => {
   const mode = h.sessionMode;
   if (mode === null || mode.identityProbe === null) return null;
+  if (mode.input.kind === "popeye-rpc-prompt")
+    return `${JSON.stringify({ _tag: mode.identityProbe.command, id: IDENTITY_PROBE_ID })}\n`;
   if (mode.input.kind !== "pi-rpc-prompt") return null;
   return `${JSON.stringify({ id: IDENTITY_PROBE_ID, type: mode.identityProbe.command })}\n`;
 };
@@ -78,8 +100,10 @@ export type SessionRecord =
   | { readonly kind: "identity"; readonly sessionId: string }
   /** The identity probe answered without an id - surfaced, never silent. */
   | { readonly kind: "probe-failed"; readonly message: string }
+  /** A correlated rpc command was accepted by the harness. */
+  | { readonly inputId: string; readonly kind: "command-accepted" }
   /** An rpc command hcn wrote was refused by the harness. */
-  | { readonly kind: "command-failed"; readonly message: string }
+  | { readonly inputId?: string; readonly kind: "command-failed"; readonly message: string }
   /** Protocol bookkeeping with nothing to surface. */
   | { readonly kind: "ignored" }
   /** The record that delimits a turn, with the harness's own error flag. */
@@ -111,15 +135,60 @@ export const decodeSessionRecord = (
         ? { kind: "identity", sessionId: announced }
         : { kind: "probe-failed", message: "identity probe response carried no sessionId" };
     }
-    // A failed command is a surfaced error, never a silent drop (spike:
-    // mid-stream prompts fail with success:false naming the remedy).
+    const inputId =
+      typeof parsed.id === "string" && parsed.id.startsWith(SEND_ID_PREFIX)
+        ? parsed.id.slice(SEND_ID_PREFIX.length)
+        : undefined;
+    if (parsed.command === "prompt" && parsed.success === true && inputId !== undefined) {
+      return { inputId, kind: "command-accepted" };
+    }
+    // A failed command is a surfaced error, never a silent drop.
     if (parsed.success === false) {
       return {
+        ...(inputId === undefined ? {} : { inputId }),
         kind: "command-failed",
         message: `rpc command failed: ${JSON.stringify(parsed.command)} - ${JSON.stringify(parsed.error ?? "unknown error")}`,
       };
     }
     return { kind: "ignored" };
+  }
+  if (mode.input.kind === "popeye-rpc-prompt") {
+    const result = asRecord(parsed.result);
+    const error = asRecord(parsed.error);
+    if (error !== null || (result === null && parsed.id !== undefined)) {
+      const inputId =
+        typeof parsed.id === "string" && parsed.id.startsWith(SEND_ID_PREFIX)
+          ? parsed.id.slice(SEND_ID_PREFIX.length)
+          : undefined;
+      return {
+        ...(inputId === undefined ? {} : { inputId }),
+        kind: "command-failed",
+        message: `rpc command failed: ${JSON.stringify(error ?? parsed)}`,
+      };
+    }
+    if (result !== null && result._tag === "snapshot") {
+      const probe = mode.identityProbe;
+      const announced = probe === null ? undefined : readPath(parsed, probe.responseIdField);
+      if (parsed.id === IDENTITY_PROBE_ID) {
+        return typeof announced === "string"
+          ? { kind: "identity", sessionId: announced }
+          : { kind: "probe-failed", message: "create response carried no sessionId" };
+      }
+      // A prompt response carries the settled snapshot: the turn is over
+      // in the same record (no native receipt; the send settled at write).
+      // A trailing error/aborted assistant entry marks the turn failed.
+      const entries = Array.isArray(result.entries) ? result.entries : [];
+      const reasons = entries.flatMap((line) => {
+        const entry = asRecord(line);
+        const payload = asRecord(entry?.payload);
+        return entry?.kind === "message" && payload?.role === "assistant"
+          ? [payload.stopReason]
+          : [];
+      });
+      const lastReason = reasons.at(-1);
+      return { kind: "turn-end", isError: lastReason === "error" || lastReason === "aborted" };
+    }
+    return { kind: "content" };
   }
   if (matchesTurnEnd(parsed, mode.turnEnd)) {
     // claude's result record carries is_error; pi's agent_settled has no

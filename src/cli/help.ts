@@ -181,9 +181,9 @@ Options:
   --json                    Machine surface: NDJSON events on stdout, NDJSON
                             commands on stdin ({"op":"send","id":..,"text":..},
                             "answer", "close"). Every send is answered with one
-                            disposition (started | rejected); every send is
-                            handed to the harness, and the turn that consumes it
-                            carries its id. The
+                            disposition (started | rejected); Pi waits for its
+                            native command response before reporting acceptance.
+                            The turn that consumes a send carries its id. The
                             stream opens with a session event and ends with a
                             closed event. Exit 0 clean, 1 otherwise, 2 refusal.
   --stall <seconds>         Per-turn inactivity budget; the turn ends and the

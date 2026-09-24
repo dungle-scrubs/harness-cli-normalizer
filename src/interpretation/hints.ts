@@ -97,6 +97,14 @@ const HINTS: Readonly<Record<string, Readonly<Record<string, string>>>> = deepFr
     appendSystemPrompt:
       "muse has no system-prompt surface; its built-in prompt always applies - there is no replacement or append spelling (structural: nothing to approximate with)",
   },
+  popeye: {
+    // RFC-02 P4: --skills takes plugin names at composition; HCN skills
+    // picks are registry paths with no path-to-name mapping.
+    skills:
+      "popeye --skills takes plugin names, not registry paths; pass the plugin names directly on the popeye argv instead of an HCN skills selection",
+    resumeLast:
+      "popeye has no most-recent spelling; its flat session dir has no workspace binding, so keep the session id from the identity event and re-enter with --resume <id>",
+  },
 });
 
 /** The confirmed hint for a refused option on a harness, or undefined. */

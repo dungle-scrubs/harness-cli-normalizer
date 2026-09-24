@@ -43,6 +43,7 @@ describe("tool vocabulary", () => {
     expectEntry("read", {
       claude: { kind: "builtin", native: "Read" },
       pi: { kind: "builtin", native: "read" },
+      popeye: { kind: "builtin", native: "read" },
     });
     expectEntry("write", {
       claude: { kind: "builtin", native: "Write" },
@@ -62,19 +63,26 @@ describe("tool vocabulary", () => {
     expectEntry("grep", {
       claude: { kind: "builtin", native: "Grep" },
       pi: { kind: "builtin", native: "grep" },
+      popeye: { kind: "builtin", native: "grep" },
     });
     expectEntry("glob", {
       claude: { kind: "builtin", native: "Glob" },
       pi: { kind: "builtin", native: "find" },
+      popeye: { kind: "builtin", native: "glob" },
     });
-    expectEntry("list", { pi: { kind: "builtin", native: "ls" } });
+    expectEntry("list", {
+      pi: { kind: "builtin", native: "ls" },
+      popeye: { kind: "builtin", native: "list" },
+    });
     expectEntry("web-fetch", {
       claude: { kind: "builtin", native: "WebFetch" },
       muse: { kind: "category", key: "web" },
+      popeye: { kind: "builtin", native: "web-fetch" },
     });
     expectEntry("web-search", {
       claude: { kind: "builtin", native: "WebSearch" },
       muse: { kind: "category", key: "web" },
+      popeye: { kind: "builtin", native: "web-search" },
     });
     expectEntry("subagent", { claude: { kind: "builtin", native: "Task" } });
     expectEntry("skill", { claude: { kind: "builtin", native: "Skill" } });

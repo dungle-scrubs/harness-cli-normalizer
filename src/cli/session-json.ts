@@ -192,6 +192,7 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
       unanswered.add(cmd.id);
       try {
         sent = a.handle.send({ id: cmd.id, text });
+        if (sent.settled !== undefined) sent = await sent.settled;
       } catch (err) {
         // A session the caller already closed, or one already dead: a
         // different remedy from a broken pipe, so a different reason.

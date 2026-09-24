@@ -33,7 +33,11 @@ export const resolveStoreRoot = (
     const rooted = entry.suffix === "" ? value : join(value, entry.suffix);
     return isAbsolute(rooted) ? rooted : resolve(opts.cwd, rooted);
   }
-  return h.store.defaultRoot?.replaceAll("{home}", () => opts.home);
+  // {cwd} names a spawn-relative root (popeye's session dir defaults to
+  // the spawn cwd); {home} keeps the existing home-anchored behavior.
+  return h.store.defaultRoot
+    ?.replaceAll("{home}", () => opts.home)
+    .replaceAll("{cwd}", () => opts.cwd);
 };
 
 /** The environment the child will run with, for the pre-spawn store

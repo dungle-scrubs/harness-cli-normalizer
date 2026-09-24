@@ -51,7 +51,10 @@ describe("context window", () => {
         refusal: {
           issue: "unsupported-option",
           option: "contextWindow",
-          supportedBy: [{ harness: "codex", spelling: "-c" }],
+          supportedBy: [
+            { harness: "codex", spelling: "-c" },
+            { harness: "popeye", spelling: "--context-window" },
+          ],
         },
       });
     }

@@ -1,6 +1,6 @@
 # harness-cli-normalizer
 
-One stable interface to six coding-agent CLIs.
+One stable interface to seven coding-agent CLIs.
 
 [![CI](https://github.com/dungle-scrubs/harness-cli-normalizer/actions/workflows/ci.yml/badge.svg)](https://github.com/dungle-scrubs/harness-cli-normalizer/actions/workflows/ci.yml) [![npm](https://img.shields.io/npm/v/@dungle-scrubs/harness-cli-normalizer.svg)](https://www.npmjs.com/package/@dungle-scrubs/harness-cli-normalizer) [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -408,7 +408,7 @@ fact; it does not detect whether native compaction is currently enabled.
 JSON containing redacted argv, the resolved executable path and version,
 the adapter's verified version, and native-resume compatibility. This runs
 only a version probe. The argv is a diagnostic preview, not a command to
-execute. All six harnesses use invocation-based resume admission, including
+execute. All seven harnesses use invocation-based resume admission, including
 supported persistent sessions. A resolved executable and a supported invocation
 are required; missing or different version metadata does not reject them.
 The native operation can still fail on changed flags, protocol, or session state.
@@ -775,7 +775,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). The short version: run `pnpm check` befo
 ## Status
 
 1.0. CLI-only surface. Six harnesses are described (Claude Code, Codex,
-pi, Muse, Cursor CLI, Antigravity CLI); one-shot turns are normalized across all six with a ratified
+pi, Muse, Cursor CLI, Antigravity CLI); one-shot turns are normalized across all seven with a ratified
 defaults profile, user and project config tiers, tool selection
 (include/exclude with floors and named toolsets), passthrough with native
 error labeling, and provenance on every resolved setting. Persistent
@@ -795,7 +795,7 @@ end user's own session.
 
 ## Prior art
 
-The six harness CLIs this normalizes: [Claude Code](https://www.npmjs.com/package/@anthropic-ai/claude-code), [Codex](https://www.npmjs.com/package/@openai/codex), [pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent), Muse (installed from source, not on a registry), Cursor CLI (installed via script, binary `agent`, not on a registry), and [Antigravity CLI](https://antigravity.google/docs/cli/).
+The seven harness CLIs this normalizes: [Claude Code](https://www.npmjs.com/package/@anthropic-ai/claude-code), [Codex](https://www.npmjs.com/package/@openai/codex), [pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent), Muse (installed from source, not on a registry), Cursor CLI (installed via script, binary `agent`, not on a registry), and [Antigravity CLI](https://antigravity.google/docs/cli/), plus popeye (source install, binary `popeye`).
 
 ## License
 

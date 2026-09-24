@@ -13,7 +13,7 @@ There is no supported way to import them.
 
 ### The two jobs
 
-**Normalize**: express what six harnesses each do in one vocabulary, deciding
+**Normalize**: express what seven harnesses each do in one vocabulary, deciding
 nothing. A normalizing part translates. Remove it and you write the translation
 yourself, but the same runs succeed and fail at the same moments. _Avoid_:
 "abstract", "wrap".

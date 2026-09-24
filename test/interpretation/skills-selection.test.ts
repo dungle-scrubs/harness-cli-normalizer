@@ -129,3 +129,17 @@ describe("through the full builder", () => {
     expect(argv).toContain("--settings");
   });
 });
+
+describe("popeye refusal", () => {
+  it("names the plugin-name spelling on the descriptor when skills is null", async () => {
+    const { popeyeCli } = await import("../../src/knowledge/popeye.js");
+    try {
+      buildLaunchArgv(popeyeCli, { prompt: "hi", skills: { picks: ["/root/a"], known: ["a"] } });
+      expect.unreachable("popeye should refuse");
+    } catch (e) {
+      const err = e as { issue: string; hint?: string };
+      expect(err.issue).toBe("unsupported-option");
+      expect(err.hint).toMatch(/plugin names/);
+    }
+  });
+});

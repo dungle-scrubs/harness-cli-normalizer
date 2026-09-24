@@ -22,6 +22,7 @@
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { tokensFor } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
+import { hintFor } from "./hints.js";
 import { ArgvRefusalError } from "./refusal.js";
 import { supportedBy } from "./support.js";
 
@@ -76,7 +77,12 @@ export const renderSkillsSelection = (
       option: "skills",
       supported: ["caller-directed skill sets"],
       supportedBy: supportedBy(defaultDescriptors(), "skills"),
-      hint: "muse scopes skills by workspace trust with no per-skill surface - include the skill content in the prompt or use --trust-workspace for the whole registry",
+      // Popeye's --skills takes plugin names, not registry paths; other
+      // null-skills harnesses (muse) name their stay-on-harness surface.
+      hint:
+        h.name === "popeye"
+          ? hintFor(h.name, "skills")
+          : "muse scopes skills by workspace trust with no per-skill surface - include the skill content in the prompt or use --trust-workspace for the whole registry",
     });
   }
 
