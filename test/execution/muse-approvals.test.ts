@@ -20,11 +20,13 @@ const flush = async (): Promise<void> => {
 const setup = (
   autoExit = true,
   incompatible?: (info: { method: string; code: number | null }) => void,
+  procs?: FakeProcess[],
 ) => {
-  const proc = new FakeProcess({ exitOnStdinEnd: false });
+  const first = new FakeProcess({ exitOnStdinEnd: false });
+  const proc = procs?.[0] ?? first;
   const clock = new FakeClock();
   const sig = fakeSignal({ autoExit });
-  const spawner = fakeSpawner([proc]);
+  const spawner = fakeSpawner(procs ?? [first]);
   const seen: Array<{ subject: "approval" | "input"; kind: string; sandboxEscalation: boolean }> =
     [];
   let unavailable = 0;
@@ -318,17 +320,63 @@ describe("watchMuseApprovals", () => {
     expect(s.clock.pendingTimerCount).toBe(0);
   });
 
-  test("a helper that never answers initialize is unobservable after the start budget", async () => {
-    // M1: a slow helper start is allowed room (parallel fan-out); only
-    // past the start budget does the pending set count as unobservable.
-    const s = setup();
+  test("a start-phase timeout spawns one fresh helper before the turn fails closed", async () => {
+    const first = new FakeProcess({ exitOnStdinEnd: false });
+    const second = new FakeProcess({ exitOnStdinEnd: false });
+    const s = setup(true, undefined, [first, second]);
     s.clock.advance(29_000);
     await flush();
+    expect(s.spawner.calls).toHaveLength(1);
     expect(s.unavailable()).toBe(0);
     s.clock.advance(1_000);
     await flush();
+    expect(s.spawner.calls).toHaveLength(2);
+    expect(s.unavailable()).toBe(0);
+    expect(s.sig.sent.map((item) => item.proc)).toContain(first);
+    // The replacement helper answers initialize and the polls flow.
+    second.emitLine(JSON.stringify({ id: 2, jsonrpc: "2.0", result: {} }));
+    await flush();
+    expect(s.unavailable()).toBe(0);
+    const methods = second.stdinLines.map(
+      (line) => (JSON.parse(line) as { method?: string }).method,
+    );
+    expect(methods).toContain("initialize");
+    expect(methods).toContain("approval/listPending");
+    await s.watch.close();
+    expect(s.clock.pendingTimerCount).toBe(0);
+  });
+
+  test("a start-phase timeout on both helpers fails the turn closed", async () => {
+    const first = new FakeProcess({ exitOnStdinEnd: false });
+    const second = new FakeProcess({ exitOnStdinEnd: false });
+    const s = setup(true, undefined, [first, second]);
+    s.clock.advance(30_000);
+    await flush();
+    expect(s.unavailable()).toBe(0);
+    s.clock.advance(30_000);
+    await flush();
     expect(s.unavailable()).toBe(1);
+    expect(s.spawner.calls).toHaveLength(2);
     expect(s.seen).toEqual([]);
+    await s.watch.close();
+    expect(s.clock.pendingTimerCount).toBe(0);
+  });
+
+  test("a helper that exits before initialize is replaced once", async () => {
+    const first = new FakeProcess({ exitOnStdinEnd: false });
+    const second = new FakeProcess({ exitOnStdinEnd: false });
+    const s = setup(true, undefined, [first, second]);
+    first.exit(1);
+    await flush();
+    expect(s.spawner.calls).toHaveLength(2);
+    expect(s.unavailable()).toBe(0);
+    second.emitLine(JSON.stringify({ id: 2, jsonrpc: "2.0", result: {} }));
+    await flush();
+    expect(s.unavailable()).toBe(0);
+    const methods = second.stdinLines.map(
+      (line) => (JSON.parse(line) as { method?: string }).method,
+    );
+    expect(methods).toContain("approval/listPending");
     await s.watch.close();
     expect(s.clock.pendingTimerCount).toBe(0);
   });
