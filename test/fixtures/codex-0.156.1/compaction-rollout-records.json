@@ -1,0 +1,38 @@
+[
+  {
+    "ordinal": 25,
+    "timestamp": "2026-09-24T08:39:34.473Z",
+    "payload_type": "item_completed",
+    "item_type": "ContextCompaction",
+    "item_id": "01a0d291-b25b-7202-92a3-52046d4f0bcf",
+    "started_at_ms": 1790239158875,
+    "completed_at_ms": 1790239174473
+  },
+  {
+    "ordinal": 52,
+    "timestamp": "2026-09-24T08:40:27.471Z",
+    "payload_type": "item_completed",
+    "item_type": "ContextCompaction",
+    "item_id": "01a0d292-3831-7cf0-b930-206320e97a22",
+    "started_at_ms": 1790239193137,
+    "completed_at_ms": 1790239227471
+  },
+  {
+    "ordinal": 79,
+    "timestamp": "2026-09-24T08:41:40.758Z",
+    "payload_type": "item_completed",
+    "item_type": "ContextCompaction",
+    "item_id": "01a0d293-4074-7ec1-90b8-f1ff345f362b",
+    "started_at_ms": 1790239260788,
+    "completed_at_ms": 1790239300758
+  },
+  {
+    "ordinal": 108,
+    "timestamp": "2026-09-24T08:43:27.004Z",
+    "payload_type": "item_completed",
+    "item_type": "ContextCompaction",
+    "item_id": "01a0d294-c0b7-75d1-b49c-96d5bc0e4cc4",
+    "started_at_ms": 1790239359159,
+    "completed_at_ms": 1790239407004
+  }
+]

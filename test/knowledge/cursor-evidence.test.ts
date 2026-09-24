@@ -17,6 +17,10 @@ import { detectTrustRefusal } from "../../src/interpretation/limits.js";
 import { cursorCli } from "../../src/knowledge/cursor.js";
 
 const DIR = join(import.meta.dirname, "..", "fixtures", "cursor-2026.09.15-d2fe57e");
+// The 2026.09.23-86fc751 anchor re-ran the smoke suites but not the
+// decoding corpus; snapshots read from the new anchor, corpus rows from
+// the corpus capture.
+const SNAPSHOT_DIR = join(import.meta.dirname, "..", "fixtures", "cursor-2026.09.23-86fc751");
 const read = (file: string): string => readFileSync(join(DIR, file), "utf8");
 
 const decoded = (file: string): ContentEvent[] => {
@@ -43,10 +47,12 @@ const toolNames = (events: readonly ContentEvent[]): string[] =>
 
 describe("cursor verification anchor", () => {
   test("smoke:seven and smoke:questions pass on the verified version", () => {
-    const seven = JSON.parse(read("seven.snapshot.json"));
+    const seven = JSON.parse(readFileSync(join(SNAPSHOT_DIR, "seven.snapshot.json"), "utf8"));
     for (const [name, cell] of Object.entries(seven.results.cursor))
       expect(cell).toMatchObject({ status: name === "session-cont(1proc)" ? "skip" : "pass" });
-    const questions = JSON.parse(read("questions.snapshot.json"));
+    const questions = JSON.parse(
+      readFileSync(join(SNAPSHOT_DIR, "questions.snapshot.json"), "utf8"),
+    );
     expect(questions.results.cursor.status).toBe("pass");
     expect(questions.observations.cursor).toEqual(cursorCli.escalation.observedOn);
     expect(questions.observations.cursor.version).toBe(cursorCli.verifiedAgainst);

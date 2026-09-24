@@ -19,7 +19,7 @@ export const codexCli: HarnessDescriptor = deepFreeze({
   name: "codex",
   transcript: CODEX_TRANSCRIPT,
   bin: "codex",
-  verifiedAgainst: "0.155.1",
+  verifiedAgainst: "0.156.1",
   versionSource: { kind: "npm", package: "@openai/codex" },
   launch: {
     // exec --json emits structured item events; without --json, identity
@@ -141,8 +141,8 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     observedOn: {
       harness: "codex",
       model: "gpt-6-astra",
-      version: "0.155.1",
-      date: "2026-09-20",
+      version: "0.156.1",
+      date: "2026-09-24",
     },
   },
   turnOptions: {

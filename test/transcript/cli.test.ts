@@ -265,7 +265,7 @@ test("Muse reports a missing native source without creating a conversation or ad
 
 test("Claude reports its snapshot method and a missing native ID despite coverage opt-ins", () => {
   const inspection = JSON.parse(command(["inspect", "claude", "--transcript"]).out);
-  expect(inspection.verifiedAgainst).toBe("2.1.278");
+  expect(inspection.verifiedAgainst).toBe("2.1.281");
   expect(inspection.methods.map((method: { id: string }) => method.id)).toEqual(["claude-file-v1"]);
   expect(inspection.methods[0].selectors).toEqual(["id", "file"]);
   expect(inspection.capabilities.history.status).toBe("available");

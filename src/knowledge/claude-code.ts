@@ -28,7 +28,7 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
   name: "claude",
   transcript: CLAUDE_TRANSCRIPT,
   bin: "claude",
-  verifiedAgainst: "2.1.278",
+  verifiedAgainst: "2.1.281",
   versionSource: { kind: "npm", package: "@anthropic-ai/claude-code" },
   launch: {
     baseFlags: ["-p"],
@@ -204,7 +204,7 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
   // re-emitted identity's observedOn from it.
   escalation: {
     supported: true,
-    observedOn: { harness: "claude", model: "sonnet", version: "2.1.278", date: "2026-09-20" },
+    observedOn: { harness: "claude", model: "sonnet", version: "2.1.281", date: "2026-09-24" },
   },
   turnOptions: {
     // Native CLI reference: bare removes discovery; the empty built-in list and

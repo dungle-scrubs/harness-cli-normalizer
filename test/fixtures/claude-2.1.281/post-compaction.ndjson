@@ -1,0 +1,9 @@
+{"kind":"identity","sessionId":"e904f198-d21e-4082-8ab7-4410666fd564","authority":"caller-assigned","capabilities":{"vision":true,"images":true,"streaming":"token","session":true,"source":"curated","confidence":"medium","escalation":{"supported":true,"source":"runtime-verified","confidence":"high","observedOn":{"harness":"claude","model":"sonnet","version":"2.1.281","date":"2026-09-24"}},"compactionReporting":{"source":"stream","states":["started","compacted","failed"],"tokens":true}}}
+{"kind":"progress","label":"hook_started"}
+{"kind":"progress","label":"hook_started"}
+{"kind":"progress","label":"hook_response"}
+{"kind":"progress","label":"hook_response"}
+{"kind":"progress","label":"status"}
+{"kind":"token","text":"HERON-518"}
+{"kind":"message","role":"assistant","text":"HERON-518"}
+{"kind":"done","exitCode":0,"cause":"clean","escalation":{"mode":"none","detection":"none"}}

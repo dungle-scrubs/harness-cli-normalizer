@@ -1,0 +1,23 @@
+{
+  "ranAt": "2026-09-24T08:41:53.556Z",
+  "results": {
+    "pi": {
+      "status": "pass",
+      "observedOn": {
+        "harness": "pi",
+        "model": "zai/glm-5.2",
+        "version": "0.87.1",
+        "date": "2026-09-24"
+      },
+      "detail": "question \"deploy-target.txt holds the en\""
+    }
+  },
+  "observations": {
+    "pi": {
+      "harness": "pi",
+      "model": "zai/glm-5.2",
+      "version": "0.87.1",
+      "date": "2026-09-24"
+    }
+  }
+}

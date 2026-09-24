@@ -1,0 +1,23 @@
+{
+  "ranAt": "2026-09-24T08:40:38.758Z",
+  "results": {
+    "antigravity": {
+      "status": "pass",
+      "observedOn": {
+        "harness": "antigravity",
+        "model": "gemini-3.8-flash-medium",
+        "version": "1.2.10",
+        "date": "2026-09-24"
+      },
+      "detail": "question \"Which deployment environment s\""
+    }
+  },
+  "observations": {
+    "antigravity": {
+      "harness": "antigravity",
+      "model": "gemini-3.8-flash-medium",
+      "version": "1.2.10",
+      "date": "2026-09-24"
+    }
+  }
+}

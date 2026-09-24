@@ -1,0 +1,3 @@
+{"kind":"identity","sessionId":"01a0d290-c8aa-7561-a057-1e1c1156544c","authority":"caller-assigned","capabilities":{"vision":true,"images":true,"streaming":"message","session":false,"source":"curated","confidence":"medium","escalation":{"supported":true,"source":"runtime-verified","confidence":"high","observedOn":{"harness":"codex","model":"gpt-6-astra","version":"0.155.1","date":"2026-09-20"}},"compactionReporting":null}}
+{"kind":"message","role":"assistant","text":"HERON-519"}
+{"kind":"done","exitCode":0,"cause":"clean","escalation":{"mode":"none","detection":"none"}}

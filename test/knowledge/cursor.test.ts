@@ -9,7 +9,7 @@ describe("cursor descriptor identity", () => {
   test("names the cursor harness at the verified version", () => {
     expect(cursorCli.name).toBe("cursor");
     expect(cursorCli.bin).toBe("agent");
-    expect(cursorCli.verifiedAgainst).toBe("2026.09.15-d2fe57e");
+    expect(cursorCli.verifiedAgainst).toBe("2026.09.23-86fc751");
     expect(cursorCli.versionSource).toEqual({ kind: "installed" });
   });
 

@@ -1,0 +1,14 @@
+{"type":"thread.started","thread_id":"01a0d28c-52e6-7141-bdc9-cfdb258d5987"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"I’ll run the command and report its output."}}
+{"type":"item.started","item":{"id":"item_1","type":"command_execution","command":"/bin/zsh -lc 'echo seventest'","aggregated_output":"","exit_code":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_1","type":"command_execution","command":"/bin/zsh -lc 'echo seventest'","aggregated_output":"seventest\n","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_2","type":"agent_message","text":"Output: `seventest`"}}
+{"type":"turn.completed","usage":{"input_tokens":62689,"cached_input_tokens":38144,"cache_write_input_tokens":0,"output_tokens":76,"reasoning_output_tokens":18}}
+{"type":"thread.started","thread_id":"01a0d28d-2e4a-7821-a176-aa282c08c384"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"I’ll run the command and report its output."}}
+{"type":"item.started","item":{"id":"item_1","type":"command_execution","command":"/bin/zsh -lc 'echo seventest'","aggregated_output":"","exit_code":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_1","type":"command_execution","command":"/bin/zsh -lc 'echo seventest'","aggregated_output":"seventest\n","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_2","type":"agent_message","text":"```text\nseventest\n```"}}
+{"type":"turn.completed","usage":{"input_tokens":63563,"cached_input_tokens":38528,"cache_write_input_tokens":0,"output_tokens":57,"reasoning_output_tokens":0}}

@@ -6,7 +6,7 @@ import { detectQuestionBlock } from "../../src/interpretation/question.js";
 import { antigravityCli } from "../../src/knowledge/antigravity.js";
 
 const read = (file: string): string =>
-  readFileSync(new URL(`../fixtures/antigravity-1.2.8/${file}`, import.meta.url), "utf8");
+  readFileSync(new URL(`../fixtures/antigravity-1.2.10/${file}`, import.meta.url), "utf8");
 
 const decoded = (file: string): HarnessEvent[] => {
   const state = freshDecodeState(null, antigravityCli.name);

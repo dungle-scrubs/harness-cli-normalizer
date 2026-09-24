@@ -6,7 +6,7 @@ import { detectQuestionBlock } from "../../src/interpretation/question.js";
 import { piCli } from "../../src/knowledge/pi.js";
 
 const read = (file: string): string =>
-  readFileSync(new URL(`../fixtures/pi-0.87.0/${file}`, import.meta.url), "utf8");
+  readFileSync(new URL(`../fixtures/pi-0.87.1/${file}`, import.meta.url), "utf8");
 
 const decoded = (file: string): HarnessEvent[] => {
   const state = freshDecodeState(null);

@@ -1,0 +1,2 @@
+spawn: claude --resume e904f198-d21e-4082-8ab7-4410666fd564 -p --setting-sources project --disable-slash-commands [prompt:79ch] --output-format stream-json --verbose --include-partial-messages --model claude-opus-5
+provenance: questions = none (arg)
