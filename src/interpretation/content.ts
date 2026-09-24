@@ -400,10 +400,60 @@ const compactDetail = (value: unknown): string => {
   }
 };
 
+/** Popeye `--mode hcn` contract (verified 0.1.0, probes 2026-09-24).
+ * identity opens the stream and carries the harness-minted sessionId;
+ * token carries text deltas; message carries the settled assistant text;
+ * tool carries tool-call starts; compaction carries started/compacted;
+ * error with terminal:true ended the turn; done/failure delimit it.
+ * done and failure are turn delimiters, not content: []. */
+const popeyeReader = (r: Record<string, unknown>): ContentEvent[] => {
+  if (r.kind === "token" && typeof r.text === "string") {
+    return [{ kind: "token", text: r.text }];
+  }
+  if (r.kind === "message" && r.role === "assistant" && typeof r.text === "string") {
+    return r.text === "" ? [] : [{ kind: "message", role: "assistant", text: r.text }];
+  }
+  // No popeye hcn stream carries a tool record today (toolCalls stay
+  // kernel-side per the P1 taxonomy); the branch decodes one if it lands.
+  if (r.kind === "tool" && typeof r.name === "string") {
+    return [{ kind: "tool", name: r.name, input: r.input }];
+  }
+  if (r.kind === "compaction" && (r.state === "started" || r.state === "compacted")) {
+    return [{ kind: "compaction", state: r.state }];
+  }
+  if (r.kind === "error" && typeof r.message === "string") {
+    return [
+      r.terminal === true
+        ? { kind: "error", message: r.message, terminal: true }
+        : { kind: "error", message: r.message },
+    ];
+  }
+  // RPC session records: progress assistantText streams as tokens; the
+  // settled snapshot carries the turn's assistant entries as its message.
+  if (r._tag === "assistantText" && typeof r.text === "string") {
+    return [{ kind: "token", text: r.text }];
+  }
+  const result = asRecord(r.result);
+  if (result !== null && result._tag === "snapshot" && Array.isArray(result.entries)) {
+    const texts: string[] = [];
+    for (const line of result.entries) {
+      const entry = asRecord(line);
+      const payload = asRecord(entry?.payload);
+      if (entry?.kind === "message" && payload?.role === "assistant") {
+        const text = typeof payload.content === "string" ? payload.content : "";
+        if (text !== "") texts.push(text);
+      }
+    }
+    if (texts.length > 0) return [{ kind: "message", role: "assistant", text: texts.join("\n") }];
+  }
+  return [];
+};
+
 /** Antigravity stream-json contract. Permission errors are decoded
  * only from structured tool_info.error fields. General model prose is not
- * evidence that a native permission rule denied a call. */
-const antigravity = (r: Record<string, unknown>): ContentEvent[] => {
+ * evidence that a native permission rule denied a call. */ const antigravity = (
+  r: Record<string, unknown>,
+): ContentEvent[] => {
   if (r.event === "step_update") {
     const step = asRecord(r.step_update);
     if (step === null) return [];
@@ -523,6 +573,7 @@ const STATE_FACTORIES: Record<HarnessName, () => ReaderState> = {
   muse: () => null,
   cursor: freshCursorReaderState,
   antigravity: () => null,
+  popeye: () => null,
 };
 
 export const freshReaderState = (harness: HarnessName): ReaderState => STATE_FACTORIES[harness]();
@@ -759,6 +810,7 @@ const STATEFUL_READERS: Record<HarnessName, StatefulReader> = {
   muse: stateless(muse),
   cursor: (r, state) => cursorWithState(r, state ?? freshCursorReaderState()),
   antigravity: stateless(antigravity),
+  popeye: stateless(popeyeReader),
 };
 
 /** Stateful entry point: every harness returns { events, state }.

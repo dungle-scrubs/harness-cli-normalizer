@@ -10,7 +10,15 @@ import type { TranscriptKnowledge } from "./transcript/wire.js";
  * a key without a consumer arm would be dead data that can only drift.
  */
 
-export const HARNESS_NAMES = ["claude", "codex", "pi", "muse", "cursor", "antigravity"] as const;
+export const HARNESS_NAMES = [
+  "claude",
+  "codex",
+  "pi",
+  "muse",
+  "cursor",
+  "antigravity",
+  "popeye",
+] as const;
 export type HarnessName = (typeof HARNESS_NAMES)[number];
 
 /** Descriptors are process-wide defaults shared by reference into merged
@@ -109,6 +117,7 @@ export const SESSION_INPUT_KINDS = [
   "claude-sdk-user-message",
   "pi-rpc-prompt",
   "antigravity-stream-user",
+  "popeye-rpc-prompt",
 ] as const;
 export type SessionInputKind = (typeof SESSION_INPUT_KINDS)[number];
 

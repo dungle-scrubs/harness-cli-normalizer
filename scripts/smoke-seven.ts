@@ -24,6 +24,7 @@ import { cursorCli } from "../src/knowledge/cursor.js";
 import type { HarnessDescriptor } from "../src/knowledge/descriptor.js";
 import { museCode } from "../src/knowledge/muse.js";
 import { piCli } from "../src/knowledge/pi.js";
+import { popeyeCli } from "../src/knowledge/popeye.js";
 import { smokeCwd, smokeDeps, smokeHarnesses } from "./smoke-options.js";
 
 delete process.env.HERDR_ENV;
@@ -35,6 +36,7 @@ const HARNESSES = smokeHarnesses([
   museCode,
   cursorCli,
   antigravityCli,
+  popeyeCli,
 ]);
 const cwd = smokeCwd;
 // pi is pinned to the free local model; the others use their defaults.
@@ -125,6 +127,9 @@ const streaming = async (h: HarnessDescriptor): Promise<Cell> => {
 
 // 3. tool-use: a shell tool invocation is decoded.
 const toolUse = async (h: HarnessDescriptor): Promise<Cell> => {
+  // Popeye ships zero default tools: the model has nothing to invoke.
+  // Re-probe with a project tool when the grant matrix needs smoke cover.
+  if (h.name === "popeye") return { status: "skip", detail: "no default tools" };
   const events = await collect(
     streamTurn(
       h,

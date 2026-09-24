@@ -161,6 +161,10 @@
             {
               "harness": "codex",
               "spelling": "-c"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--context-window"
             }
           ],
           "message": "claude cannot express option \"contextWindow\" (100000); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
@@ -954,6 +958,10 @@
             {
               "harness": "pi",
               "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--tools"
             }
           ],
           "hint": "codex has no per-tool name lists; use --sandbox read-only for a read-only grant or category switches via config keys (features.shell_tool, web_search)",
@@ -975,6 +983,10 @@
             },
             {
               "harness": "pi",
+              "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
               "spelling": "--tools"
             }
           ],
@@ -998,6 +1010,10 @@
             {
               "harness": "pi",
               "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--tools"
             }
           ],
           "hint": "codex has no per-tool name lists; use --sandbox read-only for a read-only grant or category switches via config keys (features.shell_tool, web_search)",
@@ -1020,6 +1036,10 @@
             {
               "harness": "pi",
               "spelling": "--exclude-tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--exclude-tools"
             }
           ],
           "hint": "codex has no per-tool name lists; use category switches via config keys (features.shell_tool) or --sandbox modes",
@@ -1041,6 +1061,10 @@
             },
             {
               "harness": "pi",
+              "spelling": "--exclude-tools"
+            },
+            {
+              "harness": "popeye",
               "spelling": "--exclude-tools"
             }
           ],
@@ -1075,6 +1099,10 @@
             {
               "harness": "pi",
               "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--tools"
             }
           ],
           "hint": "codex has no per-tool name lists; use --sandbox read-only for a read-only grant or category switches via config keys (features.shell_tool, web_search)",
@@ -1096,6 +1124,10 @@
             },
             {
               "harness": "pi",
+              "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
               "spelling": "--tools"
             }
           ],
@@ -1303,6 +1335,10 @@
             {
               "harness": "codex",
               "spelling": "-c"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--context-window"
             }
           ],
           "message": "pi cannot express option \"contextWindow\" (100000); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
@@ -1806,6 +1842,10 @@
             {
               "harness": "codex",
               "spelling": "-c"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--context-window"
             }
           ],
           "message": "muse cannot express option \"contextWindow\" (100000); supported: effort, write, shell, maxSteps, access - drop the option or route this work to a harness that supports it"
@@ -2016,6 +2056,10 @@
             {
               "harness": "pi",
               "spelling": "read"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "read"
             }
           ],
           "hint": "muse has no per-tool name lists; gate execution with --disable-write, --disable-shell, --disable-web-tools - there is no allowlist",
@@ -2037,6 +2081,10 @@
             },
             {
               "harness": "pi",
+              "spelling": "read"
+            },
+            {
+              "harness": "popeye",
               "spelling": "read"
             }
           ],
@@ -2524,6 +2572,10 @@
             {
               "harness": "codex",
               "spelling": "-c"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--context-window"
             }
           ],
           "message": "cursor cannot express option \"contextWindow\" (100000); supported: effort - drop the option or route this work to a harness that supports it"
@@ -2724,6 +2776,10 @@
             {
               "harness": "pi",
               "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--tools"
             }
           ],
           "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
@@ -2745,6 +2801,10 @@
             },
             {
               "harness": "pi",
+              "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
               "spelling": "--tools"
             }
           ],
@@ -2768,6 +2828,10 @@
             {
               "harness": "pi",
               "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--tools"
             }
           ],
           "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
@@ -2790,6 +2854,10 @@
             {
               "harness": "pi",
               "spelling": "--exclude-tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--exclude-tools"
             }
           ],
           "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
@@ -2811,6 +2879,10 @@
             },
             {
               "harness": "pi",
+              "spelling": "--exclude-tools"
+            },
+            {
+              "harness": "popeye",
               "spelling": "--exclude-tools"
             }
           ],
@@ -2845,6 +2917,10 @@
             {
               "harness": "pi",
               "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--tools"
             }
           ],
           "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
@@ -2866,6 +2942,10 @@
             },
             {
               "harness": "pi",
+              "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
               "spelling": "--tools"
             }
           ],
@@ -3053,6 +3133,10 @@
             {
               "harness": "codex",
               "spelling": "-c"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--context-window"
             }
           ],
           "message": "antigravity cannot express option \"contextWindow\" (100000); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
@@ -3265,6 +3349,10 @@
             {
               "harness": "pi",
               "spelling": "read"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "read"
             }
           ],
           "message": "antigravity cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
@@ -3285,6 +3373,10 @@
             },
             {
               "harness": "pi",
+              "spelling": "read"
+            },
+            {
+              "harness": "popeye",
               "spelling": "read"
             }
           ],
@@ -3361,6 +3453,10 @@
             {
               "harness": "muse",
               "spelling": "web"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "web-search"
             }
           ],
           "message": "antigravity cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
@@ -3441,6 +3537,579 @@
             "prompt must not start with '-'"
           ],
           "message": "positional prompt may not start with '-'; it would be parsed as a flag by antigravity (it would be parsed as a flag by agy); supported: prompt must not start with '-' - remove leading '-' or prefix with a space"
+        }
+      }
+    },
+    "popeye": {
+      "bare": {
+        "argv": [
+          "popeye",
+          "-p",
+          "hi",
+          "--mode",
+          "hcn"
+        ]
+      },
+      "tool-free": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "isolation",
+          "supported": [
+            "effort",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "contextWindow",
+            "access",
+            "memory"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--bare"
+            }
+          ],
+          "message": "popeye cannot express option \"isolation\" (tool-free); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tool-free-conflict": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "popeye",
+          "option": "isolation",
+          "supported": [
+            "tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough"
+          ],
+          "message": "popeye cannot combine option \"isolation\" (discovery); supported: tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough - pass exactly one of them"
+        }
+      },
+      "model": {
+        "argv": [
+          "popeye",
+          "-p",
+          "hi",
+          "--mode",
+          "hcn",
+          "--model",
+          "fake-model"
+        ]
+      },
+      "effort-high": {
+        "argv": [
+          "popeye",
+          "-p",
+          "--effort",
+          "high",
+          "hi",
+          "--mode",
+          "hcn"
+        ]
+      },
+      "effort-with-model": {
+        "argv": [
+          "popeye",
+          "-p",
+          "--effort",
+          "high",
+          "hi",
+          "--mode",
+          "hcn",
+          "--model",
+          "fake-model"
+        ]
+      },
+      "effort-unknown": {
+        "refusal": {
+          "issue": "unknown-effort",
+          "harness": "popeye",
+          "option": "effort",
+          "supported": [
+            "low",
+            "medium-low",
+            "medium",
+            "medium-high",
+            "high",
+            "xhigh"
+          ],
+          "message": "unknown effort for popeye \"bogus\"; supported: low, medium-low, medium, medium-high, high, xhigh - use one of the ladder values"
+        }
+      },
+      "model-unknown": {
+        "argv": [
+          "popeye",
+          "-p",
+          "hi",
+          "--mode",
+          "hcn",
+          "--model",
+          "no-such-model"
+        ]
+      },
+      "sandbox-read-only": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "sandbox",
+          "supported": [
+            "effort",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "contextWindow",
+            "access",
+            "memory"
+          ],
+          "supportedBy": [
+            {
+              "harness": "codex",
+              "spelling": "--sandbox"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--sandbox"
+            }
+          ],
+          "message": "popeye cannot express option \"sandbox\" (read-only); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "context-window": {
+        "argv": [
+          "popeye",
+          "-p",
+          "--context-window",
+          "100000",
+          "hi",
+          "--mode",
+          "hcn"
+        ]
+      },
+      "provider": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "provider",
+          "supported": [
+            "effort",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "contextWindow",
+            "access",
+            "memory"
+          ],
+          "supportedBy": [
+            {
+              "harness": "pi",
+              "spelling": "--provider"
+            }
+          ],
+          "message": "popeye cannot express option \"provider\" (zai); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-tools": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "discovery",
+          "supported": [
+            "effort",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "contextWindow",
+            "access",
+            "memory"
+          ],
+          "message": "popeye cannot express option \"discovery\" (tools); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-instruction-files": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "discovery",
+          "supported": [
+            "effort",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "contextWindow",
+            "access",
+            "memory"
+          ],
+          "message": "popeye cannot express option \"discovery\" (instructionFiles); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-extensions": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "discovery",
+          "supported": [
+            "effort",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "contextWindow",
+            "access",
+            "memory"
+          ],
+          "message": "popeye cannot express option \"discovery\" (extensions); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-skills": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "discovery",
+          "supported": [
+            "effort",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "contextWindow",
+            "access",
+            "memory"
+          ],
+          "message": "popeye cannot express option \"discovery\" (skills); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "discovery-all-on": {
+        "argv": [
+          "popeye",
+          "-p",
+          "hi",
+          "--mode",
+          "hcn"
+        ]
+      },
+      "write-off": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "write",
+          "supported": [
+            "effort",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "contextWindow",
+            "access",
+            "memory"
+          ],
+          "supportedBy": [
+            {
+              "harness": "muse",
+              "spelling": "--disable-write"
+            }
+          ],
+          "message": "popeye cannot express option \"write\" (false); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "shell-off": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "shell",
+          "supported": [
+            "effort",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "contextWindow",
+            "access",
+            "memory"
+          ],
+          "supportedBy": [
+            {
+              "harness": "muse",
+              "spelling": "--disable-shell"
+            }
+          ],
+          "message": "popeye cannot express option \"shell\" (false); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "max-steps": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "maxSteps",
+          "supported": [
+            "effort",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "contextWindow",
+            "access",
+            "memory"
+          ],
+          "supportedBy": [
+            {
+              "harness": "muse",
+              "spelling": "--max-model-steps"
+            }
+          ],
+          "message": "popeye cannot express option \"maxSteps\" (5); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "system-prompt": {
+        "argv": [
+          "popeye",
+          "-p",
+          "--system-prompt",
+          "you are terse",
+          "hi",
+          "--mode",
+          "hcn"
+        ]
+      },
+      "append-system-prompt": {
+        "argv": [
+          "popeye",
+          "-p",
+          "--append-system-prompt",
+          "and polite",
+          "hi",
+          "--mode",
+          "hcn"
+        ]
+      },
+      "access-read": {
+        "argv": [
+          "popeye",
+          "-p",
+          "hi",
+          "--mode",
+          "hcn",
+          "--tools",
+          "read,grep,glob,list,web-fetch,web-search"
+        ]
+      },
+      "access-write": {
+        "argv": [
+          "popeye",
+          "-p",
+          "hi",
+          "--mode",
+          "hcn"
+        ]
+      },
+      "access-read-no-tools": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "discovery",
+          "supported": [
+            "effort",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "contextWindow",
+            "access",
+            "memory"
+          ],
+          "message": "popeye cannot express option \"discovery\" (tools); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-include": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "Bash"
+            },
+            {
+              "harness": "pi",
+              "spelling": "bash"
+            },
+            {
+              "harness": "muse",
+              "spelling": "shell"
+            }
+          ],
+          "hint": "add toolMap.popeye.shell to ~/.config/hcn/config.json or pass native:shell",
+          "message": "popeye cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-include-native": {
+        "argv": [
+          "popeye",
+          "-p",
+          "hi",
+          "--mode",
+          "hcn",
+          "--tools",
+          "read,web_search"
+        ]
+      },
+      "tools-include-empty": {
+        "refusal": {
+          "issue": "invalid-tool-grant",
+          "harness": "popeye",
+          "option": "tools",
+          "supported": [
+            "non-empty tool list (empty include would deny everything)"
+          ],
+          "message": "tool grant for popeye contains an empty entry or a comma; a blank tool flag value grants nothing detectable, and a comma inside one name silently splits the grant; supported: non-empty tool list (empty include would deny everything) - provide comma-free, non-empty tool names as separate entries"
+        }
+      },
+      "tools-exclude": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "excludeTools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "Bash"
+            },
+            {
+              "harness": "pi",
+              "spelling": "bash"
+            },
+            {
+              "harness": "muse",
+              "spelling": "shell"
+            }
+          ],
+          "hint": "add toolMap.popeye.shell to ~/.config/hcn/config.json or pass native:shell",
+          "message": "popeye cannot express option \"excludeTools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-exclude-native": {
+        "refusal": {
+          "issue": "unknown-tool-name",
+          "harness": "popeye",
+          "option": "excludeTools",
+          "supported": [
+            "known tool names: read, grep, glob, list, web-fetch, web-search"
+          ],
+          "message": "popeye cannot compute a tool complement around an unknown name (cannot exclude unknown name(s) web_search: the complement cannot be computed); supported: known tool names: read, grep, glob, list, web-fetch, web-search - exclude only curated names, or pass the unknown name through an include list instead"
+        }
+      },
+      "tools-both": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "popeye",
+          "option": "tools",
+          "supported": [
+            "--tools (exact allowlist) or --exclude-tools (complement), never both"
+          ],
+          "message": "popeye cannot combine option \"tools\" (mutual exclusion); supported: --tools (exact allowlist) or --exclude-tools (complement), never both - pass exactly one of them"
+        }
+      },
+      "tools-via-toolmap": {
+        "argv": [
+          "popeye",
+          "-p",
+          "hi",
+          "--mode",
+          "hcn",
+          "--tools",
+          "web-search"
+        ]
+      },
+      "tools-unknown-name": {
+        "refusal": {
+          "issue": "unknown-tool-name",
+          "harness": "popeye",
+          "option": "tools",
+          "supported": [
+            "edit",
+            "glob",
+            "grep",
+            "list",
+            "read",
+            "shell",
+            "skill",
+            "subagent",
+            "web-fetch",
+            "web-search",
+            "write"
+          ],
+          "hint": "use native:<name> for an extension or MCP tool",
+          "message": "popeye cannot compute a tool complement around an unknown name (unknown tool name(s) frobnicate); supported: edit, glob, grep, list, read, shell, skill, subagent, web-fetch, web-search, write - exclude only curated names, or pass the unknown name through an include list instead"
+        }
+      },
+      "skills-pick": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "skills",
+          "supported": [
+            "caller-directed skill sets"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "skillOverrides"
+            },
+            {
+              "harness": "codex",
+              "spelling": "-c skills.config"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--skill"
+            }
+          ],
+          "hint": "popeye --skills takes plugin names, not registry paths; pass the plugin names directly on the popeye argv instead of an HCN skills selection",
+          "message": "popeye cannot express option \"skills\"; supported: caller-directed skill sets - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "autonomy": {
+        "refusal": {
+          "issue": "no-autonomy-mode",
+          "harness": "popeye",
+          "supported": [
+            "claude --dangerously-skip-permissions",
+            "codex --yolo",
+            "muse --yolo",
+            "cursor --force",
+            "antigravity --dangerously-skip-permissions"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--dangerously-skip-permissions"
+            },
+            {
+              "harness": "codex",
+              "spelling": "--yolo"
+            },
+            {
+              "harness": "muse",
+              "spelling": "--yolo"
+            },
+            {
+              "harness": "cursor",
+              "spelling": "--force"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--dangerously-skip-permissions"
+            }
+          ],
+          "hint": "pi has no unattended-run flag; approximate with a per-tool allowlist (--tools read,bash) if you need unattended behavior on pi",
+          "message": "popeye has no unattended-run flag; supported: claude --dangerously-skip-permissions, codex --yolo, muse --yolo, cursor --force, antigravity --dangerously-skip-permissions - drop autonomy or route to a supporting harness"
+        }
+      },
+      "explicit-dash-prompt": {
+        "argv": [
+          "popeye",
+          "-p",
+          "-x",
+          "--mode",
+          "hcn"
+        ]
+      },
+      "implicit-dash-prompt": {
+        "refusal": {
+          "issue": "prompt-flag-injection",
+          "harness": "popeye",
+          "supported": [
+            "prompt must not start with '-'"
+          ],
+          "message": "positional prompt may not start with '-'; it would be parsed as a flag by popeye (it would be parsed as a flag by popeye); supported: prompt must not start with '-' - remove leading '-' or prefix with a space"
         }
       }
     }
@@ -3614,6 +4283,10 @@
             {
               "harness": "codex",
               "spelling": "-c"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--context-window"
             }
           ],
           "message": "claude cannot express option \"contextWindow\" (100000); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
@@ -4445,6 +5118,10 @@
             {
               "harness": "pi",
               "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--tools"
             }
           ],
           "hint": "codex has no per-tool name lists; use --sandbox read-only for a read-only grant or category switches via config keys (features.shell_tool, web_search)",
@@ -4466,6 +5143,10 @@
             },
             {
               "harness": "pi",
+              "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
               "spelling": "--tools"
             }
           ],
@@ -4489,6 +5170,10 @@
             {
               "harness": "pi",
               "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--tools"
             }
           ],
           "hint": "codex has no per-tool name lists; use --sandbox read-only for a read-only grant or category switches via config keys (features.shell_tool, web_search)",
@@ -4511,6 +5196,10 @@
             {
               "harness": "pi",
               "spelling": "--exclude-tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--exclude-tools"
             }
           ],
           "hint": "codex has no per-tool name lists; use category switches via config keys (features.shell_tool) or --sandbox modes",
@@ -4532,6 +5221,10 @@
             },
             {
               "harness": "pi",
+              "spelling": "--exclude-tools"
+            },
+            {
+              "harness": "popeye",
               "spelling": "--exclude-tools"
             }
           ],
@@ -4566,6 +5259,10 @@
             {
               "harness": "pi",
               "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--tools"
             }
           ],
           "hint": "codex has no per-tool name lists; use --sandbox read-only for a read-only grant or category switches via config keys (features.shell_tool, web_search)",
@@ -4587,6 +5284,10 @@
             },
             {
               "harness": "pi",
+              "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
               "spelling": "--tools"
             }
           ],
@@ -4804,6 +5505,10 @@
             {
               "harness": "codex",
               "spelling": "-c"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--context-window"
             }
           ],
           "message": "pi cannot express option \"contextWindow\" (100000); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
@@ -5349,6 +6054,10 @@
             {
               "harness": "codex",
               "spelling": "-c"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--context-window"
             }
           ],
           "message": "muse cannot express option \"contextWindow\" (100000); supported: effort, write, shell, maxSteps, access - drop the option or route this work to a harness that supports it"
@@ -5571,6 +6280,10 @@
             {
               "harness": "pi",
               "spelling": "read"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "read"
             }
           ],
           "hint": "muse has no per-tool name lists; gate execution with --disable-write, --disable-shell, --disable-web-tools - there is no allowlist",
@@ -5592,6 +6305,10 @@
             },
             {
               "harness": "pi",
+              "spelling": "read"
+            },
+            {
+              "harness": "popeye",
               "spelling": "read"
             }
           ],
@@ -6099,6 +6816,10 @@
             {
               "harness": "codex",
               "spelling": "-c"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--context-window"
             }
           ],
           "message": "cursor cannot express option \"contextWindow\" (100000); supported: effort - drop the option or route this work to a harness that supports it"
@@ -6301,6 +7022,10 @@
             {
               "harness": "pi",
               "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--tools"
             }
           ],
           "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
@@ -6322,6 +7047,10 @@
             },
             {
               "harness": "pi",
+              "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
               "spelling": "--tools"
             }
           ],
@@ -6345,6 +7074,10 @@
             {
               "harness": "pi",
               "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--tools"
             }
           ],
           "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
@@ -6367,6 +7100,10 @@
             {
               "harness": "pi",
               "spelling": "--exclude-tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--exclude-tools"
             }
           ],
           "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
@@ -6388,6 +7125,10 @@
             },
             {
               "harness": "pi",
+              "spelling": "--exclude-tools"
+            },
+            {
+              "harness": "popeye",
               "spelling": "--exclude-tools"
             }
           ],
@@ -6422,6 +7163,10 @@
             {
               "harness": "pi",
               "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--tools"
             }
           ],
           "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
@@ -6443,6 +7188,10 @@
             },
             {
               "harness": "pi",
+              "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
               "spelling": "--tools"
             }
           ],
@@ -6644,6 +7393,10 @@
             {
               "harness": "codex",
               "spelling": "-c"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--context-window"
             }
           ],
           "message": "antigravity cannot express option \"contextWindow\" (100000); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
@@ -6858,6 +7611,10 @@
             {
               "harness": "pi",
               "spelling": "read"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "read"
             }
           ],
           "message": "antigravity cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
@@ -6878,6 +7635,10 @@
             },
             {
               "harness": "pi",
+              "spelling": "read"
+            },
+            {
+              "harness": "popeye",
               "spelling": "read"
             }
           ],
@@ -6958,6 +7719,10 @@
             {
               "harness": "muse",
               "spelling": "web"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "web-search"
             }
           ],
           "message": "antigravity cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
@@ -7042,6 +7807,607 @@
             "prompt must not start with '-'"
           ],
           "message": "positional prompt may not start with '-'; it would be parsed as a flag by antigravity (it would be parsed as a flag by agy); supported: prompt must not start with '-' - remove leading '-' or prefix with a space"
+        }
+      }
+    },
+    "popeye": {
+      "bare": {
+        "argv": [
+          "popeye",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "hi",
+          "--mode",
+          "hcn"
+        ]
+      },
+      "tool-free": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "isolation",
+          "supported": [
+            "effort",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "contextWindow",
+            "access",
+            "memory"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--bare"
+            }
+          ],
+          "message": "popeye cannot express option \"isolation\" (tool-free); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tool-free-conflict": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "popeye",
+          "option": "isolation",
+          "supported": [
+            "tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough"
+          ],
+          "message": "popeye cannot combine option \"isolation\" (discovery); supported: tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough - pass exactly one of them"
+        }
+      },
+      "model": {
+        "argv": [
+          "popeye",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "hi",
+          "--mode",
+          "hcn",
+          "--model",
+          "fake-model"
+        ]
+      },
+      "effort-high": {
+        "argv": [
+          "popeye",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "--effort",
+          "high",
+          "hi",
+          "--mode",
+          "hcn"
+        ]
+      },
+      "effort-with-model": {
+        "argv": [
+          "popeye",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "--effort",
+          "high",
+          "hi",
+          "--mode",
+          "hcn",
+          "--model",
+          "fake-model"
+        ]
+      },
+      "effort-unknown": {
+        "refusal": {
+          "issue": "unknown-effort",
+          "harness": "popeye",
+          "option": "effort",
+          "supported": [
+            "low",
+            "medium-low",
+            "medium",
+            "medium-high",
+            "high",
+            "xhigh"
+          ],
+          "message": "unknown effort for popeye \"bogus\"; supported: low, medium-low, medium, medium-high, high, xhigh - use one of the ladder values"
+        }
+      },
+      "model-unknown": {
+        "argv": [
+          "popeye",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "hi",
+          "--mode",
+          "hcn",
+          "--model",
+          "no-such-model"
+        ]
+      },
+      "sandbox-read-only": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "sandbox",
+          "supported": [
+            "effort",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "contextWindow",
+            "access",
+            "memory"
+          ],
+          "supportedBy": [
+            {
+              "harness": "codex",
+              "spelling": "--sandbox"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--sandbox"
+            }
+          ],
+          "message": "popeye cannot express option \"sandbox\" (read-only); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "context-window": {
+        "argv": [
+          "popeye",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "--context-window",
+          "100000",
+          "hi",
+          "--mode",
+          "hcn"
+        ]
+      },
+      "provider": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "provider",
+          "supported": [
+            "effort",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "contextWindow",
+            "access",
+            "memory"
+          ],
+          "supportedBy": [
+            {
+              "harness": "pi",
+              "spelling": "--provider"
+            }
+          ],
+          "message": "popeye cannot express option \"provider\" (zai); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-tools": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "discovery",
+          "supported": [
+            "effort",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "contextWindow",
+            "access",
+            "memory"
+          ],
+          "message": "popeye cannot express option \"discovery\" (tools); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-instruction-files": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "discovery",
+          "supported": [
+            "effort",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "contextWindow",
+            "access",
+            "memory"
+          ],
+          "message": "popeye cannot express option \"discovery\" (instructionFiles); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-extensions": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "discovery",
+          "supported": [
+            "effort",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "contextWindow",
+            "access",
+            "memory"
+          ],
+          "message": "popeye cannot express option \"discovery\" (extensions); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-skills": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "discovery",
+          "supported": [
+            "effort",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "contextWindow",
+            "access",
+            "memory"
+          ],
+          "message": "popeye cannot express option \"discovery\" (skills); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "discovery-all-on": {
+        "argv": [
+          "popeye",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "hi",
+          "--mode",
+          "hcn"
+        ]
+      },
+      "write-off": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "write",
+          "supported": [
+            "effort",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "contextWindow",
+            "access",
+            "memory"
+          ],
+          "supportedBy": [
+            {
+              "harness": "muse",
+              "spelling": "--disable-write"
+            }
+          ],
+          "message": "popeye cannot express option \"write\" (false); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "shell-off": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "shell",
+          "supported": [
+            "effort",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "contextWindow",
+            "access",
+            "memory"
+          ],
+          "supportedBy": [
+            {
+              "harness": "muse",
+              "spelling": "--disable-shell"
+            }
+          ],
+          "message": "popeye cannot express option \"shell\" (false); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "max-steps": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "maxSteps",
+          "supported": [
+            "effort",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "contextWindow",
+            "access",
+            "memory"
+          ],
+          "supportedBy": [
+            {
+              "harness": "muse",
+              "spelling": "--max-model-steps"
+            }
+          ],
+          "message": "popeye cannot express option \"maxSteps\" (5); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "system-prompt": {
+        "argv": [
+          "popeye",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "--system-prompt",
+          "you are terse",
+          "hi",
+          "--mode",
+          "hcn"
+        ]
+      },
+      "append-system-prompt": {
+        "argv": [
+          "popeye",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "--append-system-prompt",
+          "and polite",
+          "hi",
+          "--mode",
+          "hcn"
+        ]
+      },
+      "access-read": {
+        "argv": [
+          "popeye",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "hi",
+          "--mode",
+          "hcn",
+          "--tools",
+          "read,grep,glob,list,web-fetch,web-search"
+        ]
+      },
+      "access-write": {
+        "argv": [
+          "popeye",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "hi",
+          "--mode",
+          "hcn"
+        ]
+      },
+      "access-read-no-tools": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "discovery",
+          "supported": [
+            "effort",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "contextWindow",
+            "access",
+            "memory"
+          ],
+          "message": "popeye cannot express option \"discovery\" (tools); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-include": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "Bash"
+            },
+            {
+              "harness": "pi",
+              "spelling": "bash"
+            },
+            {
+              "harness": "muse",
+              "spelling": "shell"
+            }
+          ],
+          "hint": "add toolMap.popeye.shell to ~/.config/hcn/config.json or pass native:shell",
+          "message": "popeye cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-include-native": {
+        "argv": [
+          "popeye",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "hi",
+          "--mode",
+          "hcn",
+          "--tools",
+          "read,web_search"
+        ]
+      },
+      "tools-include-empty": {
+        "refusal": {
+          "issue": "invalid-tool-grant",
+          "harness": "popeye",
+          "option": "tools",
+          "supported": [
+            "non-empty tool list (empty include would deny everything)"
+          ],
+          "message": "tool grant for popeye contains an empty entry or a comma; a blank tool flag value grants nothing detectable, and a comma inside one name silently splits the grant; supported: non-empty tool list (empty include would deny everything) - provide comma-free, non-empty tool names as separate entries"
+        }
+      },
+      "tools-exclude": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "excludeTools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "Bash"
+            },
+            {
+              "harness": "pi",
+              "spelling": "bash"
+            },
+            {
+              "harness": "muse",
+              "spelling": "shell"
+            }
+          ],
+          "hint": "add toolMap.popeye.shell to ~/.config/hcn/config.json or pass native:shell",
+          "message": "popeye cannot express option \"excludeTools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-exclude-native": {
+        "refusal": {
+          "issue": "unknown-tool-name",
+          "harness": "popeye",
+          "option": "excludeTools",
+          "supported": [
+            "known tool names: read, grep, glob, list, web-fetch, web-search"
+          ],
+          "message": "popeye cannot compute a tool complement around an unknown name (cannot exclude unknown name(s) web_search: the complement cannot be computed); supported: known tool names: read, grep, glob, list, web-fetch, web-search - exclude only curated names, or pass the unknown name through an include list instead"
+        }
+      },
+      "tools-both": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "popeye",
+          "option": "tools",
+          "supported": [
+            "--tools (exact allowlist) or --exclude-tools (complement), never both"
+          ],
+          "message": "popeye cannot combine option \"tools\" (mutual exclusion); supported: --tools (exact allowlist) or --exclude-tools (complement), never both - pass exactly one of them"
+        }
+      },
+      "tools-via-toolmap": {
+        "argv": [
+          "popeye",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "hi",
+          "--mode",
+          "hcn",
+          "--tools",
+          "web-search"
+        ]
+      },
+      "tools-unknown-name": {
+        "refusal": {
+          "issue": "unknown-tool-name",
+          "harness": "popeye",
+          "option": "tools",
+          "supported": [
+            "edit",
+            "glob",
+            "grep",
+            "list",
+            "read",
+            "shell",
+            "skill",
+            "subagent",
+            "web-fetch",
+            "web-search",
+            "write"
+          ],
+          "hint": "use native:<name> for an extension or MCP tool",
+          "message": "popeye cannot compute a tool complement around an unknown name (unknown tool name(s) frobnicate); supported: edit, glob, grep, list, read, shell, skill, subagent, web-fetch, web-search, write - exclude only curated names, or pass the unknown name through an include list instead"
+        }
+      },
+      "skills-pick": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "skills",
+          "supported": [
+            "caller-directed skill sets"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "skillOverrides"
+            },
+            {
+              "harness": "codex",
+              "spelling": "-c skills.config"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--skill"
+            }
+          ],
+          "hint": "popeye --skills takes plugin names, not registry paths; pass the plugin names directly on the popeye argv instead of an HCN skills selection",
+          "message": "popeye cannot express option \"skills\"; supported: caller-directed skill sets - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "autonomy": {
+        "refusal": {
+          "issue": "no-autonomy-mode",
+          "harness": "popeye",
+          "supported": [
+            "claude --dangerously-skip-permissions",
+            "codex --yolo",
+            "muse --yolo",
+            "cursor --force",
+            "antigravity --dangerously-skip-permissions"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--dangerously-skip-permissions"
+            },
+            {
+              "harness": "codex",
+              "spelling": "--yolo"
+            },
+            {
+              "harness": "muse",
+              "spelling": "--yolo"
+            },
+            {
+              "harness": "cursor",
+              "spelling": "--force"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--dangerously-skip-permissions"
+            }
+          ],
+          "hint": "pi has no unattended-run flag; approximate with a per-tool allowlist (--tools read,bash) if you need unattended behavior on pi",
+          "message": "popeye has no unattended-run flag; supported: claude --dangerously-skip-permissions, codex --yolo, muse --yolo, cursor --force, antigravity --dangerously-skip-permissions - drop autonomy or route to a supporting harness"
+        }
+      },
+      "explicit-dash-prompt": {
+        "argv": [
+          "popeye",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "-x",
+          "--mode",
+          "hcn"
+        ]
+      },
+      "implicit-dash-prompt": {
+        "refusal": {
+          "issue": "prompt-flag-injection",
+          "harness": "popeye",
+          "supported": [
+            "prompt must not start with '-'"
+          ],
+          "message": "positional prompt may not start with '-'; it would be parsed as a flag by popeye (it would be parsed as a flag by popeye); supported: prompt must not start with '-' - remove leading '-' or prefix with a space"
         }
       }
     }
@@ -7415,6 +8781,94 @@
           "message": "antigravity cannot combine (both --resume and --resume-last given); supported: --resume or --resume-last, not both (most-recent and a named id are two answers to one question) - pass exactly one of them"
         }
       }
+    },
+    "popeye": {
+      "bare": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "resumeLast",
+          "supported": [
+            "claude --continue",
+            "codex --last",
+            "pi --continue",
+            "cursor --continue",
+            "antigravity --continue"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--continue"
+            },
+            {
+              "harness": "codex",
+              "spelling": "--last"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--continue"
+            },
+            {
+              "harness": "cursor",
+              "spelling": "--continue"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--continue"
+            }
+          ],
+          "hint": "popeye has no most-recent spelling; its flat session dir has no workspace binding, so keep the session id from the identity event and re-enter with --resume <id>",
+          "message": "popeye cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue, cursor --continue, antigravity --continue - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "model": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "resumeLast",
+          "supported": [
+            "claude --continue",
+            "codex --last",
+            "pi --continue",
+            "cursor --continue",
+            "antigravity --continue"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--continue"
+            },
+            {
+              "harness": "codex",
+              "spelling": "--last"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--continue"
+            },
+            {
+              "harness": "cursor",
+              "spelling": "--continue"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--continue"
+            }
+          ],
+          "hint": "popeye has no most-recent spelling; its flat session dir has no workspace binding, so keep the session id from the identity event and re-enter with --resume <id>",
+          "message": "popeye cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue, cursor --continue, antigravity --continue - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "id-and-last-refuse": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "popeye",
+          "supported": [
+            "--resume or --resume-last, not both (most-recent and a named id are two answers to one question)"
+          ],
+          "message": "popeye cannot combine (both --resume and --resume-last given); supported: --resume or --resume-last, not both (most-recent and a named id are two answers to one question) - pass exactly one of them"
+        }
+      }
     }
   },
   "passthrough": {
@@ -7625,6 +9079,39 @@
           "--native-flag"
         ]
       }
+    },
+    "popeye": {
+      "empty": {
+        "argv": [
+          "popeye",
+          "-p",
+          "hi",
+          "--mode",
+          "hcn"
+        ]
+      },
+      "tail": {
+        "argv": [
+          "popeye",
+          "-p",
+          "hi",
+          "--mode",
+          "hcn",
+          "--native-flag"
+        ]
+      },
+      "tail-resume": {
+        "argv": [
+          "popeye",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "hi",
+          "--mode",
+          "hcn",
+          "--native-flag"
+        ]
+      }
     }
   },
   "session": {
@@ -7760,9 +9247,10 @@
           "supported": [
             "claude",
             "pi",
-            "antigravity"
+            "antigravity",
+            "popeye"
           ],
-          "message": "codex declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
+          "message": "codex declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "model": {
@@ -7772,9 +9260,10 @@
           "supported": [
             "claude",
             "pi",
-            "antigravity"
+            "antigravity",
+            "popeye"
           ],
-          "message": "codex declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
+          "message": "codex declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "effort": {
@@ -7784,9 +9273,10 @@
           "supported": [
             "claude",
             "pi",
-            "antigravity"
+            "antigravity",
+            "popeye"
           ],
-          "message": "codex declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
+          "message": "codex declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "model-effort": {
@@ -7796,9 +9286,10 @@
           "supported": [
             "claude",
             "pi",
-            "antigravity"
+            "antigravity",
+            "popeye"
           ],
-          "message": "codex declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
+          "message": "codex declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "provider": {
@@ -7808,9 +9299,10 @@
           "supported": [
             "claude",
             "pi",
-            "antigravity"
+            "antigravity",
+            "popeye"
           ],
-          "message": "codex declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
+          "message": "codex declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "resume": {
@@ -7820,9 +9312,10 @@
           "supported": [
             "claude",
             "pi",
-            "antigravity"
+            "antigravity",
+            "popeye"
           ],
-          "message": "codex declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
+          "message": "codex declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "bad-id": {
@@ -7832,9 +9325,10 @@
           "supported": [
             "claude",
             "pi",
-            "antigravity"
+            "antigravity",
+            "popeye"
           ],
-          "message": "codex declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
+          "message": "codex declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       }
     },
@@ -7922,9 +9416,10 @@
           "supported": [
             "claude",
             "pi",
-            "antigravity"
+            "antigravity",
+            "popeye"
           ],
-          "message": "muse declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
+          "message": "muse declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "model": {
@@ -7934,9 +9429,10 @@
           "supported": [
             "claude",
             "pi",
-            "antigravity"
+            "antigravity",
+            "popeye"
           ],
-          "message": "muse declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
+          "message": "muse declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "effort": {
@@ -7946,9 +9442,10 @@
           "supported": [
             "claude",
             "pi",
-            "antigravity"
+            "antigravity",
+            "popeye"
           ],
-          "message": "muse declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
+          "message": "muse declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "model-effort": {
@@ -7958,9 +9455,10 @@
           "supported": [
             "claude",
             "pi",
-            "antigravity"
+            "antigravity",
+            "popeye"
           ],
-          "message": "muse declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
+          "message": "muse declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "provider": {
@@ -7970,9 +9468,10 @@
           "supported": [
             "claude",
             "pi",
-            "antigravity"
+            "antigravity",
+            "popeye"
           ],
-          "message": "muse declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
+          "message": "muse declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "resume": {
@@ -7982,9 +9481,10 @@
           "supported": [
             "claude",
             "pi",
-            "antigravity"
+            "antigravity",
+            "popeye"
           ],
-          "message": "muse declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
+          "message": "muse declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "bad-id": {
@@ -7994,9 +9494,10 @@
           "supported": [
             "claude",
             "pi",
-            "antigravity"
+            "antigravity",
+            "popeye"
           ],
-          "message": "muse declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
+          "message": "muse declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       }
     },
@@ -8008,9 +9509,10 @@
           "supported": [
             "claude",
             "pi",
-            "antigravity"
+            "antigravity",
+            "popeye"
           ],
-          "message": "cursor declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
+          "message": "cursor declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "model": {
@@ -8020,9 +9522,10 @@
           "supported": [
             "claude",
             "pi",
-            "antigravity"
+            "antigravity",
+            "popeye"
           ],
-          "message": "cursor declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
+          "message": "cursor declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "effort": {
@@ -8032,9 +9535,10 @@
           "supported": [
             "claude",
             "pi",
-            "antigravity"
+            "antigravity",
+            "popeye"
           ],
-          "message": "cursor declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
+          "message": "cursor declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "model-effort": {
@@ -8044,9 +9548,10 @@
           "supported": [
             "claude",
             "pi",
-            "antigravity"
+            "antigravity",
+            "popeye"
           ],
-          "message": "cursor declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
+          "message": "cursor declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "provider": {
@@ -8056,9 +9561,10 @@
           "supported": [
             "claude",
             "pi",
-            "antigravity"
+            "antigravity",
+            "popeye"
           ],
-          "message": "cursor declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
+          "message": "cursor declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "resume": {
@@ -8068,9 +9574,10 @@
           "supported": [
             "claude",
             "pi",
-            "antigravity"
+            "antigravity",
+            "popeye"
           ],
-          "message": "cursor declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
+          "message": "cursor declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "bad-id": {
@@ -8080,9 +9587,10 @@
           "supported": [
             "claude",
             "pi",
-            "antigravity"
+            "antigravity",
+            "popeye"
           ],
-          "message": "cursor declares no persistent headless session mode; supported: claude, pi, antigravity - use hcn run --resume <id>"
+          "message": "cursor declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       }
     },
@@ -8168,6 +9676,90 @@
             "a session id of letters, digits, '.', '_', ':', '@', '-' only, starting with a letter or digit, at most 128 chars"
           ],
           "message": "antigravity cannot resume session id \"../etc\" is not a usable id: must match /^[A-Za-z0-9][A-Za-z0-9._:@-]*$/ and be at most 128 chars"
+        }
+      }
+    },
+    "popeye": {
+      "fresh": {
+        "argv": [
+          "popeye",
+          "-p",
+          "--mode",
+          "rpc"
+        ]
+      },
+      "model": {
+        "argv": [
+          "popeye",
+          "-p",
+          "--mode",
+          "rpc",
+          "--model",
+          "fake-model"
+        ]
+      },
+      "effort": {
+        "argv": [
+          "popeye",
+          "-p",
+          "--mode",
+          "rpc",
+          "--effort",
+          "high"
+        ]
+      },
+      "model-effort": {
+        "argv": [
+          "popeye",
+          "-p",
+          "--mode",
+          "rpc",
+          "--model",
+          "fake-model",
+          "--effort",
+          "high"
+        ]
+      },
+      "provider": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "provider",
+          "supported": [
+            "effort",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "contextWindow",
+            "access",
+            "memory"
+          ],
+          "supportedBy": [
+            {
+              "harness": "pi",
+              "spelling": "--provider"
+            }
+          ],
+          "message": "popeye cannot express option \"provider\" (zai); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "resume": {
+        "argv": [
+          "popeye",
+          "-p",
+          "--mode",
+          "rpc",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666"
+        ]
+      },
+      "bad-id": {
+        "refusal": {
+          "issue": "invalid-option-value",
+          "harness": "popeye",
+          "supported": [
+            "a session id of letters, digits, '.', '_', ':', '@', '-' only, starting with a letter or digit, at most 128 chars"
+          ],
+          "message": "popeye cannot resume session id \"../etc\" is not a usable id: must match /^[A-Za-z0-9][A-Za-z0-9._:@-]*$/ and be at most 128 chars"
         }
       }
     }
@@ -13350,6 +14942,913 @@
             },
             {
               "key": "tools",
+              "tier": "profile"
+            }
+          ]
+        }
+      }
+    },
+    "popeye": {
+      "bare": {
+        "resolved": {
+          "options": {
+            "effort": "medium",
+            "contextWindow": 272000,
+            "memory": false
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "profile"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "value": "none (a tools list would drop extension and MCP tools; harness default applies)",
+              "tier": "profile"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "access-read": {
+        "resolved": {
+          "options": {
+            "access": "read",
+            "effort": "medium",
+            "contextWindow": 272000,
+            "memory": false
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "profile"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "value": "none (access preset)",
+              "tier": "arg"
+            },
+            {
+              "key": "access",
+              "value": "read",
+              "tier": "arg"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "access-read-explicit-sandbox": {
+        "resolved": {
+          "options": {
+            "access": "read",
+            "sandbox": "read-only",
+            "effort": "medium",
+            "contextWindow": 272000,
+            "memory": false
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "read-only",
+              "tier": "arg"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "profile"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "value": "none (access preset)",
+              "tier": "arg"
+            },
+            {
+              "key": "access",
+              "value": "read",
+              "tier": "arg"
+            }
+          ],
+          "unrenderable": []
+        }
+      },
+      "access-read-config-sandbox": {
+        "resolved": {
+          "options": {
+            "access": "read",
+            "effort": "medium",
+            "sandbox": "read-only",
+            "contextWindow": 272000,
+            "memory": false
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "read-only",
+              "tier": "user-config"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "profile"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "value": "none (access preset)",
+              "tier": "arg"
+            },
+            {
+              "key": "access",
+              "value": "read",
+              "tier": "arg"
+            }
+          ],
+          "unrenderable": []
+        }
+      },
+      "access-and-tools": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "popeye",
+          "option": "access",
+          "supported": [
+            "--access is a preset allowlist, not a filter over --tools/--exclude-tools"
+          ],
+          "message": "popeye cannot combine option \"access\" (mutual exclusion); supported: --access is a preset allowlist, not a filter over --tools/--exclude-tools - pass exactly one of them"
+        }
+      },
+      "access-from-project": {
+        "resolved": {
+          "options": {
+            "effort": "medium",
+            "contextWindow": 272000,
+            "memory": false,
+            "access": "read"
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "profile"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "value": "none (a tools list would drop extension and MCP tools; harness default applies)",
+              "tier": "profile"
+            },
+            {
+              "key": "access",
+              "value": "read",
+              "tier": "project-config"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "access-invalid": {
+        "refusal": {
+          "issue": "invalid-option-value",
+          "harness": "popeye",
+          "option": "access",
+          "supported": [
+            "read",
+            "write"
+          ],
+          "message": "invalid value for option \"access\" on popeye (rw); supported: read, write - use a supported value instead"
+        }
+      },
+      "tools-within-floor": {
+        "resolved": {
+          "options": {
+            "tools": [
+              "read"
+            ],
+            "effort": "medium",
+            "contextWindow": 272000,
+            "memory": false
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "profile"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "value": [
+                "read"
+              ],
+              "tier": "arg"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "tools-exceeds-floor": {
+        "refusal": {
+          "name": "FloorExceededError",
+          "excess": [
+            "shell"
+          ],
+          "floor": [
+            "read"
+          ],
+          "message": "tool grant exceeds the project floor: [\"shell\"] not in floor [\"read\"] - request a grant within the floor or raise the floor in the project config"
+        }
+      },
+      "tools-empty-floor": {
+        "refusal": {
+          "name": "FloorExceededError",
+          "excess": [
+            "read"
+          ],
+          "floor": [],
+          "message": "tool grant exceeds the project floor: [\"read\"] not in floor [] - request a grant within the floor or raise the floor in the project config"
+        }
+      },
+      "toolset": {
+        "resolved": {
+          "options": {
+            "tools": [
+              "read",
+              "grep"
+            ],
+            "effort": "medium",
+            "contextWindow": 272000,
+            "memory": false
+          },
+          "provenance": [
+            {
+              "key": "tools",
+              "value": [
+                "read",
+                "grep"
+              ],
+              "tier": "arg"
+            },
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "profile"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "value": [
+                "read",
+                "grep"
+              ],
+              "tier": "arg"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "toolmap-tiers": {
+        "resolved": {
+          "options": {
+            "toolMap": {
+              "pi": {
+                "web-search": {
+                  "native": "ws_project",
+                  "tier": "project-config"
+                }
+              }
+            },
+            "effort": "medium",
+            "contextWindow": 272000,
+            "memory": false
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "profile"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "value": "none (a tools list would drop extension and MCP tools; harness default applies)",
+              "tier": "profile"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "discovery-tools-off": {
+        "resolved": {
+          "options": {
+            "discovery": {
+              "tools": false
+            },
+            "effort": "medium",
+            "contextWindow": 272000,
+            "memory": false
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "profile"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": false
+              },
+              "tier": "arg"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "value": "none (discovery.tools off)",
+              "tier": "arg"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "effort-tiers": {
+        "resolved": {
+          "options": {
+            "effort": "low",
+            "contextWindow": 272000,
+            "memory": false
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "low",
+              "tier": "project-config"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "profile"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "value": "none (a tools list would drop extension and MCP tools; harness default applies)",
+              "tier": "profile"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "effort-arg-wins": {
+        "resolved": {
+          "options": {
+            "effort": "max",
+            "contextWindow": 272000,
+            "memory": false
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "max",
+              "tier": "arg"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "profile"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "value": "none (a tools list would drop extension and MCP tools; harness default applies)",
+              "tier": "profile"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "behaviour-keys": {
+        "resolved": {
+          "options": {
+            "effort": "medium",
+            "contextWindow": 272000,
+            "memory": false,
+            "questions": "assume",
+            "timeout": 30
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "profile"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "value": "none (a tools list would drop extension and MCP tools; harness default applies)",
+              "tier": "profile"
+            },
+            {
+              "key": "questions",
+              "value": "assume",
+              "tier": "user-config"
+            },
+            {
+              "key": "timeout",
+              "value": 30,
+              "tier": "user-config"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "sandbox",
               "tier": "profile"
             }
           ]

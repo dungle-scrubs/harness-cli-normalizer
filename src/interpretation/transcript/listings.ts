@@ -499,6 +499,39 @@ const antigravityListing: TranscriptListing = {
   },
 };
 
+/**
+ * Popeye files one flat `<sessionId>.jsonl` per session. Every line is a
+ * `{"payload":...,"v":1}` envelope; line 1 carries the journal header
+ * with the session id. No cwd, no timestamps anywhere in the file.
+ */
+const popeyeListing: TranscriptListing = {
+  directories: [""],
+  prune: NO_PRUNE,
+  index: null,
+  candidate(path) {
+    const name = basename(path);
+    if (!name.endsWith(".jsonl")) return null;
+    return { id: "", file: path, readable: true, read: { path, bytes: LISTING_PREFIX_BYTES } };
+  },
+  session(candidate, markers) {
+    const [first] = prefixEntries(markers.bytes);
+    if (!first) return markers.final ? SKIP : TRUNCATED;
+    const header = object(first.payload);
+    const id = string(header?.sessionId);
+    if (header?.type !== "journal_header" || !id) return SKIP;
+    if (basename(candidate.file) !== `${id}.jsonl`) return SKIP;
+    return found({
+      id,
+      file: candidate.file,
+      cwd: null,
+      lastWriteAt: markers.lastWriteAt,
+      startedAt: null,
+      mode: "unknown",
+      readable: candidate.readable,
+    });
+  },
+};
+
 const LISTINGS: Readonly<Record<HarnessName, TranscriptListing>> = {
   antigravity: antigravityListing,
   claude: claudeListing,
@@ -506,9 +539,11 @@ const LISTINGS: Readonly<Record<HarnessName, TranscriptListing>> = {
   cursor: cursorListing,
   muse: museListing,
   pi: piListing,
+  popeye: popeyeListing,
 };
 
-/** The listing one harness contributes, or null where it has none. */
-export function listingForHarness(harness: HarnessName): TranscriptListing | null {
+/** The listing one harness contributes, or null where it has none. */ export function listingForHarness(
+  harness: HarnessName,
+): TranscriptListing | null {
   return LISTINGS[harness] ?? null;
 }

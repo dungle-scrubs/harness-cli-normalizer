@@ -29,3 +29,4 @@ export {
   parseOverrides,
 } from "./overrides.js";
 export { piCli } from "./pi.js";
+export { popeyeCli } from "./popeye.js";

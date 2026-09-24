@@ -49,7 +49,11 @@ export const slugFor = (h: HarnessDescriptor, cwd: string): string => {
 export const storePath = (h: HarnessDescriptor, inputs: StorePathInputs): string => {
   assertUsableSessionId(inputs.sessionId);
   const root =
-    inputs.root ?? h.store.defaultRoot?.replaceAll("{home}", () => inputs.home) ?? inputs.home;
+    inputs.root ??
+    h.store.defaultRoot
+      ?.replaceAll("{home}", () => inputs.home)
+      .replaceAll("{cwd}", () => inputs.cwd) ??
+    inputs.home;
   return h.store.template
     .replaceAll("{home}", () => inputs.home)
     .replaceAll("{root}", () => root)

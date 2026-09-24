@@ -29,6 +29,11 @@ import {
   PI_TRANSCRIPT_EVIDENCE,
   PI_TRANSCRIPT_METHOD,
 } from "../../knowledge/transcript/pi.js";
+import {
+  POPEYE_TRANSCRIPT,
+  POPEYE_TRANSCRIPT_EVIDENCE,
+  POPEYE_TRANSCRIPT_METHOD,
+} from "../../knowledge/transcript/popeye.js";
 import type { Build, Evidence } from "../../knowledge/transcript/schema.js";
 import { TRANSCRIPT_SNAPSHOT } from "../../knowledge/transcript/snapshot.js";
 import type {
@@ -62,6 +67,7 @@ import { object, string } from "./json.js";
 import { normalizeMuse, parseMuseHistory } from "./muse.js";
 import type { NativeBase, NativeEntry, NativeHistory } from "./native.js";
 import { normalizePi, parsePiHistory, piBranch } from "./pi.js";
+import { normalizePopeye, parsePopeyeHistory, popeyeBranch } from "./popeye.js";
 
 export interface TranscriptReader {
   readonly consistency: "append-only" | "snapshot";
@@ -198,6 +204,23 @@ export function readerForMethod(method: Method): TranscriptReader | null {
       nativeId: (history) => string(history.identityRecord.id) ?? "",
       normalize: normalizePi,
       parse: parsePiHistory,
+    };
+  }
+  if (method.id === POPEYE_TRANSCRIPT_METHOD.id) {
+    return {
+      ...methodRules(POPEYE_TRANSCRIPT, method),
+      consistency: "append-only",
+      branch: popeyeBranch,
+      lookup: {
+        directories: [""],
+        recursive: false,
+        matches: (name, id) => name.split("/").at(-1) === `${id}.jsonl`,
+      },
+      historicalLoss: { state: "unknown", details: [], evidence: [] },
+      evidence: POPEYE_TRANSCRIPT_EVIDENCE,
+      nativeId: (history) => string(history.identityRecord.sessionId) ?? "",
+      normalize: normalizePopeye,
+      parse: parsePopeyeHistory,
     };
   }
   if (method.id === CODEX_TRANSCRIPT_METHOD.id) {

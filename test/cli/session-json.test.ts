@@ -170,6 +170,101 @@ describe("T03: sends during a turn are handed to the harness; the next turn carr
     expect(turns[0]).toMatchObject({ id: "in-1" });
     expect(turns[1]).toMatchObject({ id: "in-2" });
   });
+
+  test("a Pi steer reports its disposition only after the native command settles", async () => {
+    const proc = new FakeProcess();
+    const spawner = fakeSpawner([proc]);
+    const closeInfo = { exitCode: null as number | null, cause: "clean" };
+    const handle = openSession(
+      piCli,
+      { sessionId: sid },
+      {
+        spawn: spawner.spawn,
+        clock: new FakeClock(),
+        signal: fakeSignal().signal,
+        log: (event: Record<string, unknown>) => {
+          if (event.event === "session_close") {
+            closeInfo.exitCode = (event.exitCode as number | null) ?? null;
+            closeInfo.cause = (event.cause as string) ?? "clean";
+          }
+        },
+      },
+    );
+    const input = new PassThrough();
+    const out: string[] = [];
+    const done = runJsonSession({
+      handle,
+      sessionId: sid,
+      harness: "pi",
+      hcnVersion: "9.9.9",
+      questions: "ask",
+      origin: "fresh",
+      getCloseInfo: () => closeInfo,
+      input,
+      write: (line) => {
+        out.push(line);
+        return true;
+      },
+      onDrain: (fn) => fn(),
+    });
+    const events = () =>
+      out
+        .join("")
+        .trim()
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => JSON.parse(line) as Record<string, unknown>);
+
+    input.write(`${JSON.stringify({ op: "send", id: "in-1", text: "first" })}\n`);
+    await tick();
+    const firstPrompt = JSON.parse(proc.stdinLines[1] ?? "null") as Record<string, unknown>;
+    proc.emitLine(
+      JSON.stringify({
+        command: "prompt",
+        id: firstPrompt.id,
+        success: true,
+        type: "response",
+      }),
+    );
+    await tick();
+    expect(
+      events().find((event) => event.id === "in-1" && event.kind === "disposition"),
+    ).toMatchObject({
+      disposition: "started",
+      kind: "disposition",
+    });
+
+    input.write(`${JSON.stringify({ op: "send", id: "in-2", text: "steer now" })}\n`);
+    await tick();
+    const steer = JSON.parse(proc.stdinLines[2] ?? "null") as Record<string, unknown>;
+    expect(steer).toMatchObject({ streamingBehavior: "steer", type: "prompt" });
+    expect(events().some((event) => event.id === "in-2" && event.kind === "disposition")).toBe(
+      false,
+    );
+
+    proc.emitLine(
+      JSON.stringify({
+        command: "prompt",
+        error: "native refusal",
+        id: steer.id,
+        success: false,
+        type: "response",
+      }),
+    );
+    await tick();
+    expect(
+      events().find((event) => event.id === "in-2" && event.kind === "disposition"),
+    ).toMatchObject({
+      disposition: "rejected",
+      kind: "disposition",
+      reason: "native-rejected",
+    });
+
+    proc.emitLine(JSON.stringify({ type: "agent_settled" }));
+    await tick();
+    input.end();
+    await done;
+  });
 });
 
 describe("T07: write-failed is distinct from closed", () => {
