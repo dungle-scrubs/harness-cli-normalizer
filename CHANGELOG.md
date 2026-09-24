@@ -5,6 +5,43 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.25...v0.7.0) (2026-09-24)
+
+
+### ⚠ BREAKING CHANGES
+
+* **events:** retire the reserved context event ([#252](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/252))
+
+### Added
+
+* **cli:** crash tier, structured dispatch failures, durable command ledger ([#273](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/273)) ([67f57d7](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/67f57d73df8b64794144799497d4e11bd965839e))
+* **events:** report antigravity compaction as a compaction event ([#260](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/260)) ([ee82f15](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/ee82f153b40638a60944333cbd15845b193d705d))
+* **events:** report claude compaction as a lossless compaction event ([#250](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/250)) ([fd33455](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/fd334559cea00d3cd5f0eaee0f406ecc57448e97))
+* **events:** report muse compaction from the MSP view ([#261](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/261)) ([62d746f](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/62d746fe97b598723e78c9c6d388f9b0af3c2373))
+* **events:** report pi compaction as compaction events ([#259](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/259)) ([9e11697](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/9e11697dd25d8cb2119fafd6a4ee3f08a667868a))
+* **knowledge:** popeye descriptor entry (RFC-02 P5) ([#271](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/271)) ([c152db9](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/c152db99b6584c6befd5b08c6a3dd9afb365709c))
+* **knowledge:** report compaction support on the descriptor and identity ([#262](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/262)) ([c322cd3](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/c322cd35ae11ca36ac146a208246b8ec43664c57))
+
+
+### Fixed
+
+* **docs:** pi send dispositions wait on native response; native-rejected reason ([#272](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/272)) ([4915362](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/491536288d3b4b0a78744822a791153859d374d2))
+* re-verify four descriptors against the compaction probes ([#256](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/256)) ([f3317e4](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/f3317e43ee49590c70a22c85150cc9f8f7aa179c))
+* redact operator agent configuration from committed fixtures ([#248](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/248)) ([e4a0762](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/e4a0762c633075a830afb145a9d94c01bf6a66db))
+* **scripts:** derive the harness column width in check:versions ([#258](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/258)) ([0bc5b9a](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/0bc5b9a992ddcce1ff951521f9c0c44246d8a29c))
+
+
+### Changed
+
+* **approvals:** stop the watchdog racing a loaded CI runner ([#254](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/254)) ([8675335](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/8675335ac2ab661daea338bdff90782b27f6504b))
+* close out the compaction map on the roadmap ([#263](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/263)) ([45cfec4](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/45cfec451762b297d6b15d56f3609a8c5399d0de))
+* design the compaction-status event and record it as ADR 0009 ([#237](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/237)) ([c2d61c4](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/c2d61c49a5f008029880dfe9bc8ce9828ecc6dfe))
+* **events:** retire the reserved context event ([#252](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/252)) ([8abcd3b](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/8abcd3b97b118b6f01c516709ba94fe2dbb5b6ff))
+* land the six compaction research findings under docs/research ([#247](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/247)) ([5982258](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/5982258a21a40fc73733c7c24c6970f8f53d04d4))
+* raise the per-test timeout in both lanes ([#257](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/257)) ([29b6ff6](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/29b6ff61b7fa8b4a00ce74f8b8324fc522670cae))
+* record [#242](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/242) shipped on the roadmap ([#255](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/255)) ([9407c55](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/9407c5579123696837cc7c736c79c0b74e6bf886))
+* record the shipped compaction tickets on the roadmap ([#251](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/251)) ([797b1d2](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/797b1d24a94a0529986388fb3fa1bca76179318b))
+
 ## [0.6.25](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.6.24...v0.6.25) (2026-09-20)
 
 
