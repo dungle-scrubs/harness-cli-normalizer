@@ -132,17 +132,18 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
   autonomy: { flag: "--dangerously-skip-permissions" },
   vocabulary: {
     modelFlag: "--model",
-    // https://platform.claude.com/docs/en/models/fable-5-1/overview
+    // https://platform.claude.com/docs/en/models/opus-5-5/overview
     models: [
       "claude-fable-5-1",
       "claude-fable-5",
+      "claude-opus-5-5",
       "claude-opus-5",
       "claude-sonnet-5",
       "claude-haiku-4-5-20251001",
     ],
     aliases: {
       fable: "claude-fable-5-1",
-      opus: "claude-opus-5",
+      opus: "claude-opus-5-5",
       sonnet: "claude-sonnet-5",
       haiku: "claude-haiku-4-5-20251001",
     },
