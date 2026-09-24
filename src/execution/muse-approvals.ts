@@ -9,6 +9,13 @@ const POLL_MS = 1_000;
  * counts as unobservable. A slow start (parallel fan-out) is an
  * infrastructure wobble, not a verdict - give it room before failing. */
 const HELPER_START_MS = 30_000;
+/** Hardening after the 2026-09-24 live incident: a `muse serve` helper
+ * hung mid-startup and never answered `initialize`, and the fail-closed
+ * at the first budget ended a healthy turn. One replacement helper gets
+ * its own start budget; only when it also fails the start phase does the
+ * pending set count as unobservable. Counted per start attempt, so the
+ * worst unobservable window doubles while a live turn keeps running. */
+const HELPER_START_ATTEMPTS = 2;
 /** Budget for one poll reply once the helper is up. An unanswered poll is
  * one unreadable sample, not a verdict (H1). */
 const POLL_RESPONSE_MS = 10_000;
@@ -93,13 +100,6 @@ export function watchMuseApprovals(
    * is what every caller predating it gets. */
   compaction?: (found: MuseCompaction) => void,
 ): MuseApprovalObserver {
-  let proc: SpawnedProcess;
-  try {
-    proc = deps.spawn([bin, "serve"], { ...options, stdin: "pipe" });
-  } catch {
-    unavailable();
-    return { close: async () => {} };
-  }
   let closed = false;
   let reported = false;
   let exited = false;
@@ -107,6 +107,13 @@ export function watchMuseApprovals(
   let requestId = 0;
   let initialized = false;
   let unreadableStreak = 0;
+  let startAttempts = 0;
+  let proc: SpawnedProcess;
+  const helpers: Array<{
+    readonly drained: Promise<void>;
+    readonly proc: SpawnedProcess;
+    readonly terminate: () => void;
+  }> = [];
   // ---- #241: the MSP view fold. -------------------------------------
   // It rides the same helper but NOT the same request channel. The
   // approval poll's cadence and its consecutive-poll counting are the
@@ -131,7 +138,6 @@ export function watchMuseApprovals(
   /** One compaction reports once, across repeated or overlapping pages. */
   const reportedCompactions = new Set<string>();
   let cleanup: Promise<void> | null = null;
-  const termination = superviseTermination(deps.clock, (sig) => deps.signal(proc, sig));
   const clearTimer = (): void => {
     if (timer !== null) deps.clock.clearTimeout(timer);
     timer = null;
@@ -200,12 +206,101 @@ export function watchMuseApprovals(
     timer = null;
     if (closed || reported) return;
     if (!initialized) {
-      // M1: the helper never became ready within the start budget.
-      reported = true;
-      unavailable();
+      startAttemptFailed();
       return;
     }
     unreadable();
+  };
+  const startAttemptFailed = (): void => {
+    if (closed || reported) return;
+    clearTimer();
+    clearViewTimer();
+    viewInFlight = null;
+    unreadableStreak = 0;
+    if (startAttempts < HELPER_START_ATTEMPTS) {
+      const retired = helpers[helpers.length - 1];
+      if (retired !== undefined) {
+        retired.terminate();
+        retired.proc.disposeOutput();
+      }
+      if (!spawnHelper()) {
+        reported = true;
+        unavailable();
+        return;
+      }
+      init();
+      return;
+    }
+    reported = true;
+    unavailable();
+  };
+  const spawnHelper = (): boolean => {
+    let spawned: SpawnedProcess;
+    try {
+      spawned = deps.spawn([bin, "serve"], { ...options, stdin: "pipe" });
+    } catch {
+      return false;
+    }
+    startAttempts += 1;
+    proc = spawned;
+    exited = false;
+    const termination = superviseTermination(deps.clock, (sig) => deps.signal(spawned, sig));
+    const gone = (fromExit: boolean): void => {
+      if (proc !== spawned) return;
+      if (fromExit) {
+        exited = true;
+        termination.settle();
+      }
+      if (closed || reported) return;
+      if (!initialized) {
+        startAttemptFailed();
+        return;
+      }
+      failClosed();
+    };
+    const stdout = (async (): Promise<void> => {
+      // H1: this channel decodes the full pending set (rawArgs included), so
+      // it carries its own multi-MB limit. An oversized frame is one
+      // unreadable sample: skipped, never a verdict on its own.
+      const lines = new LineBuffer(OBSERVER_LINE_MAX, unreadable);
+      try {
+        for await (const chunk of spawned.stdout) {
+          for (const line of lines.push(chunk)) receive(line);
+        }
+        const tail = lines.flush();
+        if (tail !== null) receive(tail);
+        gone(false);
+      } catch {
+        gone(false);
+      }
+    })();
+    const stderr = (async (): Promise<void> => {
+      try {
+        // Drain without retaining native diagnostics or approval contents.
+        for await (const _chunk of spawned.stderr) {
+          /* bounded by the pipe */
+        }
+      } catch {
+        /* drain only; exit settles this helper */
+      }
+    })();
+    void spawned.exited.then(() => {
+      gone(true);
+    });
+    if (spawned.inputError) void spawned.inputError.then(() => gone(false));
+    let terminated = false;
+    helpers.push({
+      proc: spawned,
+      terminate: () => {
+        if (terminated) return;
+        terminated = true;
+        termination.escalate();
+      },
+      drained: Promise.all([spawned.exited, stdout, stderr]).then(() => {
+        termination.settle();
+      }),
+    });
+    return true;
   };
   const init = (): void => {
     request(
@@ -435,38 +530,11 @@ export function watchMuseApprovals(
     }
     if (!reported) timer = deps.clock.setTimeout(poll, POLL_MS);
   };
-  const stdout = (async (): Promise<void> => {
-    // H1: this channel decodes the full pending set (rawArgs included), so
-    // it carries its own multi-MB limit. An oversized frame is one
-    // unreadable sample: skipped, never a verdict on its own.
-    const lines = new LineBuffer(OBSERVER_LINE_MAX, unreadable);
-    try {
-      for await (const chunk of proc.stdout) {
-        for (const line of lines.push(chunk)) receive(line);
-      }
-      const tail = lines.flush();
-      if (tail !== null) receive(tail);
-      failClosed();
-    } catch {
-      failClosed();
-    }
-  })();
-  const stderr = (async (): Promise<void> => {
-    try {
-      // Drain without retaining native diagnostics or approval contents.
-      for await (const _chunk of proc.stderr) {
-        /* bounded by the pipe */
-      }
-    } catch {
-      failClosed();
-    }
-  })();
-  void proc.exited.then(() => {
-    exited = true;
-    termination.settle();
-    failClosed();
-  });
-  if (proc.inputError) void proc.inputError.then(failClosed);
+  if (!spawnHelper()) {
+    reported = true;
+    unavailable();
+    return { close: async () => {} };
+  }
   init();
   return {
     close(): Promise<void> {
@@ -474,16 +542,16 @@ export function watchMuseApprovals(
       closed = true;
       clearTimer();
       clearViewTimer();
-      // Terminate the exact helper; its session was never loaded, so no
-      // execution is interrupted. Probed on Muse Code 1.3.0: serve exits
-      // 0 about 4s after stdin EOF with no signal, so even a SIGKILLed hcn
-      // orphans no helper - the pipe EOF does it. The explicit terminate
-      // stays for promptness on the graceful path.
-      if (!exited) termination.escalate();
-      proc.disposeOutput();
+      // Terminate every helper this observer spawned; their sessions were
+      // never loaded, so no execution is interrupted. Probed on Muse Code
+      // 1.3.0: serve exits 0 about 4s after
+      // stdin EOF with no signal, so even a SIGKILLed hcn orphans no
+      // helper - the pipe EOF does it. The explicit terminate stays for
+      // promptness on the graceful path.
+      for (const helper of helpers) helper.terminate();
+      for (const helper of helpers) helper.proc.disposeOutput();
       cleanup = (async () => {
-        await Promise.all([proc.exited, stdout, stderr]);
-        termination.settle();
+        await Promise.all(helpers.map((helper) => helper.drained));
       })();
       return cleanup;
     },
