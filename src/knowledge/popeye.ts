@@ -137,8 +137,10 @@ export const popeyeCli: HarnessDescriptor = deepFreeze({
       render: { kind: "flag-list", flags: [] },
     },
   },
-  // No per-skill load flag: --skills filters plugin names at composition.
-  skills: { loadFlag: null, overridesVia: null },
+  // HCN skills picks are registry paths; popeye --skills takes plugin
+  // names at composition, and no path-to-name mapping exists. Refuse like
+  // muse until a comma-list render lands in the vocabulary.
+  skills: null,
   tools: {
     includeFlag: "--tools",
     excludeFlag: "--exclude-tools",
