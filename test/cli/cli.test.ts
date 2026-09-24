@@ -160,6 +160,42 @@ describe("harness-name validation", () => {
     expect(out.exitCode).toBe(2);
   });
 
+  test("dispatch usage errors join the contract: unknown command with --json gets the pair", async () => {
+    const out = await captureDispatch(["frobnicate", "--json"]);
+    expect(out.exitCode).toBe(2);
+    expect(out.stderr).toContain('unknown command "frobnicate"');
+    expect(out.stdout).toContain('"kind":"failure"');
+    expect(out.stdout).toContain('"cause":"failed"');
+    expect(out.stdout).toContain('"class":"rejected"');
+  });
+
+  test("dispatch usage errors without --json stay on stderr only", async () => {
+    const out = await captureDispatch(["frobnicate"]);
+    expect(out.exitCode).toBe(2);
+    expect(out.stdout).toBe("");
+    expect(out.stderr).toContain('unknown command "frobnicate"');
+  });
+
+  test("unknown harness prints the supported list exactly once (no duplicate)", async () => {
+    const out = await captureDispatch(["run", "badharness", "hi"]);
+    expect(out.exitCode).toBe(2);
+    expect(out.stderr.match(/supported:/g)).toHaveLength(1);
+  });
+
+  test("unknown harness with --json gets the pair, exit 2, no process.exit", async () => {
+    const out = await captureDispatch(["run", "badharness", "--json"]);
+    expect(out.exitCode).toBe(2);
+    expect(out.stderr.match(/supported:/g)).toHaveLength(1);
+    expect(out.stdout).toContain('"kind":"failure"');
+  });
+
+  test("missing harness with --json gets the pair", async () => {
+    const out = await captureDispatch(["run", "--json"]);
+    expect(out.exitCode).toBe(2);
+    expect(out.stdout).toContain('"kind":"failure"');
+    expect(out.stderr).toContain("run requires <harness>");
+  });
+
   test("session on a harness without sessionMode exits 2 naming the supported set", async () => {
     const out = await captureDispatch(["session", "codex"]);
     expect(out.exitCode).toBe(2);

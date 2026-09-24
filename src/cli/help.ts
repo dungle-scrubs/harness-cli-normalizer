@@ -1,4 +1,4 @@
-export const TOP_LEVEL_HELP = `hcn - One stable interface to six coding-agent CLIs
+export const TOP_LEVEL_HELP = `hcn - One stable interface to seven coding-agent CLIs
 
 Usage: hcn <command> [options] [prompt]
 
@@ -15,6 +15,11 @@ Commands:
 Options:
   -h, --help                Show help
   -V, --version             Show version
+
+Exit codes: 0 ok, 1 failure (harness or transport), 2 usage error or
+refusal, 4 hcn internal crash (bug; a --json stream gets the failure/done
+pair with cause crash). The durable command ledger records every
+invocation start and end under the hcn state directory.
 
 Run 'hcn <command> --help' for command-specific help.
 `;
@@ -42,7 +47,8 @@ Launcher wrappers, claude-cli, pi-cli, muse-cli and codex-desktop are unavailabl
 until their separate strict native launch paths are verified.
 
 Exit: native terminal exit code on closed; 2 for pre-start refusal; 1 for
-uncertain launch or a signal exit. Exit code alone is not no-child evidence.
+uncertain launch or a signal exit; 4 for an hcn internal crash.
+Exit code alone is not no-child evidence.
 `;
 
 export const RUN_HELP = `hcn run - One-shot headless turn
@@ -185,7 +191,8 @@ Options:
                             native command response before reporting acceptance.
                             The turn that consumes a send carries its id. The
                             stream opens with a session event and ends with a
-                            closed event. Exit 0 clean, 1 otherwise, 2 refusal.
+                            closed event. Exit 0 clean, 1 otherwise, 2 refusal,
+                            4 hcn internal crash (failure/closed pair, cause crash).
   --stall <seconds>         Per-turn inactivity budget; the turn ends and the
                             session closes reporting a stall. 0 disables
                             (default: no limit)
@@ -261,7 +268,8 @@ Options:
                             Zero retains 30 seconds. Cleanup is bounded separately.
                             Startup hooks may run. Interruption exits 1 after cleanup.
                             Invalid requests exit 2 with the standard JSON failure/done
-                            pair when --json is set.
+                            pair when --json is set. An hcn internal crash exits 4
+                            with the same pair (cause crash).
   --capabilities            Print the capability record (vision, images,
                             streaming, session, source) as one JSON line
   --models                  Print installed pi provider/model pairs from

@@ -6,10 +6,19 @@
  * lanes), never during a run, so parallel workers cannot rm -rf a dist/
  * another test is executing.
  */
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect } from "vitest";
+
+// The built CLI this helper points tests at writes the durable command
+// ledger on every invocation. Keep those appends out of the operator's
+// real state directory: default the spawned processes' HCN_STATE_DIR to a
+// per-run temp directory (spawned CLIs inherit the environment). Every
+// dist-spawning test file imports this module, in both the vitest and bun
+// lanes.
+process.env.HCN_STATE_DIR ||= mkdtempSync(join(tmpdir(), "hcn-test-state-"));
 
 export const ensureDist = (): string => {
   const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
