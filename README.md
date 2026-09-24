@@ -265,13 +265,15 @@ stdin carries one command per line (blank lines are ignored):
 ```
 
 - Every well-formed `send`/`answer` gets exactly one `disposition` event,
-  in command order. `started`: the text was written to the harness. When
-  no turn was open, a turn opened; when one was, the harness holds the
-  text natively and the next turn consumes it (hcn keeps no queue of its
-  own - ADR 0007). `rejected`: the text was not delivered and will not be.
+  in command order. `started`: the harness accepted the text. Pi waits for
+  its native command response before reporting this disposition. When no
+  turn was open, a turn opened; when one was, the harness holds the text
+  natively and the next turn consumes it (hcn keeps no queue of its own -
+  ADR 0007). `rejected`: the text was not delivered and will not be.
   Rejected reasons: `closed` (session closing or harness dead),
   `no-open-question` (`answer` with no `awaiting-input` turn to answer),
-  `write-failed` (the harness's stdin pipe broke; a `closed` follows).
+  `native-rejected` (Pi refused the command), or `write-failed` (the
+  harness's stdin pipe broke; a `closed` follows).
 - A send's id rides to the turn it opens: correlate by reading `turn.id`,
   not by counting turns.
 - `answer` composes hcn's question-answer preamble
