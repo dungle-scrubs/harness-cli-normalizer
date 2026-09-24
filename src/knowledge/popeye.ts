@@ -160,7 +160,17 @@ export const popeyeCli: HarnessDescriptor = deepFreeze({
     includeFlag: "--tools",
     excludeFlag: "--exclude-tools",
     includeIsStrictAllowlist: true,
-    builtins: [],
+    // Native names from READ_PRESET_TOOL_NAMES (popeye grants.ts);
+    // canonical keys follow the pi vocabulary so cross-harness
+    // refusals name popeye's spelling.
+    builtins: [
+      { name: "read", defaultEnabled: true, canonical: "read" },
+      { name: "grep", defaultEnabled: true, canonical: "grep" },
+      { name: "glob", defaultEnabled: true, canonical: "glob" },
+      { name: "list", defaultEnabled: true, canonical: "list" },
+      { name: "web-fetch", defaultEnabled: true, canonical: "web-fetch" },
+      { name: "web-search", defaultEnabled: true, canonical: "web-search" },
+    ],
     categories: [],
     denySemantics: "remove-from-set",
   },
