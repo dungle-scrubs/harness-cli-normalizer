@@ -10,7 +10,10 @@ export const POPEYE_TRANSCRIPT_EVIDENCE: Evidence = deepFreeze({
     readerBuilds: [],
     scope:
       "Popeye journal v1 flat session files; header plus entry/record lines with session binding. Compatible writers must preserve these semantics.",
-    writerBuilds: [{ buildId: null, version: "0.1.0" }],
+    writerBuilds: [
+      { buildId: null, version: "0.1.0" },
+      { buildId: null, version: "0.1.3" },
+    ],
   },
   reference: null,
   standing: "observed",

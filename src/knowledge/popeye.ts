@@ -1,10 +1,13 @@
 /**
  * The popeye descriptor: facts about the `popeye` CLI as data, verified
- * against popeye 0.1.0 (fixtures in test/fixtures/popeye-0.1.0, fake
- * provider, 2026-09-24). Descriptor entry only (RFC-02 P5):
- * launch, resume, session, and grant surfaces are live-verified below, but
- * content decoding (READERS arm) and transcript mapping are later units,
- * so `transcript` is null and `hcn run` against popeye refuses until then.
+ * against popeye 0.1.3 (live re-verification 2026-09-25: `--version`,
+ * `--help` modes, `-p --mode hcn` event stream, `--model`,
+ * `--context-window`, `--resume` recall, exit codes; fixtures in
+ * test/fixtures/popeye-0.1.3, fake provider). Launch, resume, session,
+ * and grant surfaces are live-verified; transcript reading is exercised
+ * by test/transcript/popeye.test.ts against both fixture sets, and
+ * `hcn run` against popeye works (the RFC-02 P5 descriptor-entry-only
+ * refusal no longer applies).
  */
 import { deepFreeze, type HarnessDescriptor } from "./descriptor.js";
 import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
@@ -14,15 +17,17 @@ export const popeyeCli: HarnessDescriptor = deepFreeze({
   name: "popeye",
   transcript: POPEYE_TRANSCRIPT,
   bin: "popeye",
-  verifiedAgainst: "0.1.0",
+  verifiedAgainst: "0.1.3",
   // No npm package: never distributed via Homebrew or npm per author
-  // policy; the binary is built from source (`--version` reports 0.1.0).
+  // policy; the binary is built from source (`--version` reports 0.1.3).
   versionSource: { kind: "installed" },
   launch: {
     // `-p` headless with a positional prompt. `--mode hcn` emits the HCN
     // event stream (identity/token/message/done); `--mode json` the
     // protocol Progress/Snapshot lines; bare -p prints settled text.
-    // Verified: --version reports 0.1.0; --help lists print/json/rpc/hcn.
+    // Verified on 0.1.3: --version reports 0.1.3; --help lists
+    // print/json/rpc/hcn; the hcn stream and exit codes match the
+    // fixtures (test/fixtures/popeye-0.1.3).
     baseFlags: ["-p"],
     subcommands: [],
     promptStyle: "positional",
@@ -37,8 +42,9 @@ export const popeyeCli: HarnessDescriptor = deepFreeze({
     style: "flag",
     flag: "--resume",
     aliases: [],
-    // Probe-observed only (12 base64url bytes); SessionIdSchema brands
-    // any string, so treat the length as verifiedAgainst-0.1.0 evidence.
+    // Probe-observed on 0.1.0 (12 base64url bytes) and re-observed on
+    // 0.1.3 captures; SessionIdSchema brands any string, so treat the
+    // length as verifiedAgainst-0.1.3 evidence.
     idShape: /^[A-Za-z0-9_-]{16}$/,
     onMissing: "error",
     // -p only: launch streamFlags already append --mode hcn.
