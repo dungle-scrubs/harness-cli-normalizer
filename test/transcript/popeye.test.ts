@@ -14,6 +14,16 @@ const itemId = (entry: { original: Record<string, unknown> }): string | null =>
 
 const FIXTURE = join(import.meta.dirname, "..", "fixtures", "popeye-0.1.0", "journal.jsonl");
 
+// Live 0.1.3 writer sample (fake provider); the synthetic journal above
+// stays the all-envelope-kinds canonical.
+const LIVE_FIXTURE_013 = join(
+  import.meta.dirname,
+  "..",
+  "fixtures",
+  "popeye-0.1.3",
+  "journal.jsonl",
+);
+
 const read = (): string => readFileSync(FIXTURE, "utf8");
 
 describe("popeye transcript reader (RFC-02 P5)", () => {
@@ -21,6 +31,13 @@ describe("popeye transcript reader (RFC-02 P5)", () => {
     const history = parsePopeyeHistory(read());
     expect(history.identityRecord.sessionId).toBe("p3s-01");
     expect(history.entries).toHaveLength(23);
+  });
+
+  test("the live 0.1.3 writer fixture parses to 5 entries under the header session", () => {
+    const history = parsePopeyeHistory(readFileSync(LIVE_FIXTURE_013, "utf8"));
+    // Re-capture mints a new id; assert the observed 16-char shape, not a value.
+    expect(history.identityRecord.sessionId).toMatch(/^[A-Za-z0-9_-]{16}$/);
+    expect(history.entries).toHaveLength(5);
   });
 
   test("message, tool-result, compaction, and metadata kinds normalize", () => {
