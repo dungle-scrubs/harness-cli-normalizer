@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.4](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.7.3...v0.7.4) (2026-09-25)
+
+
+### Fixed
+
+* re-verify popeye descriptor against 0.1.3 ([#280](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/280)) ([2b24a29](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/2b24a29e3c9cae41490de31cb2dfe3b85ae8308f))
+
 ## [0.7.3](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.7.2...v0.7.3) (2026-09-25)
 
 
