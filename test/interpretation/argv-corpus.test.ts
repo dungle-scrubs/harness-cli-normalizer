@@ -328,6 +328,7 @@ describe("argv corpus", () => {
       return;
     }
     const expected = JSON.parse(readFileSync(SNAPSHOT, "utf8")) as unknown;
-    expect(actual).toEqual(expected);
+    // The committed snapshot is JSON, which omits undefined-only refusal fields.
+    expect(JSON.parse(JSON.stringify(actual))).toEqual(expected);
   });
 });
