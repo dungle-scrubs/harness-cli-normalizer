@@ -669,12 +669,14 @@
           "harness": "codex",
           "supported": [
             "gpt-6-astra",
+            "gpt-6-sol",
+            "gpt-6-luna",
             "gpt-5.6-sol",
             "gpt-5.6-terra",
             "gpt-5.6-luna",
             "gpt-5.5"
           ],
-          "message": "unknown codex model \"no-such-model\"; supported: gpt-6-astra, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.5 - use one of the supported models"
+          "message": "unknown codex model \"no-such-model\"; supported: gpt-6-astra, gpt-6-sol, gpt-6-luna, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.5 - use one of the supported models"
         }
       },
       "sandbox-read-only": {
@@ -4823,12 +4825,14 @@
           "harness": "codex",
           "supported": [
             "gpt-6-astra",
+            "gpt-6-sol",
+            "gpt-6-luna",
             "gpt-5.6-sol",
             "gpt-5.6-terra",
             "gpt-5.6-luna",
             "gpt-5.5"
           ],
-          "message": "unknown codex model \"no-such-model\"; supported: gpt-6-astra, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.5 - use one of the supported models"
+          "message": "unknown codex model \"no-such-model\"; supported: gpt-6-astra, gpt-6-sol, gpt-6-luna, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.5 - use one of the supported models"
         }
       },
       "sandbox-read-only": {
