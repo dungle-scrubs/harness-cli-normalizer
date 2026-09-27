@@ -225,6 +225,9 @@ export const TURN_OPTION_KEYS = deepFreeze([
   "systemPrompt",
   "appendSystemPrompt",
   "access",
+  // RFC 35 (Lucid): explicit extension files, loaded even when discovery is
+  // off. Opt-in only; a harness without the spec refuses.
+  "extensions",
 ] as const);
 export type TurnOptionKey = (typeof TURN_OPTION_KEYS)[number];
 
@@ -311,6 +314,9 @@ export type TurnOptionSpec =
   | (PositionedSpecBase & { readonly kind: "effort-in-model" })
   /** Open selector, CLEAN_SELECTOR-validated. */
   | (PositionedSpecBase & { readonly kind: "selector" })
+  /** Absolute file paths, each rendered as its own flag-value pair
+   *  (RFC 35: pi `-e <path>`). */
+  | (PositionedSpecBase & { readonly kind: "path-list" })
   /** Free-form prompt text (issue #48): systemPrompt / appendSystemPrompt.
    * Values are prose, never a closed vocabulary - no validation beyond
    * non-emptiness, rendering is verbatim. */

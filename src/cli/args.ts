@@ -176,6 +176,8 @@ export const parseTurnOptions = (values: Record<string, unknown>): ParsedTurnOpt
   if (values["system-prompt"] !== undefined) opts.systemPrompt = String(values["system-prompt"]);
   if (values["append-system-prompt"] !== undefined)
     opts.appendSystemPrompt = String(values["append-system-prompt"]);
+  if (values.extension !== undefined)
+    opts.extensions = (values.extension as readonly unknown[]).map(String);
 
   if (values["max-steps"] !== undefined) {
     const n = Number(values["max-steps"]);
@@ -321,6 +323,7 @@ const KNOWN_FLAGS = new Set([
   "--questions",
   "--system-prompt",
   "--append-system-prompt",
+  "--extension",
   "--max-steps",
   "--isolation",
   "--no-tools",
@@ -349,6 +352,7 @@ const KNOWN_FLAGS = new Set([
 
 const FLAGS_WITH_VALUE = new Set([
   "--native-settings-fingerprint",
+  "--extension",
   "--isolation",
   "--prompt",
   "--prompt-file",
@@ -505,6 +509,7 @@ export const parseCommonFlags = (
       questions: { type: "string" as const },
       "system-prompt": { type: "string" as const },
       "append-system-prompt": { type: "string" as const },
+      extension: { type: "string" as const, multiple: true },
       "max-steps": { type: "string" as const },
       isolation: { type: "string" as const },
       access: { type: "string" as const },
