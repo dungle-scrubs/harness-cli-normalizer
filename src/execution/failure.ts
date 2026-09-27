@@ -359,7 +359,12 @@ export const failureFromStderrTail = (
   if (unavailableLine !== undefined) return failureFromUnavailable(unavailableLine);
   if (trustLine !== undefined) return failureFromTrust(trustLine);
   if (tail.length > 0) return failureFromNative(exitCode, tail);
-  return failureFromTransport(`nonzero exit ${exitCode}`);
+  // The class stays transport, but the harness's exit code is still data: a
+  // caller whose own extension exits with a reserved code reads it here.
+  return {
+    ...failureFromTransport(`nonzero exit ${exitCode}`),
+    ...(exitCode === null ? {} : { nativeExitCode: exitCode }),
+  };
 };
 
 export const nativeApprovalPreflightEvidence = (issue: RefusalIssue): NativeApprovalFailure => ({
