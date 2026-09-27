@@ -1,0 +1,1 @@
+{"id":"r1","result":{"_tag":"snapshot","attached":false,"capabilityGrants":[],"entries":[{"id":"-vXqKkzcLAN_zdl3","kind":"session_root","parentId":null,"payload":{}}],"leafEntryId":"-vXqKkzcLAN_zdl3","loadedGeneration":{"id":"8c3e7544-47bc-43d8-9e1a-22bcc4ab1b18","plugins":["compact","goal","reload","session-name"]},"phase":"IDLE","revision":1,"sessionId":"rUkel0v3uZ_AhOeC"}}

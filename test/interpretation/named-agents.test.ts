@@ -25,8 +25,8 @@ import { popeyeCli } from "../../src/knowledge/popeye.js";
  * captures under .scratch/wayfinder-agent-flag/).
  */
 
-const NATIVE: readonly HarnessDescriptor[] = [claudeCode, antigravityCli];
-const REFUSING: readonly HarnessDescriptor[] = [codexCli, piCli, museCode, cursorCli, popeyeCli];
+const NATIVE: readonly HarnessDescriptor[] = [claudeCode, antigravityCli, popeyeCli];
+const REFUSING: readonly HarnessDescriptor[] = [codexCli, piCli, museCode, cursorCli];
 const SESSION_ID = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
 
 describe("named-agent render (claude, antigravity)", () => {
@@ -82,6 +82,7 @@ describe("named-agent refusal (no spec)", () => {
         expect(err.supportedBy).toEqual([
           { harness: "claude", spelling: "--agent" },
           { harness: "antigravity", spelling: "--agent" },
+          { harness: "popeye", spelling: "--agent" },
         ]);
       }
     }
@@ -91,13 +92,14 @@ describe("named-agent refusal (no spec)", () => {
 describe("namedAgents capability fact", () => {
   test("true exactly on the harnesses with an agent spec, on every model outcome", () => {
     for (const h of [...NATIVE, ...REFUSING]) {
-      const expected = h.name === "claude" || h.name === "antigravity";
+      const expected = h.name === "claude" || h.name === "antigravity" || h.name === "popeye";
       expect(capabilitiesOf(h, "", "headless-turn").namedAgents).toBe(expected);
     }
     // An uncurated model degrades the model-scoped claims but not this one:
     // the spec table is a harness fact (same rule as compactionReporting).
     expect(capabilitiesOf(claudeCode, "no-such-model", "headless-turn").namedAgents).toBe(true);
     expect(capabilitiesOf(codexCli, "no-such-model", "headless-turn").namedAgents).toBe(false);
+    expect(capabilitiesOf(popeyeCli, "no-such-model", "headless-turn").namedAgents).toBe(true);
   });
 
   test("inspect prints the fact for planning, both surfaces", async () => {

@@ -766,6 +766,10 @@
             {
               "harness": "antigravity",
               "spelling": "--agent"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--agent"
             }
           ],
           "message": "codex cannot express option \"agent\" (scout-agent); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
@@ -1428,6 +1432,10 @@
             {
               "harness": "antigravity",
               "spelling": "--agent"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--agent"
             }
           ],
           "message": "pi cannot express option \"agent\" (scout-agent); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
@@ -1973,6 +1981,10 @@
             },
             {
               "harness": "antigravity",
+              "spelling": "--agent"
+            },
+            {
+              "harness": "popeye",
               "spelling": "--agent"
             }
           ],
@@ -2719,6 +2731,10 @@
             },
             {
               "harness": "antigravity",
+              "spelling": "--agent"
+            },
+            {
+              "harness": "popeye",
               "spelling": "--agent"
             }
           ],
@@ -3714,6 +3730,7 @@
             "appendSystemPrompt",
             "contextWindow",
             "access",
+            "agent",
             "memory"
           ],
           "supportedBy": [
@@ -3722,7 +3739,7 @@
               "spelling": "--bare"
             }
           ],
-          "message": "popeye cannot express option \"isolation\" (tool-free); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "popeye cannot express option \"isolation\" (tool-free); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, agent, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "tool-free-conflict": {
@@ -3809,6 +3826,7 @@
             "appendSystemPrompt",
             "contextWindow",
             "access",
+            "agent",
             "memory"
           ],
           "supportedBy": [
@@ -3821,7 +3839,7 @@
               "spelling": "--sandbox"
             }
           ],
-          "message": "popeye cannot express option \"sandbox\" (read-only); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "popeye cannot express option \"sandbox\" (read-only); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, agent, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "context-window": {
@@ -3846,6 +3864,7 @@
             "appendSystemPrompt",
             "contextWindow",
             "access",
+            "agent",
             "memory"
           ],
           "supportedBy": [
@@ -3854,34 +3873,19 @@
               "spelling": "--provider"
             }
           ],
-          "message": "popeye cannot express option \"provider\" (zai); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "popeye cannot express option \"provider\" (zai); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, agent, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "agent": {
-        "refusal": {
-          "issue": "unsupported-option",
-          "harness": "popeye",
-          "option": "agent",
-          "supported": [
-            "effort",
-            "systemPrompt",
-            "appendSystemPrompt",
-            "contextWindow",
-            "access",
-            "memory"
-          ],
-          "supportedBy": [
-            {
-              "harness": "claude",
-              "spelling": "--agent"
-            },
-            {
-              "harness": "antigravity",
-              "spelling": "--agent"
-            }
-          ],
-          "message": "popeye cannot express option \"agent\" (scout-agent); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
-        }
+        "argv": [
+          "popeye",
+          "-p",
+          "--agent",
+          "scout-agent",
+          "hi",
+          "--mode",
+          "hcn"
+        ]
       },
       "no-tools": {
         "refusal": {
@@ -3894,9 +3898,10 @@
             "appendSystemPrompt",
             "contextWindow",
             "access",
+            "agent",
             "memory"
           ],
-          "message": "popeye cannot express option \"discovery\" (tools); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "popeye cannot express option \"discovery\" (tools); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, agent, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "no-instruction-files": {
@@ -3910,9 +3915,10 @@
             "appendSystemPrompt",
             "contextWindow",
             "access",
+            "agent",
             "memory"
           ],
-          "message": "popeye cannot express option \"discovery\" (instructionFiles); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "popeye cannot express option \"discovery\" (instructionFiles); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, agent, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "no-extensions": {
@@ -3926,9 +3932,10 @@
             "appendSystemPrompt",
             "contextWindow",
             "access",
+            "agent",
             "memory"
           ],
-          "message": "popeye cannot express option \"discovery\" (extensions); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "popeye cannot express option \"discovery\" (extensions); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, agent, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "no-skills": {
@@ -3942,9 +3949,10 @@
             "appendSystemPrompt",
             "contextWindow",
             "access",
+            "agent",
             "memory"
           ],
-          "message": "popeye cannot express option \"discovery\" (skills); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "popeye cannot express option \"discovery\" (skills); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, agent, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "discovery-all-on": {
@@ -3967,6 +3975,7 @@
             "appendSystemPrompt",
             "contextWindow",
             "access",
+            "agent",
             "memory"
           ],
           "supportedBy": [
@@ -3975,7 +3984,7 @@
               "spelling": "--disable-write"
             }
           ],
-          "message": "popeye cannot express option \"write\" (false); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "popeye cannot express option \"write\" (false); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, agent, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "shell-off": {
@@ -3989,6 +3998,7 @@
             "appendSystemPrompt",
             "contextWindow",
             "access",
+            "agent",
             "memory"
           ],
           "supportedBy": [
@@ -3997,7 +4007,7 @@
               "spelling": "--disable-shell"
             }
           ],
-          "message": "popeye cannot express option \"shell\" (false); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "popeye cannot express option \"shell\" (false); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, agent, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "max-steps": {
@@ -4011,6 +4021,7 @@
             "appendSystemPrompt",
             "contextWindow",
             "access",
+            "agent",
             "memory"
           ],
           "supportedBy": [
@@ -4019,7 +4030,7 @@
               "spelling": "--max-model-steps"
             }
           ],
-          "message": "popeye cannot express option \"maxSteps\" (5); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "popeye cannot express option \"maxSteps\" (5); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, agent, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "system-prompt": {
@@ -4075,9 +4086,10 @@
             "appendSystemPrompt",
             "contextWindow",
             "access",
+            "agent",
             "memory"
           ],
-          "message": "popeye cannot express option \"discovery\" (tools); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "popeye cannot express option \"discovery\" (tools); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, agent, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "tools-include": {
@@ -5104,6 +5116,10 @@
             {
               "harness": "antigravity",
               "spelling": "--agent"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--agent"
             }
           ],
           "message": "codex cannot express option \"agent\" (scout-agent); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
@@ -5782,6 +5798,10 @@
             {
               "harness": "antigravity",
               "spelling": "--agent"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--agent"
             }
           ],
           "message": "pi cannot express option \"agent\" (scout-agent); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
@@ -6367,6 +6387,10 @@
             },
             {
               "harness": "antigravity",
+              "spelling": "--agent"
+            },
+            {
+              "harness": "popeye",
               "spelling": "--agent"
             }
           ],
@@ -7145,6 +7169,10 @@
             },
             {
               "harness": "antigravity",
+              "spelling": "--agent"
+            },
+            {
+              "harness": "popeye",
               "spelling": "--agent"
             }
           ],
@@ -8170,6 +8198,7 @@
             "appendSystemPrompt",
             "contextWindow",
             "access",
+            "agent",
             "memory"
           ],
           "supportedBy": [
@@ -8178,7 +8207,7 @@
               "spelling": "--bare"
             }
           ],
-          "message": "popeye cannot express option \"isolation\" (tool-free); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "popeye cannot express option \"isolation\" (tool-free); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, agent, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "tool-free-conflict": {
@@ -8273,6 +8302,7 @@
             "appendSystemPrompt",
             "contextWindow",
             "access",
+            "agent",
             "memory"
           ],
           "supportedBy": [
@@ -8285,7 +8315,7 @@
               "spelling": "--sandbox"
             }
           ],
-          "message": "popeye cannot express option \"sandbox\" (read-only); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "popeye cannot express option \"sandbox\" (read-only); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, agent, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "context-window": {
@@ -8312,6 +8342,7 @@
             "appendSystemPrompt",
             "contextWindow",
             "access",
+            "agent",
             "memory"
           ],
           "supportedBy": [
@@ -8320,34 +8351,21 @@
               "spelling": "--provider"
             }
           ],
-          "message": "popeye cannot express option \"provider\" (zai); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "popeye cannot express option \"provider\" (zai); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, agent, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "agent": {
-        "refusal": {
-          "issue": "unsupported-option",
-          "harness": "popeye",
-          "option": "agent",
-          "supported": [
-            "effort",
-            "systemPrompt",
-            "appendSystemPrompt",
-            "contextWindow",
-            "access",
-            "memory"
-          ],
-          "supportedBy": [
-            {
-              "harness": "claude",
-              "spelling": "--agent"
-            },
-            {
-              "harness": "antigravity",
-              "spelling": "--agent"
-            }
-          ],
-          "message": "popeye cannot express option \"agent\" (scout-agent); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
-        }
+        "argv": [
+          "popeye",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "--agent",
+          "scout-agent",
+          "hi",
+          "--mode",
+          "hcn"
+        ]
       },
       "no-tools": {
         "refusal": {
@@ -8360,9 +8378,10 @@
             "appendSystemPrompt",
             "contextWindow",
             "access",
+            "agent",
             "memory"
           ],
-          "message": "popeye cannot express option \"discovery\" (tools); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "popeye cannot express option \"discovery\" (tools); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, agent, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "no-instruction-files": {
@@ -8376,9 +8395,10 @@
             "appendSystemPrompt",
             "contextWindow",
             "access",
+            "agent",
             "memory"
           ],
-          "message": "popeye cannot express option \"discovery\" (instructionFiles); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "popeye cannot express option \"discovery\" (instructionFiles); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, agent, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "no-extensions": {
@@ -8392,9 +8412,10 @@
             "appendSystemPrompt",
             "contextWindow",
             "access",
+            "agent",
             "memory"
           ],
-          "message": "popeye cannot express option \"discovery\" (extensions); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "popeye cannot express option \"discovery\" (extensions); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, agent, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "no-skills": {
@@ -8408,9 +8429,10 @@
             "appendSystemPrompt",
             "contextWindow",
             "access",
+            "agent",
             "memory"
           ],
-          "message": "popeye cannot express option \"discovery\" (skills); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "popeye cannot express option \"discovery\" (skills); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, agent, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "discovery-all-on": {
@@ -8435,6 +8457,7 @@
             "appendSystemPrompt",
             "contextWindow",
             "access",
+            "agent",
             "memory"
           ],
           "supportedBy": [
@@ -8443,7 +8466,7 @@
               "spelling": "--disable-write"
             }
           ],
-          "message": "popeye cannot express option \"write\" (false); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "popeye cannot express option \"write\" (false); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, agent, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "shell-off": {
@@ -8457,6 +8480,7 @@
             "appendSystemPrompt",
             "contextWindow",
             "access",
+            "agent",
             "memory"
           ],
           "supportedBy": [
@@ -8465,7 +8489,7 @@
               "spelling": "--disable-shell"
             }
           ],
-          "message": "popeye cannot express option \"shell\" (false); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "popeye cannot express option \"shell\" (false); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, agent, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "max-steps": {
@@ -8479,6 +8503,7 @@
             "appendSystemPrompt",
             "contextWindow",
             "access",
+            "agent",
             "memory"
           ],
           "supportedBy": [
@@ -8487,7 +8512,7 @@
               "spelling": "--max-model-steps"
             }
           ],
-          "message": "popeye cannot express option \"maxSteps\" (5); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "popeye cannot express option \"maxSteps\" (5); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, agent, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "system-prompt": {
@@ -8551,9 +8576,10 @@
             "appendSystemPrompt",
             "contextWindow",
             "access",
+            "agent",
             "memory"
           ],
-          "message": "popeye cannot express option \"discovery\" (tools); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "popeye cannot express option \"discovery\" (tools); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, agent, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "tools-include": {
@@ -10097,6 +10123,7 @@
             "appendSystemPrompt",
             "contextWindow",
             "access",
+            "agent",
             "memory"
           ],
           "supportedBy": [
@@ -10105,7 +10132,7 @@
               "spelling": "--provider"
             }
           ],
-          "message": "popeye cannot express option \"provider\" (zai); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "popeye cannot express option \"provider\" (zai); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, agent, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "resume": {

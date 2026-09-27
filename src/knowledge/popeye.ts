@@ -1,13 +1,19 @@
 /**
  * The popeye descriptor: facts about the `popeye` CLI as data, verified
- * against popeye 0.1.3 (live re-verification 2026-09-25: `--version`,
- * `--help` modes, `-p --mode hcn` event stream, `--model`,
- * `--context-window`, `--resume` recall, exit codes; fixtures in
- * test/fixtures/popeye-0.1.3, fake provider). Launch, resume, session,
+ * against popeye 0.1.4 (live re-verification 2026-09-27: `--version`,
+ * `--help` modes, `-p --mode hcn` event stream, `--model`, `--effort`,
+ * `--context-window`, `--system-prompt`, `--append-system-prompt`,
+ * `--resume`, `--agent`, exit codes; fixtures in
+ * test/fixtures/popeye-0.1.4, fake provider). Launch, resume, session,
  * and grant surfaces are live-verified; transcript reading is exercised
- * by test/transcript/popeye.test.ts against both fixture sets, and
- * `hcn run` against popeye works (the RFC-02 P5 descriptor-entry-only
- * refusal no longer applies).
+ * by test/transcript/popeye.test.ts against both fixture sets.
+ * `--agent` reads from ./.popeye/agents and ~/.popeye/agents
+ * (POPEYE_AGENTS_DIR overrides the user dir); an unknown name is a
+ * typed `CliConfigError` and exits 2 (the harness's usage-error class).
+ * Bun's `posix_spawn` does not honor the popeye sh wrapper, so the
+ * smoke:seven / smoke:questions tripwires cannot drive popeye on macOS
+ * hosts that install popeye through this wrapper; CI uses a
+ * direct-path bind mount where the tripwires drive it.
  */
 import { deepFreeze, type HarnessDescriptor } from "./descriptor.js";
 import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
@@ -17,17 +23,18 @@ export const popeyeCli: HarnessDescriptor = deepFreeze({
   name: "popeye",
   transcript: POPEYE_TRANSCRIPT,
   bin: "popeye",
-  verifiedAgainst: "0.1.3",
+  verifiedAgainst: "0.1.4",
   // No npm package: never distributed via Homebrew or npm per author
-  // policy; the binary is built from source (`--version` reports 0.1.3).
+  // policy; the binary is built from source (`--version` reports 0.1.4).
   versionSource: { kind: "installed" },
   launch: {
     // `-p` headless with a positional prompt. `--mode hcn` emits the HCN
     // event stream (identity/token/message/done); `--mode json` the
     // protocol Progress/Snapshot lines; bare -p prints settled text.
-    // Verified on 0.1.3: --version reports 0.1.3; --help lists
-    // print/json/rpc/hcn; the hcn stream and exit codes match the
-    // fixtures (test/fixtures/popeye-0.1.3).
+    // Verified on 0.1.4: --version reports 0.1.4; --help lists
+    // print/json/rpc/hcn; --agent reads from .popeye/agents (strict
+    // validation, CliConfigError exit 2 on unknown name); the hcn
+    // stream and exit codes match the fixtures (test/fixtures/popeye-0.1.4).
     baseFlags: ["-p"],
     subcommands: [],
     promptStyle: "positional",
@@ -43,8 +50,9 @@ export const popeyeCli: HarnessDescriptor = deepFreeze({
     flag: "--resume",
     aliases: [],
     // Probe-observed on 0.1.0 (12 base64url bytes) and re-observed on
-    // 0.1.3 captures; SessionIdSchema brands any string, so treat the
-    // length as verifiedAgainst-0.1.3 evidence.
+    // 0.1.3 captures; re-observed length matches on 0.1.4. SessionIdSchema
+    // brands any string, so treat the length as verifiedAgainst-0.1.4
+    // evidence.
     idShape: /^[A-Za-z0-9_-]{16}$/,
     onMissing: "error",
     // -p only: launch streamFlags already append --mode hcn.
@@ -151,6 +159,15 @@ export const popeyeCli: HarnessDescriptor = deepFreeze({
       render: { kind: "flag-value", flag: "--context-window" },
     },
     access: { kind: "access", renders: { read: "tool-preset", write: null } },
+    // --agent (RFC-04 in popeye): selects among agent definitions in
+    // ./.popeye/agents, ~/.popeye/agents, or POPEYE_AGENTS_DIR. Strict
+    // validation: an unknown name produces a typed CliConfigError on
+    // stderr and exit code 2 - the same shape hcn forwards as a native
+    // error class, no roster parsing.
+    agent: {
+      kind: "selector",
+      render: { kind: "flag-value", flag: "--agent" },
+    },
     // Memory is a declared no-op divergence: both values emit nothing.
     memory: {
       kind: "toggle",
