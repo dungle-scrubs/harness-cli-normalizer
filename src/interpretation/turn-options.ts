@@ -396,6 +396,28 @@ export const renderTurnOptions = (
         sequences.push([...tokensFor(render, raw, "verbatim")]);
         break;
       }
+      case "path-list": {
+        const paths = Array.isArray(raw) ? (raw as unknown[]) : null;
+        const bad = paths?.find(
+          (path) =>
+            typeof path !== "string" ||
+            !path.startsWith("/") ||
+            path.length > 4096 ||
+            [...path].some((char) => char.charCodeAt(0) < 0x20),
+        );
+        if (!paths || paths.length === 0 || paths.length > 16 || bad !== undefined) {
+          throw new ArgvRefusalError({
+            issue: "invalid-option-value",
+            harness: h.name,
+            option: key,
+            supported: ["1 to 16 absolute file paths"],
+            detail: String(bad ?? raw),
+          });
+        }
+        for (const path of paths)
+          sequences.push([...tokensFor(render, path as string, "verbatim")]);
+        break;
+      }
       case "selector": {
         if (typeof raw !== "string") {
           throw new ArgvRefusalError({

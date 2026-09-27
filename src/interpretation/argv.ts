@@ -98,6 +98,8 @@ export interface TurnOptions {
   readonly systemPrompt?: string;
   /** issue #48: appends to the built-in prompt (claude/pi only). */
   readonly appendSystemPrompt?: string;
+  /** RFC 35 (Lucid): extension files the harness loads for this turn. */
+  readonly extensions?: readonly string[];
   /** question mode: which preamble hcn injects (ask/assume/none).
    * A BEHAVIOR INSTRUCTION, not a turn option. It never renders into any
    * harness argv; the CLI layer turns it into the prompt preamble and

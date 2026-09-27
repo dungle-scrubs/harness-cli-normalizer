@@ -1,3 +1,4 @@
+import { lstatSync } from "node:fs";
 /**
  * planTurn: the one owner of the parse-refuse-resolve-build protocol
  * (RFC-02 change 10). Raw arguments and config tiers in; the argv a turn
@@ -307,6 +308,28 @@ export const planTurn = async (
       if (err instanceof ArgvRefusalError) return refused(err);
       throw err;
     }
+  }
+
+  // RFC 35 (Lucid): an extension path names a regular file the harness
+  // loads; a missing path or a link refuses before spawn. The descriptor
+  // checks shape and support; the file itself is the CLI's fs read.
+  for (const path of turnOpts.extensions ?? []) {
+    let regular = false;
+    try {
+      regular = typeof path === "string" && path.startsWith("/") && lstatSync(path).isFile();
+    } catch {
+      regular = false;
+    }
+    if (!regular)
+      return refused(
+        new ArgvRefusalError({
+          issue: "invalid-option-value",
+          harness: h.name,
+          option: "extensions",
+          supported: ["absolute paths to regular files"],
+          detail: String(path),
+        }),
+      );
   }
 
   // Config files load on EVERY run, launch or resume: the tiers feed the

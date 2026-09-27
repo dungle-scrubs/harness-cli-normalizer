@@ -1204,6 +1204,7 @@
             "provider",
             "systemPrompt",
             "appendSystemPrompt",
+            "extensions",
             "discovery",
             "access",
             "memory"
@@ -1214,7 +1215,7 @@
               "spelling": "--bare"
             }
           ],
-          "message": "pi cannot express option \"isolation\" (tool-free); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"isolation\" (tool-free); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "tool-free-conflict": {
@@ -1301,6 +1302,7 @@
             "provider",
             "systemPrompt",
             "appendSystemPrompt",
+            "extensions",
             "discovery",
             "access",
             "memory"
@@ -1316,7 +1318,7 @@
             }
           ],
           "hint": "pi has no sandbox dimension; approximate with a minimal tool grant (--tools read,grep,find,ls) so the run cannot write or execute, or sandbox the process yourself (container, VM)",
-          "message": "pi cannot express option \"sandbox\" (read-only); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"sandbox\" (read-only); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "context-window": {
@@ -1329,6 +1331,7 @@
             "provider",
             "systemPrompt",
             "appendSystemPrompt",
+            "extensions",
             "discovery",
             "access",
             "memory"
@@ -1343,7 +1346,7 @@
               "spelling": "--context-window"
             }
           ],
-          "message": "pi cannot express option \"contextWindow\" (100000); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"contextWindow\" (100000); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "provider": {
@@ -1416,6 +1419,7 @@
             "provider",
             "systemPrompt",
             "appendSystemPrompt",
+            "extensions",
             "discovery",
             "access",
             "memory"
@@ -1427,7 +1431,7 @@
             }
           ],
           "hint": "pi has no write toggle; grant without the write tool (--tools read,bash,edit) or use --exclude-tools write",
-          "message": "pi cannot express option \"write\" (false); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"write\" (false); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "shell-off": {
@@ -1440,6 +1444,7 @@
             "provider",
             "systemPrompt",
             "appendSystemPrompt",
+            "extensions",
             "discovery",
             "access",
             "memory"
@@ -1451,7 +1456,7 @@
             }
           ],
           "hint": "pi has no shell toggle; grant without the bash tool (--tools read,edit,write) or use --exclude-tools bash",
-          "message": "pi cannot express option \"shell\" (false); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"shell\" (false); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "max-steps": {
@@ -1464,6 +1469,7 @@
             "provider",
             "systemPrompt",
             "appendSystemPrompt",
+            "extensions",
             "discovery",
             "access",
             "memory"
@@ -1475,7 +1481,7 @@
             }
           ],
           "hint": "pi has no step cap flag; bound the work in the prompt or impose a wall-clock timeout at the caller",
-          "message": "pi cannot express option \"maxSteps\" (5); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"maxSteps\" (5); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "system-prompt": {
@@ -5368,6 +5374,7 @@
             "provider",
             "systemPrompt",
             "appendSystemPrompt",
+            "extensions",
             "discovery",
             "access",
             "memory"
@@ -5378,7 +5385,7 @@
               "spelling": "--bare"
             }
           ],
-          "message": "pi cannot express option \"isolation\" (tool-free); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"isolation\" (tool-free); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "tool-free-conflict": {
@@ -5473,6 +5480,7 @@
             "provider",
             "systemPrompt",
             "appendSystemPrompt",
+            "extensions",
             "discovery",
             "access",
             "memory"
@@ -5488,7 +5496,7 @@
             }
           ],
           "hint": "pi has no sandbox dimension; approximate with a minimal tool grant (--tools read,grep,find,ls) so the run cannot write or execute, or sandbox the process yourself (container, VM)",
-          "message": "pi cannot express option \"sandbox\" (read-only); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"sandbox\" (read-only); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "context-window": {
@@ -5501,6 +5509,7 @@
             "provider",
             "systemPrompt",
             "appendSystemPrompt",
+            "extensions",
             "discovery",
             "access",
             "memory"
@@ -5515,7 +5524,7 @@
               "spelling": "--context-window"
             }
           ],
-          "message": "pi cannot express option \"contextWindow\" (100000); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"contextWindow\" (100000); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "provider": {
@@ -5600,6 +5609,7 @@
             "provider",
             "systemPrompt",
             "appendSystemPrompt",
+            "extensions",
             "discovery",
             "access",
             "memory"
@@ -5611,7 +5621,7 @@
             }
           ],
           "hint": "pi has no write toggle; grant without the write tool (--tools read,bash,edit) or use --exclude-tools write",
-          "message": "pi cannot express option \"write\" (false); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"write\" (false); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "shell-off": {
@@ -5624,6 +5634,7 @@
             "provider",
             "systemPrompt",
             "appendSystemPrompt",
+            "extensions",
             "discovery",
             "access",
             "memory"
@@ -5635,7 +5646,7 @@
             }
           ],
           "hint": "pi has no shell toggle; grant without the bash tool (--tools read,edit,write) or use --exclude-tools bash",
-          "message": "pi cannot express option \"shell\" (false); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"shell\" (false); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "max-steps": {
@@ -5648,6 +5659,7 @@
             "provider",
             "systemPrompt",
             "appendSystemPrompt",
+            "extensions",
             "discovery",
             "access",
             "memory"
@@ -5659,7 +5671,7 @@
             }
           ],
           "hint": "pi has no step cap flag; bound the work in the prompt or impose a wall-clock timeout at the caller",
-          "message": "pi cannot express option \"maxSteps\" (5); supported: effort, provider, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"maxSteps\" (5); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "system-prompt": {

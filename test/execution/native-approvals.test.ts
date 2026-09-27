@@ -24,6 +24,7 @@ const saved: NativeSettingsSnapshot = {
   provider: "saved-provider",
   sessionId: "907feafe-e82b-4df4-91ba-4f1aeb987508",
   source: "codex-rollout-v1",
+  continuation: "native-approvals",
   status: "available",
   v: 1,
 };
