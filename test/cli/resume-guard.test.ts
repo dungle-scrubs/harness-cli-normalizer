@@ -23,7 +23,7 @@ describe("resumeStore resolves the cwd the harness actually slugged", () => {
     // pi files the session as <timestamp>_<id>.jsonl inside that dir.
     writeFileSync(join(filed, `2026-08-23T00-00-00-000Z_${id}.jsonl`), "");
 
-    const viaLink = resumeStore(piCli, { home, cwd: linkCwd, sessionId: id });
+    const viaLink = resumeStore(piCli, { home, cwd: linkCwd, sessionId: id, env: {} });
     expect(viaLink.path).toBe(filed);
     expect(viaLink.exists).toBe(true);
   });
@@ -31,7 +31,7 @@ describe("resumeStore resolves the cwd the harness actually slugged", () => {
   test("a session that was never filed is reported as absent", () => {
     const home = mkdtempSync(join(tmpdir(), "hcn-home-"));
     const cwd = mkdtempSync(join(tmpdir(), "hcn-cwd-"));
-    const check = resumeStore(piCli, { home, cwd, sessionId: id });
+    const check = resumeStore(piCli, { home, cwd, sessionId: id, env: {} });
     expect(check.exists).toBe(false);
     expect(check.path).toContain(home);
   });
@@ -166,8 +166,73 @@ describe("cursor store root (RFC-05 rootEnv)", () => {
     const home = mkdtempSync(join(tmpdir(), "hcn-root-"));
     const cwd = mkdtempSync(join(tmpdir(), "hcn-root-cwd-"));
     expect(
-      resolveStoreRoot(piCli, { env: { CURSOR_CONFIG_DIR: "/elsewhere" }, cwd, home }),
+      resolveStoreRoot(museCode, { env: { CURSOR_CONFIG_DIR: "/elsewhere" }, cwd, home }),
     ).toBeUndefined();
+  });
+});
+
+describe("pi store root follows pi's own precedence", () => {
+  const cwd = "/Users/kevin/dev/x";
+  const home = "/Users/kevin";
+  const slug = "--Users-kevin-dev-x--";
+
+  test("with nothing set the store is ~/.pi/agent/sessions/<slug>", () => {
+    expect(resolveStoreRoot(piCli, { env: {}, cwd, home })).toBe(
+      `/Users/kevin/.pi/agent/sessions/${slug}`,
+    );
+  });
+
+  test("PI_CODING_AGENT_DIR moves the agent dir and keeps the per-cwd slug", () => {
+    expect(resolveStoreRoot(piCli, { env: { PI_CODING_AGENT_DIR: "/agent" }, cwd, home })).toBe(
+      `/agent/sessions/${slug}`,
+    );
+  });
+
+  test("PI_CODING_AGENT_SESSION_DIR wins and files flat, with no slug", () => {
+    const env = { PI_CODING_AGENT_SESSION_DIR: "/flat", PI_CODING_AGENT_DIR: "/agent" };
+    expect(resolveStoreRoot(piCli, { env, cwd, home })).toBe("/flat");
+  });
+
+  test("the guard finds a session filed under a non-default agent dir", () => {
+    const agent = mkdtempSync(join(tmpdir(), "hcn-pi-agent-"));
+    const realCwd = realpathSync.native(mkdtempSync(join(tmpdir(), "hcn-pi-cwd-")));
+    const env = { PI_CODING_AGENT_DIR: agent };
+    const filed = storePath(piCli, {
+      home: "/nonexistent-home",
+      cwd: realCwd,
+      sessionId: id,
+      root: resolveStoreRoot(piCli, { env, cwd: realCwd, home: "/nonexistent-home" }),
+    });
+    expect(filed.startsWith(join(agent, "sessions", "--"))).toBe(true);
+    mkdirSync(filed, { recursive: true });
+    writeFileSync(join(filed, `2026-09-27T00-00-00-000Z_${id}.jsonl`), "");
+    const check = resumeStore(piCli, {
+      home: "/nonexistent-home",
+      cwd: realCwd,
+      sessionId: id,
+      env,
+    });
+    expect(check.path).toBe(filed);
+    expect(check.exists).toBe(true);
+    // The old fixed path (~/.pi/sessions) never held it.
+    expect(
+      resumeStore(piCli, { home: "/nonexistent-home", cwd: realCwd, sessionId: id, env: {} })
+        .exists,
+    ).toBe(false);
+  });
+
+  test("the guard finds a session filed flat under PI_CODING_AGENT_SESSION_DIR", () => {
+    const flat = mkdtempSync(join(tmpdir(), "hcn-pi-flat-"));
+    writeFileSync(join(flat, `2026-09-27T00-00-00-000Z_${id}.jsonl`), "");
+    const env = { PI_CODING_AGENT_SESSION_DIR: flat };
+    const check = resumeStore(piCli, {
+      home: "/nonexistent-home",
+      cwd: "/tmp",
+      sessionId: id,
+      env,
+    });
+    expect(check.path).toBe(flat);
+    expect(check.exists).toBe(true);
   });
 });
 

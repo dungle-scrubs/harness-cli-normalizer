@@ -117,12 +117,22 @@ export const piCli: HarnessDescriptor = deepFreeze({
     extensible: true,
   },
   store: {
-    // Verified on pi 0.84.2: ~/.pi/sessions/<slug>/<ISO-stamp>_<uuid>.jsonl
-    // where the slug is the cwd dash-flattened and dash-wrapped, dots
-    // preserved (--Users-kevin-dev-x--). The stamp needs a store scan, so
-    // the template names the per-cwd directory.
-    template: "{home}/.pi/sessions/{cwdSlug}",
+    // <root>/<ISO-stamp>_<uuid>.jsonl. The stamp needs a store scan, so the
+    // template names the directory. Pi resolves that directory in this
+    // order (docs/configuration.md, docs/sessions.md, verified on 0.87.1):
+    // PI_CODING_AGENT_SESSION_DIR files FLAT, with no per-cwd slug;
+    // otherwise <agent dir>/sessions/<slug>, where the agent dir is
+    // PI_CODING_AGENT_DIR, else ~/.pi/agent. The slug is the cwd
+    // dash-flattened and dash-wrapped, dots preserved
+    // (--Users-kevin-dev-x--). The --session-dir flag and the sessionDir
+    // setting also move the store; hcn sees neither.
+    template: "{root}",
     cwdSlug: "pi-dash-wrapped",
+    rootEnv: [
+      { name: "PI_CODING_AGENT_SESSION_DIR", suffix: "" },
+      { name: "PI_CODING_AGENT_DIR", suffix: "sessions/{cwdSlug}" },
+    ],
+    defaultRoot: "{home}/.pi/agent/sessions/{cwdSlug}",
   },
   contextInspection: null,
   // Native auto-compaction, observed live on 0.87.0, 2026-09-22

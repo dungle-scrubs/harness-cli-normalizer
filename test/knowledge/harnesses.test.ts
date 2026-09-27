@@ -242,7 +242,7 @@ describe("phase-2 codex-review regression pins", () => {
   test("pi store slug matches the on-disk double-dash-wrapped form", () => {
     expect(
       storePath(piCli, { home: "/Users/kevin", cwd: "/Users/kevin/dev/ideas", sessionId: uuid }),
-    ).toBe("/Users/kevin/.pi/sessions/--Users-kevin-dev-ideas--");
+    ).toBe("/Users/kevin/.pi/agent/sessions/--Users-kevin-dev-ideas--");
   });
 
   test("override pins arrays refuse null or wrong-shaped elements", () => {

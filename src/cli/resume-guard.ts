@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { mergeEnvironment } from "../execution/environment.js";
-import { storePath } from "../interpretation/store.js";
+import { expandRoot, storePath } from "../interpretation/store.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 
 export interface ResumeStoreCheck {
@@ -30,14 +30,15 @@ export const resolveStoreRoot = (
   for (const entry of h.store.rootEnv ?? []) {
     const value = opts.env[entry.name];
     if (value === undefined || value === "") continue;
-    const rooted = entry.suffix === "" ? value : join(value, entry.suffix);
+    const suffix = expandRoot(h, entry.suffix, opts.home, opts.cwd);
+    const rooted = suffix === "" ? value : join(value, suffix);
     return isAbsolute(rooted) ? rooted : resolve(opts.cwd, rooted);
   }
   // {cwd} names a spawn-relative root (popeye's session dir defaults to
   // the spawn cwd); {home} keeps the existing home-anchored behavior.
-  return h.store.defaultRoot
-    ?.replaceAll("{home}", () => opts.home)
-    .replaceAll("{cwd}", () => opts.cwd);
+  return h.store.defaultRoot === undefined
+    ? undefined
+    : expandRoot(h, h.store.defaultRoot, opts.home, opts.cwd);
 };
 
 /** The environment the child will run with, for the pre-spawn store
