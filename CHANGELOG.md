@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.6](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.7.5...v0.7.6) (2026-09-27)
+
+
+### Fixed
+
+* **failure:** carry the native exit code on a silent nonzero exit ([#285](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/285)) ([180c3bb](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/180c3bb74de37704b546a9f1bcc3a6bf83d25a98))
+
 ## [0.7.5](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.7.4...v0.7.5) (2026-09-27)
 
 
