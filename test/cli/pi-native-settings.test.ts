@@ -1,4 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   appendFileSync,
   existsSync,
@@ -8,7 +9,6 @@ import {
   realpathSync,
   rmSync,
   statSync,
-  utimesSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -243,22 +243,37 @@ test("the fingerprint changes when the session file changes", () => {
   expect(JSON.parse(f.inspect().stdout).fingerprint).not.toBe(before);
 });
 
-test("an edit that keeps the length, the settings, and the timestamps changes the fingerprint", () => {
-  const f = fixture(bound);
-  const before = JSON.parse(f.inspect().stdout).fingerprint;
-  const { atime, mtime } = statSync(f.file);
-  const text = readFileSync(f.file, "utf8");
-  const edited = text.replace(
-    "DO_NOT_RETURN_CONVERSATION_CONTENT",
-    "DO_NOT_RETURN_CONVERSATION_CONTENX",
-  );
-  expect(edited.length).toBe(text.length);
-  expect(edited).not.toBe(text);
-  writeFileSync(f.file, edited);
-  utimesSync(f.file, atime, mtime);
-  const after = JSON.parse(f.inspect().stdout);
-  expect(after).toMatchObject({ status: "available", model: "glm-5.3" });
-  expect(after.fingerprint).not.toBe(before);
+test("the fingerprint covers the file bytes across read chunks", () => {
+  // Past one 64 KiB read, so the digest must fold every chunk.
+  const padding = "x".repeat(100 * 1024);
+  const f = fixture((cwd) => [
+    ...bound(cwd).slice(0, 3),
+    { ...user("a3", "a2"), padding },
+    ...bound(cwd).slice(4),
+  ]);
+  const bytes = readFileSync(f.file);
+  expect(bytes.length).toBeGreaterThan(64 * 1024);
+  const stat = statSync(f.file, { bigint: true });
+  // Recomputed independently, so dropping the digest fails here whatever
+  // the stat identity does.
+  const expected = createHash("sha256")
+    .update(
+      JSON.stringify([
+        "pi-session-v1",
+        "pi",
+        sessionId,
+        f.cwd,
+        ...[stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].map(String),
+        createHash("sha256").update(bytes).digest("hex"),
+        "a4",
+        "a2",
+        "glm-5.3",
+        "high",
+        "zai",
+      ]),
+    )
+    .digest("hex");
+  expect(JSON.parse(f.inspect().stdout).fingerprint).toBe(expected);
 });
 
 test("a fingerprinted Pi resume is flagless, loads the extension, and refuses every other option", () => {
