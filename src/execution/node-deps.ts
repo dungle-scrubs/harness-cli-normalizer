@@ -230,6 +230,7 @@ export const nodeNativeSettingsInspector: NativeSettingsInspector = (request) =>
   const environment = mergeEnvironment(process.env, request.env);
   return inspectNativeSettings(request, {
     codexHome: environment.CODEX_HOME,
+    env: environment,
     home: environment.HOME ?? homedir(),
   });
 };

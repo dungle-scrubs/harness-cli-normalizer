@@ -495,24 +495,21 @@ test("native UTF-8 records may cross a read boundary without changing the settin
   }
 });
 
-test.each(["claude", "muse", "pi"])(
-  "%s native settings remain explicitly unsupported",
-  (harness) => {
-    const f = fixture();
-    try {
-      const result = f.run([], "inspect", harness);
-      expect(result.status).toBe(2);
-      expect(JSON.parse(result.stdout)).toEqual({
-        v: 1,
-        harness,
-        status: "unavailable",
-        reason: "unsupported-harness",
-      });
-    } finally {
-      f.close();
-    }
-  },
-);
+test.each(["claude", "muse"])("%s native settings remain explicitly unsupported", (harness) => {
+  const f = fixture();
+  try {
+    const result = f.run([], "inspect", harness);
+    expect(result.status).toBe(2);
+    expect(JSON.parse(result.stdout)).toEqual({
+      v: 1,
+      harness,
+      status: "unavailable",
+      reason: "unsupported-harness",
+    });
+  } finally {
+    f.close();
+  }
+});
 
 test.each([["--model", "custom-model"], ["--argv"], ["--", "extra"], ["positional"]])(
   "native inspection refuses extra arguments %j",

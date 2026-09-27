@@ -104,6 +104,9 @@ Options:
                             exclusion automatically. Opt-in; no default)
   --append-system-prompt <text>
                             Append to the built-in prompt (claude, pi only)
+  --extension <path>        Load this extension file for the turn (pi only;
+                            absolute path to a regular file; repeatable;
+                            loads even with --no-extensions)
   --access <read|write>     Access preset - read = read-only tool subset
                             (canonical: read, grep, glob, list, web-fetch,
                             web-search; claude/pi via --tools, codex via

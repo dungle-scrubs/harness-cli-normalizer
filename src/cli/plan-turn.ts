@@ -1,3 +1,4 @@
+import { lstatSync } from "node:fs";
 /**
  * planTurn: the one owner of the parse-refuse-resolve-build protocol
  * (RFC-02 change 10). Raw arguments and config tiers in; the argv a turn
@@ -37,6 +38,7 @@ import { recognizeNativeSpelling, supportedBy } from "../interpretation/support.
 import { renderToolSelection } from "../interpretation/tool-selection.js";
 import { resolveEffortSlug } from "../interpretation/vocabulary.js";
 import type { HarnessDescriptor, HarnessName } from "../knowledge/descriptor.js";
+import { NATIVE_SETTINGS_SOURCES } from "../knowledge/native-settings.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import {
   detectPositionalPromptInjection,
@@ -294,6 +296,23 @@ export const planTurn = async (
   // fs read, the CLI's); the descriptor renders them (RFC-02 change 2).
   const { skillNames, ...turnOptsSansNames } = turnOpts;
   turnOpts = turnOptsSansNames;
+  // An empty `--skills=` is still a skills selection; normalization drops
+  // it, so refuse it here beside a Pi fingerprint, which admits none.
+  if (
+    skillNames !== undefined &&
+    NATIVE_SETTINGS_SOURCES[h.name] === "pi-session-v1" &&
+    values["native-settings-fingerprint"] !== undefined
+  ) {
+    return refused(
+      new ArgvRefusalError({
+        issue: "invalid-option-value",
+        harness: h.name,
+        detail:
+          "Pi native settings require an exact resume with no settings options or passthrough",
+        supported: ["freshly verified native settings for this exact saved session"],
+      }),
+    );
+  }
   if (skillNames !== undefined && skillNames.length > 0) {
     try {
       turnOpts = {
@@ -307,6 +326,28 @@ export const planTurn = async (
       if (err instanceof ArgvRefusalError) return refused(err);
       throw err;
     }
+  }
+
+  // RFC 35 (Lucid): an extension path names a regular file the harness
+  // loads; a missing path or a link refuses before spawn. The descriptor
+  // checks shape and support; the file itself is the CLI's fs read.
+  for (const path of turnOpts.extensions ?? []) {
+    let regular = false;
+    try {
+      regular = typeof path === "string" && path.startsWith("/") && lstatSync(path).isFile();
+    } catch {
+      regular = false;
+    }
+    if (!regular)
+      return refused(
+        new ArgvRefusalError({
+          issue: "invalid-option-value",
+          harness: h.name,
+          option: "extensions",
+          supported: ["absolute paths to regular files"],
+          detail: String(path),
+        }),
+      );
   }
 
   // Config files load on EVERY run, launch or resume: the tiers feed the

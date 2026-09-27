@@ -5,7 +5,8 @@ export const NATIVE_SETTINGS_SOURCES = deepFreeze({
   claude: null,
   codex: "codex-rollout-v1",
   muse: null,
-  pi: null,
+  // RFC 35: Pi's own restoration rule over the session file.
+  pi: "pi-session-v1",
   // RFC-05: no settings source observed; reads report unsupported-harness.
   cursor: null,
   antigravity: null,
@@ -13,6 +14,17 @@ export const NATIVE_SETTINGS_SOURCES = deepFreeze({
 } as const);
 
 export const NATIVE_SETTINGS_FINGERPRINT_SHAPE = /^[a-f0-9]{64}$/;
+
+export type NativeSettingsSource = "codex-rollout-v1" | "pi-session-v1";
+
+/** How a fingerprinted resume runs. `native-approvals` is the Codex
+ * app-server channel (RFC 27); `resume` is an ordinary one-turn resume. */
+export type NativeContinuation = "native-approvals" | "resume";
+
+export const NATIVE_CONTINUATION = deepFreeze({
+  "codex-rollout-v1": "native-approvals",
+  "pi-session-v1": "resume",
+} as const satisfies Record<NativeSettingsSource, NativeContinuation>);
 
 export type NativeApprovalsReviewer = "user" | "automatic" | "unknown";
 
@@ -45,6 +57,7 @@ export type NativeSettingsReason =
   | "unsupported-harness";
 
 export interface NativeSettingsSnapshot {
+  readonly continuation: NativeContinuation;
   readonly cwd: string;
   readonly effort: string;
   readonly fingerprint: string;
@@ -54,7 +67,7 @@ export interface NativeSettingsSnapshot {
   readonly permissions?: NativePermissionSettings;
   readonly provider: string;
   readonly sessionId: string;
-  readonly source: "codex-rollout-v1";
+  readonly source: NativeSettingsSource;
   readonly status: "available";
   readonly v: 1;
 }

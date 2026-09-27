@@ -220,6 +220,9 @@ export const piCli: HarnessDescriptor = deepFreeze({
       kind: "prompt-text",
       render: { kind: "flag-value", flag: "--append-system-prompt" },
     },
+    // RFC 35 (Lucid), verified on 0.87.1: `-e <path>` loads an extension
+    // file even with -ne, and repeats for several files.
+    extensions: { kind: "path-list", render: { kind: "flag-value", flag: "-e" } },
     discovery: {
       kind: "discovery",
       facets: {
