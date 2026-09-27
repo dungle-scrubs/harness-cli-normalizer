@@ -57,6 +57,10 @@ export const resumeLastStoreRoot = (
     envAnchor: "spawn-cwd",
   });
 
+const rootTableSlugs = (h: HarnessDescriptor): boolean =>
+  (h.store.defaultRoot?.includes("{cwdSlug}") ?? false) ||
+  (h.store.rootEnv ?? []).some((entry) => entry.suffix.includes("{cwdSlug}"));
+
 /** A session id that passes the store-path shape check, used only to
  * resolve a template down to its per-cwd directory - the id itself is
  * never read back out. */
@@ -64,9 +68,10 @@ const SCOPE_PROBE_ID = "scope-probe";
 
 /** The per-cwd scope directory whose absence warns, or null where no
  * check exists. Derived purely from the store template: a template with
- * no `{cwdSlug}` (codex, muse) files no per-cwd directory; one whose
- * per-cwd directory also files session entries (pi: no `{sessionId}`
- * and no `{root}`) is the resolved root itself; one with a `{root}`
+ * no `{cwdSlug}` (codex, muse) files no per-cwd directory; a bare
+ * `{root}` template whose root table carries the slug (pi) files entries
+ * in the resolved root itself; one with no `{sessionId}` and no `{root}`
+ * is the resolved root itself; one with a `{root}`
  * per-cwd directory (cursor) resolves through the template; one filing
  * one entry per session under the slug (claude) is the slug joined under
  * the resolved root. */
@@ -75,6 +80,7 @@ export const resumeLastScopeDir = (
   opts: { readonly root: string; readonly cwd: string; readonly home: string },
 ): string | null => {
   const template = h.store.template;
+  if (template === "{root}" && rootTableSlugs(h)) return opts.root;
   if (!template.includes("{cwdSlug}")) return null;
   if (template.includes("{sessionId}")) return join(opts.root, slugFor(h, opts.cwd));
   if (!template.includes("{root}")) return opts.root;
