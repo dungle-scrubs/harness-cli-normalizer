@@ -46,14 +46,26 @@ export const slugFor = (h: HarnessDescriptor, cwd: string): string => {
   }
 };
 
+/** Expand a root-table string (a `defaultRoot`, or a `rootEnv` suffix):
+ * `{home}`, `{cwd}`, and `{cwdSlug}` under the descriptor's slug rule. */
+export const expandRoot = (
+  h: HarnessDescriptor,
+  value: string,
+  home: string,
+  cwd: string,
+): string =>
+  value
+    .replaceAll("{home}", () => home)
+    .replaceAll("{cwd}", () => cwd)
+    .replaceAll("{cwdSlug}", () => slugFor(h, cwd));
+
 export const storePath = (h: HarnessDescriptor, inputs: StorePathInputs): string => {
   assertUsableSessionId(inputs.sessionId);
   const root =
     inputs.root ??
-    h.store.defaultRoot
-      ?.replaceAll("{home}", () => inputs.home)
-      .replaceAll("{cwd}", () => inputs.cwd) ??
-    inputs.home;
+    (h.store.defaultRoot === undefined
+      ? inputs.home
+      : expandRoot(h, h.store.defaultRoot, inputs.home, inputs.cwd));
   return h.store.template
     .replaceAll("{home}", () => inputs.home)
     .replaceAll("{root}", () => root)

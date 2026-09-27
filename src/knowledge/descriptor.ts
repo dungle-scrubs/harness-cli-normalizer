@@ -567,12 +567,14 @@ export interface HarnessDescriptor {
     /** claude: '/', '.' -> '-'; pi: '/' -> '-' wrapped in leading/trailing
      * dashes, dots preserved. */
     readonly cwdSlug: CwdSlug;
-    /** Environment override chain for the store root (cursor only in v1):
-     * first set entry wins; `suffix` appends to the value (empty keeps it
-     * as is). Absent on harnesses whose root is a fixed home path. */
+    /** Environment override chain for the store root: first set entry
+     * wins; `suffix` appends to the value (empty keeps it as is) and may
+     * carry `{cwdSlug}` when the harness files per-cwd under that root
+     * but not under another (pi). Absent on harnesses whose root is a
+     * fixed home path. */
     readonly rootEnv?: ReadonlyArray<{ readonly name: string; readonly suffix: string }>;
-    /** Fallback root when no `rootEnv` entry is set (cursor only in v1),
-     * with `{home}` expanded by the existing home mechanism. */
+    /** Fallback root when no `rootEnv` entry is set, with `{home}`,
+     * `{cwd}` and `{cwdSlug}` expanded. */
     readonly defaultRoot?: string;
   };
   /** Disposable native context accounting; the exchange validates support.
