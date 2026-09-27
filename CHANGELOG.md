@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.5](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.7.4...v0.7.5) (2026-09-27)
+
+
+### Added
+
+* **pi:** native settings source and --extension for bound continuation ([#283](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/283)) ([8ef46e9](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/8ef46e9db5ec3c39c278db4dcd5229e00b45c4a8))
+
 ## [0.7.4](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.7.3...v0.7.4) (2026-09-27)
 
 
