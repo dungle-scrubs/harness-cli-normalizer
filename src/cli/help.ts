@@ -4,7 +4,7 @@ Usage: hcn <command> [options] [prompt]
 
 Commands:
   run <harness> [prompt]    One-shot headless turn (streamTurn)
-  session <harness>         Interactive session (openSession, claude + pi + antigravity)
+  session <harness>         Interactive session (openSession, claude + pi + antigravity + popeye)
   interactive <harness>     Strict native terminal resume with a separate control pipe
   inspect <harness>         Descriptor / argv / capability inspection (no spawn)
   transcript read <harness> Passive native transcript export (JSONL)
@@ -56,7 +56,7 @@ export const RUN_HELP = `hcn run - One-shot headless turn
 Usage: hcn run <harness> [prompt] [options]
 
 Arguments:
-  <harness>                 claude | codex | pi | muse | cursor | antigravity
+  <harness>                 claude | codex | pi | muse | cursor | antigravity | popeye
   [prompt]                  Prompt text (positional). Must not start with '-'.
                             Use --prompt or --prompt-file for leading '-' or multi-line.
 
@@ -77,12 +77,12 @@ Options:
                             edit, shell, grep, glob, list, web-fetch,
                             web-search, subagent, skill);
                             'native:<name>' passes a harness-native or
-                            extension tool through (claude, pi; a bare
+                            extension tool through (claude, pi, popeye; a bare
                             name matching a configured toolset expands
                             to it)
   --exclude-tools <a,b>     Complement over known tools - canonical names
                             (same vocabulary, native:<name> passthrough);
-                            mutually exclusive with --tools (claude, pi)
+                            mutually exclusive with --tools (claude, pi, popeye)
   --autonomy                Enable autonomy flag (claude/codex/muse/cursor/antigravity)
   --no-autonomy             Disable autonomy
   --write                   Enable write (muse)
@@ -94,7 +94,8 @@ Options:
                             on when native settings disable it
   --no-memory               Disable persistent memory (claude: env var;
                             codex: --disable memories; pi: no-op, no built-in
-                            memory; muse/cursor/antigravity: refuse - no off switch, reported
+                            memory; popeye: no-op (declared divergence);
+                            muse/cursor/antigravity: refuse - no off switch, reported
                             as divergence by the default profile)
   --questions <ask|assume|none>
                             Which preamble to inject: ask = escalation
@@ -102,18 +103,18 @@ Options:
                             done cause "awaiting-input", exit 0), assume =
                             never ask, state assumption, none = inject
                             nothing
-  --system-prompt <text>    Replace the built-in system prompt (claude, pi:
-                            flag; codex: -c instructions=<text-or-path>;
+  --system-prompt <text>    Replace the built-in system prompt (claude, pi,
+                            popeye: flag; codex: -c instructions=<text-or-path>;
                             muse/cursor/antigravity refuse. claude pairs the dynamic-section
                             exclusion automatically. Opt-in; no default)
   --append-system-prompt <text>
-                            Append to the built-in prompt (claude, pi only)
+                            Append to the built-in prompt (claude, pi, popeye only)
   --extension <path>        Load this extension file for the turn (pi only;
                             absolute path to a regular file; repeatable;
                             loads even with --no-extensions)
   --access <read|write>     Access preset - read = read-only tool subset
                             (canonical: read, grep, glob, list, web-fetch,
-                            web-search; claude/pi via --tools, codex via
+                            web-search; claude/pi/popeye via --tools, codex via
                             --sandbox read-only, muse via --disable-write
                             --disable-shell, cursor/antigravity refuse); write = no restriction;
                             mutually exclusive with --tools/--exclude-tools
@@ -143,7 +144,7 @@ Options:
                             accepts the id and may announce a fresh conversation.
   --session-id <uuid>       Alias for --resume (mutually exclusive with --resume)
   --resume-last             Resume the most recent session in the spawn cwd
-                            (claude, codex, pi, cursor, antigravity; muse refuses).
+                            (claude, codex, pi, cursor, antigravity; muse and popeye refuse).
                             Mutually exclusive with --resume/--session-id.
   --native-settings-fingerprint <hash>
                             Codex resume only, with explicit --cwd. Re-read saved
@@ -183,7 +184,7 @@ Defaults with no flags:
   'hcn inspect <harness>' for the resolved argv of a bare run.
 `;
 
-export const SESSION_HELP = `hcn session - Interactive session (claude, pi, antigravity)
+export const SESSION_HELP = `hcn session - Interactive session (claude, pi, antigravity, popeye)
 
 Usage: hcn session <harness> [options]
 
@@ -237,7 +238,7 @@ export const INSPECT_HELP = `hcn inspect - Descriptor / argv inspection
 Usage: hcn inspect <harness> [options]
 
 Arguments:
-  <harness>                 claude | codex | pi | muse | cursor | antigravity
+  <harness>                 claude | codex | pi | muse | cursor | antigravity | popeye
 
 Options:
   --transcript              Report passive transcript methods and evidence;
@@ -350,7 +351,7 @@ Usage: hcn transcript read <harness> (--id <native-id> | --file <path>) [options
                          [--harness <names>] [--limit <rows>]
                          [--since-time <utc-instant>]
 
-Harnesses: claude | codex | pi | muse | cursor | antigravity
+Harnesses: claude | codex | pi | muse | cursor | antigravity | popeye
 Inspect support first: hcn inspect <harness> --transcript
 
 read options:
