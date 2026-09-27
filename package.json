@@ -1,6 +1,6 @@
 {
   "name": "@dungle-scrubs/harness-cli-normalizer",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "description": "One stable CLI to six coding-agent harnesses: normalized flags, defaults, and events.",
   "license": "MIT",
   "author": "Kevin Frilot",
