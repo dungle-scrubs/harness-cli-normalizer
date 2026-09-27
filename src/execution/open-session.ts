@@ -100,6 +100,9 @@ export interface OpenSessionOptions {
   readonly questions?: QuestionMode;
   /** Provider selector (pi); refused on a harness without one. */
   readonly provider?: string;
+  /** Named-agent selection (map #288); refused on a harness without a
+   * spec, the same way a one-shot turn refuses. */
+  readonly agent?: string;
   /** Effort level for the session spawn, validated per harness/model the
    * way a one-shot launch validates it. Undefined means the caller made
    * no effort decision: the session runs at the harness's own default
@@ -145,6 +148,7 @@ export const openSession = (
     ...(opts.model !== undefined ? { model: opts.model } : {}),
     ...(opts.effort !== undefined ? { effort: opts.effort } : {}),
     ...(opts.provider !== undefined ? { provider: opts.provider } : {}),
+    ...(opts.agent !== undefined ? { agent: opts.agent } : {}),
     ...(opts.isResume !== undefined ? { isResume: opts.isResume } : {}),
   });
   let sessionInput: SessionInputContract;

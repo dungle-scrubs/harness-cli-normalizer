@@ -149,6 +149,16 @@ export const antigravityCli: HarnessDescriptor = deepFreeze({
     },
   },
   turnOptions: {
+    // Named-agent selection (map #288). Probed live on 1.2.12: --agent
+    // composes with -p headless and with --conversation resume, and an
+    // unknown name is TOLERATED (the turn runs; no roster error exists),
+    // so resume inherits the launch render and the name passes through
+    // unvalidated beyond the selector rule.
+    agent: {
+      kind: "selector",
+      argvPlacement: "after-prompt",
+      render: { kind: "flag-value", flag: "--agent" },
+    },
     effort: {
       kind: "effort",
       argvPlacement: "after-prompt",

@@ -37,6 +37,7 @@ const BESIDE_PI_FINGERPRINT = {
   sandbox: false,
   contextWindow: false,
   provider: false,
+  agent: false,
   discovery: false,
   write: false,
   shell: false,

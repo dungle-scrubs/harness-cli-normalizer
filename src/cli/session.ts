@@ -166,6 +166,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   const model = values.model as string | undefined;
   const cwd = values.cwd as string | undefined;
   const provider = values.provider as string | undefined;
+  const agent = values.agent as string | undefined;
   const effort = values.effort as string | undefined;
 
   // question mode: the arg is validated through the one predicate, then
@@ -340,6 +341,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
         cwd,
         questions: questionMode,
         provider,
+        agent,
         effort,
         isResume,
         ...(memoryExpressible ? { memory } : {}),
