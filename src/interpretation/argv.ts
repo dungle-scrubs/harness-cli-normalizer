@@ -81,6 +81,12 @@ export interface TurnOptions {
   readonly sandbox?: string;
   readonly contextWindow?: number;
   readonly provider?: string;
+  /** Named-agent selection (map #288): the caller picks among agents the
+   * harness defines natively. claude and antigravity render the native
+   * `--agent <name>`; harnesses without a spec refuse. The name passes
+   * through - an unknown name is the harness's own native error, never an
+   * hcn refusal (no stable machine roster exists to validate against). */
+  readonly agent?: string;
   readonly discovery?: DiscoveryOptions;
   readonly write?: boolean;
   readonly shell?: boolean;
@@ -405,6 +411,9 @@ export interface SessionOptions {
   /** Provider selector (pi). A harness with no provider selector refuses,
    * the same way a one-shot turn does. */
   readonly provider?: string;
+  /** Named-agent selection (map #288): rendered at session spawn exactly
+   * as a one-shot launch renders it. A harness with no spec refuses. */
+  readonly agent?: string;
   /** True when this argv should resume an existing conversation, false for a
    * fresh session. Controls which descriptor flag is rendered: resumeFlag
    * vs idFlag. Only consumers that alias --resume/--session-id set this. */
@@ -438,7 +447,7 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
     }
     argv.push(h.vocabulary.modelFlag, validated.id);
   }
-  if (opts.provider !== undefined || opts.effort !== undefined) {
+  if (opts.agent !== undefined || opts.provider !== undefined || opts.effort !== undefined) {
     // Both dimensions render through the same code path a launch argv uses,
     // so the flag spelling and the refusal (with supportedBy) stay
     // identical. The model rides along INERT for rendering - it is not a
@@ -451,6 +460,7 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
         {
           ...(opts.effort !== undefined ? { effort: opts.effort } : {}),
           ...(opts.provider !== undefined ? { provider: opts.provider } : {}),
+          ...(opts.agent !== undefined ? { agent: opts.agent } : {}),
           ...(opts.model !== undefined ? { model: opts.model } : {}),
         } as TurnOptions,
         "launch",

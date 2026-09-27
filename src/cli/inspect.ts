@@ -189,6 +189,11 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
     // ADR 0009: printed for planning - a caller sees before it runs
     // whether this harness will report compaction at all.
     compactionReporting: h.compactionReporting,
+    // Map #288: printed for planning - a caller sees before it runs
+    // whether --agent selects a named agent on this harness. Derived from
+    // the descriptor's agent turn-option spec, the single owner of the
+    // fact, so silence here really does mean cannot.
+    namedAgents: h.turnOptions.agent !== undefined,
     nativeContextManagement:
       h.nativeContextManagement === null
         ? null

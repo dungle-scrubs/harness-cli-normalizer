@@ -62,6 +62,8 @@ describe("capabilitiesOf (claude)", () => {
         states: ["started", "compacted", "failed"],
         tokens: true,
       },
+      // Map #288: derived from the agent turn-option spec, never degrades.
+      namedAgents: true,
     });
   });
 

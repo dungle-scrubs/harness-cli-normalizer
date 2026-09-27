@@ -32,7 +32,8 @@ says "this is not available here" instead of pretending parity. _Avoid_:
 
 **Harness**: one coding-agent CLI that hcn drives - claude, codex, pi, muse, cursor,
 or antigravity.
-_Avoid_: "provider" (that is the model vendor), "agent" (that is the model).
+_Avoid_: "provider" (that is the model vendor), "agent" (that is the model; a
+harness's selectable persona is a **named agent**, never a bare "agent").
 
 **Descriptor**: the immutable data describing one harness - its flags, its
 vocabularies, what it can express. Pure data, never behaviour. _Avoid_:
@@ -50,6 +51,12 @@ and Antigravity have one.
 
 **Turn option**: a per-call dimension hcn can express, keyed by a closed
 vocabulary. A harness that cannot express one reports divergence.
+
+**Named agent**: a persona the harness defines natively and hcn only selects
+among at launch - `--agent <name>` (claude subagents, antigravity agents).
+hcn never defines named agents, and an unknown name is the harness's own
+native error: no harness exposes a stable machine roster. Ratified by map
+#288, 2026-09-27.
 
 **Failure class**: the named reason a turn failed, from a closed set. Naming it
 is normalization; deciding whether to retry it is not - see `retryable` below.

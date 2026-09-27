@@ -75,6 +75,7 @@ const spellingOf = (h: HarnessDescriptor, option: RefusalOption): string | null 
     case "sandbox":
     case "contextWindow":
     case "provider":
+    case "agent":
     case "write":
     case "shell":
     case "maxSteps":

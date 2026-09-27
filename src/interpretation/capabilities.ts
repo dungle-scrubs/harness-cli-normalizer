@@ -57,6 +57,11 @@ export interface CapabilityResult {
     readonly states: readonly CompactionState[];
     readonly tokens: boolean;
   } | null;
+  /** Map #288: whether this harness selects a named agent at launch
+   * (`--agent <name>`). Derived from the descriptor's `agent` turn-option
+   * spec - the spec table is the single owner of the fact - so this does
+   * not degrade for an uncurated model, exactly like `compactionReporting`. */
+  readonly namedAgents: boolean;
 }
 
 const escalationOf = (h: HarnessDescriptor): EscalationClaim => {
@@ -105,6 +110,7 @@ export const capabilitiesOf = (
       confidence: "none",
       escalation: { supported: false, source: "unknown", confidence: "none" },
       compactionReporting: h.compactionReporting,
+      namedAgents: h.turnOptions.agent !== undefined,
     };
   }
   return {
@@ -116,5 +122,6 @@ export const capabilitiesOf = (
     confidence: "medium",
     escalation: escalationOf(h),
     compactionReporting: h.compactionReporting,
+    namedAgents: h.turnOptions.agent !== undefined,
   };
 };

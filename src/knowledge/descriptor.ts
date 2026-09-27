@@ -228,6 +228,12 @@ export const TURN_OPTION_KEYS = deepFreeze([
   // RFC 35 (Lucid): explicit extension files, loaded even when discovery is
   // off. Opt-in only; a harness without the spec refuses.
   "extensions",
+  // Named-agent selection (map #288, ratified 2026-09-27): the caller picks
+  // among agents the HARNESS defines natively (claude subagents, antigravity
+  // agents); hcn selects, never defines. Opt-in only; a harness without the
+  // spec refuses. Names pass through unvalidated beyond the selector rule -
+  // no harness exposes a stable machine roster (probed 2026-09-27).
+  "agent",
 ] as const);
 export type TurnOptionKey = (typeof TURN_OPTION_KEYS)[number];
 
