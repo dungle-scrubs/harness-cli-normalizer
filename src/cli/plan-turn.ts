@@ -38,6 +38,7 @@ import { recognizeNativeSpelling, supportedBy } from "../interpretation/support.
 import { renderToolSelection } from "../interpretation/tool-selection.js";
 import { resolveEffortSlug } from "../interpretation/vocabulary.js";
 import type { HarnessDescriptor, HarnessName } from "../knowledge/descriptor.js";
+import { NATIVE_SETTINGS_SOURCES } from "../knowledge/native-settings.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import {
   detectPositionalPromptInjection,
@@ -295,6 +296,23 @@ export const planTurn = async (
   // fs read, the CLI's); the descriptor renders them (RFC-02 change 2).
   const { skillNames, ...turnOptsSansNames } = turnOpts;
   turnOpts = turnOptsSansNames;
+  // An empty `--skills=` is still a skills selection; normalization drops
+  // it, so refuse it here beside a Pi fingerprint, which admits none.
+  if (
+    skillNames !== undefined &&
+    NATIVE_SETTINGS_SOURCES[h.name] === "pi-session-v1" &&
+    values["native-settings-fingerprint"] !== undefined
+  ) {
+    return refused(
+      new ArgvRefusalError({
+        issue: "invalid-option-value",
+        harness: h.name,
+        detail:
+          "Pi native settings require an exact resume with no settings options or passthrough",
+        supported: ["freshly verified native settings for this exact saved session"],
+      }),
+    );
+  }
   if (skillNames !== undefined && skillNames.length > 0) {
     try {
       turnOpts = {

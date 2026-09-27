@@ -7,6 +7,8 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  statSync,
+  utimesSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -200,7 +202,7 @@ test("a flat PI_CODING_AGENT_SESSION_DIR store is found", () => {
 });
 
 test.each<[string, (cwd: string) => readonly (Entry | string)[], string]>([
-  ["a malformed line", (cwd) => [...bound(cwd), "{not json"], "session-unavailable"],
+  ["a malformed line", (cwd) => [...bound(cwd), "{not json"], "settings-unavailable"],
   [
     "an assistant message without a model",
     (cwd) => [
@@ -241,6 +243,24 @@ test("the fingerprint changes when the session file changes", () => {
   expect(JSON.parse(f.inspect().stdout).fingerprint).not.toBe(before);
 });
 
+test("an edit that keeps the length, the settings, and the timestamps changes the fingerprint", () => {
+  const f = fixture(bound);
+  const before = JSON.parse(f.inspect().stdout).fingerprint;
+  const { atime, mtime } = statSync(f.file);
+  const text = readFileSync(f.file, "utf8");
+  const edited = text.replace(
+    "DO_NOT_RETURN_CONVERSATION_CONTENT",
+    "DO_NOT_RETURN_CONVERSATION_CONTENX",
+  );
+  expect(edited.length).toBe(text.length);
+  expect(edited).not.toBe(text);
+  writeFileSync(f.file, edited);
+  utimesSync(f.file, atime, mtime);
+  const after = JSON.parse(f.inspect().stdout);
+  expect(after).toMatchObject({ status: "available", model: "glm-5.3" });
+  expect(after.fingerprint).not.toBe(before);
+});
+
 test("a fingerprinted Pi resume is flagless, loads the extension, and refuses every other option", () => {
   const f = fixture(bound);
   const fingerprint = JSON.parse(f.inspect().stdout).fingerprint;
@@ -274,6 +294,7 @@ test("a fingerprinted Pi resume is flagless, loads the extension, and refuses ev
     ["--access", "read"],
     ["--no-extensions"],
     ["--system-prompt", "x"],
+    ["--skills="],
     ["--", "-e", "/tmp/other.js"],
   ]) {
     const refused = f.hcn(["run", "pi", ...base, ...extra]);
@@ -292,8 +313,18 @@ test("a fingerprinted Pi resume is flagless, loads the extension, and refuses ev
     "json",
     "-e",
     f.extension,
+    "--",
     expect.stringContaining("EXACT_INPUT"),
   ]);
+
+  // A flag-shaped prompt stays the message: Pi reads every token after its
+  // `--` as text, so it cannot become an option the guard never saw.
+  rmSync(join(f.root, "native-argv.json"));
+  const flagShaped = base.map((token) => (token === "EXACT_INPUT" ? "--no-extensions" : token));
+  expect(f.hcn(["run", "pi", ...flagShaped]).status).toBe(0);
+  const flagArgv: string[] = JSON.parse(readFileSync(join(f.root, "native-argv.json"), "utf8"));
+  expect(flagArgv.slice(-2)).toEqual(["--", expect.stringContaining("--no-extensions")]);
+  expect(flagArgv.filter((token) => token.includes("--no-extensions"))).toHaveLength(1);
 
   rmSync(join(f.root, "native-argv.json"));
   appendFileSync(f.file, `${JSON.stringify(user("a5", "a4"))}\n`);

@@ -55,6 +55,10 @@ export const hasOptionsBesidePiFingerprint = (
     ([key, allowed]) => !allowed && (opts as unknown as Record<string, unknown>)[key] !== undefined,
   );
 
+/** A Pi settings fingerprint puts the prompt after Pi's `--`. */
+export const promptAfterSeparator = (opts: Pick<SpawnArgvOptions, "verifiedNativeSettings">) =>
+  opts.verifiedNativeSettings?.source === "pi-session-v1";
+
 /** A verified source bypasses only the curated model catalog, never selector validation. */
 export function renderVerifiedNativeSettings(
   h: HarnessDescriptor,

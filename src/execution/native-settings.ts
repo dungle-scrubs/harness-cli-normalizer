@@ -93,7 +93,13 @@ export function inspectNativeSettings(
         const text = decoder.decode(bytes);
         // Pi skips blank lines; a malformed line holds instead (RFC 35 step 3).
         if (text.trim() === "") return;
-        const record = parsePiSettingsLine(JSON.parse(text));
+        let value: unknown;
+        try {
+          value = JSON.parse(text);
+        } catch {
+          throw new NativeSettingsUnavailable("settings-unavailable");
+        }
+        const record = parsePiSettingsLine(value);
         if (!record) throw new NativeSettingsUnavailable("settings-unavailable");
         piLines.push(record);
         return;
@@ -119,6 +125,9 @@ export function inspectNativeSettings(
       }
       ordinal++;
     };
+    // Pi rewrites a session file in place, so a stat identity alone can miss
+    // an edit inside one timestamp tick; the bytes read go into the digest.
+    const content = createHash("sha256");
     const buffer = Buffer.alloc(64 * 1024);
     let pending: Buffer[] = [];
     let pendingBytes = 0;
@@ -134,6 +143,7 @@ export function inspectNativeSettings(
       if (!count) throw new NativeSettingsUnavailable("source-changed");
       offset += count;
       const bytes = buffer.subarray(0, count);
+      content.update(bytes);
       let start = 0;
       while (start < count) {
         const end = bytes.indexOf(10, start);
@@ -174,6 +184,7 @@ export function inspectNativeSettings(
             request.sessionId,
             request.cwd,
             ...identity(before),
+            content.digest("hex"),
             pi.modelEntry,
             pi.effortEntry,
             pi.model,

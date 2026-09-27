@@ -13,7 +13,7 @@ import type { NativeSettingsSnapshot } from "../knowledge/native-settings.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { hintFor } from "./hints.js";
 import { assertIsolationCombination } from "./isolation.js";
-import { renderVerifiedNativeSettings } from "./native-settings-argv.js";
+import { promptAfterSeparator, renderVerifiedNativeSettings } from "./native-settings-argv.js";
 import { ArgvRefusalError } from "./refusal.js";
 import { assertAccessExclusivity } from "./resolve-options.js";
 import { assertUsableSessionId, SESSION_ID_MAX, SessionIdRefusalError } from "./session-id.js";
@@ -132,13 +132,17 @@ export function stdinPromptOf(h: HarnessDescriptor, opts: TurnOptions): string |
 /** The shared tail of every headless-turn argv: prompt, stream flags, then
  * validated selections, with the variadic tools flag LAST and fed exactly
  * one joined token so nothing after it can be swallowed as a tool name. */
-const turnTail = (h: HarnessDescriptor, opts: TurnOptions): string[] => {
+const turnTail = (
+  h: HarnessDescriptor,
+  opts: TurnOptions,
+  prompt: "inline" | "after-separator" = "inline",
+): string[] => {
   const stdinPrompt = stdinPromptOf(h, opts);
   if (stdinPrompt === null) assertCleanPrompt(h, opts.prompt);
-  const tail = [
-    stdinPrompt === null ? promptTextOf(opts) : (h.launch.stdinPrompt?.argument ?? ""),
-    ...h.launch.streamFlags,
-  ];
+  const promptToken =
+    stdinPrompt === null ? promptTextOf(opts) : (h.launch.stdinPrompt?.argument ?? "");
+  const tail = prompt === "inline" ? [promptToken] : [];
+  tail.push(...h.launch.streamFlags);
   if (opts.model !== undefined) {
     const validated = validateModel(h, opts.model);
     if (!validated.ok) {
@@ -177,6 +181,12 @@ const turnTail = (h: HarnessDescriptor, opts: TurnOptions): string[] => {
     tail.push(...renderSkillsSelection(h, opts.skills));
   }
   return tail;
+};
+
+/** The prompt that follows every flag, behind the harness's own `--`. */
+const separatedPrompt = (h: HarnessDescriptor, opts: TurnOptions): string[] => {
+  const stdinPrompt = stdinPromptOf(h, opts);
+  return ["--", stdinPrompt === null ? promptTextOf(opts) : (h.launch.stdinPrompt?.argument ?? "")];
 };
 
 export const buildLaunchArgv = (h: HarnessDescriptor, opts: LaunchOptions): string[] => [
@@ -226,11 +236,15 @@ const refuseUnusableSessionId = (h: HarnessDescriptor, sessionId: string): void 
 
 const resumeArgv = (
   h: HarnessDescriptor,
-  opts: ResumeOptions,
+  opts: ResumeOptions & Pick<SpawnArgvOptions, "verifiedNativeSettings">,
   nativeSettingsArgs: readonly string[],
 ): string[] => {
   refuseUnusableSessionId(h, opts.sessionId);
   assertAccessExclusivity(h, opts);
+  // A Pi settings fingerprint refuses passthrough, so Pi's own `--` is free:
+  // a prompt such as `--no-extensions` stays the message and cannot become
+  // a flag the fingerprint guard never saw (RFC 35).
+  const prompt = promptAfterSeparator(opts) ? "after-separator" : "inline";
   // Subcommands lead, then the resume token and id, then the flags the
   // RESUME grammar accepts (never inherited launch flags - codex exec
   // resume rejects --sandbox). One shape serves both styles:
@@ -244,8 +258,9 @@ const resumeArgv = (
     ...h.resume.extraFlags,
     ...renderTurnOptions(h, opts, "resume", "before-prompt").tokens,
     ...nativeSettingsArgs,
-    ...turnTail(h, opts),
+    ...turnTail(h, opts, prompt),
     ...renderTurnOptions(h, opts, "resume", "after-prompt").tokens,
+    ...(prompt === "after-separator" ? separatedPrompt(h, opts) : []),
   ];
 };
 
