@@ -302,6 +302,7 @@ describe("streamTurn behaviors (M3.1 boxes)", () => {
     expect(done.exitCode).toBe(3);
     expect((done as unknown as { failure?: { class: string } }).failure).toMatchObject({
       class: "transport",
+      nativeExitCode: 3,
     });
   });
 

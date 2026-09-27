@@ -93,6 +93,9 @@ describe("failureFromTrust", () => {
     expect(native.class).toBe("native");
     const silent = failureFromStderrTail(cursorCli, 1, []);
     expect(silent.class).toBe("transport");
+    // The exit code rides as data on either class.
+    expect(native.nativeExitCode).toBe(1);
+    expect(silent.nativeExitCode).toBe(1);
   });
 
   test("cursor --resume-last with no session is native, never trust-refused (RFC-06 Phase 5 ordering note)", () => {

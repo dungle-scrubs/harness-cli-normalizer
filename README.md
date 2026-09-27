@@ -723,6 +723,8 @@ if (done.failure) {
 }
 ```
 
+`nativeExitCode` is the harness process's own exit code. It is set on a `native` failure and on the `transport` failure hcn reports for a nonzero exit with empty stderr.
+
 `retryable` is `false` for `task`, `budget`, `rejected`, `native`, `timeout`, `internal` and `true` for the rest. `unavailable` is a provider that cannot serve the requested model or route (model not found, not loaded); retryable, route elsewhere. `rejected` is non-retryable across the whole model chain because the remedy is different options or a different harness.
 
 ### Crash tier and the command ledger
