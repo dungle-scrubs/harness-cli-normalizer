@@ -237,6 +237,16 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
       kind: "prompt-text",
       render: { kind: "flag-value", flag: "--append-system-prompt" },
     },
+    // Named-agent selection (map #288). Probed live on 2.1.283: --agent
+    // composes with -p headless and with --resume (the same native session
+    // id continues), so resume inherits the launch render. An unknown name
+    // is claude's own native error (exit 1, before model work) whose text
+    // lists the roster - the name passes through unvalidated beyond the
+    // selector rule.
+    agent: {
+      kind: "selector",
+      render: { kind: "flag-value", flag: "--agent" },
+    },
     discovery: {
       kind: "discovery",
       facets: {

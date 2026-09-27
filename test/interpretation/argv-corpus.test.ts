@@ -81,6 +81,7 @@ const turnCases = (h: HarnessDescriptor): ReadonlyArray<readonly [string, TurnOp
   ["sandbox-read-only", { prompt: "hi", sandbox: "read-only" }],
   ["context-window", { prompt: "hi", contextWindow: 100000 }],
   ["provider", { prompt: "hi", provider: "zai" }],
+  ["agent", { prompt: "hi", agent: "scout-agent" }],
   ["no-tools", { prompt: "hi", discovery: { tools: false } }],
   ["no-instruction-files", { prompt: "hi", discovery: { instructionFiles: false } }],
   ["no-extensions", { prompt: "hi", discovery: { extensions: false } }],

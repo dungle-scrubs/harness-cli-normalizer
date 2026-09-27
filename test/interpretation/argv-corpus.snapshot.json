@@ -125,6 +125,7 @@
             "effort",
             "systemPrompt",
             "appendSystemPrompt",
+            "agent",
             "discovery",
             "access",
             "memory"
@@ -140,7 +141,7 @@
             }
           ],
           "hint": "claude has no sandbox modes; approximate with a per-tool allowlist (--tools Read,Bash) or --disallowedTools to keep tools out, and run untrusted work in a disposable directory or container",
-          "message": "claude cannot express option \"sandbox\" (read-only); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"sandbox\" (read-only); supported: isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "context-window": {
@@ -153,6 +154,7 @@
             "effort",
             "systemPrompt",
             "appendSystemPrompt",
+            "agent",
             "discovery",
             "access",
             "memory"
@@ -167,7 +169,7 @@
               "spelling": "--context-window"
             }
           ],
-          "message": "claude cannot express option \"contextWindow\" (100000); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"contextWindow\" (100000); supported: isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "provider": {
@@ -180,6 +182,7 @@
             "effort",
             "systemPrompt",
             "appendSystemPrompt",
+            "agent",
             "discovery",
             "access",
             "memory"
@@ -191,8 +194,21 @@
             }
           ],
           "hint": "claude routes models through Anthropic only (Bedrock/Vertex via settings); use --model to pick within it - there is no separate provider selector",
-          "message": "claude cannot express option \"provider\" (zai); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"provider\" (zai); supported: isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
+      },
+      "agent": {
+        "argv": [
+          "claude",
+          "-p",
+          "--agent",
+          "scout-agent",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--verbose",
+          "--include-partial-messages"
+        ]
       },
       "no-tools": {
         "refusal": {
@@ -268,6 +284,7 @@
             "effort",
             "systemPrompt",
             "appendSystemPrompt",
+            "agent",
             "discovery",
             "access",
             "memory"
@@ -279,7 +296,7 @@
             }
           ],
           "hint": "claude has no write toggle; keep the Write tool out with --tools that omits it, or --disallowedTools Write for the deny-complement spelling",
-          "message": "claude cannot express option \"write\" (false); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"write\" (false); supported: isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "shell-off": {
@@ -292,6 +309,7 @@
             "effort",
             "systemPrompt",
             "appendSystemPrompt",
+            "agent",
             "discovery",
             "access",
             "memory"
@@ -303,7 +321,7 @@
             }
           ],
           "hint": "claude has no shell toggle; disallow the Bash tool (--tools without Bash, or --disallowedTools Bash) and note Monitor can still run commands in headless runs",
-          "message": "claude cannot express option \"shell\" (false); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"shell\" (false); supported: isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "max-steps": {
@@ -316,6 +334,7 @@
             "effort",
             "systemPrompt",
             "appendSystemPrompt",
+            "agent",
             "discovery",
             "access",
             "memory"
@@ -327,7 +346,7 @@
             }
           ],
           "hint": "claude has no step cap flag; bound the work in the prompt (task size, 'stop after N operations') or impose a wall-clock timeout at the caller",
-          "message": "claude cannot express option \"maxSteps\" (5); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"maxSteps\" (5); supported: isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "system-prompt": {
@@ -724,6 +743,32 @@
           ],
           "hint": "codex routes models through OpenAI (or --oss for local); use --model to pick within it - there is no separate provider selector",
           "message": "codex cannot express option \"provider\" (zai); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "agent": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "codex",
+          "option": "agent",
+          "supported": [
+            "contextWindow",
+            "effort",
+            "systemPrompt",
+            "sandbox",
+            "access",
+            "memory"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--agent"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--agent"
+            }
+          ],
+          "message": "codex cannot express option \"agent\" (scout-agent); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "no-tools": {
@@ -1360,6 +1405,34 @@
           "hi"
         ]
       },
+      "agent": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "pi",
+          "option": "agent",
+          "supported": [
+            "effort",
+            "provider",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "extensions",
+            "discovery",
+            "access",
+            "memory"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--agent"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--agent"
+            }
+          ],
+          "message": "pi cannot express option \"agent\" (scout-agent); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
+        }
+      },
       "no-tools": {
         "argv": [
           "pi",
@@ -1879,6 +1952,31 @@
           ],
           "hint": "muse routes models through its own API; use --model to pick within it - there is no separate provider selector",
           "message": "muse cannot express option \"provider\" (zai); supported: effort, write, shell, maxSteps, access - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "agent": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "muse",
+          "option": "agent",
+          "supported": [
+            "effort",
+            "write",
+            "shell",
+            "maxSteps",
+            "access"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--agent"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--agent"
+            }
+          ],
+          "message": "muse cannot express option \"agent\" (scout-agent); supported: effort, write, shell, maxSteps, access - drop the option or route this work to a harness that supports it"
         }
       },
       "no-tools": {
@@ -2606,6 +2704,27 @@
           "message": "cursor cannot express option \"provider\" (zai); supported: effort - drop the option or route this work to a harness that supports it"
         }
       },
+      "agent": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "agent",
+          "supported": [
+            "effort"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--agent"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--agent"
+            }
+          ],
+          "message": "cursor cannot express option \"agent\" (scout-agent); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
       "no-tools": {
         "refusal": {
           "issue": "unsupported-option",
@@ -3035,6 +3154,7 @@
           "harness": "antigravity",
           "option": "isolation",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
@@ -3044,7 +3164,7 @@
               "spelling": "--bare"
             }
           ],
-          "message": "antigravity cannot express option \"isolation\" (tool-free); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"isolation\" (tool-free); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "tool-free-conflict": {
@@ -3134,6 +3254,7 @@
           "harness": "antigravity",
           "option": "contextWindow",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
@@ -3147,7 +3268,7 @@
               "spelling": "--context-window"
             }
           ],
-          "message": "antigravity cannot express option \"contextWindow\" (100000); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"contextWindow\" (100000); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "provider": {
@@ -3156,6 +3277,7 @@
           "harness": "antigravity",
           "option": "provider",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
@@ -3165,8 +3287,19 @@
               "spelling": "--provider"
             }
           ],
-          "message": "antigravity cannot express option \"provider\" (zai); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"provider\" (zai); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
+      },
+      "agent": {
+        "argv": [
+          "agy",
+          "--print",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--agent",
+          "scout-agent"
+        ]
       },
       "no-tools": {
         "refusal": {
@@ -3174,10 +3307,11 @@
           "harness": "antigravity",
           "option": "discovery",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
-          "message": "antigravity cannot express option \"discovery\" (tools); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"discovery\" (tools); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "no-instruction-files": {
@@ -3186,10 +3320,11 @@
           "harness": "antigravity",
           "option": "discovery",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
-          "message": "antigravity cannot express option \"discovery\" (instructionFiles); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"discovery\" (instructionFiles); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "no-extensions": {
@@ -3198,10 +3333,11 @@
           "harness": "antigravity",
           "option": "discovery",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
-          "message": "antigravity cannot express option \"discovery\" (extensions); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"discovery\" (extensions); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "no-skills": {
@@ -3210,10 +3346,11 @@
           "harness": "antigravity",
           "option": "discovery",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
-          "message": "antigravity cannot express option \"discovery\" (skills); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"discovery\" (skills); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "discovery-all-on": {
@@ -3231,6 +3368,7 @@
           "harness": "antigravity",
           "option": "write",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
@@ -3240,7 +3378,7 @@
               "spelling": "--disable-write"
             }
           ],
-          "message": "antigravity cannot express option \"write\" (false); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"write\" (false); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "shell-off": {
@@ -3249,6 +3387,7 @@
           "harness": "antigravity",
           "option": "shell",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
@@ -3258,7 +3397,7 @@
               "spelling": "--disable-shell"
             }
           ],
-          "message": "antigravity cannot express option \"shell\" (false); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"shell\" (false); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "max-steps": {
@@ -3267,6 +3406,7 @@
           "harness": "antigravity",
           "option": "maxSteps",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
@@ -3276,7 +3416,7 @@
               "spelling": "--max-model-steps"
             }
           ],
-          "message": "antigravity cannot express option \"maxSteps\" (5); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"maxSteps\" (5); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "system-prompt": {
@@ -3285,11 +3425,12 @@
           "harness": "antigravity",
           "option": "systemPrompt",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
           "supportedBy": [],
-          "message": "antigravity cannot express option \"systemPrompt\" (you are terse); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"systemPrompt\" (you are terse); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "append-system-prompt": {
@@ -3298,11 +3439,12 @@
           "harness": "antigravity",
           "option": "appendSystemPrompt",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
           "supportedBy": [],
-          "message": "antigravity cannot express option \"appendSystemPrompt\" (and polite); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"appendSystemPrompt\" (and polite); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "access-read": {
@@ -3311,10 +3453,11 @@
           "harness": "antigravity",
           "option": "access",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
-          "message": "antigravity cannot express option \"access\" (read); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"access\" (read); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "access-write": {
@@ -3323,10 +3466,11 @@
           "harness": "antigravity",
           "option": "access",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
-          "message": "antigravity cannot express option \"access\" (write); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"access\" (write); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "access-read-no-tools": {
@@ -3335,10 +3479,11 @@
           "harness": "antigravity",
           "option": "discovery",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
-          "message": "antigravity cannot express option \"discovery\" (tools); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"discovery\" (tools); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "tools-include": {
@@ -3710,6 +3855,32 @@
             }
           ],
           "message": "popeye cannot express option \"provider\" (zai); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "agent": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "agent",
+          "supported": [
+            "effort",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "contextWindow",
+            "access",
+            "memory"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--agent"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--agent"
+            }
+          ],
+          "message": "popeye cannot express option \"agent\" (scout-agent); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "no-tools": {
@@ -4148,9 +4319,10 @@
             "memory",
             "systemPrompt",
             "appendSystemPrompt",
-            "access"
+            "access",
+            "agent"
           ],
-          "message": "\"isolation\" cannot be expressed on resume for claude; supported: effort, discovery, memory, systemPrompt, appendSystemPrompt, access - re-launch instead of resuming or drop the option"
+          "message": "\"isolation\" cannot be expressed on resume for claude; supported: effort, discovery, memory, systemPrompt, appendSystemPrompt, access, agent - re-launch instead of resuming or drop the option"
         }
       },
       "tool-free-conflict": {
@@ -4255,6 +4427,7 @@
             "effort",
             "systemPrompt",
             "appendSystemPrompt",
+            "agent",
             "discovery",
             "access",
             "memory"
@@ -4270,7 +4443,7 @@
             }
           ],
           "hint": "claude has no sandbox modes; approximate with a per-tool allowlist (--tools Read,Bash) or --disallowedTools to keep tools out, and run untrusted work in a disposable directory or container",
-          "message": "claude cannot express option \"sandbox\" (read-only); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"sandbox\" (read-only); supported: isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "context-window": {
@@ -4283,6 +4456,7 @@
             "effort",
             "systemPrompt",
             "appendSystemPrompt",
+            "agent",
             "discovery",
             "access",
             "memory"
@@ -4297,7 +4471,7 @@
               "spelling": "--context-window"
             }
           ],
-          "message": "claude cannot express option \"contextWindow\" (100000); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"contextWindow\" (100000); supported: isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "provider": {
@@ -4310,6 +4484,7 @@
             "effort",
             "systemPrompt",
             "appendSystemPrompt",
+            "agent",
             "discovery",
             "access",
             "memory"
@@ -4321,8 +4496,23 @@
             }
           ],
           "hint": "claude routes models through Anthropic only (Bedrock/Vertex via settings); use --model to pick within it - there is no separate provider selector",
-          "message": "claude cannot express option \"provider\" (zai); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"provider\" (zai); supported: isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
+      },
+      "agent": {
+        "argv": [
+          "claude",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "--agent",
+          "scout-agent",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--verbose",
+          "--include-partial-messages"
+        ]
       },
       "no-tools": {
         "refusal": {
@@ -4404,6 +4594,7 @@
             "effort",
             "systemPrompt",
             "appendSystemPrompt",
+            "agent",
             "discovery",
             "access",
             "memory"
@@ -4415,7 +4606,7 @@
             }
           ],
           "hint": "claude has no write toggle; keep the Write tool out with --tools that omits it, or --disallowedTools Write for the deny-complement spelling",
-          "message": "claude cannot express option \"write\" (false); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"write\" (false); supported: isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "shell-off": {
@@ -4428,6 +4619,7 @@
             "effort",
             "systemPrompt",
             "appendSystemPrompt",
+            "agent",
             "discovery",
             "access",
             "memory"
@@ -4439,7 +4631,7 @@
             }
           ],
           "hint": "claude has no shell toggle; disallow the Bash tool (--tools without Bash, or --disallowedTools Bash) and note Monitor can still run commands in headless runs",
-          "message": "claude cannot express option \"shell\" (false); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"shell\" (false); supported: isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "max-steps": {
@@ -4452,6 +4644,7 @@
             "effort",
             "systemPrompt",
             "appendSystemPrompt",
+            "agent",
             "discovery",
             "access",
             "memory"
@@ -4463,7 +4656,7 @@
             }
           ],
           "hint": "claude has no step cap flag; bound the work in the prompt (task size, 'stop after N operations') or impose a wall-clock timeout at the caller",
-          "message": "claude cannot express option \"maxSteps\" (5); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"maxSteps\" (5); supported: isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "system-prompt": {
@@ -4888,6 +5081,32 @@
           ],
           "hint": "codex routes models through OpenAI (or --oss for local); use --model to pick within it - there is no separate provider selector",
           "message": "codex cannot express option \"provider\" (zai); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "agent": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "codex",
+          "option": "agent",
+          "supported": [
+            "contextWindow",
+            "effort",
+            "systemPrompt",
+            "sandbox",
+            "access",
+            "memory"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--agent"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--agent"
+            }
+          ],
+          "message": "codex cannot express option \"agent\" (scout-agent); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "no-tools": {
@@ -5540,6 +5759,34 @@
           "hi"
         ]
       },
+      "agent": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "pi",
+          "option": "agent",
+          "supported": [
+            "effort",
+            "provider",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "extensions",
+            "discovery",
+            "access",
+            "memory"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--agent"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--agent"
+            }
+          ],
+          "message": "pi cannot express option \"agent\" (scout-agent); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
+        }
+      },
       "no-tools": {
         "argv": [
           "pi",
@@ -6099,6 +6346,31 @@
           ],
           "hint": "muse routes models through its own API; use --model to pick within it - there is no separate provider selector",
           "message": "muse cannot express option \"provider\" (zai); supported: effort, write, shell, maxSteps, access - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "agent": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "muse",
+          "option": "agent",
+          "supported": [
+            "effort",
+            "write",
+            "shell",
+            "maxSteps",
+            "access"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--agent"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--agent"
+            }
+          ],
+          "message": "muse cannot express option \"agent\" (scout-agent); supported: effort, write, shell, maxSteps, access - drop the option or route this work to a harness that supports it"
         }
       },
       "no-tools": {
@@ -6858,6 +7130,27 @@
           "message": "cursor cannot express option \"provider\" (zai); supported: effort - drop the option or route this work to a harness that supports it"
         }
       },
+      "agent": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "agent",
+          "supported": [
+            "effort"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--agent"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--agent"
+            }
+          ],
+          "message": "cursor cannot express option \"agent\" (scout-agent); supported: effort - drop the option or route this work to a harness that supports it"
+        }
+      },
       "no-tools": {
         "refusal": {
           "issue": "unsupported-option",
@@ -7295,6 +7588,7 @@
           "harness": "antigravity",
           "option": "isolation",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
@@ -7304,7 +7598,7 @@
               "spelling": "--bare"
             }
           ],
-          "message": "antigravity cannot express option \"isolation\" (tool-free); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"isolation\" (tool-free); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "tool-free-conflict": {
@@ -7402,6 +7696,7 @@
           "harness": "antigravity",
           "option": "contextWindow",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
@@ -7415,7 +7710,7 @@
               "spelling": "--context-window"
             }
           ],
-          "message": "antigravity cannot express option \"contextWindow\" (100000); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"contextWindow\" (100000); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "provider": {
@@ -7424,6 +7719,7 @@
           "harness": "antigravity",
           "option": "provider",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
@@ -7433,8 +7729,21 @@
               "spelling": "--provider"
             }
           ],
-          "message": "antigravity cannot express option \"provider\" (zai); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"provider\" (zai); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
+      },
+      "agent": {
+        "argv": [
+          "agy",
+          "--conversation",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "--print",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--agent",
+          "scout-agent"
+        ]
       },
       "no-tools": {
         "refusal": {
@@ -7442,10 +7751,11 @@
           "harness": "antigravity",
           "option": "discovery",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
-          "message": "antigravity cannot express option \"discovery\" (tools); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"discovery\" (tools); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "no-instruction-files": {
@@ -7454,10 +7764,11 @@
           "harness": "antigravity",
           "option": "discovery",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
-          "message": "antigravity cannot express option \"discovery\" (instructionFiles); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"discovery\" (instructionFiles); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "no-extensions": {
@@ -7466,10 +7777,11 @@
           "harness": "antigravity",
           "option": "discovery",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
-          "message": "antigravity cannot express option \"discovery\" (extensions); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"discovery\" (extensions); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "no-skills": {
@@ -7478,10 +7790,11 @@
           "harness": "antigravity",
           "option": "discovery",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
-          "message": "antigravity cannot express option \"discovery\" (skills); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"discovery\" (skills); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "discovery-all-on": {
@@ -7501,6 +7814,7 @@
           "harness": "antigravity",
           "option": "write",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
@@ -7510,7 +7824,7 @@
               "spelling": "--disable-write"
             }
           ],
-          "message": "antigravity cannot express option \"write\" (false); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"write\" (false); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "shell-off": {
@@ -7519,6 +7833,7 @@
           "harness": "antigravity",
           "option": "shell",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
@@ -7528,7 +7843,7 @@
               "spelling": "--disable-shell"
             }
           ],
-          "message": "antigravity cannot express option \"shell\" (false); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"shell\" (false); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "max-steps": {
@@ -7537,6 +7852,7 @@
           "harness": "antigravity",
           "option": "maxSteps",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
@@ -7546,7 +7862,7 @@
               "spelling": "--max-model-steps"
             }
           ],
-          "message": "antigravity cannot express option \"maxSteps\" (5); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"maxSteps\" (5); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "system-prompt": {
@@ -7555,11 +7871,12 @@
           "harness": "antigravity",
           "option": "systemPrompt",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
           "supportedBy": [],
-          "message": "antigravity cannot express option \"systemPrompt\" (you are terse); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"systemPrompt\" (you are terse); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "append-system-prompt": {
@@ -7568,11 +7885,12 @@
           "harness": "antigravity",
           "option": "appendSystemPrompt",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
           "supportedBy": [],
-          "message": "antigravity cannot express option \"appendSystemPrompt\" (and polite); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"appendSystemPrompt\" (and polite); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "access-read": {
@@ -7581,10 +7899,11 @@
           "harness": "antigravity",
           "option": "access",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
-          "message": "antigravity cannot express option \"access\" (read); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"access\" (read); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "access-write": {
@@ -7593,10 +7912,11 @@
           "harness": "antigravity",
           "option": "access",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
-          "message": "antigravity cannot express option \"access\" (write); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"access\" (write); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "access-read-no-tools": {
@@ -7605,10 +7925,11 @@
           "harness": "antigravity",
           "option": "discovery",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
-          "message": "antigravity cannot express option \"discovery\" (tools); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"discovery\" (tools); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "tools-include": {
@@ -8000,6 +8321,32 @@
             }
           ],
           "message": "popeye cannot express option \"provider\" (zai); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "agent": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "popeye",
+          "option": "agent",
+          "supported": [
+            "effort",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "contextWindow",
+            "access",
+            "memory"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--agent"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--agent"
+            }
+          ],
+          "message": "popeye cannot express option \"agent\" (scout-agent); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "no-tools": {
@@ -8500,9 +8847,10 @@
             "memory",
             "systemPrompt",
             "appendSystemPrompt",
-            "access"
+            "access",
+            "agent"
           ],
-          "message": "\"isolation\" cannot be expressed on resume for claude; supported: effort, discovery, memory, systemPrompt, appendSystemPrompt, access - re-launch instead of resuming or drop the option"
+          "message": "\"isolation\" cannot be expressed on resume for claude; supported: effort, discovery, memory, systemPrompt, appendSystemPrompt, access, agent - re-launch instead of resuming or drop the option"
         }
       },
       "id-and-last-refuse": {
@@ -9214,6 +9562,7 @@
             "effort",
             "systemPrompt",
             "appendSystemPrompt",
+            "agent",
             "discovery",
             "access",
             "memory"
@@ -9225,7 +9574,7 @@
             }
           ],
           "hint": "claude routes models through Anthropic only (Bedrock/Vertex via settings); use --model to pick within it - there is no separate provider selector",
-          "message": "claude cannot express option \"provider\" (zai); supported: isolation, effort, systemPrompt, appendSystemPrompt, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"provider\" (zai); supported: isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "resume": {
@@ -9661,6 +10010,7 @@
           "harness": "antigravity",
           "option": "provider",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
@@ -9670,7 +10020,7 @@
               "spelling": "--provider"
             }
           ],
-          "message": "antigravity cannot express option \"provider\" (zai); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"provider\" (zai); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "resume": {
@@ -14326,10 +14676,11 @@
           "harness": "antigravity",
           "option": "access",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
-          "message": "antigravity cannot express option \"access\" (read); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"access\" (read); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "access-read-explicit-sandbox": {
@@ -14338,10 +14689,11 @@
           "harness": "antigravity",
           "option": "access",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
-          "message": "antigravity cannot express option \"access\" (read); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"access\" (read); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "access-read-config-sandbox": {
@@ -14350,10 +14702,11 @@
           "harness": "antigravity",
           "option": "access",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
-          "message": "antigravity cannot express option \"access\" (read); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"access\" (read); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "access-and-tools": {
@@ -14373,10 +14726,11 @@
           "harness": "antigravity",
           "option": "access",
           "supported": [
+            "agent",
             "effort",
             "sandbox"
           ],
-          "message": "antigravity cannot express option \"access\" (read); supported: effort, sandbox - drop the option or route this work to a harness that supports it"
+          "message": "antigravity cannot express option \"access\" (read); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
       "access-invalid": {
