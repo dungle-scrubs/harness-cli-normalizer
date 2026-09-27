@@ -168,8 +168,8 @@ HCN profiles or browser preferences. A custom model selector can be inspected
 even when ordinary `hcn run --model` does not accept it.
 
 The result is one JSON object, with or without `--json`. `status: "available"`
-exits 0; `status: "unavailable"` and a `reason` exit 2. Other harnesses return
-`unsupported-harness`. The operation accepts only `--resume` (or `--session-id`), `--cwd`, and
+exits 0; `status: "unavailable"` and a `reason` exit 2. Pi has its own source (below).
+Other harnesses return `unsupported-harness`. The operation accepts only `--resume` (or `--session-id`), `--cwd`, and
 `--json`; other inspection modes, turn options and native passthrough are refused.
 
 The lookup requires one matching native session file, its matching header ID,
@@ -223,6 +223,38 @@ exits 1. Exit status alone does not prove whether a process started.
 
 These operations grant no ownership or permissions. The fingerprint does not
 capture provider configuration contents or freeze another process's writes.
+
+Every available snapshot carries `continuation`: `native-approvals` for Codex
+(the app-server channel above) and `resume` for Pi (an ordinary one-turn
+resume). A caller picks the transport from this field, not from the harness
+name.
+
+### Pi native settings (`hcn inspect pi --native-settings`)
+
+```bash
+hcn inspect pi --native-settings --resume <session-id> --cwd <absolute-path> --json
+```
+
+This reads the Pi session file (source `pi-session-v1`) from the store Pi uses:
+`PI_CODING_AGENT_SESSION_DIR`, else `<PI_CODING_AGENT_DIR or ~/.pi/agent>/sessions/<folder>`.
+It applies Pi's own restoration rule (Pi 0.87.1 `session-manager.js`): the path
+from the last entry through `parentId` links, the later of a `model_change` or
+an assistant message for provider and model, and the last
+`thinking_level_change` for effort (`off` when there is none). The header must
+be the first parsed entry and match the ID and folder. Blank lines are skipped;
+a malformed line, a settings entry without a valid provider and model, a cycle,
+or an unknown thinking level refuses. Bounds match the Codex source. Pi records
+no approval policy, so Pi snapshots have no `permissions` field.
+
+```bash
+hcn run pi --json --resume <session-id> --cwd <absolute-path> --native-settings-fingerprint <fingerprint> --prompt "continue"
+```
+
+A matching read spawns a flagless resume (`pi --session-id <id> -p --mode json`),
+so Pi restores the settings itself. Beside the fingerprint only `--extension`,
+`--env`, `--timeout`, `--questions`, and the prompt are accepted; model, effort,
+provider, tools, skills, access, discovery, system prompts, and native
+passthrough refuse before spawn.
 Callers still own duplicate-session prevention, permissions, input delivery and
 process cleanup. This is not completed consumer handoff support.
 
@@ -466,6 +498,7 @@ support; its native 10MB input cap still applies.
 | `--escalate-questions` / `--no-escalate-questions` | `escalateQuestions` | Let worker ask when blocked (DEFAULT) / never ask, state assumption and continue |
 | `--system-prompt <text>` | `systemPrompt` | Replace built-in system prompt (claude, pi; codex uses -c instructions; muse refuses) |
 | `--append-system-prompt <text>` | `appendSystemPrompt` | Append to built-in prompt (claude, pi only) |
+| `--extension <path>` | `extensions` | Load this extension file for the turn (pi only; absolute path to a regular file; repeatable; loads even with `--no-extensions`; allowed beside `--native-settings-fingerprint`) |
 | `--access <read|write>` | `access` | Access preset - read = read, grep, glob, list, web-fetch, web-search (canonical); write = no restriction; claude/pi via --tools (toolMap aware), codex via --sandbox, muse via --disable-write/--disable-shell; mutually exclusive with --tools/--exclude-tools and with --sandbox on codex; no default |
 | `--json` | output mode | NDJSON `HarnessEvent` to stdout |
 
