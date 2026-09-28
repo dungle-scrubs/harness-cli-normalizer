@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.7](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.7.6...v0.7.7) (2026-09-27)
+
+
+### Added
+
+* normalized named-agent selection (--agent) on run and session ([#294](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/294)) ([4153777](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/4153777a652b122f8c191dc26b3173505133e635))
+* **popeye:** --agent selection, descriptor re-verified against 0.1.4 ([#297](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/297)) ([88c304c](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/88c304c9bf6b48c94d864cbdf6f04393f801ef12))
+
+
+### Fixed
+
+* **help:** add popeye to the harness rosters it supports ([#296](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/296)) ([4259c69](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/4259c69cfe1c3647a59b58e9004424a8df4cd1ec))
+
 ## [0.7.6](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.7.5...v0.7.6) (2026-09-27)
 
 
