@@ -26,7 +26,7 @@ export interface ExtensionVerified {
   readonly providedBy: string;
 }
 
-const detailOf = (h: HarnessDescriptor, outcome: ExtensionProbeOutcome): string =>
+const detailOf = (outcome: ExtensionProbeOutcome): string =>
   outcome.reason === "flag-absent"
     ? `${outcome.providedBy} absent: ${outcome.probeShape} output carries no such flag`
     : outcome.reason === "timeout"
@@ -55,7 +55,7 @@ export const gateExtensionOptions = async (
           `install the ${outcome.providedBy}`,
           `pass the flag natively after -- (hcn run ${h.name} -- ...)`,
         ],
-        detail: detailOf(h, outcome),
+        detail: detailOf(outcome),
       });
     }
     verified.push({ option: key, value: String(raw), providedBy: outcome.providedBy });

@@ -126,8 +126,19 @@ describe("namedAgents capability fact", () => {
     // Default descriptor block.
     const claude = JSON.parse(await capture(["inspect", "claude"]));
     expect(claude.namedAgents).toBe(true);
+    expect(claude.extensionOptions).toBeNull();
     const codex = JSON.parse(await capture(["inspect", "codex"]));
     expect(codex.namedAgents).toBe(false);
+    expect(codex.extensionOptions).toBeNull();
+    // Map #300: pi's agent is extension-registered - the static block
+    // declares it; per-machine truth is --runtime.
+    const pi = JSON.parse(await capture(["inspect", "pi"]));
+    expect(pi.extensionOptions).toEqual({
+      agent: {
+        providedBy: "subagent extension",
+        probe: "pi --help contains --agent <value>",
+      },
+    });
     // Capabilities surface.
     const caps = JSON.parse(await capture(["inspect", "antigravity", "--capabilities"]));
     expect(caps.namedAgents).toBe(true);

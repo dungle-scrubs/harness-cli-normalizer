@@ -300,6 +300,11 @@ test("a fingerprinted Pi resume is flagless, loads the extension, and refuses ev
   expect(argv).toContain("-e");
   expect(argv).toContain(f.extension);
   for (const flag of ["--model", "--provider", "--thinking"]) expect(argv).not.toContain(flag);
+  // Map #300 (#308): --runtime probes pi's declared extension-registered
+  // option, so the preview above legitimately executed one probe call
+  // (the fake pi logs every invocation to native-argv.json). The refused
+  // runs below assert no FURTHER spawn happens - start from a clean slate.
+  rmSync(join(f.root, "native-argv.json"), { force: true });
 
   for (const extra of [
     ["--model", "zai/other"],

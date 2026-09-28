@@ -1,6 +1,11 @@
 import { capabilitiesOf } from "../interpretation/capabilities.js";
 import { canonicalTable, mergeToolMaps } from "../interpretation/tool-vocabulary.js";
-import { HARNESS_MODES, type HarnessMode } from "../knowledge/descriptor.js";
+import {
+  HARNESS_MODES,
+  type HarnessDescriptor,
+  type HarnessMode,
+  TURN_OPTION_KEYS,
+} from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { parseCommonFlags } from "./args.js";
 import { ConfigError, loadProjectConfig, loadUserConfig } from "./config.js";
@@ -13,6 +18,24 @@ import { planTurn, writePlanDiagnostics } from "./plan-turn.js";
 import { refuse } from "./refuse.js";
 import { resolveHarness } from "./resolve-harness.js";
 import { runtimeCompatibility } from "./runtime-compatibility.js";
+
+/** Map #300 (#303 decision 3): the static extension-registered
+ * declarations a descriptor carries, or null when none do. Derived from
+ * the spec table beside namedAgents - one owner for the fact. */
+const extensionOptionsOf = (
+  h: HarnessDescriptor,
+): Record<string, { readonly providedBy: string; readonly probe: string }> | null => {
+  const out: Record<string, { readonly providedBy: string; readonly probe: string }> = {};
+  for (const key of TURN_OPTION_KEYS) {
+    const spec = h.turnOptions[key];
+    if (spec?.probe === undefined) continue;
+    out[key] = {
+      providedBy: spec.probe.providedBy,
+      probe: `${h.bin} ${spec.probe.argv.join(" ")} contains ${spec.probe.contains}`,
+    };
+  }
+  return Object.keys(out).length > 0 ? out : null;
+};
 
 export const inspect = async (harnessName: string, rawArgs: string[]): Promise<void> => {
   const h = resolveHarness(harnessName);
@@ -194,6 +217,11 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
     // the descriptor's agent turn-option spec, the single owner of the
     // fact, so silence here really does mean cannot.
     namedAgents: h.turnOptions.agent !== undefined,
+    // Map #300 (#303 decision 3): the static declaration for planning -
+    // which options are extension-registered, who provides them, and the
+    // probe shape. Null when no descriptor declares one; per-machine truth
+    // is `--runtime`, which runs the probes.
+    extensionOptions: extensionOptionsOf(h),
     nativeContextManagement:
       h.nativeContextManagement === null
         ? null
