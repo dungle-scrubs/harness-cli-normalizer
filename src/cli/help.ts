@@ -70,9 +70,9 @@ Options:
                             launch default 272000; config: contextWindow)
   --provider <value>        Provider (pi only)
   --agent <name>            Named agent the harness defines natively - hcn
-                            selects among them, never defines. claude and
-                            antigravity; others refuse. An unknown name is
-                            the harness's own error (native)
+                            selects among them, never defines. claude,
+                            antigravity, and popeye; others refuse. An unknown
+                            name is the harness's own error (native)
   --tools <a,b>             Tool grant allowlist - canonical names (read, write,
                             edit, shell, grep, glob, list, web-fetch,
                             web-search, subagent, skill);
@@ -205,8 +205,8 @@ Options:
                             session closes reporting a stall. 0 disables
                             (default: no limit)
   --provider <value>        Provider (pi only)
-  --agent <name>            Named agent for the session spawn (claude and
-                            antigravity; others refuse)
+  --agent <name>            Named agent for the session spawn (claude,
+                            antigravity, popeye; others refuse)
   --model <id>              Model for the session
   --effort <value>          Effort level for the session spawn (validated
                             per harness/model; no default - the harness's
