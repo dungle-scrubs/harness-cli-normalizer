@@ -5,6 +5,27 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.8.0...v0.9.0) (2026-09-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* REFLECT_INTAKE_CAPTURE, released in 0.8.0, is removed. hcn no longer runs reflect-intake capture.
+
+### revert
+
+* remove the reflect capture publisher from the runner ([#319](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/319)) ([7d3b02e](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/7d3b02ebe2e0173772355a729e28e76a26112cff))
+
+
+### Added
+
+* the run lifecycle observer (HCN_OBSERVER, ADR 0011) ([#320](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/320)) ([5c33ae2](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/5c33ae2c1592613018f311e25b03cf67487cd3ba))
+
+
+### Changed
+
+* restore the redacted fixtures after the history purge ([e55cc8f](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/e55cc8f3fc0583460c72498dc6f816b7686a512e))
+
 ## [0.8.0](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.7.9...v0.8.0) (2026-09-28)
 
 
