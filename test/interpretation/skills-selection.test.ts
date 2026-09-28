@@ -56,19 +56,42 @@ describe("claude rendering", () => {
 });
 
 describe("codex rendering", () => {
-  it("complement-off as one -c skills.config token pair", () => {
+  it("complement-off plus picks restated on, both selectors per skill", () => {
     const tokens = renderSkillsSelection(codexCli, {
       picks: ["/tmp/skills/hcn"],
       known: ["hcn", "grill", "bro", "research"],
     });
     expect(tokens[0]).toBe("-c");
-    expect(tokens[1]).toContain("skills.config=");
-    expect(tokens[1]).toContain('path="/tmp/skills/grill/SKILL.md"');
-    expect(tokens[1]).toContain('path="/tmp/skills/bro/SKILL.md"');
-    expect(tokens[1]).toContain('path="/tmp/skills/research/SKILL.md"');
-    expect(tokens[1]).not.toContain('path="/tmp/skills/hcn/SKILL.md"');
-    const matches = (tokens[1] as string).match(/enabled=false/g) ?? [];
-    expect(matches.length).toBe(3);
+    const value = tokens[1] as string;
+    expect(value).toContain("skills.config=");
+    // the pick: both selectors, enabled=true
+    expect(value).toContain('{path="/tmp/skills/hcn/SKILL.md", enabled=true}');
+    expect(value).toContain('{name="hcn", enabled=true}');
+    // the complement: both selectors, enabled=false
+    for (const name of ["grill", "bro", "research"]) {
+      expect(value).toContain(`{path="/tmp/skills/${name}/SKILL.md", enabled=false}`);
+      expect(value).toContain(`{name="${name}", enabled=false}`);
+    }
+    expect(value).not.toContain('"hcn\\/SKILL.md"');
+    expect((value.match(/enabled=true/g) ?? []).length).toBe(2);
+    expect((value.match(/enabled=false/g) ?? []).length).toBe(6);
+  });
+
+  it("a non-empty selection never renders zero enabled entries (#209)", () => {
+    for (const known of [["hcn", "grill"], ["grill"], []]) {
+      const tokens = renderSkillsSelection(codexCli, {
+        picks: ["/tmp/skills/hcn"],
+        known,
+      });
+      expect(tokens[1] as string).toContain("enabled=true");
+    }
+  });
+
+  it("all known picked: only enabled entries", () => {
+    const tokens = renderSkillsSelection(codexCli, { picks: ["/root/a"], known: ["a"] });
+    const value = tokens[1] as string;
+    expect(value).toContain("enabled=true");
+    expect(value).not.toContain("enabled=false");
   });
 
   it("emitted value is a TOML-like array with quoted paths", () => {
@@ -79,12 +102,14 @@ describe("codex rendering", () => {
     expect(value).toContain('"/root/b/SKILL.md"');
   });
 
-  it("picking every known skill emits nothing", () => {
+  it("picking every known skill emits only the enabled picks, no disables", () => {
     const tokens = renderSkillsSelection(codexCli, {
       picks: ["/tmp/skills/hcn", "/tmp/skills/grill"],
       known: ["hcn", "grill"],
     });
-    expect(tokens).toEqual([]);
+    const value = tokens[1] as string;
+    expect((value.match(/enabled=true/g) ?? []).length).toBe(4);
+    expect(value).not.toContain("enabled=false");
   });
 
   it("the builder's argv carries the config pair", () => {
