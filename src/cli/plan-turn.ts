@@ -279,27 +279,6 @@ export const planTurn = async (
     throw err;
   }
 
-  // Map #300 (#302 decision 2): extension-registered options verify
-  // against the installed harness here - before skill resolution, config
-  // load, argv build, and any spawn - so a missing extension refuses with
-  // exit 2 and nothing starts. The gate is lazy: it spawns a probe only
-  // for options that are SET and whose spec declares one; bare runs and
-  // option-free runs never probe.
-  if (deps.probeExtensionOption !== undefined) {
-    try {
-      const verified = await gateExtensionOptions(
-        h,
-        turnOpts as unknown as Record<string, unknown>,
-        { cwd: extra.cwd, env: extra.env },
-        deps.probeExtensionOption,
-      );
-      writeExtensionProvenance(verified);
-    } catch (err) {
-      if (err instanceof ArgvRefusalError) return refused(err);
-      throw err;
-    }
-  }
-
   // RFC-06: the native approval plan and the verified-settings render
   // both bind to one exact session id, which an id-less most-recent turn
   // never has. Refuse here, ahead of the nativeApprovalPlan dispatch
@@ -515,6 +494,29 @@ export const planTurn = async (
       }).passthrough;
     } catch {
       // the builder above already refused
+    }
+  }
+
+  // Map #300 (#302 decision 2): extension-registered options verify
+  // against the installed harness here - AFTER every other refusal source
+  // (parse, resume guards, fingerprint exclusivity, argv build) has had
+  // its chance, so a call that refuses for another reason never pays for
+  // or depends on a probe, and immediately BEFORE the plan is returned -
+  // the last pre-spawn point. The gate is lazy: it spawns a probe only
+  // for options that are set on the EFFECTIVE options (arg or config)
+  // whose spec declares one; bare runs never probe.
+  if (deps.probeExtensionOption !== undefined) {
+    try {
+      const verified = await gateExtensionOptions(
+        h,
+        effectiveTurnOpts as unknown as Record<string, unknown>,
+        { cwd: extra.cwd, env: extra.env },
+        deps.probeExtensionOption,
+      );
+      writeExtensionProvenance(verified);
+    } catch (err) {
+      if (err instanceof ArgvRefusalError) return refused(err);
+      throw err;
     }
   }
 
