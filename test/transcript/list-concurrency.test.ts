@@ -145,9 +145,9 @@ test("outcomes keep request order and every store contributes its rows", async (
   const { lines } = await run();
   const result = JSON.parse(lines.at(-1) ?? "{}") as {
     readonly rowsReturned: number;
-    readonly harnesses: readonly { readonly harness: string; readonly rows: number }[];
+    readonly harnesses: readonly { readonly harness: string; readonly matched: number }[];
   };
   expect(result.harnesses.map((item) => item.harness)).toEqual([...HARNESSES]);
-  expect(result.harnesses.map((item) => item.rows)).toEqual(HARNESSES.map(() => SOURCES));
+  expect(result.harnesses.map((item) => item.matched)).toEqual(HARNESSES.map(() => SOURCES));
   expect(result.rowsReturned).toBe(HARNESSES.length * SOURCES);
 });
