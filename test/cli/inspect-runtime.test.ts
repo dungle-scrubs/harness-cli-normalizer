@@ -344,7 +344,11 @@ test.each(["claude", "codex", "pi", "muse"])(
         kind: "done",
         failure: { class: "native", nativeExitCode: 73 },
       });
-      expect(readFileSync(calls, "utf8")).toBe("run\n");
+      // Map #300: pi declares an extension-registered option, so
+      // `inspect --runtime` spawns one extra call - the probe (`--help`,
+      // which this fake answers as a generic run). The others declare no
+      // probes and stay at one call.
+      expect(readFileSync(calls, "utf8")).toBe(harness === "pi" ? "run\nrun\n" : "run\n");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -404,3 +408,49 @@ test.each([
     }
   },
 );
+
+// Map #300, ticket #308: --runtime answers the per-machine planning
+// question for extension-registered options by running the declared
+// probes against the selected executable, under the effective env.
+test("runtime inspection probes pi's extension-registered agent option for this machine", () => {
+  const dir = mkdtempSync(join(tmpdir(), "hcn-runtime-ext-"));
+  const withFlag = join(dir, "with-flag");
+  const withoutFlag = join(dir, "without-flag");
+  mkdirSync(withFlag);
+  mkdirSync(withoutFlag);
+  writeFileSync(
+    join(withFlag, "pi"),
+    `#!/bin/sh\ncase "$1" in --version) printf '%s\\n' '0.87.1';; --help) printf '\\n  --agent <value>  Start as a named user agent\\n';; esac\nexit 0\n`,
+    { mode: 0o700 },
+  );
+  writeFileSync(
+    join(withoutFlag, "pi"),
+    `#!/bin/sh\ncase "$1" in --version) printf '%s\\n' '0.87.1';; --help) printf 'Usage: pi [options]\\n';; esac\nexit 0\n`,
+    { mode: 0o700 },
+  );
+  const run = (pathDir: string) =>
+    JSON.parse(
+      spawnSync(
+        "bun",
+        [resolve("src/cli/index.ts"), "inspect", "pi", "--runtime", "--prompt", "preview"],
+        {
+          cwd: pathDir,
+          encoding: "utf8",
+          timeout: 30_000,
+          env: { HOME: dir, XDG_CONFIG_HOME: dir, PATH: `${pathDir}:${env.PATH ?? ""}` },
+        },
+      ).stdout as string,
+    );
+  try {
+    const extended = run(withFlag);
+    expect(extended.extensionOptions).toMatchObject({
+      agent: { expressible: true, providedBy: "subagent extension" },
+    });
+    const stock = run(withoutFlag);
+    expect(stock.extensionOptions).toMatchObject({
+      agent: { expressible: false, providedBy: "subagent extension" },
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
