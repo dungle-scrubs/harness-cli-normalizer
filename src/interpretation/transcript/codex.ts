@@ -1,6 +1,6 @@
 import type { Build } from "../../knowledge/transcript/schema.js";
 import type { Part, RecordEnvelope, Reference } from "../../knowledge/transcript/wire.js";
-import type { Json } from "./json.js";
+import type { Json, JsonObject } from "./json.js";
 import { equalsInteger, JsonNumber, object, string, TranscriptError } from "./json.js";
 import type { NativeBase, NativeEntry, NativeHistory } from "./native.js";
 import { nativeEntries, position } from "./native.js";
@@ -34,10 +34,36 @@ export function parseCodexHistory(text: string | Uint8Array): NativeHistory {
       "guarantee-unmet",
       "The selected legacy rollout carries a history base, which only paginated history defines.",
     );
-  if (rows.some((row) => row.original.type === "session_meta"))
+  // A spawned agent thread's rollout inlines its parent's prefix: the
+  // parent's session_meta and records follow the child's header under one
+  // ordinal sequence, ending just before subagent_history_start_ordinal
+  // (verified against the 0.155.1 recorder's
+  // LiveThread::create_with_inherited_model_context and a real 0.155.1
+  // rollout, #206). The shape is admitted only when the header itself
+  // declares it; the parent's meta line keeps its ordinal, so the
+  // contiguity and completeness checks below apply unchanged.
+  let inlinedParent: JsonObject | null = null;
+  if (rows[0]?.original.type === "session_meta") {
+    const parent = object(rows[0].original.payload);
+    if (
+      !parent ||
+      !string(parent.id) ||
+      string(metadata.thread_source) !== "subagent" ||
+      !object(metadata.source)?.subagent ||
+      metadata.history_mode !== "paginated" ||
+      metadata.subagent_history_start_ordinal === undefined ||
+      metadata.subagent_history_start_ordinal === null
+    )
+      throw new TranscriptError(
+        "guarantee-unmet",
+        "The selected rollout carries a second session_meta record with no inlined-parent-prefix evidence, which this reader has no format evidence for.",
+      );
+    inlinedParent = rows[0].original;
+  }
+  if (rows.slice(inlinedParent ? 1 : 0).some((row) => row.original.type === "session_meta"))
     throw new TranscriptError(
       "guarantee-unmet",
-      "The selected rollout carries a second session_meta record. An inlined parent prefix, as a spawned agent thread writes, needs separate format evidence.",
+      "The selected rollout carries additional session_meta records beyond one inlined parent prefix, which this reader has no format evidence for.",
     );
   if (metadata.history_mode === "paginated") {
     const start =
@@ -59,7 +85,11 @@ export function parseCodexHistory(text: string | Uint8Array): NativeHistory {
         "Native subagent initialization has an incomplete inherited prefix.",
       );
   }
-  return { entries: rows, identityRecord: header, headers: [header] };
+  return {
+    entries: rows,
+    identityRecord: header,
+    headers: inlinedParent ? [header, inlinedParent] : [header],
+  };
 }
 function describe(value: Json | undefined): string {
   const text = string(value);

@@ -21,12 +21,26 @@ const lineageEvidence: Evidence = deepFreeze({
   reference:
     "https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/thread-store/src/local/rollout_lineage.rs",
 });
+const subagentEvidence: Evidence = deepFreeze({
+  ...CODEX_TRANSCRIPT_EVIDENCE,
+  appliesTo: {
+    ...CODEX_TRANSCRIPT_EVIDENCE.appliesTo,
+    scope:
+      "A spawned agent thread's paginated rollout may inline its parent's prefix: the parent's session_meta and records follow the child's header under one contiguous ordinal sequence, ending just before the header's subagent_history_start_ordinal. Documented against the 0.155.1 recorder (LiveThread::create_with_inherited_model_context copies the parent's persisted items, including its session_meta, into the child's rollout) and a real 0.155.1 rollout; the child's header is the identity, the parent's meta line is retained in nativeHeaders and stays in the entry sequence.",
+    writerBuilds: [{ buildId: "be2951ea34f0d295ed0becf97079f92fa5f6950e", version: "0.155.1" }],
+  },
+  reference:
+    "https://github.com/openai/codex/blob/be2951ea34f0d295ed0becf97079f92fa5f6950e/codex-rs/thread-store/src/live_thread.rs",
+});
 export const CODEX_TRANSCRIPT_CAPABILITIES: CapabilityMap = deepFreeze(
   Object.fromEntries(
     TRANSCRIPT_CAPABILITIES.map((key) => [
       key,
       {
-        evidence: key === "active-branch" ? [] : [CODEX_TRANSCRIPT_EVIDENCE, lineageEvidence],
+        evidence:
+          key === "active-branch"
+            ? []
+            : [CODEX_TRANSCRIPT_EVIDENCE, lineageEvidence, subagentEvidence],
         prerequisiteRuleIds: ["codex-rollout-format-v1", "codex-rollout-prefix-v1"],
         reason:
           key === "active-branch"
@@ -51,7 +65,7 @@ const rules = [
   [
     "codex-rollout-format-v1",
     "compatibility",
-    "Require a session_meta header naming a native thread ID, and report the cli_version that header declares rather than requiring a particular one; the writer build is evidence for the caller, not an admission gate. Absent history_mode means legacy. Paginated sources require contiguous exact ordinals, including metadata, and complete subagent initialization. Follow only history_base storage references; validate native identity, acyclic lineage, exact complete-line byte cutoff and exclusive ordinal cutoff. Reject unknown modes, legacy bases, missing ranges and compressed sources.",
+    "Require a session_meta header naming a native thread ID, and report the cli_version that header declares rather than requiring a particular one; the writer build is evidence for the caller, not an admission gate. Absent history_mode means legacy. Paginated sources require contiguous exact ordinals, including metadata, and complete subagent initialization. A spawned agent thread's rollout may inline its parent's prefix: admitted only when the header declares thread_source subagent, a source.subagent spawn, and a subagent_history_start_ordinal; the parent's meta then follows as the first record with its own native ID and keeps its ordinal, and any further session_meta is rejected. Follow only history_base storage references; validate native identity, acyclic lineage, exact complete-line byte cutoff and exclusive ordinal cutoff. Reject unknown modes, legacy bases, missing ranges and compressed sources.",
   ],
   [
     "codex-rollout-passive-v1",
@@ -61,7 +75,7 @@ const rules = [
   [
     "codex-rollout-order-v1",
     "ordering",
-    "Legacy storage is one rollout. Paginated history is the native base lineage ordered oldest first, each ancestor bounded by its explicit byte and ordinal cutoff. Exclude each source header from records, retain it in nativeHeaders. Preserve every retained entry in physical byte order, including rollback and compaction. Do not apply projection or dereference parent_thread_id/forked_from_id.",
+    "Legacy storage is one rollout. Paginated history is the native base lineage ordered oldest first, each ancestor bounded by its explicit byte and ordinal cutoff. Exclude each source header from records, retain it in nativeHeaders; a header of an admitted inlined parent prefix is the one exception, kept in the entry sequence so the single ordinal sequence stays gap-free, and the inherited records it opens are rows of this conversation. Preserve every retained entry in physical byte order, including rollback and compaction. Do not apply projection or dereference parent_thread_id/forked_from_id.",
   ],
   [
     "codex-rollout-normalization-v1",
@@ -78,7 +92,7 @@ export const CODEX_TRANSCRIPT_RULES = deepFreeze(
   rules.map(([id, purpose, description]) => ({
     appliesTo: CODEX_TRANSCRIPT_EVIDENCE.appliesTo,
     description,
-    evidence: [CODEX_TRANSCRIPT_EVIDENCE, lineageEvidence],
+    evidence: [CODEX_TRANSCRIPT_EVIDENCE, lineageEvidence, subagentEvidence],
     id,
     purpose,
   })),

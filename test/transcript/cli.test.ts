@@ -524,6 +524,86 @@ test("Codex refuses an interrupted subagent inherited-context initialization", (
   }
 });
 
+test("a Codex spawned agent thread's inlined parent prefix reads as one conversation (#206)", () => {
+  const directory = mkdtempSync(join(tmpdir(), "hcn-codex-inline-"));
+  const file = join(directory, "synthetic.jsonl");
+  const childId = "11111111-2222-4333-8444-555555555555";
+  const parentId = "11111111-2222-4333-8444-666666666666";
+  const row = (ordinal: number, record: Record<string, unknown>) =>
+    `${JSON.stringify({ ordinal, ...record })}\n`;
+  const content =
+    row(0, {
+      type: "session_meta",
+      payload: {
+        id: childId,
+        cli_version: "0.155.1",
+        history_mode: "paginated",
+        parent_thread_id: parentId,
+        source: { subagent: { thread_spawn: { parent_thread_id: parentId, depth: 1 } } },
+        thread_source: "subagent",
+        subagent_history_start_ordinal: 3,
+      },
+    }) +
+    row(1, {
+      type: "session_meta",
+      payload: { id: parentId, cli_version: "0.155.1", history_mode: "paginated" },
+    }) +
+    row(2, { type: "event_msg", payload: { type: "synthetic" } }) +
+    row(3, {
+      type: "response_item",
+      payload: { type: "message", role: "assistant", content: [{ type: "text", text: "own" }] },
+    });
+  writeFileSync(file, content);
+  try {
+    const result = command(["transcript", "read", "codex", "--file", file]);
+    expect(result.code).toBe(0);
+    const lines = result.out.trim().split("\n");
+    const source = JSON.parse(lines[0] ?? "{}");
+    expect(source.conversation.nativeId).toBe(childId);
+    expect(source.nativeHeaders).toHaveLength(2);
+    expect(source.nativeHeaders[0]?.original.payload.id).toBe(childId);
+    expect(source.nativeHeaders[1]?.original.payload.id).toBe(parentId);
+    expect(source.sources).toHaveLength(1);
+    const final = JSON.parse(lines.at(-1) ?? "{}");
+    expect(final.recordsReturned).toBe(3);
+    const inheritedMeta = JSON.parse(lines[1] ?? "{}");
+    expect(inheritedMeta.original.type).toBe("session_meta");
+    expect(inheritedMeta.original.ordinal).toBe(1);
+    expect(inheritedMeta.normalized.kind).toBe("unknown");
+  } finally {
+    rmSync(directory, { force: true, recursive: true });
+  }
+});
+
+test("a second session_meta with no inlined-prefix evidence still refuses", () => {
+  const directory = mkdtempSync(join(tmpdir(), "hcn-codex-second-meta-"));
+  const file = join(directory, "synthetic.jsonl");
+  const row = (ordinal: number, payload: Record<string, unknown>) =>
+    `${JSON.stringify({ ordinal, type: "session_meta", payload })}\n`;
+  writeFileSync(
+    file,
+    row(0, {
+      id: "11111111-2222-4333-8444-555555555555",
+      cli_version: "0.155.1",
+      history_mode: "paginated",
+    }) +
+      row(1, {
+        id: "11111111-2222-4333-8444-666666666666",
+        cli_version: "0.155.1",
+        history_mode: "paginated",
+      }),
+  );
+  try {
+    const result = command(["transcript", "read", "codex", "--file", file]);
+    expect(result.code).toBe(1);
+    expect(JSON.parse(result.out.trim().split("\n").at(-1) ?? "{}").failure.issue).toBe(
+      "guarantee-unmet",
+    );
+  } finally {
+    rmSync(directory, { force: true, recursive: true });
+  }
+});
+
 test("Codex rejects missing, mismatched, cyclic and malformed inherited ranges", () => {
   const directory = mkdtempSync(join(tmpdir(), "hcn-codex-invalid-lineage-"));
   const store = join(directory, "sessions");
