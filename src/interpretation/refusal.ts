@@ -11,6 +11,7 @@ import { deepFreeze } from "../knowledge/descriptor.js";
 export const REFUSAL_ISSUES = deepFreeze([
   "unsupported-option",
   "unsupported-option-facet",
+  "extension-option-unavailable",
   "unsupported-on-resume",
   "invalid-option-value",
   "unknown-effort",
@@ -81,6 +82,14 @@ export const buildRefusalMessage = (
       return `${who} cannot express${optionPart}${detailSuffix}; ${supportedStr} - drop the option or route this work to a harness that supports it`;
     case "unsupported-option-facet":
       return `${who} cannot express discovery${facetSuffix}${detailSuffix}; ${supportedStr} - drop the facet or route this work to a harness that supports it`;
+    // Map #300 (#303 decision 1): the spec exists but THIS machine's
+    // harness cannot express it - the extension is absent or the probe
+    // could not run. The message names the providing extension (via
+    // detail) and the two alternatives; consumers branch on the issue
+    // code to separate "this harness cannot" and "this machine
+    // currently cannot".
+    case "extension-option-unavailable":
+      return `${who} cannot currently express option ${option ? JSON.stringify(option) : ""} on this machine${detailSuffix}; ${supportedStr} - install the named extension or pass the flag natively after --`;
     case "unsupported-on-resume": {
       const name = option
         ? JSON.stringify(option) + (facet ? `:${facet}` : "")
