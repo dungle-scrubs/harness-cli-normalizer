@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.7.9...v0.8.0) (2026-09-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* rename HarnessListing.rows to matched ([#316](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/316))
+
+### Added
+
+* **reflect:** publish invocation lifecycle to the reflection outbox ([#314](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/314)) ([f6eb93d](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/f6eb93df38f6e047b446fb77b05981d14545449b))
+* rename HarnessListing.rows to matched ([#316](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/316)) ([51300ae](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/51300ae2228b9e833039d3fa7c789c111558c0c3))
+
 ## [0.7.9](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.7.8...v0.7.9) (2026-09-28)
 
 
