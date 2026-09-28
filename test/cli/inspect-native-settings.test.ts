@@ -14,6 +14,7 @@ import {
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test } from "vitest";
+import { ensureTestStateSandbox } from "./setup-state.js";
 
 const sessionId = "407feafe-e82b-4df4-91ba-4f1aeb987508";
 const bun = execFileSync("which", ["bun"], { encoding: "utf8" }).trim();
@@ -69,6 +70,9 @@ function fixture(): {
           env: {
             CODEX_HOME: codexHome,
             HCN_CONFIG_DIR: join(root, "hcn-config"),
+            // No HOME in this env: without the override the CLI's command
+            // ledger falls back to the operator's real ~/.local/state.
+            HCN_STATE_DIR: ensureTestStateSandbox(),
             PATH: join(root, "no-executables"),
           },
         },

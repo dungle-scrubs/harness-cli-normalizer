@@ -8,6 +8,7 @@ import { buildTurnEnv } from "../interpretation/argv.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
 import { markJsonCrashStream } from "./crash.js";
 import { EXIT_FAILURE, exitCodeForCause } from "./exit-codes.js";
+import { createRunObserver } from "./observer.js";
 import { ownOutputErrors } from "./output-errors.js";
 import { planTurn, writePlanDiagnostics } from "./plan-turn.js";
 import { refusalOf, refuse } from "./refuse.js";
@@ -103,6 +104,11 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   // conditional spread stays first (an empty spread is a no-op) so the
   // ...deps override order is unchanged.
   const signalTarget = createHarnessSignalTarget(deps.signal);
+  // The run lifecycle observer (ADR 0011): inert unless HCN_OBSERVER
+  // enables it. The launch steps below run on the FIRST spawn only; the
+  // approval helper's later spawn carries none of this.
+  const observer = createRunObserver(h.name, plan.options.cwd);
+  let observerLaunched = false;
   const wrappedDeps = {
     ...(plan.options.nativeApprovals
       ? {
@@ -115,6 +121,23 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
       : {}),
     ...deps,
     spawn: (argv: readonly string[], opts: SpawnOptions) => {
+      if (!observerLaunched) {
+        observerLaunched = true;
+        // Launch order: mint the invocation id, take the timestamp, add
+        // HCN_INVOCATION_ID over the caller's env, spawn the harness,
+        // then - in a finally, so a spawn that throws is also covered -
+        // spawn the observer and write the started record.
+        const invocationId = randomUUID();
+        const at = new Date().toISOString();
+        let proc: ReturnType<typeof deps.spawn>;
+        try {
+          proc = deps.spawn(argv, observer.harnessEnv(opts, invocationId));
+          signalTarget.noteSpawn(proc);
+        } finally {
+          observer.launched(invocationId, at);
+        }
+        return proc;
+      }
       const proc = deps.spawn(argv, opts);
       signalTarget.noteSpawn(proc);
       return proc;
@@ -181,6 +204,7 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     for await (const event of events) {
       if (outputError) throw outputError;
       lastEvent = event;
+      observer.event(event);
       if (wantJson) {
         // Await the write: a consumer that stops reading must stall the
         // harness, not be absorbed into this process's memory.
@@ -199,23 +223,36 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     }
     // Transport / spawn failure
     process.stderr.write(`run failed: ${err instanceof Error ? err.message : String(err)}\n`);
+    // The synthetic failure and done go to the observer whatever --json
+    // is: they are the run's terminal outcome even when stdout is gone.
+    const transportFailure = {
+      kind: "failure" as const,
+      class: "transport" as const,
+      retryable: true,
+      message: String(err),
+    };
+    const transportDone = {
+      kind: "done" as const,
+      exitCode: null,
+      cause: "failed" as const,
+      failure: transportFailure,
+    };
+    if (lastEvent?.kind !== "done") {
+      // The cast mirrors the stdout bytes: the synthetic done carries no
+      // escalation record, which docs/observer.md documents.
+      observer.event(transportFailure);
+      observer.event(transportDone as unknown as HarnessEvent);
+    }
     if (wantJson && lastEvent?.kind !== "done" && !outputError && !process.stdout.destroyed) {
-      const failure = {
-        kind: "failure" as const,
-        class: "transport" as const,
-        retryable: true,
-        message: String(err),
-      };
-      process.stdout.write(`${JSON.stringify(failure)}\n`);
-      process.stdout.write(
-        `${JSON.stringify({ kind: "done", exitCode: null, cause: "failed", failure })}\n`,
-      );
+      process.stdout.write(`${JSON.stringify(transportFailure)}\n`);
+      process.stdout.write(`${JSON.stringify(transportDone)}\n`);
     }
     process.exitCode = EXIT_FAILURE;
     return;
   } finally {
     markJsonCrashStream(false);
     releaseOutputErrors();
+    observer.end();
     if (escalationTimer !== null) {
       clearTimeout(escalationTimer);
       escalationTimer = null;

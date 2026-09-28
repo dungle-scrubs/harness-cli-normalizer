@@ -8,6 +8,7 @@ import {
   markCrashed,
   recordExit,
 } from "../../src/cli/ledger.js";
+import { ensureTestStateSandbox } from "./setup-state.js";
 
 let dir: string;
 
@@ -19,6 +20,11 @@ beforeEach(() => {
 afterEach(() => {
   delete process.env.HCN_STATE_DIR;
   rmSync(dir, { recursive: true, force: true });
+  // Re-bind the worker's test sandbox this file's beforeEach replaced:
+  // a later file in the same worker that spawns a CLI by inheritance
+  // (not via ensureDist) would otherwise run unbound and write the
+  // command ledger to the operator's real state directory.
+  ensureTestStateSandbox();
 });
 
 const lines = (): Array<Record<string, unknown>> =>

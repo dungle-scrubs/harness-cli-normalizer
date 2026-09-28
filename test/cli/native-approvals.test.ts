@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSy
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test } from "vitest";
+import { ensureTestStateSandbox } from "./setup-state.js";
 
 const bun = execFileSync("which", ["bun"], { encoding: "utf8" }).trim();
 const cli = resolve("src/cli/index.ts");
@@ -35,6 +36,9 @@ test("public native approval refusal proves that no process or prompt was attemp
         env: {
           CODEX_HOME: join(root, "codex-home"),
           HCN_CONFIG_DIR: join(root, "hcn-config"),
+          // No HOME in this env: without the override the CLI's command
+          // ledger falls back to the operator's real ~/.local/state.
+          HCN_STATE_DIR: ensureTestStateSandbox(),
           PATH: "",
         },
         encoding: "utf8",

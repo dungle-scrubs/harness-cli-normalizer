@@ -1,6 +1,13 @@
 # Scope the Bun test lane to test/ (mirror of vitest.config.ts include).
 [test]
 root = "test"
+# Every Bun-test run gets a private HCN_STATE_DIR sandbox before any
+# test file runs. The CLI writes its durable command ledger there, never
+# to the operator's $XDG_STATE_HOME. `bun test` fires no exit handlers,
+# so this wrapper (not setup-state.ts itself) registers the cleanup as a
+# bun:test afterAll; see test/cli/setup-state.ts and the matching Node
+# lane in vitest.config.ts.
+preload = ["./test/cli/setup-state.bun.ts"]
 
 # pnpm owns dependency installation; never let bun auto-install a parallel tree.
 [install]

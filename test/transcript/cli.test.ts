@@ -13,6 +13,9 @@ beforeAll(() => {
 });
 
 test("transcript output to a closed pipe exits nonzero", () => {
+  // env is explicit: a bun-lane child with env omitted inherits the OS
+  // environment, not the runtime-mutated process.env, so the state sandbox
+  // binding would never reach the CLI (ledger outside the sandbox).
   const run = spawnSync(
     "bash",
     [
@@ -21,7 +24,7 @@ test("transcript output to a closed pipe exits nonzero", () => {
       "synthetic",
       resolve("src/cli/index.ts"),
     ],
-    { encoding: "utf8" },
+    { encoding: "utf8", env: process.env },
   );
   expect(run.error).toBeUndefined();
   expect(run.status).toBe(1);

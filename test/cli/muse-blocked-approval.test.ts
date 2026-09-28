@@ -13,6 +13,7 @@ import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:f
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "vitest";
+import { ensureTestStateSandbox } from "./setup-state.js";
 import { ensureDist, expectStubsReaped } from "./stub-dist.js";
 
 const STUB = `#!/usr/bin/env node
@@ -96,6 +97,7 @@ describe("muse blocked approval against a stub binary (issue #179)", () => {
             // minimal PATH would hide `node` and skip the run via ENOENT.
             PATH: `${stubDir}:${nodeDir}:${process.env.PATH ?? "/usr/bin:/bin"}`,
             HOME: process.env.HOME ?? "/tmp",
+            HCN_STATE_DIR: ensureTestStateSandbox(),
             TMPDIR: tmp,
             LANG: "C",
             STUB_PID_DIR: outDir,

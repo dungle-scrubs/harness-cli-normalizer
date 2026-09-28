@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test } from "vitest";
 import { parseInteractiveRequest } from "../../src/interpretation/interactive.js";
+import { ensureTestStateSandbox } from "./setup-state.js";
 
 const launchId = "cf548bfb-e24e-4bb0-ab3e-ad9c70ac04db";
 const sessionId = "407feafe-e82b-4df4-91ba-4f1aeb987508";
@@ -20,9 +21,24 @@ function runCli(
   environment?: Readonly<Record<string, string>>,
 ): CliOutput {
   const executable = execFileSync("which", ["bun"], { encoding: "utf8" }).trim();
+  // The driver is spawned by plain node (no bundler specifier mapping), so
+  // it cannot import the sandbox module itself; resolve the binding here and
+  // send it as part of the request. Always explicit: an inherited worker env
+  // may have been unbound by an earlier test file (ledger.test.ts), and an
+  // explicit one may lack any state override - either would land the CLI's
+  // command ledger in the operator's real state directory.
+  const requestEnv: Record<string, string> = { HCN_STATE_DIR: ensureTestStateSandbox() };
+  const inherited = environment ?? process.env;
+  for (const key of Object.keys(inherited)) {
+    const value = inherited[key];
+    if (value !== undefined) requestEnv[key] = value;
+  }
   const output = execFileSync(
     "node",
-    [resolve("test/cli/interactive-driver.ts"), JSON.stringify({ args, environment, executable })],
+    [
+      resolve("test/cli/interactive-driver.ts"),
+      JSON.stringify({ args, environment: requestEnv, executable }),
+    ],
     { encoding: "utf8", timeout: 5000 },
   );
   return JSON.parse(output) as CliOutput;
