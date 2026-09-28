@@ -103,15 +103,17 @@ event replaced is gone; and the vendored skill matches the shipped CLI.
 
 Nothing here is takeable: the map is complete.
 
-## Named-agent flips (pi, popeye)
+## Named-agent flips (pi)
 
-The normalized `--agent <name>` flag ships on claude and antigravity (map
-[#288](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/288)).
-pi and popeye gain native agent selection through the maintainer's own
-harness work; when each lands, flip its descriptor's `agent` turn-option
+The normalized `--agent <name>` flag ships on claude, antigravity, and
+popeye (map
+[#288](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/288);
+popeye flipped in 0.7.7, verified against popeye 0.1.4).
+pi gains native agent selection through the maintainer's own harness
+work; when it lands, flip its descriptor's `agent` turn-option
 spec on during that harness's next re-verification and re-run the
 capability tripwires. Ruled out of scope on the map: no decision is
-pending on them.
+pending on it.
 
 ## Declined - supervision
 
