@@ -5,6 +5,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.9](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.7.8...v0.7.9) (2026-09-28)
+
+
+### Added
+
+* extension-registered options - runtime probe gate for pi --agent ([#311](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/311)) ([9cf1fe1](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/9cf1fe1df815f8e7c0fca1e3b4db264b01739c05))
+* **inspect:** extension-registered options on static and runtime surfaces ([#312](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/312)) ([65ce594](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/65ce5942e9366a0940c054dd5698ff4d1ab1d64e))
+* **transcript:** read a Codex spawned agent thread's inlined parent prefix ([#310](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/310)) ([53cd878](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/53cd878f18669bda5dd677be99e10091867498b9))
+
+
+### Fixed
+
+* **skills:** codex narrows by name and path, and restates the picks enabled ([#305](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/305)) ([f5e5535](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/f5e553590873e1504ad6bb1c3f0d1bc2c62fa7cc))
+
+
+### Changed
+
+* ADR 0010, rosters, and ROADMAP for extension-registered options ([#313](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/313)) ([844f516](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/844f51692d4781b88b905a26004f06d6059660ad))
+
 ## [0.7.8](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.7.7...v0.7.8) (2026-09-28)
 
 
