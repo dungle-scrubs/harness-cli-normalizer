@@ -71,8 +71,10 @@ Options:
   --provider <value>        Provider (pi only)
   --agent <name>            Named agent the harness defines natively - hcn
                             selects among them, never defines. claude,
-                            antigravity, and popeye; others refuse. An unknown
-                            name is the harness's own error (native)
+                            antigravity, and popeye; pi when its subagent
+                            extension is installed (verified at run, see
+                            ADR 0010); others refuse. An unknown name is
+                            the harness's own error (native)
   --tools <a,b>             Tool grant allowlist - canonical names (read, write,
                             edit, shell, grep, glob, list, web-fetch,
                             web-search, subagent, skill);
@@ -206,7 +208,8 @@ Options:
                             (default: no limit)
   --provider <value>        Provider (pi only)
   --agent <name>            Named agent for the session spawn (claude,
-                            antigravity, popeye; others refuse)
+                            antigravity, popeye; pi with its subagent
+                            extension verified at open; others refuse)
   --model <id>              Model for the session
   --effort <value>          Effort level for the session spawn (validated
                             per harness/model; no default - the harness's
