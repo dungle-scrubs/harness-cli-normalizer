@@ -273,8 +273,27 @@ export type OptionRender =
    *  closed-vocabulary specs, so no value can need escaping. */
   | { readonly kind: "config-kv"; readonly flag: string; readonly key: string };
 
+/** Map #300: the runtime probe an extension-registered option declares.
+ * `argv` is appended to the harness bin ("--help" today); `contains` is
+ * the exact token a present extension registers (the help line carries
+ * it, whitespace-normalized before matching so terminal wrapping cannot
+ * split it); `providedBy` names the extension for refusal text and
+ * provenance. All three are descriptor data - no layer assumes --help is
+ * a universal probe surface (ticket #302 decision 1). */
+export interface OptionProbe {
+  readonly argv: readonly string[];
+  readonly contains: string;
+  readonly providedBy: string;
+}
+
 export interface SpecBase {
   readonly render: OptionRender;
+  /** Map #300: when set, the option is extension-registered - the spec
+   * renders only after the CLI's pre-spawn gate verifies the probe
+   * against the installed harness (ticket #302 decision 2). Interpretation
+   * itself never probes; a spec with a probe renders exactly like one
+   * without once the gate has passed. */
+  readonly probe?: OptionProbe;
   /** The spelling the RESUME grammar accepts. Omitted means "same as
    *  `render`"; an explicit `null` declares the option unexpressible on
    *  resume, and building a resume argv with it must refuse. */
@@ -312,6 +331,8 @@ export type TurnOptionSpec =
       readonly kind: "access";
       readonly renders: Readonly<Record<AccessValue, AccessRender>>;
       readonly claims?: TurnOptionKey;
+      /** Map #300: extension-registered access, if a harness ever gates it. */
+      readonly probe?: OptionProbe;
     }
   /** Ladder comes from vocabulary.efforts / effortsByModel, not from here. */
   | (PositionedSpecBase & { readonly kind: "effort" })
@@ -339,6 +360,8 @@ export type TurnOptionSpec =
       readonly facets: Readonly<
         Partial<Record<DiscoveryFacet, SpecBase & { readonly polarity: "enables" | "disables" }>>
       >;
+      /** Map #300: uniform probe availability across spec kinds. */
+      readonly probe?: OptionProbe;
     };
 
 /** Resolve the effective render for a spec at a given phase.

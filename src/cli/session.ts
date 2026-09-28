@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
+import { probeExtensionOption } from "../execution/extension-probe.js";
 import { nodeRunnerDeps } from "../execution/node-deps.js";
 import { CLOSE_GRACE_MS, openSession } from "../execution/open-session.js";
 import { buildTurnEnv } from "../interpretation/argv.js";
@@ -15,6 +16,7 @@ import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { splitPassthrough } from "./args.js";
 import { markJsonCrashStream } from "./crash.js";
+import { gateExtensionOptions, writeExtensionProvenance } from "./extension-gate.js";
 import { createRenderState, renderEvent } from "./render.js";
 import { resolveHarness } from "./resolve-harness.js";
 
@@ -332,6 +334,27 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
     : baseDeps;
 
   let handle: ReturnType<typeof openSession>;
+  // Map #300 (#302 decision 5): the session surface gates
+  // extension-registered options at open, exactly as the run path does -
+  // a missing extension refuses before the stream opens (failure +
+  // closed pair on stdout in --json mode), a verified pass prints the
+  // provenance line. Sessions take no --env, so the probe inherits the
+  // process environment through the spawn adapter.
+  if (agent !== undefined && h.turnOptions.agent?.probe !== undefined) {
+    try {
+      const verified = await gateExtensionOptions(h, { agent }, { cwd }, (h2, probe, opts) =>
+        probeExtensionOption(h2, probe, opts, deps),
+      );
+      writeExtensionProvenance(verified);
+    } catch (err) {
+      if (err instanceof ArgvRefusalError) {
+        const { refuse, refusalOf } = await import("./refuse.js");
+        refuse(refusalOf(err), jsonMode, "closed");
+        return;
+      }
+      throw err;
+    }
+  }
   try {
     handle = openSession(
       h,

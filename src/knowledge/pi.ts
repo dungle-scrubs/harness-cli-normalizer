@@ -209,6 +209,24 @@ export const piCli: HarnessDescriptor = deepFreeze({
   turnOptions: {
     effort: { kind: "effort", render: { kind: "flag-value", flag: "--thinking" } },
     provider: { kind: "selector", render: { kind: "flag-value", flag: "--provider" } },
+    // Extension-registered option (map #300, #302-#304): the subagent
+    // extension (~/.pi/extensions/subagent, loaded via the pi config dir)
+    // registers `--agent <value>` - "Start as a named user agent". Published
+    // pi core 0.87.1 rejects the flag (`Error: Unknown option: --agent`,
+    // probed 2026-09-28 from the npm tarball), so the spec carries a probe:
+    // the CLI gate runs `pi --help` under the caller's env and refuses
+    // pre-spawn where the extension is absent. pi is lenient on unknown
+    // agent NAMES (stderr warning listing the roster, run continues) - the
+    // name stays the harness's business, like claude/antigravity/popeye.
+    agent: {
+      kind: "selector",
+      render: { kind: "flag-value", flag: "--agent" },
+      probe: {
+        argv: ["--help"],
+        contains: "--agent <value>",
+        providedBy: "subagent extension",
+      },
+    },
     // issue #48, live-verified 0.84.2: pi's --system-prompt replaces the
     // default coding-assistant prompt (PI-NAKED probe). No dynamic-section
     // exclusion exists - pi injects no such sections into a replaced prompt.

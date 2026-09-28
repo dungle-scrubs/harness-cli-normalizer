@@ -764,6 +764,10 @@
               "spelling": "--agent"
             },
             {
+              "harness": "pi",
+              "spelling": "--agent"
+            },
+            {
               "harness": "antigravity",
               "spelling": "--agent"
             },
@@ -1251,6 +1255,7 @@
           "supported": [
             "effort",
             "provider",
+            "agent",
             "systemPrompt",
             "appendSystemPrompt",
             "extensions",
@@ -1264,7 +1269,7 @@
               "spelling": "--bare"
             }
           ],
-          "message": "pi cannot express option \"isolation\" (tool-free); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"isolation\" (tool-free); supported: effort, provider, agent, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "tool-free-conflict": {
@@ -1349,6 +1354,7 @@
           "supported": [
             "effort",
             "provider",
+            "agent",
             "systemPrompt",
             "appendSystemPrompt",
             "extensions",
@@ -1367,7 +1373,7 @@
             }
           ],
           "hint": "pi has no sandbox dimension; approximate with a minimal tool grant (--tools read,grep,find,ls) so the run cannot write or execute, or sandbox the process yourself (container, VM)",
-          "message": "pi cannot express option \"sandbox\" (read-only); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"sandbox\" (read-only); supported: effort, provider, agent, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "context-window": {
@@ -1378,6 +1384,7 @@
           "supported": [
             "effort",
             "provider",
+            "agent",
             "systemPrompt",
             "appendSystemPrompt",
             "extensions",
@@ -1395,7 +1402,7 @@
               "spelling": "--context-window"
             }
           ],
-          "message": "pi cannot express option \"contextWindow\" (100000); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"contextWindow\" (100000); supported: effort, provider, agent, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "provider": {
@@ -1410,36 +1417,15 @@
         ]
       },
       "agent": {
-        "refusal": {
-          "issue": "unsupported-option",
-          "harness": "pi",
-          "option": "agent",
-          "supported": [
-            "effort",
-            "provider",
-            "systemPrompt",
-            "appendSystemPrompt",
-            "extensions",
-            "discovery",
-            "access",
-            "memory"
-          ],
-          "supportedBy": [
-            {
-              "harness": "claude",
-              "spelling": "--agent"
-            },
-            {
-              "harness": "antigravity",
-              "spelling": "--agent"
-            },
-            {
-              "harness": "popeye",
-              "spelling": "--agent"
-            }
-          ],
-          "message": "pi cannot express option \"agent\" (scout-agent); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
-        }
+        "argv": [
+          "pi",
+          "-p",
+          "--mode",
+          "json",
+          "--agent",
+          "scout-agent",
+          "hi"
+        ]
       },
       "no-tools": {
         "argv": [
@@ -1498,6 +1484,7 @@
           "supported": [
             "effort",
             "provider",
+            "agent",
             "systemPrompt",
             "appendSystemPrompt",
             "extensions",
@@ -1512,7 +1499,7 @@
             }
           ],
           "hint": "pi has no write toggle; grant without the write tool (--tools read,bash,edit) or use --exclude-tools write",
-          "message": "pi cannot express option \"write\" (false); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"write\" (false); supported: effort, provider, agent, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "shell-off": {
@@ -1523,6 +1510,7 @@
           "supported": [
             "effort",
             "provider",
+            "agent",
             "systemPrompt",
             "appendSystemPrompt",
             "extensions",
@@ -1537,7 +1525,7 @@
             }
           ],
           "hint": "pi has no shell toggle; grant without the bash tool (--tools read,edit,write) or use --exclude-tools bash",
-          "message": "pi cannot express option \"shell\" (false); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"shell\" (false); supported: effort, provider, agent, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "max-steps": {
@@ -1548,6 +1536,7 @@
           "supported": [
             "effort",
             "provider",
+            "agent",
             "systemPrompt",
             "appendSystemPrompt",
             "extensions",
@@ -1562,7 +1551,7 @@
             }
           ],
           "hint": "pi has no step cap flag; bound the work in the prompt or impose a wall-clock timeout at the caller",
-          "message": "pi cannot express option \"maxSteps\" (5); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"maxSteps\" (5); supported: effort, provider, agent, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "system-prompt": {
@@ -1977,6 +1966,10 @@
           "supportedBy": [
             {
               "harness": "claude",
+              "spelling": "--agent"
+            },
+            {
+              "harness": "pi",
               "spelling": "--agent"
             },
             {
@@ -2727,6 +2720,10 @@
           "supportedBy": [
             {
               "harness": "claude",
+              "spelling": "--agent"
+            },
+            {
+              "harness": "pi",
               "spelling": "--agent"
             },
             {
@@ -5114,6 +5111,10 @@
               "spelling": "--agent"
             },
             {
+              "harness": "pi",
+              "spelling": "--agent"
+            },
+            {
               "harness": "antigravity",
               "spelling": "--agent"
             },
@@ -5607,6 +5608,7 @@
           "supported": [
             "effort",
             "provider",
+            "agent",
             "systemPrompt",
             "appendSystemPrompt",
             "extensions",
@@ -5620,7 +5622,7 @@
               "spelling": "--bare"
             }
           ],
-          "message": "pi cannot express option \"isolation\" (tool-free); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"isolation\" (tool-free); supported: effort, provider, agent, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "tool-free-conflict": {
@@ -5713,6 +5715,7 @@
           "supported": [
             "effort",
             "provider",
+            "agent",
             "systemPrompt",
             "appendSystemPrompt",
             "extensions",
@@ -5731,7 +5734,7 @@
             }
           ],
           "hint": "pi has no sandbox dimension; approximate with a minimal tool grant (--tools read,grep,find,ls) so the run cannot write or execute, or sandbox the process yourself (container, VM)",
-          "message": "pi cannot express option \"sandbox\" (read-only); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"sandbox\" (read-only); supported: effort, provider, agent, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "context-window": {
@@ -5742,6 +5745,7 @@
           "supported": [
             "effort",
             "provider",
+            "agent",
             "systemPrompt",
             "appendSystemPrompt",
             "extensions",
@@ -5759,7 +5763,7 @@
               "spelling": "--context-window"
             }
           ],
-          "message": "pi cannot express option \"contextWindow\" (100000); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"contextWindow\" (100000); supported: effort, provider, agent, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "provider": {
@@ -5776,36 +5780,17 @@
         ]
       },
       "agent": {
-        "refusal": {
-          "issue": "unsupported-option",
-          "harness": "pi",
-          "option": "agent",
-          "supported": [
-            "effort",
-            "provider",
-            "systemPrompt",
-            "appendSystemPrompt",
-            "extensions",
-            "discovery",
-            "access",
-            "memory"
-          ],
-          "supportedBy": [
-            {
-              "harness": "claude",
-              "spelling": "--agent"
-            },
-            {
-              "harness": "antigravity",
-              "spelling": "--agent"
-            },
-            {
-              "harness": "popeye",
-              "spelling": "--agent"
-            }
-          ],
-          "message": "pi cannot express option \"agent\" (scout-agent); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
-        }
+        "argv": [
+          "pi",
+          "--session-id",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "--mode",
+          "json",
+          "--agent",
+          "scout-agent",
+          "hi"
+        ]
       },
       "no-tools": {
         "argv": [
@@ -5874,6 +5859,7 @@
           "supported": [
             "effort",
             "provider",
+            "agent",
             "systemPrompt",
             "appendSystemPrompt",
             "extensions",
@@ -5888,7 +5874,7 @@
             }
           ],
           "hint": "pi has no write toggle; grant without the write tool (--tools read,bash,edit) or use --exclude-tools write",
-          "message": "pi cannot express option \"write\" (false); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"write\" (false); supported: effort, provider, agent, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "shell-off": {
@@ -5899,6 +5885,7 @@
           "supported": [
             "effort",
             "provider",
+            "agent",
             "systemPrompt",
             "appendSystemPrompt",
             "extensions",
@@ -5913,7 +5900,7 @@
             }
           ],
           "hint": "pi has no shell toggle; grant without the bash tool (--tools read,edit,write) or use --exclude-tools bash",
-          "message": "pi cannot express option \"shell\" (false); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"shell\" (false); supported: effort, provider, agent, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "max-steps": {
@@ -5924,6 +5911,7 @@
           "supported": [
             "effort",
             "provider",
+            "agent",
             "systemPrompt",
             "appendSystemPrompt",
             "extensions",
@@ -5938,7 +5926,7 @@
             }
           ],
           "hint": "pi has no step cap flag; bound the work in the prompt or impose a wall-clock timeout at the caller",
-          "message": "pi cannot express option \"maxSteps\" (5); supported: effort, provider, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "pi cannot express option \"maxSteps\" (5); supported: effort, provider, agent, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "system-prompt": {
@@ -6383,6 +6371,10 @@
           "supportedBy": [
             {
               "harness": "claude",
+              "spelling": "--agent"
+            },
+            {
+              "harness": "pi",
               "spelling": "--agent"
             },
             {
@@ -7165,6 +7157,10 @@
           "supportedBy": [
             {
               "harness": "claude",
+              "spelling": "--agent"
+            },
+            {
+              "harness": "pi",
               "spelling": "--agent"
             },
             {
