@@ -29,7 +29,7 @@ interface Row {
 interface HarnessOutcome {
   readonly harness: string;
   readonly state: string;
-  readonly rows: number;
+  readonly matched: number;
   readonly reason: string | null;
 }
 interface Listing {
@@ -300,7 +300,7 @@ test("--harness narrows the result and --limit caps the rows", () => {
   ]);
   expect(limited.result.rowsReturned).toBe(2);
   expect(limited.result.more).toBe(true);
-  expect(outcome(limited, "claude").rows).toBe(2);
+  expect(outcome(limited, "claude").matched).toBe(2);
   const unlimited = list(["--cwd", WORKSPACE_A, "--headless"]);
   expect(unlimited.result.more).toBe(false);
 });
@@ -322,7 +322,7 @@ test("--since-time admits only sources written at or after that instant", () => 
   ]);
   expect(listing.source.scope).toMatchObject({ sinceTime: WRITE_TIMES.codexInteractive });
   // A harness whose every source is older still lists, with no rows.
-  expect(outcome(listing, "muse")).toMatchObject({ state: "listed", rows: 0 });
+  expect(outcome(listing, "muse")).toMatchObject({ state: "listed", matched: 0 });
 });
 
 test("--since-time takes a UTC instant and refuses anything else", () => {
@@ -395,7 +395,7 @@ test("a harness with no listing method is reported with its reason and keeps exi
       harness: "cursor",
       state: "divergent",
       storeRoot: null,
-      rows: 0,
+      matched: 0,
       reason: "cursor has no transcript listing method in v1.",
       issue: "transcript-divergence",
     },
@@ -430,5 +430,5 @@ test("a harness whose store cannot be read is reported and the rest still list",
   expect(broken.status, broken.stderr).toBe(0);
   const result = JSON.parse(broken.stdout.trim().split("\n").at(-1) ?? "{}") as Listing["result"];
   // An absent store root is an empty store, not a failure.
-  expect(result.harnesses[0]).toMatchObject({ harness: "claude", state: "listed", rows: 0 });
+  expect(result.harnesses[0]).toMatchObject({ harness: "claude", state: "listed", matched: 0 });
 });

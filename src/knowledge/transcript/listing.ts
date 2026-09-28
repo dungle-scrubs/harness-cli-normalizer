@@ -61,11 +61,11 @@ export interface HarnessListing {
   readonly harness: HarnessName;
   readonly state: HarnessListingState;
   readonly storeRoot: string | null;
-  /** Rows this harness contributed, after the workspace and headless filters
-   * and before `--limit`. It is not the number printed: `--limit` applies to
-   * the sorted set of every harness's rows, and the printed count is the
-   * result's `rowsReturned`. */
-  readonly rows: number;
+  /** Sessions this harness matched, after the workspace and headless
+   * filters and before `--limit`. It is not the number printed: `--limit`
+   * applies to the sorted set of every harness's matches, and the printed
+   * count is the result's `rowsReturned`. */
+  readonly matched: number;
   readonly reason: string | null;
   readonly issue: Issue | null;
 }
@@ -97,7 +97,7 @@ export interface SessionListResult {
    */
   readonly status: "complete" | "partial" | "failed" | "refused";
   /** Rows actually printed: the whole sorted set, or `--limit` of it. A
-   * per-harness `rows` can exceed this, and normally does. */
+   * per-harness `matched` can exceed this, and normally does. */
   readonly rowsReturned: number;
   /** Whether rows existed beyond `--limit`. There is no continuation token;
    * a consumer that needs the rest re-runs without `--limit`. */

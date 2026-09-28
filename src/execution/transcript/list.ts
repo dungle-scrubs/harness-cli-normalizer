@@ -318,7 +318,7 @@ export async function listSessions(
             harness: entry.harness,
             state: "divergent",
             storeRoot: entry.listingRoot,
-            rows: 0,
+            matched: 0,
             reason: entry.divergence ?? `${entry.harness} has no transcript listing method.`,
             issue: "transcript-divergence",
           },
@@ -343,7 +343,7 @@ export async function listSessions(
             harness: entry.harness,
             state: "listed",
             storeRoot: entry.listingRoot,
-            rows: kept.length,
+            matched: kept.length,
             reason: unreadable
               ? `${unreadable} native source(s) under this store could not be read.`
               : null,
@@ -374,7 +374,7 @@ export async function listSessions(
             harness: entry.harness,
             state: "failed",
             storeRoot: entry.listingRoot,
-            rows: 0,
+            matched: 0,
             reason: reasonOf(error),
             issue: issueOf(error),
           },
