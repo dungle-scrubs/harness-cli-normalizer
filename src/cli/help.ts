@@ -414,4 +414,10 @@ Claude sidechains, Codex spawned agent threads, Muse subagent/ sessions and
 Antigravity nested conversations. A harness with no listing method, and one
 whose store could not be read, are reported per harness in the result with
 the reason; the exit code stays 0 and the status reads partial.
+
+When HCN_OBSERVER names an executable file, the run streams lifecycle records
+(hcn-observer/1 NDJSON) to that command: one started line, each run event, and
+the terminal outcome. The harness child receives HCN_INVOCATION_ID. The
+observer is fire-and-forget and can never fail or slow the run; see
+docs/observer.md.
 `;

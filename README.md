@@ -747,6 +747,29 @@ a `start` line (command, pid, timestamp) before work and an `end` line
 `start` with no `end` is the trace of a hung or killed invocation. Appends
 are diagnostics: a failed append never fails the command.
 
+The ledger is diagnostic only. The run lifecycle observer (RFC-03 slice 11) is
+a separate, off-by-default seam: when `HCN_OBSERVER` names an absolute path to
+an executable file, every invocation streams `invocation.started`, each run
+event, and `process.closed` (exit code plus hcn's own exit cause, `killed`
+included) to that command as `hcn-observer/1` NDJSON. The harness child
+receives `HCN_INVOCATION_ID` so an observer can correlate. A delivery failure
+is swallowed: it never fails or delays the run. The deployment sets the
+variable only where an observer is installed and the reflection intake's
+backup gate has passed; the observer side refuses while the gate is closed.
+
+### Run lifecycle observer (ADR 0011)
+
+When `HCN_OBSERVER` names an executable file, `hcn run` streams lifecycle
+records to that command's stdin as `hcn-observer/1` NDJSON: one `started`
+line (invocation id, timestamp, harness, cwd, hcn version), one line per run
+event (the same objects `--json` prints, minus token and progress), and the
+terminal `done` (exit code plus hcn's own exit cause, `killed` included). The
+harness child receives `HCN_INVOCATION_ID` so an observer can correlate. The
+child is detached and fire-and-forget: a missing, failing or slow observer
+never fails or delays the run, and an unset variable leaves it byte for byte
+unchanged. The stream contract is
+https://github.com/dungle-scrubs/harness-cli-normalizer/blob/main/docs/observer.md;
+the reflection intake ships one such observer.
 `resetsAt` is present only when the harness reports a reset time (today:
 claude's `rate_limit_event`); a consumer treats its absence as unknown,
 not as "retry now".

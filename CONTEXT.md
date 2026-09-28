@@ -68,6 +68,14 @@ exit 2). Classified normalizing: it translates the installed harness's
 interface, with machine state beside the published version as its information
 basis (map #300, 2026-09-28).
 
+**Lifecycle observer**: the executable `HCN_OBSERVER` names. On `hcn run`, hcn
+streams its own lifecycle to that command as `hcn-observer/1` NDJSON on its
+stdin: one `started` line, each run event, and the terminal outcome. hcn knows
+nothing about what the command does with the stream - the reflection intake's
+adapter is one consumer. Fire-and-forget by contract: the observer can never
+fail or slow a run, and an unset variable leaves the run byte for byte
+unchanged (D75, 2026-09-28).
+
 **Failure class**: the named reason a turn failed, from a closed set. Naming it
 is normalization; deciding whether to retry it is not - see `retryable` below.
 
