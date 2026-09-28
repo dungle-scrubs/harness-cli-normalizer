@@ -7,6 +7,7 @@
 
 import type { NativeProcessOwner } from "../knowledge/interactive.js";
 import type { NativeSettingsInspector } from "./native-settings.js";
+import type { ReflectProducer } from "./reflect.js";
 
 export type { NativeProcessOwner } from "../knowledge/interactive.js";
 
@@ -90,4 +91,9 @@ export interface RunnerDeps {
   /** Host-minted correlation id; without it the runner falls back to a
    * per-process monotonic counter (collides across processes). */
   readonly turnId?: string;
+  /** Reflection producer (RFC-03 slice 11): captures invocation lifecycle
+   * observations when the deployment enabled it. Absent = off; every
+   * method swallows delivery failure, so the run never waits on it beyond
+   * the producer's own bounded close. */
+  readonly reflect?: ReflectProducer;
 }
