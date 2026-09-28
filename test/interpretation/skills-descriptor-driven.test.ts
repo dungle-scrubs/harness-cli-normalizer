@@ -29,10 +29,12 @@ describe("skills rendering is descriptor-driven", () => {
     ]);
   });
 
-  test("codex: the complement off through the skills.config array", () => {
+  test("codex: the complement off plus picks on through the skills.config array", () => {
     expect(renderSkillsSelection(codexCli, skills)).toEqual([
       "-c",
-      'skills.config=[{path="/registry/other/SKILL.md", enabled=false}, {path="/registry/third/SKILL.md", enabled=false}]',
+      'skills.config=[{path="/registry/hcn/SKILL.md", enabled=true}, {name="hcn", enabled=true}, ' +
+        '{path="/registry/other/SKILL.md", enabled=false}, {name="other", enabled=false}, ' +
+        '{path="/registry/third/SKILL.md", enabled=false}, {name="third", enabled=false}]',
     ]);
   });
 

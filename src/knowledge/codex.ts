@@ -235,10 +235,26 @@ export const codexCli: HarnessDescriptor = deepFreeze({
   // (reachable per-call via -c key=value), sandbox, and approval policy.
   // MCP servers do have per-tool keys (mcp_servers.<id>.tools.<tool>)
   // but built-ins do not.
-  // Skills (verified 2026-08-22, codex 0.147.0, --strict-config probes):
-  // per-skill disable via config-kv array -c skills.config=[{path=...,
-  // enabled=false}] (selector path or name, validated per entry); also
-  // -c skills.bundled.enabled=false. No global skills.enabled switch.
+  // Skills (probes re-verified 2026-09-28, codex 0.155.1 and 0.157.1, via
+  // `codex debug prompt-input`, issue #209; shape first verified 0.147.0
+  // under --strict-config): skills.config is a DISABLE-SET - an entry
+  // disables the skill its path or name selector matches, unlisted skills
+  // stay enabled, and a later entry with the same selector replaces an
+  // earlier one (session flags outrank user config.toml, precedence 30 vs
+  // 20). Path selectors canonicalize and stay effective even when no
+  // current skill matches; name selectors match every discovered copy of
+  // the name. Narrowing renders both selectors per skill: path covers a
+  // frontmatter name that differs from the registry basename, name covers
+  // duplicate copies at paths hcn does not know (observed: synced
+  // <uuid>/<name> layout). The picks are restated enabled=true - on
+  // 0.155.1 that also lifted a skill's own allow_implicit_invocation:false
+  // policy back into the catalog; on 0.157.1 the policy wins and the skill
+  // stays out of the model-visible catalog regardless (still explicitly
+  // invocable by name). Also -c skills.bundled.enabled=false. No global
+  // skills.enabled switch. Catalog budget: the initial skills list caps at
+  // ~2% of the context window, so with a large registry unconfigured runs
+  // omit skills from the list - do not read a bare-run catalog as the
+  // enablement truth.
   skills: { loadFlag: null, overridesVia: "config-skills-array" },
   tools: {
     includeFlag: null,
