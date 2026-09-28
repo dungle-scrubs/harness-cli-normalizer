@@ -13,7 +13,6 @@ import type { Clock, ProcessStart, RunnerDeps, SpawnedProcess, SpawnOptions } fr
 import { mergeEnvironment } from "./environment.js";
 import { inspectNativeSettings, type NativeSettingsInspector } from "./native-settings.js";
 import { readNativeProcessOwner, waitForChildExec } from "./process-identity.js";
-import { reflectProducerFromEnv } from "./reflect.js";
 
 const children = new WeakMap<SpawnedProcess, ChildProcess>();
 
@@ -236,38 +235,6 @@ export const nodeNativeSettingsInspector: NativeSettingsInspector = (request) =>
   });
 };
 
-const REFLECT_CAPTURE_TIMEOUT_MS = 1500;
-
-/** Deliver one capture body to the intake's own command. Resolves false on
- * any failure - missing binary, nonzero exit, timeout - never throws. The
- * child is unref'd so a slow capture cannot hold hcn's exit. */
-const spawnReflectCapture = (bin: string, authority: string, body: unknown): Promise<boolean> =>
-  new Promise((resolve) => {
-    let child: ChildProcess;
-    try {
-      child = nodeSpawn(bin, ["capture", "--authority", authority], {
-        stdio: ["pipe", "ignore", "ignore"],
-      });
-    } catch {
-      resolve(false);
-      return;
-    }
-    child.unref();
-    const timer = setTimeout(() => {
-      child.kill();
-      resolve(false);
-    }, REFLECT_CAPTURE_TIMEOUT_MS);
-    child.on("error", () => {
-      clearTimeout(timer);
-      resolve(false);
-    });
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      resolve(code === 0);
-    });
-    child.stdin?.end(`${JSON.stringify(body)}\n`);
-  });
-
 export const nodeRunnerDeps = (extra?: Partial<RunnerDeps>): RunnerDeps => ({
   inspectNativeSettings: nodeNativeSettingsInspector,
   spawn: realSpawn,
@@ -275,6 +242,5 @@ export const nodeRunnerDeps = (extra?: Partial<RunnerDeps>): RunnerDeps => ({
   signal: (proc, sig) => {
     children.get(proc)?.kill(sig);
   },
-  reflect: reflectProducerFromEnv(process.env, spawnReflectCapture),
   ...extra,
 });

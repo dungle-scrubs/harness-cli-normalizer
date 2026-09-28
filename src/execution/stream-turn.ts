@@ -155,7 +155,6 @@ export async function* streamTurn(
   const stdinPrompt = stdinPromptOf(h, effective);
   let asked = false;
   let escalationDetection: EscalationDetection = "none";
-  const reflect = deps.reflect;
 
   // Validate env before building argv so an invalid env is a refusal, not a spawn
   if (opts.env !== undefined) {
@@ -262,13 +261,6 @@ export async function* streamTurn(
     ...(envKeys?.length ? { envKeys } : {}),
   });
 
-  // Reflection producer (RFC-03 slice 11): mint the invocation id and
-  // capture invocation.started just before the spawn attempt. Absent when
-  // the deployment has not enabled capture. Every reflect call swallows
-  // failure; closed is awaited bounded so the terminal observation lands
-  // before the run's own exit, and nothing else waits on delivery.
-  reflect?.started(h.name);
-
   // F-23: create-on-missing resume warns before spawn - the harness will
   // accept any id and silently start a blank session, so the consumer
   // must verify the id exists.
@@ -307,11 +299,6 @@ export async function* streamTurn(
     for (const warning of resumeLastGuardMessages) yield { kind: "error", message: warning };
     yield { kind: "error", message: `spawn failed: ${message}` };
     yield { kind: "failure", ...failure };
-    if (reflect !== undefined) {
-      // Awaited before the terminal yield: a consumer that stops at done
-      // must not skip the invocation's terminal observation.
-      await reflect.closed(h.name, { cause: "failed", exitCode: 127 });
-    }
     yield {
       kind: "done",
       exitCode: 127,
@@ -553,7 +540,6 @@ export async function* streamTurn(
       if (!identitySeen) {
         if (event.kind === "identity") {
           identitySeen = true;
-          reflect?.identity(h.name, { authority: event.authority, sessionId: event.sessionId });
           await queue.push(event);
           await flushDroppable();
           startApprovalWatch(event.sessionId);
@@ -777,17 +763,11 @@ export async function* streamTurn(
     // harness conventions collide with hcn's (codex usage errors exit 2,
     // which hcn reserves for refusals).
     const nativeReduced = reduced?.class === "native";
-    const terminalExitCode = nativeReduced || approvalBlocked ? null : exitCode;
-    if (reflect !== undefined) {
-      // Awaited before the terminal yield: a consumer that stops at done
-      // must not skip the invocation's terminal observation.
-      await reflect.closed(h.name, { cause, exitCode: terminalExitCode });
-    }
     yield {
       kind: "done",
       // Like the refusal path: hcn owns the process exit code, and a
       // deliberately stopped turn carries no harness signal number.
-      exitCode: terminalExitCode,
+      exitCode: nativeReduced || approvalBlocked ? null : exitCode,
       cause,
       ...(reduced ? { failure: reduced } : {}),
       escalation: { mode: questionMode, detection: escalationDetection },
