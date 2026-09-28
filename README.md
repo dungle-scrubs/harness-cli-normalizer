@@ -747,6 +747,19 @@ a `start` line (command, pid, timestamp) before work and an `end` line
 `start` with no `end` is the trace of a hung or killed invocation. Appends
 are diagnostics: a failed append never fails the command.
 
+The ledger is diagnostic only. Reflection delivery (RFC-03 slice 11) is a
+separate, off-by-default producer: when `REFLECT_INTAKE_CAPTURE=on` and the
+machine's `REFLECT_HOST_AUTHORITY` are set, every invocation publishes
+`invocation.started`, the first native `identity.observed`, and
+`process.closed` (exit code plus hcn's own exit cause, `killed` included)
+to the machine's reflection outbox by spawning the `reflect-intake capture`
+command. `REFLECT_INTAKE_BIN` overrides the binary (default: `reflect-intake`
+on PATH) and `REFLECT_INTAKE_WORK_PARENT` passes an explicit parent
+reference (`{"authority":...,"id":...}`) through to every event. A delivery
+failure is swallowed: it never fails or delays a run. The deployment turns
+the producer on only after the outbox's backup and restore gate has passed;
+the capture command independently refuses while the gate is closed.
+
 `resetsAt` is present only when the harness reports a reset time (today:
 claude's `rate_limit_event`); a consumer treats its absence as unknown,
 not as "retry now".
