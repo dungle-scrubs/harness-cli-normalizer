@@ -11,11 +11,26 @@
  *   is already present, so the allowlist renders as the complement OFF -
  *   `--settings '{"skillOverrides":{"<name>":"off",...}}'` for every known
  *   skill except the picks.
- * - overrides via a config array (codex): the complement OFF through
- *   `-c skills.config=[{path="...", enabled=false}]`. Uses the `path`
- *   selector because a skill's frontmatter `name` need not equal its
- *   directory basename. The path for skill <n> under root <root> is
- *   <root>/<n>/SKILL.md, the root taken from the picks (all share one).
+ * - overrides via a config array (codex): the complement OFF plus the
+ *   picks restated ON through `-c skills.config=[...]`. Each skill gets
+ *   TWO entries, one per selector shape codex resolves, because each
+ *   covers a hazard the other misses (issue #209, verified against codex
+ *   0.155.1 and 0.157.1 with `codex debug prompt-input`):
+ *   path - `path="<root>/<n>/SKILL.md"`, the root taken from the picks
+ *   (all share one); works even when a skill's frontmatter `name`
+ *   differs from its registry basename, but matches only that exact
+ *   file, so a second copy of the skill at another path stays enabled
+ *   (observed with the synced `<uuid>/<name>` layout of the shared
+ *   registry).
+ *   name - `name="<n>"`; matches every discovered copy of the name, but
+ *   no-ops when the frontmatter name differs from hcn's basename.
+ *   The picks are rendered `enabled=true` alongside the disabled
+ *   complement: `skills.config` is a disable-set (unlisted skills stay
+ *   enabled), but user-level `config.toml` `[[skills.config]]` disables
+ *   sit in a lower-precedence layer than the per-call overrides, and
+ *   layers replace entries per selector - restating the pick under both
+ *   selectors shields it from a user disable of either shape and keeps
+ *   at least one enabled entry for every non-empty selection.
  * - null (muse): refuse, with the support list derived like every other
  *   refusal's.
  */
@@ -57,10 +72,14 @@ const settingsOverrides = (skills: SkillsSelection): readonly string[] => {
 
 const configSkillsArray = (skills: SkillsSelection): readonly string[] => {
   const root = skills.picks.length > 0 ? dirnameOf(skills.picks[0] as string) : "";
-  const entries = complementOf(skills).map((name) => {
-    const path = root ? `${root}/${name}/SKILL.md` : `${name}/SKILL.md`;
-    return `{path=${JSON.stringify(path)}, enabled=false}`;
-  });
+  const pathOf = (name: string): string => (root ? `${root}/${name}/SKILL.md` : `${name}/SKILL.md`);
+  const entry = (name: string, enabled: boolean): string =>
+    `{path=${JSON.stringify(pathOf(name))}, enabled=${enabled}}, {name=${JSON.stringify(name)}, enabled=${enabled}}`;
+  const picks = [...new Set(skills.picks.map(basenameOf))];
+  const entries = [
+    ...picks.map((name) => entry(name, true)),
+    ...complementOf(skills).map((name) => entry(name, false)),
+  ];
   return entries.length === 0 ? [] : ["-c", `skills.config=[${entries.join(", ")}]`];
 };
 

@@ -1196,7 +1196,7 @@
           "workspace-write",
           "hi",
           "-c",
-          "skills.config=[{path=\"/registry/other/SKILL.md\", enabled=false}]"
+          "skills.config=[{path=\"/registry/hcn/SKILL.md\", enabled=true}, {name=\"hcn\", enabled=true}, {path=\"/registry/other/SKILL.md\", enabled=false}, {name=\"other\", enabled=false}]"
         ]
       },
       "autonomy": {
@@ -5550,7 +5550,7 @@
           "--skip-git-repo-check",
           "hi",
           "-c",
-          "skills.config=[{path=\"/registry/other/SKILL.md\", enabled=false}]"
+          "skills.config=[{path=\"/registry/hcn/SKILL.md\", enabled=true}, {name=\"hcn\", enabled=true}, {path=\"/registry/other/SKILL.md\", enabled=false}, {name=\"other\", enabled=false}]"
         ]
       },
       "autonomy": {
