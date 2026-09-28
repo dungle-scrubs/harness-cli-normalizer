@@ -1,6 +1,8 @@
 import { strict as assert } from "node:assert";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 interface PackedFile {
@@ -100,9 +102,24 @@ for (const forbiddenPrefix of [".plans/", "scripts/", "test/"]) {
 }
 
 // The packed CLI must actually run: --version exercises the built entry
-// end to end.
-const cli = spawnSync("node", [new URL("../dist/cli.js", import.meta.url).pathname, "--version"], {
-  encoding: "utf8",
-});
-assert.equal(cli.status, 0, `built cli.js --version failed: ${cli.stderr}`);
-assert.match(cli.stdout, /\d+\.\d+\.\d+/, "cli --version must print a version");
+// end to end. The probe is a real invocation, so its command ledger would
+// land in whatever state directory the caller's environment resolves to;
+// point it at a scratch directory this script removes under its own prefix.
+const probeStatePrefix = join(tmpdir(), "hcn-check-package-");
+const probeState = mkdtempSync(probeStatePrefix);
+try {
+  const cli = spawnSync(
+    "node",
+    [new URL("../dist/cli.js", import.meta.url).pathname, "--version"],
+    {
+      encoding: "utf8",
+      env: { ...process.env, HCN_STATE_DIR: probeState },
+    },
+  );
+  assert.equal(cli.status, 0, `built cli.js --version failed: ${cli.stderr}`);
+  assert.match(cli.stdout, /\d+\.\d+\.\d+/, "cli --version must print a version");
+} finally {
+  if (probeState.startsWith(probeStatePrefix)) {
+    rmSync(probeState, { recursive: true, force: true });
+  }
+}

@@ -748,14 +748,15 @@ a `start` line (command, pid, timestamp) before work and an `end` line
 are diagnostics: a failed append never fails the command.
 
 The ledger is diagnostic only. The run lifecycle observer (RFC-03 slice 11) is
-a separate, off-by-default seam: when `HCN_OBSERVER` names an absolute path to
-an executable file, every invocation streams `invocation.started`, each run
-event, and `process.closed` (exit code plus hcn's own exit cause, `killed`
-included) to that command as `hcn-observer/1` NDJSON. The harness child
-receives `HCN_INVOCATION_ID` so an observer can correlate. A delivery failure
-is swallowed: it never fails or delays the run. The deployment sets the
-variable only where an observer is installed and the reflection intake's
-backup gate has passed; the observer side refuses while the gate is closed.
+a separate, off-by-default seam: when `HCN_OBSERVER` holds a non-empty
+absolute path, `hcn run` streams lifecycle records to that command as
+`hcn-observer/1` NDJSON - one `started` line, one line per run event, the
+terminal `done` - exactly as the "Run lifecycle observer" section below
+documents. The harness child receives `HCN_INVOCATION_ID` so an observer can
+correlate. A delivery failure is swallowed: it never fails or delays the run.
+The deployment sets the variable only where an observer is installed and the
+reflection intake's backup gate has passed; the observer side refuses while
+the gate is closed.
 
 ### Run lifecycle observer (ADR 0011)
 

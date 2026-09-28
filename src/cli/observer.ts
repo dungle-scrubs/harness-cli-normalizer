@@ -14,7 +14,7 @@
  * spawn surfaces as an asynchronous error that ends observation silently.
  */
 import { type ChildProcess, spawn } from "node:child_process";
-import { resolve } from "node:path";
+import { isAbsolute, resolve } from "node:path";
 import type { SpawnOptions } from "../execution/deps.js";
 import type { HarnessEvent } from "../execution/events.js";
 import { DROPPABLE_KINDS } from "../execution/events.js";
@@ -24,28 +24,43 @@ export const OBSERVER_ENV = "HCN_OBSERVER";
 export const INVOCATION_ID_ENV = "HCN_INVOCATION_ID";
 
 /** Backstop for a reader that stops draining: past this much queued and
- * unwritten, the pipe is destroyed and observation ends silently. */
+ * unwritten, the pipe is destroyed and observation ends silently. The
+ * check runs BEFORE the record is built, so a stalled reader cannot
+ * pay for serialization. */
 const MAX_PENDING_BYTES = 8 * 1024 * 1024;
 
-/** A single record whose serialized form exceeds this is replaced by a
- * short `skipped` record, so one huge event cannot monopolize the pipe. */
-const MAX_RECORD_CHARS = 1024 * 1024;
+/** A single record whose serialized UTF-8 form exceeds this is replaced
+ * by a short `skipped` record, so one huge event cannot monopolize the
+ * pipe. Measured in bytes on the wire, not UTF-16 characters, so a
+ * payload whose characters are mostly multi-byte ends up capped by the
+ * same pipe budget the consumer sees. */
+const MAX_RECORD_BYTES = 1024 * 1024;
 
 type Env = Readonly<Record<string, string | undefined>>;
 
 /** The observer command from the environment, or null when no observer is
  * enabled. Decided from the string alone: the variable must be non-empty
  * and absolute. No filesystem work happens here - a path that does not
- * name a spawnable file fails later, asynchronously, and silently. */
+ * name a spawnable file fails later, asynchronously, and silently. The
+ * check uses `isAbsolute` so a value like `/tmp/../tmp/observer` keeps
+ * enabling the observer: the previous `resolve(value) === value` form
+ * rejected those (and any value that resolves to itself through `..`),
+ * disabling observation and the invocation-ID export on a string the
+ * caller plainly intended as absolute. */
 export const observerCommand = (env: Env): string | null => {
   const value = env[OBSERVER_ENV];
   if (value === undefined || value === "") return null;
-  const absolute = resolve(value);
-  return absolute === value ? absolute : null;
+  return isAbsolute(value) ? value : null;
 };
 
 export interface RunObserver {
   readonly enabled: boolean;
+  /** The pid of the spawned observer child, or null when there is
+   * none to name: no observer enabled, the spawn failed, or launched
+   * not yet called. The value survives the child's exit (ChildProcess.pid
+   * keeps the last pid), so a caller can still wait on the child after
+   * the stream ends. */
+  readonly pid: number | null;
   /** Adds `HCN_INVOCATION_ID` over the caller's env on the launch spawn;
    * returns the options untouched when no observer is enabled. Call on
    * the first harness spawn only - later spawns (the approval helper)
@@ -65,6 +80,7 @@ export interface RunObserver {
 
 const disabled = (): RunObserver => ({
   enabled: false,
+  pid: null,
   harnessEnv: (opts) => opts,
   launched: () => {},
   event: () => {},
@@ -90,9 +106,12 @@ export const createRunObserver = (harness: string, cwd: string | undefined): Run
   };
 
   /** Checks the pending-bytes cap BEFORE serializing, then serializes the
-   * record. A record over 1 MiB serialized characters is replaced by a
-   * short `skipped` record, so one huge event cannot monopolize the pipe
-   * and the consumer learns where coverage ends. */
+   * record and checks the serialized UTF-8 byte length against the per-
+   * record cap. A record over 1 MiB on the wire is replaced by a short
+   * `skipped` record, so one huge event cannot monopolize the pipe and
+   * the consumer learns where coverage ends. The wire length - not the
+   * character length - is what reaches the consumer, so the cap mirrors
+   * the consumer's view of the pipe. */
   const write = (makeRecord: () => Record<string, unknown>): void => {
     if (failed || ended || child === null) return;
     const stdin = child.stdin;
@@ -101,7 +120,7 @@ export const createRunObserver = (harness: string, cwd: string | undefined): Run
       return;
     }
     const text = JSON.stringify(makeRecord());
-    if (text.length > MAX_RECORD_CHARS) {
+    if (Buffer.byteLength(text, "utf8") > MAX_RECORD_BYTES) {
       stdin.write(
         `${JSON.stringify({ record: "skipped", at: new Date().toISOString(), reason: "oversize" })}\n`,
       );
@@ -120,6 +139,9 @@ export const createRunObserver = (harness: string, cwd: string | undefined): Run
 
   return {
     enabled: true,
+    get pid(): number | null {
+      return child?.pid ?? null;
+    },
     harnessEnv: (opts, id) => ({
       ...opts,
       env: { ...(opts.env ?? {}), [INVOCATION_ID_ENV]: id },

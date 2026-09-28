@@ -10,6 +10,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } f
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "vitest";
+import { ensureTestStateSandbox } from "./setup-state.js";
 import { ensureDist, expectStubsReaped } from "./stub-dist.js";
 
 const STUB = `#!/usr/bin/env node
@@ -88,6 +89,7 @@ describe("SIGINT to hcn run with the muse observer running (L6)", () => {
           env: {
             PATH: `${stubDir}:${nodeDir}:${process.env.PATH ?? "/usr/bin:/bin"}`,
             HOME: process.env.HOME ?? "/tmp",
+            HCN_STATE_DIR: ensureTestStateSandbox(),
             TMPDIR: tmp,
             LANG: "C",
             STUB_PID_DIR: outDir,

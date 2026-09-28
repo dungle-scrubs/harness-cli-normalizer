@@ -5,18 +5,38 @@
  * mirrors its stdin lines into a file and exits on stdin EOF; each test
  * reaps it before returning. No real harness, no model, no network.
  */
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 import { createRunObserver, INVOCATION_ID_ENV, OBSERVER_ENV } from "../../src/cli/observer.js";
 import type { HarnessEvent } from "../../src/execution/events.js";
+import { cleanupSandbox } from "./reap.js";
 
 const dirs: string[] = [];
-afterEach(() => {
-  for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
-  delete process.env[OBSERVER_ENV];
-  delete process.env.STUB_OUT;
+// Every test that launches a real observer child pushes its pid here so
+// the cleanup can terminate and reap it before touching the sandbox. A
+// run with a live child holds the operator's terminal; deleting the dir
+// first leaves a runaway process and a missing directory behind.
+const observerPids: number[] = [];
+
+afterEach(async () => {
+  // Terminate and reap every observer child first (SIGTERM, 2 s,
+  // SIGKILL): a failed assertion before the test's own end() can leave
+  // the stub running, and the sandbox must not be deleted under a live
+  // child. A pid that survives both signals rejects, fails the test,
+  // and keeps every directory for the operator to diagnose.
+  try {
+    await cleanupSandbox({
+      pids: observerPids.splice(0),
+      dirs: dirs.splice(0),
+      prefix: join(tmpdir(), "hcn-observer-unit-"),
+      label: "observer unit",
+    });
+  } finally {
+    delete process.env[OBSERVER_ENV];
+    delete process.env.STUB_OUT;
+  }
 });
 
 const fixture = (): string => {
@@ -121,6 +141,23 @@ describe("enablement", () => {
     expect(opts.env?.[INVOCATION_ID_ENV]).toBe("hcn-id");
   });
 
+  test("an absolute value containing '..' still enables the observer (string-only path check)", () => {
+    const dir = fixture();
+    // isAbsolute passes on a string whose lexical value starts with /,
+    // even when the path normalizes through '..'. The previous
+    // resolve-based check rejected these and silently disabled
+    // observation plus the invocation-ID export - the caller plainly
+    // intended an absolute path.
+    const value = `/tmp/../tmp/${dir.replace(/^.*\//, "")}-does-not-need-to-exist.mjs`;
+    process.env[OBSERVER_ENV] = value;
+    // Sanity: the string is plainly absolute from the caller's view.
+    expect(resolve(value)).not.toBe(value);
+    const observer = createRunObserver("claude", dir);
+    expect(observer.enabled).toBe(true);
+    const opts = observer.harnessEnv({ stdin: "pipe", env: {} }, "abs-id");
+    expect(opts.env?.[INVOCATION_ID_ENV]).toBe("abs-id");
+  });
+
   test("observer.ts does no filesystem work: no statSync, no accessSync", () => {
     const source = readFileSync(
       join(import.meta.dirname, "..", "..", "src", "cli", "observer.ts"),
@@ -142,6 +179,7 @@ describe("record stream", () => {
     const observer = createRunObserver("claude", cwd);
     observer.harnessEnv({ stdin: "pipe" }, "inv-1");
     observer.launched("inv-1", "2026-09-28T03:00:00.000Z");
+    observerPids.push(observer.pid ?? 0);
     observer.event({ kind: "token", text: "tok" } as HarnessEvent);
     observer.event(identity);
     observer.event(message);
@@ -168,13 +206,14 @@ describe("record stream", () => {
     expect(done).toEqual({ kind: "done", exitCode: 0, cause: "clean" });
   });
 
-  test("a record over 1 MiB serialized becomes a skipped marker", async () => {
+  test("a record over 1 MiB serialized bytes becomes a skipped marker", async () => {
     const dir = fixture();
     const command = installStub(dir);
     process.env[OBSERVER_ENV] = command;
     process.env.STUB_OUT = join(dir, "stream.ndjson");
     const observer = createRunObserver("claude", dir);
     observer.launched("inv-4", "2026-09-28T03:00:00.000Z");
+    observerPids.push(observer.pid ?? 0);
     observer.event({ kind: "message", role: "assistant", text: "x".repeat(1024 * 1024 + 4096) });
     observer.event(message);
     observer.event({ kind: "done", exitCode: 0, cause: "clean" } as HarnessEvent);
@@ -191,6 +230,103 @@ describe("record stream", () => {
     ).toEqual(["message", "done"]);
   });
 
+  test("a record under 1 MiB characters but over 1 MiB serialized bytes becomes a skipped marker", async () => {
+    const dir = fixture();
+    const command = installStub(dir);
+    process.env[OBSERVER_ENV] = command;
+    process.env.STUB_OUT = join(dir, "stream.ndjson");
+    const observer = createRunObserver("claude", dir);
+    observer.launched("inv-multi", "2026-09-28T03:00:00.000Z");
+    observerPids.push(observer.pid ?? 0);
+    // 400,000 three-byte UTF-8 characters. The string length is well
+    // under the 1 MiB character cap, but the serialized UTF-8 payload
+    // is ~1.2 MiB on the wire. The cap must be measured on the wire so
+    // the consumer sees the same bound the producer enforced.
+    const text = "中".repeat(400_000);
+    expect(text.length).toBeLessThan(1024 * 1024);
+    expect(Buffer.byteLength(text, "utf8")).toBeGreaterThan(1024 * 1024);
+    observer.event({ kind: "message", role: "assistant", text });
+    observer.event(message);
+    observer.event({ kind: "done", exitCode: 0, cause: "clean" } as HarnessEvent);
+    const lines = await awaitStream(process.env.STUB_OUT);
+    const records = lines.map((l) => JSON.parse(l) as Record<string, unknown>);
+    const skipped = records.find((r) => r.record === "skipped");
+    expect(skipped).toMatchObject({ reason: "oversize" });
+    // The small events and the started record survive.
+    expect(records.some((r) => r.record === "started")).toBe(true);
+    expect(
+      records.filter((r) => r.record === "event").map((r) => (r.event as { kind: string }).kind),
+    ).toEqual(["message", "done"]);
+  });
+
+  test("the 8 MiB pending-write cap is checked before the record is serialized", () => {
+    // Source-level invariant: the writableLength check must run BEFORE
+    // any JSON.stringify call on the record body. Otherwise a stalled
+    // reader pays for full serialization on each huge event, the cost
+    // the cap was added to avoid. The Writable's writableLength
+    // behavior is runtime-specific (Node accumulates, Bun flushes
+    // eagerly), so a behavioral 8 MiB fill-up test would not survive
+    // both lanes; the order invariant does, and it is the contract
+    // the consumer cares about.
+    const source = readFileSync(
+      join(import.meta.dirname, "..", "..", "src", "cli", "observer.ts"),
+      "utf8",
+    );
+    const capIdx = source.indexOf("writableLength");
+    const serializeIdx = source.indexOf("JSON.stringify(makeRecord())");
+    expect(capIdx).toBeGreaterThanOrEqual(0);
+    expect(serializeIdx).toBeGreaterThan(capIdx);
+  });
+
+  test("a drained-stdin's pending-bytes cap suppresses a record on Node", async () => {
+    // On Node, the parent-side Writable internal buffer accumulates as
+    // 12 × 900 KiB writes land; the cap triggers when writableLength
+    // crosses 8 MiB, suppressing later serialization. Bun's Writable
+    // flushes eagerly and writableLength stays at 0 throughout, so the
+    // runtime-specific behavioral assertion only runs in this lane.
+    // The source-order test above carries the contract for both lanes.
+    if (process.versions.bun !== undefined) {
+      return; // Behavior is not observable on Bun; source order covers it.
+    }
+    const dir = fixture();
+    const stubPath = join(dir, "drain.mjs");
+    writeFileSync(
+      stubPath,
+      `#!/usr/bin/env node
+import { writeFileSync, appendFileSync } from "node:fs";
+const sink = process.env.STUB_OUT;
+let buf = "";
+process.stdin.on("data", (chunk) => {
+  buf += chunk.toString();
+});
+process.stdin.on("end", () => {
+  writeFileSync(sink, buf);
+  appendFileSync(sink, "EOF\\n");
+  process.exit(0);
+});
+process.stdin.on("close", () => {
+  writeFileSync(sink, buf);
+  appendFileSync(sink, "EOF\\n");
+  process.exit(0);
+});
+setInterval(() => {}, 1000000);
+`,
+    );
+    chmodSync(stubPath, 0o755);
+    process.env[OBSERVER_ENV] = stubPath;
+    process.env.STUB_OUT = join(dir, "stream.ndjson");
+    const observer = createRunObserver("claude", dir);
+    observer.launched("inv-pending", "2026-09-28T03:00:00.000Z");
+    observerPids.push(observer.pid ?? 0);
+    for (let i = 0; i < 12; i++) {
+      observer.event({ kind: "message", role: "assistant", text: "x".repeat(900 * 1024) });
+    }
+    observer.end();
+    const lines = await awaitStream(process.env.STUB_OUT, 15000);
+    expect(lines.some((l) => JSON.parse(l).record === "started")).toBe(true);
+    expect(lines.length).toBeLessThan(13);
+  });
+
   test("explicit end closes the stream; cwd falls back to the invocation directory", async () => {
     const dir = fixture();
     const command = installStub(dir);
@@ -198,6 +334,7 @@ describe("record stream", () => {
     process.env.STUB_OUT = join(dir, "stream.ndjson");
     const observer = createRunObserver("claude", undefined);
     observer.launched("inv-2", "2026-09-28T03:00:00.000Z");
+    observerPids.push(observer.pid ?? 0);
     observer.event(message);
     observer.end();
     // Idempotent, and events after the end are dropped.
@@ -229,6 +366,7 @@ describe("never-fail contract", () => {
       observer.end();
       observer.event(message);
     }).not.toThrow();
+    observerPids.push(observer.pid ?? 0);
     // Give the async error handlers a beat, then the process ends.
     await new Promise((r) => setTimeout(r, 50));
   });

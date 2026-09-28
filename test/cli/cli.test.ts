@@ -822,7 +822,10 @@ describe("integration: built cli via spawnSync", () => {
   // try/catch swallowing, no early return.
   test("node dist/cli.js --help exits 0", () => {
     const cli = ensureDist();
-    const result = spawnSync("node", [cli, "--help"], { encoding: "utf8" });
+    // env is explicit: a bun-lane child with env omitted inherits the OS
+    // environment, not the runtime-mutated process.env, so the state
+    // sandbox binding would never reach the CLI (ledger outside sandbox).
+    const result = spawnSync("node", [cli, "--help"], { encoding: "utf8", env: process.env });
     expect(result.error).toBeUndefined();
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("hcn");
@@ -830,7 +833,7 @@ describe("integration: built cli via spawnSync", () => {
 
   test("node dist/cli.js ls exits 0", () => {
     const cli = ensureDist();
-    const result = spawnSync("node", [cli, "ls"], { encoding: "utf8" });
+    const result = spawnSync("node", [cli, "ls"], { encoding: "utf8", env: process.env });
     expect(result.error).toBeUndefined();
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("claude@");
@@ -853,7 +856,7 @@ describe("integration: built cli via spawnSync", () => {
     try {
       const link = join(tmp, "hcn");
       symlinkSync(resolve(cli), link);
-      const result = spawnSync(link, ["ls"], { encoding: "utf8" });
+      const result = spawnSync(link, ["ls"], { encoding: "utf8", env: process.env });
       expect(result.error).toBeUndefined();
       expect(result.status).toBe(0);
       expect(result.stdout).toContain("claude@");
@@ -868,7 +871,7 @@ describe("integration: built cli via spawnSync", () => {
     try {
       const link = join(tmp, "hcn");
       symlinkSync(resolve("dist/cli/index.js"), link);
-      const result = spawnSync(link, ["--help"], { encoding: "utf8" });
+      const result = spawnSync(link, ["--help"], { encoding: "utf8", env: process.env });
       expect(result.error).toBeUndefined();
       expect(result.status).toBe(0);
       expect(result.stdout).toContain("hcn");

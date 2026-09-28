@@ -84,12 +84,22 @@ test("runtime inspection checks the selected executable and renders a same-sessi
         cwd: dir,
         encoding: "utf8",
         timeout: 30_000,
-        env: {
-          ...process.env,
-          HOME: dir,
-          XDG_CONFIG_HOME: dir,
-          PATH: `${dir}:${process.env.PATH}`,
-        },
+        env: (() => {
+          // Built from ...process.env, but without the operator's
+          // observer wiring: HCN_OBSERVER / HCN_INVOCATION_ID must reach
+          // a child only when a test sets them on purpose. inspect never
+          // reads them, so this is pure decoupling from the operator
+          // environment.
+          const childEnv: Record<string, string> = {
+            ...process.env,
+            HOME: dir,
+            XDG_CONFIG_HOME: dir,
+            PATH: `${dir}:${process.env.PATH}`,
+          };
+          delete childEnv.HCN_OBSERVER;
+          delete childEnv.HCN_INVOCATION_ID;
+          return childEnv;
+        })(),
       },
     );
     expect(result.status, result.stderr).toBe(0);
@@ -256,7 +266,7 @@ test("persistent inspection refuses a tool grant that session startup cannot app
       "--access",
       "read",
     ],
-    { encoding: "utf8", timeout: 30_000 },
+    { encoding: "utf8", timeout: 30_000, env: process.env },
   );
   expect(result.status).toBe(2);
   expect(result.stderr).toContain("access");
@@ -276,7 +286,7 @@ test.each(["codex", "muse"])("%s still refuses unsupported persistent mode", (ha
       "--resume",
       "11111111-1111-4111-8111-111111111111",
     ],
-    { encoding: "utf8", timeout: 30_000 },
+    { encoding: "utf8", timeout: 30_000, env: process.env },
   );
   expect(result.status).toBe(2);
   expect(result.stdout).toBe("");
