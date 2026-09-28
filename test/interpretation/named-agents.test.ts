@@ -25,8 +25,11 @@ import { popeyeCli } from "../../src/knowledge/popeye.js";
  * captures under .scratch/wayfinder-agent-flag/).
  */
 
-const NATIVE: readonly HarnessDescriptor[] = [claudeCode, antigravityCli, popeyeCli];
-const REFUSING: readonly HarnessDescriptor[] = [codexCli, piCli, museCode, cursorCli];
+const NATIVE: readonly HarnessDescriptor[] = [claudeCode, antigravityCli, popeyeCli, piCli];
+// pi's agent spec is extension-registered (map #300): the pure render
+// tests below treat it like any spec - the CLI's pre-spawn gate owns the
+// machine check (test/cli/extension-gate.test.ts).
+const REFUSING: readonly HarnessDescriptor[] = [codexCli, museCode, cursorCli];
 const SESSION_ID = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
 
 describe("named-agent render (claude, antigravity)", () => {
@@ -81,6 +84,7 @@ describe("named-agent refusal (no spec)", () => {
         expect(err.issue).toBe("unsupported-option");
         expect(err.supportedBy).toEqual([
           { harness: "claude", spelling: "--agent" },
+          { harness: "pi", spelling: "--agent" },
           { harness: "antigravity", spelling: "--agent" },
           { harness: "popeye", spelling: "--agent" },
         ]);
@@ -92,7 +96,8 @@ describe("named-agent refusal (no spec)", () => {
 describe("namedAgents capability fact", () => {
   test("true exactly on the harnesses with an agent spec, on every model outcome", () => {
     for (const h of [...NATIVE, ...REFUSING]) {
-      const expected = h.name === "claude" || h.name === "antigravity" || h.name === "popeye";
+      const expected =
+        h.name === "claude" || h.name === "antigravity" || h.name === "popeye" || h.name === "pi";
       expect(capabilitiesOf(h, "", "headless-turn").namedAgents).toBe(expected);
     }
     // An uncurated model degrades the model-scoped claims but not this one:

@@ -1,4 +1,5 @@
 import { lstatSync } from "node:fs";
+
 /**
  * planTurn: the one owner of the parse-refuse-resolve-build protocol
  * (RFC-02 change 10). Raw arguments and config tiers in; the argv a turn
@@ -8,10 +9,11 @@ import { lstatSync } from "node:fs";
  * preview agree by construction, skill tokens and passthrough included.
  */
 
+import { probeExtensionOption } from "../execution/extension-probe.js";
 import { nativeApprovalPreflightEvidence } from "../execution/failure.js";
 import { nativeApprovalPlan } from "../execution/native-approval-plan.js";
 import type { NativeSettingsInspector } from "../execution/native-settings.js";
-import { nodeNativeSettingsInspector } from "../execution/node-deps.js";
+import { nodeNativeSettingsInspector, nodeRunnerDeps } from "../execution/node-deps.js";
 import { redactArgv, type TurnRunOptions } from "../execution/stream-turn.js";
 import { verifyNativeSettings } from "../execution/verified-native-settings.js";
 import {
@@ -49,6 +51,11 @@ import {
   splitPassthrough,
 } from "./args.js";
 import { ConfigError, loadProjectConfig, loadUserConfig } from "./config.js";
+import {
+  type ExtensionProbeFn,
+  gateExtensionOptions,
+  writeExtensionProvenance,
+} from "./extension-gate.js";
 import { writeProvenance } from "./provenance.js";
 import { type Refusal, refusalOf } from "./refuse.js";
 import { listKnownSkills, resolveSkillNames } from "./skills-root.js";
@@ -56,6 +63,13 @@ import { listKnownSkills, resolveSkillNames } from "./skills-root.js";
 /** The impure edges a plan reads through, injectable for tests. */
 export interface PlanDeps {
   readonly inspectNativeSettings?: NativeSettingsInspector;
+  /** Map #300: the extension-registered option probe. Optional only so
+   * legacy test fixtures can omit it - the default always provides the
+   * real spawn, and production paths never construct PlanDeps without
+   * it; when absent the gate skips (nothing probes, nothing renders
+   * differently - the spec itself still refuses on absent extensions
+   * at spawn time through the harness's own error). */
+  readonly probeExtensionOption?: ExtensionProbeFn;
   readonly loadUserConfig: () => { readonly config: ConfigTier } | null;
   readonly loadProjectConfig: () => { readonly config: ConfigTier } | null;
   readonly listKnownSkills: () => readonly string[];
@@ -69,6 +83,7 @@ export interface PlanDeps {
 
 export const defaultPlanDeps: PlanDeps = {
   inspectNativeSettings: nodeNativeSettingsInspector,
+  probeExtensionOption: (h, probe, opts) => probeExtensionOption(h, probe, opts, nodeRunnerDeps()),
   loadUserConfig,
   loadProjectConfig,
   listKnownSkills,
@@ -262,6 +277,27 @@ export const planTurn = async (
   } catch (err) {
     if (err instanceof ArgvRefusalError) return refused(err);
     throw err;
+  }
+
+  // Map #300 (#302 decision 2): extension-registered options verify
+  // against the installed harness here - before skill resolution, config
+  // load, argv build, and any spawn - so a missing extension refuses with
+  // exit 2 and nothing starts. The gate is lazy: it spawns a probe only
+  // for options that are SET and whose spec declares one; bare runs and
+  // option-free runs never probe.
+  if (deps.probeExtensionOption !== undefined) {
+    try {
+      const verified = await gateExtensionOptions(
+        h,
+        turnOpts as unknown as Record<string, unknown>,
+        { cwd: extra.cwd, env: extra.env },
+        deps.probeExtensionOption,
+      );
+      writeExtensionProvenance(verified);
+    } catch (err) {
+      if (err instanceof ArgvRefusalError) return refused(err);
+      throw err;
+    }
   }
 
   // RFC-06: the native approval plan and the verified-settings render

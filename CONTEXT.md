@@ -58,6 +58,16 @@ hcn never defines named agents, and an unknown name is the harness's own
 native error: no harness exposes a stable machine roster. Ratified by map
 #288, 2026-09-27.
 
+**Extension-registered option**: an option whose expressibility depends on a
+harness extension installed on the machine (pi's `--agent`, registered by the
+subagent extension). The descriptor declares a runtime probe (`argv`, match
+token, providing extension); the CLI verifies it against the installed
+harness before spawning - lazily, only when such an option is passed - and
+refuses naming the missing extension otherwise (`extension-option-unavailable`,
+exit 2). Classified normalizing: it translates the installed harness's
+interface, with machine state beside the published version as its information
+basis (map #300, 2026-09-28).
+
 **Failure class**: the named reason a turn failed, from a closed set. Naming it
 is normalization; deciding whether to retry it is not - see `retryable` below.
 
