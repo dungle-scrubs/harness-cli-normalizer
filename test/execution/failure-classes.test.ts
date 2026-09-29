@@ -13,6 +13,7 @@ import { streamTurn } from "../../src/execution/stream-turn.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
 import { museCode } from "../../src/knowledge/muse.js";
+import { piCli } from "../../src/knowledge/pi.js";
 import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
 
 const collect = async (events: AsyncIterable<HarnessEvent>): Promise<HarnessEvent[]> => {
@@ -220,6 +221,46 @@ describe("failureFromTerminalError limit walls (issue #198)", () => {
 
   test("an ordinary error still returns task", () => {
     const failure = failureFromTerminalError(codexCli, "codex failed");
+    expect(failure.class).toBe("task");
+    expect(failure.retryable).toBe(false);
+  });
+});
+
+describe("failureFromTerminalError limit walls (issue #322: pi provider 429 bodies)", () => {
+  // The failure recorded in the issue: pi on minimax/MiniMax-M3 ended the
+  // turn with stopReason error and the provider's 429 body embedded in
+  // errorMessage; hcn 0.9.0 classified it task, so the delegate fallback
+  // walk stopped instead of advancing. Provider request id preserved from
+  // the issue. Neither phrasing matched before the fix: "has been" sat
+  // between the noun and the verb, and rate_limit_error is underscored.
+  const errorMessage =
+    '429 {"type":"error","error":{"type":"rate_limit_error","message":"The Token Plan usage limit has been reached. ... (2067)"},"request_id":"070a71d3f21c250183375fccf3a9f01c"}';
+
+  test("a provider usage-limit body classifies usage-limit, retryable", () => {
+    const failure = failureFromTerminalError(
+      piCli,
+      `pi turn ended with stopReason error: ${errorMessage}`,
+    );
+    expect(failure.class).toBe("usage-limit");
+    expect(failure.retryable).toBe(true);
+    // Usage matchers precede rate-limit ones (first-match-wins): the body
+    // carries both the usage wall and the 429, and the wall it names wins.
+  });
+
+  test("a 429 body without usage phrasing still classifies rate-limit", () => {
+    const failure = failureFromTerminalError(
+      piCli,
+      'pi turn ended with stopReason error: 429 {"type":"error","error":{"type":"rate_limit_error","message":"Too many requests, slow down"}}',
+    );
+    expect(failure.class).toBe("rate-limit");
+    expect(failure.retryable).toBe(true);
+  });
+
+  test("a bare 429 inside an identifier is still not a wall", () => {
+    const failure = failureFromTerminalError(
+      piCli,
+      'pi turn ended with stopReason error: bad request for request_id "req_0429f00d-429a"',
+    );
     expect(failure.class).toBe("task");
     expect(failure.retryable).toBe(false);
   });

@@ -446,6 +446,15 @@ describe("harness fixture replay (F-20)", () => {
       nonError: false,
       identities: 2,
     },
+    // Issue #322: provider 429 usage wall riding in stopReason error; the
+    // dedicated terminal-error test asserts the usage-limit classification.
+    {
+      file: "pi-usage-limit.ndjson",
+      harness: "pi",
+      exitCode: 0,
+      nonError: false,
+      identities: 2,
+    },
     {
       file: "pi-model-observed.ndjson",
       harness: "pi",

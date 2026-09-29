@@ -60,6 +60,38 @@ describe("F-07 terminal error record ends clean", () => {
     expect(done?.failure?.class).toBe("task");
   });
 
+  test("replay pi-usage-limit.ndjson: a provider 429 usage wall classifies usage-limit so fallback walks advance (issue #322)", async () => {
+    // Reconstructed from the failure recorded in issue #322 (hcn 0.9.0,
+    // pi on minimax/MiniMax-M3, provider request id preserved): the turn
+    // ended with stopReason error and the provider's 429 body riding in
+    // errorMessage; the stream skeleton mirrors the real pi captures in
+    // fixtures/harnesses (pi-model-unavailable.ndjson), the middle of the
+    // provider message stayed as the issue elided it. Before the fix this
+    // classified task (retryable false) and the delegate fallback walk
+    // stopped; usage-limit is provider-unavailable, so routing the same
+    // work elsewhere is safe.
+    const raw = readFileSync(
+      join(import.meta.dirname, "../fixtures/harnesses/pi-usage-limit.ndjson"),
+      "utf8",
+    );
+    const proc = new FakeProcess();
+    const d = depsFor(proc);
+    const turn = streamTurn(piCli, { prompt: "Reply with only: alpha" }, d);
+    for (const line of raw.split("\n")) {
+      if (line.trim() !== "") proc.emitLine(line);
+    }
+    proc.exit(0);
+    const events = await collect(turn);
+    const done = events.find((e) => e.kind === "done") as unknown as
+      | { cause: string; failure?: { class: string; retryable: boolean } }
+      | undefined;
+    expect(events.some((e) => e.kind === "error")).toBe(true);
+    // limitSeen promotes the turn's cause: a wall ended it, not the work.
+    expect(done?.cause).toBe("limit");
+    expect(done?.failure?.class).toBe("usage-limit");
+    expect(done?.failure?.retryable).toBe(true);
+  });
+
   test("replay pi-terminated-recovered.ndjson: a superseded stopReason error does not poison the verdict", async () => {
     // Live capture (pi 0.85.1, lmstudio qwen3.6-35b-a3b-ud-mlx, session
     // first created under zai/glm-5.3): resuming aborted the first

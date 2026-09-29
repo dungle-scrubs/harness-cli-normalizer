@@ -48,7 +48,10 @@ export const compileMatcher = (pattern: string, flags: string | undefined): RegE
 
 export const SHARED_LIMIT_MATCHERS: ReadonlyArray<LimitMatcher> = [
   { pattern: "you['’]?ve hit your usage limit", flags: "i", code: "usage-limit" },
-  { pattern: "usage limit (?:reached|exceeded)", flags: "i", code: "usage-limit" },
+  // "The Token Plan usage limit has been reached." - MiniMax plan wall riding
+  // in a provider 429 body (issue #322): the auxiliary verbs sit between the
+  // noun phrase and the verdict verb.
+  { pattern: "usage limit (?:has been )?(?:reached|exceeded)", flags: "i", code: "usage-limit" },
   {
     pattern: "purchase more credits|insufficient credits|out of credits",
     flags: "i",
@@ -69,7 +72,11 @@ export const SHARED_LIMIT_MATCHERS: ReadonlyArray<LimitMatcher> = [
     code: "rate-limit",
   },
   { pattern: "Too Many Requests", flags: "i", code: "rate-limit" },
-  { pattern: "rate limit(?:ed|ing)?", flags: "i", code: "rate-limit" },
+  // Underscore and hyphen forms ride inside provider error payloads, not
+  // prose: "error":{"type":"rate_limit_error"} (issue #322). Wall-eligible
+  // input only (stderr, non-JSON tails, terminal error messages), so a
+  // payload type name is a wall claim, not chatter.
+  { pattern: "rate[_ -]?limit(?:ed|ing)?", flags: "i", code: "rate-limit" },
   { pattern: "Retry-After", flags: "i", code: "rate-limit" },
 ];
 
