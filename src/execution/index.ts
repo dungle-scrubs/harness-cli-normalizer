@@ -12,7 +12,7 @@ export { AsyncChannel } from "./channel.js";
 export * from "./decode.js";
 export * from "./deps.js";
 export * from "./events.js";
-export { LINE_MAX, LineBuffer } from "./lines.js";
+export { LINE_MAX, LineBuffer, type LineOverflow, RUN_LINE_MAX } from "./lines.js";
 export { nodeRunnerDeps } from "./node-deps.js";
 export * from "./open-session.js";
 export * from "./stream-turn.js";

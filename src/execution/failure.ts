@@ -28,6 +28,7 @@ import type {
   LimitCode,
 } from "../knowledge/descriptor.js";
 import type { NativeApprovalFailure } from "../knowledge/native-approvals.js";
+import type { LineOverflow } from "./lines.js";
 
 export const FAILURE_CLASSES = Object.freeze([
   "rate-limit",
@@ -218,6 +219,20 @@ export const failureFromTransport = (detail?: string): FailureSummary => ({
   retryable: retryableOf("transport"),
   message: messageFor("transport", detail),
 });
+
+const grouped = (n: number): string => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+/** A harness output line longer than hcn's line bound. hcn discarded it, so
+ * whatever it carried - often the whole reply - never reached the caller.
+ * Transport family: hcn could not carry the harness's output, which is no
+ * verdict on the work, so a retry or another route is safe. */
+export const failureFromLineOverflow = (
+  stream: "stdout" | "stderr",
+  overflow: LineOverflow,
+): FailureSummary =>
+  failureFromTransport(
+    `output line overflow: ${stream} line of ${grouped(overflow.bytes)} bytes exceeds the ${grouped(overflow.limit)}-character line limit and was discarded`,
+  );
 
 /** Short detail shared by the blocked-approval error event and failure.
  * Issue #189: a sandbox escalation (the command asked to run outside the

@@ -141,11 +141,14 @@ describe("teardown signal handlers", () => {
       const sandboxReport = join(workDir, "sandbox.path");
       writeFileSync(
         driver,
-        `import { writeFileSync } from "node:fs";
+        // Write then rename: the parent polls for the report's existence, and
+        // a plain write can be seen created but still empty.
+        `import { renameSync, writeFileSync } from "node:fs";
 import { ensureTestStateSandbox } from ${JSON.stringify(setupModule)};
 
 const sandbox = ensureTestStateSandbox();
-writeFileSync(${JSON.stringify(sandboxReport)}, sandbox);
+writeFileSync(${JSON.stringify(`${sandboxReport}.tmp`)}, sandbox);
+renameSync(${JSON.stringify(`${sandboxReport}.tmp`)}, ${JSON.stringify(sandboxReport)});
 setInterval(() => {}, 1000000);
 `,
       );

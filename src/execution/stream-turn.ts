@@ -44,6 +44,7 @@ import {
   failureFromApprovalUnobserved,
   failureFromBlockedApproval,
   failureFromLimit,
+  failureFromLineOverflow,
   failureFromMuseIncompatibleSurface,
   failureFromRejected,
   failureFromStderrTail,
@@ -53,7 +54,7 @@ import {
   isLimitFailure,
   reduceFailures,
 } from "./failure.js";
-import { LineBuffer } from "./lines.js";
+import { LineBuffer, RUN_LINE_MAX } from "./lines.js";
 import { type MuseApprovalObserver, watchMuseApprovals } from "./muse-approvals.js";
 import { streamNativeApprovalTurn } from "./native-approval-turn.js";
 import { StderrTail, superviseTurn } from "./supervisor.js";
@@ -517,7 +518,15 @@ export async function* streamTurn(
   }
 
   const pumpStdout = async (): Promise<void> => {
-    const lines = new LineBuffer();
+    // An over-long line is reported when it ends; the pump turns each report
+    // into a failure after the lines of the same chunk.
+    const overflows: FailureSummary[] = [];
+    const lines = new LineBuffer(RUN_LINE_MAX, (overflow) =>
+      overflows.push(failureFromLineOverflow("stdout", overflow)),
+    );
+    const reportOverflows = async (): Promise<void> => {
+      for (const failure of overflows.splice(0)) await handleEvent({ kind: "failure", ...failure });
+    };
     let identitySeen = false;
     const droppableBuffer: HarnessEvent[] = [];
     const BUFFER_CAP = 256;
@@ -587,6 +596,7 @@ export async function* streamTurn(
           await handleEvent(event);
         }
       }
+      await reportOverflows();
     }
     const rest = lines.flush();
     if (rest !== null && !cancelled) {
@@ -594,6 +604,7 @@ export async function* streamTurn(
         await handleEvent(event);
       }
     }
+    if (!cancelled) await reportOverflows();
     // Flush at exit if no identity ever arrived
     if (!identitySeen && droppableBuffer.length > 0) {
       await flushDroppable();
@@ -609,12 +620,20 @@ export async function* streamTurn(
   };
 
   const pumpStderr = async (): Promise<void> => {
-    const lines = new LineBuffer();
+    const overflows: FailureSummary[] = [];
+    const lines = new LineBuffer(RUN_LINE_MAX, (overflow) =>
+      overflows.push(failureFromLineOverflow("stderr", overflow)),
+    );
     for await (const chunk of proc.stderr) {
       if (cancelled) break;
       sup.rearm();
       for (const line of lines.push(chunk)) await sup.stderrLine(line);
     }
+    // Overflow reports wait for the stream to end: the turn's done follows
+    // it. Flushed only for an over-long final line's report: an unterminated
+    // final stderr line never reached the tail scan, and still does not.
+    lines.flush();
+    if (!cancelled) for (const failure of overflows.splice(0)) await pushFailure(failure);
   };
 
   const observePump = async (
