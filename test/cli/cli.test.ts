@@ -108,7 +108,7 @@ describe("hcn version and help", () => {
 describe("hcn ls", () => {
   test("lists every registered harness with versionSource", async () => {
     const out = await captureDispatch(["ls"]);
-    expect(out.stdout).toContain("claude@2.1.281");
+    expect(out.stdout).toContain("claude@2.1.284");
     expect(out.stdout).toContain("codex@0.156.1");
     expect(out.stdout).toContain("pi@0.87.1");
     expect(out.stdout).toContain("muse@1.3.0");
@@ -237,7 +237,7 @@ describe("hcn inspect (pure)", () => {
     const out = await captureDispatch(["inspect", "claude"]);
     const parsed = JSON.parse(out.stdout);
     expect(parsed.bin).toBe("claude");
-    expect(parsed.verifiedAgainst).toBe("2.1.281");
+    expect(parsed.verifiedAgainst).toBe("2.1.284");
     expect(parsed.launch.streamFlags).toContain("--output-format");
     expect(parsed.launch.stdinPrompt).toEqual({ argument: "", aboveBytes: 65_536 });
     expect(parsed.resume.flag).toBe("--resume");

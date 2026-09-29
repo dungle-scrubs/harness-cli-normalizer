@@ -4,7 +4,7 @@ import { contextInspectionOf } from "../../src/interpretation/context-inspection
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 
 const read = (file: string): string =>
-  readFileSync(new URL(`../fixtures/claude-2.1.281/${file}`, import.meta.url), "utf8");
+  readFileSync(new URL(`../fixtures/claude-2.1.284/${file}`, import.meta.url), "utf8");
 
 const events = (file: string): Record<string, unknown>[] =>
   read(file)
@@ -65,9 +65,9 @@ test("native compaction surfaces its boundary and a later process recalls the ma
     kind: "compaction",
     state: "compacted",
     trigger: "auto",
-    tokensBefore: 41893,
-    tokensAfter: 4643,
-    durationMs: 66545,
+    tokensBefore: 33316,
+    tokensAfter: 6521,
+    durationMs: 76391,
   });
   expect(compaction).toContainEqual({ kind: "compaction", state: "started" });
   expect(compaction).not.toContainEqual({ kind: "progress", label: "compact_boundary" });
@@ -79,9 +79,9 @@ test("native compaction surfaces its boundary and a later process recalls the ma
     .filter((e) => e.kind === "compaction")
     .map((e) => e.state as string);
   expect(compactionStates.filter((state) => state === "compacted")).toHaveLength(1);
-  expect(compaction).toContainEqual({ kind: "message", role: "assistant", text: "HERON-518" });
+  expect(compaction).toContainEqual({ kind: "message", role: "assistant", text: "HERON-1029" });
   expect(compaction.at(-1)).toMatchObject({ kind: "done", cause: "clean", exitCode: 0 });
   const later = events("post-compaction.ndjson");
-  expect(later).toContainEqual({ kind: "message", role: "assistant", text: "HERON-518" });
+  expect(later).toContainEqual({ kind: "message", role: "assistant", text: "HERON-1029" });
   expect(later.at(-1)).toMatchObject({ kind: "done", cause: "clean", exitCode: 0 });
 });
