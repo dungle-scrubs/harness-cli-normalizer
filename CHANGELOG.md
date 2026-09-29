@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.0...v0.9.1) (2026-09-29)
+
+
+### Fixed
+
+* classify provider 429 bodies in pi terminal errors as limit walls ([f6a8a9a](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/f6a8a9a51d8de250f2f39f345cae7e109302392a)), closes [#322](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/322)
+* re-verify the claude descriptor against 2.1.284 ([edcf1da](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/edcf1daefd113c326f208cff4ca107ffae845494))
+* stop silently dropping harness output lines over 64 KiB ([#324](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/324)) ([3786822](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/37868223c9ba2535ffef794ed6d1db4a001c3202))
+
 ## [0.9.0](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.8.0...v0.9.0) (2026-09-28)
 
 
