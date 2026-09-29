@@ -726,6 +726,10 @@ if (done.failure) {
 
 `nativeExitCode` is the harness process's own exit code. It is set on a `native` failure and on the `transport` failure hcn reports for a nonzero exit with empty stderr.
 
+A harness writes each record on one output line, and a whole reply (reasoning included) can ride on one line. hcn reads lines up to 16,777,216 characters on every stdout and stderr stream of a run or a session. A longer line is discarded and is never silent: it fails the run (or the session turn it lands in) with a `transport` failure whose message starts `output line overflow:` and names the stream and the line's size in UTF-8 bytes.
+
+A pi reply that ends with `stopReason` `stop` or `length` and no answer text (for example, reasoning only) fails the run with a `task` failure. Its message names the stop reason and pi's token counts, for example `pi turn ended with stopReason length and no text (usage: input 1234, output 5678, reasoning 910)`. A later reply with text in the same run supersedes it, as for `stopReason` `error`.
+
 `retryable` is `false` for `task`, `budget`, `rejected`, `native`, `timeout`, `internal` and `true` for the rest. `unavailable` is a provider that cannot serve the requested model or route (model not found, not loaded); retryable, route elsewhere. `rejected` is non-retryable across the whole model chain because the remedy is different options or a different harness.
 
 ### Crash tier and the command ledger

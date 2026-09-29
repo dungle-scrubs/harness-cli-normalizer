@@ -142,6 +142,76 @@ describe("terminal-error detection (silent provider/auth failures)", () => {
   });
 });
 
+describe("pi message_end with no text (invented records)", () => {
+  const messageEnd = (message: Record<string, unknown>) => ({
+    type: "message_end",
+    message: { role: "assistant", api: "invented-api", provider: "invented", ...message },
+  });
+  const reasoningOnly = [{ type: "thinking", thinking: "invented reasoning" }];
+
+  test.each(["stop", "length"])(
+    "stopReason %s with empty text is a provisional terminal error naming the reason and usage",
+    (stopReason) => {
+      const events = contentEventsOf(
+        "pi",
+        messageEnd({
+          content: reasoningOnly,
+          stopReason,
+          usage: { input: 1234, output: 5678, reasoning: 910, totalTokens: 6912 },
+        }),
+      );
+      expect(events).toEqual([
+        {
+          kind: "error",
+          message: `pi turn ended with stopReason ${stopReason} and no text (usage: input 1234, output 5678, reasoning 910)`,
+          terminal: true,
+          provisional: true,
+        },
+      ]);
+    },
+  );
+
+  test("usage fields that are absent are left out, and absent usage says so", () => {
+    expect(
+      contentEventsOf(
+        "pi",
+        messageEnd({ content: [], stopReason: "stop", usage: { input: 7, output: 0 } }),
+      ),
+    ).toEqual([
+      {
+        kind: "error",
+        message: "pi turn ended with stopReason stop and no text (usage: input 7, output 0)",
+        terminal: true,
+        provisional: true,
+      },
+    ]);
+    expect(contentEventsOf("pi", messageEnd({ content: [], stopReason: "length" }))).toEqual([
+      {
+        kind: "error",
+        message: "pi turn ended with stopReason length and no text (usage not reported)",
+        terminal: true,
+        provisional: true,
+      },
+    ]);
+  });
+
+  test("a reply with text is unchanged, and an empty tool-use step is not a failure", () => {
+    expect(
+      contentEventsOf(
+        "pi",
+        messageEnd({
+          content: [...reasoningOnly, { type: "text", text: "invented answer" }],
+          stopReason: "length",
+          usage: { input: 1, output: 2 },
+        }),
+      ),
+    ).toEqual([{ kind: "message", role: "assistant", text: "invented answer" }]);
+    expect(
+      contentEventsOf("pi", messageEnd({ content: reasoningOnly, stopReason: "toolUse" })),
+    ).toEqual([]);
+  });
+});
+
 describe("non-shell tool decoding (real fixtures)", () => {
   test("codex file_change surfaces as a file_change tool with the changed paths", () => {
     const tools = allContent("codex", fixture("codex-filetool")).filter((e) => e.kind === "tool");

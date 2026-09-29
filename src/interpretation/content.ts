@@ -341,9 +341,35 @@ const pi = (r: Record<string, unknown>): ContentEvent[] => {
       }
       const text = textOfBlocks(message.content);
       if (text !== "") return [{ kind: "message", role: "assistant", text }];
+      // A reply that ended normally (stop) or on the output cap (length)
+      // with no answer text - typically reasoning only - is otherwise a
+      // clean run with no message. Report the stop reason and the token
+      // counts so the caller can tell a reasoning-exhausted reply from an
+      // empty one. Provisional like stopReason error: a later assistant
+      // message with text in the same run supersedes it.
+      if (message.stopReason === "stop" || message.stopReason === "length") {
+        return [
+          {
+            kind: "error",
+            message: `pi turn ended with stopReason ${message.stopReason} and no text (${piUsage(message.usage)})`,
+            terminal: true,
+            provisional: true,
+          },
+        ];
+      }
     }
   }
   return [];
+};
+
+/** pi's token counts for a report: the fields present, in a fixed order. */
+const piUsage = (value: unknown): string => {
+  const usage = asRecord(value);
+  const parts = (["input", "output", "reasoning"] as const).flatMap((field) => {
+    const count = numberOr(usage?.[field]);
+    return count === undefined ? [] : [`${field} ${count}`];
+  });
+  return parts.length === 0 ? "usage not reported" : `usage: ${parts.join(", ")}`;
 };
 
 const muse = (r: Record<string, unknown>): ContentEvent[] => {

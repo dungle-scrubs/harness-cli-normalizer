@@ -40,12 +40,13 @@ import {
 import type { FailureSummary } from "./failure.js";
 import {
   failureFromLimit,
+  failureFromLineOverflow,
   failureFromTerminalError,
   failureFromTransport,
   isLimitFailure,
   reduceFailures,
 } from "./failure.js";
-import { LineBuffer } from "./lines.js";
+import { LineBuffer, RUN_LINE_MAX } from "./lines.js";
 import { PIPE_GRACE_MS, redactArgv } from "./stream-turn.js";
 import { StderrTail, superviseTurn } from "./supervisor.js";
 
@@ -526,7 +527,12 @@ export const openSession = (
   };
 
   const pumpStdout = async (): Promise<void> => {
-    const lines = new LineBuffer();
+    // An over-long line is reported when it ends; the pump turns each report
+    // into a failure after the lines of the same chunk.
+    const overflows: FailureSummary[] = [];
+    const lines = new LineBuffer(RUN_LINE_MAX, (overflow) =>
+      overflows.push(failureFromLineOverflow("stdout", overflow)),
+    );
     // issue #44: a harness that is identity-silent at startup gets the
     // probe its descriptor declares; interpretation encodes it (ADR 0005).
     const probe = encodeIdentityProbe(h);
@@ -624,17 +630,27 @@ export const openSession = (
     for await (const chunk of proc.stdout) {
       sup.rearm();
       for (const line of lines.push(chunk)) await handleLine(line);
+      for (const failure of overflows.splice(0)) await pushFailure(failure);
     }
     const rest = lines.flush();
     if (rest !== null) await handleLine(rest);
+    for (const failure of overflows.splice(0)) await pushFailure(failure);
   };
 
   const pumpStderr = async (): Promise<void> => {
-    const lines = new LineBuffer();
+    const overflows: FailureSummary[] = [];
+    const lines = new LineBuffer(RUN_LINE_MAX, (overflow) =>
+      overflows.push(failureFromLineOverflow("stderr", overflow)),
+    );
     for await (const chunk of proc.stderr) {
       sup.rearm();
       for (const line of lines.push(chunk)) await sup.stderrLine(line);
+      for (const failure of overflows.splice(0)) await pushFailure(failure);
     }
+    // Flushed only for an over-long final line's report: an unterminated
+    // final stderr line never reached the tail scan, and still does not.
+    lines.flush();
+    for (const failure of overflows.splice(0)) await pushFailure(failure);
   };
 
   const pumping = Promise.allSettled([pumpStdout(), pumpStderr()]).then((settlements) => {
