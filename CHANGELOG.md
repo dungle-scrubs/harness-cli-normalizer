@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.2](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.1...v0.9.2) (2026-09-30)
+
+
+### Fixed
+
+* carry resetsAt on limit walls whose text states the reset time ([#326](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/326)) ([ca5c7c8](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/ca5c7c888720cb4b1f967109172293d2845cad46))
+
 ## [0.9.1](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.0...v0.9.1) (2026-09-29)
 
 
