@@ -356,6 +356,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
     }
   }
   try {
+    const { getVersion } = await import("./version.js");
     handle = openSession(
       h,
       {
@@ -367,6 +368,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
         agent,
         effort,
         isResume,
+        clientVersion: getVersion(),
         ...(memoryExpressible ? { memory } : {}),
       },
       deps,
@@ -397,11 +399,12 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   if (wantJson) {
     const { runJsonSession } = await import("./session-json.js");
     const { getVersion } = await import("./version.js");
+    const version = getVersion();
     process.exitCode = await runJsonSession({
       handle,
       sessionId,
       harness: h.name,
-      hcnVersion: getVersion(),
+      hcnVersion: version,
       questions: questionMode,
       origin: isResume ? "resumed" : "fresh",
       getCloseInfo: () => closeInfo,

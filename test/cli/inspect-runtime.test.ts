@@ -273,7 +273,9 @@ test("persistent inspection refuses a tool grant that session startup cannot app
   expect(result.stdout).toBe("");
 });
 
-test.each(["codex", "muse"])("%s still refuses unsupported persistent mode", (harness) => {
+test.each(["muse", "cursor"])("%s still refuses unsupported persistent mode", (harness) => {
+  // Codex grew a headless-session mode (issue #330); the refusal pin is
+  // the harnesses that still declare none.
   const result = spawnSync(
     "bun",
     [

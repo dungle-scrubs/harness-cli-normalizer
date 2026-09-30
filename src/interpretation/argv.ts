@@ -9,6 +9,7 @@ import type {
   HarnessDescriptor,
   StreamingGranularity,
 } from "../knowledge/descriptor.js";
+import { tokensFor } from "../knowledge/descriptor.js";
 import type { NativeSettingsSnapshot } from "../knowledge/native-settings.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { hintFor } from "./hints.js";
@@ -445,15 +446,30 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
         detail: opts.model,
       });
     }
-    argv.push(h.vocabulary.modelFlag, validated.id);
+    // A session whose harness has no --model session flag renders the
+    // model through the descriptor's session modelRender instead (codex
+    // app-server: -c model=...). Same tokensFor rule the turn options
+    // use, so the config-kv quoting stays identical.
+    const modelRender = h.sessionMode.modelRender;
+    if (modelRender !== undefined) argv.push(...tokensFor(modelRender, validated.id));
+    else argv.push(h.vocabulary.modelFlag, validated.id);
   }
   if (opts.agent !== undefined || opts.provider !== undefined || opts.effort !== undefined) {
-    // Both dimensions render through the same code path a launch argv uses,
+    // All dimensions render through the same code path a launch argv uses,
     // so the flag spelling and the refusal (with supportedBy) stay
-    // identical. The model rides along INERT for rendering - it is not a
-    // turnOptions key - but effort validation reads it, so a per-model
-    // effort ladder (effortsByModel) constrains the session spawn exactly
-    // as it constrains a one-shot turn.
+    // identical. The phase is RESUME, not launch, for two reasons. First,
+    // a session argv must be accepted by the harness's session grammar,
+    // which is the constrained one: codex app-server rejects --sandbox
+    // outright (verified 0.159.2: "unexpected argument"). Second, the
+    // enum profile defaults (codex sandbox workspace-write) are pinned to
+    // the launch phase, and sessions pin no profile defaults - a codex
+    // session emits no sandbox flag and codex's own default applies, the
+    // same way no profile effort is pinned onto sessions. For every other
+    // session-eligible spec the resume phase resolves to the same tokens.
+    // The model rides along INERT for rendering - it is not a turnOptions
+    // key - but effort validation reads it, so a per-model effort ladder
+    // (effortsByModel) constrains the session spawn exactly as it
+    // constrains a one-shot turn.
     argv.push(
       ...renderTurnOptions(
         h,
@@ -463,7 +479,7 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
           ...(opts.agent !== undefined ? { agent: opts.agent } : {}),
           ...(opts.model !== undefined ? { model: opts.model } : {}),
         } as TurnOptions,
-        "launch",
+        "resume",
       ).tokens,
     );
   }

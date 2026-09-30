@@ -197,9 +197,19 @@ describe("harness-name validation", () => {
   });
 
   test("session on a harness without sessionMode exits 2 naming the supported set", async () => {
-    const out = await captureDispatch(["session", "codex"]);
+    // Codex carries a session mode now (issue #330); muse pins the refusal.
+    const out = await captureDispatch(["session", "muse"]);
     expect(out.exitCode).toBe(2);
-    expect(out.stderr).toMatch(/claude, pi/);
+    // The supported list is descriptor order filtered to session modes;
+    // codex is in it since issue #330.
+    expect(out.stderr).toMatch(/supported: claude, codex, pi/);
+    expect(out.stderr).toContain("codex");
+  });
+
+  test("session codex passes the descriptor gate (issue #330)", async () => {
+    const out = await captureDispatch(["session", "codex", "--help"]);
+    expect(out.exitCode).toBeUndefined();
+    expect(out.stdout).toContain("--questions");
   });
 
   test("session pi passes the descriptor gate (issue #44)", async () => {

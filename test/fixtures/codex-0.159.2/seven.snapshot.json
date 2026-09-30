@@ -15,8 +15,8 @@
         "detail": "1 tool events"
       },
       "session-cont(1proc)": {
-        "status": "skip",
-        "detail": "no session mode"
+        "status": "pass",
+        "detail": "recall=\"kestrel\""
       },
       "resume-continuity": {
         "status": "pass",

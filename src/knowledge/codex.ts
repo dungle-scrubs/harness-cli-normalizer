@@ -55,7 +55,40 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     // REJECTS --sandbox (verified 0.147.0: "unexpected argument").
     extraFlags: ["--json", "--skip-git-repo-check"],
   },
-  sessionMode: null,
+  // Persistent headless session: `codex app-server` (no subcommand) speaks
+  // newline-delimited JSON-RPC over stdio (verified live 0.159.2,
+  // test/fixtures/codex-0.159.2/session). One process serves many turns.
+  // The runner writes `initialize` then thread/start (fresh) or
+  // thread/resume (resume) at spawn; the response's result.thread.id is
+  // the harness-minted session id (equal to the rollout file's session id,
+  // so the resume guard's store check binds it). A send maps to
+  // turn/start when idle and turn/steer when a turn is running - steer
+  // carries expectedTurnId, the tracked active turn id, and fails with a
+  // JSON-RPC error when it does not match the currently active turn
+  // (verified: -32600 "expected active turn id `x` but found `y`"; idle:
+  // "no active turn to steer"). A steered send is consumed by the RUNNING
+  // turn (its text appears as a userMessage item inside it), so hcn keeps
+  // no pending-id queue for codex - there is no next turn to tag.
+  // turn/start on a busy thread folds the input into the running turn and
+  // returns the same turn, which is what makes the receipt-in-flight race
+  // honest: a send written before the open response arrives is still
+  // delivered. `codex queue --thread <id> --message <t>` parks a message
+  // for the NEXT turn out-of-band (separate CLI process, no client
+  // request in the protocol), so hcn cannot and does not reach it; the
+  // disposition vocabulary stays started | rejected.
+  // Resume is a protocol method choice, not a flag: the argv is identical
+  // for fresh and resumed sessions, hence resumeFlag null (the type's
+  // first null). The model rides argv as a config override, not --model
+  // (app-server rejects --model), hence modelRender.
+  sessionMode: {
+    flags: ["app-server"],
+    idFlag: null,
+    resumeFlag: null,
+    input: { kind: "codex-jsonrpc" },
+    turnEnd: { method: "turn/completed" },
+    identityProbe: { command: "thread/start", responseIdField: "result.thread.id" },
+    modelRender: { kind: "config-kv", flag: "-c", key: "model" },
+  },
   output: {
     // exec --json emits item-level events (message granularity); a bare
     // exec emits nothing structured at all.
@@ -137,10 +170,14 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     images: true,
     streamingByMode: {
       "headless-turn": "message",
-      "headless-session": "none",
+      // Session mode streams whole items (item/completed carries the
+      // full agentMessage text; the item/agentMessage/delta notification
+      // exists in the schema but never fired against ollama on 0.159.2,
+      // so token granularity is not claimed).
+      "headless-session": "message",
       interactive: "none",
     },
-    session: false,
+    session: true,
   },
   // Escalation provenance: the `model` below is the escalation probe's
   // own model (what asked when instructed), not the runtime model - the

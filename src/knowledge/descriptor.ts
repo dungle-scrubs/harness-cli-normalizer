@@ -118,6 +118,7 @@ export const SESSION_INPUT_KINDS = [
   "pi-rpc-prompt",
   "antigravity-stream-user",
   "popeye-rpc-prompt",
+  "codex-jsonrpc",
 ] as const;
 export type SessionInputKind = (typeof SESSION_INPUT_KINDS)[number];
 
@@ -515,10 +516,14 @@ export interface HarnessDescriptor {
      * Closed vocabulary: pi reuses `--session-id` for both (verified
      * phase10, test/fixtures/phase10-pi-rpc-resume); claude uses
      * `--resume` to restore vs `--session-id` to name (verified phase11,
-     * test/fixtures/phase11-claude-session-resume). Unknown-id behavior
-     * is not duplicated here; it reuses `resume.onMissing` as the single
-     * source. */
-    readonly resumeFlag: SessionResumeFlag;
+     * test/fixtures/phase11-claude-session-resume). Null means the
+     * harness has no resume FLAG because resume is decided inside the
+     * session protocol, not on argv: codex app-server renders the same
+     * argv either way and the open request picks thread/start vs
+     * thread/resume (verified 0.159.2, test/fixtures/codex-0.159.2/session).
+     * Unknown-id behavior is not duplicated here; it reuses
+     * `resume.onMissing` as the single source. */
+    readonly resumeFlag: SessionResumeFlag | null;
     readonly input: SessionInputContract;
     readonly turnEnd: Readonly<Record<string, string>>;
     /** The command the runner writes at spawn to learn the session id, and
@@ -526,6 +531,12 @@ export interface HarnessDescriptor {
      * `data.sessionId`). Encoded and decoded in interpretation
      * (session-input.ts); execution holds no field names (ADR 0005). */
     readonly identityProbe: { readonly command: string; readonly responseIdField: string } | null;
+    /** How `--model` renders on the session spawn argv when the harness's
+     * one-shot `modelFlag` spelling is not an accepted session flag.
+     * Absent means "vocabulary.modelFlag applies" (every harness today
+     * except codex, whose app-server takes the model as a config override
+     * instead of `--model` - verified 0.159.2). */
+    readonly modelRender?: OptionRender;
   } | null;
   /** Streaming is a property of the INVOCATION, not the harness: each pin
    * names the flag set that unlocks a granularity, checked in order, first

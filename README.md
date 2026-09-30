@@ -49,13 +49,14 @@ hcn run claude "say hi" --json | jq .
 hcn run claude "hi" --json | head -n 5  # abandonment-safe, no hanging handles
 ```
 
-Session (claude, pi, Antigravity):
+Session (claude, pi, Antigravity, popeye, codex):
 
 ```bash
 hcn session claude
 hcn session claude --model opus --session-id 550e8400-e29b-41d4-a716-446655440000
 hcn session pi --effort high
 hcn session antigravity --effort medium
+hcn session codex --json   # app-server JSON-RPC; see "Machine session" below
 ```
 
 Sessions resolve the memory dimension at spawn - default off, same as
@@ -297,17 +298,23 @@ stdin carries one command per line (blank lines are ignored):
 ```
 
 - Every well-formed `send`/`answer` gets exactly one `disposition` event,
-  in command order. `started`: the harness accepted the text. Pi waits for
-  its native command response before reporting this disposition. When no
-  turn was open, a turn opened; when one was, the harness holds the text
-  natively and the next turn consumes it (hcn keeps no queue of its own -
-  ADR 0007). `rejected`: the text was not delivered and will not be.
-  Rejected reasons: `closed` (session closing or harness dead),
-  `no-open-question` (`answer` with no `awaiting-input` turn to answer),
-  `native-rejected` (Pi refused the command), or `write-failed` (the
-  harness's stdin pipe broke; a `closed` follows).
+  in command order. `started`: the harness accepted the text. Pi and codex
+  wait for their native command response before reporting this disposition
+  (codex settles on the `turn/start` / `turn/steer` JSON-RPC response).
+  When no turn was open, a turn opened; when one was, the harness holds the
+  text natively (claude queues it for the next turn; pi and codex deliver
+  it INTO the running turn - codex under its `expectedTurnId` precondition,
+  so a send that arrives after the native turn ended reports `rejected`,
+  not silence). hcn keeps no queue of its own - ADR 0007. `rejected`: the
+  text was not delivered and will not be. Rejected reasons: `closed`
+  (session closing or harness dead), `no-open-question` (`answer` with no
+  `awaiting-input` turn to answer), `native-rejected` (Pi or codex refused
+  the command), or `write-failed` (the harness's stdin pipe broke; a
+  `closed` follows).
 - A send's id rides to the turn it opens: correlate by reading `turn.id`,
-  not by counting turns.
+  not by counting turns. On codex a mid-turn send rides the ALREADY-OPEN
+  turn (its disposition is the correlation; the steered text appears inside
+  the running turn), so `turn.id` keeps naming the send that OPENED it.
 - `answer` composes hcn's question-answer preamble
   (`The user answered the question: "<q>" with: <text>. Continue accordingly.`)
   around the text, so the consumer never re-derives it. A plain `send` after
@@ -876,8 +883,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). The short version: run `pnpm check` befo
 pi, Muse, Cursor CLI, Antigravity CLI); one-shot turns are normalized across all seven with a ratified
 defaults profile, user and project config tiers, tool selection
 (include/exclude with floors and named toolsets), passthrough with native
-error labeling, and provenance on every resolved setting. Persistent
-sessions (`hcn session`) are available for claude, pi, and Antigravity. Antigravity's
+error labeling, and provenance on every resolved setting. Persistent sessions (`hcn session`) are available for claude, pi, Antigravity,
+popeye, and codex (codex drives `codex app-server`, newline-delimited JSON-RPC
+over stdio - one process, `turn/start` / `turn/steer` per send; evidence in
+test/fixtures/codex-0.159.2/session). Antigravity's
 authenticated contract is verified against `1.2.8`; its account model list stays
 extensible because plan eligibility and configured custom models can differ. Drift detection runs weekly
 in CI for the three npm harnesses; Muse, Cursor CLI, and Antigravity CLI are `installed`

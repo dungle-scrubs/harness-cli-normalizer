@@ -47,7 +47,7 @@ native operation's result determine whether work can run.
 **Turn**: one prompt in, one result out. The unit hcn spawns and reports on.
 
 **Session**: one harness process held open across several turns. Claude, pi,
-and Antigravity have one.
+Antigravity, popeye, and codex have one.
 
 **Turn option**: a per-call dimension hcn can express, keyed by a closed
 vocabulary. A harness that cannot express one reports divergence.

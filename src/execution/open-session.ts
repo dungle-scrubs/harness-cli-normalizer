@@ -24,6 +24,7 @@ import {
   decodeSessionRecord,
   encodeIdentityProbe,
   encodeSessionInput,
+  hasNativeReceipts,
   resolveSessionInput,
   SessionInputRefusalError,
 } from "../interpretation/session-input.js";
@@ -120,6 +121,9 @@ export interface OpenSessionOptions {
    * sessions get it too - it is a spawn property, not a turn option, so
    * the launch-only rule never silently re-enables memory on a session. */
   readonly memory?: boolean;
+  /** The host's own version, reported to harnesses that ask at session
+   * open (codex app-server's initialize handshake carries clientInfo). */
+  readonly clientVersion?: string;
 }
 
 export class SessionClosedError extends Error {
@@ -210,9 +214,13 @@ export const openSession = (
   let turnCounter = 0;
   let activeTurn: AsyncChannel<HarnessEvent> | null = null;
   let activeTurnId = "";
+  let activeNativeTurnId: string | null = null;
   const pendingIds: string[] = [];
   const pendingLengths: number[] = [];
   const pendingNativeReceipts = new Map<string, (result: SessionSendResult) => void>();
+  // The id of the codex turn currently running NATIVELY (result.turn.id /
+  // turn/steer's {turnId}), the steer precondition for the next mid-turn
+  // send. Null while no native turn is open; cleared at each turn end.
   // close() waits here while a turn is open. Ending the child's stdin
   // mid-turn is fatal on pi: rpc treats EOF as "finish up and exit", so the
   // prompt it has buffered never runs and the turn ends clean with no
@@ -281,9 +289,13 @@ export const openSession = (
     input: SessionInput,
     busy: boolean,
   ): { readonly settled?: Promise<SessionSendResult>; readonly written: boolean } => {
-    let settleNative: ((result: SessionSendResult) => void) | undefined;
+    let settleNative: ((result: SessionSendResult) => void) | undefined = pendingNativeReceipts.get(
+      input.id,
+    );
+    // A send buffered before identity pre-registers its receipt; the flush
+    // then writes with the registration already in place.
     const settled =
-      sessionInput.kind === "pi-rpc-prompt"
+      settleNative === undefined && hasNativeReceipts(sessionInput.kind)
         ? new Promise<SessionSendResult>((resolve) => {
             settleNative = resolve;
             pendingNativeReceipts.set(input.id, resolve);
@@ -297,11 +309,21 @@ export const openSession = (
           {
             busy,
             id: input.id,
-            // Popeye prompt frames carry the minted session id; the
-            // create probe response binds it before any send.
-            ...(sessionInput.kind !== "popeye-rpc-prompt" || state.lastSeenId === null
-              ? {}
-              : { sessionId: state.lastSeenId }),
+            // Popeye prompt frames and codex requests carry the minted
+            // session/thread id; the create/thread-open response binds it
+            // before any send is written.
+            ...((sessionInput.kind === "popeye-rpc-prompt" ||
+              sessionInput.kind === "codex-jsonrpc") &&
+            state.lastSeenId !== null
+              ? { sessionId: state.lastSeenId }
+              : {}),
+            // Codex steer precondition: the tracked id of the running
+            // native turn. Unknown (receipt still in flight) renders as
+            // the empty string, which the harness itself rejects - the
+            // send reports rejected instead of being written blindly.
+            ...(sessionInput.kind === "codex-jsonrpc" && activeNativeTurnId !== null
+              ? { activeTurnId: activeNativeTurnId }
+              : {}),
           },
         ),
       );
@@ -381,6 +403,7 @@ export const openSession = (
       cause: fullDone.cause,
     });
     activeTurn = null;
+    activeNativeTurnId = null;
     resultError = false;
     if (turnSettled !== null) {
       const release = turnSettled;
@@ -480,28 +503,34 @@ export const openSession = (
   };
   const announceIdentity = async (announced: string): Promise<void> => {
     if (identityAnnounced) return;
-    const flushPopeye = (): void => {
+    // Kinds that mint identity via the spawn probe (popeye create, codex
+    // thread open) buffer sends that arrived before the response; the
+    // flush replays them with the minted id bound.
+    const flushPreIdentity = (): void => {
       for (const pending of popeyePending.splice(0)) {
         // Re-check busyness at flush time: every pre-identity send
         // recorded idle, but an earlier flush entry may own the turn.
         const busy = activeTurn !== null;
         const written = writeUser(pending.input, busy);
         if (!written.written) continue;
-        if (busy) {
+        if (busy && sessionInput.kind !== "codex-jsonrpc") {
           pendingIds.push(pending.input.id);
           pendingLengths.push(pending.input.text.length);
-        } else {
-          startTurn(pending.input.id);
+        } else if (!busy) {
+          // Codex defers its turn open to the native receipt; pi/popeye
+          // open at write time. Either way the id is now in flight.
+          if (sessionInput.kind !== "codex-jsonrpc") startTurn(pending.input.id);
         }
       }
     };
     if (sessionInputMode?.idFlag === null) {
       // Harness-MINTED identity (pi rpc: `--session` refuses unknown ids,
-      // so fresh sessions omit the flag). The minted id IS the identity;
+      // so fresh sessions omit the flag; popeye and codex mint through the
+      // spawn probe). The minted id IS the identity;
       // opts.sessionId stays the caller-side handle.
       identityAnnounced = true;
       state.lastSeenId = announced;
-      flushPopeye();
+      flushPreIdentity();
       await routeEvent({
         kind: "identity",
         sessionId: announced,
@@ -535,7 +564,15 @@ export const openSession = (
     );
     // issue #44: a harness that is identity-silent at startup gets the
     // probe its descriptor declares; interpretation encodes it (ADR 0005).
-    const probe = encodeIdentityProbe(h);
+    // Codex's probe is two JSON-RPC lines: initialize (required first,
+    // verified 0.159.2) then the thread open - thread/start fresh,
+    // thread/resume with the requested id when resuming.
+    const probe = encodeIdentityProbe(h, {
+      sessionId: opts.sessionId,
+      isResume: opts.isResume,
+      model: opts.model,
+      clientVersion: opts.clientVersion,
+    });
     if (probe !== null) {
       try {
         stdin.write(probe);
@@ -560,6 +597,14 @@ export const openSession = (
       const record = decodeSessionRecord(h, parsed);
       switch (record.kind) {
         case "command-accepted": {
+          if (record.nativeTurnId !== undefined) activeNativeTurnId = record.nativeTurnId;
+          // A harness whose turn open is a protocol REQUEST (codex) only
+          // starts the hcn turn once the receipt confirms it; a failed
+          // open then leaves no stuck empty turn. Prompt-wire harnesses
+          // (pi) start the turn at write time, so this is a no-op for
+          // them - the turn already exists. Starting BEFORE the receipt
+          // settles keeps the turn line ahead of the disposition line.
+          if (activeTurn === null) startTurn(record.inputId);
           const settle = pendingNativeReceipts.get(record.inputId);
           pendingNativeReceipts.delete(record.inputId);
           settle?.({ disposition: "started" });
@@ -818,10 +863,22 @@ export const openSession = (
     send(input: SessionInput): SessionSendResult {
       if (dead || closing) throw new SessionClosedError();
       const wasBusy = activeTurn !== null;
-      // Popeye sends before the create response wait for identity; the
-      // flush replays them with the minted session id bound.
-      if (sessionInput.kind === "popeye-rpc-prompt" && state.lastSeenId === null) {
+      // Popeye sends before the create response - and codex sends before
+      // the thread-open response - wait for identity; the flush replays
+      // them with the minted session/thread id bound.
+      if (
+        (sessionInput.kind === "popeye-rpc-prompt" || sessionInput.kind === "codex-jsonrpc") &&
+        state.lastSeenId === null
+      ) {
         popeyePending.push({ input });
+        if (sessionInput.kind === "codex-jsonrpc") {
+          // The receipt registration exists from now, so the flushed
+          // write settles THIS promise.
+          const settled = new Promise<SessionSendResult>((resolve) => {
+            pendingNativeReceipts.set(input.id, resolve);
+          });
+          return { disposition: "started", settled };
+        }
         return { disposition: "started" };
       }
       const written = writeUser(input, wasBusy);
@@ -837,9 +894,18 @@ export const openSession = (
         return { disposition: "rejected", reason: "write-failed" };
       }
       if (wasBusy) {
-        pendingIds.push(input.id);
-        pendingLengths.push(input.text.length);
-      } else {
+        // Codex steers into the RUNNING turn - there is no next turn to
+        // tag, so its id rides nothing; the receipt says delivered. Every
+        // other harness queues natively and the queued id opens the next
+        // turn at the boundary.
+        if (sessionInput.kind !== "codex-jsonrpc") {
+          pendingIds.push(input.id);
+          pendingLengths.push(input.text.length);
+        }
+      } else if (sessionInput.kind !== "codex-jsonrpc") {
+        // Codex opens its hcn turn when the native receipt confirms the
+        // turn/start request (command-accepted below); writing the turn
+        // open at send time would leave a stuck empty turn on a refusal.
         startTurn(input.id);
       }
       log({

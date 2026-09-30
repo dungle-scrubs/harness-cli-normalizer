@@ -9626,94 +9626,74 @@
     },
     "codex": {
       "fresh": {
-        "refusal": {
-          "issue": "no-session-mode",
-          "harness": "codex",
-          "supported": [
-            "claude",
-            "pi",
-            "antigravity",
-            "popeye"
-          ],
-          "message": "codex declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
-        }
+        "argv": [
+          "codex",
+          "app-server"
+        ]
       },
       "model": {
-        "refusal": {
-          "issue": "no-session-mode",
-          "harness": "codex",
-          "supported": [
-            "claude",
-            "pi",
-            "antigravity",
-            "popeye"
-          ],
-          "message": "codex declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
-        }
+        "argv": [
+          "codex",
+          "app-server",
+          "-c",
+          "model=\"gpt-6-astra\""
+        ]
       },
       "effort": {
-        "refusal": {
-          "issue": "no-session-mode",
-          "harness": "codex",
-          "supported": [
-            "claude",
-            "pi",
-            "antigravity",
-            "popeye"
-          ],
-          "message": "codex declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
-        }
+        "argv": [
+          "codex",
+          "app-server",
+          "-c",
+          "model_reasoning_effort=\"high\""
+        ]
       },
       "model-effort": {
-        "refusal": {
-          "issue": "no-session-mode",
-          "harness": "codex",
-          "supported": [
-            "claude",
-            "pi",
-            "antigravity",
-            "popeye"
-          ],
-          "message": "codex declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
-        }
+        "argv": [
+          "codex",
+          "app-server",
+          "-c",
+          "model=\"gpt-6-astra\"",
+          "-c",
+          "model_reasoning_effort=\"high\""
+        ]
       },
       "provider": {
         "refusal": {
-          "issue": "no-session-mode",
+          "issue": "unsupported-option",
           "harness": "codex",
+          "option": "provider",
           "supported": [
-            "claude",
-            "pi",
-            "antigravity",
-            "popeye"
+            "contextWindow",
+            "effort",
+            "systemPrompt",
+            "sandbox",
+            "access",
+            "memory"
           ],
-          "message": "codex declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
+          "supportedBy": [
+            {
+              "harness": "pi",
+              "spelling": "--provider"
+            }
+          ],
+          "hint": "codex routes models through OpenAI (or --oss for local); use --model to pick within it - there is no separate provider selector",
+          "message": "codex cannot express option \"provider\" (zai); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "resume": {
-        "refusal": {
-          "issue": "no-session-mode",
-          "harness": "codex",
-          "supported": [
-            "claude",
-            "pi",
-            "antigravity",
-            "popeye"
-          ],
-          "message": "codex declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
-        }
+        "argv": [
+          "codex",
+          "app-server"
+        ]
       },
       "bad-id": {
         "refusal": {
-          "issue": "no-session-mode",
+          "issue": "invalid-option-value",
           "harness": "codex",
           "supported": [
-            "claude",
-            "pi",
-            "antigravity",
-            "popeye"
+            "a session id of letters, digits, '.', '_', ':', '@', '-' only, starting with a letter or digit, at most 128 chars"
           ],
-          "message": "codex declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "codex cannot resume session id \"../etc\" is not a usable id: must match /^[A-Za-z0-9][A-Za-z0-9._:@-]*$/ and be at most 128 chars"
         }
       }
     },
@@ -9800,11 +9780,12 @@
           "harness": "muse",
           "supported": [
             "claude",
+            "codex",
             "pi",
             "antigravity",
             "popeye"
           ],
-          "message": "muse declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "muse declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "model": {
@@ -9813,11 +9794,12 @@
           "harness": "muse",
           "supported": [
             "claude",
+            "codex",
             "pi",
             "antigravity",
             "popeye"
           ],
-          "message": "muse declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "muse declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "effort": {
@@ -9826,11 +9808,12 @@
           "harness": "muse",
           "supported": [
             "claude",
+            "codex",
             "pi",
             "antigravity",
             "popeye"
           ],
-          "message": "muse declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "muse declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "model-effort": {
@@ -9839,11 +9822,12 @@
           "harness": "muse",
           "supported": [
             "claude",
+            "codex",
             "pi",
             "antigravity",
             "popeye"
           ],
-          "message": "muse declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "muse declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "provider": {
@@ -9852,11 +9836,12 @@
           "harness": "muse",
           "supported": [
             "claude",
+            "codex",
             "pi",
             "antigravity",
             "popeye"
           ],
-          "message": "muse declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "muse declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "resume": {
@@ -9865,11 +9850,12 @@
           "harness": "muse",
           "supported": [
             "claude",
+            "codex",
             "pi",
             "antigravity",
             "popeye"
           ],
-          "message": "muse declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "muse declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "bad-id": {
@@ -9878,11 +9864,12 @@
           "harness": "muse",
           "supported": [
             "claude",
+            "codex",
             "pi",
             "antigravity",
             "popeye"
           ],
-          "message": "muse declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "muse declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       }
     },
@@ -9893,11 +9880,12 @@
           "harness": "cursor",
           "supported": [
             "claude",
+            "codex",
             "pi",
             "antigravity",
             "popeye"
           ],
-          "message": "cursor declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "cursor declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "model": {
@@ -9906,11 +9894,12 @@
           "harness": "cursor",
           "supported": [
             "claude",
+            "codex",
             "pi",
             "antigravity",
             "popeye"
           ],
-          "message": "cursor declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "cursor declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "effort": {
@@ -9919,11 +9908,12 @@
           "harness": "cursor",
           "supported": [
             "claude",
+            "codex",
             "pi",
             "antigravity",
             "popeye"
           ],
-          "message": "cursor declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "cursor declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "model-effort": {
@@ -9932,11 +9922,12 @@
           "harness": "cursor",
           "supported": [
             "claude",
+            "codex",
             "pi",
             "antigravity",
             "popeye"
           ],
-          "message": "cursor declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "cursor declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "provider": {
@@ -9945,11 +9936,12 @@
           "harness": "cursor",
           "supported": [
             "claude",
+            "codex",
             "pi",
             "antigravity",
             "popeye"
           ],
-          "message": "cursor declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "cursor declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "resume": {
@@ -9958,11 +9950,12 @@
           "harness": "cursor",
           "supported": [
             "claude",
+            "codex",
             "pi",
             "antigravity",
             "popeye"
           ],
-          "message": "cursor declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "cursor declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "bad-id": {
@@ -9971,11 +9964,12 @@
           "harness": "cursor",
           "supported": [
             "claude",
+            "codex",
             "pi",
             "antigravity",
             "popeye"
           ],
-          "message": "cursor declares no persistent headless session mode; supported: claude, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "cursor declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       }
     },

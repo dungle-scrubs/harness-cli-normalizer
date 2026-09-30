@@ -190,14 +190,87 @@ const claude = (r: Record<string, unknown>): ContentEvent[] => {
 // mcp_tool_call, web_search, ...), surfaced generically by item.type.
 const CODEX_NON_TOOL = new Set(["agent_message", "error", "reasoning", "todo_list"]);
 
-const codex = (r: Record<string, unknown>): ContentEvent[] => {
+// codex app-server session notifications carry ThreadItem types in
+// camelCase (verified 0.159.2); the exec --json surface spells them in
+// snake_case and the reader below is written against those names. The
+// map is closed: a type absent here passes through unchanged.
+const CODEX_APPSERVER_ITEM_TYPES: Readonly<Record<string, string>> = {
+  agentMessage: "agent_message",
+  commandExecution: "command_execution",
+  fileChange: "file_change",
+  mcpToolCall: "mcp_tool_call",
+  todoList: "todo_list",
+  webSearch: "web_search",
+};
+
+// Session-only item echoes that must not surface: the user's own input
+// (userMessage), harness-internal hook prompt frames, and the compaction
+// item (compaction stays unreported on codex - compactionReporting is
+// null because the exec surface marks nothing; a session-only mapping
+// would claim reporting the one-shot surface does not have).
+const CODEX_APPSERVER_DROP_ITEMS = new Set(["userMessage", "hookPrompt", "contextCompaction"]);
+
+/** One codex app-server JSON-RPC notification, restated as the exec-style
+ * record the reader below already understands; null drops it. Field names
+ * live here (ADR 0005) - the runner only ever sees decoded kinds. */
+const codexNotificationRecord = (r: Record<string, unknown>): Record<string, unknown> | null => {
+  const params = asRecord(r.params);
+  if (params === null) return null;
+  switch (r.method) {
+    case "item/started":
+    case "item/completed": {
+      const rawItem = asRecord(params.item);
+      if (rawItem === null) return null;
+      const itemType = typeof rawItem.type === "string" ? rawItem.type : "";
+      if (CODEX_APPSERVER_DROP_ITEMS.has(itemType)) return null;
+      return {
+        item: {
+          ...rawItem,
+          type: CODEX_APPSERVER_ITEM_TYPES[itemType] ?? itemType,
+        },
+        type: r.method === "item/started" ? "item.started" : "item.completed",
+      };
+    }
+    case "error": {
+      const error = asRecord(params.error);
+      return {
+        type: "error",
+        ...(typeof error?.message === "string" ? { message: error.message } : {}),
+        // A retriable error does not end the turn; only its final form does.
+        willRetry: params.willRetry,
+      };
+    }
+    case "turn/completed": {
+      // The delimiter itself is classified by the session record reader;
+      // content-wise only the FAILED verdict carries news (the terminal
+      // error message), mirroring exec --json's turn.failed record.
+      const turn = asRecord(params.turn);
+      if (turn === null || turn.status !== "failed") return null;
+      return { error: turn.error, type: "turn.failed" };
+    }
+    default:
+      // turn/started, thread/started (identity rides the open response in
+      // session mode), token usage, status changes, MCP/hook noise: all
+      // bookkeeping with nothing to surface.
+      return null;
+  }
+};
+
+const codex = (raw: Record<string, unknown>): ContentEvent[] => {
+  // Session mode feeds the same reader JSON-RPC notifications; restate
+  // them first so both surfaces share one item vocabulary.
+  const r =
+    typeof raw.method === "string"
+      ? (codexNotificationRecord(raw) ?? { type: "__dropped__" })
+      : raw;
   if (r.type === "turn.failed" || r.type === "error") {
     const error = r.type === "error" ? r : asRecord(r.error);
     return [
       {
         kind: "error",
         message: typeof error?.message === "string" ? error.message : "Codex turn failed",
-        terminal: true,
+        // A retriable app-server error notification does not end the turn.
+        terminal: r.willRetry !== true,
       },
     ];
   }

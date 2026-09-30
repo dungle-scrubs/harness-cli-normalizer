@@ -7,6 +7,7 @@ import {
 } from "../../src/interpretation/argv.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
+import { museCode } from "../../src/knowledge/muse.js";
 import { piCli } from "../../src/knowledge/pi.js";
 
 describe("GPT-6 Codex model selection", () => {
@@ -286,17 +287,20 @@ describe("shared spawn-boundary guards", () => {
 });
 
 describe("buildSessionArgv refuses no-session-mode harnesses (F-48)", () => {
-  test("codex has no session mode - buildSessionArgv throws ArgvRefusalError no-session-mode", () => {
+  test("codex has a session mode; muse does not - buildSessionArgv throws no-session-mode", () => {
+    // Codex grew a session mode (issue #330, app-server JSON-RPC); the
+    // refusal pin moved to muse, which still declares none.
     let caught: unknown;
     try {
-      buildSessionArgv(codexCli, { sessionId: "eb04301d-8756-4a8b-ae3e-aac0e71f7265" });
+      buildSessionArgv(museCode, { sessionId: "eb04301d-8756-4a8b-ae3e-aac0e71f7265" });
     } catch (e) {
       caught = e;
     }
     expect(caught).toBeInstanceOf(ArgvRefusalError);
     const err = caught as ArgvRefusalError;
     expect(err.issue).toBe("no-session-mode");
-    expect(err.harness).toBe("codex");
+    expect(err.harness).toBe("muse");
+    expect(err.supported).toContain("codex");
     expect(err.supported.length).toBeGreaterThan(0);
     for (const name of err.supported) {
       expect(typeof name).toBe("string");

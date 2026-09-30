@@ -161,7 +161,7 @@ describe("boundary-review regression pins", () => {
 
   test("null sections have no shape to validate and refuse overrides", () => {
     expect(() =>
-      parseOverrides(JSON.stringify({ codex: { sessionMode: { flags: ["-x"] } } }), PATH),
+      parseOverrides(JSON.stringify({ muse: { sessionMode: { flags: ["-x"] } } }), PATH),
     ).toThrow(/null/);
   });
 

@@ -51,7 +51,9 @@ const run = async (harness: string, args: string[]) => {
 
 describe("T08: a refused --json session still owes the stream its terminal pair", () => {
   test("a harness with no session mode writes failure + closed and exits 2", async () => {
-    const r = await run("codex", ["--json"]);
+    // Muse pins the no-session-mode refusal (codex grew a session mode,
+    // issue #330); the stream contract is harness-independent.
+    const r = await run("muse", ["--json"]);
     expect(r.exitCode).toBe(2);
     expect(r.events).toHaveLength(2);
     expect(r.events[0]).toMatchObject({ kind: "failure", class: "rejected" });
@@ -61,7 +63,7 @@ describe("T08: a refused --json session still owes the stream its terminal pair"
   });
 
   test("the same refusal without --json writes prose and nothing on stdout", async () => {
-    const r = await run("codex", []);
+    const r = await run("muse", []);
     expect(r.exitCode).toBe(2);
     expect(r.events).toHaveLength(0);
     expect(r.stderr).toContain("session mode");
@@ -77,7 +79,7 @@ describe("T08: a refused --json session still owes the stream its terminal pair"
   test("a passthrough tail refuses like inspect-session instead of dropping it", async () => {
     // L8: hcn session takes no passthrough tail - inspect-session refuses
     // one, so session must too (typed refusal, never a silent drop).
-    const r = await run("codex", ["--json", "--", "--native-flag"]);
+    const r = await run("muse", ["--json", "--", "--native-flag"]);
     expect(r.exitCode).toBe(2);
     expect(r.events[0]).toMatchObject({ kind: "failure", class: "rejected" });
     expect(r.events.at(-1)).toMatchObject({ kind: "closed", cause: "failed" });

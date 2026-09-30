@@ -27,12 +27,21 @@ export class SessionInputRefusalError extends Error {
 export const IDENTITY_PROBE_ID = "hcn-identity";
 export const SEND_ID = "hcn-send";
 const SEND_ID_PREFIX = `${SEND_ID}:`;
+/** The JSON-RPC request id of the initialize handshake line, written
+ * before the identity probe on a codex session. Its response carries
+ * nothing hcn needs; the marker keeps it recognizable. */
+export const INITIALIZE_ID = "hcn-initialize";
 
 export interface SessionInputEncodingOptions {
   readonly busy: boolean;
   readonly id: string;
-  /** Popeye prompt frames carry the session id; other kinds ignore it. */
+  /** Popeye prompt frames and codex requests carry the minted session id
+   * (popeye session, codex thread). */
   readonly sessionId?: string;
+  /** Codex steer precondition: the tracked id of the currently running
+   * native turn. A mismatch fails the request server-side, which is the
+   * rejected disposition. */
+  readonly activeTurnId?: string;
 }
 
 const isSessionInputKind = (value: unknown): value is SessionInputKind =>
@@ -77,22 +86,89 @@ export const encodeSessionInput = (
         id: options === undefined ? SEND_ID : `${SEND_ID_PREFIX}${options.id}`,
         ...(options?.sessionId === undefined ? {} : { sessionId: options.sessionId }),
       })}\n`;
+    case "codex-jsonrpc": {
+      // One JSON-RPC request line per send. Idle: turn/start opens the
+      // native turn. Busy: turn/steer injects into the RUNNING turn under
+      // the expectedTurnId precondition (verified 0.159.2: accepted with
+      // {turnId} on match; -32600 on mismatch). The request id carries the
+      // hcn send id so the response settles the disposition.
+      const threadId = options?.sessionId ?? "";
+      return `${JSON.stringify({
+        jsonrpc: "2.0",
+        id: options === undefined ? SEND_ID : `${SEND_ID_PREFIX}${options.id}`,
+        method: options?.busy === true ? "turn/steer" : "turn/start",
+        params:
+          options?.busy === true
+            ? {
+                threadId,
+                expectedTurnId: options.activeTurnId ?? "",
+                input: [{ text, type: "text" }],
+              }
+            : {
+                threadId,
+                input: [{ text, type: "text" }],
+              },
+      })}\n`;
+    }
   }
 };
 
-/** The record the runner writes at spawn to learn the session id, or null
- * when the harness announces identity on its stream unprompted. pi rpc is
+/** What one spawn must write to learn the session id, or null when the
+ * harness announces identity on its stream unprompted. pi rpc is
  * identity-silent at startup (spike fixtures); the response echoes the
  * marker id. Popeye rpc is likewise silent: the probe is a create frame,
- * and the snapshot response mints the session. */
-export const encodeIdentityProbe = (h: HarnessDescriptor): string | null => {
+ * and the snapshot response mints the session. Codex app-server is
+ * silent AND needs a handshake: the probe is two JSON-RPC lines,
+ * `initialize` (required before any other request - verified 0.159.2:
+ * everything else fails with -32600 "Not initialized") then the thread
+ * open named by the descriptor's identityProbe.command - thread/start for
+ * a fresh session, thread/resume with the requested id when isResume. */
+export const encodeIdentityProbe = (
+  h: HarnessDescriptor,
+  opts?: {
+    readonly sessionId?: string;
+    readonly isResume?: boolean;
+    readonly model?: string;
+    readonly clientVersion?: string;
+  },
+): string | null => {
   const mode = h.sessionMode;
   if (mode === null || mode.identityProbe === null) return null;
   if (mode.input.kind === "popeye-rpc-prompt")
     return `${JSON.stringify({ _tag: mode.identityProbe.command, id: IDENTITY_PROBE_ID })}\n`;
-  if (mode.input.kind !== "pi-rpc-prompt") return null;
-  return `${JSON.stringify({ id: IDENTITY_PROBE_ID, type: mode.identityProbe.command })}\n`;
+  if (mode.input.kind === "pi-rpc-prompt")
+    return `${JSON.stringify({ id: IDENTITY_PROBE_ID, type: mode.identityProbe.command })}\n`;
+  if (mode.input.kind !== "codex-jsonrpc") return null;
+  const initialize = `${JSON.stringify({
+    jsonrpc: "2.0",
+    id: INITIALIZE_ID,
+    method: "initialize",
+    params: {
+      clientInfo: { name: "hcn", version: opts?.clientVersion ?? "0" },
+    },
+  })}\n`;
+  const open =
+    opts?.isResume === true
+      ? {
+          jsonrpc: "2.0",
+          id: IDENTITY_PROBE_ID,
+          method: "thread/resume",
+          params: { threadId: opts?.sessionId ?? "" },
+        }
+      : {
+          jsonrpc: "2.0",
+          id: IDENTITY_PROBE_ID,
+          method: mode.identityProbe.command,
+          params: {},
+        };
+  return `${initialize}${JSON.stringify(open)}\n`;
 };
+
+/** Kinds whose send requests are answered by a native receipt the runner
+ * can correlate (pi rpc responses; codex JSON-RPC responses). The runner
+ * settles the send's disposition on that receipt. */
+export const hasNativeReceipts = (kind: SessionInputKind): boolean =>
+  kind === "pi-rpc-prompt" || kind === "codex-jsonrpc";
 
 /** What one parsed stdout record means to a session, as a closed kind. */
 export type SessionRecord =
@@ -100,8 +176,15 @@ export type SessionRecord =
   | { readonly kind: "identity"; readonly sessionId: string }
   /** The identity probe answered without an id - surfaced, never silent. */
   | { readonly kind: "probe-failed"; readonly message: string }
-  /** A correlated rpc command was accepted by the harness. */
-  | { readonly inputId: string; readonly kind: "command-accepted" }
+  /** A correlated rpc command was accepted by the harness. `nativeTurnId`
+   * is present when the response names the turn it started or steered
+   * into (codex turn/start {turn.id}, turn/steer {turnId}); the runner
+   * tracks it as the steer precondition for the next mid-turn send. */
+  | {
+      readonly inputId: string;
+      readonly kind: "command-accepted";
+      readonly nativeTurnId?: string;
+    }
   /** An rpc command hcn wrote was refused by the harness. */
   | { readonly inputId?: string; readonly kind: "command-failed"; readonly message: string }
   /** Protocol bookkeeping with nothing to surface. */
@@ -122,6 +205,71 @@ export const decodeSessionRecord = (
 ): SessionRecord => {
   const mode = h.sessionMode;
   if (mode === null) return { kind: "content" };
+  if (mode.input.kind === "codex-jsonrpc") {
+    // JSON-RPC responses carry an id; notifications carry a method.
+    if (parsed.method !== undefined) {
+      if (
+        typeof parsed.method === "string" &&
+        matchesTurnEnd(parsed, { method: mode.turnEnd.method ?? "" })
+      ) {
+        // turn/completed delimits the turn; params.turn.status is the
+        // harness's own verdict ("completed" | "interrupted" | "failed" |
+        // "inProgress").
+        const params = asRecord(parsed.params);
+        const turn = asRecord(params?.turn);
+        const status = turn === null ? undefined : turn.status;
+        return {
+          kind: "turn-end",
+          isError: status === "failed" || status === "interrupted",
+        };
+      }
+      // Every other notification is content (or protocol bookkeeping the
+      // content reader drops).
+      return { kind: "content" };
+    }
+    const inputId =
+      typeof parsed.id === "string" && parsed.id.startsWith(SEND_ID_PREFIX)
+        ? parsed.id.slice(SEND_ID_PREFIX.length)
+        : undefined;
+    const error = asRecord(parsed.error);
+    if (error !== null) {
+      const message =
+        typeof error.message === "string"
+          ? `jsonrpc request failed: ${JSON.stringify(parsed.id)} - ${error.message}`
+          : `jsonrpc request failed: ${JSON.stringify(error)}`;
+      if (parsed.id === IDENTITY_PROBE_ID) return { kind: "probe-failed", message };
+      return {
+        ...(inputId === undefined ? {} : { inputId }),
+        kind: "command-failed",
+        message,
+      };
+    }
+    if (parsed.id === IDENTITY_PROBE_ID) {
+      const probe = mode.identityProbe;
+      const announced = probe === null ? undefined : readPath(parsed, probe.responseIdField);
+      return typeof announced === "string" && announced !== ""
+        ? { kind: "identity", sessionId: announced }
+        : { kind: "probe-failed", message: "thread open response carried no thread id" };
+    }
+    if (inputId !== undefined) {
+      // turn/start answers {turn:{id,...}}; turn/steer answers {turnId}.
+      const result = asRecord(parsed.result);
+      const turn = asRecord(result?.turn);
+      const nativeTurnId =
+        typeof result?.turnId === "string"
+          ? result.turnId
+          : typeof turn?.id === "string"
+            ? turn.id
+            : undefined;
+      return {
+        inputId,
+        kind: "command-accepted",
+        ...(nativeTurnId === undefined ? {} : { nativeTurnId }),
+      };
+    }
+    // The initialize response (and any other uncorrelated response).
+    return { kind: "ignored" };
+  }
   if (mode.input.kind === "pi-rpc-prompt" && parsed.type === "response") {
     const probe = mode.identityProbe;
     if (

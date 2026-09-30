@@ -30,9 +30,13 @@ test("the Codex verified version has passing capability and question captures", 
     "resume-continuity",
     "kill-and-resume",
     "error-prop",
+    // Issue #330: codex grew a session mode; the cell ran for real on
+    // 2026-09-30 (one process, two turns, codeword recall) and its cell
+    // moved from skip to pass in the snapshot.
+    "session-cont(1proc)",
   ])
     expect(seven.results.codex[name]).toMatchObject({ status: "pass" });
-  for (const name of ["streaming", "session-cont(1proc)"])
+  for (const name of ["streaming"])
     expect(seven.results.codex[name]).toMatchObject({ status: "skip" });
   const questions = JSON.parse(read("questions.snapshot.json"));
   expect(questions.results.codex.status).toBe("pass");

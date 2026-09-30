@@ -90,7 +90,9 @@ describe("hcn inspect --capabilities", () => {
     expect(interactiveParsed.streaming).toBe("message");
     expect(sessionParsed.streaming).not.toBe(interactiveParsed.streaming);
 
-    // codex: headless-turn message vs headless-session none - the mode flips it
+    // codex: headless-turn and headless-session both stream message
+    // (issue #330: session items complete whole, like exec --json); the
+    // mode still flips capabilities for the OTHER harnesses above.
     const codexOut = await captureDispatch([
       "inspect",
       "codex",
@@ -100,8 +102,8 @@ describe("hcn inspect --capabilities", () => {
     ]);
     const codexParsed = JSON.parse(codexOut.stdout.trim());
     expect(codexParsed).toEqual(capabilitiesOf(codex, "", "headless-session"));
-    expect(codexParsed.streaming).toBe("none");
-    expect(codexParsed).not.toEqual(capabilitiesOf(codex, "", "headless-turn"));
+    expect(codexParsed.streaming).toBe("message");
+    expect(codexParsed.session).toBe(true);
   });
 
   test("invalid --mode refuses exit 2 naming the three valid modes", async () => {
