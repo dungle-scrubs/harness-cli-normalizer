@@ -65,8 +65,10 @@ function fixture(): {
           cwd: root,
           encoding: "utf8",
           // A runaway-child guard, not an inspection performance assertion.
-          // CLI startup can exceed two seconds under host scheduling pressure.
-          timeout: 4000,
+          // CLI startup can exceed two seconds under host scheduling pressure,
+          // and the fully parallel gate measured spawns past four seconds
+          // (exit null at 4s), so the guard sits at ten.
+          timeout: 10_000,
           env: {
             CODEX_HOME: codexHome,
             HCN_CONFIG_DIR: join(root, "hcn-config"),

@@ -50,7 +50,7 @@
           "--verbose",
           "--include-partial-messages",
           "--model",
-          "claude-sonnet-5"
+          "claude-sonnet-5-5"
         ]
       },
       "effort-high": {
@@ -78,7 +78,7 @@
           "--verbose",
           "--include-partial-messages",
           "--model",
-          "claude-sonnet-5"
+          "claude-sonnet-5-5"
         ]
       },
       "effort-unknown": {
@@ -105,6 +105,7 @@
             "claude-fable-5",
             "claude-opus-5-5",
             "claude-opus-5",
+            "claude-sonnet-5-5",
             "claude-sonnet-5",
             "claude-haiku-4-5-20251001",
             "fable",
@@ -112,7 +113,7 @@
             "sonnet",
             "haiku"
           ],
-          "message": "unknown claude model \"no-such-model\"; supported: claude-fable-5-1, claude-fable-5, claude-opus-5-5, claude-opus-5, claude-sonnet-5, claude-haiku-4-5-20251001, fable, opus, sonnet, haiku - use one of the supported models"
+          "message": "unknown claude model \"no-such-model\"; supported: claude-fable-5-1, claude-fable-5, claude-opus-5-5, claude-opus-5, claude-sonnet-5-5, claude-sonnet-5, claude-haiku-4-5-20251001, fable, opus, sonnet, haiku - use one of the supported models"
         }
       },
       "sandbox-read-only": {
@@ -4357,7 +4358,7 @@
           "--verbose",
           "--include-partial-messages",
           "--model",
-          "claude-sonnet-5"
+          "claude-sonnet-5-5"
         ]
       },
       "effort-high": {
@@ -4389,7 +4390,7 @@
           "--verbose",
           "--include-partial-messages",
           "--model",
-          "claude-sonnet-5"
+          "claude-sonnet-5-5"
         ]
       },
       "effort-unknown": {
@@ -4416,6 +4417,7 @@
             "claude-fable-5",
             "claude-opus-5-5",
             "claude-opus-5",
+            "claude-sonnet-5-5",
             "claude-sonnet-5",
             "claude-haiku-4-5-20251001",
             "fable",
@@ -4423,7 +4425,7 @@
             "sonnet",
             "haiku"
           ],
-          "message": "unknown claude model \"no-such-model\"; supported: claude-fable-5-1, claude-fable-5, claude-opus-5-5, claude-opus-5, claude-sonnet-5, claude-haiku-4-5-20251001, fable, opus, sonnet, haiku - use one of the supported models"
+          "message": "unknown claude model \"no-such-model\"; supported: claude-fable-5-1, claude-fable-5, claude-opus-5-5, claude-opus-5, claude-sonnet-5-5, claude-sonnet-5, claude-haiku-4-5-20251001, fable, opus, sonnet, haiku - use one of the supported models"
         }
       },
       "sandbox-read-only": {
@@ -8824,7 +8826,7 @@
           "--verbose",
           "--include-partial-messages",
           "--model",
-          "claude-sonnet-5"
+          "claude-sonnet-5-5"
         ]
       },
       "tools": {
@@ -9533,7 +9535,7 @@
           "--session-id",
           "0199a4c5-1111-2222-3333-444455556666",
           "--model",
-          "claude-sonnet-5"
+          "claude-sonnet-5-5"
         ]
       },
       "effort": {
@@ -9569,7 +9571,7 @@
           "--session-id",
           "0199a4c5-1111-2222-3333-444455556666",
           "--model",
-          "claude-sonnet-5",
+          "claude-sonnet-5-5",
           "--effort",
           "high"
         ]
