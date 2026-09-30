@@ -4,7 +4,7 @@ import { contextInspectionOf } from "../../src/interpretation/context-inspection
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 
 const read = (file: string): string =>
-  readFileSync(new URL(`../fixtures/claude-2.1.284/${file}`, import.meta.url), "utf8");
+  readFileSync(new URL(`../fixtures/claude-2.1.285/${file}`, import.meta.url), "utf8");
 
 const events = (file: string): Record<string, unknown>[] =>
   read(file)
@@ -65,16 +65,16 @@ test("native compaction surfaces its boundary and a later process recalls the ma
     kind: "compaction",
     state: "compacted",
     trigger: "auto",
-    tokensBefore: 33316,
-    tokensAfter: 6521,
-    durationMs: 76391,
+    tokensBefore: 27632,
+    tokensAfter: 5472,
+    durationMs: 58667,
   });
   expect(compaction).toContainEqual({ kind: "compaction", state: "started" });
   expect(compaction).not.toContainEqual({ kind: "progress", label: "compact_boundary" });
   // Exactly one end for one compaction: the success status record is
   // deliberately silent, so only the boundary reports it. Starts are not
-  // deduplicated and this capture holds three, which is why the end is the
-  // one a counting consumer counts.
+  // deduplicated (this capture holds two; 2.1.284's held three), which is
+  // why the end is the one a counting consumer counts.
   const compactionStates = compaction
     .filter((e) => e.kind === "compaction")
     .map((e) => e.state as string);

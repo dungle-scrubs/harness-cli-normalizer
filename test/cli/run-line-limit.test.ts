@@ -23,11 +23,11 @@ afterEach(async () => {
   await cleanupSandbox({ pids: [], dirs: dirs.splice(0), prefix: PREFIX, label: "run-line-limit" });
 });
 
-// The stub prints the stream shape pi 0.87.1 emits in `--mode json`
-// (test/fixtures/pi-0.87.1/fresh.ndjson), with invented content. The
+// The stub prints the stream shape pi 0.99.1 emits in `--mode json`
+// (test/fixtures/pi-0.99.1/fresh.ndjson), with invented content. The
 // assistant message rides on message_end, turn_end and agent_end alike.
 const STUB_PI = `#!/usr/bin/env node
-if (process.argv.includes("--version")) { console.log("0.87.1"); process.exit(0); }
+if (process.argv.includes("--version")) { console.log("0.99.1"); process.exit(0); }
 const line = (o) => process.stdout.write(JSON.stringify(o) + "\\n");
 const message = {
   role: "assistant",

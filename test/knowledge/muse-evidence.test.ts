@@ -9,7 +9,7 @@ import { cursorCli } from "../../src/knowledge/cursor.js";
 import { museCode } from "../../src/knowledge/muse.js";
 import { piCli } from "../../src/knowledge/pi.js";
 
-const read = (file: string, dir = "muse-1.3.0"): string =>
+const read = (file: string, dir = "muse-1.4.1"): string =>
   readFileSync(new URL(`../fixtures/${dir}/${file}`, import.meta.url), "utf8");
 
 const decoded = (file: string): HarnessEvent[] => {
@@ -106,8 +106,10 @@ test("only muse declares a pending-approval observer (issue #179)", () => {
 });
 
 test("native compaction failure remains a failure, not successful accounting", () => {
-  // 1.1.1 recorded a rejected hard-threshold replacement; 1.3.0 installs one
-  // at the same thresholds, so that record stays the fallback evidence.
+  // 1.1.1 recorded a rejected hard-threshold replacement; 1.3.0 installed one
+  // at the same thresholds, and 1.4.1 re-observes the rejection live (its
+  // compaction-records.json carries candidate rejected + fallback), so the
+  // 1.1.1 record stays the oldest fallback evidence.
   const records = JSON.parse(read("compaction-records.json", "muse-1.1.1"));
   expect(records).toContainEqual(
     expect.objectContaining({

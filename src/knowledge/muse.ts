@@ -1,6 +1,7 @@
 /**
  * The muse descriptor: facts about the `muse` CLI as data, verified against
- * Muse Code 1.3.0 (test/fixtures/muse-1.3.0). The v1 scars this encodes:
+ * Muse Code 1.4.1 (test/fixtures/muse-1.4.1; prior anchors 1.3.0 and 1.1.1
+ * stay beside it). The v1 scars this encodes:
  * headless re-entry is `muse exec
  * --session-id <id>` (the positional `muse resume <id>` is the INTERACTIVE
  * picker - recognized when pasted, never built), and `muse exec` exits 0
@@ -15,20 +16,17 @@ export const museCode: HarnessDescriptor = deepFreeze({
   name: "muse",
   transcript: MUSE_TRANSCRIPT,
   bin: "muse",
-  verifiedAgainst: "1.3.0",
+  verifiedAgainst: "1.4.1",
   // No npm package - `hcn check` falls back to `muse --version` locally and
   // is skipped in CI where the binary is absent, so this harness is exempt
   // from automated drift detection (see README Version-pinning and drift).
-  // `versionSource: installed` pins only the 1.3.0 triple, and the build
-  // behind it moves. The fixtures in test/fixtures/muse-1.3.0 were captured on
-  // build 1.3.0-R3233.1; the binary probed on 2026-09-22 reported
-  // `Muse Code 1.3.0 (1.3.0-R3401.1)`
-  // (docs/research/2026-09-22-compaction-signals/muse). The major.minor.patch
-  // is unchanged, so no anchor bump is implied and none was made - recorded
-  // because the build moved under the fixtures and the drift check cannot see
-  // it. That probe re-observed native compaction on the moved build, so the
-  // nativeContextManagement fact below still holds.
-  versionSource: { kind: "installed" }, // Re-checked with muse --version, 2026-09-22.
+  // `versionSource: installed` pins only the 1.4.1 triple, and the build
+  // behind it moves. The fixtures in test/fixtures/muse-1.4.1 were captured on
+  // build 1.4.1-R4503.1. Earlier anchors recorded the same drift hazard:
+  // the 1.3.0 fixtures were captured on build 1.3.0-R3233.1, and the binary
+  // probed on 2026-09-22 reported 1.3.0-R3401.1
+  // (docs/research/2026-09-22-compaction-signals/muse).
+  versionSource: { kind: "installed" }, // Re-checked with muse --version, 2026-09-30.
   launch: {
     // exec --json emits the payload_type/stream records the runner decodes
     // (verified 0.1.0); bare exec streams human text.
@@ -111,9 +109,13 @@ export const museCode: HarnessDescriptor = deepFreeze({
       "muse-spark-1.1",
     ],
     aliases: {},
-    // max and ultra: listed by `muse exec --help` on 1.3.0 and accepted live
-    // (an unlisted effort is a native usage error, exit 2).
-    efforts: ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"],
+    // max and ultra: listed by `muse exec --help` on 1.3.0 and accepted live.
+    // `none` left the ladder on 1.4.1 evidence (2026-09-30): help still lists
+    // it, but the meta provider hcn always runs rejects it at startup
+    // ("--reasoning-effort none is not supported with --provider meta",
+    // exit 2) - an unlisted effort is a native usage error, so hcn refuses
+    // it client-side with the accurate ladder instead of forwarding it.
+    efforts: ["minimal", "low", "medium", "high", "xhigh", "max", "ultra"],
     extensible: false,
   },
   store: {
@@ -125,7 +127,10 @@ export const museCode: HarnessDescriptor = deepFreeze({
   },
   contextInspection: null,
   // Automatic replacement installation and later process recall captured on
-  // 1.1.1 and again on 1.3.0. Native growth handling is not a pending-prompt count or a guarantee
+  // 1.1.1, again on 1.3.0, and again on 1.4.1 - where the summary floor also
+  // grew past the 1.3.0 probe thresholds, so 0.02/0.04 now produces the
+  // rejected-replacement failure the 1.1.1 records hold (muse-1.4.1
+  // re-observes it live). Native growth handling is not a pending-prompt count or a guarantee
   // that arbitrary incoming content fits; native compaction can fail.
   nativeContextManagement: { kind: "auto-compaction", modes: ["headless-turn"] },
   // `muse resume --last` exists (muse resume --help) but needs a
@@ -163,14 +168,14 @@ export const museCode: HarnessDescriptor = deepFreeze({
     },
     session: false,
   },
-  // Provenance from test/fixtures/muse-1.3.0/questions.snapshot.json.
+  // Provenance from test/fixtures/muse-1.4.1/questions.snapshot.json.
   escalation: {
     supported: true,
     observedOn: {
       harness: "muse",
       model: "muse-spark-1.3-contributor",
-      version: "1.3.0",
-      date: "2026-09-17",
+      version: "1.4.1",
+      date: "2026-09-30",
     },
   },
   turnOptions: {

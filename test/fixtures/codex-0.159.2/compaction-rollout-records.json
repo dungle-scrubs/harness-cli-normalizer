@@ -1,0 +1,29 @@
+[
+  {
+    "ordinal": 24,
+    "timestamp": "2026-09-30T04:23:33.323Z",
+    "payload_type": "item_completed",
+    "item_type": "ContextCompaction",
+    "item_id": "01a0f08d-7795-7911-99be-2af350f9c265",
+    "started_at_ms": 1790742198165,
+    "completed_at_ms": 1790742213323
+  },
+  {
+    "ordinal": 49,
+    "timestamp": "2026-09-30T04:25:16.276Z",
+    "payload_type": "item_completed",
+    "item_type": "ContextCompaction",
+    "item_id": "01a0f08e-5172-7e62-abf4-7def0ae48df4",
+    "started_at_ms": 1790742253938,
+    "completed_at_ms": 1790742316276
+  },
+  {
+    "ordinal": 74,
+    "timestamp": "2026-09-30T04:27:20.353Z",
+    "payload_type": "item_completed",
+    "item_type": "ContextCompaction",
+    "item_id": "01a0f08f-bea0-7912-8884-2b1c67e8ee79",
+    "started_at_ms": 1790742347424,
+    "completed_at_ms": 1790742440353
+  }
+]

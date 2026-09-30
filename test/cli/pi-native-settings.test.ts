@@ -20,7 +20,7 @@ import { afterEach, expect, test } from "vitest";
  *
  * The session files here are composed inline, not captured: a captured Pi
  * session carries conversation content that must not be read into a review
- * or committed. Their shape follows Pi 0.87.1's own writer
+ * or committed. Their shape follows Pi 0.99.1's own writer
  * (`dist/core/session-manager.js`: the `session` header, `model_change`,
  * `thinking_level_change`, and `message` entries with `id`/`parentId`).
  */
@@ -28,7 +28,7 @@ import { afterEach, expect, test } from "vitest";
 const bun = execFileSync("which", ["bun"], { encoding: "utf8" }).trim();
 const cli = resolve("src/cli/index.ts");
 const sessionId = "01a0e08c-06b0-71d0-8bfd-8304dfbd84b3";
-const recorded = resolve("test/fixtures/pi-0.87.1/fresh.ndjson");
+const recorded = resolve("test/fixtures/pi-0.99.1/fresh.ndjson");
 
 const roots: string[] = [];
 afterEach(() => {
@@ -96,10 +96,10 @@ function fixture(entries: (cwd: string) => readonly (Entry | string)[], flat = f
   );
   const bin = join(root, "bin");
   mkdirSync(bin);
-  // A stub Pi that records its argv and replays a recorded 0.87.1 stream.
+  // A stub Pi that records its argv and replays a recorded 0.99.1 stream.
   writeFileSync(
     join(bin, "pi"),
-    `#!${bun}\nimport {readFileSync, writeFileSync} from "node:fs";\nif (process.argv.includes("--version")) { console.log("0.87.1"); process.exit(0); }\nwriteFileSync(${JSON.stringify(join(root, "native-argv.json"))}, JSON.stringify(process.argv.slice(2)));\nprocess.stdout.write(readFileSync(${JSON.stringify(recorded)}, "utf8"));\n`,
+    `#!${bun}\nimport {readFileSync, writeFileSync} from "node:fs";\nif (process.argv.includes("--version")) { console.log("0.99.1"); process.exit(0); }\nwriteFileSync(${JSON.stringify(join(root, "native-argv.json"))}, JSON.stringify(process.argv.slice(2)));\nprocess.stdout.write(readFileSync(${JSON.stringify(recorded)}, "utf8"));\n`,
     { mode: 0o700 },
   );
   const extension = join(root, "lucid.js");

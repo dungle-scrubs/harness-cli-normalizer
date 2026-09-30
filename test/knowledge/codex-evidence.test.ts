@@ -5,13 +5,13 @@ import type { HarnessEvent } from "../../src/execution/events.js";
 import { detectQuestionBlock } from "../../src/interpretation/question.js";
 import { codexCli } from "../../src/knowledge/codex.js";
 
-const read = (file: string, dir = "codex-0.156.1"): string =>
+const read = (file: string, dir = "codex-0.159.2"): string =>
   readFileSync(new URL(`../fixtures/${dir}/${file}`, import.meta.url), "utf8");
 
 const decoded = (
   file: string,
   requestedId: string | null = null,
-  dir = "codex-0.156.1",
+  dir = "codex-0.159.2",
 ): HarnessEvent[] => {
   const state = freshDecodeState(requestedId);
   return read(file, dir)
@@ -60,10 +60,11 @@ test("native resume retains the announced session and recalls its earlier prompt
 
 test("native automatic compaction installs replacement history and a later process recalls", () => {
   const records = JSON.parse(read("compaction-rollout-records.json"));
-  // 0.156.1 carries each compaction as an `item_completed` record whose
+  // 0.159.2 carries each compaction as an `item_completed` record whose
   // item is a bare ContextCompaction reference: id and type, no encrypted
-  // summary and no token counts, unlike 0.155.1's `compacted` payloads.
-  expect(records).toHaveLength(4);
+  // summary and no token counts, unchanged from 0.156.1 (whose shape
+  // replaced 0.155.1's `compacted` payloads).
+  expect(records).toHaveLength(3);
   for (const record of records)
     expect(record).toMatchObject({
       payload_type: "item_completed",

@@ -1,6 +1,6 @@
 /**
  * The pi descriptor: facts about the `pi` CLI as data, verified against
- * pi 0.87.0 (test/fixtures/pi-0.87.0). Descriptor groundwork only (D-003). The load-bearing scars:
+ * pi 0.99.1 (test/fixtures/pi-0.99.1). Descriptor groundwork only (D-003). The load-bearing scars:
  * pi reads stdin even in -p mode (a backgrounded call without `< /dev/null`
  * hangs forever), it auto-discovers instruction files/skills/extensions
  * unless disabled, and its model registry is runtime-extensible (D-008) -
@@ -14,7 +14,7 @@ export const piCli: HarnessDescriptor = deepFreeze({
   name: "pi",
   transcript: PI_TRANSCRIPT,
   bin: "pi",
-  verifiedAgainst: "0.87.1",
+  verifiedAgainst: "0.99.1",
   versionSource: { kind: "npm", package: "@earendil-works/pi-coding-agent" },
   launch: {
     // -p --mode json: bare -p prints plain text; --mode json emits the
@@ -125,7 +125,9 @@ export const piCli: HarnessDescriptor = deepFreeze({
     // PI_CODING_AGENT_DIR, else ~/.pi/agent. The slug is the cwd
     // dash-flattened and dash-wrapped, dots preserved
     // (--Users-kevin-dev-x--). The --session-dir flag and the sessionDir
-    // setting also move the store; hcn sees neither.
+    // setting also move the store; hcn sees neither. Re-exercised live on
+    // 0.99.1: smoke sessions landed in
+    // $PI_CODING_AGENT_DIR/sessions/--private-tmp-hcn-smoke-ws-pi--.
     template: "{root}",
     cwdSlug: "pi-dash-wrapped",
     rootEnv: [
@@ -153,14 +155,20 @@ export const piCli: HarnessDescriptor = deepFreeze({
     kind: "auto-compaction",
     modes: ["headless-turn", "headless-session"],
   },
-  // 0.87.1 re-probe: not reproduced. Seven forcing attempts (194k-token
-  // resumed context, project and user compaction.reserveTokens at 500k,
-  // 950k and 5M) produced no compaction records on a `-p --mode json`
-  // resume, so the declaration keeps its 0.87.0 live evidence
-  // (docs/research/2026-09-22-compaction-signals/pi,
-  // test/fixtures/pi-0.87.1/VERIFICATION.md). The 0.87.x changelog keeps
-  // compaction under active development; the miss is unexplained, not
-  // evidence of removal.
+  // 0.99.1 re-probe: reproduced (test/fixtures/pi-0.99.1/VERIFICATION.md).
+  // Three forcing configurations: project .pi/settings.json with
+  // reserveTokens 950k and 5M (plus keepRecentTokens 500 and --approve)
+  // both fired threshold compaction inside one hcn-shaped resume turn
+  // (compaction_start/compaction_end before agent_start; 230k -> 57k
+  // tokens), and the compacted session was recalled correctly in a later
+  // process. The user-settings route (~/.pi/agent/settings.json) does not
+  // fire on this machine because the shell exports
+  // PI_CODING_AGENT_DIR=/Users/kevin/.pi, which redirects global settings
+  // to /Users/kevin/.pi/settings.json; without --approve the project route
+  // is ignored (docs/settings.md trust gate). Those two gates, not pi
+  // behavior, explain the earlier 0.87.1 non-reproduction; the payload
+  // semantics still rest on the 0.87.0 live evidence
+  // (docs/research/2026-09-22-compaction-signals/pi).
   // RFC-06: `--continue` continues the previous session (observed on
   // 0.85.1, 2026-09-17; `--continue` example in `pi --help`). No fork
   // mechanism is probed on pi, so none is rendered.
@@ -204,7 +212,7 @@ export const piCli: HarnessDescriptor = deepFreeze({
   // untouched; the observed value is display only.
   escalation: {
     supported: true,
-    observedOn: { harness: "pi", model: "zai/glm-5.2", version: "0.87.1", date: "2026-09-24" },
+    observedOn: { harness: "pi", model: "zai/glm-5.2", version: "0.99.1", date: "2026-09-30" },
   },
   turnOptions: {
     effort: { kind: "effort", render: { kind: "flag-value", flag: "--thinking" } },

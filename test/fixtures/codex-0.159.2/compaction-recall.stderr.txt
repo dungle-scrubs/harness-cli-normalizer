@@ -1,0 +1,2 @@
+spawn: codex exec resume 01a0f08d-0bb1-7d82-a38b-252e9b9c4920 --json --skip-git-repo-check [prompt:90ch] --model gpt-6-astra -c model_auto_compact_token_limit=20000
+provenance: questions = none (arg)

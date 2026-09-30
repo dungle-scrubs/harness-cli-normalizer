@@ -1,0 +1,2 @@
+spawn: claude --resume 1873eb8d-08a3-4ff3-a8fb-66e2e1c2c5a4 -p --setting-sources project --disable-slash-commands [prompt:38ch] --output-format stream-json --verbose --include-partial-messages --model claude-haiku-4-5-20251001
+provenance: questions = none (arg)

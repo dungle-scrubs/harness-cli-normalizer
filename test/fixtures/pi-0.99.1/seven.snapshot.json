@@ -1,0 +1,35 @@
+{
+  "ranAt": "2026-09-30T04:43:43.240Z",
+  "results": {
+    "pi": {
+      "single-turn": {
+        "status": "pass",
+        "detail": "done=clean text=\"alpha\""
+      },
+      "streaming": {
+        "status": "pass",
+        "detail": "tokens=\"One, two, three - count \" msg=\"One, two, three - count \""
+      },
+      "tool-use": {
+        "status": "pass",
+        "detail": "1 tool events"
+      },
+      "session-cont(1proc)": {
+        "status": "pass",
+        "detail": "recall=\"kestrel\""
+      },
+      "resume-continuity": {
+        "status": "pass",
+        "detail": "resumed 01a0f09f recall=\"marlin\""
+      },
+      "kill-and-resume": {
+        "status": "pass",
+        "detail": "killed@2ev recall=\"otter\""
+      },
+      "error-prop": {
+        "status": "pass",
+        "detail": "done=failed err=true"
+      }
+    }
+  }
+}

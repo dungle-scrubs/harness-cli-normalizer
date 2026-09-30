@@ -1,0 +1,461 @@
+[
+  {
+    "kind": "context_compaction_candidate",
+    "candidate_id": "candidate-16",
+    "trigger": "hard_threshold_blocking",
+    "timing": "pre_turn",
+    "status": "rejected",
+    "strategy": {
+      "strategy_id": "summary-preserved-suffix/v1",
+      "strategy_family": "summary",
+      "config_fingerprint": "soft=0.0200,hard=0.0400",
+      "target_budget_tokens": 10240,
+      "soft_threshold_tokens": 10240,
+      "hard_threshold_tokens": 20480
+    },
+    "superseded_by": null,
+    "started_at_cursor": {
+      "sequence": 14
+    },
+    "summarized_through_cursor": {
+      "sequence": 14
+    },
+    "replacement": {
+      "kind": "summary_text",
+      "text": "## Primary Request And Intent\nContinue synthetic session and reply with only `OK`. Preserve exact marker token `MARIGOLD-742` from synthetic compaction probe session.\n## User Constraints And Preferences\nReply with only: `OK`.\n## Current State\nSynthetic session continued as instructed. Assistant final answer was `OK` as requested. No code changes or functional state.\n\nHistorical code word from omitted context preview: `MARIGOLD-742` \u2014 preserved as literal evidence only, hidden content unknown.\n## Files, APIs, Commands, And Tests\nNone known.\n## Decisions And Rationale\nNone known.\n## Errors, Failed Attempts, And Fixes\nNone known.\n## Open Questions And Risks\nNone known.\n## Pending Tasks And Next Step\nNone known.\n## User Message Timeline\nUser: \"Synthetic compaction probe session. Remember this code word exactly: MARIGOLD-742 Filler entry 0... [truncated]\"\nUser: \"Continue the synthetic session. Reply with only: OK\""
+    },
+    "preserved_segment_hint": null,
+    "budget_before": {
+      "estimated_prompt_tokens": 73386,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    },
+    "estimated_budget_after": {
+      "estimated_prompt_tokens": 27615,
+      "target_met": false,
+      "estimate_source": "heuristic_estimate"
+    },
+    "diagnostics": [
+      {
+        "reason": "summary_call_metrics",
+        "message": "{\"provider_calls\":1,\"usage_unavailable_calls\":0,\"input_tokens\":2284,\"output_tokens\":472,\"cached_tokens\":0,\"cache_write_tokens\":0,\"cache_read_tokens\":0,\"cache_breakdown_unavailable_calls\":0,\"reasoning_tokens\":127}"
+      },
+      {
+        "reason": "hard_threshold_failed",
+        "message": "replacement estimate 27615 still reaches the hard threshold of 20480 tokens"
+      }
+    ]
+  },
+  {
+    "kind": "context_compaction_fallback",
+    "fallback_id": "fallback-17",
+    "reason": "hard_threshold_failed",
+    "severity": "terminal",
+    "can_continue": false,
+    "trigger": "hard_threshold_blocking",
+    "timing": "pre_turn",
+    "strategy_id": "summary-preserved-suffix/v1",
+    "blocked_request_id": "request-after-14",
+    "related_candidate_id": "candidate-16",
+    "no_progress_passes": null,
+    "summarizer_usage": {
+      "input_tokens": 2284,
+      "output_tokens": 472,
+      "duration_ms": 7104
+    }
+  },
+  {
+    "kind": "context_compaction_candidate",
+    "candidate_id": "candidate-16",
+    "trigger": "hard_threshold_blocking",
+    "timing": "pre_turn",
+    "status": "succeeded",
+    "strategy": {
+      "strategy_id": "summary-preserved-suffix/v1",
+      "strategy_family": "summary",
+      "config_fingerprint": "soft=0.0500,hard=0.0600",
+      "target_budget_tokens": 25600,
+      "soft_threshold_tokens": 25600,
+      "hard_threshold_tokens": 30720
+    },
+    "superseded_by": null,
+    "started_at_cursor": {
+      "sequence": 14
+    },
+    "summarized_through_cursor": {
+      "sequence": 0
+    },
+    "replacement": {
+      "kind": "summary_text",
+      "text": "## Primary Request And Intent\nContinue a synthetic session and reply with only `OK`, while preserving the earlier synthetic compaction probe context including code word `MARIGOLD-742`.\n\n## User Constraints And Preferences\nReply with only: `OK`\n\n## Current State\nAssistant replied `OK` as requested. No further code, file, or command activity recorded in visible suffix.\n\n## Files, APIs, Commands, And Tests\nNone known.\n\n## Decisions And Rationale\nNone known.\n\n## Errors, Failed Attempts, And Fixes\nNone known.\n\n## Open Questions And Risks\nNone known.\n\n## Pending Tasks And Next Step\nNone known.\n\n## User Message Timeline\nUser: \"Synthetic compaction probe session. Remember this code word exactly: MARIGOLD-742 Filler entry 0... [truncated]\"\n\nUser: \"Continue the synthetic session. Reply with only: OK\"\n"
+    },
+    "preserved_segment_hint": {
+      "head_sequence": 1,
+      "tail_sequence": 16
+    },
+    "budget_before": {
+      "estimated_prompt_tokens": 73415,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    },
+    "estimated_budget_after": {
+      "estimated_prompt_tokens": 27613,
+      "target_met": false,
+      "estimate_source": "heuristic_estimate"
+    },
+    "diagnostics": [
+      {
+        "reason": "summary_call_metrics",
+        "message": "{\"provider_calls\":1,\"usage_unavailable_calls\":0,\"input_tokens\":2311,\"output_tokens\":608,\"cached_tokens\":0,\"cache_write_tokens\":0,\"cache_read_tokens\":0,\"cache_breakdown_unavailable_calls\":0,\"reasoning_tokens\":254}"
+      }
+    ]
+  },
+  {
+    "kind": "context_compaction_installed",
+    "install_id": "install-17",
+    "candidate_id": "candidate-16",
+    "trigger": "hard_threshold_blocking",
+    "timing": "pre_turn",
+    "strategy_id": "summary-preserved-suffix/v1",
+    "summarized_through": {
+      "sequence": 0
+    },
+    "replacement": {
+      "kind": "summary_text",
+      "text": "## Primary Request And Intent\nContinue a synthetic session and reply with only `OK`, while preserving the earlier synthetic compaction probe context including code word `MARIGOLD-742`.\n\n## User Constraints And Preferences\nReply with only: `OK`\n\n## Current State\nAssistant replied `OK` as requested. No further code, file, or command activity recorded in visible suffix.\n\n## Files, APIs, Commands, And Tests\nNone known.\n\n## Decisions And Rationale\nNone known.\n\n## Errors, Failed Attempts, And Fixes\nNone known.\n\n## Open Questions And Risks\nNone known.\n\n## Pending Tasks And Next Step\nNone known.\n\n## User Message Timeline\nUser: \"Synthetic compaction probe session. Remember this code word exactly: MARIGOLD-742 Filler entry 0... [truncated]\"\n\nUser: \"Continue the synthetic session. Reply with only: OK\"\n"
+    },
+    "preserved_segment": {
+      "head_sequence": 1,
+      "tail_sequence": 16,
+      "interval": "(0, 16]",
+      "boundary_widened": false
+    },
+    "budget_before": {
+      "estimated_prompt_tokens": 73415,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    },
+    "budget_after": {
+      "estimated_prompt_tokens": 27613,
+      "target_met": false,
+      "estimate_source": "heuristic_estimate"
+    },
+    "prompt_cache_boundary": {
+      "status": "reset",
+      "cache_key": null,
+      "stable_prefix_label": null,
+      "stable_through_sequence": null,
+      "change_reason": "summary_replaced_prefix",
+      "reported_cached_tokens": null
+    },
+    "summarizer_usage": {
+      "input_tokens": 2311,
+      "output_tokens": 608,
+      "duration_ms": 8400
+    }
+  },
+  {
+    "kind": "context_compaction_candidate",
+    "candidate_id": "candidate-16",
+    "trigger": "hard_threshold_blocking",
+    "timing": "pre_turn",
+    "status": "succeeded",
+    "strategy": {
+      "strategy_id": "summary-preserved-suffix/v1",
+      "strategy_family": "summary",
+      "config_fingerprint": "soft=0.0500,hard=0.0600",
+      "target_budget_tokens": 25600,
+      "soft_threshold_tokens": 25600,
+      "hard_threshold_tokens": 30720
+    },
+    "superseded_by": null,
+    "started_at_cursor": {
+      "sequence": 14
+    },
+    "summarized_through_cursor": {
+      "sequence": 0
+    },
+    "replacement": {
+      "kind": "summary_text",
+      "text": "## Primary Request And Intent\nContinue a synthetic session and reply with only `OK`, while preserving the earlier synthetic compaction probe context including code word `MARIGOLD-742`.\n\n## User Constraints And Preferences\nReply with only: `OK`\n\n## Current State\nAssistant replied `OK` as requested. No further code, file, or command activity recorded in visible suffix.\n\n## Files, APIs, Commands, And Tests\nNone known.\n\n## Decisions And Rationale\nNone known.\n\n## Errors, Failed Attempts, And Fixes\nNone known.\n\n## Open Questions And Risks\nNone known.\n\n## Pending Tasks And Next Step\nNone known.\n\n## User Message Timeline\nUser: \"Synthetic compaction probe session. Remember this code word exactly: MARIGOLD-742 Filler entry 0... [truncated]\"\n\nUser: \"Continue the synthetic session. Reply with only: OK\"\n"
+    },
+    "preserved_segment_hint": {
+      "head_sequence": 1,
+      "tail_sequence": 16
+    },
+    "budget_before": {
+      "estimated_prompt_tokens": 73415,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    },
+    "estimated_budget_after": {
+      "estimated_prompt_tokens": 27613,
+      "target_met": false,
+      "estimate_source": "heuristic_estimate"
+    },
+    "diagnostics": [
+      {
+        "reason": "summary_call_metrics",
+        "message": "{\"provider_calls\":1,\"usage_unavailable_calls\":0,\"input_tokens\":2311,\"output_tokens\":608,\"cached_tokens\":0,\"cache_write_tokens\":0,\"cache_read_tokens\":0,\"cache_breakdown_unavailable_calls\":0,\"reasoning_tokens\":254}"
+      }
+    ]
+  },
+  {
+    "kind": "context_compaction_installed",
+    "install_id": "install-17",
+    "candidate_id": "candidate-16",
+    "trigger": "hard_threshold_blocking",
+    "timing": "pre_turn",
+    "strategy_id": "summary-preserved-suffix/v1",
+    "summarized_through": {
+      "sequence": 0
+    },
+    "replacement": {
+      "kind": "summary_text",
+      "text": "## Primary Request And Intent\nContinue a synthetic session and reply with only `OK`, while preserving the earlier synthetic compaction probe context including code word `MARIGOLD-742`.\n\n## User Constraints And Preferences\nReply with only: `OK`\n\n## Current State\nAssistant replied `OK` as requested. No further code, file, or command activity recorded in visible suffix.\n\n## Files, APIs, Commands, And Tests\nNone known.\n\n## Decisions And Rationale\nNone known.\n\n## Errors, Failed Attempts, And Fixes\nNone known.\n\n## Open Questions And Risks\nNone known.\n\n## Pending Tasks And Next Step\nNone known.\n\n## User Message Timeline\nUser: \"Synthetic compaction probe session. Remember this code word exactly: MARIGOLD-742 Filler entry 0... [truncated]\"\n\nUser: \"Continue the synthetic session. Reply with only: OK\"\n"
+    },
+    "preserved_segment": {
+      "head_sequence": 1,
+      "tail_sequence": 16,
+      "interval": "(0, 16]",
+      "boundary_widened": false
+    },
+    "budget_before": {
+      "estimated_prompt_tokens": 73415,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    },
+    "budget_after": {
+      "estimated_prompt_tokens": 27613,
+      "target_met": false,
+      "estimate_source": "heuristic_estimate"
+    },
+    "prompt_cache_boundary": {
+      "status": "reset",
+      "cache_key": null,
+      "stable_prefix_label": null,
+      "stable_through_sequence": null,
+      "change_reason": "summary_replaced_prefix",
+      "reported_cached_tokens": null
+    },
+    "summarizer_usage": {
+      "input_tokens": 2311,
+      "output_tokens": 608,
+      "duration_ms": 8400
+    }
+  },
+  {
+    "kind": "context_compaction_candidate",
+    "candidate_id": "candidate-15",
+    "trigger": "soft_threshold_async",
+    "timing": "pre_turn",
+    "status": "running",
+    "strategy": {
+      "strategy_id": "summary-preserved-suffix/v1",
+      "strategy_family": "summary",
+      "config_fingerprint": "soft=0.0500,hard=0.1000",
+      "target_budget_tokens": 25600,
+      "soft_threshold_tokens": 25600,
+      "hard_threshold_tokens": 51200
+    },
+    "superseded_by": null,
+    "started_at_cursor": {
+      "sequence": 14
+    },
+    "summarized_through_cursor": {
+      "sequence": 14
+    },
+    "replacement": null,
+    "preserved_segment_hint": null,
+    "budget_before": {
+      "estimated_prompt_tokens": 41728,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    },
+    "estimated_budget_after": {
+      "estimated_prompt_tokens": 41728,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    }
+  },
+  {
+    "kind": "context_compaction_candidate",
+    "candidate_id": "candidate-15",
+    "trigger": "soft_threshold_async",
+    "timing": "pre_turn",
+    "status": "succeeded",
+    "strategy": {
+      "strategy_id": "summary-preserved-suffix/v1",
+      "strategy_family": "summary",
+      "config_fingerprint": "soft=0.0500,hard=0.1000",
+      "target_budget_tokens": 25600,
+      "soft_threshold_tokens": 25600,
+      "hard_threshold_tokens": 51200
+    },
+    "superseded_by": null,
+    "started_at_cursor": {
+      "sequence": 14
+    },
+    "summarized_through_cursor": {
+      "sequence": 14
+    },
+    "replacement": {
+      "kind": "summary_text",
+      "text": "## Primary Request And Intent\nContinue synthetic session and reply with only `OK`, preserving code word `MARIGOLD-742`.\n## User Constraints And Preferences\nReply with only: `OK`\n## Current State\nAssistant has replied `OK` to continuation prompts. No code, file, or command activity. Marker `MARIGOLD-742` preserved in context.\nNo one-time setup commands were requested; none completed.\n## Files, APIs, Commands, And Tests\nNone known.\n## Decisions And Rationale\nNone known.\n## Errors, Failed Attempts, And Fixes\nNone known.\n## Open Questions And Risks\nNone known.\n## Pending Tasks And Next Step\nNo missing work known. Next step is to continue replying `OK` if user continues synthetic session.\n## User Message Timeline\nUser: \"Synthetic compaction probe session. Remember this code word exactly: MARIGOLD-742 Filler entry 0... [truncated]\"\nUser: \"Continue the synthetic session. Reply with only: OK\"\nUser: \"Continue the synthetic session. Reply with only: OK\"\nUser: \"Second filler entry 0001: more ordinary narrative content used only to lift the resumed context above the soft compaction threshold for this probe. Nothing here is needed later. ... End of second filler. Continue the synthetic session. Reply with only: OK [truncated]\""
+    },
+    "preserved_segment_hint": {
+      "head_sequence": 16,
+      "tail_sequence": 45
+    },
+    "budget_before": {
+      "estimated_prompt_tokens": 41728,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    },
+    "estimated_budget_after": {
+      "estimated_prompt_tokens": 27960,
+      "target_met": false,
+      "estimate_source": "heuristic_estimate"
+    },
+    "diagnostics": [
+      {
+        "reason": "summary_call_metrics",
+        "message": "{\"provider_calls\":1,\"usage_unavailable_calls\":0,\"input_tokens\":12623,\"output_tokens\":978,\"cached_tokens\":0,\"cache_write_tokens\":0,\"cache_read_tokens\":0,\"cache_breakdown_unavailable_calls\":0,\"reasoning_tokens\":539}"
+      }
+    ]
+  },
+  {
+    "kind": "context_compaction_installed",
+    "install_id": "install-46",
+    "candidate_id": "candidate-15",
+    "trigger": "soft_threshold_async",
+    "timing": "standalone_manual",
+    "strategy_id": "summary-preserved-suffix/v1",
+    "summarized_through": {
+      "sequence": 14
+    },
+    "replacement": {
+      "kind": "summary_text",
+      "text": "## Primary Request And Intent\nContinue synthetic session and reply with only `OK`, preserving code word `MARIGOLD-742`.\n## User Constraints And Preferences\nReply with only: `OK`\n## Current State\nAssistant has replied `OK` to continuation prompts. No code, file, or command activity. Marker `MARIGOLD-742` preserved in context.\nNo one-time setup commands were requested; none completed.\n## Files, APIs, Commands, And Tests\nNone known.\n## Decisions And Rationale\nNone known.\n## Errors, Failed Attempts, And Fixes\nNone known.\n## Open Questions And Risks\nNone known.\n## Pending Tasks And Next Step\nNo missing work known. Next step is to continue replying `OK` if user continues synthetic session.\n## User Message Timeline\nUser: \"Synthetic compaction probe session. Remember this code word exactly: MARIGOLD-742 Filler entry 0... [truncated]\"\nUser: \"Continue the synthetic session. Reply with only: OK\"\nUser: \"Continue the synthetic session. Reply with only: OK\"\nUser: \"Second filler entry 0001: more ordinary narrative content used only to lift the resumed context above the soft compaction threshold for this probe. Nothing here is needed later. ... End of second filler. Continue the synthetic session. Reply with only: OK [truncated]\""
+    },
+    "preserved_segment": {
+      "head_sequence": 16,
+      "tail_sequence": 45,
+      "interval": "(14, 45]",
+      "boundary_widened": false
+    },
+    "budget_before": {
+      "estimated_prompt_tokens": 41728,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    },
+    "budget_after": {
+      "estimated_prompt_tokens": 27960,
+      "target_met": false,
+      "estimate_source": "heuristic_estimate"
+    },
+    "prompt_cache_boundary": {
+      "status": "reset",
+      "cache_key": null,
+      "stable_prefix_label": null,
+      "stable_through_sequence": null,
+      "change_reason": "summary_replaced_prefix",
+      "reported_cached_tokens": null
+    },
+    "summarizer_usage": {
+      "input_tokens": 12623,
+      "output_tokens": 978,
+      "duration_ms": 12151
+    }
+  },
+  {
+    "kind": "context_compaction_candidate",
+    "candidate_id": "candidate-15",
+    "trigger": "soft_threshold_async",
+    "timing": "pre_turn",
+    "status": "succeeded",
+    "strategy": {
+      "strategy_id": "summary-preserved-suffix/v1",
+      "strategy_family": "summary",
+      "config_fingerprint": "soft=0.0500,hard=0.1000",
+      "target_budget_tokens": 25600,
+      "soft_threshold_tokens": 25600,
+      "hard_threshold_tokens": 51200
+    },
+    "superseded_by": null,
+    "started_at_cursor": {
+      "sequence": 14
+    },
+    "summarized_through_cursor": {
+      "sequence": 14
+    },
+    "replacement": {
+      "kind": "summary_text",
+      "text": "## Primary Request And Intent\nContinue synthetic session and reply with only `OK`, preserving code word `MARIGOLD-742`.\n## User Constraints And Preferences\nReply with only: `OK`\n## Current State\nAssistant has replied `OK` to continuation prompts. No code, file, or command activity. Marker `MARIGOLD-742` preserved in context.\nNo one-time setup commands were requested; none completed.\n## Files, APIs, Commands, And Tests\nNone known.\n## Decisions And Rationale\nNone known.\n## Errors, Failed Attempts, And Fixes\nNone known.\n## Open Questions And Risks\nNone known.\n## Pending Tasks And Next Step\nNo missing work known. Next step is to continue replying `OK` if user continues synthetic session.\n## User Message Timeline\nUser: \"Synthetic compaction probe session. Remember this code word exactly: MARIGOLD-742 Filler entry 0... [truncated]\"\nUser: \"Continue the synthetic session. Reply with only: OK\"\nUser: \"Continue the synthetic session. Reply with only: OK\"\nUser: \"Second filler entry 0001: more ordinary narrative content used only to lift the resumed context above the soft compaction threshold for this probe. Nothing here is needed later. ... End of second filler. Continue the synthetic session. Reply with only: OK [truncated]\""
+    },
+    "preserved_segment_hint": {
+      "head_sequence": 16,
+      "tail_sequence": 45
+    },
+    "budget_before": {
+      "estimated_prompt_tokens": 41728,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    },
+    "estimated_budget_after": {
+      "estimated_prompt_tokens": 27960,
+      "target_met": false,
+      "estimate_source": "heuristic_estimate"
+    },
+    "diagnostics": [
+      {
+        "reason": "summary_call_metrics",
+        "message": "{\"provider_calls\":1,\"usage_unavailable_calls\":0,\"input_tokens\":12623,\"output_tokens\":978,\"cached_tokens\":0,\"cache_write_tokens\":0,\"cache_read_tokens\":0,\"cache_breakdown_unavailable_calls\":0,\"reasoning_tokens\":539}"
+      }
+    ]
+  },
+  {
+    "kind": "context_compaction_installed",
+    "install_id": "install-46",
+    "candidate_id": "candidate-15",
+    "trigger": "soft_threshold_async",
+    "timing": "standalone_manual",
+    "strategy_id": "summary-preserved-suffix/v1",
+    "summarized_through": {
+      "sequence": 14
+    },
+    "replacement": {
+      "kind": "summary_text",
+      "text": "## Primary Request And Intent\nContinue synthetic session and reply with only `OK`, preserving code word `MARIGOLD-742`.\n## User Constraints And Preferences\nReply with only: `OK`\n## Current State\nAssistant has replied `OK` to continuation prompts. No code, file, or command activity. Marker `MARIGOLD-742` preserved in context.\nNo one-time setup commands were requested; none completed.\n## Files, APIs, Commands, And Tests\nNone known.\n## Decisions And Rationale\nNone known.\n## Errors, Failed Attempts, And Fixes\nNone known.\n## Open Questions And Risks\nNone known.\n## Pending Tasks And Next Step\nNo missing work known. Next step is to continue replying `OK` if user continues synthetic session.\n## User Message Timeline\nUser: \"Synthetic compaction probe session. Remember this code word exactly: MARIGOLD-742 Filler entry 0... [truncated]\"\nUser: \"Continue the synthetic session. Reply with only: OK\"\nUser: \"Continue the synthetic session. Reply with only: OK\"\nUser: \"Second filler entry 0001: more ordinary narrative content used only to lift the resumed context above the soft compaction threshold for this probe. Nothing here is needed later. ... End of second filler. Continue the synthetic session. Reply with only: OK [truncated]\""
+    },
+    "preserved_segment": {
+      "head_sequence": 16,
+      "tail_sequence": 45,
+      "interval": "(14, 45]",
+      "boundary_widened": false
+    },
+    "budget_before": {
+      "estimated_prompt_tokens": 41728,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    },
+    "budget_after": {
+      "estimated_prompt_tokens": 27960,
+      "target_met": false,
+      "estimate_source": "heuristic_estimate"
+    },
+    "prompt_cache_boundary": {
+      "status": "reset",
+      "cache_key": null,
+      "stable_prefix_label": null,
+      "stable_through_sequence": null,
+      "change_reason": "summary_replaced_prefix",
+      "reported_cached_tokens": null
+    },
+    "summarizer_usage": {
+      "input_tokens": 12623,
+      "output_tokens": 978,
+      "duration_ms": 12151
+    }
+  }
+]

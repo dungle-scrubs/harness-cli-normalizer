@@ -1853,7 +1853,6 @@
           "harness": "muse",
           "option": "effort",
           "supported": [
-            "none",
             "minimal",
             "low",
             "medium",
@@ -1862,7 +1861,7 @@
             "max",
             "ultra"
           ],
-          "message": "unknown effort for muse \"bogus\"; supported: none, minimal, low, medium, high, xhigh, max, ultra - use one of the ladder values"
+          "message": "unknown effort for muse \"bogus\"; supported: minimal, low, medium, high, xhigh, max, ultra - use one of the ladder values"
         }
       },
       "model-unknown": {
@@ -6258,7 +6257,6 @@
           "harness": "muse",
           "option": "effort",
           "supported": [
-            "none",
             "minimal",
             "low",
             "medium",
@@ -6267,7 +6265,7 @@
             "max",
             "ultra"
           ],
-          "message": "unknown effort for muse \"bogus\"; supported: none, minimal, low, medium, high, xhigh, max, ultra - use one of the ladder values"
+          "message": "unknown effort for muse \"bogus\"; supported: minimal, low, medium, high, xhigh, max, ultra - use one of the ladder values"
         }
       },
       "model-unknown": {
