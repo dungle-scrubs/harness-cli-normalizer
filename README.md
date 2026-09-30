@@ -775,9 +775,14 @@ never fails or delays the run, and an unset variable leaves it byte for byte
 unchanged. The stream contract is
 https://github.com/dungle-scrubs/harness-cli-normalizer/blob/main/docs/observer.md;
 the reflection intake ships one such observer.
-`resetsAt` is present only when the harness reports a reset time (today:
-claude's `rate_limit_event`); a consumer treats its absence as unknown,
-not as "retry now".
+`resetsAt` is present when the harness reports a reset time: claude's
+`rate_limit_event`, and a limit wall whose text states one (codex
+`try again at ...`, rendered in the harness's local zone at minute
+precision and reported as the end of that minute; pi's
+`Try again in ~N min`). Pi's `openai-codex` stream-error path
+(`Codex error: The usage limit has been reached`) carries none, because
+pi drops the backend's `resets_at`. A consumer treats its absence as
+unknown, not as "retry now".
 
 ### Muse pending native approvals (issue #179)
 

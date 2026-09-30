@@ -435,7 +435,7 @@ export const openSession = (
     await routeEvent(event);
     if (event.kind === "limit") await pushFailure(failureFromLimit(event.code));
     if (event.kind === "error" && event.terminal === true) {
-      const failure = failureFromTerminalError(h, event.message);
+      const failure = failureFromTerminalError(h, event.message, deps.clock);
       if (isLimitFailure(failure)) {
         state.limitSeen = true;
         turnLimitSeen = true;
@@ -722,7 +722,7 @@ export const openSession = (
     // directly, before endTurn reduces the turn's verdict.
     if (activeTurn !== null) {
       for (const event of settleProvisionalError(state)) {
-        const failure = failureFromTerminalError(h, event.message);
+        const failure = failureFromTerminalError(h, event.message, deps.clock);
         if (isLimitFailure(failure)) {
           state.limitSeen = true;
           turnLimitSeen = true;

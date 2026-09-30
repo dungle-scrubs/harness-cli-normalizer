@@ -162,6 +162,10 @@ export class FakeClock implements Clock {
   private time = 0;
   private nextHandle = 1;
   private readonly timers = new Map<TimerHandle, { at: number; fn: () => void }>();
+  /** Fixed east-of-UTC offset (minutes) when set; unset mirrors an
+   * injected clock with no zone, which leaves local-form reset hints
+   * unresolved. */
+  utcOffsetMinutes?: (epochMs: number) => number;
 
   now(): number {
     return this.time;

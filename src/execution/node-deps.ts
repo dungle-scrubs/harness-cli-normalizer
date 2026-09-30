@@ -222,6 +222,9 @@ const realSpawn = (argv: readonly string[], opts: SpawnOptions): SpawnedProcess 
 
 const realClock: Clock = {
   now: () => Date.now(),
+  // getTimezoneOffset is minutes WEST of UTC; the reset-hint resolver
+  // wants east-of-UTC, so negate it (+420 for +07:00).
+  utcOffsetMinutes: (ms) => -new Date(ms).getTimezoneOffset(),
   setTimeout: (fn, ms) => setTimeout(fn, ms) as unknown as number,
   clearTimeout: (handle) => clearTimeout(handle as unknown as ReturnType<typeof setTimeout>),
 };

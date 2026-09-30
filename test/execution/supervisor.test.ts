@@ -104,6 +104,22 @@ describe("stderr classification", () => {
     expect(r.failed.map((f) => f.class)).toEqual(["usage-limit", "auth"]);
     expect(r.tail.snapshot()).toEqual(["some noise"]);
   });
+
+  test("a limit wall stating a reset time carries resetsAt (issue #325)", async () => {
+    const r = rig();
+    r.clock.utcOffsetMinutes = () => 420;
+    await r.sup.stderrLine(
+      "You’ve hit your usage limit. Visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at Oct 3rd, 2026 11:58 PM.",
+    );
+    expect(r.emitted.map((e) => e.kind)).toEqual(["limit"]);
+    expect(r.failed[0]?.resetsAt).toBe(Date.parse("2026-10-03T16:59:00Z"));
+    // A clock without a zone leaves the local form unresolved.
+    const zoneless = rig();
+    await zoneless.sup.stderrLine(
+      "You’ve hit your usage limit. …or try again at Oct 3rd, 2026 11:58 PM.",
+    );
+    expect(zoneless.failed[0]?.resetsAt).toBeUndefined();
+  });
 });
 
 describe("turn close", () => {

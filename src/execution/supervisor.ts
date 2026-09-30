@@ -26,6 +26,7 @@ import {
   failureFromLimit,
   failureFromTask,
   failureFromTrust,
+  resetsAtInLine,
 } from "./failure.js";
 
 /** SIGTERM -> SIGKILL escalation budget for a child that ignores the first
@@ -195,7 +196,7 @@ export const superviseTurn = (
       const limit = detectLimitInLine(h, line);
       if (limit !== null) {
         await io.emit({ kind: "limit", code: limit, message: `limit wall detected (${limit})` });
-        await io.fail(failureFromLimit(limit));
+        await io.fail(failureFromLimit(limit, undefined, resetsAtInLine(line, io.clock)));
         return;
       }
       const auth = detectAuthFailureInLine(h, line);
