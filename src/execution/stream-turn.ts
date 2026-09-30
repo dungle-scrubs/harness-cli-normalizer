@@ -577,7 +577,7 @@ export async function* streamTurn(
       if (event.kind === "error") {
         await queue.push(event);
         if (event.terminal === true) {
-          const failure = failureFromTerminalError(h, event.message);
+          const failure = failureFromTerminalError(h, event.message, deps.clock);
           if (isLimitFailure(failure)) state.limitSeen = true;
           await pushFailure(failure);
         }

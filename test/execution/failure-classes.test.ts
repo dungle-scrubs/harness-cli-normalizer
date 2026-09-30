@@ -226,6 +226,51 @@ describe("failureFromTerminalError limit walls (issue #198)", () => {
   });
 });
 
+describe("failureFromTerminalError reset hints (issue #325)", () => {
+  const liveWall =
+    "You’ve hit your usage limit. Visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at Oct 3rd, 2026 11:58 PM.";
+  // The +07:00 zone the live capture rendered in; the printed minute is
+  // truncated, so the resolved bound is its end (2026-10-03T16:59:00Z).
+  const zoneClock = {
+    now: () => Date.parse("2026-09-30T01:00:00Z"),
+    utcOffsetMinutes: () => 420,
+  };
+
+  test("a codex wall stating a reset time carries resetsAt when a clock is given", () => {
+    const failure = failureFromTerminalError(codexCli, liveWall, zoneClock);
+    expect(failure.class).toBe("usage-limit");
+    expect(failure.resetsAt).toBe(Date.parse("2026-10-03T16:59:00Z"));
+  });
+
+  test("without a clock the same wall carries no resetsAt (existing behaviour)", () => {
+    const failure = failureFromTerminalError(codexCli, liveWall);
+    expect(failure.class).toBe("usage-limit");
+    expect(failure.resetsAt).toBeUndefined();
+  });
+
+  test("pi's openai-codex 429 wording classifies usage-limit and carries resetsAt", () => {
+    // pi renders the backend resets_at as rounded minutes remaining; the
+    // resolved bound is the top of that rounding (+30 s).
+    const failure = failureFromTerminalError(
+      piCli,
+      "pi turn ended with stopReason error: You have hit your ChatGPT usage limit (pro plan). Try again in ~42 min.",
+      zoneClock,
+    );
+    expect(failure.class).toBe("usage-limit");
+    expect(failure.resetsAt).toBe(Date.parse("2026-09-30T01:00:00Z") + 42 * 60_000 + 30_000);
+  });
+
+  test("a wall with no reset phrasing never guesses one", () => {
+    const failure = failureFromTerminalError(
+      piCli,
+      "pi turn ended with stopReason error: Codex error: The usage limit has been reached",
+      zoneClock,
+    );
+    expect(failure.class).toBe("usage-limit");
+    expect(failure.resetsAt).toBeUndefined();
+  });
+});
+
 describe("failureFromTerminalError limit walls (issue #322: pi provider 429 bodies)", () => {
   // The failure recorded in the issue: pi on minimax/MiniMax-M3 ended the
   // turn with stopReason error and the provider's 429 body embedded in

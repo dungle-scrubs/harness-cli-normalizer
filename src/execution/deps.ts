@@ -60,6 +60,12 @@ export type TimerHandle = number;
 
 export interface Clock {
   now(): number;
+  /** The local zone's offset east of UTC at that instant, in minutes
+   * (+420 for +07:00). Optional: a clock without it leaves wall-prose
+   * reset times in local form unresolved. The zone is the child's too -
+   * the child inherits this process's environment, so its prose
+   * timestamps render in this zone. */
+  utcOffsetMinutes?(epochMs: number): number;
   setTimeout(fn: () => void, ms: number): TimerHandle;
   clearTimeout(handle: TimerHandle): void;
 }

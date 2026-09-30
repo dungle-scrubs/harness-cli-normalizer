@@ -19,6 +19,8 @@ import {
   detectTransportInLine,
   detectTrustRefusal,
   detectUnavailableInLine,
+  resetHintInLine,
+  resolveResetHint,
 } from "../interpretation/limits.js";
 import type { RefusalIssue } from "../interpretation/refusal.js";
 import type {
@@ -28,6 +30,7 @@ import type {
   LimitCode,
 } from "../knowledge/descriptor.js";
 import type { NativeApprovalFailure } from "../knowledge/native-approvals.js";
+import type { Clock } from "./deps.js";
 import type { LineOverflow } from "./lines.js";
 
 export const FAILURE_CLASSES = Object.freeze([
@@ -187,15 +190,33 @@ export const failureFromAuth = (kind: AuthFailureKind): FailureSummary => ({
 export const isLimitFailure = (failure: FailureSummary): boolean =>
   failure.class === "rate-limit" || failure.class === "usage-limit" || failure.class === "quota";
 
+/** The reset time a limit wall's own text states, resolved against the
+ * clock's zone. Undefined when the line states none, when no clock is
+ * given, or when the clock cannot place a local timestamp. */
+export const resetsAtInLine = (
+  line: string,
+  clock: Pick<Clock, "now" | "utcOffsetMinutes"> | undefined,
+): number | undefined => {
+  if (clock === undefined) return undefined;
+  const hint = resetHintInLine(line);
+  if (hint === null) return undefined;
+  return resolveResetHint(hint, clock.now(), clock.utcOffsetMinutes?.bind(clock)) ?? undefined;
+};
+
 /** A terminal error the harness reported on its stream: classify by what
  * it says. An auth wall, a limit wall, or a transport fault reached no
  * verdict on the work (retryable); anything else is the model's own
- * failure (task). */
-export const failureFromTerminalError = (h: HarnessDescriptor, message: string): FailureSummary => {
+ * failure (task). A limit wall whose prose states a reset time carries
+ * `resetsAt` when a clock is supplied; without one it does not. */
+export const failureFromTerminalError = (
+  h: HarnessDescriptor,
+  message: string,
+  clock?: Pick<Clock, "now" | "utcOffsetMinutes">,
+): FailureSummary => {
   const auth = detectAuthFailureInLine(h, message);
   if (auth !== null) return failureFromAuth(auth);
   const limit = detectLimitInLine(h, message);
-  if (limit !== null) return failureFromLimit(limit, message);
+  if (limit !== null) return failureFromLimit(limit, message, resetsAtInLine(message, clock));
   if (detectTrustRefusal(h, message)) return failureFromTrust(message);
   if (detectTransportInLine(message)) return failureFromTransport(message);
   if (detectUnavailableInLine(message)) return failureFromUnavailable(message);

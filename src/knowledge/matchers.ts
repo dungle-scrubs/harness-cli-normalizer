@@ -47,7 +47,14 @@ export const compileMatcher = (pattern: string, flags: string | undefined): RegE
 };
 
 export const SHARED_LIMIT_MATCHERS: ReadonlyArray<LimitMatcher> = [
-  { pattern: "you['’]?ve hit your usage limit", flags: "i", code: "usage-limit" },
+  // "You have hit your ChatGPT usage limit (pro plan)." - pi's openai-codex
+  // rendering of the backend 429 (issue #325): spelled out, with a product
+  // word before the noun.
+  {
+    pattern: "you(?:['’]?ve| have) hit your (?:\\w+ )?usage limit",
+    flags: "i",
+    code: "usage-limit",
+  },
   // "The Token Plan usage limit has been reached." - MiniMax plan wall riding
   // in a provider 429 body (issue #322): the auxiliary verbs sit between the
   // noun phrase and the verdict verb.

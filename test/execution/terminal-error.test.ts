@@ -198,6 +198,43 @@ describe("F-07 terminal error record ends clean", () => {
     });
   });
 
+  test("issue #325: a codex usage wall stating a reset time carries resetsAt end to end", async () => {
+    // Live capture (codex 0.158.0 exec --json on an exhausted quota):
+    // thread.started / turn.started / error / turn.failed, both error
+    // records carrying the same prose wall. The reset prints in the
+    // child's local zone (+07:00 here) at minute precision, so resetsAt
+    // is the end of that minute - the truncated minute's upper bound.
+    const wall =
+      "You’ve hit your usage limit. Visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at Oct 3rd, 2026 11:58 PM.";
+    const proc = new FakeProcess();
+    const clock = new FakeClock();
+    clock.utcOffsetMinutes = () => 420;
+    const sig = fakeSignal();
+    const spawner = fakeSpawner([proc]);
+    const turn = streamTurn(
+      codexCli,
+      { prompt: "hi", questions: "none" },
+      { spawn: spawner.spawn, clock, signal: sig.signal },
+    );
+    proc.emitLine(JSON.stringify({ type: "thread.started", thread_id: "t-1" }));
+    proc.emitLine(JSON.stringify({ type: "turn.started" }));
+    proc.emitLine(JSON.stringify({ type: "error", message: wall }));
+    proc.emitLine(JSON.stringify({ type: "turn.failed", error: { message: wall } }));
+    proc.exit(1);
+    const events = await collect(turn);
+    // The duplicate turn.failed wall dedupes into the one failure record.
+    const failures = events.filter(
+      (e): e is Extract<HarnessEvent, { kind: "failure" }> => e.kind === "failure",
+    );
+    expect(failures).toHaveLength(1);
+    expect(failures[0]?.resetsAt).toBe(Date.parse("2026-10-03T16:59:00Z"));
+    expect(events.at(-1)).toMatchObject({
+      kind: "done",
+      cause: "limit",
+      failure: { class: "usage-limit", resetsAt: Date.parse("2026-10-03T16:59:00Z") },
+    });
+  });
+
   test("muse run_terminal failed yields task failure", async () => {
     const proc = new FakeProcess();
     const d = depsFor(proc);
