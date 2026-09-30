@@ -110,7 +110,14 @@ export const codexCli: HarnessDescriptor = deepFreeze({
   autonomy: { flag: "--yolo" },
   vocabulary: {
     modelFlag: "--model",
+    // gpt-6.1-sol: offered in the account's server-pushed roster
+    // (~/.codex/models_cache.json, fetched 2026-09-30, visibility "list",
+    // priority 1) and verified live on 0.159.2 (`codex exec -m gpt-6.1-sol`
+    // answered, 2026-09-30). Its native ladder also carries "ultra", which
+    // sits outside hcn's closed effort vocabulary, so the declared ladder
+    // stops at max.
     models: [
+      "gpt-6.1-sol",
       "gpt-6-astra",
       "gpt-6-sol",
       "gpt-6-luna",
@@ -124,6 +131,7 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     // Codex constrains ladders per model generation (v1 registry).
     effortsByModel: {
       // https://developers.openai.com/api/docs/models/gpt-6-astra (2026-09-06).
+      "gpt-6.1-sol": ["low", "medium", "high", "xhigh", "max"],
       "gpt-6-astra": ["low", "medium", "high", "xhigh", "max"],
       "gpt-6-sol": ["low", "medium", "high", "xhigh", "max"],
       "gpt-6-luna": ["low", "medium", "high", "xhigh", "max"],

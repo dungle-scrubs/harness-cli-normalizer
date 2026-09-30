@@ -11,14 +11,17 @@ import { museCode } from "../../src/knowledge/muse.js";
 import { piCli } from "../../src/knowledge/pi.js";
 
 describe("GPT-6 Codex model selection", () => {
-  test.each(["gpt-6-sol", "gpt-6-luna"])("renders %s with its supported effort", (model) => {
-    const argv = buildLaunchArgv(codexCli, { prompt: "Reply OK", model, effort: "high" });
-    expect(argv[argv.indexOf("--model") + 1]).toBe(model);
-    expect(argv).toContain('model_reasoning_effort="high"');
-    expect(() =>
-      buildLaunchArgv(codexCli, { prompt: "Reply OK", model, effort: "minimal" }),
-    ).toThrow();
-  });
+  test.each(["gpt-6.1-sol", "gpt-6-sol", "gpt-6-luna"])(
+    "renders %s with its supported effort",
+    (model) => {
+      const argv = buildLaunchArgv(codexCli, { prompt: "Reply OK", model, effort: "high" });
+      expect(argv[argv.indexOf("--model") + 1]).toBe(model);
+      expect(argv).toContain('model_reasoning_effort="high"');
+      expect(() =>
+        buildLaunchArgv(codexCli, { prompt: "Reply OK", model, effort: "minimal" }),
+      ).toThrow();
+    },
+  );
 });
 
 describe("buildLaunchArgv (claude)", () => {
