@@ -113,7 +113,10 @@ function fixture(entries: (cwd: string) => readonly (Entry | string)[], flat = f
       : { PI_CODING_AGENT_DIR: agent }),
   };
   const hcn = (args: readonly string[]) =>
-    spawnSync(bun, [cli, ...args], { cwd, env, encoding: "utf8", timeout: 15000 });
+    // 60s: this rig spawns real pi processes; under a fully parallel suite
+    // (one worker per file) the spawn+read chain has been observed past 15s
+    // and the kill turned a passing assertion into a flake.
+    spawnSync(bun, [cli, ...args], { cwd, env, encoding: "utf8", timeout: 60000 });
   const inspect = () =>
     hcn(["inspect", "pi", "--native-settings", "--resume", sessionId, "--cwd", cwd, "--json"]);
   return { root, cwd, file, extension, hcn, inspect };
@@ -276,6 +279,10 @@ test("the fingerprint covers the file bytes across read chunks", () => {
   expect(JSON.parse(f.inspect().stdout).fingerprint).toBe(expected);
 });
 
+// Seven sequential real-CLI spawns (inspect, preview, run, refusals): under
+// the fully parallel suite each spawn slows several-fold and the default
+// 20s test timeout (vitest and bun both) turns the chain into the suite's
+// one flake. The numeric third arg is the one timeout form both lanes honor.
 test("a fingerprinted Pi resume is flagless, loads the extension, and refuses every other option", () => {
   const f = fixture(bound);
   const fingerprint = JSON.parse(f.inspect().stdout).fingerprint;
@@ -352,7 +359,7 @@ test("a fingerprinted Pi resume is flagless, loads the extension, and refuses ev
   expect(changed.status).toBe(2);
   expect(changed.stdout).toContain("native-settings-changed");
   expect(existsSync(join(f.root, "native-argv.json"))).toBe(false);
-});
+}, 120_000);
 
 test("--extension refuses a missing file and a harness without extension support", () => {
   const f = fixture(bound);

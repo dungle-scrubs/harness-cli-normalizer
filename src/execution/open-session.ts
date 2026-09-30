@@ -28,6 +28,7 @@ import {
   resolveSessionInput,
   SessionInputRefusalError,
 } from "../interpretation/session-input.js";
+import type { SkillsSelection } from "../interpretation/skills-selection.js";
 import type { HarnessDescriptor, SessionInputContract } from "../knowledge/descriptor.js";
 import { AsyncChannel } from "./channel.js";
 import { decodeLine, decodeParsed, freshDecodeState, settleProvisionalError } from "./decode.js";
@@ -124,6 +125,11 @@ export interface OpenSessionOptions {
   /** The host's own version, reported to harnesses that ask at session
    * open (codex app-server's initialize handshake carries clientInfo). */
   readonly clientVersion?: string;
+  /** Caller-directed skills allowlist (issue #332), resolved by the CLI
+   * against the registry root. Passed to buildSessionArgv, which renders
+   * it through the same owner a one-shot launch uses; a harness that
+   * cannot enforce an allowlist refuses here, before any spawn. */
+  readonly skills?: SkillsSelection;
 }
 
 export class SessionClosedError extends Error {
@@ -155,6 +161,7 @@ export const openSession = (
     ...(opts.provider !== undefined ? { provider: opts.provider } : {}),
     ...(opts.agent !== undefined ? { agent: opts.agent } : {}),
     ...(opts.isResume !== undefined ? { isResume: opts.isResume } : {}),
+    ...(opts.skills !== undefined ? { skills: opts.skills } : {}),
   });
   let sessionInput: SessionInputContract;
   try {

@@ -419,6 +419,15 @@ export interface SessionOptions {
    * fresh session. Controls which descriptor flag is rendered: resumeFlag
    * vs idFlag. Only consumers that alias --resume/--session-id set this. */
   readonly isResume?: boolean;
+  /** Caller-directed skills allowlist (issue #332), resolved by the CLI
+   * against the registry root before it gets here. Rendered by the same
+   * renderSkillsSelection a one-shot launch uses, so the spelling and the
+   * refusal (a null-skills harness refuses) stay identical across run and
+   * session. A spawn property, not a turn option: the flags ride the one
+   * session spawn, so the allowlist holds for the whole session across
+   * every turn - and on resume too, where the resumed process is re-spawned
+   * with the same narrowing. */
+  readonly skills?: SkillsSelection;
 }
 
 export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): string[] => {
@@ -483,6 +492,12 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
       ).tokens,
     );
   }
+  // issue #332: the skills allowlist renders through the one owner a
+  // launch argv uses (renderSkillsSelection), so a null-skills harness
+  // refuses here - before spawn - with the same unsupported-option shape
+  // hcn run refuses with. pi renders its discovery facet off plus one
+  // --skill per pick; claude and codex render the complement-off overrides.
+  if (opts.skills !== undefined) argv.push(...renderSkillsSelection(h, opts.skills));
   return argv;
 };
 

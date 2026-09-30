@@ -347,7 +347,14 @@ same way as on `hcn run` and refused elsewhere with exit 2. `--effort <v>`
 sets the effort for the session spawn, validated against the ladder that
 applies to the picked `--model` exactly as on `hcn run` (claude `--effort`,
 pi `--thinking`); a session without it runs at the harness's own default
-- no profile effort is pinned onto sessions. The other
+- no profile effort is pinned onto sessions. `--skills <a,b>` is the same
+allowlist `hcn run --skills` takes, resolved against `$HCN_SKILLS_ROOT`
+through the same code path: pi loads only the picks, claude narrows the
+registry via `--settings skillOverrides`, codex via `-c skills.config`.
+The allowlist is a spawn property, so it holds for the whole session across
+every turn (resume included); antigravity and popeye cannot enforce it and
+refuse with exit 2 rather than open with the full set, and unknown names
+refuse with exit 2 before spawn. The other
 session flags (`--model`, `--session-id`, `--cwd`, `--escalate-questions` /
 `--no-escalate-questions`) behave as in the REPL.
 

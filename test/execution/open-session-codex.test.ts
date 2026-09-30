@@ -174,7 +174,7 @@ describe("openSession (codex app-server, fake process)", () => {
 
   test("a failed turn/start receipt rejects the send and leaves no stuck turn", async () => {
     const proc = new FakeProcess();
-    const { session, turnsIter } = await openCodexSession(proc);
+    const { session } = await openCodexSession(proc);
     let sent: SessionSendResult | undefined;
     setImmediate(() => {
       sent = session.send({ id: "in-1", text: "doomed" });

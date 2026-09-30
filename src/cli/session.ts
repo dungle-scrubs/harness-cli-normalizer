@@ -12,6 +12,7 @@ import {
 } from "../interpretation/question.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
 import type { BehaviorTier } from "../interpretation/resolve-options.js";
+import type { SkillsSelection } from "../interpretation/skills-selection.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { splitPassthrough } from "./args.js";
@@ -19,6 +20,7 @@ import { markJsonCrashStream } from "./crash.js";
 import { gateExtensionOptions, writeExtensionProvenance } from "./extension-gate.js";
 import { createRenderState, renderEvent } from "./render.js";
 import { resolveHarness } from "./resolve-harness.js";
+import { listKnownSkills, resolveSkillNames } from "./skills-root.js";
 
 export const session = async (harnessName: string, rawArgs: string[]): Promise<void> => {
   // Decided before any refusal can fire: a refused --json session still owes
@@ -125,6 +127,35 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
       "closed",
     );
     return;
+  }
+  // issue #332: --skills resolves through the same code path hcn run uses
+  // (names against the registry root, an fs read this CLI layer owns), then
+  // rides the session spawn, where buildSessionArgv renders it through the
+  // one owner a launch argv uses. A harness that cannot enforce an
+  // allowlist refuses at the render, before any spawn - never a session
+  // with the full skill set. An empty --skills= is a selection of nothing
+  // and renders nothing, the same as run.
+  let skills: SkillsSelection | undefined;
+  const rawSkillNames = values.skills;
+  if (rawSkillNames !== undefined) {
+    const names = String(rawSkillNames)
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    if (names.length > 0) {
+      try {
+        skills = {
+          picks: resolveSkillNames(names, h.name),
+          known: listKnownSkills(),
+        };
+      } catch (err) {
+        if (!(err instanceof ArgvRefusalError)) throw err;
+        const { refusalOf, refuse } = await import("./refuse.js");
+        refuse(refusalOf(err), jsonMode, "closed");
+        return;
+      }
+      process.stderr.write(`provenance: skills = ${names.join(", ")} (allowlist; session spawn)\n`);
+    }
   }
   // --resume and --session-id are aliases for one concept; the one check
   // every command calls decides whether both were given.
@@ -370,6 +401,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
         isResume,
         clientVersion: getVersion(),
         ...(memoryExpressible ? { memory } : {}),
+        ...(skills !== undefined ? { skills } : {}),
       },
       deps,
     );

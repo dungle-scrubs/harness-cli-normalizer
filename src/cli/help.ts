@@ -186,7 +186,7 @@ Defaults with no flags:
   'hcn inspect <harness>' for the resolved argv of a bare run.
 `;
 
-export const SESSION_HELP = `hcn session - Interactive session (claude, pi, antigravity, popeye)
+export const SESSION_HELP = `hcn session - Interactive session (claude, pi, antigravity, popeye, codex)
 
 Usage: hcn session <harness> [options]
 
@@ -213,6 +213,16 @@ Options:
                             antigravity, popeye; pi with its subagent
                             extension verified at open; others refuse)
   --model <id>              Model for the session
+  --skills <a,b>            Skill allowlist for the session, resolved against
+                            $HCN_SKILLS_ROOT (or ~/.agents/skills) exactly like
+                            hcn run --skills. pi loads only the picks (--skill
+                            per pick, discovery off); claude narrows via
+                            --settings skillOverrides; codex via -c
+                            skills.config. The allowlist is a spawn property:
+                            it holds for the whole session, every turn, resume
+                            included. antigravity and popeye cannot enforce it
+                            and refuse with exit 2 rather than open with the
+                            full set. Unknown names refuse with exit 2.
   --effort <value>          Effort level for the session spawn (validated
                             per harness/model; no default - the harness's
                             own effort applies without the flag)

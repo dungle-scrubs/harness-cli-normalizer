@@ -66,6 +66,53 @@ describe("openSession effort (claude, fake process)", () => {
   });
 });
 
+describe("openSession skills (#332, fake process)", () => {
+  test("the allowlist rides the one session spawn argv; sends still work after", async () => {
+    const proc = new FakeProcess();
+    const d = makeDeps(proc);
+    const session = openSession(
+      claudeCode,
+      { sessionId: sid, skills: { picks: ["/root/hcn"], known: ["hcn", "grill"] } },
+      d,
+    );
+    const argv = d.spawner.calls[0]?.argv ?? [];
+    const i = argv.indexOf("--settings");
+    expect(i).toBeGreaterThan(0);
+    expect(JSON.parse(argv[i + 1] as string)).toEqual({ skillOverrides: { grill: "off" } });
+
+    // The session is a normal session: a send is accepted and opens a turn
+    // that consumes it.
+    expect(session.send({ id: "s", text: "turn one" }).disposition).toBe("started");
+    const turnsIter = session.turns[Symbol.asyncIterator]();
+    const turn = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
+    proc.emitLine(init);
+    proc.emitLine(assistant("answer"));
+    proc.emitLine(result);
+    const events = await drainTurn(turn);
+    expect(events.some((e) => e.kind === "identity")).toBe(true);
+    await session.close();
+  });
+
+  test("a null-skills harness refuses at open, before any spawn", async () => {
+    const { antigravityCli } = await import("../../src/knowledge/antigravity.js");
+    const d = makeDeps(new FakeProcess());
+    let refused: unknown;
+    try {
+      openSession(
+        antigravityCli,
+        { sessionId: sid, skills: { picks: ["/root/a"], known: ["a"] } },
+        d,
+      );
+      expect.unreachable("antigravity should refuse");
+    } catch (e) {
+      refused = e;
+    }
+    expect((refused as { issue?: string })?.issue).toBe("unsupported-option");
+    // Nothing was spawned: the refusal fires before the process exists.
+    expect(d.spawner.calls).toHaveLength(0);
+  });
+});
+
 describe("openSession (claude, fake process)", () => {
   test("one process serves many turns; send during idle starts a turn; result delimits it (A-001)", async () => {
     const proc = new FakeProcess();

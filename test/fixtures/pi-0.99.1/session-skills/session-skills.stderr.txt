@@ -1,0 +1,3 @@
+provenance: skills = wayfinder (allowlist; session spawn)
+provenance: questions = ask (default)
+provenance: memory = false (profile)

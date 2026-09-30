@@ -7,7 +7,7 @@
  * - muse: refuse with the standard hint shape
  */
 import { describe, expect, it } from "vitest";
-import { buildLaunchArgv } from "../../src/interpretation/argv.js";
+import { buildLaunchArgv, buildSessionArgv } from "../../src/interpretation/argv.js";
 import { renderSkillsSelection } from "../../src/interpretation/skills-selection.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
@@ -160,6 +160,82 @@ describe("popeye refusal", () => {
     const { popeyeCli } = await import("../../src/knowledge/popeye.js");
     try {
       buildLaunchArgv(popeyeCli, { prompt: "hi", skills: { picks: ["/root/a"], known: ["a"] } });
+      expect.unreachable("popeye should refuse");
+    } catch (e) {
+      const err = e as { issue: string; hint?: string };
+      expect(err.issue).toBe("unsupported-option");
+      expect(err.hint).toMatch(/plugin names/);
+    }
+  });
+});
+
+describe("session rendering (#332)", () => {
+  const sid = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
+
+  it("pi session: discovery off plus one --skill per pick on the rpc grammar", () => {
+    const argv = buildSessionArgv(piCli, {
+      sessionId: sid,
+      skills: { picks: ["/root/wayfinder", "/root/hcn"], known: ["wayfinder", "hcn", "grill"] },
+    });
+    expect(argv.slice(0, 3)).toEqual([piCli.bin, "--mode", "rpc"]);
+    expect(argv).toContain("--session-id");
+    expect(argv.filter((t) => t === "--skill")).toEqual(["--skill", "--skill"]);
+    expect(argv[argv.indexOf("--skill") + 1]).toBe("/root/wayfinder");
+    expect(argv[argv.lastIndexOf("--skill") + 1]).toBe("/root/hcn");
+    expect(argv).toContain("-ns");
+  });
+
+  it("claude session: complement-off skillOverrides on the stream-json grammar", () => {
+    const argv = buildSessionArgv(claudeCode, {
+      sessionId: sid,
+      skills: { picks: ["/root/hcn"], known: ["hcn", "grill"] },
+    });
+    expect(argv).toContain("--input-format");
+    const i = argv.indexOf("--settings");
+    expect(i).toBeGreaterThan(0);
+    expect(JSON.parse(argv[i + 1] as string)).toEqual({ skillOverrides: { grill: "off" } });
+    expect(argv).not.toContain("--skill");
+  });
+
+  it("codex session: complement-off skills.config on the app-server grammar", () => {
+    const argv = buildSessionArgv(codexCli, {
+      sessionId: sid,
+      skills: { picks: ["/root/hcn"], known: ["hcn", "grill"] },
+    });
+    expect(argv.slice(0, 2)).toEqual([codexCli.bin, "app-server"]);
+    const i = argv.indexOf("-c");
+    expect(i).toBeGreaterThan(0);
+    const value = argv[i + 1] as string;
+    expect(value).toContain('skills.config=[{path="/root/hcn/SKILL.md", enabled=true}');
+    expect(value).toContain('{name="grill", enabled=false}');
+  });
+
+  it("no picks renders nothing on the session grammar", () => {
+    const argv = buildSessionArgv(piCli, {
+      sessionId: sid,
+      skills: { picks: [], known: ["a"] },
+    });
+    expect(argv).not.toContain("-ns");
+    expect(argv).not.toContain("--skill");
+  });
+
+  it("antigravity refuses before any session opens", async () => {
+    const { antigravityCli } = await import("../../src/knowledge/antigravity.js");
+    expect(() =>
+      buildSessionArgv(antigravityCli, {
+        sessionId: sid,
+        skills: { picks: ["/root/a"], known: ["a"] },
+      }),
+    ).toThrow(/caller-directed skill sets/);
+  });
+
+  it("popeye refuses with its plugin-name hint", async () => {
+    const { popeyeCli } = await import("../../src/knowledge/popeye.js");
+    try {
+      buildSessionArgv(popeyeCli, {
+        sessionId: sid,
+        skills: { picks: ["/root/a"], known: ["a"] },
+      });
       expect.unreachable("popeye should refuse");
     } catch (e) {
       const err = e as { issue: string; hint?: string };

@@ -1,0 +1,7 @@
+provenance: skills = hcn (allowlist; session spawn)
+provenance: questions = ask (default)
+divergence: profile "memory" not expressible on antigravity; harness default applies
+antigravity cannot express option "skills"; supported: caller-directed skill sets - drop the option or route this work to a harness that supports it
+hint: muse scopes skills by workspace trust with no per-skill surface - include the skill content in the prompt or use --trust-workspace for the whole registry
+supported on: claude (skillOverrides), codex (-c skills.config), pi (--skill)
+supported: caller-directed skill sets
