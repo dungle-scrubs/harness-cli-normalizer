@@ -5,6 +5,26 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.3](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.2...v0.9.3) (2026-09-30)
+
+
+### Added
+
+* accept claude-sonnet-5-5 and move the sonnet alias to it ([f641d74](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/f641d74cb0051b108d2bb5c264de14b44d95c53b))
+* add --skills to hcn session ([d78c397](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/d78c397a948f19ef13d592f805ec5a7242ec7206))
+* add gpt-6.1-sol to the codex model roster ([58f9f32](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/58f9f32c4f774e14b424ce7325899e564808892e))
+* back hcn session codex with the app-server JSON-RPC protocol ([ef91f00](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/ef91f00323b54a4c6227c106e19d6c3c3e1d9415))
+
+
+### Fixed
+
+* re-verify five harness descriptors against their latest versions ([a698306](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/a698306ae525dcfd782d62d1a1d106b6adc625c5))
+
+
+### Changed
+
+* name pi's WebSocket transport as the resetsAt gap and SSE as the workaround ([#328](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/328)) ([62c6351](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/62c6351e425982355fe26b11358b0f453ec68880))
+
 ## [0.9.2](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.1...v0.9.2) (2026-09-30)
 
 
