@@ -779,10 +779,16 @@ the reflection intake ships one such observer.
 `rate_limit_event`, and a limit wall whose text states one (codex
 `try again at ...`, rendered in the harness's local zone at minute
 precision and reported as the end of that minute; pi's
-`Try again in ~N min`). Pi's `openai-codex` stream-error path
-(`Codex error: The usage limit has been reached`) carries none, because
-pi drops the backend's `resets_at`. A consumer treats its absence as
-unknown, not as "retry now".
+`Try again in ~N min`). Pi on `openai-codex` states the reset only over
+its SSE transport, where the backend answers HTTP 429. Over WebSocket,
+which pi's default `transport: "auto"` picks first, pi reports
+`Codex error: The usage limit has been reached` and drops the reset, so
+the failure carries no `resetsAt`. The workaround is `"transport": "sse"`
+in pi's `settings.json`. It costs something on every run: WebSocket keeps
+one connection per session and sends only the new conversation items
+after the first request, while SSE resends the full history on every
+model call, including each tool-call round inside one turn. A consumer
+treats an absent `resetsAt` as unknown, not as "retry now".
 
 ### Muse pending native approvals (issue #179)
 
