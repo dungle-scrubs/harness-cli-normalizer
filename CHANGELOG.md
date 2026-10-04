@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.4](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.3...v0.9.4) (2026-10-04)
+
+
+### Fixed
+
+* qualify latest harnesses and repair Pi 1.0 compatibility ([#339](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/339)) ([3b2c7a6](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/3b2c7a6f4dc8de946d2e693eedc4e4848c08a1df))
+
+
+### Changed
+
+* **deps-dev:** bump @types/node from 26.5.1 to 26.6.3 ([#335](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/335)) ([ddcf03b](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/ddcf03b6b4b8dc26c6bfe27f9bfebf7dc7348912))
+* **deps-dev:** bump vitest from 5.0.0 to 5.0.2 ([#334](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/334)) ([ba26a5e](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/ba26a5e32034fe962e6f3a852716af62d6f855f6))
+* **deps:** bump koffi from 3.2.1 to 3.3.2 ([#336](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/336)) ([3a91ba2](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/3a91ba2a356172c3a34026d12e9dc4d2e3ddfa9c))
+
 ## [0.9.3](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.2...v0.9.3) (2026-09-30)
 
 
