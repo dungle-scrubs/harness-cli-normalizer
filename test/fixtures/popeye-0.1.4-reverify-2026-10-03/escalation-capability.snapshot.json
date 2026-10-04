@@ -1,0 +1,1 @@
+{"vision":false,"images":false,"streaming":"token","session":true,"source":"curated","confidence":"medium","escalation":{"supported":false,"source":"unknown","confidence":"none"},"compactionReporting":{"source":"stream","states":["started","compacted"],"tokens":false},"namedAgents":true}

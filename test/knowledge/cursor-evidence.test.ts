@@ -8,19 +8,19 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
+import { decodeLine, freshDecodeState } from "../../src/execution/decode.js";
+import { buildSpawnArgv } from "../../src/interpretation/argv.js";
 import type { ContentEvent } from "../../src/interpretation/content.js";
 import {
   contentEventsWithState,
   freshCursorReaderState,
 } from "../../src/interpretation/content.js";
 import { detectTrustRefusal } from "../../src/interpretation/limits.js";
+import { resolveEffortSlug } from "../../src/interpretation/vocabulary.js";
 import { cursorCli } from "../../src/knowledge/cursor.js";
 
 const DIR = join(import.meta.dirname, "..", "fixtures", "cursor-2026.09.15-d2fe57e");
-// The 2026.09.23-86fc751 anchor re-ran the smoke suites but not the
-// decoding corpus; snapshots read from the new anchor, corpus rows from
-// the corpus capture.
-const SNAPSHOT_DIR = join(import.meta.dirname, "..", "fixtures", "cursor-2026.09.23-86fc751");
+const SNAPSHOT_DIR = join(import.meta.dirname, "..", "fixtures", "cursor-2026.10.01-e373342");
 const read = (file: string): string => readFileSync(join(DIR, file), "utf8");
 
 const decoded = (file: string): ContentEvent[] => {
@@ -147,6 +147,72 @@ describe("cursor re-captured decoding rows", () => {
   });
 });
 
+test("current native resumed recall decodes the original session and marker", () => {
+  const state = freshDecodeState("a57de06c-d5f4-4b1e-975c-11045b754c33", "cursor");
+  const events = readFileSync(join(SNAPSHOT_DIR, "seven-05.ndjson"), "utf8")
+    .trim()
+    .split("\n")
+    .flatMap((line) => decodeLine(cursorCli, line, state, "gpt-5-mini"));
+  expect(events).toContainEqual(
+    expect.objectContaining({
+      kind: "identity",
+      sessionId: "a57de06c-d5f4-4b1e-975c-11045b754c33",
+    }),
+  );
+  expect(
+    events
+      .filter((event) => event.kind === "token")
+      .map((event) => event.text)
+      .join(""),
+  ).toBe("marlin");
+  expect(events.filter((event) => event.kind === "message")).toEqual([
+    { kind: "message", role: "assistant", text: "marlin" },
+  ]);
+  expect(events.filter((event) => event.kind === "error")).toEqual([]);
+});
+
+test("current automatic compaction hooks expose no usable accounting and saved HCN later recall succeeds", () => {
+  const hooks = readFileSync(join(SNAPSHOT_DIR, "preCompact.ndjson"), "utf8")
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+  expect(hooks.length).toBeGreaterThan(0);
+  for (const hook of hooks) {
+    expect(hook).toMatchObject({
+      trigger: "auto",
+      cursor_version: "2026.10.01-e373342",
+      context_usage_percent: 0,
+      context_tokens: 0,
+      context_window_size: 0,
+    });
+    expect(hook.messages_to_compact).toBeGreaterThan(0);
+  }
+  const recall = readFileSync(join(SNAPSHOT_DIR, "later-recall.ndjson"), "utf8")
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line));
+  expect(recall).toContainEqual({ kind: "message", role: "assistant", text: "LANTERN-903" });
+  expect(recall.at(-1)).toMatchObject({ kind: "done", cause: "clean", exitCode: 0 });
+  const state = freshDecodeState(null, "cursor");
+  const native = readFileSync(join(SNAPSHOT_DIR, "later-recall.native.ndjson"), "utf8")
+    .trim()
+    .split("\n")
+    .flatMap((line) => decodeLine(cursorCli, line, state, "gpt-5-mini"));
+  expect(native.filter((event) => event.kind === "message")).toEqual([
+    { kind: "message", role: "assistant", text: "LANTERN-903" },
+  ]);
+  expect(native.filter((event) => event.kind === "error")).toEqual([]);
+});
+
+test("current Cursor family selectors render the native high-effort slugs", () => {
+  for (const stem of ["grok-4.7", "claude-opus-5-5", "claude-sonnet-5-5"]) {
+    const model = resolveEffortSlug(cursorCli, stem, "high");
+    const argv = buildSpawnArgv(cursorCli, { prompt: "Reply only OK.", model });
+    expect(argv[argv.indexOf("--model") + 1]).toBe(`${stem}-high`);
+  }
+});
+
 describe("cursor re-captured non-stream evidence", () => {
   test("the trust gate still reads Workspace Trust Required", () => {
     const lines = read("trust-01.stderr.txt")
@@ -160,11 +226,14 @@ describe("cursor re-captured non-stream evidence", () => {
   });
 
   test("agent models lists exactly the transcribed slugs", () => {
-    const entries = read("models.txt")
+    const entries = readFileSync(
+      join(import.meta.dirname, "..", "fixtures", "cursor-2026.10.01-e373342", "models.txt"),
+      "utf8",
+    )
       .split("\n")
       .filter((line) => line.includes(" - "))
       .map((line) => (line.split(" - ")[0] as string).trim());
-    expect(entries).toHaveLength(223);
+    expect(entries).toHaveLength(246);
     expect([...cursorCli.vocabulary.models].sort()).toEqual([...entries].sort());
   });
 });

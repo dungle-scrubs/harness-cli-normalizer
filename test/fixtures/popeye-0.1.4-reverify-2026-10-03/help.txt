@@ -1,0 +1,33 @@
+Usage:
+  popeye -p "<prompt>"
+  popeye -p --mode json "<prompt>"
+  popeye -p --mode rpc
+  popeye "<prompt>"
+  echo "<prompt>" | popeye -p
+  popeye usage export [--session-dir <dir>] [--session <id>]
+
+Options:
+  --agent <name>           Start as a named Agent definition (RFC-04). Dirs: ./.popeye/agents,
+                           ~/.popeye/agents; POPEYE_AGENTS_DIR overrides the user dir.
+  --base-url <url>         Set the OpenAI-compatible endpoint. Env: POPEYE_BASE_URL.
+  -p, --headless           Run headless.
+  --help                   Print this usage text.
+  --mode <print|json|rpc|hcn>  Select the Head. Default: print.
+  --model <model>          Select the Provider model. Env: POPEYE_MODEL.
+  --no-project-plugins     Do not load project-local Plugins.
+  --plugin <path>          Add a Plugin path. Repeatable.
+  --resume <sessionId>     Resume a Session.
+  --session-dir <dir>      Set the Journal directory. Default: .popeye/sessions.
+  --version                Print the @dungle-scrubs/popeye version.
+
+Loopback endpoints need no API key; the CLI supplies its local placeholder automatically.
+Hosted endpoints require POPEYE_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY.
+
+Exit status:
+  0  Turn completed or truncated.
+  1  Provider-settled error.
+  2  Invalid arguments, missing configuration, or an aborted turn.
+  3  Unresolved tool calls.
+  4  Turn failure or Head boundary failure.
+
+Read stderr to distinguish exit 2 causes.

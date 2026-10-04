@@ -1,0 +1,4 @@
+{"type":"thread.started","thread_id":"01a10135-8e9f-7e73-a9fb-9dfb27356f20"}
+{"type":"turn.started"}
+{"type":"error","message":"{\n  \"type\": \"error\",\n  \"error\": {\n    \"type\": \"invalid_request_error\",\n    \"code\": \"unsupported_value\",\n    \"message\": \"Unsupported value: 'minimal' is not supported with the 'gpt-5.5' model. Supported values are: 'none', 'low', 'medium', 'high', and 'xhigh'.\",\n    \"param\": \"reasoning.effort\"\n  },\n  \"status\": 400\n}"}
+{"type":"turn.failed","error":{"message":"{\n  \"type\": \"error\",\n  \"error\": {\n    \"type\": \"invalid_request_error\",\n    \"code\": \"unsupported_value\",\n    \"message\": \"Unsupported value: 'minimal' is not supported with the 'gpt-5.5' model. Supported values are: 'none', 'low', 'medium', 'high', and 'xhigh'.\",\n    \"param\": \"reasoning.effort\"\n  },\n  \"status\": 400\n}"}}

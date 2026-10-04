@@ -17,7 +17,8 @@ export const transcriptStoreRoot = (
     readonly home: string;
     /** How store-root env values resolve. The default (`process-cwd`) is
      * the legacy transcript behavior: a relative value anchors at the hcn
-     * process cwd and a set-but-empty value counts as set. `hcn
+     * process cwd and a set-but-empty value counts as set, except Pi's
+     * flat session override, whose empty value means unset. `hcn
      * transcript` keeps that behavior deliberately and passes nothing
      * here, so its behavior is unchanged. The resume-last diagnostic and
      * absent-directory check pass `spawn-cwd`: a relative value anchors
@@ -48,6 +49,8 @@ export const transcriptStoreRoot = (
       : resolve(opts.home, ".local", "share", "muse", "sessions");
   }
   if (harness === "pi") {
+    const sessions = opts.env.PI_CODING_AGENT_SESSION_DIR;
+    if (sessions) return at(sessions);
     const value = opts.env.PI_CODING_AGENT_DIR;
     const base = isSet(value) ? at(value) : resolve(opts.home, ".pi", "agent");
     return resolve(
@@ -77,15 +80,17 @@ export const transcriptStoreRoot = (
 
 /** The directory `transcript ls` walks for one harness.
  *
- * Four harnesses list from the same directory they read from. Pi files each
- * session under a per-workspace directory, and Antigravity keeps the
+ * Pi's default store lists above its per-workspace directory; its session
+ * directory override is flat. Antigravity keeps the
  * conversation index that names each workspace beside its `brain` directory,
  * so both list from one level up. The branch stays here rather than in
  * `transcriptStoreRoot`, which keeps naming the directory a read resolves in. */
 export const transcriptListingRoot = (
   harness: HarnessName,
   opts: Parameters<typeof transcriptStoreRoot>[1],
-): string =>
-  harness === "pi" || harness === "antigravity"
-    ? dirname(transcriptStoreRoot(harness, opts))
-    : transcriptStoreRoot(harness, opts);
+): string => {
+  const root = transcriptStoreRoot(harness, opts);
+  return harness === "antigravity" || (harness === "pi" && !opts.env.PI_CODING_AGENT_SESSION_DIR)
+    ? dirname(root)
+    : root;
+};

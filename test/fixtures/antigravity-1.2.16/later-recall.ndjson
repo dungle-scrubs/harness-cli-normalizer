@@ -1,0 +1,5 @@
+{"kind":"identity","sessionId":"e0910c0c-7cca-4652-8022-a2b8f09459b7","authority":"caller-assigned","capabilities":{"vision":false,"images":false,"streaming":"token","session":true,"source":"curated","confidence":"medium","escalation":{"supported":true,"source":"runtime-verified","confidence":"high","observedOn":{"harness":"antigravity","model":"gemini-3.8-flash-medium","version":"1.2.14","date":"2026-09-30"}},"compactionReporting":{"source":"stream","states":["compacted"],"tokens":false},"namedAgents":true}}
+{"kind":"token","text":"LANTERN-903"}
+{"kind":"token","text":"\n"}
+{"kind":"message","role":"assistant","text":"LANTERN-903\n"}
+{"kind":"done","exitCode":0,"cause":"clean","escalation":{"mode":"none","detection":"none"}}

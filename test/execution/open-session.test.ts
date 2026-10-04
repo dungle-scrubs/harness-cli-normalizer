@@ -1,8 +1,14 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import type { HarnessEvent } from "../../src/execution/events.js";
-import { openSession, SessionClosedError } from "../../src/execution/open-session.js";
+import {
+  openSession,
+  SessionClosedError,
+  type SessionTurn,
+} from "../../src/execution/open-session.js";
 import { composeEscalatedPrompt } from "../../src/interpretation/question.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
+import { piCli } from "../../src/knowledge/pi.js";
 import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
 
 const sid = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
@@ -276,6 +282,122 @@ describe("openSession (claude, fake process)", () => {
   });
 });
 
+test("Pi steering stays in the current turn, then a sequential turn closes without a phantom turn", async () => {
+  const proc = new FakeProcess();
+  const d = makeDeps(proc);
+  const log: Record<string, unknown>[] = [];
+  const session = openSession(
+    piCli,
+    { sessionId: sid, questions: "none" },
+    {
+      ...d,
+      log: (entry) => log.push(entry),
+    },
+  );
+  const turns = session.turns[Symbol.asyncIterator]();
+  const lines = readFileSync(
+    new URL("../fixtures/pi-1.0.0/rpc-live.ndjson", import.meta.url),
+    "utf8",
+  )
+    .trim()
+    .split("\n");
+  const steerReceipt = lines.findIndex((line) => JSON.parse(line).id === "hcn-send:steer");
+  const firstBoundary = lines.findIndex((line) => JSON.parse(line).type === "agent_settled");
+  expect(steerReceipt).toBeGreaterThan(0);
+  expect(firstBoundary).toBeGreaterThan(steerReceipt);
+  expect(JSON.parse(lines[steerReceipt] ?? "null")).toMatchObject({
+    type: "response",
+    command: "prompt",
+    success: true,
+    data: { disposition: "queued" },
+  });
+  const firstSend = session.send({ id: "first", text: "first prompt" });
+  const first = (await turns.next()).value as SessionTurn;
+  expect(first.inputId).toBe("first");
+  for (const line of lines.slice(0, steerReceipt)) proc.emitLine(line);
+  expect(await firstSend.settled).toEqual({ disposition: "started" });
+  const steerSend = session.send({ id: "steer", text: "correct the current answer" });
+  const steer = JSON.parse(proc.stdinLines.at(-1) ?? "null");
+  expect(steer).toMatchObject({ type: "prompt", streamingBehavior: "steer", id: "hcn-send:steer" });
+  for (const line of lines.slice(steerReceipt, firstBoundary + 1)) proc.emitLine(line);
+  const firstEvents = await drainTurn(first);
+  expect(await steerSend.settled).toEqual({ disposition: "started" });
+  expect(firstEvents).toContainEqual({
+    kind: "message",
+    role: "assistant",
+    text: "STEER_QUARTZ_731",
+  });
+  expect(firstEvents.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+  const secondSend = session.send({ id: "second", text: "next prompt" });
+  const next = JSON.parse(proc.stdinLines.at(-1) ?? "null");
+  expect(next).toMatchObject({ type: "prompt", id: "hcn-send:second" });
+  expect(next).not.toHaveProperty("streamingBehavior");
+  const second = (await turns.next()).value as SessionTurn;
+  expect(second.inputId).toBe("second");
+  for (const line of lines.slice(firstBoundary + 1)) proc.emitLine(line);
+  const secondEvents = await drainTurn(second);
+  expect(await secondSend.settled).toEqual({ disposition: "started" });
+  expect(secondEvents).toContainEqual({
+    kind: "message",
+    role: "assistant",
+    text: "SECOND_QUARTZ_731",
+  });
+  expect(secondEvents.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+  expect(d.spawner.calls).toHaveLength(1);
+  const close = session.close();
+  expect(proc.stdinEnded).toBe(true);
+  await close;
+  expect((await turns.next()).done).toBe(true);
+  expect(log.filter((entry) => entry.event === "turn_start")).toHaveLength(2);
+});
+
+test("Pi accepts a raced steer after agent_settled as a new turn tagged with that send", async () => {
+  const proc = new FakeProcess();
+  const d = makeDeps(proc);
+  const session = openSession(piCli, { sessionId: sid, questions: "none" }, d);
+  const turns = session.turns[Symbol.asyncIterator]();
+  const receipt = (id: string) =>
+    JSON.stringify({
+      type: "response",
+      command: "prompt",
+      id: `hcn-send:${id}`,
+      success: true,
+      data: { disposition: "started" },
+    });
+  const firstSend = session.send({ id: "first", text: "first" });
+  const first = (await turns.next()).value as SessionTurn;
+  proc.emitLine(receipt("first"));
+  expect(await firstSend.settled).toEqual({ disposition: "started" });
+  const steerSend = session.send({ id: "steer", text: "raced correction" });
+  expect(JSON.parse(proc.stdinLines.at(-1) ?? "null")).toMatchObject({
+    id: "hcn-send:steer",
+    streamingBehavior: "steer",
+  });
+  proc.emitLine(JSON.stringify({ type: "agent_settled" }));
+  expect((await drainTurn(first)).at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+  proc.emitLine(receipt("steer"));
+  expect(await steerSend.settled).toEqual({ disposition: "started" });
+  const raced = (await turns.next()).value as SessionTurn;
+  expect(raced.inputId).toBe("steer");
+  proc.emitLine(
+    JSON.stringify({
+      type: "message_end",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "raced answer" }],
+        stopReason: "stop",
+      },
+    }),
+  );
+  proc.emitLine(JSON.stringify({ type: "agent_settled" }));
+  const events = await drainTurn(raced);
+  expect(events).toContainEqual({ kind: "message", role: "assistant", text: "raced answer" });
+  expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+  await session.close();
+  expect((await turns.next()).done).toBe(true);
+  expect(d.spawner.calls).toHaveLength(1);
+});
+
 describe("slow consumer", () => {
   test("a consumer that stops pulling loses nothing - events buffer until drained", async () => {
     const proc = new FakeProcess();
@@ -533,7 +655,7 @@ describe("T01: a send's id travels to the turn it opens and to the loss report",
     await drainTurn(turn1);
 
     const dropped = logged.find((e) => e.event === "sends_dropped");
-    expect(dropped).toMatchObject({ count: 1, ids: ["in-2"] });
+    expect(dropped).toMatchObject({ count: 1, ids: ["in-2"], lengths: [18] });
   });
 });
 

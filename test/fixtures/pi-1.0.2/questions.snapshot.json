@@ -1,0 +1,15 @@
+{
+  "results": {
+    "pi": {
+      "status": "pass"
+    }
+  },
+  "observations": {
+    "pi": {
+      "harness": "pi",
+      "model": "openai-codex/gpt-6.1-sol",
+      "version": "1.0.2",
+      "date": "2026-10-04"
+    }
+  }
+}

@@ -11,9 +11,9 @@ import {
   truncateSync,
   writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test } from "vitest";
+import { cliFixtureTmpdir } from "./fixture-tmpdir.js";
 import { ensureTestStateSandbox } from "./setup-state.js";
 
 const sessionId = "407feafe-e82b-4df4-91ba-4f1aeb987508";
@@ -29,7 +29,7 @@ function fixture(): {
     harness?: string,
   ) => SpawnSyncReturns<string>;
 } {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), "hcn-native-settings-")));
+  const root = realpathSync(mkdtempSync(join(cliFixtureTmpdir(), "hcn-native-settings-")));
   const codexHome = join(root, "codex-home");
   const sessions = join(codexHome, "sessions", "2026", "09", "12");
   mkdirSync(sessions, { recursive: true });

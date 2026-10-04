@@ -1,10 +1,10 @@
 import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { env } from "node:process";
 import { expect, test } from "vitest";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
+import { cliFixtureTmpdir } from "./fixture-tmpdir.js";
 
 // Synthetic native control peer, not a captured harness recording.
 function fixture(
@@ -15,7 +15,7 @@ function fixture(
   readonly dir: string;
   readonly run: (args: readonly string[]) => ReturnType<typeof spawnSync>;
 } {
-  const dir = mkdtempSync(join(tmpdir(), "hcn-context-"));
+  const dir = mkdtempSync(join(cliFixtureTmpdir(), "hcn-context-"));
   writeFileSync(
     join(dir, "claude"),
     `#!/usr/bin/env node
@@ -125,7 +125,7 @@ test("a matching version cannot authorize malformed accounting", () => {
 test.each(["codex", "pi", "muse"])(
   "%s version-independent invocation support does not fabricate context accounting",
   (harness) => {
-    const dir = mkdtempSync(join(tmpdir(), "hcn-unavailable-context-"));
+    const dir = mkdtempSync(join(cliFixtureTmpdir(), "hcn-unavailable-context-"));
     writeFileSync(join(dir, harness), "#!/bin/sh\nprintf '999.0.0\\n'\n", { mode: 0o700 });
     try {
       const result = spawnSync(

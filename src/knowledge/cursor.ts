@@ -1,8 +1,8 @@
 /**
  * The cursor descriptor: facts about the Cursor CLI (`agent`) as data,
- * verified against agent 2026.09.15-d2fe57e (re-capture:
- * test/fixtures/cursor-2026.09.15-d2fe57e; original spike corpus on
- * 2026.09.10-fd3934a, probes 01-55). The v1 scars this encodes: identity is harness-minted (no
+ * rechecked against agent 2026.10.01-e373342 (smoke, model roster,
+ * automatic compaction and later-process recall in the matching fixture
+ * directory). The older decoding corpus remains retained. Identity is harness-minted (no
  * caller-assigned id flag; the hidden --new-session-id is not used), an
  * untrusted workspace refuses unless --force bypasses the trust gate per
  * run, effort resolves into the --model slug via effortSlugs, and sessions
@@ -17,12 +17,13 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
   name: "cursor",
   transcript: CURSOR_TRANSCRIPT,
   bin: "agent",
-  verifiedAgainst: "2026.09.23-86fc751",
-  // Re-verified 2026-09-17: smoke:seven (6 pass / 1 n/a) and
-  // smoke:questions pass on this version, the decoding corpus is
-  // re-captured in test/fixtures/cursor-2026.09.15-d2fe57e, and `agent
-  // models` lists the same 223 slugs (only the "(current)" marker moved).
-  // Phase 5 (same version) re-probed the sandbox: no confinement.
+  verifiedAgainst: "2026.10.01-e373342",
+  // Re-verified 2026-10-03: smoke:seven (6 pass / 1 skip) and
+  // smoke:questions pass on this version after synthetic-workspace trust
+  // preparation. test/fixtures/cursor-2026.10.01-e373342 carries the suite
+  // snapshots and all 246 native model slugs. The decoding corpus in
+  // test/fixtures/cursor-2026.09.15-d2fe57e remains retained.
+  // Phase 5 on that older version re-probed the sandbox: no confinement.
   // No npm package exists (script install only), so drift detection falls
   // back to the local `agent --version`, skipped where absent.
   //
@@ -34,6 +35,7 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
   // earlier run, and `verifiedAgainst` names the version the facts were
   // verified on, not necessarily the one a given run used. `versionSource`
   // has no field for that, so it is recorded here.
+  // Installed version rechecked with agent --version on 2026-10-03.
   versionSource: { kind: "installed" },
   launch: {
     // Every headless probe runs `-p` (print mode, with write and shell).
@@ -112,10 +114,32 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
   autonomy: { flag: "--force" },
   vocabulary: {
     modelFlag: "--model",
-    // Full slug list transcribed from models.txt at verifiedAgainst
-    // (227 lines: 223 entries plus header, blank, and tip lines). The file
-    // is not sorted, so the snapshot test compares as sets.
+    // test/fixtures/cursor-2026.10.01-e373342/models.txt carries all 246
+    // slugs. The new Grok 4.7 and Claude 5.5 high variants ran natively.
     models: [
+      "grok-4.7-low",
+      "grok-4.7-low-fast",
+      "grok-4.7-medium",
+      "grok-4.7-medium-fast",
+      "grok-4.7-high",
+      "grok-4.7-high-fast",
+      "grok-4.7-xhigh",
+      "grok-4.7-xhigh-fast",
+      "claude-opus-5-5-low",
+      "claude-opus-5-5-low-fast",
+      "claude-opus-5-5-medium",
+      "claude-opus-5-5-medium-fast",
+      "claude-opus-5-5-high",
+      "claude-opus-5-5-high-fast",
+      "claude-opus-5-5-xhigh",
+      "claude-opus-5-5-xhigh-fast",
+      "claude-opus-5-5-max",
+      "claude-opus-5-5-max-fast",
+      "claude-sonnet-5-5-low",
+      "claude-sonnet-5-5-medium",
+      "claude-sonnet-5-5-high",
+      "claude-sonnet-5-5-xhigh",
+      "claude-sonnet-5-5-max",
       "auto",
       "gpt-5.3-codex-low",
       "gpt-5.3-codex-low-fast",
@@ -349,6 +373,26 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
     // -extra-high reads as xhigh, each thinking form is its own stem, and
     // -fast twins are not row members (they pin effort by idempotence).
     effortSlugs: {
+      "grok-4.7": {
+        low: "grok-4.7-low",
+        medium: "grok-4.7-medium",
+        high: "grok-4.7-high",
+        xhigh: "grok-4.7-xhigh",
+      },
+      "claude-opus-5-5": {
+        low: "claude-opus-5-5-low",
+        medium: "claude-opus-5-5-medium",
+        high: "claude-opus-5-5-high",
+        xhigh: "claude-opus-5-5-xhigh",
+        max: "claude-opus-5-5-max",
+      },
+      "claude-sonnet-5-5": {
+        low: "claude-sonnet-5-5-low",
+        medium: "claude-sonnet-5-5-medium",
+        high: "claude-sonnet-5-5-high",
+        xhigh: "claude-sonnet-5-5-xhigh",
+        max: "claude-sonnet-5-5-max",
+      },
       "claude-4.5-opus": {
         high: "claude-4.5-opus-high",
       },
@@ -598,10 +642,10 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
   // Automatic compaction observed live in headless-turn, 11 times on
   // 2026-09-22 against 2026.09.15-d2fe57e, with one cross-version replication
   // on the auto-updated 2026.09.18-9a7762b
-  // (docs/research/2026-09-22-compaction-signals/cursor). Not re-probed on
-  // 2026.09.23-86fc751: this cycle's filler turns crossed no boundary, and
-  // hcn events carry no timestamps, so no silent gap could be measured
-  // (test/fixtures/cursor-2026.09.23-86fc751/VERIFICATION.md). The stream itself
+  // (docs/research/2026-09-22-compaction-signals/cursor). Reproduced on
+  // 2026.10.01-e373342 with fourteen synthetic file reads, automatic hooks,
+  // a clean completed turn, and a later process recalling LANTERN-903.
+  // The stream itself
   // carries no compaction record - the print-mode emitter has no such code
   // path - so this is a curated fact, not a decoded signal. result.usage token
   // counts exist (probe 10) but no window size is known, and the harness
@@ -638,12 +682,17 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
     },
     session: false,
   },
-  // smoke:questions on 2026.09.15-d2fe57e showed the block (the model
-  // asked which environment to write, and the turn ended awaiting-input);
-  // test/fixtures/cursor-2026.09.15-d2fe57e/questions.snapshot.json.
+  // smoke:questions on 2026.10.01-e373342 passed on 2026-10-03 after
+  // synthetic-workspace trust preparation; the native question and suite
+  // snapshot are in test/fixtures/cursor-2026.10.01-e373342.
   escalation: {
     supported: true,
-    observedOn: { harness: "cursor", model: "", version: "2026.09.23-86fc751", date: "2026-09-24" },
+    observedOn: {
+      harness: "cursor",
+      model: "gpt-5-mini",
+      version: "2026.10.01-e373342",
+      date: "2026-10-03",
+    },
   },
   turnOptions: {
     // No effort flag exists on cursor: effort resolves into the --model

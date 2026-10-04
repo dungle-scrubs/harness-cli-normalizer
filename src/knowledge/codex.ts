@@ -1,7 +1,7 @@
 /**
  * The codex descriptor: facts about the `codex` CLI as data, verified
- * against codex-cli 0.159.2. Native capability, question, and compaction
- * recordings live in test/fixtures/codex-0.159.2.
+ * against codex-cli 0.160.0. Native capability, question, and compaction
+ * recordings live in test/fixtures/codex-0.160.0.
  */
 import { deepFreeze, type HarnessDescriptor, type OptionRender, UUID_SHAPE } from "./descriptor.js";
 import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
@@ -19,7 +19,7 @@ export const codexCli: HarnessDescriptor = deepFreeze({
   name: "codex",
   transcript: CODEX_TRANSCRIPT,
   bin: "codex",
-  verifiedAgainst: "0.159.2",
+  verifiedAgainst: "0.160.0",
   versionSource: { kind: "npm", package: "@openai/codex" },
   launch: {
     // exec --json emits structured item events; without --json, identity
@@ -56,8 +56,8 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     extraFlags: ["--json", "--skip-git-repo-check"],
   },
   // Persistent headless session: `codex app-server` (no subcommand) speaks
-  // newline-delimited JSON-RPC over stdio (verified live 0.159.2,
-  // test/fixtures/codex-0.159.2/session). One process serves many turns.
+  // newline-delimited JSON-RPC over stdio (verified live 0.160.0,
+  // test/fixtures/codex-0.160.0/session.ndjson). One process serves many turns.
   // The runner writes `initialize` then thread/start (fresh) or
   // thread/resume (resume) at spawn; the response's result.thread.id is
   // the harness-minted session id (equal to the rollout file's session id,
@@ -110,12 +110,9 @@ export const codexCli: HarnessDescriptor = deepFreeze({
   autonomy: { flag: "--yolo" },
   vocabulary: {
     modelFlag: "--model",
-    // gpt-6.1-sol: offered in the account's server-pushed roster
-    // (~/.codex/models_cache.json, fetched 2026-09-30, visibility "list",
-    // priority 1) and verified live on 0.159.2 (`codex exec -m gpt-6.1-sol`
-    // answered, 2026-09-30). Its native ladder also carries "ultra", which
-    // sits outside hcn's closed effort vocabulary, so the declared ladder
-    // stops at max.
+    // Current native roster and effort probes: test/fixtures/codex-0.160.0
+    // (2026-10-03). Native "ultra" and "none" remain outside hcn's closed
+    // effort vocabulary; the curated ladders stop at max.
     models: [
       "gpt-6.1-sol",
       "gpt-6-astra",
@@ -135,10 +132,10 @@ export const codexCli: HarnessDescriptor = deepFreeze({
       "gpt-6-astra": ["low", "medium", "high", "xhigh", "max"],
       "gpt-6-sol": ["low", "medium", "high", "xhigh", "max"],
       "gpt-6-luna": ["low", "medium", "high", "xhigh", "max"],
-      "gpt-5.5": ["minimal", "low", "medium", "high"],
-      "gpt-5.6-sol": ["medium", "high", "xhigh", "max"],
-      "gpt-5.6-terra": ["medium", "high", "xhigh", "max"],
-      "gpt-5.6-luna": ["medium", "high", "xhigh", "max"],
+      "gpt-5.5": ["low", "medium", "high", "xhigh"],
+      "gpt-5.6-sol": ["low", "medium", "high", "xhigh", "max"],
+      "gpt-5.6-terra": ["low", "medium", "high", "xhigh", "max"],
+      "gpt-5.6-luna": ["low", "medium", "high", "xhigh", "max"],
     },
     extensible: false,
   },
@@ -151,7 +148,7 @@ export const codexCli: HarnessDescriptor = deepFreeze({
   },
   contextInspection: null,
   // Codex core/session/turn.rs runs native automatic compaction; live
-  // compaction and later-process recall captured on 0.159.2.
+  // compaction and later-process recall captured on 0.160.0.
   nativeContextManagement: { kind: "auto-compaction", modes: ["headless-turn"] },
   // Valid only in the `exec resume` context: `codex exec resume --last`
   // (re-verified on 0.154.0, 2026-09-17). No fork mechanism is probed on
@@ -196,8 +193,8 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     observedOn: {
       harness: "codex",
       model: "gpt-6-astra",
-      version: "0.159.2",
-      date: "2026-09-30",
+      version: "0.160.0",
+      date: "2026-10-03",
     },
   },
   turnOptions: {

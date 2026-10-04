@@ -1,0 +1,27 @@
+{
+  "results": {
+    "pi": {
+      "single-turn": {
+        "status": "pass"
+      },
+      "streaming": {
+        "status": "pass"
+      },
+      "tool-use": {
+        "status": "pass"
+      },
+      "session-cont(1proc)": {
+        "status": "pass"
+      },
+      "resume-continuity": {
+        "status": "pass"
+      },
+      "kill-and-resume": {
+        "status": "pass"
+      },
+      "error-prop": {
+        "status": "pass"
+      }
+    }
+  }
+}

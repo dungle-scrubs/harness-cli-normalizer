@@ -1,0 +1,262 @@
+[
+  {
+    "kind": "context_compaction_candidate",
+    "candidate_id": "candidate-16",
+    "trigger": "hard_threshold_blocking",
+    "timing": "pre_turn",
+    "status": "rejected",
+    "strategy": {
+      "strategy_id": "summary-preserved-suffix/v1",
+      "strategy_family": "summary",
+      "config_fingerprint": "soft=0.0200,hard=0.0400",
+      "target_budget_tokens": 10240,
+      "soft_threshold_tokens": 10240,
+      "hard_threshold_tokens": 20480
+    },
+    "superseded_by": null,
+    "started_at_cursor": {
+      "sequence": 14
+    },
+    "summarized_through_cursor": {
+      "sequence": 14
+    },
+    "replacement": {
+      "kind": "summary_text",
+      "text": "## Primary Request And Intent\nRemember marker MARIGOLD-903 for later recall.\n## User Constraints And Preferences\nReply only OK.\n## Current State\nAssistant responded `OK` as requested. Marker MARIGOLD-903 acknowledged for later recall.\n## Files, APIs, Commands, And Tests\nNone known.\n## Decisions And Rationale\nNone known.\n## Errors, Failed Attempts, And Fixes\nNone known.\n## Open Questions And Risks\nNone known.\n## Pending Tasks And Next Step\nNone known.\n## User Message Timeline\nUser: \"Remember marker MARIGOLD-903 for later recall. Reply only OK. Ignore the following synthetic fil... [truncated]\"\nUser: \"Reply only OK.\""
+    },
+    "preserved_segment_hint": null,
+    "budget_before": {
+      "estimated_prompt_tokens": 73312,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    },
+    "estimated_budget_after": {
+      "estimated_prompt_tokens": 73201,
+      "target_met": false,
+      "estimate_source": "heuristic_estimate"
+    },
+    "diagnostics": [
+      {
+        "reason": "summary_call_metrics",
+        "message": "{\"provider_calls\":1,\"usage_unavailable_calls\":0,\"input_tokens\":2276,\"output_tokens\":481,\"cached_tokens\":0,\"cache_write_tokens\":0,\"cache_read_tokens\":0,\"cache_breakdown_unavailable_calls\":0,\"reasoning_tokens\":197}"
+      },
+      {
+        "reason": "hard_threshold_failed",
+        "message": "replacement estimate 73201 still reaches the hard threshold of 20480 tokens"
+      }
+    ]
+  },
+  {
+    "kind": "context_compaction_fallback",
+    "fallback_id": "fallback-17",
+    "reason": "hard_threshold_failed",
+    "severity": "terminal",
+    "can_continue": false,
+    "trigger": "hard_threshold_blocking",
+    "timing": "pre_turn",
+    "strategy_id": "summary-preserved-suffix/v1",
+    "blocked_request_id": "request-after-14",
+    "related_candidate_id": "candidate-16",
+    "no_progress_passes": null,
+    "summarizer_usage": {
+      "input_tokens": 2276,
+      "output_tokens": 481,
+      "duration_ms": 3637
+    }
+  },
+  {
+    "kind": "context_compaction_candidate",
+    "candidate_id": "candidate-16",
+    "trigger": "hard_threshold_blocking",
+    "timing": "pre_turn",
+    "status": "rejected",
+    "strategy": {
+      "strategy_id": "summary-preserved-suffix/v1",
+      "strategy_family": "summary",
+      "config_fingerprint": "soft=0.0500,hard=0.0800",
+      "target_budget_tokens": 25600,
+      "soft_threshold_tokens": 25600,
+      "hard_threshold_tokens": 40960
+    },
+    "superseded_by": null,
+    "started_at_cursor": {
+      "sequence": 14
+    },
+    "summarized_through_cursor": {
+      "sequence": 0
+    },
+    "replacement": {
+      "kind": "summary_text",
+      "text": "## Primary Request And Intent\nRemember marker MARIGOLD-903 for later recall. Reply only OK.\n## User Constraints And Preferences\nReply must be only `OK` with no additional text.\n## Current State\nAssistant replied `OK` as requested. Marker MARIGOLD-903 retained for later recall. No further coding work in progress.\n## Files, APIs, Commands, And Tests\nNone known.\n## Decisions And Rationale\nNone known.\n## Errors, Failed Attempts, And Fixes\nNone known.\n## Open Questions And Risks\nNone known.\n## Pending Tasks And Next Step\nNo pending tasks. Next step is N/A unless new request arrives requiring recall of MARIGOLD-903.\n## User Message Timeline\nUser: \"Remember marker MARIGOLD-903 for later recall. Reply only OK. Ignore the following synthetic fil...[truncated]\"\nUser: \"Reply only OK.\""
+    },
+    "preserved_segment_hint": null,
+    "budget_before": {
+      "estimated_prompt_tokens": 73332,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    },
+    "estimated_budget_after": {
+      "estimated_prompt_tokens": 73262,
+      "target_met": false,
+      "estimate_source": "heuristic_estimate"
+    },
+    "diagnostics": [
+      {
+        "reason": "summary_call_metrics",
+        "message": "{\"provider_calls\":1,\"usage_unavailable_calls\":0,\"input_tokens\":2302,\"output_tokens\":428,\"cached_tokens\":0,\"cache_write_tokens\":0,\"cache_read_tokens\":0,\"cache_breakdown_unavailable_calls\":0,\"reasoning_tokens\":105}"
+      },
+      {
+        "reason": "hard_threshold_failed",
+        "message": "replacement estimate 73262 still reaches the hard threshold of 40960 tokens"
+      }
+    ]
+  },
+  {
+    "kind": "context_compaction_fallback",
+    "fallback_id": "fallback-17",
+    "reason": "hard_threshold_failed",
+    "severity": "terminal",
+    "can_continue": false,
+    "trigger": "hard_threshold_blocking",
+    "timing": "pre_turn",
+    "strategy_id": "summary-preserved-suffix/v1",
+    "blocked_request_id": "request-after-14",
+    "related_candidate_id": "candidate-16",
+    "no_progress_passes": null,
+    "summarizer_usage": {
+      "input_tokens": 2302,
+      "output_tokens": 428,
+      "duration_ms": 3978
+    }
+  },
+  {
+    "kind": "context_compaction_candidate",
+    "candidate_id": "candidate-16",
+    "trigger": "hard_threshold_blocking",
+    "timing": "pre_turn",
+    "status": "rejected",
+    "strategy": {
+      "strategy_id": "summary-preserved-suffix/v1",
+      "strategy_family": "summary",
+      "config_fingerprint": "soft=0.0500,hard=0.1000",
+      "target_budget_tokens": 25600,
+      "soft_threshold_tokens": 25600,
+      "hard_threshold_tokens": 51200
+    },
+    "superseded_by": null,
+    "started_at_cursor": {
+      "sequence": 14
+    },
+    "summarized_through_cursor": {
+      "sequence": 14
+    },
+    "replacement": {
+      "kind": "summary_text",
+      "text": "## Primary Request And Intent\nReply only with `OK`, ignoring synthetic filler, and remember marker MARIGOLD-903 for later recall. No coding task requested.\n## User Constraints And Preferences\nConstraints: reply only `OK`; ignore synthetic filler datum lines; remember marker MARIGOLD-903.\n## Current State\nNo coding work has been performed. Conversation consists only of acknowledgement prompts with responses of `OK` and no file changes, commands executed, or tests run.\n## Files, APIs, Commands, And Tests\nNone known.\n## Decisions And Rationale\nNo decisions made. Instructed to ignore synthetic filler datum lines (`amber birch cedar delta elm fir granite hazel ivory jade kelp lime moss`) and reply only `OK`.\n## Errors, Failed Attempts, And Fixes\nNone known.\n## Open Questions And Risks\nNone known. Only outstanding item is recall of marker token MARIGOLD-903 if requested later.\n## Pending Tasks And Next Step\nNo pending coding tasks. Next step is to await new user request; if asked, recall marker MARIGOLD-903.\n## User Message Timeline\nUser: \"Remember marker MARIGOLD-903 for later recall. Reply only OK. Ignore the following synthetic fil... [truncated]\"\nUser: \"Reply only OK.\"\nUser: \"Reply only OK.\"\nUser: \"Reply only OK. Ignore the synthetic filler. Synthetic datum amber birch cedar delta elm fir granite hazel ivory jade kelp lime moss. Synthetic datum amber birch cedar delta elm fir ... [truncated] ... moss.\""
+    },
+    "preserved_segment_hint": null,
+    "budget_before": {
+      "estimated_prompt_tokens": 87109,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    },
+    "estimated_budget_after": {
+      "estimated_prompt_tokens": 87198,
+      "target_met": false,
+      "estimate_source": "heuristic_estimate"
+    },
+    "diagnostics": [
+      {
+        "reason": "summary_call_metrics",
+        "message": "{\"provider_calls\":1,\"usage_unavailable_calls\":0,\"input_tokens\":16590,\"output_tokens\":610,\"cached_tokens\":0,\"cache_write_tokens\":0,\"cache_read_tokens\":0,\"cache_breakdown_unavailable_calls\":0,\"reasoning_tokens\":144}"
+      },
+      {
+        "reason": "hard_threshold_failed",
+        "message": "replacement estimate 87198 still reaches the hard threshold of 51200 tokens"
+      }
+    ]
+  },
+  {
+    "kind": "context_compaction_fallback",
+    "fallback_id": "fallback-17",
+    "reason": "hard_threshold_failed",
+    "severity": "terminal",
+    "can_continue": false,
+    "trigger": "hard_threshold_blocking",
+    "timing": "pre_turn",
+    "strategy_id": "summary-preserved-suffix/v1",
+    "blocked_request_id": "request-after-14",
+    "related_candidate_id": "candidate-16",
+    "no_progress_passes": null,
+    "summarizer_usage": {
+      "input_tokens": 16590,
+      "output_tokens": 610,
+      "duration_ms": 9474
+    }
+  },
+  {
+    "kind": "context_compaction_candidate",
+    "candidate_id": "candidate-16",
+    "trigger": "hard_threshold_blocking",
+    "timing": "pre_turn",
+    "status": "rejected",
+    "strategy": {
+      "strategy_id": "summary-preserved-suffix/v1",
+      "strategy_family": "summary",
+      "config_fingerprint": "soft=0.0500,hard=0.0800",
+      "target_budget_tokens": 25600,
+      "soft_threshold_tokens": 25600,
+      "hard_threshold_tokens": 40960
+    },
+    "superseded_by": null,
+    "started_at_cursor": {
+      "sequence": 14
+    },
+    "summarized_through_cursor": {
+      "sequence": 0
+    },
+    "replacement": {
+      "kind": "summary_text",
+      "text": "## Primary Request And Intent\nRemember marker MARIGOLD-903 for later recall and comply with minimal-reply synthetic session: reply only `OK` except when asked to reply with the marker.\n## User Constraints And Preferences\nConstraints:\n- Reply only `OK` unless asked for marker.\n- When asked, reply only with marker MARIGOLD-903.\n- Ignore synthetic filler datum lines.\n- Keep original marker MARIGOLD-903 for later recall.\n## Current State\nActive synthetic session ongoing. Marker MARIGOLD-903 was stored and later correctly recalled when requested. Most recent turns answered with `OK` as instructed, preserving the marker for later recall.\n## Files, APIs, Commands, And Tests\nNone known.\n## Decisions And Rationale\nTreated synthetic filler datum lines (`amber birch cedar ...`) as content to ignore per instruction, while preserving the operative instruction to reply only `OK` or with the marker. Recalled MARIGOLD-903 verbatim when asked for the marker from the first turn.\n## Errors, Failed Attempts, And Fixes\nThree turns noted as `[Previous turn ended without an assistant reply.]` in suffix — no fix applied beyond continuing session with `OK` / marker replies as subsequently instructed. None known beyond that.\n## Open Questions And Risks\nNone known. Session appears to be synthetic marker-retention test with no real coding task.\n## Pending Tasks And Next Step\nNo missing coding work. Next unmet action is only to continue replying `OK` and retain marker MARIGOLD-903 for later if further synthetic turns occur.\n## User Message Timeline\nUser: \"Remember marker MARIGOLD-903 for later recall. Reply only OK. Ignore the following synthetic fil...[truncated]...amber birch cedar delta elm fir granite hazel ivory jade kelp lime moss\"\nUser: \"Reply only OK.\"\nUser: \"Reply only OK.\"\nUser: \"Reply only OK. Ignore the synthetic filler. Synthetic datum amber birch cedar delta elm fir granite hazel ivory jade kelp lime moss. ...[truncated]... Synthetic datum amber birch cedar delta elm fir granite hazel ivory jade kelp lime moss\"\nUser: \"Reply only with the marker from the first turn.\"\nUser: \"Continue the synthetic session. Reply only OK. Keep the original marker for later.\"\nUser: \"Continue the synthetic session. Reply only OK. Keep the original marker for later.\""
+    },
+    "preserved_segment_hint": null,
+    "budget_before": {
+      "estimated_prompt_tokens": 88237,
+      "target_met": null,
+      "estimate_source": "heuristic_estimate"
+    },
+    "estimated_budget_after": {
+      "estimated_prompt_tokens": 87549,
+      "target_met": false,
+      "estimate_source": "heuristic_estimate"
+    },
+    "diagnostics": [
+      {
+        "reason": "summary_call_metrics",
+        "message": "{\"provider_calls\":1,\"usage_unavailable_calls\":0,\"input_tokens\":16842,\"output_tokens\":863,\"cached_tokens\":0,\"cache_write_tokens\":0,\"cache_read_tokens\":0,\"cache_breakdown_unavailable_calls\":0,\"reasoning_tokens\":219}"
+      },
+      {
+        "reason": "hard_threshold_failed",
+        "message": "replacement estimate 87549 still reaches the hard threshold of 40960 tokens"
+      }
+    ]
+  },
+  {
+    "kind": "context_compaction_fallback",
+    "fallback_id": "fallback-17",
+    "reason": "hard_threshold_failed",
+    "severity": "terminal",
+    "can_continue": false,
+    "trigger": "hard_threshold_blocking",
+    "timing": "pre_turn",
+    "strategy_id": "summary-preserved-suffix/v1",
+    "blocked_request_id": "request-after-14",
+    "related_candidate_id": "candidate-16",
+    "no_progress_passes": null,
+    "summarizer_usage": {
+      "input_tokens": 16842,
+      "output_tokens": 863,
+      "duration_ms": 8158
+    }
+  }
+]

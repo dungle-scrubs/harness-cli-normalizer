@@ -11,9 +11,9 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, expect, test } from "vitest";
+import { cliFixtureTmpdir } from "./fixture-tmpdir.js";
 
 /**
  * RFC 35 (Lucid): Pi native settings for bound continuation.
@@ -78,7 +78,7 @@ const assistant = (id: string, parentId: string | null, provider: string, model:
 });
 
 function fixture(entries: (cwd: string) => readonly (Entry | string)[], flat = false) {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), "hcn-pi-settings-")));
+  const root = realpathSync(mkdtempSync(join(cliFixtureTmpdir(), "hcn-pi-settings-")));
   roots.push(root);
   const cwd = join(root, "work");
   mkdirSync(cwd);

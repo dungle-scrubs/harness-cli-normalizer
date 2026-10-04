@@ -18,7 +18,11 @@ import { detectTrustRefusal } from "../../src/interpretation/limits.js";
 import { cursorCli } from "../../src/knowledge/cursor.js";
 
 const DIR = join(import.meta.dirname, "..", "fixtures", "cursor-2026.09.10-fd3934a");
+// Current native capture (test/fixtures/cursor-2026.10.01-e373342/) carries
+// the live transcription; the decoding corpus above is retained verbatim.
+const CURRENT_DIR = join(import.meta.dirname, "..", "fixtures", "cursor-2026.10.01-e373342");
 const read = (file: string): string => readFileSync(join(DIR, file), "utf8");
+const readCurrent = (file: string): string => readFileSync(join(CURRENT_DIR, file), "utf8");
 
 /** Feed every line of a stream fixture through the stateful reader. */
 const decoded = (file: string): ContentEvent[] => {
@@ -180,11 +184,15 @@ describe("cursor non-stream fixture evidence", () => {
     expect(help).not.toMatch(/--\s+.*separator|end-of-options/i);
   });
 
-  test("models.txt is the 223-entry transcription source", () => {
-    const lines = read("models.txt").split("\n");
+  test("models.txt is the 246-entry transcription source", () => {
+    // The current native capture (cursor-2026.10.01-e373342) is the
+    // independent ground truth for the descriptor roster, byte-for-byte.
+    // The legacy decoding corpus (cursor-2026.09.10-fd3934a) carries the
+    // 223-entry historical capture and stays above for decoder checks.
+    const lines = readCurrent("models.txt").split("\n");
     const entries = lines.filter((l) => l.includes(" - "));
-    expect(entries).toHaveLength(223);
-    expect(new Set(entries.map((l) => l.split(" - ")[0])).size).toBe(223);
+    expect(entries).toHaveLength(246);
+    expect(new Set(entries.map((l) => l.split(" - ")[0])).size).toBe(246);
     expect([...cursorCli.vocabulary.models].sort()).toEqual(
       entries.map((l) => (l.split(" - ")[0] as string).trim()).sort(),
     );

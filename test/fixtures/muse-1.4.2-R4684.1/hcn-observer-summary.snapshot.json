@@ -1,0 +1,100 @@
+{
+  "sessionId": "b5f7fa80-a473-48fa-ad5a-8fc7a782cb6e",
+  "blocked": 0,
+  "unavailable": 0,
+  "incompatible": [],
+  "compactions": [
+    {
+      "itemId": "b4551911-b203-4cd5-a458-e37f7d27c139",
+      "state": "failed",
+      "trigger": "auto",
+      "tokensBefore": 91090,
+      "detail": "hard_threshold_failed"
+    },
+    {
+      "itemId": "76ce84ad-0d28-4b34-9070-65d36971f6ea",
+      "state": "compacted",
+      "trigger": "auto",
+      "tokensBefore": 91110,
+      "tokensAfter": 24957
+    },
+    {
+      "itemId": "9c258731-c4f5-44a9-baab-0ce148bf7af9",
+      "state": "compacted",
+      "trigger": "auto",
+      "tokensBefore": 32225,
+      "tokensAfter": 25061
+    },
+    {
+      "itemId": "7511d232-89f9-49f3-90a1-7426bca4c00a",
+      "state": "noop",
+      "trigger": "auto",
+      "tokensBefore": 32341,
+      "detail": "superseded"
+    },
+    {
+      "itemId": "75d67d22-ee8f-4015-abda-cb691c452aeb",
+      "state": "compacted",
+      "trigger": "auto",
+      "tokensBefore": 44325,
+      "tokensAfter": 25150
+    },
+    {
+      "itemId": "4003ca52-0698-4675-bf4c-a66e1e5f7c8e",
+      "state": "compacted",
+      "trigger": "auto",
+      "tokensBefore": 47252,
+      "tokensAfter": 25073
+    },
+    {
+      "itemId": "15ef44f7-779b-4261-a8cb-892916bbfc52",
+      "state": "noop",
+      "trigger": "auto",
+      "tokensBefore": 32353,
+      "detail": "superseded"
+    },
+    {
+      "itemId": "76e15863-b907-4feb-930b-75caefd09088",
+      "state": "aborted",
+      "trigger": "auto",
+      "tokensBefore": 43871,
+      "detail": "cancelled"
+    },
+    {
+      "itemId": "bac368e3-9c3f-4a13-b0b0-210f89b5170f",
+      "state": "compacted",
+      "trigger": "auto",
+      "tokensBefore": 51552,
+      "tokensAfter": 39287
+    },
+    {
+      "itemId": "08f1af12-21d8-4961-ad36-8c8a13fe6275",
+      "state": "compacted",
+      "trigger": "auto",
+      "tokensBefore": 59083,
+      "tokensAfter": 39264
+    },
+    {
+      "itemId": "15f3e468-da81-4877-a4d7-61e140141f18",
+      "state": "noop",
+      "trigger": "auto",
+      "tokensBefore": 48364,
+      "detail": "superseded"
+    },
+    {
+      "itemId": "ab66c025-97d4-474e-94af-03c009c76321",
+      "state": "compacted",
+      "trigger": "auto",
+      "tokensBefore": 59344,
+      "tokensAfter": 39243
+    },
+    {
+      "itemId": "65ee86df-9f42-4e4e-a11c-74f2c709ee0a",
+      "state": "failed",
+      "trigger": "auto",
+      "tokensBefore": 60133,
+      "detail": "no_progress_exhausted"
+    }
+  ],
+  "elapsedMs": 11562
+}

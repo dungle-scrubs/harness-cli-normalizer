@@ -1,6 +1,7 @@
 /**
  * The claude-code descriptor: facts about the `claude` CLI as data, verified
- * against claude 2.1.278 (test/fixtures/claude-2.1.278) and the
+ * against claude 2.1.289 (test/fixtures/claude-2.1.289), with historical
+ * context/decode evidence in test/fixtures/claude-2.1.288, and the
  * 00-chat-substrate spike evidence (A-001,
  * A-002, A-005). No process logic lives here.
  *
@@ -28,7 +29,7 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
   name: "claude",
   transcript: CLAUDE_TRANSCRIPT,
   bin: "claude",
-  verifiedAgainst: "2.1.285",
+  verifiedAgainst: "2.1.289",
   versionSource: { kind: "npm", package: "@anthropic-ai/claude-code" },
   launch: {
     baseFlags: ["-p"],
@@ -207,7 +208,7 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
   // re-emitted identity's observedOn from it.
   escalation: {
     supported: true,
-    observedOn: { harness: "claude", model: "sonnet", version: "2.1.285", date: "2026-09-30" },
+    observedOn: { harness: "claude", model: "sonnet", version: "2.1.289", date: "2026-10-04" },
   },
   turnOptions: {
     // Native CLI reference: bare removes discovery; the empty built-in list and

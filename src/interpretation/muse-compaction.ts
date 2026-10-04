@@ -101,15 +101,22 @@ export interface MuseViewPage {
 export const museViewPageOf = (result: unknown): MuseViewPage | null => {
   const page = asRecord(result);
   if (page === null) return null;
-  // The view names its entries `items`; each carries the item under
-  // `item`, the way the started/completed frames do, or inline.
-  const entries = Array.isArray(page.items) ? page.items : null;
+  // Current MSP pages contain method/params notifications. Older pages
+  // contain item entries; both preserve their native page order.
+  const notifications = Array.isArray(page.events);
+  const entries = Array.isArray(page.events)
+    ? page.events
+    : Array.isArray(page.items)
+      ? page.items
+      : null;
   if (entries === null) return null;
   const compactions: MuseCompaction[] = [];
   for (const entry of entries) {
     const record = asRecord(entry);
-    const found =
-      museCompactionOf(record?.item) ?? (record !== null ? museCompactionOf(record) : null);
+    if (notifications && record?.method !== "item/completed") continue;
+    const found = notifications
+      ? museCompactionOf(asRecord(record?.params)?.item)
+      : (museCompactionOf(record?.item) ?? (record !== null ? museCompactionOf(record) : null));
     if (found !== null) compactions.push(found);
   }
   const cursor = page.nextCursor ?? page.viewCursor;
