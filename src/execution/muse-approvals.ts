@@ -19,6 +19,8 @@ const HELPER_START_ATTEMPTS = 2;
 /** Budget for one poll reply once the helper is up. An unanswered poll is
  * one unreadable sample, not a verdict (H1). */
 const POLL_RESPONSE_MS = 10_000;
+// Native MSP ViewPageParams requires a limit from 1 through 1000.
+const VIEW_PAGE_LIMIT = 1000;
 /** H1: the observer channel carries its own large line limit. A
  * judge-decided approval can carry more than 64KB of rawArgs, so the
  * 64KB stream limit would end a healthy turn that a poll lands in. */
@@ -334,7 +336,11 @@ export function watchMuseApprovals(
       id,
       jsonrpc: "2.0",
       method: "view/page",
-      params: { sessionId, ...(viewCursor !== null ? { cursor: viewCursor } : {}) },
+      params: {
+        sessionId,
+        limit: VIEW_PAGE_LIMIT,
+        ...(viewCursor !== null ? { cursor: viewCursor } : {}),
+      },
     });
     if (!sent) return;
     viewInFlight = id;

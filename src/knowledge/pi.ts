@@ -1,6 +1,6 @@
 /**
  * The pi descriptor: facts about the `pi` CLI as data, verified against
- * pi 0.99.1 (test/fixtures/pi-0.99.1). Descriptor groundwork only (D-003). The load-bearing scars:
+ * pi 1.0.2 (test/fixtures/pi-1.0.2). Descriptor groundwork only (D-003). The load-bearing scars:
  * pi reads stdin even in -p mode (a backgrounded call without `< /dev/null`
  * hangs forever), it auto-discovers instruction files/skills/extensions
  * unless disabled, and its model registry is runtime-extensible (D-008) -
@@ -14,7 +14,7 @@ export const piCli: HarnessDescriptor = deepFreeze({
   name: "pi",
   transcript: PI_TRANSCRIPT,
   bin: "pi",
-  verifiedAgainst: "0.99.1",
+  verifiedAgainst: "1.0.2",
   versionSource: { kind: "npm", package: "@earendil-works/pi-coding-agent" },
   launch: {
     // -p --mode json: bare -p prints plain text; --mode json emits the
@@ -58,10 +58,9 @@ export const piCli: HarnessDescriptor = deepFreeze({
   // --mode rpc exists on 0.84.2 and its session semantics are now VERIFIED
   // against a live run (2026-08-19 spike, evidence at
   // test/fixtures/pi-rpc-spike): JSONL both directions, agent_settled
-  // delimits turns, steer/follow_up queue mid-run (hcn keeps no queue of
-  // its own since ADR 0007 and writes a send when it arrives; a bare
-  // prompt mid-run is refused with success:false - spike fixture 05, a
-  // pending change), identity is silent at startup and readable
+  // delimits turns. A busy hcn send uses prompt with streamingBehavior:
+  // steer, joining the current run; follow_up is Pi's separate native queue.
+  // Identity is silent at startup and readable
   // only via a get_state round trip, stdin EOF exits rc=0. The claude
   // slice remains the proven vertical (D-003); this entry is the second.
   sessionMode: {
@@ -146,15 +145,16 @@ export const piCli: HarnessDescriptor = deepFreeze({
   // The stream announces both edges: `compaction_start` carries `reason`
   // ("manual" | "threshold" | "overflow"), and `compaction_end` carries the
   // whole payload - summary, firstKeptEntryId, tokensBefore,
-  // estimatedTokensAfter, the summarizer's usage, and details. Between them
-  // the stream is silent for 7 to 10 s. hcn's pi decoder drops both records
-  // today; closing that gap is issue #239, and nothing here changes it. A
-  // threshold compaction can also land outside any agent_start/agent_settled
-  // pair, so a consumer keyed on turn boundaries can miss it.
+  // estimatedTokensAfter, the summarizer's usage, and details. Hcn reports
+  // both edges, including threshold compaction outside the agent_start /
+  // agent_settled pair. A consumer keyed only on turn boundaries can miss it.
   nativeContextManagement: {
     kind: "auto-compaction",
     modes: ["headless-turn", "headless-session"],
   },
+  // 1.0.0: JSON and RPC threshold replacement installation and later-process
+  // recall reproduced at lowered thresholds (test/fixtures/pi-1.0.0/VERIFICATION.md).
+  // This does not establish lossless recall or steady full-capacity behavior.
   // 0.99.1 re-probe: reproduced (test/fixtures/pi-0.99.1/VERIFICATION.md).
   // Three forcing configurations: project .pi/settings.json with
   // reserveTokens 950k and 5M (plus keepRecentTokens 500 and --approve)
@@ -212,7 +212,12 @@ export const piCli: HarnessDescriptor = deepFreeze({
   // untouched; the observed value is display only.
   escalation: {
     supported: true,
-    observedOn: { harness: "pi", model: "zai/glm-5.2", version: "0.99.1", date: "2026-09-30" },
+    observedOn: {
+      harness: "pi",
+      model: "openai-codex/gpt-6.1-sol",
+      version: "1.0.2",
+      date: "2026-10-04",
+    },
   },
   turnOptions: {
     effort: { kind: "effort", render: { kind: "flag-value", flag: "--thinking" } },
@@ -288,10 +293,9 @@ export const piCli: HarnessDescriptor = deepFreeze({
       render: { kind: "flag-list", flags: [] },
     },
   },
-  // Phase 0 fixtures: pi-both-tool-flags.md. Both list flags legal at once;
-  // exclude subtracts from include. --tools is strict over BUILT-INS but
-  // does not strip MCP/extension registrations (additive over them);
-  // -nbt (built-ins only off) exists but has no normalized spelling yet.
+  // Pi 1.0 live probes confirm --tools replaces the whole active selection,
+  // including extension and MCP tools (test/fixtures/pi-1.0.0). Exclusion
+  // subtracts after selection; -nbt has no normalized spelling.
   skills: { loadFlag: "--skill", overridesVia: null },
   tools: {
     includeFlag: "--tools",

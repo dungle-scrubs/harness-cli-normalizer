@@ -1,9 +1,9 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test } from "vitest";
 import { parseInteractiveRequest } from "../../src/interpretation/interactive.js";
+import { cliFixtureTmpdir } from "./fixture-tmpdir.js";
 import { ensureTestStateSandbox } from "./setup-state.js";
 
 const launchId = "cf548bfb-e24e-4bb0-ab3e-ad9c70ac04db";
@@ -113,7 +113,7 @@ function codexFixture(): {
   readonly rollout: string;
   readonly root: string;
 } {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), "hcn-interactive-")));
+  const root = realpathSync(mkdtempSync(join(cliFixtureTmpdir(), "hcn-interactive-")));
   const nativeDir = join(root, "bin");
   const sessions = join(root, ".codex", "sessions", "2026", "09", "12");
   mkdirSync(nativeDir);

@@ -901,11 +901,9 @@ export const openSession = (
         return { disposition: "rejected", reason: "write-failed" };
       }
       if (wasBusy) {
-        // Codex steers into the RUNNING turn - there is no next turn to
-        // tag, so its id rides nothing; the receipt says delivered. Every
-        // other harness queues natively and the queued id opens the next
-        // turn at the boundary.
-        if (sessionInput.kind !== "codex-jsonrpc") {
+        // Codex and Pi steer into the running turn; queued inputs on the
+        // other protocols identify a later native turn.
+        if (sessionInput.kind !== "codex-jsonrpc" && sessionInput.kind !== "pi-rpc-prompt") {
           pendingIds.push(input.id);
           pendingLengths.push(input.text.length);
         }

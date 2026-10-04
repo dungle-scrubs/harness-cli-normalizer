@@ -1,0 +1,4 @@
+{"type":"thread.started","thread_id":"01a10134-e5b6-7630-b63a-7512c7cae29e"}
+{"type":"turn.started"}
+{"type":"error","message":"{\n  \"type\": \"error\",\n  \"error\": {\n    \"type\": \"invalid_request_error\",\n    \"code\": null,\n    \"message\": \"The following tools cannot be used with reasoning.effort 'minimal': web_search.\",\n    \"param\": \"tools\"\n  },\n  \"status\": 400\n}"}
+{"type":"turn.failed","error":{"message":"{\n  \"type\": \"error\",\n  \"error\": {\n    \"type\": \"invalid_request_error\",\n    \"code\": null,\n    \"message\": \"The following tools cannot be used with reasoning.effort 'minimal': web_search.\",\n    \"param\": \"tools\"\n  },\n  \"status\": 400\n}"}}

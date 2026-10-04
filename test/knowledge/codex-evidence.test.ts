@@ -5,13 +5,13 @@ import type { HarnessEvent } from "../../src/execution/events.js";
 import { detectQuestionBlock } from "../../src/interpretation/question.js";
 import { codexCli } from "../../src/knowledge/codex.js";
 
-const read = (file: string, dir = "codex-0.159.2"): string =>
+const read = (file: string, dir = "codex-0.160.0"): string =>
   readFileSync(new URL(`../fixtures/${dir}/${file}`, import.meta.url), "utf8");
 
 const decoded = (
   file: string,
   requestedId: string | null = null,
-  dir = "codex-0.159.2",
+  dir = "codex-0.160.0",
 ): HarnessEvent[] => {
   const state = freshDecodeState(requestedId);
   return read(file, dir)
@@ -64,7 +64,7 @@ test("native resume retains the announced session and recalls its earlier prompt
 
 test("native automatic compaction installs replacement history and a later process recalls", () => {
   const records = JSON.parse(read("compaction-rollout-records.json"));
-  // 0.159.2 carries each compaction as an `item_completed` record whose
+  // 0.160.0 carries each compaction as an `item_completed` record whose
   // item is a bare ContextCompaction reference: id and type, no encrypted
   // summary and no token counts, unchanged from 0.156.1 (whose shape
   // replaced 0.155.1's `compacted` payloads).
@@ -74,6 +74,17 @@ test("native automatic compaction installs replacement history and a later proce
       payload_type: "item_completed",
       item_type: "ContextCompaction",
     });
+  const windows = JSON.parse(read("compaction-rollout-window-records.json"));
+  expect(windows.map((window: { window_number: number }) => window.window_number)).toEqual([
+    1, 2, 3,
+  ]);
+  expect(
+    windows.map((window: { replacement_history_len: number }) => window.replacement_history_len),
+  ).toEqual([2, 3, 3]);
+  for (let index = 1; index < windows.length; index++) {
+    expect(windows[index].previous_window_id).toBe(windows[index - 1].window_id);
+    expect(windows[index].first_window_id).toBe(windows[0].first_window_id);
+  }
   const events = (file: string): Record<string, unknown>[] =>
     read(file)
       .trim()
@@ -85,9 +96,7 @@ test("native automatic compaction installs replacement history and a later proce
   }
 });
 
-// The 0.155.1 question run answered without reading any local file, so its
-// own raw stream is the decoding evidence. The 0.154.0 run could not be kept
-// for this: the model read a local skill file into its native output.
+// This version's question stream is the decoding evidence; prior captures stay intact.
 test("the native decision response contains a valid escalation block", () => {
   const text = decoded("question.ndjson")
     .filter(

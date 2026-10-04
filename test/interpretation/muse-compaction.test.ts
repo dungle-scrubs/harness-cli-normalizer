@@ -125,6 +125,31 @@ describe("museCompactionOf", () => {
 });
 
 describe("museViewPageOf", () => {
+  test("current notification pages select only completed compaction items and preserve cursor", () => {
+    const page = museViewPageOf({
+      events: [
+        null,
+        { method: "item/completed", params: null },
+        { method: "item/completed" },
+        { method: "item/started", params: { item: completedItem } },
+        { method: "future/event", params: { item: completedItem } },
+        { method: "item/completed", params: { item: startedItem } },
+        { method: "item/completed", params: { item: completedItem } },
+        {
+          method: "item/completed",
+          params: { item: { ...completedItem, itemId: "later", outcome: "cancelled" } },
+        },
+      ],
+      nextCursor: `v:${sessionId}:9`,
+    });
+    expect(page?.compactions.map(({ itemId, state }) => ({ itemId, state }))).toEqual([
+      { itemId: completedItem.itemId, state: "compacted" },
+      { itemId: "later", state: "aborted" },
+    ]);
+    expect(page?.nextCursor).toBe(`v:${sessionId}:9`);
+    expect(museViewPageOf({ events: [] })).toEqual({ compactions: [], nextCursor: null });
+  });
+
   test("a page yields its terminal compactions in view order, with the next cursor", () => {
     const page = museViewPageOf({
       sessionId,

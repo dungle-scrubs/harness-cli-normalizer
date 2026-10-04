@@ -1,11 +1,9 @@
 /**
  * Antigravity CLI descriptor. Current Google documentation and authenticated
  * probes establish the argv, stream, permission, session, resume, model, and
- * escalation contracts. The anchor is 1.2.14: the capability tripwires
- * (smoke:seven, smoke:questions) and the compaction re-probe were run
- * against that binary (test/fixtures/antigravity-1.2.14); the compaction
- * observation itself still anchors to 1.2.8
- * (test/fixtures/antigravity-1.2.8). The permission, sandbox, store and
+ * escalation contracts. The 1.2.16 tripwires, automatic checkpoint,
+ * replacement-store entry and later-process marker recall are captured in
+ * test/fixtures/antigravity-1.2.16. The permission, sandbox, store and
  * validation corpus behind the remaining claims was captured on 1.2.7
  * (test/fixtures/antigravity-1.2.7) and still stands.
  */
@@ -17,8 +15,8 @@ export const antigravityCli: HarnessDescriptor = deepFreeze({
   name: "antigravity",
   transcript: ANTIGRAVITY_TRANSCRIPT,
   bin: "agy",
-  verifiedAgainst: "1.2.14",
-  // The installed signed binary supplied the qualified version anchor.
+  verifiedAgainst: "1.2.16",
+  // Rechecked against the installed binary on 2026-10-03.
   versionSource: { kind: "installed" },
   launch: {
     // --print consumes the immediately following positional prompt. Keep
@@ -101,12 +99,11 @@ export const antigravityCli: HarnessDescriptor = deepFreeze({
   // compactions inside one 8-turn `--input-format stream-json` session, so
   // headless-session is evidenced. headless-turn is not claimed - a one-shot
   // turn has no second request to shrink, and none was probed. Not
-  // re-observed on 1.2.10 (three multi-turn sessions) or on 1.2.14 (three
-  // more: 10-turn gemini-3.8 and gemini-3.7 sessions with three 75 KB filler
-  // reads, plus gpt-oss-120b-medium blocked both attempts by a native 503
-  // no-capacity error); the changelogs still ship compaction-checkpoint
-  // fixes, so the claim keeps its 1.2.8 evidence
-  // (test/fixtures/antigravity-1.2.14/VERIFICATION.md).
+  // re-observed on 1.2.10 or 1.2.14 (their VERIFICATION.md files retain
+  // those misses). Reproduced on 1.2.16 with seven 20,000-word synthetic
+  // blocks in sequential turns: gemini-3.8-flash-medium installed a
+  // checkpoint, then recalled LANTERN-903 in a later process. GPT-OSS also
+  // checkpointed before a native capacity failure, which remains a failure.
   //
   // The stream says nothing while it runs and one bare record afterwards: a
   // `step_update` with `step_type: "checkpoint"`, `state: "DONE"` and a
@@ -147,8 +144,8 @@ export const antigravityCli: HarnessDescriptor = deepFreeze({
     observedOn: {
       harness: "antigravity",
       model: "gemini-3.8-flash-medium",
-      version: "1.2.14",
-      date: "2026-09-30",
+      version: "1.2.16",
+      date: "2026-10-03",
     },
   },
   turnOptions: {

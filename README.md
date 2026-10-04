@@ -311,10 +311,11 @@ stdin carries one command per line (blank lines are ignored):
   `awaiting-input` turn to answer), `native-rejected` (Pi or codex refused
   the command), or `write-failed` (the harness's stdin pipe broke; a
   `closed` follows).
-- A send's id rides to the turn it opens: correlate by reading `turn.id`,
-  not by counting turns. On codex a mid-turn send rides the ALREADY-OPEN
-  turn (its disposition is the correlation; the steered text appears inside
-  the running turn), so `turn.id` keeps naming the send that OPENED it.
+- A send's id rides to the turn it opens: correlate by reading `turn.id`.
+  Pi and codex steer a mid-turn send into the running turn, which keeps its
+  opening send's id. If hcn receives Pi's prompt acceptance after the prior
+  turn settles, hcn opens a turn carrying that send's id. This receipt race
+  has a deterministic regression; the native capture covers queued steering.
 - `answer` composes hcn's question-answer preamble
   (`The user answered the question: "<q>" with: <text>. Continue accordingly.`)
   around the text, so the consumer never re-derives it. A plain `send` after

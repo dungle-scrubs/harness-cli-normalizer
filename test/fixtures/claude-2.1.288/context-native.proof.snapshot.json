@@ -1,0 +1,104 @@
+{
+  "argv": [
+    "claude",
+    "-p",
+    "--setting-sources",
+    "project",
+    "--disable-slash-commands",
+    "",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--include-partial-messages",
+    "--model",
+    "claude-opus-5",
+    "--input-format",
+    "stream-json",
+    "--no-session-persistence",
+    "--replay-user-messages",
+    "--tools",
+    "",
+    "--strict-mcp-config",
+    "--mcp-config",
+    "{\"mcpServers\":{}}"
+  ],
+  "promptCharacters": 3080,
+  "frames": [
+    {
+      "type": "system",
+      "subtype": "hook_started"
+    },
+    {
+      "type": "system",
+      "subtype": "hook_started"
+    },
+    {
+      "type": "system",
+      "subtype": "hook_started"
+    },
+    {
+      "type": "system",
+      "subtype": "hook_started"
+    },
+    {
+      "type": "system",
+      "subtype": "hook_started"
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response"
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response"
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response"
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response"
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response"
+    },
+    {
+      "type": "control_response"
+    },
+    {
+      "type": "command_lifecycle"
+    },
+    {
+      "type": "command_lifecycle"
+    },
+    {
+      "type": "system",
+      "subtype": "init"
+    },
+    {
+      "type": "user",
+      "stagedPromptExact": true
+    },
+    {
+      "type": "result",
+      "subtype": "success",
+      "turns": 0
+    },
+    {
+      "type": "command_lifecycle"
+    },
+    {
+      "type": "control_response"
+    }
+  ],
+  "result": {
+    "contextWindowTokens": 1000000,
+    "inputLimitTokens": 967000,
+    "method": "native-context-estimate",
+    "model": "claude-opus-5",
+    "status": "available",
+    "totalTokens": 5792
+  }
+}

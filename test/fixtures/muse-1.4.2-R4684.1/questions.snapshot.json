@@ -1,0 +1,23 @@
+{
+  "ranAt": "2026-10-03T10:01:25.064Z",
+  "results": {
+    "muse": {
+      "status": "pass",
+      "observedOn": {
+        "harness": "muse",
+        "model": "muse-spark-1.3-contributor",
+        "version": "1.4.2",
+        "date": "2026-10-03"
+      },
+      "detail": "question \"Which environment should deplo\""
+    }
+  },
+  "observations": {
+    "muse": {
+      "harness": "muse",
+      "model": "muse-spark-1.3-contributor",
+      "version": "1.4.2",
+      "date": "2026-10-03"
+    }
+  }
+}

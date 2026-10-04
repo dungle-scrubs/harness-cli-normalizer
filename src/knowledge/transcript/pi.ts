@@ -25,7 +25,7 @@ const definitions = [
   [
     "pi-file-resolution-v1",
     "resolution",
-    "An explicit file selects its v3 native header ID. ID lookup is workspace-scoped under PI_CODING_AGENT_DIR/sessions or ~/.pi/agent/sessions, using the Pi v3 dash-wrapped workspace slug and the exact _ID.jsonl filename suffix. Reject multiple matches; validate the chosen header ID. Never initialize missing stores.",
+    "An explicit file selects its v3 native header ID. A nonempty PI_CODING_AGENT_SESSION_DIR selects a flat directory for exact _ID.jsonl lookup, independent of the header workspace. Otherwise lookup is workspace-scoped under PI_CODING_AGENT_DIR/sessions or ~/.pi/agent/sessions using Pi's dash-wrapped workspace slug. Relative transcript overrides anchor at the hcn process cwd. Reject multiple matches; validate the chosen header ID. Never initialize missing stores.",
   ],
   [
     "pi-format-v3",

@@ -1,8 +1,8 @@
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test } from "vitest";
+import { cliFixtureTmpdir } from "./fixture-tmpdir.js";
 import { ensureTestStateSandbox } from "./setup-state.js";
 
 const bun = execFileSync("which", ["bun"], { encoding: "utf8" }).trim();
@@ -10,7 +10,7 @@ const cli = resolve("src/cli/index.ts");
 const sessionId = "907feafe-e82b-4df4-91ba-4f1aeb987508";
 
 test("public native approval refusal proves that no process or prompt was attempted", () => {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), "hcn-native-refusal-")));
+  const root = realpathSync(mkdtempSync(join(cliFixtureTmpdir(), "hcn-native-refusal-")));
   try {
     const result = spawnSync(
       bun,
@@ -90,7 +90,7 @@ const TEST_TIMEOUT_MS = 40_000;
 test(
   "a broken public output pipe terminates the owned approval process before HCN exits",
   async () => {
-    const root = realpathSync(mkdtempSync(join(tmpdir(), "hcn-native-broken-output-")));
+    const root = realpathSync(mkdtempSync(join(cliFixtureTmpdir(), "hcn-native-broken-output-")));
     try {
       const { env, fingerprint, nativeLog } = nativeApprovalFixture(root);
       const peer = join(root, "bin", "codex");
@@ -161,7 +161,7 @@ test(
 test(
   "public native approvals resume the exact thread and answer one live request before cleanup",
   async () => {
-    const root = realpathSync(mkdtempSync(join(tmpdir(), "hcn-native-approval-")));
+    const root = realpathSync(mkdtempSync(join(cliFixtureTmpdir(), "hcn-native-approval-")));
     try {
       const { env, fingerprint, nativeLog } = nativeApprovalFixture(root);
       const child = spawn(

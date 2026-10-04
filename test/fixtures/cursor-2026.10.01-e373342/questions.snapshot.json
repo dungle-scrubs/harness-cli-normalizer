@@ -1,0 +1,23 @@
+{
+  "ranAt": "2026-10-03T10:54:11.504Z",
+  "results": {
+    "cursor": {
+      "status": "pass",
+      "observedOn": {
+        "harness": "cursor",
+        "model": "gpt-5-mini",
+        "version": "2026.10.01-e373342",
+        "date": "2026-10-03"
+      },
+      "detail": "question \"Which environment should I wri\""
+    }
+  },
+  "observations": {
+    "cursor": {
+      "harness": "cursor",
+      "model": "gpt-5-mini",
+      "version": "2026.10.01-e373342",
+      "date": "2026-10-03"
+    }
+  }
+}

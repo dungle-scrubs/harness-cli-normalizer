@@ -10,10 +10,10 @@
  * `--agent` reads from ./.popeye/agents and ~/.popeye/agents
  * (POPEYE_AGENTS_DIR overrides the user dir); an unknown name is a
  * typed `CliConfigError` and exits 2 (the harness's usage-error class).
- * Bun's `posix_spawn` does not honor the popeye sh wrapper, so the
- * smoke:seven / smoke:questions tripwires cannot drive popeye on macOS
- * hosts that install popeye through this wrapper; CI uses a
- * direct-path bind mount where the tripwires drive it.
+ * Rechecked on 2026-10-03 using the installed source-built wrapper and a
+ * live loopback model: six applicable smoke:seven scenarios pass (no
+ * default tools). smoke:questions omits Popeye; escalation stays unverified
+ * and false. Captures: test/fixtures/popeye-0.1.4-reverify-2026-10-03.
  */
 import { deepFreeze, type HarnessDescriptor } from "./descriptor.js";
 import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
@@ -25,7 +25,7 @@ export const popeyeCli: HarnessDescriptor = deepFreeze({
   bin: "popeye",
   verifiedAgainst: "0.1.4",
   // No npm package: never distributed via Homebrew or npm per author
-  // policy; the binary is built from source (`--version` reports 0.1.4).
+  // policy; source tag v0.1.4 and --version were rechecked on 2026-10-03.
   versionSource: { kind: "installed" },
   launch: {
     // `-p` headless with a positional prompt. `--mode hcn` emits the HCN

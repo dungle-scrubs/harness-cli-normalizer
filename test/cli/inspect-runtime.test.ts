@@ -1,10 +1,10 @@
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { env } from "node:process";
 import { expect, test } from "vitest";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
+import { cliFixtureTmpdir } from "./fixture-tmpdir.js";
 
 test.each(
   ["claude", "pi"].flatMap((harness) =>
@@ -13,7 +13,7 @@ test.each(
 )(
   "$harness persistent resume retains its grammar across version changes: $version",
   ({ harness, version }) => {
-    const dir = mkdtempSync(join(tmpdir(), "hcn-runtime-session-"));
+    const dir = mkdtempSync(join(cliFixtureTmpdir(), "hcn-runtime-session-"));
     writeFileSync(join(dir, harness), `#!/bin/sh\nprintf '%s\\n' '${version}'\n`, { mode: 0o700 });
     try {
       const result = spawnSync(
@@ -55,7 +55,7 @@ test.each(
 );
 
 test("runtime inspection checks the selected executable and renders a same-session model change without a turn", () => {
-  const dir = mkdtempSync(join(tmpdir(), "hcn-runtime-"));
+  const dir = mkdtempSync(join(cliFixtureTmpdir(), "hcn-runtime-"));
   const executable = join(dir, "claude");
   const calls = join(dir, "calls");
   writeFileSync(
@@ -121,7 +121,7 @@ test("runtime inspection checks the selected executable and renders a same-sessi
 test.each(["0.0.0", "unusable version"])(
   "Claude headless-turn invocation ignores version metadata: %s",
   (version) => {
-    const dir = mkdtempSync(join(tmpdir(), "hcn-runtime-path-"));
+    const dir = mkdtempSync(join(cliFixtureTmpdir(), "hcn-runtime-path-"));
     const selected = join(dir, "selected");
     mkdirSync(selected);
     writeFileSync(
@@ -175,7 +175,7 @@ test.each(
     ["0.0.0", "999.0.0", "unusable version"].map((version) => ({ harness, version })),
   ),
 )("$harness headless-turn admission ignores version metadata: $version", ({ harness, version }) => {
-  const dir = mkdtempSync(join(tmpdir(), "hcn-other-runtime-"));
+  const dir = mkdtempSync(join(cliFixtureTmpdir(), "hcn-other-runtime-"));
   writeFileSync(join(dir, harness), `#!/bin/sh\nprintf '%s\\n' '${version}'\n`, { mode: 0o700 });
   try {
     const result = spawnSync(
@@ -204,7 +204,7 @@ test.each(
 test.each(["selected", "missing", ""])(
   "runtime inspection resolves only the selected relative PATH: %s",
   (searchPath) => {
-    const dir = mkdtempSync(join(tmpdir(), "hcn-runtime-relative-"));
+    const dir = mkdtempSync(join(cliFixtureTmpdir(), "hcn-runtime-relative-"));
     mkdirSync(join(dir, "selected"));
     writeFileSync(join(dir, "claude"), `#!/bin/sh\nprintf '${claudeCode.verifiedAgainst}\\n'\n`, {
       mode: 0o700,
@@ -297,7 +297,7 @@ test.each(["muse", "cursor"])("%s still refuses unsupported persistent mode", (h
 test.each(["claude", "codex", "pi", "muse"])(
   "%s invocation admission leaves native failure authoritative and never retries",
   (harness) => {
-    const dir = mkdtempSync(join(tmpdir(), "hcn-operation-failure-"));
+    const dir = mkdtempSync(join(cliFixtureTmpdir(), "hcn-operation-failure-"));
     const calls = join(dir, "calls");
     // Synthetic executable: future version metadata, broken native operation.
     writeFileSync(
@@ -375,7 +375,7 @@ test.each([
 ])(
   "persistent inspection resolves memory like session startup: $tier $disabled",
   ({ flags, configured, disabled, tier }) => {
-    const dir = mkdtempSync(join(tmpdir(), "hcn-session-memory-preview-"));
+    const dir = mkdtempSync(join(cliFixtureTmpdir(), "hcn-session-memory-preview-"));
     const calls = join(dir, "calls");
     writeFileSync(
       join(dir, "claude"),
@@ -425,7 +425,7 @@ test.each([
 // question for extension-registered options by running the declared
 // probes against the selected executable, under the effective env.
 test("runtime inspection probes pi's extension-registered agent option for this machine", () => {
-  const dir = mkdtempSync(join(tmpdir(), "hcn-runtime-ext-"));
+  const dir = mkdtempSync(join(cliFixtureTmpdir(), "hcn-runtime-ext-"));
   const withFlag = join(dir, "with-flag");
   const withoutFlag = join(dir, "without-flag");
   mkdirSync(withFlag);

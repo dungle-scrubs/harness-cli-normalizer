@@ -149,7 +149,7 @@ Options:
                             (claude, codex, pi, cursor, antigravity; muse and popeye refuse).
                             Mutually exclusive with --resume/--session-id.
   --native-settings-fingerprint <hash>
-                            Codex resume only, with explicit --cwd. Re-read saved
+                            Codex or Pi resume only, with explicit --cwd. Re-read saved
                             model, effort and recorded provider before native spawn.
                             Get the hash from inspect --native-settings. Refuses
                             changed/unavailable sources, competing model/effort/provider
@@ -199,9 +199,12 @@ Options:
                             "answer", "close"). Every send is answered with one
                             disposition (started | rejected); Pi and Codex wait
                             for their native command response before reporting
-                            acceptance. The turn that consumes a send carries its
-                            id (Codex delivers a mid-turn send into the RUNNING
-                            turn). The stream opens with a session event and ends
+                            acceptance. The turn a send opens carries its id.
+                            Pi and Codex steer a mid-turn send into the running
+                            turn, which keeps its opening send's id. A Pi prompt
+                            acceptance received after settlement opens a turn
+                            with that send's id.
+                            The stream opens with a session event and ends
                             with a closed event. Exit 0 clean, 1 otherwise,
                             2 refusal, 4 hcn internal crash (failure/closed pair,
                             cause crash).
@@ -260,12 +263,13 @@ Options:
                             exclusive with other inspection modes; no history opened
   --argv                    Preview argv that would be spawned
   --native-settings         Read saved model, effort and provider without starting a
-                            process (Codex only). Requires exact --resume and --cwd.
+                            process (Codex or Pi). Requires exact --resume and --cwd.
                             --session-id is the shared alias for --resume.
                             Returns one JSON object, with or without --json: available
                             plus a source fingerprint (exit 0), or unavailable plus a
                             reason (exit 2). Excludes other modes and turn options.
-                            Latest native settings updates supersede earlier turns.
+                            Codex uses latest native settings updates; Pi follows the
+                            saved leaf's parent chain for model and thinking level.
                             permissions describes recorded local-command limits or
                             why they are unavailable; it does not promise restoration.
                             Reads at most 64 MiB, 1 MiB per line, 16384 directory entries.

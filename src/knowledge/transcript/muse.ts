@@ -19,11 +19,13 @@ export const MUSE_NATIVE_EVIDENCE: Evidence = {
 
 export const MUSE_TRANSCRIPT_EVIDENCE: Evidence = deepFreeze({
   ...MUSE_NATIVE_EVIDENCE,
+  reference: "test/fixtures/muse-1.4.2-R4684.1/VERIFICATION.md",
+  standing: "observed",
   appliesTo: {
     ...MUSE_NATIVE_EVIDENCE.appliesTo,
     writerBuilds: [],
     scope:
-      "Schema-1 Muse session envelopes with one stream identity, increasing native sequence and retained original payloads. Compatibility is conditional on these format semantics, not a writer version label. Unknown payload versions remain opaque; clone consistency is independent of native write scheduling.",
+      "Schema-1 Muse session envelopes and schema-1 session_permission_transaction retained frames with one stream identity, increasing embedded/ordinary native sequence and retained original values. Each frame remains one native record; its exact record_json child strings establish identity and ordering, not separately emitted records. Compatibility is conditional on these format semantics, not a writer version label. Unknown payload versions remain opaque; clone consistency is independent of native write scheduling.",
   },
 });
 
@@ -31,12 +33,12 @@ const definitions = [
   [
     "muse-local-resolution-v1",
     "resolution",
-    "An explicit native session.jsonl supplies its session identity from schema-1 envelope stream.kind=session and stream.id. ID lookup scans XDG_DATA_HOME/muse/sessions or ~/.local/share/muse/sessions for exact ID/session.jsonl suffixes, rejects multiple matches and validates the embedded stream ID. Require the same stream identity throughout; child conversations remain separate.",
+    "An explicit native session.jsonl supplies its session identity from schema-1 envelope stream.kind=session and stream.id, including envelopes embedded as exact record_json strings in a permission frame. ID lookup scans XDG_DATA_HOME/muse/sessions or ~/.local/share/muse/sessions for exact ID/session.jsonl suffixes, rejects multiple matches and validates the embedded stream ID. Require the same stream identity throughout; child conversations remain separate.",
   ],
   [
     "muse-envelope-v1",
     "compatibility",
-    "Require complete UTF-8 LF-delimited schema-1 JSON envelopes with unique record IDs, one native session stream, nonnegative integer sequence/time/schema metadata and object payloads. Reject duplicate JSON keys and conflicting/decreasing sequences. Preserve unknown payload versions and values without interpreting them.",
+    "Require complete UTF-8 LF-delimited schema-1 JSON envelopes or schema-1 session_permission_transaction frames. Validate exact embedded record_json envelopes and ordinary envelopes for unique record IDs, one native session stream, nonnegative integer sequence/time/schema metadata and object payloads. Require ordered child_index values, unique transaction_id values and increasing outer_log_ordinal values between frames. Reject duplicate JSON keys, conflicting/decreasing sequences and unestablished frame variants/schemas. Preserve unknown payload versions and values without interpreting them; retain content_sha256 as opaque vendor data, not an authenticated checksum.",
   ],
   [
     "muse-snapshot-v1",
@@ -51,12 +53,12 @@ const definitions = [
   [
     "muse-order-v1",
     "ordering",
-    "Return every retained envelope in physical file order after checking increasing native sequence values. Gaps or a nonzero first sequence do not prove why prior records are absent; historical loss remains unknown. Do not sort, deduplicate or project a compacted model context.",
+    "Return every outer retained envelope or permission frame in physical file order after checking increasing native sequence values across embedded/ordinary envelopes. Do not flatten frame children or synthesize separate source positions. Gaps or a nonzero first sequence do not prove why prior records are absent; historical loss remains unknown. Do not sort, deduplicate or project a compacted model context.",
   ],
   [
     "muse-normalization-v1",
     "normalization",
-    "Preserve exact JSON values and source byte positions. Normalize documented schema-1 runtime.session messages, user steering, tool calls and tool results. Leave unfamiliar payloads opaque, preserve external content references without opening them, and do not infer live branch selection.",
+    "Preserve exact JSON values and source byte positions. Normalize documented ordinary schema-1 runtime.session messages, user steering, tool calls and tool results. Permission frames remain unknown normalized records with their exact child strings in original, including permission metadata; frame children are not normalized parts. Leave unfamiliar payloads opaque, preserve external content references without opening them, and do not infer live branch selection.",
   ],
   [
     "muse-continuation-v1",
@@ -86,7 +88,7 @@ const capabilities = deepFreeze(
         reason:
           key === "active-branch"
             ? "The selected native envelope format does not establish saved or live branch selection."
-            : "All retained envelopes in the selected session log under its format and filesystem snapshot rules.",
+            : "All retained outer envelopes and permission frames in the selected session log under its format and filesystem snapshot rules.",
         status: key === "active-branch" ? "unknown" : "available",
       },
     ]),

@@ -88,7 +88,10 @@ describe("decodeParsed threads the attestation and re-emits identity (pi)", () =
     expect(first[0]).toMatchObject({ kind: "identity", sessionId: sid });
     const caps = (first[0] as { capabilities: { escalation: { observedOn?: unknown } } })
       .capabilities.escalation.observedOn;
-    expect(caps).toMatchObject({ harness: "pi", model: "zai/glm-5.2" });
+    // The first identity's static probe record mirrors the descriptor's
+    // current escalation.observedOn - tracked as the latest verified pi
+    // capture, never overwritten by stream attestations below.
+    expect(caps).toMatchObject({ harness: "pi", model: "openai-codex/gpt-6.1-sol" });
 
     // A token delta between them carries no attestation and re-emits nothing.
     const mid = decodeParsed(
@@ -172,7 +175,9 @@ describe("live stdout fixture (pi-model-observed.ndjson, pi 0.85.1)", () => {
     expect(validateModel(piCli, "glm-5.3")).toEqual({ ok: true, id: "glm-5.3" });
     const { capabilitiesOf } = await import("../../src/interpretation/capabilities.js");
     const caps = capabilitiesOf(piCli, "", "headless-turn");
-    expect(caps.escalation.observedOn?.model).toBe("zai/glm-5.2");
+    // capabilitiesOf returns the static probe record verbatim; runtime
+    // attestations never feed validation or capability source.
+    expect(caps.escalation.observedOn?.model).toBe("openai-codex/gpt-6.1-sol");
   });
 
   test("session path: the probe identity carries a late attestation the same way", async () => {

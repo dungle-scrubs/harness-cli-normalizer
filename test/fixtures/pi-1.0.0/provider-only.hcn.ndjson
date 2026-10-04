@@ -1,0 +1,3 @@
+{"kind":"failure","class":"native","retryable":false,"message":"NATIVE ERROR from harness: Error: --provider requires --model (for example: --provider zai --model <pattern>) - the harness rejected or failed on its own arguments; this is not an hcn error","nativeExitCode":1}
+{"kind":"error","message":"Error: --provider requires --model (for example: --provider zai --model <pattern>)"}
+{"kind":"done","exitCode":null,"cause":"crash","failure":{"class":"native","retryable":false,"message":"NATIVE ERROR from harness: Error: --provider requires --model (for example: --provider zai --model <pattern>) - the harness rejected or failed on its own arguments; this is not an hcn error","nativeExitCode":1},"escalation":{"mode":"ask","detection":"none"}}

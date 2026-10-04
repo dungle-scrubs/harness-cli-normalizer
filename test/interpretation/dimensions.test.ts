@@ -130,12 +130,14 @@ describe("observed model provenance (pi)", () => {
   test("the descriptor's escalation.observedOn stays the probe record - the observed runtime model rides the identity event, not the descriptor", async () => {
     // Lucid's settings projection takes the LAST identity event and reads
     // capabilities.escalation.observedOn.model; the static descriptor
-    // record below is escalation-probe provenance only.
+    // record below is escalation-probe provenance only. The probe record
+    // tracks the latest verified pi capture; the runtime model still rides
+    // the identity event and never this static field.
     expect(piCli.escalation.observedOn).toEqual({
       harness: "pi",
-      model: "zai/glm-5.2",
-      version: "0.99.1",
-      date: "2026-09-30",
+      model: "openai-codex/gpt-6.1-sol",
+      version: "1.0.2",
+      date: "2026-10-04",
     });
     // The static probe record above is untouched by design: the decoder
     // fills the re-emitted identity's observedOn from the stream

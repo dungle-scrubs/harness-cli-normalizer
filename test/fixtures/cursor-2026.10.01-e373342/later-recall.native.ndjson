@@ -1,0 +1,9 @@
+{"type":"system","subtype":"init","apiKeySource":"login","cwd":"/Users/kevin/dev/harness-cli-normalizer/.scratch/harness-latest-2026-10-03/evidence/cursor/native-workspace","session_id":"15d0b32f-0b55-4ab9-b35e-bfea96dc849a","model":"GPT-5 Mini","permissionMode":"default"}
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"Reply only with the original marker from the first turn."}]},"session_id":"15d0b32f-0b55-4ab9-b35e-bfea96dc849a"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"L"}]},"session_id":"15d0b32f-0b55-4ab9-b35e-bfea96dc849a","timestamp_ms":1791022254244}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"ANT"}]},"session_id":"15d0b32f-0b55-4ab9-b35e-bfea96dc849a","timestamp_ms":1791022254246}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"ERN"}]},"session_id":"15d0b32f-0b55-4ab9-b35e-bfea96dc849a","timestamp_ms":1791022254246}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"-"}]},"session_id":"15d0b32f-0b55-4ab9-b35e-bfea96dc849a","timestamp_ms":1791022254246}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"903"}]},"session_id":"15d0b32f-0b55-4ab9-b35e-bfea96dc849a","timestamp_ms":1791022254246}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"LANTERN-903"}]},"session_id":"15d0b32f-0b55-4ab9-b35e-bfea96dc849a"}
+{"type":"result","subtype":"success","duration_ms":7697,"duration_api_ms":7697,"is_error":false,"result":"LANTERN-903","session_id":"15d0b32f-0b55-4ab9-b35e-bfea96dc849a","request_id":"e7f1dbfe-ba61-43b2-b7f9-b6d30f31c7ae","usage":{"inputTokens":42659,"outputTokens":135,"cacheReadTokens":27136,"cacheWriteTokens":0}}

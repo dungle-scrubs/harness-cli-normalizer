@@ -1,6 +1,6 @@
 /**
  * The muse descriptor: facts about the `muse` CLI as data, verified against
- * Muse Code 1.4.1 (test/fixtures/muse-1.4.1; prior anchors 1.3.0 and 1.1.1
+ * Muse Code 1.4.2 (test/fixtures/muse-1.4.2-R4684.1; prior anchors 1.4.1, 1.3.0 and 1.1.1
  * stay beside it). The v1 scars this encodes:
  * headless re-entry is `muse exec
  * --session-id <id>` (the positional `muse resume <id>` is the INTERACTIVE
@@ -16,17 +16,17 @@ export const museCode: HarnessDescriptor = deepFreeze({
   name: "muse",
   transcript: MUSE_TRANSCRIPT,
   bin: "muse",
-  verifiedAgainst: "1.4.1",
+  verifiedAgainst: "1.4.2",
   // No npm package - `hcn check` falls back to `muse --version` locally and
   // is skipped in CI where the binary is absent, so this harness is exempt
   // from automated drift detection (see README Version-pinning and drift).
-  // `versionSource: installed` pins only the 1.4.1 triple, and the build
-  // behind it moves. The fixtures in test/fixtures/muse-1.4.1 were captured on
-  // build 1.4.1-R4503.1. Earlier anchors recorded the same drift hazard:
+  // `versionSource: installed` pins only the 1.4.2 triple, and the build
+  // behind it moves. The fixtures in test/fixtures/muse-1.4.2-R4684.1 were captured on
+  // build 1.4.2-R4684.1. Earlier anchors recorded the same drift hazard:
   // the 1.3.0 fixtures were captured on build 1.3.0-R3233.1, and the binary
   // probed on 2026-09-22 reported 1.3.0-R3401.1
   // (docs/research/2026-09-22-compaction-signals/muse).
-  versionSource: { kind: "installed" }, // Re-checked with muse --version, 2026-09-30.
+  versionSource: { kind: "installed" }, // Re-checked by native suite captures, 2026-10-03.
   launch: {
     // exec --json emits the payload_type/stream records the runner decodes
     // (verified 0.1.0); bare exec streams human text.
@@ -168,14 +168,14 @@ export const museCode: HarnessDescriptor = deepFreeze({
     },
     session: false,
   },
-  // Provenance from test/fixtures/muse-1.4.1/questions.snapshot.json.
+  // Provenance from test/fixtures/muse-1.4.2-R4684.1/questions.snapshot.json.
   escalation: {
     supported: true,
     observedOn: {
       harness: "muse",
       model: "muse-spark-1.3-contributor",
-      version: "1.4.1",
-      date: "2026-09-30",
+      version: "1.4.2",
+      date: "2026-10-03",
     },
   },
   turnOptions: {

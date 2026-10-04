@@ -1,0 +1,9 @@
+{
+  "url": "https://registry.npmjs.org/@openai%2fcodex",
+  "latest": "0.160.0",
+  "publishedAt": "2026-10-01T20:26:19.286Z",
+  "versionSource": {
+    "kind": "npm",
+    "package": "@openai/codex"
+  }
+}

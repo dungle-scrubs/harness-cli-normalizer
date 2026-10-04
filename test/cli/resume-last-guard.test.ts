@@ -16,7 +16,7 @@ import {
   resumeLastScopeDir,
   resumeLastStoreRoot,
 } from "../../src/cli/resume-last-guard.js";
-import { transcriptStoreRoot } from "../../src/cli/store-root.js";
+import { transcriptListingRoot, transcriptStoreRoot } from "../../src/cli/store-root.js";
 import { antigravityCli } from "../../src/knowledge/antigravity.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
@@ -51,6 +51,37 @@ describe("RFC-06 Phase 3: store-root and scope-dir resolution", () => {
     expect(resumeLastScopeDir(piCli, { root, cwd, home })).toBe(root);
     expect(resumeLastStoreRoot(piCli, { env: { PI_CODING_AGENT_DIR: "/tmp/ps" }, cwd, home })).toBe(
       "/tmp/ps/sessions/--tmp-ws-main--",
+    );
+  });
+
+  test("Pi flat session overrides keep reads and listings inside the selected directory", () => {
+    const opts = {
+      env: { PI_CODING_AGENT_SESSION_DIR: "/flat", PI_CODING_AGENT_DIR: "/ignored" },
+      cwd,
+      home,
+    };
+    expect(transcriptStoreRoot("pi", opts)).toBe("/flat");
+    expect(transcriptListingRoot("pi", opts)).toBe("/flat");
+    expect(resumeLastStoreRoot(piCli, opts)).toBe("/flat");
+  });
+
+  test("Pi relative session overrides follow the chosen anchor and empty overrides use the agent store", () => {
+    const opts = { env: { PI_CODING_AGENT_SESSION_DIR: "sessions" }, cwd: "/workspace", home };
+    expect(transcriptStoreRoot("pi", opts)).toBe(resolve(process.cwd(), "sessions"));
+    expect(transcriptListingRoot("pi", opts)).toBe(resolve(process.cwd(), "sessions"));
+    expect(transcriptStoreRoot("pi", { ...opts, envAnchor: "spawn-cwd" })).toBe(
+      "/workspace/sessions",
+    );
+    const empty = {
+      env: { PI_CODING_AGENT_SESSION_DIR: "", PI_CODING_AGENT_DIR: "/agent" },
+      cwd,
+      home,
+    };
+    expect(transcriptStoreRoot("pi", empty)).toBe("/agent/sessions/--tmp-ws-main--");
+    expect(transcriptListingRoot("pi", empty)).toBe("/agent/sessions");
+    expect(transcriptListingRoot("codex", { env: {}, cwd, home })).toBe("/tmp/fake-home/.codex");
+    expect(transcriptListingRoot("antigravity", { env: {}, cwd, home })).toBe(
+      "/tmp/fake-home/.gemini/antigravity-cli",
     );
   });
 

@@ -34,7 +34,7 @@ function command(
   args: string[],
   agentDirectory?: string,
   codexHome?: string,
-  roots?: { claudeConfig?: string; museData?: string },
+  roots?: { claudeConfig?: string; museData?: string; piSessions?: string },
 ): { code: number | null; out: string; err: string } {
   const home = mkdtempSync(join(tmpdir(), "hcn-transcript-test-"));
   try {
@@ -48,6 +48,7 @@ function command(
         ...(codexHome ? { CODEX_HOME: codexHome } : {}),
         ...(roots?.claudeConfig ? { CLAUDE_CONFIG_DIR: roots.claudeConfig } : {}),
         ...(roots?.museData ? { XDG_DATA_HOME: roots.museData } : {}),
+        ...(roots?.piSessions ? { PI_CODING_AGENT_SESSION_DIR: roots.piSessions } : {}),
       },
     });
     if (run.error) throw run.error;
@@ -153,6 +154,125 @@ test("Muse pages retained envelopes, accepts appended records and refuses a rewr
   }
 });
 
+test("Muse permission frames are atomic public transcript pages with exact originals and prefix bookmarks", () => {
+  const directory = mkdtempSync(join(tmpdir(), "hcn-muse-frame-"));
+  try {
+    const path = join(directory, "session.jsonl");
+    const capture = readFileSync(
+      resolve("test/fixtures/muse-1.4.2-R4684.1/retained-frame-session.jsonl"),
+      "utf8",
+    );
+    const lines = capture.trim().split("\n").slice(0, 3);
+    const frame = JSON.parse(lines[0] as string);
+    const content = `${lines.join("\n")}\n`;
+    writeFileSync(path, content);
+    const first = command(["transcript", "read", "muse", "--file", path, "--limit", "1"]);
+    expect(first.code, first.err).toBe(0);
+    const initial = first.out
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    const record = initial.find((item) => item.kind === "record");
+    expect(initial[0].conversation.nativeId).toBe("01a10134-76a3-79f0-a7ed-bdad567bda19");
+    expect(record.original).toEqual(frame);
+    expect(record.nativeId).toBe(frame.transaction_id);
+    expect(record.originalKind).toBe("saved-record");
+    expect(record.normalized).toMatchObject({
+      kind: "unknown",
+      parts: [],
+      role: null,
+      timestamp: null,
+    });
+    expect(record.position).toEqual({ sourceKey: "source-0", unit: "byte-offset", value: "0" });
+    expect(initial.at(-1)).toMatchObject({ status: "complete", recordsReturned: 1, more: true });
+    const bookmark = initial.at(-1).bookmark;
+    const next = command(["transcript", "read", "muse", "--file", path, "--since", bookmark]);
+    expect(next.code, next.err).toBe(0);
+    const continued = next.out
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    const records = continued.filter((item) => item.kind === "record");
+    expect(records.map((item) => item.original)).toEqual(
+      lines.slice(1).map((line) => JSON.parse(line)),
+    );
+    expect(records[0].position.value).toBe(String(Buffer.byteLength(`${lines[0]}\n`)));
+    expect(continued.at(-1)).toMatchObject({ status: "complete", recordsReturned: 2, more: false });
+    for (const field of ["history", "branches", "original-records", "embedded-content"]) {
+      expect(continued.at(-1).coverage[field].state).toBe("complete");
+    }
+    const checksum: string = frame.content_sha256;
+    const replacement = `${checksum.slice(0, -1)}${checksum.endsWith("0") ? "1" : "0"}`;
+    const changed = content.replace(checksum, replacement);
+    expect(Buffer.byteLength(changed)).toBe(Buffer.byteLength(content));
+    writeFileSync(path, changed);
+    const fresh = command(["transcript", "read", "muse", "--file", path]);
+    expect(fresh.code, fresh.err).toBe(0);
+    expect(fresh.out).toContain(replacement);
+    const stale = command(["transcript", "read", "muse", "--file", path, "--since", bookmark]);
+    expect(stale.code).toBe(1);
+    const result = JSON.parse(stale.out.trim().split("\n").at(-1) ?? "{}");
+    expect(result.failure.issue).toBe("fresh-read-required");
+    expect(result.bookmark).toBeNull();
+    expect(readFileSync(path, "utf8")).toBe(changed);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+}, 30000);
+
+test("Muse lists and reads a frame-first native session by ID without losing outer records", () => {
+  const directory = mkdtempSync(join(tmpdir(), "hcn-muse-frame-list-"));
+  const id = "01a10134-76a3-79f0-a7ed-bdad567bda19";
+  try {
+    const path = join(directory, "muse", "sessions", "2026", "10", "03", id, "session.jsonl");
+    mkdirSync(resolve(path, ".."), { recursive: true });
+    const source = readFileSync(
+      resolve("test/fixtures/muse-1.4.2-R4684.1/retained-frame-session.jsonl"),
+      "utf8",
+    );
+    writeFileSync(path, source);
+    const roots = { museData: directory };
+    const listing = command(
+      ["transcript", "ls", "--harness", "muse", "--all-workspaces"],
+      undefined,
+      undefined,
+      roots,
+    );
+    expect(listing.code, listing.err).toBe(0);
+    const rows = listing.out
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    expect(rows.filter((row) => row.kind === "session").map((row) => row.id)).toEqual([id]);
+    expect(rows.at(-1)).toMatchObject({ status: "complete", rowsReturned: 1 });
+    const read = command(["transcript", "read", "muse", "--id", id], undefined, undefined, roots);
+    expect(read.code, read.err).toBe(0);
+    const output = read.out
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    expect(output[0].conversation.nativeId).toBe(id);
+    const records = output.filter((row) => row.kind === "record");
+    const native = source
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    expect(records.map((row) => row.original)).toEqual(native);
+    expect(records[0].originalKind).toBe("saved-record");
+    expect(
+      records[0].original.children.map((child: { record_json: string }) => child.record_json),
+    ).toEqual(native[0].children.map((child: { record_json: string }) => child.record_json));
+    expect(output.at(-1)).toMatchObject({
+      status: "complete",
+      recordsReturned: native.length,
+      more: false,
+    });
+    expect(readFileSync(path, "utf8")).toBe(source);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("Claude and Muse resolve native IDs in their own stores and reject duplicate matches", () => {
   const directory = mkdtempSync(join(tmpdir(), "hcn-native-id-"));
   const id = "11111111-1111-4111-8111-111111111111";
@@ -237,7 +357,7 @@ test("transcript inspection reports Muse's file method without starting a native
   expect(doc.methods.map((method: { id: string }) => method.id)).toEqual(["muse-file-v1"]);
   expect(doc.capabilities.history.status).toBe("available");
   expect(Object.keys(doc.capabilities)).toHaveLength(8);
-  expect(doc.verifiedAgainst).toBe("1.4.1");
+  expect(doc.verifiedAgainst).toBe("1.4.2");
   expect(doc.capabilities.history.evidence[1].appliesTo.writerBuilds).toContainEqual({
     version: "1.1.1",
     buildId: "1.1.1-R2514.1",
@@ -268,7 +388,7 @@ test("Muse reports a missing native source without creating a conversation or ad
 
 test("Claude reports its snapshot method and a missing native ID despite coverage opt-ins", () => {
   const inspection = JSON.parse(command(["inspect", "claude", "--transcript"]).out);
-  expect(inspection.verifiedAgainst).toBe("2.1.285");
+  expect(inspection.verifiedAgainst).toBe("2.1.289");
   expect(inspection.methods.map((method: { id: string }) => method.id)).toEqual(["claude-file-v1"]);
   expect(inspection.methods[0].selectors).toEqual(["id", "file"]);
   expect(inspection.capabilities.history.status).toBe("available");
@@ -464,6 +584,86 @@ test("bookmarks read after a verified prefix and reject an edited prefix even wh
     expect(failed.bookmark).toBeNull();
   } finally {
     rmSync(directory, { force: true, recursive: true });
+  }
+});
+
+test("Pi ID lookup honors a flat session directory ahead of the agent directory", () => {
+  const directory = mkdtempSync(join(tmpdir(), "hcn-pi-flat-"));
+  const nativeId = "11111111-1111-4111-8111-111111111111";
+  try {
+    const workspace = join(directory, "workspace");
+    const sessions = join(directory, "flat");
+    mkdirSync(workspace);
+    mkdirSync(sessions);
+    const path = join(sessions, `2026-10-03T00-00-00-000Z_${nativeId}.jsonl`);
+    const original = `${JSON.stringify({
+      type: "session",
+      version: 3,
+      id: nativeId,
+      timestamp: "2026-10-03T00:00:00.000Z",
+      cwd: join(directory, "other-workspace"),
+    })}\n`;
+    writeFileSync(path, original);
+    const read = command(
+      ["transcript", "read", "pi", "--id", nativeId, "--cwd", workspace],
+      join(directory, "unused-agent"),
+      undefined,
+      { piSessions: sessions },
+    );
+    expect(read.code, read.out).toBe(0);
+    const [source, result] = read.out
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    expect(source.conversation.nativeId).toBe(nativeId);
+    expect(source.sources[0].location).toBe(path);
+    expect(result.status).toBe("complete");
+    expect(readFileSync(path, "utf8")).toBe(original);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("Pi listing stays within the flat session directory override", () => {
+  const directory = mkdtempSync(join(tmpdir(), "hcn-pi-flat-list-"));
+  const selectedId = "11111111-1111-4111-8111-111111111111";
+  const siblingId = "22222222-2222-4222-8222-222222222222";
+  try {
+    const workspace = join(directory, "workspace");
+    const sessions = join(directory, "flat");
+    mkdirSync(workspace);
+    mkdirSync(sessions);
+    for (const [store, id] of [
+      [sessions, selectedId],
+      [directory, siblingId],
+    ] as const) {
+      writeFileSync(
+        join(store, `2026-10-03T00-00-00-000Z_${id}.jsonl`),
+        `${JSON.stringify({
+          type: "session",
+          version: 3,
+          id,
+          timestamp: "2026-10-03T00:00:00.000Z",
+          cwd: workspace,
+        })}\n`,
+      );
+    }
+    const list = command(
+      ["transcript", "ls", "--harness", "pi", "--cwd", workspace, "--headless"],
+      join(directory, "unused-agent"),
+      undefined,
+      { piSessions: sessions },
+    );
+    expect(list.code, list.out).toBe(0);
+    const rows = list.out
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    expect(rows.filter((row) => row.kind === "session").map((row) => row.id)).toEqual([selectedId]);
+    expect(rows.at(-1)).toMatchObject({ status: "complete", rowsReturned: 1 });
+    expect(rows.at(-1).harnesses[0].storeRoot).toBe(sessions);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
   }
 });
 

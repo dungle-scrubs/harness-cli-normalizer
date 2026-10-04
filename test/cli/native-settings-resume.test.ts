@@ -9,16 +9,16 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test } from "vitest";
+import { cliFixtureTmpdir } from "./fixture-tmpdir.js";
 
 const bun = execFileSync("which", ["bun"], { encoding: "utf8" }).trim();
 const cli = resolve("src/cli/index.ts");
 const sessionId = "807feafe-e82b-4df4-91ba-4f1aeb987508";
 
 test("the public verified resume runs the exact saved custom model, effort and provider", () => {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), "hcn-verified-resume-")));
+  const root = realpathSync(mkdtempSync(join(cliFixtureTmpdir(), "hcn-verified-resume-")));
   try {
     const codexHome = join(root, "codex-home");
     const directory = join(codexHome, "sessions", "2026", "09", "12");

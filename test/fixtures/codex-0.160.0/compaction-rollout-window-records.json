@@ -1,0 +1,32 @@
+[
+  {
+    "record_type": "compacted",
+    "timestamp": "2026-10-03T10:04:34.206Z",
+    "window_id": "01a10138-fc1e-73a0-811e-825d79ece217",
+    "window_number": 1,
+    "first_window_id": "01a10138-700f-7782-b656-7598e3b0b2e1",
+    "previous_window_id": "01a10138-700f-7782-b656-7598e3b0b2e1",
+    "replacement_history_len": 2,
+    "retained_context_len": 7
+  },
+  {
+    "record_type": "compacted",
+    "timestamp": "2026-10-03T10:05:15.299Z",
+    "window_id": "01a10139-9ca2-7cd2-a851-0424b4353fa1",
+    "window_number": 2,
+    "first_window_id": "01a10138-700f-7782-b656-7598e3b0b2e1",
+    "previous_window_id": "01a10138-fc1e-73a0-811e-825d79ece217",
+    "replacement_history_len": 3,
+    "retained_context_len": 7
+  },
+  {
+    "record_type": "compacted",
+    "timestamp": "2026-10-03T10:06:01.159Z",
+    "window_id": "01a1013a-4fc7-72e2-a9d7-9e4d864e1502",
+    "window_number": 3,
+    "first_window_id": "01a10138-700f-7782-b656-7598e3b0b2e1",
+    "previous_window_id": "01a10139-9ca2-7cd2-a851-0424b4353fa1",
+    "replacement_history_len": 3,
+    "retained_context_len": 7
+  }
+]

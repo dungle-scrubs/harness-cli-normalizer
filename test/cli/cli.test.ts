@@ -17,7 +17,18 @@ const promptLabel = (raw: string): string =>
 import { ls } from "../../src/cli/ls.js";
 import { resolveHarness } from "../../src/cli/resolve-harness.js";
 import { getVersion } from "../../src/cli/version.js";
+import type { HarnessDescriptor } from "../../src/knowledge/descriptor.js";
+import { defaultDescriptors } from "../../src/knowledge/overrides.js";
 import { ensureDist } from "./stub-dist.js";
+
+/** Source label format matches `hcn ls` (src/cli/ls.ts). */
+const sourceLabel = (h: HarnessDescriptor): string =>
+  h.versionSource.kind === "npm" ? `npm:${h.versionSource.package}` : `installed:${h.bin}`;
+
+/** Re-reads every resolved descriptor, including all harnesses the registry
+ * declares - the propagation check stays current as descriptors bump. */
+const allDescriptors = (): HarnessDescriptor[] =>
+  Object.values(defaultDescriptors()).filter((d): d is HarnessDescriptor => d !== undefined);
 
 // Helper to capture stdout/stderr and exitCode for dispatch
 const captureDispatch = async (
@@ -108,12 +119,13 @@ describe("hcn version and help", () => {
 describe("hcn ls", () => {
   test("lists every registered harness with versionSource", async () => {
     const out = await captureDispatch(["ls"]);
-    expect(out.stdout).toContain("claude@2.1.285");
-    expect(out.stdout).toContain("codex@0.159.2");
-    expect(out.stdout).toContain("pi@0.99.1");
-    expect(out.stdout).toContain("muse@1.4.1");
-    expect(out.stdout).toContain("cursor@2026.09.23-86fc751");
-    expect(out.stdout).toContain("antigravity@1.2.14");
+    const descs = allDescriptors();
+    // Every registered harness's `name@verifiedAgainst (source)` line lands
+    // in stdout; no hardcoded version literals.
+    for (const h of descs) {
+      expect(out.stdout).toContain(`${h.name}@${h.verifiedAgainst} (${sourceLabel(h)})`);
+    }
+    // At least one harness of each versionSource kind is rendered.
     expect(out.stdout).toContain("npm:");
     expect(out.stdout).toContain("installed:");
     expect(out.exitCode === undefined || out.exitCode === 0).toBe(true);
@@ -246,8 +258,11 @@ describe("hcn inspect (pure)", () => {
   test("inspect claude shows bin, verifiedAgainst, launch.streamFlags, resume.flag, vocabulary.models", async () => {
     const out = await captureDispatch(["inspect", "claude"]);
     const parsed = JSON.parse(out.stdout);
+    // Propagation reads the current resolved descriptor, not a hardcoded
+    // version literal - so it tracks future bumps without a test edit.
+    const claude = resolveHarness("claude");
     expect(parsed.bin).toBe("claude");
-    expect(parsed.verifiedAgainst).toBe("2.1.285");
+    expect(parsed.verifiedAgainst).toBe(claude.verifiedAgainst);
     expect(parsed.launch.streamFlags).toContain("--output-format");
     expect(parsed.launch.stdinPrompt).toEqual({ argument: "", aboveBytes: 65_536 });
     expect(parsed.resume.flag).toBe("--resume");

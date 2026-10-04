@@ -1,0 +1,23 @@
+{
+  "ranAt": "2026-10-03T09:57:24.017Z",
+  "results": {
+    "claude": {
+      "status": "pass",
+      "observedOn": {
+        "harness": "claude",
+        "model": "sonnet",
+        "version": "2.1.288",
+        "date": "2026-10-03"
+      },
+      "detail": "question \"Which environment should deplo\""
+    }
+  },
+  "observations": {
+    "claude": {
+      "harness": "claude",
+      "model": "sonnet",
+      "version": "2.1.288",
+      "date": "2026-10-03"
+    }
+  }
+}

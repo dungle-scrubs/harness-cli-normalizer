@@ -1,0 +1,19 @@
+{
+  "syntheticSessionId": "15d0b32f-0b55-4ab9-b35e-bfea96dc849a",
+  "matchedStoreCount": 1,
+  "blobRows": 300,
+  "jsonBlobRows": 90,
+  "summaryMarkings": {
+    "true": 4,
+    "false": 0,
+    "other": 0
+  },
+  "read": {
+    "exit": 1,
+    "status": "failed",
+    "issue": "guarantee-unmet",
+    "requirement": "retrieval",
+    "phase": "resolve",
+    "recordsReturned": 0
+  }
+}
