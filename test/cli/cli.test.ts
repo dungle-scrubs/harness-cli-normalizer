@@ -19,6 +19,7 @@ import { resolveHarness } from "../../src/cli/resolve-harness.js";
 import { getVersion } from "../../src/cli/version.js";
 import type { HarnessDescriptor } from "../../src/knowledge/descriptor.js";
 import { defaultDescriptors } from "../../src/knowledge/overrides.js";
+import { cliFixtureTmpdir } from "./fixture-tmpdir.js";
 import { ensureDist } from "./stub-dist.js";
 
 /** Source label format matches `hcn ls` (src/cli/ls.ts). */
@@ -786,7 +787,7 @@ describe("toolMap inspect integration", () => {
 
   test("project config overrides user config for same key", async () => {
     const userDir = mkdtempSync(join(tmpdir(), "hcn-toolmap-u-"));
-    const projDir = mkdtempSync(join(tmpdir(), "hcn-toolmap-p-"));
+    const projDir = mkdtempSync(join(cliFixtureTmpdir(), "hcn-toolmap-p-"));
     writeFileSync(
       join(userDir, "config.json"),
       JSON.stringify({ version: 1, toolMap: { pi: { "web-search": "web_search" } } }),
