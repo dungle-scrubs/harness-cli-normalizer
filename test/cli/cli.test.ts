@@ -1304,7 +1304,7 @@ describe("inspect provenance and descriptor matchers", () => {
 
 describe("inspect with empty floor project config (F-36)", () => {
   test("inspect claude --argv --prompt hi with tools:[] floor emits no empty token and contains deny complement", async () => {
-    const repo = mkdtempSync(join(tmpdir(), "hcn-floor-claude-"));
+    const repo = mkdtempSync(join(cliFixtureTmpdir(), "hcn-floor-claude-"));
     const emptyUser = mkdtempSync(join(tmpdir(), "hcn-floor-user-"));
     const origCwd = process.cwd();
     const prevHcn = process.env.HCN_CONFIG_DIR;
@@ -1331,7 +1331,7 @@ describe("inspect with empty floor project config (F-36)", () => {
   });
 
   test("inspect pi --argv --prompt hi with tools:[] floor exits 2 with invalid-tool-grant", async () => {
-    const repo = mkdtempSync(join(tmpdir(), "hcn-floor-pi-"));
+    const repo = mkdtempSync(join(cliFixtureTmpdir(), "hcn-floor-pi-"));
     const emptyUser = mkdtempSync(join(tmpdir(), "hcn-floor-user2-"));
     const origCwd = process.cwd();
     const prevHcn = process.env.HCN_CONFIG_DIR;
