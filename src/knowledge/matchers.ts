@@ -109,10 +109,9 @@ export const SHARED_TRANSPORT_MATCHERS: ReadonlyArray<TransportMatcher> = [
   // Issue #342: provider WebSocket close phrasings. Pi prints
   // "WebSocket closed <code>[ <reason>]", "WebSocket closed", and
   // "WebSocket stream closed before response.completed". The codeless
-  // forms are anchored so prose that mentions a WebSocket does not
-  // match (a tight matcher would turn an ordinary work-verdict error
-  // about a WebSocket handler into retryable transport). Codes 1000,
-  // 1008, and 1009 are deliberate closes and are NOT matched here.
+  // forms are anchored so model prose that mentions a WebSocket (a
+  // "WebSocket closed handler") stays a work verdict. Codes 1000, 1008,
+  // and 1009 are deliberate closes and are NOT matched here.
   {
     pattern:
       "\\bwebsocket(?: connection| stream)? closed\\W+(?:with )?(?:(?:close )?code\\W*)?10(?:0[16]|1[123])\\b",

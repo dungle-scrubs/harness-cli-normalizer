@@ -391,8 +391,8 @@ describe("failure message contracts", () => {
   });
 
   test("native failure masks a secret split by the 512-character bound", () => {
-    // P1: bound-then-redact left a credential fragment in the message when
-    // the secret straddled the 512-char cut. Redact first, then bound.
+    // The cut at 512 leaves "sk-abcdefg", too short for the pattern, so
+    // redacting after the bound would leak it.
     const redacted = failureFromNative(1, [`${"x".repeat(501)} sk-abcdefghijk123`]);
     expect(redacted.message).not.toContain("sk-abcdefg");
     expect(redacted.message).not.toContain("sk-abcdefghijk123");

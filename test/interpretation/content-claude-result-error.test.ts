@@ -51,10 +51,8 @@ describe("claude result is_error text", () => {
   });
 
   test("a result mentioning a WebSocket handler classifies task, not transport", () => {
-    // P2: the old codeless matcher accepted "WebSocket closed handler"
-    // as transport, turning a work-verdict error_max_turns into a
-    // retryable transport. The tightened codeless pattern only matches
-    // closes at end of message or followed by the right anchors.
+    // Result prose that names a WebSocket is the model's own text, not a
+    // provider close: the codeless close matcher must not make it transport.
     const [event] = contentEventsOf("claude", {
       type: "result",
       subtype: "error_max_turns",

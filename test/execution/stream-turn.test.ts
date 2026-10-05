@@ -307,12 +307,12 @@ describe("streamTurn behaviors (M3.1 boxes)", () => {
   });
 
   test("run-mode crash error event masks a secret split by the 4096-character bound", () => {
-    // P1: bound-then-redact left a credential fragment in the error
-    // event's message when the secret straddled the 4096-char cut.
+    // The cut at 4096 leaves "sk-abcdefg", too short for the pattern, so
+    // redacting after the bound would leak it.
     const proc = new FakeProcess();
     const d = deps(proc);
     const turn = streamTurn(claudeCode, { prompt: "hi" }, d);
-    proc.emitStderr(`${"x".repeat(4090)} sk-abcdefghijk123`);
+    proc.emitStderr(`${"x".repeat(4085)} sk-abcdefghijk123`);
     proc.exit(1);
     return collect(turn).then((events) => {
       const error = events.find((e) => e.kind === "error") as

@@ -294,8 +294,7 @@ equal to `closed.exitCode`). The four control events that frame the stream:
   on an empty tail), and the failure event lands inside the dying turn
   before its `done`. The matching `done.cause` stays `crash`, and
   `closed.failure` carries the same summary. A limit wall on stderr
-  still ends the turn as `limit` (cause rewrite happens upstream of the
-  fallback).
+  still ends the turn as `limit`.
 
 stdin carries one command per line (blank lines are ignored):
 
@@ -757,7 +756,7 @@ A pi reply that ends with `stopReason` `stop` or `length` and no answer text (fo
 
 ### Transport phrasings
 
-A `transport` failure means the network or provider tore the conversation down before any verdict on the work, so retrying unchanged or routing the same work to another model is fine. The phrasings that read as transport cover HTTP 5xx (`HTTP 503`, `502 Bad Gateway`, `gateway timeout`), Node socket errors (`ECONNREFUSED`, `ECONNRESET`, `ENOTFOUND`, `EAI_AGAIN`, `ETIMEDOUT`, `socket hang up`, `fetch failed`, `network error`), and WebSocket abnormal closes. The coded form covers close codes `1001` going away, `1006` abnormal, `1011` internal error, `1012` service restart, and `1013` try again later (1000 normal, 1008 policy violation, and 1009 message too big are deliberate closes and do NOT match - they are a refusal). The codeless form is anchored: end of the message, or followed by `before` / `unexpectedly` / `abnormally` / `without` / `by the server` (or peer, remote, provider). Pi's openai-codex provider over WebSocket reports a mid-response close as `stopReason` `error` with the close phrasing riding in `errorMessage`; the terminal-error classifier picks the WebSocket close up as transport, retryable.
+A `transport` failure means the network or provider tore the conversation down before any verdict on the work, so retrying unchanged or routing the same work to another model is fine. The phrasings that read as transport cover HTTP 5xx (`HTTP 503`, `502 Bad Gateway`, `gateway timeout`), Node socket errors (`ECONNREFUSED`, `ECONNRESET`, `ENOTFOUND`, `EAI_AGAIN`, `ETIMEDOUT`, `socket hang up`, `fetch failed`, `network error`), and WebSocket abnormal closes. The coded form covers close codes `1001` going away, `1006` abnormal, `1011` internal error, `1012` service restart, and `1013` try again later (1000 normal, 1008 policy violation, and 1009 message too big are deliberate closes and do not match). The codeless form is anchored: end of the message, or followed by `before` / `unexpectedly` / `abnormally` / `without` / `by the server` (or peer, remote, provider). Pi's openai-codex provider over WebSocket reports a mid-response close as `stopReason` `error` with the close phrasing riding in `errorMessage`; the terminal-error classifier picks the WebSocket close up as transport, retryable.
 
 ### Crash tier and the command ledger
 
