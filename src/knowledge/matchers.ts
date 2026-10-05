@@ -146,4 +146,7 @@ export const SHARED_UNAVAILABLE_MATCHERS: ReadonlyArray<UnavailableMatcher> = [
   { pattern: "model[^.]{0,60}(?:is not|isn't) loaded", flags: "i" },
   { pattern: "model[^.]{0,60}does not exist", flags: "i" },
   { pattern: "not a valid (?:downloaded )?model", flags: "i" },
+  // Issue #343: pi's openai-codex provider reports `The '<id>' model is
+  // not supported when using Codex with a ChatGPT account.`
+  { pattern: "\\bmodel is not supported\\b", flags: "i" },
 ];

@@ -295,12 +295,33 @@ describe("detectUnavailableInLine", () => {
       line: "the model said not found in file",
       desc: "model said not found in file - bounded window",
     },
+    // Issue #343: pi's openai-codex provider refuses a model with "model
+    // is not supported when using Codex with a ChatGPT account". The full
+    // pi errorMessage rides in stopReason error (issue repro: 0.9.4,
+    // pi 1.0.2, model "no-such-model-xyz", provider openai-codex).
+    {
+      line: "pi turn ended with stopReason error: Codex error: The 'gpt-x' model is not supported when using Codex with a ChatGPT account.",
+      desc: "issue #343: pi openai-codex 'model is not supported' wall",
+    },
   ];
   test.each(positives)("positive $desc: $line", ({ line }) => {
     expect(detectUnavailableInLine(line)).toBe(true);
   });
 
-  const negatives = ["model answered", "found 3 models"] as const;
+  const negatives = [
+    "model answered",
+    "found 3 models",
+    // Issue #343: keep option-level refusals (an unsupported reasoning
+    // effort, an unsupported tool) out of the unavailable class - the
+    // "model is not supported" phrase must appear literally, with no
+    // effort/tool/option in between.
+    "reasoning effort is not supported",
+    "the tool is not supported in this model",
+    // antigravity's invalid-model-selection error mentions the model
+    // name on both sides of an effort refusal; the effort is the
+    // unavailable subject, not the model, so the message stays task.
+    'invalid model selection (--model "definitely-not-an-antigravity-model" --effort "medium"): --effort is not supported for model "definitely-not-an-antigravity-model"',
+  ] as const;
   test.each(negatives)("negative %s is not unavailable", (line) => {
     expect(detectUnavailableInLine(line)).toBe(false);
   });

@@ -764,7 +764,7 @@ A harness writes each record on one output line, and a whole reply (reasoning in
 
 A pi reply that ends with `stopReason` `stop` or `length` and no answer text (for example, reasoning only) fails the run with a `task` failure. Its message names the stop reason and pi's token counts, for example `pi turn ended with stopReason length and no text (usage: input 1234, output 5678, reasoning 910)`. A later reply with text in the same run supersedes it, as for `stopReason` `error`.
 
-`retryable` is `false` for `task`, `budget`, `rejected`, `native`, `timeout`, `internal` and `true` for the rest. `unavailable` is a provider that cannot serve the requested model or route (model not found, not loaded); retryable, route elsewhere. `rejected` is non-retryable across the whole model chain because the remedy is different options or a different harness.
+`retryable` is `false` for `task`, `budget`, `rejected`, `native`, `timeout`, `internal` and `true` for the rest. `unavailable` is a provider that cannot serve the requested model or route (model not found, not loaded, not supported); retryable, route elsewhere. `rejected` is non-retryable across the whole model chain because the remedy is different options or a different harness.
 
 ### Transport phrasings
 
