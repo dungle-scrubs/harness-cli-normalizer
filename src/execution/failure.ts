@@ -84,18 +84,14 @@ export const retryableOf = (cls: FailureClass): boolean =>
 
 /** Stray secret-shaped tokens are masked; identifiers (session UUIDs, model
  * ids, paths) log verbatim - they are what the log exists to correlate.
- * Whole-token only: a substring inside a larger word is not a secret.
  * Shared with `redactArgv` so the same rule applies everywhere a
  * harness-emitted token reaches a log line or event message. */
 export const SECRETISH = /(sk-[A-Za-z0-9_-]{8,}|(?:token|key|secret|password)=\S+)/i;
 
-/** Replace every secret-shaped token with `[redacted]`. The pattern is
- * identical to `SECRETISH` (case-insensitive, global). Identifiers that
- * merely contain a long token-shaped run as a substring are not
- * redacted: the regex matches at the start of a token, not in the
- * middle. */
+/** Replace every secret-shaped token with `[redacted]`. Built from
+ * `SECRETISH` so there is one owner for the pattern. */
 export const redactSecrets = (text: string): string =>
-  text.replace(/sk-[A-Za-z0-9_-]{8,}|token=\S+|key=\S+|secret=\S+|password=\S+/gi, "[redacted]");
+  text.replace(new RegExp(SECRETISH.source, "gi"), "[redacted]");
 
 const messageFor = (cls: FailureClass, detail?: string): string => {
   switch (cls) {
@@ -164,7 +160,7 @@ export const failureFromNative = (
   retryable: retryableOf("native"),
   message: messageFor(
     "native",
-    redactSecrets(stderrTail.slice(-3).join(" | ").slice(0, 512)) || `exit ${nativeExitCode}`,
+    redactSecrets(stderrTail.slice(-3).join(" | ")).slice(0, 512) || `exit ${nativeExitCode}`,
   ),
   nativeExitCode: nativeExitCode ?? undefined,
 });

@@ -287,12 +287,15 @@ equal to `closed.exitCode`). The four control events that frame the stream:
 - `closed.cause` is one of `clean`, `limit`, `crash`, `stall`, `killed`.
   `closed.failure` carries the reduced `FailureSummary` when the cause is
   not clean and a failure was seen. `awaiting-input` ends a turn, never a
-  session. A session turn open when the harness exits nonzero gets the
-  same classification as run mode (a `native` failure carrying the
-  captured stderr tail, or a `transport` failure on an empty tail), and
-  the failure event lands INSIDE the dying turn before its `done`. The
-  matching `done.cause` stays `crash`, and `closed.failure` carries the
-  same summary.
+  session. A session turn still open when the harness exits nonzero with
+  no failure already recorded and exit cause `crash` falls back to the
+  same stderr-tail classification run mode uses (transport, unavailable,
+  then trust phrasings first; otherwise `native` with the tail; `transport`
+  on an empty tail), and the failure event lands inside the dying turn
+  before its `done`. The matching `done.cause` stays `crash`, and
+  `closed.failure` carries the same summary. A limit wall on stderr
+  still ends the turn as `limit` (cause rewrite happens upstream of the
+  fallback).
 
 stdin carries one command per line (blank lines are ignored):
 
@@ -744,7 +747,7 @@ if (done.failure) {
 }
 ```
 
-`nativeExitCode` is the harness process's own exit code. It is set on a `native` failure and on the `transport` failure hcn reports for a nonzero exit with empty stderr. The native stderr detail that lands in a `native` failure's message and in the run-mode `error` event masks secret-shaped tokens before the bound: an API key (`sk-` followed by 8 or more word chars) and `token=`, `key=`, `secret=`, `password=` pairs are replaced with `[redacted]` so a credential the harness echoed on the way down never rides into a consumer-visible line. Identifiers (session UUIDs, model ids, paths) are kept verbatim because they are what the log exists to correlate.
+`nativeExitCode` is the harness process's own exit code. It is set on a `native` failure and on the `transport` failure hcn reports for a nonzero exit with empty stderr. The native stderr detail that lands in a `native` failure's message and in the run-mode `error` event is masked for secret-shaped tokens (`sk-` followed by 8 or more word chars; `token=`, `key=`, `secret=`, `password=` pairs become `[redacted]`) before the character bound, so a credential the harness echoed on the way down never rides into a consumer-visible line. Identifiers (session UUIDs, model ids, paths) are kept verbatim because they are what the log exists to correlate.
 
 A harness writes each record on one output line, and a whole reply (reasoning included) can ride on one line. hcn reads lines up to 16,777,216 characters on every stdout and stderr stream of a run or a session. A longer line is discarded and is never silent: it fails the run (or the session turn it lands in) with a `transport` failure whose message starts `output line overflow:` and names the stream and the line's size in UTF-8 bytes.
 
@@ -752,9 +755,9 @@ A pi reply that ends with `stopReason` `stop` or `length` and no answer text (fo
 
 `retryable` is `false` for `task`, `budget`, `rejected`, `native`, `timeout`, `internal` and `true` for the rest. `unavailable` is a provider that cannot serve the requested model or route (model not found, not loaded); retryable, route elsewhere. `rejected` is non-retryable across the whole model chain because the remedy is different options or a different harness.
 
-### Transport phrasings (issues #341 and #342)
+### Transport phrasings
 
-A `transport` failure means the network or provider tore the conversation down before any verdict on the work, so retrying unchanged or routing the same work to another model is fine. The phrasings that read as transport cover the cases a coder-agent CLI meets: HTTP 5xx (`HTTP 503`, `502 Bad Gateway`, `gateway timeout`), Node socket errors (`ECONNREFUSED`, `ECONNRESET`, `ENOTFOUND`, `EAI_AGAIN`, `ETIMEDOUT`, `socket hang up`, `fetch failed`, `network error`), WebSocket abnormal closes (RFC 6455 codes `1001` going away, `1006` abnormal, `1011` internal error, `1012` service restart, `1013` try again later, plus a codeless close like `WebSocket closed` or `WebSocket stream closed before response.completed`, and a use-after-close `WebSocket is not open`). Pi's openai-codex provider over WebSocket reports a mid-response close as `stopReason` `error` with the close phrasing riding in `errorMessage`; the terminal-error classifier picks the WebSocket close up as transport, retryable. Coded closes that are deliberate (1000 normal, 1008 policy violation, 1009 message too big) do NOT match - they are a refusal, not a transport fault.
+A `transport` failure means the network or provider tore the conversation down before any verdict on the work, so retrying unchanged or routing the same work to another model is fine. The phrasings that read as transport cover HTTP 5xx (`HTTP 503`, `502 Bad Gateway`, `gateway timeout`), Node socket errors (`ECONNREFUSED`, `ECONNRESET`, `ENOTFOUND`, `EAI_AGAIN`, `ETIMEDOUT`, `socket hang up`, `fetch failed`, `network error`), and WebSocket abnormal closes. The coded form covers close codes `1001` going away, `1006` abnormal, `1011` internal error, `1012` service restart, and `1013` try again later (1000 normal, 1008 policy violation, and 1009 message too big are deliberate closes and do NOT match - they are a refusal). The codeless form is anchored: end of the message, or followed by `before` / `unexpectedly` / `abnormally` / `without` / `by the server` (or peer, remote, provider). Pi's openai-codex provider over WebSocket reports a mid-response close as `stopReason` `error` with the close phrasing riding in `errorMessage`; the terminal-error classifier picks the WebSocket close up as transport, retryable.
 
 ### Crash tier and the command ledger
 

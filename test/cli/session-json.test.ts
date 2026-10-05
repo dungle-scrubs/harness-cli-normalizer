@@ -719,13 +719,6 @@ test("session refuses the fresh-turn isolation option before looking up a sessio
 });
 
 describe("issue #341: a session turn open when the harness exits nonzero lands a failure inside the turn", () => {
-  // Issue #341 / repro-341-before.ndjson: a pi session whose process
-  // writes a fatal line to stderr and exits 1 while a turn is open used
-  // to emit done(cause=crash) without a failure summary, leaving the
-  // consumer to guess. After the fix the failure lands inside the
-  // turn (so a router sees the classification before the boundary),
-  // and closed.failure carries the same summary so a session-only
-  // consumer still gets the verdict.
   test("pi session: send, stderr + exit 1 -> failure inside turn, closed.failure carries it", async () => {
     const proc = new FakeProcess();
     const spawner = fakeSpawner([proc]);
@@ -782,25 +775,25 @@ describe("issue #341: a session turn open when the harness exits nonzero lands a
       .filter(Boolean)
       .map((l) => JSON.parse(l));
     const failures = evs.filter((e) => e.kind === "failure");
-    expect(failures.length).toBeGreaterThanOrEqual(1);
-    const lastFailure = failures.at(-1);
-    expect(lastFailure).toMatchObject({
+    expect(failures).toHaveLength(1);
+    const failure = failures[0];
+    expect(failure).toMatchObject({
       kind: "failure",
       class: "native",
       nativeExitCode: 1,
       retryable: false,
     });
-    expect((lastFailure as { message: string }).message).toContain(
+    expect((failure as { message: string }).message).toContain(
       "fatal: simulated pi startup failure",
     );
-    // The failure lands inside the turn's stream, BEFORE the done of that
+    // The failure lands inside the turn's stream, before the done of that
     // turn - so a router that reads events up to done sees the verdict.
     const failureIdx = evs.findIndex((e) => e.kind === "failure");
     const doneIdx = evs.findIndex((e) => e.kind === "done");
     expect(failureIdx).toBeGreaterThanOrEqual(0);
     expect(doneIdx).toBeGreaterThan(failureIdx);
-    // The last failure rides on closed too: a session-only consumer
-    // that only reads closed still gets the verdict.
+    // The failure rides on closed too: a session-only consumer that only
+    // reads closed still gets the verdict.
     const closed = evs.at(-1);
     expect(closed).toMatchObject({ kind: "closed", exitCode: 1, cause: "crash" });
     expect((closed as { failure?: { class: string } }).failure).toMatchObject({

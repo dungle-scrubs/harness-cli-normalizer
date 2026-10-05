@@ -190,6 +190,15 @@ describe("detectTransportInLine", () => {
       desc: "WS stream closed before response.completed",
     },
     { line: "WebSocket is not open: readyState 3 (CLOSED)", desc: "WS not open readyState 3" },
+    // Codeless and "is not open" forms anchored so prose that mentions a
+    // WebSocket does not match.
+    { line: "pi turn ended with stopReason error: WebSocket closed", desc: "WS closed at EOL" },
+    {
+      line: "stream disconnected before completion: websocket closed by server before response.completed",
+      desc: "WS closed by server",
+    },
+    { line: "websocket connection closed unexpectedly", desc: "WS connection closed unexpectedly" },
+    { line: "WebSocket is not open", desc: "WS is not open at EOL" },
   ];
   test.each(positives)("positive $desc: $line", ({ line }) => {
     expect(detectTransportInLine(line)).toBe(true);
@@ -207,6 +216,10 @@ describe("detectTransportInLine", () => {
     "WebSocket closed 1009 message too big",
     // A code that begins with the abnormal prefixes but is not in the set.
     "WebSocket closed 10120",
+    // Anchored codeless forms: prose that mentions a WebSocket does not match.
+    "the WebSocket closed event fires twice",
+    "the WebSocket is not open yet so I queued the message",
+    "turn failed: error_max_turns (I did not finish implementing the WebSocket closed handler.)",
   ] as const;
   test.each(negatives)("negative %s is not transport", (line) => {
     expect(detectTransportInLine(line)).toBe(false);

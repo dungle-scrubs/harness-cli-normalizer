@@ -158,8 +158,8 @@ export async function* streamNativeApprovalTurn(
   let exited = false;
   let closing = false;
   let turnId: string | null = null;
-  // Issue #341: the supervisor's stderr tail is also the exit-time
-  // tail snapshot - shared so the two crates use the same classify().
+  // Issue #341: the supervisor fills this tail; the exit path reads it
+  // for failureFromStderrTail.
   const stderrTail = new StderrTail();
   const matchesTurn = (value: { readonly sessionId: string; readonly turnId: string }): boolean =>
     value.sessionId === plan.saved.sessionId && value.turnId === turnId;

@@ -593,12 +593,9 @@ describe("pi session unreachable", () => {
 });
 
 describe("issue #341: a session turn open when the harness exits nonzero classifies the exit", () => {
-  // Run mode already classifies a nonzero exit through the stderr tail
-  // (failureFromStderrTail). Session mode used to set done.cause = crash
-  // and call it a day, leaving the failure verdict to the consumer. The
-  // brief aligns the two: a session turn open at exit gets the same
-  // classification, with the failure event landing INSIDE the dying
-  // turn before done, and done.failure carrying the same summary.
+  // Session mode aligns with run mode: a session turn open at exit gets
+  // the same failureFromStderrTail classification, with the failure
+  // event landing inside the dying turn before its done.
   test("stderr + nonzero exit yields native failure before done crash", async () => {
     const proc = new FakeProcess();
     const d = makeDeps(proc);
@@ -626,7 +623,7 @@ describe("issue #341: a session turn open when the harness exits nonzero classif
     // done.failure is the same summary minus the harness-event kind field.
     const { kind: _kind, ...summary } = failure;
     expect(done.failure).toEqual(summary);
-    // The failure event lands BEFORE the done event in the turn's stream.
+    // The failure event lands before the done event in the turn's stream.
     const failureIdx = events.findIndex((e) => e.kind === "failure");
     const doneIdx = events.findIndex((e) => e.kind === "done");
     expect(failureIdx).toBeGreaterThanOrEqual(0);
@@ -635,9 +632,8 @@ describe("issue #341: a session turn open when the harness exits nonzero classif
   });
 
   test("empty stderr + nonzero exit yields transport failure before done crash", async () => {
-    // A harness that exits nonzero with no stderr reads as environment,
-    // not harness judgment: failureFromStderrTail maps an empty tail to
-    // transport, with nativeExitCode as data.
+    // failureFromStderrTail maps an empty tail to transport, with
+    // nativeExitCode as data.
     const proc = new FakeProcess();
     const d = makeDeps(proc);
     const session = openSession(piCli, { sessionId: sid }, d);
@@ -665,9 +661,7 @@ describe("issue #341: a session turn open when the harness exits nonzero classif
   test("a turn that already recorded a failure gets no second stderr-derived one", async () => {
     // The terminal error path records a failure (transport, from the
     // pi-unreachable style). The crash branch in finalize must skip its
-    // own stderr-derived classification when turnFailures is non-empty -
-    // otherwise the same dying turn would carry two failure events and
-    // a reduction-precedence fight on done.failure.
+    // own stderr-derived classification when turnFailures is non-empty.
     const { readFileSync } = await import("node:fs");
     const { join } = await import("node:path");
     const raw = readFileSync(
@@ -690,8 +684,7 @@ describe("issue #341: a session turn open when the harness exits nonzero classif
     proc.emitStderr("fatal: simulated pi startup failure");
     proc.exit(1);
     const events = await drainTurn(turn1);
-    // Exactly one failure event: the earlier terminal-error one. The
-    // crash branch in finalize stays quiet when turnFailures is non-empty.
+    // Exactly one failure event: the earlier terminal-error one.
     const failures = events.filter((e) => e.kind === "failure");
     expect(failures).toHaveLength(1);
     expect(failures[0]).toMatchObject({ class: "transport", retryable: true });

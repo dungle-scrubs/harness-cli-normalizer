@@ -75,12 +75,6 @@ const OUTPUT_STREAMS = ["stdout", "stderr"] as const;
 const pumpFailureMessage = (stream: (typeof OUTPUT_STREAMS)[number], cause: unknown): string =>
   `${stream} pump failed: ${cause instanceof Error ? cause.message : String(cause)}`;
 
-/** Stray secret-shaped tokens are masked; identifiers (session UUIDs, model
- * ids, paths) log verbatim - they are what the log exists to correlate.
- * The pattern is owned by failure.ts (single source of truth) and
- * re-imported here so redactArgv and redactSecrets agree on what a
- * secret-shaped token looks like. */
-
 /** Redact by POSITION, not shape: the prompt is a known argv slot and is
  * masked wholesale (content never reaches a log line - v1 D-005); every
  * other token is kept unless it is secret-shaped. Only the prompt's
@@ -781,7 +775,7 @@ export async function* streamTurn(
     if (!startupFailed && (cause === "crash" || cause === "killed") && tail.length > 0) {
       yield {
         kind: "error",
-        message: redactSecrets(tail.join("\n").slice(0, 4096)),
+        message: redactSecrets(tail.join("\n")).slice(0, 4096),
       };
     }
     terminalEventReached = true;

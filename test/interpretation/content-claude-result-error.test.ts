@@ -49,4 +49,19 @@ describe("claude result is_error text", () => {
     if (event?.kind !== "error") throw new Error("expected a terminal error event");
     expect(failureFromTerminalError(claudeCode, event.message).class).toBe("auth");
   });
+
+  test("a result mentioning a WebSocket handler classifies task, not transport", () => {
+    // P2: the old codeless matcher accepted "WebSocket closed handler"
+    // as transport, turning a work-verdict error_max_turns into a
+    // retryable transport. The tightened codeless pattern only matches
+    // closes at end of message or followed by the right anchors.
+    const [event] = contentEventsOf("claude", {
+      type: "result",
+      subtype: "error_max_turns",
+      is_error: true,
+      result: "I did not finish implementing the WebSocket closed handler.",
+    });
+    if (event?.kind !== "error") throw new Error("expected a terminal error event");
+    expect(failureFromTerminalError(claudeCode, event.message).class).toBe("task");
+  });
 });

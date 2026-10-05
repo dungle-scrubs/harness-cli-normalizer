@@ -390,6 +390,15 @@ describe("failure message contracts", () => {
     expect(plain.message).not.toContain("[redacted]");
   });
 
+  test("native failure masks a secret split by the 512-character bound", () => {
+    // P1: bound-then-redact left a credential fragment in the message when
+    // the secret straddled the 512-char cut. Redact first, then bound.
+    const redacted = failureFromNative(1, [`${"x".repeat(501)} sk-abcdefghijk123`]);
+    expect(redacted.message).not.toContain("sk-abcdefg");
+    expect(redacted.message).not.toContain("sk-abcdefghijk123");
+    expect(redacted.message).toContain("[redacted]");
+  });
+
   test("limit codes retain their normalized class and limit identity", () => {
     expect(failureFromLimit("rate-limit")).toMatchObject({
       class: "rate-limit",

@@ -306,6 +306,24 @@ describe("streamTurn behaviors (M3.1 boxes)", () => {
     });
   });
 
+  test("run-mode crash error event masks a secret split by the 4096-character bound", () => {
+    // P1: bound-then-redact left a credential fragment in the error
+    // event's message when the secret straddled the 4096-char cut.
+    const proc = new FakeProcess();
+    const d = deps(proc);
+    const turn = streamTurn(claudeCode, { prompt: "hi" }, d);
+    proc.emitStderr(`${"x".repeat(4090)} sk-abcdefghijk123`);
+    proc.exit(1);
+    return collect(turn).then((events) => {
+      const error = events.find((e) => e.kind === "error") as
+        | { kind: "error"; message: string }
+        | undefined;
+      expect(error).toBeDefined();
+      expect(error?.message).not.toContain("sk-abcdefg");
+      expect(error?.message).not.toContain("sk-abcdefghijk123");
+    });
+  });
+
   test("F-05 abort signal escalates SIGTERM and yields killed with no failure", async () => {
     const proc = new FakeProcess();
     const d = deps(proc);
@@ -543,15 +561,9 @@ describe("harness fixture replay (F-20)", () => {
   test("pi turn with assistant message_end stopReason error WebSocket closed classifies transport (inline)", async () => {
     // Issue #342: pi's openai-codex provider over WebSocket reports a
     // mid-response close as stopReason "error" with the provider's
-    // phrasing riding in errorMessage. The classifier that reads the
-    // terminal error (failureFromTerminalError) must recognize the
-    // WebSocket close phrasing as transport, not task - the work is
-    // unrouted and retrying on a different provider or with backoff is
-    // safe. Records built inline (no new fixture file) mirror the
-    // pi-unreachable.ndjson skeleton: session, agent_start, turn_start,
-    // user message pair, then a single assistant message_end that
-    // reports the close. The sequence ends with agent_settled, the
-    // boundary pi writes after it gives up on retries.
+    // phrasing riding in errorMessage. The terminal-error classifier
+    // must recognize the WebSocket close phrasing as transport, not
+    // task. Records built inline mirror the pi-unreachable skeleton.
     const sessionId = "01a0231c-01f7-7c9a-9bdb-289869f8fd55";
     const lines = [
       { type: "session", id: sessionId },
