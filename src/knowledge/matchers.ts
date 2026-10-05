@@ -136,8 +136,8 @@ export const SHARED_TRANSPORT_MATCHERS: ReadonlyArray<TransportMatcher> = [
     flags: "im",
   },
   // Issue #346: pi's openai-codex provider over WebSocket reports a
-  // mid-response close as `WebSocket idle timeout after <n>ms` and a
-  // connection failure as `WebSocket connect timeout after <n>ms`; codex
+  // stalled stream as `WebSocket idle timeout after <n>ms` and a failed
+  // connection as `WebSocket connect timeout after <n>ms`; codex
   // prints `stream disconnected before completion: <cause>` once its own
   // stream retries run out. `failureFromTerminalError` checks auth and
   // limit walls before transport, so a codex disconnect whose cause is a

@@ -197,9 +197,7 @@ describe("F-07 terminal error record ends clean", () => {
 
   test("issue #346: codex 'stream disconnected before completion: 401 Unauthorized' stays auth (precedence beats transport)", async () => {
     // failureFromTerminalError checks auth before transport, so a codex
-    // stream disconnect whose inner cause is a 401 classifies auth. The
-    // brief requirement: "a codex `stream disconnected before completion:
-    // ... 401 Unauthorized` still yields `auth`".
+    // stream disconnect whose inner cause is a 401 classifies auth.
     const proc = new FakeProcess();
     const d = depsFor(proc);
     const turn = streamTurn(codexCli, { prompt: "hi" }, d);
