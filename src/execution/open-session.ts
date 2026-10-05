@@ -238,6 +238,7 @@ export const openSession = (
   // later input (steer, codex request with no turn). Cleared at each turn
   // end.
   let activeTurnInputId: string | undefined;
+  let activeTurnOpenerAccepted = false;
   let activeNativeTurnId: string | null = null;
   const pendingIds: string[] = [];
   const pendingLengths: number[] = [];
@@ -383,6 +384,7 @@ export const openSession = (
     activeTurn = new AsyncChannel<HarnessEvent>();
     activeTurnId = `${opts.sessionId}:turn-${++turnCounter}`;
     activeTurnInputId = inputId;
+    activeTurnOpenerAccepted = false;
     // Tag the turn with the id of the send that opened it, so the consumer
     // correlates an input to its turn by reading the tag, not by
     // shadowing the runner's delivery order.
@@ -432,6 +434,7 @@ export const openSession = (
     });
     activeTurn = null;
     activeTurnInputId = undefined;
+    activeTurnOpenerAccepted = false;
     activeNativeTurnId = null;
     resultError = false;
     if (turnSettled !== null) {
@@ -634,6 +637,7 @@ export const openSession = (
           // them - the turn already exists. Starting BEFORE the receipt
           // settles keeps the turn line ahead of the disposition line.
           if (activeTurn === null) startTurn(record.inputId);
+          if (record.inputId === activeTurnInputId) activeTurnOpenerAccepted = true;
           const settle = pendingNativeReceipts.get(record.inputId);
           pendingNativeReceipts.delete(record.inputId);
           settle?.({ disposition: "started" });
@@ -671,12 +675,14 @@ export const openSession = (
               pendingLengths.splice(pendingIndex, 1);
             }
             settle?.({ disposition: "rejected", reason: "native-rejected" });
-            // Issue #344: pi refused the prompt that opened the turn.
-            // The disposition settles and the error routes as today; the
-            // turn must end so close() does not wait forever. The failure
-            // surfaces through endTurn's done (turn.clean + failure ->
-            // cause failed).
-            if (activeTurn !== null && activeTurnInputId === record.inputId) {
+            // Issue #344: the harness refused the command that opened the
+            // turn before acknowledging it. End it so close() cannot hang;
+            // a refused later input, even with a reused id, leaves it running.
+            if (
+              activeTurn !== null &&
+              activeTurnInputId === record.inputId &&
+              !activeTurnOpenerAccepted
+            ) {
               await routeEvent({ kind: "error", message: record.message });
               const failure = failureFromNativeRejection(h, record.message, deps.clock);
               await pushFailure(failure);

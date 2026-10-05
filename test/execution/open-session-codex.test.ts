@@ -507,3 +507,35 @@ describe("issue #347: codex crash with no open turn classifies the exit", () => 
     expect((close as { failure?: unknown })?.failure).toBeUndefined();
   });
 });
+
+test("an identified popeye session ends a refused prompt with native failure and closes", async () => {
+  const proc = new FakeProcess();
+  const { popeyeCli } = await import("../../src/knowledge/popeye.js");
+  const session = openSession(popeyeCli, { sessionId: sid }, makeDeps(proc));
+  proc.emitLine(
+    JSON.stringify({
+      id: IDENTITY_PROBE_ID,
+      result: { _tag: "snapshot", sessionId: "popeye-session" },
+    }),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  session.send({ id: "a", text: "say hi" });
+  expect(JSON.parse(proc.stdinLines.at(-1) ?? "null")).toMatchObject({
+    id: `${SEND_ID}:a`,
+    sessionId: "popeye-session",
+  });
+  const turns = session.turns[Symbol.asyncIterator]();
+  const turn = (await turns.next()).value as SessionTurn;
+  expect(turn.inputId).toBe("a");
+  proc.emitLine(jsonrpcError(`${SEND_ID}:a`, -32000, "prompt refused"));
+  const events = await drainTurn(turn);
+  expect(events.find((event) => event.kind === "failure")).toMatchObject({ class: "native" });
+  expect(events.at(-1)).toMatchObject({
+    kind: "done",
+    cause: "failed",
+    failure: { class: "native" },
+  });
+  await session.close();
+  expect(proc.stdinEnded).toBe(true);
+  expect((await turns.next()).done).toBe(true);
+});

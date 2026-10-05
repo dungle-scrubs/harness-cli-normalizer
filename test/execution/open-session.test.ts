@@ -871,6 +871,54 @@ describe("issue #344: a pi prompt refused natively ends its turn with failed", (
     expect((await turnsIter.next()).done).toBe(true);
   });
 
+  test("a refused steer reusing the accepted opener id does not end the running turn", async () => {
+    const proc = new FakeProcess();
+    const d = makeDeps(proc);
+    const session = openSession(piCli, { sessionId: sid }, d);
+    const opener = session.send({ id: "a", text: "first" });
+    const turnsIter = session.turns[Symbol.asyncIterator]();
+    const turn = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
+    proc.emitLine(
+      JSON.stringify({
+        command: "prompt",
+        id: "hcn-send:a",
+        success: true,
+        type: "response",
+      }),
+    );
+    expect(await opener.settled).toEqual({ disposition: "started" });
+    const events: HarnessEvent[] = [];
+    const draining = (async () => {
+      for await (const event of turn) events.push(event);
+    })();
+    // Steer arrives mid-turn.
+    const steer = session.send({ id: "a", text: "correct" });
+    proc.emitLine(
+      JSON.stringify({
+        command: "prompt",
+        id: "hcn-send:a",
+        success: false,
+        type: "response",
+        error: NO_API_KEY,
+      }),
+    );
+    expect(await steer.settled).toMatchObject({
+      disposition: "rejected",
+      reason: "native-rejected",
+    });
+    // The turn is still open: endTurn was not called.
+    expect(proc.stdinEnded).toBe(false);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(events.some((e) => e.kind === "done")).toBe(false);
+    expect(events.some((e) => e.kind === "failure")).toBe(false);
+    // A normal turn boundary still settles the turn.
+    proc.emitLine(JSON.stringify({ type: "agent_settled" }));
+    await draining;
+    expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+    expect(events.some((e) => e.kind === "failure")).toBe(false);
+    await session.close();
+  });
+
   test("a refused steer during a running turn does NOT end that turn", async () => {
     const proc = new FakeProcess();
     const d = makeDeps(proc);
