@@ -115,8 +115,8 @@ export const SHARED_TRANSPORT_MATCHERS: ReadonlyArray<TransportMatcher> = [
   // are anchored to the start of a line or an error colon, or need a
   // close continuation, so model prose that mentions a WebSocket (a
   // "WebSocket closed handler") stays a work verdict. Codes 1000, 1002,
-  // 1003, 1008, 1009 and 1010 are deliberate closes and are NOT matched
-  // here.
+  // 1003, 1008, 1009 and 1010 are a normal close or an endpoint refusing
+  // the traffic, not a dropped connection, and are NOT matched here.
   {
     pattern:
       "\\bwebsocket(?: connection| stream)? closed\\W+(?:with )?(?:(?:close )?code\\W*)?10(?:0[16]|1[123])\\b",

@@ -86,9 +86,10 @@ export const retryableOf = (cls: FailureClass): boolean =>
  * ids, paths) log verbatim - they are what the log exists to correlate. */
 export const SECRETISH = /(sk-[A-Za-z0-9_-]{8,}|(?:token|key|secret|password)=\S+)/i;
 
+const SECRETISH_ALL = new RegExp(SECRETISH.source, `${SECRETISH.flags}g`);
+
 /** Replace every secret-shaped token with `[redacted]`. */
-export const redactSecrets = (text: string): string =>
-  text.replace(new RegExp(SECRETISH.source, `${SECRETISH.flags}g`), "[redacted]");
+export const redactSecrets = (text: string): string => text.replace(SECRETISH_ALL, "[redacted]");
 
 /** Redact before slicing to `max`: a credential split by the bound is too
  * short for `SECRETISH` to match, so redacting after the bound would leak
