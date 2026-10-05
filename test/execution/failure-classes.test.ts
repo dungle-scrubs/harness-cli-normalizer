@@ -372,6 +372,24 @@ describe("failure message contracts", () => {
     });
   });
 
+  test("native failure message masks secret-shaped tokens; a plain line is unchanged", () => {
+    // Both secret-shaped tokens must disappear; the secret words must not
+    // appear in the message; the surrounding prose is preserved. Two
+    // matches -> exactly two [redacted] tokens (no more, no fewer).
+    const redacted = failureFromNative(1, ["auth failed for sk-abcdefghijk123 token=xyz"]);
+    expect(redacted.message).toContain("[redacted]");
+    const matches = redacted.message.match(/\[redacted\]/g) ?? [];
+    expect(matches).toHaveLength(2);
+    expect(redacted.message).not.toContain("sk-abcdefghijk123");
+    expect(redacted.message).not.toContain("token=xyz");
+    expect(redacted.message).toContain("auth failed for");
+    // A plain line without secret-shaped tokens is unchanged: the prose
+    // goes into the detail verbatim.
+    const plain = failureFromNative(1, ["error: unknown flag --bad"]);
+    expect(plain.message).toContain("error: unknown flag --bad");
+    expect(plain.message).not.toContain("[redacted]");
+  });
+
   test("limit codes retain their normalized class and limit identity", () => {
     expect(failureFromLimit("rate-limit")).toMatchObject({
       class: "rate-limit",

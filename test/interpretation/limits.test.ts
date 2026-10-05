@@ -170,12 +170,44 @@ describe("detectTransportInLine", () => {
     { line: "HTTP 502 Bad Gateway", desc: "HTTP 502" },
     { line: "status code 503", desc: "status code 503" },
     { line: "code: 504", desc: "code 504" },
+    // Issue #342: pi's openai-codex provider WebSocket close phrasings.
+    // RFC 6455 codes 1001, 1006, 1011, 1012, 1013 are abnormal closes
+    // (the provider killed the connection mid-response); a codeless
+    // close is the provider hanging up before reporting one; "is not
+    // open" is a use-after-close. Each phrasing pi prints carries its
+    // own structure (bare code, "code <n>", "code=<n>", with a reason,
+    // or no code at all).
+    { line: "WebSocket closed 1001", desc: "WS close 1001 going away" },
+    { line: "WebSocket closed 1006", desc: "WS close 1006 abnormal" },
+    { line: "WebSocket closed 1011 internal error", desc: "WS close 1011 internal error" },
+    { line: "WebSocket closed 1012", desc: "WS close 1012 service restart" },
+    { line: "WebSocket closed 1013", desc: "WS close 1013 try again later" },
+    { line: "websocket connection closed with code 1006", desc: "WS connection closed with code" },
+    { line: "realtime websocket closed: code=1011", desc: "WS closed code=1011 colon form" },
+    { line: "WebSocket closed", desc: "WS closed with no code" },
+    {
+      line: "WebSocket stream closed before response.completed",
+      desc: "WS stream closed before response.completed",
+    },
+    { line: "WebSocket is not open: readyState 3 (CLOSED)", desc: "WS not open readyState 3" },
   ];
   test.each(positives)("positive $desc: $line", ({ line }) => {
     expect(detectTransportInLine(line)).toBe(true);
   });
 
-  const negatives = ["port 5020", "elapsed 502ms", "read 5030 bytes"] as const;
+  const negatives = [
+    "port 5020",
+    "elapsed 502ms",
+    "read 5030 bytes",
+    // Issue #342: only the abnormal-close codes read as transport.
+    // 1000 (clean), 1008 (policy-violation), and 1009 (message-too-big)
+    // are still "human" - not transport phrasings.
+    "WebSocket closed 1000",
+    "WebSocket closed 1008 policy violation",
+    "WebSocket closed 1009 message too big",
+    // A code that begins with the abnormal prefixes but is not in the set.
+    "WebSocket closed 10120",
+  ] as const;
   test.each(negatives)("negative %s is not transport", (line) => {
     expect(detectTransportInLine(line)).toBe(false);
   });

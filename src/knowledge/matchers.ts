@@ -106,6 +106,32 @@ export const SHARED_TRANSPORT_MATCHERS: ReadonlyArray<TransportMatcher> = [
   { pattern: "bad gateway", flags: "i" },
   { pattern: "gateway time-?out", flags: "i" },
   { pattern: "\\b(?:HTTP|status(?:[_ ]?code)?|code)\\b\\W*[:=]?\\W*50[234]\\b", flags: "i" },
+  // Issue #342: pi's openai-codex WebSocket close phrasings. RFC 6455 codes
+  // 1001 (going away), 1006 (abnormal), 1011 (internal error), 1012
+  // (service restart), 1013 (try again later) are abnormal closes - the
+  // provider killed the connection mid-response. They take any of the
+  // forms pi prints: "WebSocket closed <code>", "websocket connection
+  // closed with code <code>", "realtime websocket closed: code=<code>",
+  // with or without a trailing reason. A codeless close ("WebSocket
+  // closed" alone) is also abnormal: the provider hung up without
+  // reporting a code. "is not open" is a use-after-close, the same
+  // verdict. Codes 1000 (clean), 1008 (policy violation), and 1009
+  // (message too big) are deliberate closes and are NOT matched here -
+  // they read as a refusal, not as a transport fault.
+  {
+    pattern:
+      "\\bwebsocket(?: connection| stream)? closed\\W+(?:with )?(?:(?:close )?code\\W*)?10(?:0[16]|1[123])\\b",
+    flags: "i",
+  },
+  // Codeless close: "websocket closed" with NO digit code in the trailing
+  // window. The lookahead excludes any "code <n>" / "code=<n>" / bare
+  // digits after "closed" so a coded close never also matches here.
+  {
+    pattern:
+      "\\bwebsocket(?: connection| stream)? closed\\b(?!\\W+(?:with )?(?:(?:close )?code\\W*)?\\d)",
+    flags: "i",
+  },
+  { pattern: "\\bwebsocket is not open\\b", flags: "i" },
 ];
 
 export const SHARED_UNAVAILABLE_MATCHERS: ReadonlyArray<UnavailableMatcher> = [

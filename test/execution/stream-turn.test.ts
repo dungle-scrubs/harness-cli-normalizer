@@ -540,6 +540,101 @@ describe("harness fixture replay (F-20)", () => {
     expect(done.failure).toMatchObject({ class: "transport" });
   });
 
+  test("pi turn with assistant message_end stopReason error WebSocket closed classifies transport (inline)", async () => {
+    // Issue #342: pi's openai-codex provider over WebSocket reports a
+    // mid-response close as stopReason "error" with the provider's
+    // phrasing riding in errorMessage. The classifier that reads the
+    // terminal error (failureFromTerminalError) must recognize the
+    // WebSocket close phrasing as transport, not task - the work is
+    // unrouted and retrying on a different provider or with backoff is
+    // safe. Records built inline (no new fixture file) mirror the
+    // pi-unreachable.ndjson skeleton: session, agent_start, turn_start,
+    // user message pair, then a single assistant message_end that
+    // reports the close. The sequence ends with agent_settled, the
+    // boundary pi writes after it gives up on retries.
+    const sessionId = "01a0231c-01f7-7c9a-9bdb-289869f8fd55";
+    const lines = [
+      { type: "session", id: sessionId },
+      { type: "agent_start" },
+      { type: "turn_start" },
+      {
+        type: "message_start",
+        message: {
+          content: [{ text: "Reply with only: alpha", type: "text" }],
+          role: "user",
+          timestamp: 0,
+        },
+      },
+      {
+        type: "message_end",
+        message: {
+          content: [{ text: "Reply with only: alpha", type: "text" }],
+          role: "user",
+          timestamp: 0,
+        },
+      },
+      {
+        type: "message_start",
+        message: {
+          content: [],
+          errorMessage: "WebSocket closed 1012",
+          model: "openai-codex/gpt-6.1-sol",
+          provider: "openai-codex",
+          role: "assistant",
+          stopReason: "error",
+          timestamp: 1,
+          usage: {
+            cacheRead: 0,
+            cacheWrite: 0,
+            cost: { cacheRead: 0, cacheWrite: 0, input: 0, output: 0, total: 0 },
+            input: 0,
+            output: 0,
+            totalTokens: 0,
+          },
+        },
+      },
+      {
+        type: "message_end",
+        message: {
+          content: [],
+          errorMessage: "WebSocket closed 1012",
+          model: "openai-codex/gpt-6.1-sol",
+          provider: "openai-codex",
+          role: "assistant",
+          stopReason: "error",
+          timestamp: 1,
+          usage: {
+            cacheRead: 0,
+            cacheWrite: 0,
+            cost: { cacheRead: 0, cacheWrite: 0, input: 0, output: 0, total: 0 },
+            input: 0,
+            output: 0,
+            totalTokens: 0,
+          },
+        },
+      },
+      { type: "turn_end", message: { stopReason: "error" } },
+      { type: "agent_end", messages: [] },
+      { type: "agent_settled" },
+    ];
+    const proc = new FakeProcess();
+    const d = deps(proc);
+    const turn = streamTurn(piCli, { prompt: "hi" }, d);
+    for (const record of lines) proc.emitLine(JSON.stringify(record));
+    proc.exit(0);
+    const events = await collect(turn);
+    const failures = events.filter((e) => e.kind === "failure");
+    expect(failures).toHaveLength(1);
+    const failure = failures[0] as Extract<HarnessEvent, { kind: "failure" }>;
+    expect(failure).toMatchObject({ class: "transport", retryable: true });
+    expect(failure.message).toBe(
+      "Transport failure (pi turn ended with stopReason error: WebSocket closed 1012) - retry or route to another provider",
+    );
+    const done = events.at(-1) as Extract<HarnessEvent, { kind: "done" }>;
+    expect(done.cause).toBe("failed");
+    expect(done.failure).toMatchObject({ class: "transport" });
+  });
+
   test("pi-noauth yields auth not-logged-in failure and failed done", async () => {
     const { readFileSync } = await import("node:fs");
     const { join } = await import("node:path");

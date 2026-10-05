@@ -52,7 +52,9 @@ import {
   failureFromTimeout,
   failureFromTransport,
   isLimitFailure,
+  redactSecrets,
   reduceFailures,
+  SECRETISH,
 } from "./failure.js";
 import { LineBuffer, RUN_LINE_MAX } from "./lines.js";
 import { type MuseApprovalObserver, watchMuseApprovals } from "./muse-approvals.js";
@@ -74,8 +76,10 @@ const pumpFailureMessage = (stream: (typeof OUTPUT_STREAMS)[number], cause: unkn
   `${stream} pump failed: ${cause instanceof Error ? cause.message : String(cause)}`;
 
 /** Stray secret-shaped tokens are masked; identifiers (session UUIDs, model
- * ids, paths) log verbatim - they are what the log exists to correlate. */
-const SECRETISH = /(sk-[A-Za-z0-9_-]{8,}|(?:token|key|secret|password)=\S+)/i;
+ * ids, paths) log verbatim - they are what the log exists to correlate.
+ * The pattern is owned by failure.ts (single source of truth) and
+ * re-imported here so redactArgv and redactSecrets agree on what a
+ * secret-shaped token looks like. */
 
 /** Redact by POSITION, not shape: the prompt is a known argv slot and is
  * masked wholesale (content never reaches a log line - v1 D-005); every
@@ -771,9 +775,14 @@ export async function* streamTurn(
     // only in the exit log - so a crash from the real adapter's async spawn
     // failure carries the same error-event signal as the sync-throw path.
     // F-04: the startupError path already emitted the spawn error; do not
-    // duplicate it via the tail.
+    // duplicate it via the tail. Secret-shaped tokens in the tail are
+    // masked before the bound, the same way failureFromNative masks them
+    // for the failure event.
     if (!startupFailed && (cause === "crash" || cause === "killed") && tail.length > 0) {
-      yield { kind: "error", message: tail.join("\n").slice(0, 4096) };
+      yield {
+        kind: "error",
+        message: redactSecrets(tail.join("\n").slice(0, 4096)),
+      };
     }
     terminalEventReached = true;
     // D6: when the failure is native, the harness's own exit convention is

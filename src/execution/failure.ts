@@ -82,6 +82,21 @@ export const retryableOf = (cls: FailureClass): boolean =>
   cls !== "timeout" &&
   cls !== "internal";
 
+/** Stray secret-shaped tokens are masked; identifiers (session UUIDs, model
+ * ids, paths) log verbatim - they are what the log exists to correlate.
+ * Whole-token only: a substring inside a larger word is not a secret.
+ * Shared with `redactArgv` so the same rule applies everywhere a
+ * harness-emitted token reaches a log line or event message. */
+export const SECRETISH = /(sk-[A-Za-z0-9_-]{8,}|(?:token|key|secret|password)=\S+)/i;
+
+/** Replace every secret-shaped token with `[redacted]`. The pattern is
+ * identical to `SECRETISH` (case-insensitive, global). Identifiers that
+ * merely contain a long token-shaped run as a substring are not
+ * redacted: the regex matches at the start of a token, not in the
+ * middle. */
+export const redactSecrets = (text: string): string =>
+  text.replace(/sk-[A-Za-z0-9_-]{8,}|token=\S+|key=\S+|secret=\S+|password=\S+/gi, "[redacted]");
+
 const messageFor = (cls: FailureClass, detail?: string): string => {
   switch (cls) {
     case "rate-limit":
@@ -115,10 +130,12 @@ const messageFor = (cls: FailureClass, detail?: string): string => {
       return `Workspace trust refused${detail ? ` (${detail})` : ""} - run \`agent\` interactively in that directory once, or use a directory Cursor already trusts; --autonomy grants unattended edits and shell for that run without persisting trust`;
     case "native":
       // D6: labeled NATIVE so it can never be confused with an hcn error.
-      // The harness's own message follows verbatim; the process exit code
-      // rides as data (nativeExitCode), because harness conventions differ
-      // (codex exits 2 on usage errors - the same code hcn uses for
-      // refusals, so hcn owns its own exit code and reports the native one).
+      // The harness's own message follows verbatim except secret-shaped
+      // tokens (masked by failureFromNative before this branch sees it);
+      // the process exit code rides as data (nativeExitCode), because
+      // harness conventions differ (codex exits 2 on usage errors - the
+      // same code hcn uses for refusals, so hcn owns its own exit code
+      // and reports the native one).
       return `NATIVE ERROR from harness${detail ? `: ${detail}` : ""} - the harness rejected or failed on its own arguments; this is not an hcn error`;
     case "internal":
       return `Internal hcn failure${detail ? `: ${detail}` : ""} - hcn hit a bug, not a harness failure; the process exits 4 with the structured pair when streaming JSON`;
@@ -133,7 +150,12 @@ export const failureFromTimeout = (): FailureSummary => ({
 });
 
 /** D6: a failure that belongs to the harness, not hcn. Carries the
- * native stderr verbatim and the native exit code as data. */
+ * native stderr verbatim except secret-shaped tokens, and the native
+ * exit code as data. The last three stderr lines form the joined
+ * detail, capped at 512 chars; secret-shaped tokens (API keys,
+ * `token=`/`key=`/`secret=`/`password=` pairs) are masked before the
+ * bound, so a credential the harness echoed on the way down never
+ * rides into the consumer-visible message. */
 export const failureFromNative = (
   nativeExitCode: number | null,
   stderrTail: readonly string[],
@@ -142,7 +164,7 @@ export const failureFromNative = (
   retryable: retryableOf("native"),
   message: messageFor(
     "native",
-    stderrTail.slice(-3).join(" | ").slice(0, 512) || `exit ${nativeExitCode}`,
+    redactSecrets(stderrTail.slice(-3).join(" | ").slice(0, 512)) || `exit ${nativeExitCode}`,
   ),
   nativeExitCode: nativeExitCode ?? undefined,
 });
