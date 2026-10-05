@@ -615,6 +615,111 @@ describe("harness fixture replay (F-20)", () => {
     expect(done.failure).toMatchObject({ class: "transport" });
   });
 
+  test("issue #346: pi turn with 'WebSocket idle timeout after <n>ms' errorMessage classifies transport, retryable", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const { piCli } = await import("../../src/knowledge/pi.js");
+    const raw = readFileSync(
+      join(import.meta.dirname, "../fixtures/harnesses/pi-unreachable.ndjson"),
+      "utf8",
+    );
+    // pi's openai-codex provider over WebSocket reports a stalled stream
+    // as `WebSocket idle timeout after <n>ms`; swap the existing
+    // errorMessage for that string and the classifier must surface
+    // transport, not task.
+    const lines = raw
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line !== "")
+      .map((line) =>
+        line.replaceAll(
+          '"errorMessage":"Connection error."',
+          '"errorMessage":"WebSocket idle timeout after 300000ms"',
+        ),
+      );
+    const proc = new FakeProcess();
+    const d = deps(proc);
+    const turn = streamTurn(piCli, { prompt: "hi" }, d);
+    for (const line of lines) proc.emitLine(line);
+    proc.exit(0);
+    const events = await collect(turn);
+    const failures = events.filter((e) => e.kind === "failure");
+    expect(failures).toHaveLength(1);
+    const failure = failures[0] as Extract<HarnessEvent, { kind: "failure" }>;
+    expect(failure).toMatchObject({ class: "transport", retryable: true });
+    expect(failure.message).toBe(
+      "Transport failure (pi turn ended with stopReason error: WebSocket idle timeout after 300000ms) - retry or route to another provider",
+    );
+    const done = events.at(-1) as Extract<HarnessEvent, { kind: "done" }>;
+    expect(done.cause).toBe("failed");
+    expect(done.failure).toMatchObject({ class: "transport" });
+  });
+
+  test("issue #350: pi overloaded error yields one retryable transport failure and failed done", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const { piCli } = await import("../../src/knowledge/pi.js");
+    const raw = readFileSync(
+      join(import.meta.dirname, "../fixtures/harnesses/pi-unreachable.ndjson"),
+      "utf8",
+    );
+    const errorMessage =
+      'pi turn ended with stopReason error: 529 {"type":"error","error":{"type":"overloaded_error","message":"The server cluster is currently under high load. Please retry after a short wait and thank you for your patience. (2064) (529)"}}';
+    const lines = raw
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line !== "")
+      .map((line) =>
+        line.replaceAll(
+          '"errorMessage":"Connection error."',
+          `"errorMessage":${JSON.stringify(errorMessage)}`,
+        ),
+      );
+    const proc = new FakeProcess();
+    const turn = streamTurn(piCli, { prompt: "hi" }, deps(proc));
+    for (const line of lines) proc.emitLine(line);
+    proc.exit(0);
+    const events = await collect(turn);
+    const failures = events.filter((event) => event.kind === "failure");
+    expect(failures).toHaveLength(1);
+    expect(failures[0]).toMatchObject({ class: "transport", retryable: true });
+    expect(events.at(-1)).toMatchObject({
+      kind: "done",
+      cause: "failed",
+      failure: { class: "transport", retryable: true },
+    });
+  });
+
+  test("issue #343: pi turn with a 'model is not supported' errorMessage classifies unavailable, retryable", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const { piCli } = await import("../../src/knowledge/pi.js");
+    const raw = readFileSync(
+      join(import.meta.dirname, "../fixtures/harnesses/pi-unreachable.ndjson"),
+      "utf8",
+    );
+    const message =
+      "Codex error: The 'gpt-x' model is not supported when using Codex with a ChatGPT account.";
+    const lines = raw
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line !== "")
+      .map((line) =>
+        line.replaceAll('"errorMessage":"Connection error."', `"errorMessage":"${message}"`),
+      );
+    const proc = new FakeProcess();
+    const turn = streamTurn(piCli, { prompt: "hi" }, deps(proc));
+    for (const line of lines) proc.emitLine(line);
+    proc.exit(0);
+    const events = await collect(turn);
+    const failures = events.filter((e) => e.kind === "failure");
+    expect(failures).toHaveLength(1);
+    expect(failures[0]).toMatchObject({ class: "unavailable", retryable: true });
+    const done = events.at(-1) as Extract<HarnessEvent, { kind: "done" }>;
+    expect(done.cause).toBe("failed");
+    expect(done.failure).toMatchObject({ class: "unavailable" });
+  });
+
   test("pi-noauth yields auth not-logged-in failure and failed done", async () => {
     const { readFileSync } = await import("node:fs");
     const { join } = await import("node:path");

@@ -170,6 +170,19 @@ describe("detectTransportInLine", () => {
     { line: "HTTP 502 Bad Gateway", desc: "HTTP 502" },
     { line: "status code 503", desc: "status code 503" },
     { line: "code: 504", desc: "code 504" },
+    {
+      line: 'pi turn ended with stopReason error: 529 {"type":"error","error":{"type":"overloaded_error","message":"The server cluster is currently under high load. Please retry after a short wait and thank you for your patience. (2064) (529)"}}',
+      desc: "issue #350: pi overloaded error",
+    },
+    {
+      line: 'API Error: 529 {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}',
+      desc: "issue #350: API overloaded error",
+    },
+    {
+      line: "HTTP 529",
+      desc: "issue #350: HTTP 529",
+    },
+
     // Issue #342: pi's openai-codex provider WebSocket close phrasings.
     // RFC 6455 codes 1001, 1006, 1011, 1012, 1013 are abnormal closes
     // (the provider killed the connection mid-response); a codeless
@@ -204,12 +217,39 @@ describe("detectTransportInLine", () => {
     },
     { line: "websocket connection closed unexpectedly", desc: "WS connection closed unexpectedly" },
     { line: "WebSocket is not open", desc: "WS is not open at EOL" },
+    // Issue #346: pi's openai-codex provider over WebSocket reports a
+    // mid-response close as `WebSocket idle timeout after <n>ms` or
+    // `WebSocket connect timeout after <n>ms`; the timeout figure rides
+    // in errorMessage. A leading turn-ended prefix must not change the
+    // classification: failureFromTerminalError sees only the message.
+    {
+      line: "pi turn ended with stopReason error: WebSocket idle timeout after 300000ms",
+      desc: "issue #346: pi WS idle timeout, full pi errorMessage",
+    },
+    {
+      line: "WebSocket idle timeout after 300000ms",
+      desc: "issue #346: WS idle timeout, bare",
+    },
+    {
+      line: "WebSocket connect timeout after 15000ms",
+      desc: "issue #346: WS connect timeout",
+    },
+    // Issue #346: codex prints `stream disconnected before completion:
+    // <cause>` once its own stream retries run out. The colon is the
+    // anchor: an inner cause (auth, network, etc.) rides after it and
+    // `failureFromTerminalError` resolves the more specific class first.
+    {
+      line: "stream disconnected before completion: error sending request for url (https://chatgpt.com/backend-api/codex/responses)",
+      desc: "issue #346: codex stream disconnected with network cause",
+    },
   ];
   test.each(positives)("positive $desc: $line", ({ line }) => {
     expect(detectTransportInLine(line)).toBe(true);
   });
 
   const negatives = [
+    "processed 529 files",
+    "the overloaded server case is handled in retry.ts",
     "port 5020",
     "elapsed 502ms",
     "read 5030 bytes",
@@ -230,6 +270,12 @@ describe("detectTransportInLine", () => {
     "turn failed: error_max_turns (I did not finish implementing the WebSocket closed handler.)",
     "WebSocket is not open: see docs",
     "I checked that the websocket is not open",
+    // Issue #346: even exact timeout/disconnect phrasings in prose stay
+    // task unless they start a line or follow an error colon.
+    "I did not finish fixing the client that reports `WebSocket idle timeout after 300000ms`.",
+    "I added a websocket idle timeout setting",
+    "the upload stream disconnected before completion: retrying",
+    "the stream disconnected before completion of the upload",
   ] as const;
   test.each(negatives)("negative %s is not transport", (line) => {
     expect(detectTransportInLine(line)).toBe(false);
@@ -295,12 +341,33 @@ describe("detectUnavailableInLine", () => {
       line: "the model said not found in file",
       desc: "model said not found in file - bounded window",
     },
+    // Issue #343: pi's openai-codex provider refuses a model with "model
+    // is not supported when using Codex with a ChatGPT account". The full
+    // pi errorMessage rides in stopReason error (issue repro: 0.9.4,
+    // pi 1.0.2, model "no-such-model-xyz", provider openai-codex).
+    {
+      line: "pi turn ended with stopReason error: Codex error: The 'gpt-x' model is not supported when using Codex with a ChatGPT account.",
+      desc: "issue #343: pi openai-codex 'model is not supported' wall",
+    },
   ];
   test.each(positives)("positive $desc: $line", ({ line }) => {
     expect(detectUnavailableInLine(line)).toBe(true);
   });
 
-  const negatives = ["model answered", "found 3 models"] as const;
+  const negatives = [
+    "model answered",
+    "found 3 models",
+    // Issue #343: keep option-level refusals (an unsupported reasoning
+    // effort, an unsupported tool) out of the unavailable class - the
+    // quoted model id must directly precede "model is not supported".
+    "Reasoning effort 'high' for this model is not supported.",
+    "reasoning effort is not supported",
+    "the tool is not supported in this model",
+    // antigravity's invalid-model-selection error mentions the model
+    // name on both sides of an effort refusal; the effort is the
+    // unavailable subject, not the model, so the message stays task.
+    'invalid model selection (--model "definitely-not-an-antigravity-model" --effort "medium"): --effort is not supported for model "definitely-not-an-antigravity-model"',
+  ] as const;
   test.each(negatives)("negative %s is not unavailable", (line) => {
     expect(detectUnavailableInLine(line)).toBe(false);
   });

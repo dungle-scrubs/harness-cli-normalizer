@@ -171,6 +171,54 @@ describe("F-07 terminal error record ends clean", () => {
     expect(done?.failure?.retryable).toBe(true);
   });
 
+  test("issue #346: codex 'stream disconnected before completion' with a network cause classifies transport, retryable", async () => {
+    const proc = new FakeProcess();
+    const d = depsFor(proc);
+    const turn = streamTurn(codexCli, { prompt: "hi" }, d);
+    proc.emitLine(JSON.stringify({ type: "thread.started", thread_id: "t-1" }));
+    proc.emitLine(
+      JSON.stringify({
+        type: "turn.failed",
+        error: {
+          message:
+            "stream disconnected before completion: error sending request for url (https://chatgpt.com/backend-api/codex/responses)",
+        },
+      }),
+    );
+    proc.exit(0);
+    const events = await collect(turn);
+    const done = events.find((e) => e.kind === "done") as unknown as
+      | { cause: string; failure?: { class: string; retryable: boolean } }
+      | undefined;
+    expect(done?.failure?.class).toBe("transport");
+    expect(done?.failure?.retryable).toBe(true);
+    expect(done?.cause).toBe("failed");
+  });
+
+  test("issue #346: codex 'stream disconnected before completion: 401 Unauthorized' stays auth (precedence beats transport)", async () => {
+    // failureFromTerminalError checks auth before transport, so a codex
+    // stream disconnect whose inner cause is a 401 classifies auth.
+    const proc = new FakeProcess();
+    const d = depsFor(proc);
+    const turn = streamTurn(codexCli, { prompt: "hi" }, d);
+    proc.emitLine(JSON.stringify({ type: "thread.started", thread_id: "t-1" }));
+    proc.emitLine(
+      JSON.stringify({
+        type: "turn.failed",
+        error: {
+          message: "stream disconnected before completion: unexpected status 401 Unauthorized",
+        },
+      }),
+    );
+    proc.exit(0);
+    const events = await collect(turn);
+    const done = events.find((e) => e.kind === "done") as unknown as
+      | { cause: string; failure?: { class: string; retryable: boolean; authKind?: string } }
+      | undefined;
+    expect(done?.failure?.class).toBe("auth");
+    expect(done?.failure?.retryable).toBe(true);
+  });
+
   test("codex fatal stream error stays failed after a nonfatal warning", async () => {
     const proc = new FakeProcess();
     const turn = streamTurn(codexCli, { prompt: "hi", questions: "none" }, depsFor(proc));

@@ -63,6 +63,18 @@ describe("claude result is_error text", () => {
     expect(failureFromTerminalError(claudeCode, event.message).class).toBe("task");
   });
 
+  test("a result quoting a WebSocket timeout classifies task, not transport", () => {
+    const [event] = contentEventsOf("claude", {
+      type: "result",
+      subtype: "error_max_turns",
+      is_error: true,
+      result:
+        "I did not finish fixing the client that reports `WebSocket idle timeout after 300000ms`.",
+    });
+    if (event?.kind !== "error") throw new Error("expected a terminal error event");
+    expect(failureFromTerminalError(claudeCode, event.message).class).toBe("task");
+  });
+
   test("a result carrying a WebSocket close classifies transport, retryable", () => {
     const [event] = contentEventsOf("claude", {
       type: "result",
@@ -73,5 +85,20 @@ describe("claude result is_error text", () => {
     if (event?.kind !== "error") throw new Error("expected a terminal error event");
     expect(failureFromTerminalError(claudeCode, event.message).class).toBe("transport");
     expect(failureFromTerminalError(claudeCode, event.message).retryable).toBe(true);
+  });
+  test("issue #350: a result carrying an API overloaded error classifies transport, retryable", () => {
+    const [event] = contentEventsOf("claude", {
+      type: "result",
+      subtype: "success",
+      is_error: true,
+      result:
+        'API Error: 529 {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}',
+    });
+    if (event?.kind !== "error") throw new Error("expected a terminal error event");
+    expect(event.terminal).toBe(true);
+    expect(failureFromTerminalError(claudeCode, event.message)).toMatchObject({
+      class: "transport",
+      retryable: true,
+    });
   });
 });

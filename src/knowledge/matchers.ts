@@ -105,7 +105,10 @@ export const SHARED_TRANSPORT_MATCHERS: ReadonlyArray<TransportMatcher> = [
   { pattern: "service unavailable", flags: "i" },
   { pattern: "bad gateway", flags: "i" },
   { pattern: "gateway time-?out", flags: "i" },
-  { pattern: "\\b(?:HTTP|status(?:[_ ]?code)?|code)\\b\\W*[:=]?\\W*50[234]\\b", flags: "i" },
+  {
+    pattern: "\\b(?:HTTP|status(?:[_ ]?code)?|code)\\b\\W*[:=]?\\W*(?:50[234]|529)\\b",
+    flags: "i",
+  },
   // Issue #342: provider WebSocket close phrasings. Pi prints
   // "WebSocket closed <code>[ <reason>]", "WebSocket closed", and
   // "WebSocket stream closed before response.completed". Codex 0.160.0
@@ -135,6 +138,21 @@ export const SHARED_TRANSPORT_MATCHERS: ReadonlyArray<TransportMatcher> = [
     pattern: "(?:^|:\\s*)websocket is not open(?:\\s*$|:\\s*readystate\\b)",
     flags: "im",
   },
+  // Issue #346: pi's openai-codex provider over WebSocket reports a
+  // stalled stream as `WebSocket idle timeout after <n>ms` and a failed
+  // connection as `WebSocket connect timeout after <n>ms`; codex
+  // prints `stream disconnected before completion: <cause>` once its own
+  // stream retries run out. `failureFromTerminalError` checks auth and
+  // limit walls before transport, so a codex disconnect whose cause is a
+  // 401 stays auth, not transport.
+  {
+    pattern: "(?:^|:\\s*)websocket (?:idle|connect) timeout after \\d+\\s*ms\\b",
+    flags: "im",
+  },
+  { pattern: "(?:^|:\\s*)stream disconnected before completion:", flags: "im" },
+  // Issue #350: Anthropic's HTTP 529 API error type, also returned by
+  // compatible providers (MiniMax through pi).
+  { pattern: "\\boverloaded_error\\b", flags: "i" },
 ];
 
 export const SHARED_UNAVAILABLE_MATCHERS: ReadonlyArray<UnavailableMatcher> = [
@@ -146,4 +164,7 @@ export const SHARED_UNAVAILABLE_MATCHERS: ReadonlyArray<UnavailableMatcher> = [
   { pattern: "model[^.]{0,60}(?:is not|isn't) loaded", flags: "i" },
   { pattern: "model[^.]{0,60}does not exist", flags: "i" },
   { pattern: "not a valid (?:downloaded )?model", flags: "i" },
+  // Issue #343: pi's openai-codex provider reports `The '<id>' model is
+  // not supported when using Codex with a ChatGPT account.`
+  { pattern: "['\"\\x60][^'\"\\x60\\s]{1,120}['\"\\x60] model is not supported\\b", flags: "i" },
 ];
