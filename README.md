@@ -287,7 +287,12 @@ equal to `closed.exitCode`). The four control events that frame the stream:
 - `closed.cause` is one of `clean`, `limit`, `crash`, `stall`, `killed`.
   `closed.failure` carries the reduced `FailureSummary` when the cause is
   not clean and a failure was seen. `awaiting-input` ends a turn, never a
-  session.
+  session. A session turn open when the harness exits nonzero gets the
+  same classification as run mode (a `native` failure carrying the
+  captured stderr tail, or a `transport` failure on an empty tail), and
+  the failure event lands INSIDE the dying turn before its `done`. The
+  matching `done.cause` stays `crash`, and `closed.failure` carries the
+  same summary.
 
 stdin carries one command per line (blank lines are ignored):
 
@@ -739,13 +744,17 @@ if (done.failure) {
 }
 ```
 
-`nativeExitCode` is the harness process's own exit code. It is set on a `native` failure and on the `transport` failure hcn reports for a nonzero exit with empty stderr.
+`nativeExitCode` is the harness process's own exit code. It is set on a `native` failure and on the `transport` failure hcn reports for a nonzero exit with empty stderr. The native stderr detail that lands in a `native` failure's message and in the run-mode `error` event masks secret-shaped tokens before the bound: an API key (`sk-` followed by 8 or more word chars) and `token=`, `key=`, `secret=`, `password=` pairs are replaced with `[redacted]` so a credential the harness echoed on the way down never rides into a consumer-visible line. Identifiers (session UUIDs, model ids, paths) are kept verbatim because they are what the log exists to correlate.
 
 A harness writes each record on one output line, and a whole reply (reasoning included) can ride on one line. hcn reads lines up to 16,777,216 characters on every stdout and stderr stream of a run or a session. A longer line is discarded and is never silent: it fails the run (or the session turn it lands in) with a `transport` failure whose message starts `output line overflow:` and names the stream and the line's size in UTF-8 bytes.
 
 A pi reply that ends with `stopReason` `stop` or `length` and no answer text (for example, reasoning only) fails the run with a `task` failure. Its message names the stop reason and pi's token counts, for example `pi turn ended with stopReason length and no text (usage: input 1234, output 5678, reasoning 910)`. A later reply with text in the same run supersedes it, as for `stopReason` `error`.
 
 `retryable` is `false` for `task`, `budget`, `rejected`, `native`, `timeout`, `internal` and `true` for the rest. `unavailable` is a provider that cannot serve the requested model or route (model not found, not loaded); retryable, route elsewhere. `rejected` is non-retryable across the whole model chain because the remedy is different options or a different harness.
+
+### Transport phrasings (issues #341 and #342)
+
+A `transport` failure means the network or provider tore the conversation down before any verdict on the work, so retrying unchanged or routing the same work to another model is fine. The phrasings that read as transport cover the cases a coder-agent CLI meets: HTTP 5xx (`HTTP 503`, `502 Bad Gateway`, `gateway timeout`), Node socket errors (`ECONNREFUSED`, `ECONNRESET`, `ENOTFOUND`, `EAI_AGAIN`, `ETIMEDOUT`, `socket hang up`, `fetch failed`, `network error`), WebSocket abnormal closes (RFC 6455 codes `1001` going away, `1006` abnormal, `1011` internal error, `1012` service restart, `1013` try again later, plus a codeless close like `WebSocket closed` or `WebSocket stream closed before response.completed`, and a use-after-close `WebSocket is not open`). Pi's openai-codex provider over WebSocket reports a mid-response close as `stopReason` `error` with the close phrasing riding in `errorMessage`; the terminal-error classifier picks the WebSocket close up as transport, retryable. Coded closes that are deliberate (1000 normal, 1008 policy violation, 1009 message too big) do NOT match - they are a refusal, not a transport fault.
 
 ### Crash tier and the command ledger
 
