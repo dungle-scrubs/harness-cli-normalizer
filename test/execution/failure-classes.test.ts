@@ -3,6 +3,7 @@ import type { HarnessEvent } from "../../src/execution/events.js";
 import {
   failureFromLimit,
   failureFromNative,
+  failureFromNativeRejection,
   failureFromStderrTail,
   failureFromTerminalError,
   failureFromTimeout,
@@ -439,5 +440,34 @@ describe("failure message contracts", () => {
     }
     expect(isLimitFailure(failureFromTrust())).toBe(false);
     expect(isLimitFailure(failureFromTimeout())).toBe(false);
+  });
+});
+
+// Issues #344 / #345: the harness refused a command hcn wrote. Work did not
+// run, so a work verdict (task) is wrong; specific walls (auth, limits,
+// transport, unavailable) keep their class.
+describe("failureFromNativeRejection", () => {
+  test("codex config error returns native", () => {
+    const failure = failureFromNativeRejection(
+      codexCli,
+      "jsonrpc request failed: hcn-identity - failed to load configuration: <path>/config.toml:1:9: string values must be quoted, expected literal string",
+    );
+    expect(failure.class).toBe("native");
+    expect(failure.retryable).toBe(false);
+  });
+
+  test("pi No API key returns auth", () => {
+    const failure = failureFromNativeRejection(
+      piCli,
+      "rpc command failed: prompt - No API key found for the selected model. Set one in your environment or auth.json.",
+    );
+    expect(failure.class).toBe("auth");
+    expect(failure.retryable).toBe(true);
+  });
+
+  test("a transport-class message remains transport", () => {
+    const failure = failureFromNativeRejection(piCli, "WebSocket closed 1006");
+    expect(failure.class).toBe("transport");
+    expect(failure.retryable).toBe(true);
   });
 });

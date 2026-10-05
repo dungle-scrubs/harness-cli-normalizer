@@ -238,6 +238,26 @@ export const failureFromTerminalError = (
   return failureFromTask(message);
 };
 
+/** Issues #344 / #345: the harness refused a command hcn wrote, so no
+ * work ran and a work verdict (task) is wrong. Specific walls (auth,
+ * limits, transport, unavailable) keep their class; a generic refusal is
+ * `native`. `failureFromTerminalError` already does the wall detection;
+ * the only change is the work-verdict fallback. The clock argument is
+ * forwarded so a reset time stated in a limit wall lands in `resetsAt`. */
+export const failureFromNativeRejection = (
+  h: HarnessDescriptor,
+  message: string,
+  clock?: Pick<Clock, "now" | "utcOffsetMinutes">,
+): FailureSummary => {
+  const auth = detectAuthFailureInLine(h, message);
+  if (auth !== null) return failureFromAuth(auth);
+  const limit = detectLimitInLine(h, message);
+  if (limit !== null) return failureFromLimit(limit, message, resetsAtInLine(message, clock));
+  if (detectTransportInLine(message)) return failureFromTransport(message);
+  if (detectUnavailableInLine(message)) return failureFromUnavailable(message);
+  return failureFromNative(null, [message]);
+};
+
 export const failureFromTask = (detail?: string): FailureSummary => ({
   class: "task",
   retryable: retryableOf("task"),
