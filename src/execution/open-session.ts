@@ -43,6 +43,7 @@ import type { FailureSummary } from "./failure.js";
 import {
   failureFromLimit,
   failureFromLineOverflow,
+  failureFromNativeRejection,
   failureFromStderrTail,
   failureFromTerminalError,
   failureFromTransport,
@@ -222,6 +223,12 @@ export const openSession = (
   let turnCounter = 0;
   let activeTurn: AsyncChannel<HarnessEvent> | null = null;
   let activeTurnId = "";
+  // The id of the send that opened the active turn (the inputId the turn
+  // was tagged with). Used by the #344 command-failed arm to decide
+  // whether the harness refused the command that opened the turn, vs a
+  // later input (steer, codex request with no turn). Cleared at each turn
+  // end.
+  let activeTurnInputId: string | undefined;
   let activeNativeTurnId: string | null = null;
   const pendingIds: string[] = [];
   const pendingLengths: number[] = [];
@@ -363,6 +370,7 @@ export const openSession = (
     turnEscalationDetection = "none";
     activeTurn = new AsyncChannel<HarnessEvent>();
     activeTurnId = `${opts.sessionId}:turn-${++turnCounter}`;
+    activeTurnInputId = inputId;
     // Tag the turn with the id of the send that opened it, so the consumer
     // correlates an input to its turn by reading the tag, not by
     // shadowing the runner's delivery order.
@@ -411,6 +419,7 @@ export const openSession = (
       cause: fullDone.cause,
     });
     activeTurn = null;
+    activeTurnInputId = undefined;
     activeNativeTurnId = null;
     resultError = false;
     if (turnSettled !== null) {
@@ -634,6 +643,18 @@ export const openSession = (
               pendingLengths.splice(pendingIndex, 1);
             }
             settle?.({ disposition: "rejected", reason: "native-rejected" });
+            // Issue #344: pi refused the prompt that opened the turn.
+            // The disposition settles and the error routes as today; the
+            // turn must end so close() does not wait forever. The failure
+            // surfaces through endTurn's done (turn.clean + failure ->
+            // cause failed).
+            if (activeTurn !== null && activeTurnInputId === record.inputId) {
+              await routeEvent({ kind: "error", message: record.message });
+              const failure = failureFromNativeRejection(h, record.message, deps.clock);
+              await pushFailure(failure);
+              endTurn({ kind: "done", exitCode: null, cause: "clean" });
+              return;
+            }
           }
           await routeEvent({ kind: "error", message: record.message });
           return;
