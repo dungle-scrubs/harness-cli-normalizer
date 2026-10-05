@@ -346,7 +346,13 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   }
   const baseDeps = stallMs === undefined ? nodeRunnerDeps() : nodeRunnerDeps({ stallMs });
   // Capture the runner's final exitCode/cause for the --json `closed` event.
-  const closeInfo = { exitCode: null as number | null, cause: "clean" };
+  // `failure` rides on session_close when the runner records a session-
+  // scoped failure (issues #344 / #345 / #347) with no turn to carry it.
+  const closeInfo: {
+    exitCode: number | null;
+    cause: string;
+    failure?: import("../execution/failure.js").FailureSummary;
+  } = { exitCode: null, cause: "clean" };
   const droppedIds: string[] = [];
   const deps = wantJson
     ? {
@@ -355,6 +361,9 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
           if (e.event === "session_close") {
             closeInfo.exitCode = (e.exitCode as number | null) ?? null;
             closeInfo.cause = (e.cause as string) ?? "clean";
+            if (e.failure !== undefined && typeof e.failure === "object") {
+              closeInfo.failure = e.failure as import("../execution/failure.js").FailureSummary;
+            }
           }
           if (e.event === "sends_dropped" && Array.isArray(e.ids)) {
             for (const id of e.ids as unknown[]) if (typeof id === "string") droppedIds.push(id);

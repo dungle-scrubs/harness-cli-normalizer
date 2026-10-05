@@ -338,3 +338,89 @@ describe("openSession (codex app-server, fake process)", () => {
     ]);
   });
 });
+
+// Issue #345: codex app-server's identity probe fails when its config.toml
+// is invalid. hcn's runner used to park the error in preTurnEvents and let
+// the buffered sends hang forever; the fix settles the sends' receipts,
+// records it as a session-scoped failure, and ends stdin so the runner does
+// not wait for stdin EOF.
+describe("issue #345: a refused identity probe on codex settles sends and closes", () => {
+  const configMessage =
+    "failed to load configuration: <path>/config.toml:1:9: string values must be quoted, expected literal string";
+
+  test("identity probe answers -32600 with a config error: send settles rejected, session closes failed", async () => {
+    const proc = new FakeProcess();
+    const d = makeDeps(proc);
+    const logged: Record<string, unknown>[] = [];
+    const session = openSession(codexCli, { sessionId: sid }, { ...d, log: (e) => logged.push(e) });
+    // Send arrives before the probe settles; buffered.
+    const send = session.send({ id: "a", text: "say hi" });
+    expect(send.disposition).toBe("started");
+    expect(send.settled).toBeDefined();
+    expect(proc.stdinLines).toHaveLength(2); // probe only
+
+    // The probe fails: initialize answered, then thread/start -32600.
+    proc.emitLine(jsonrpc(INITIALIZE_ID, { userAgent: "hcn/0.9.4" }));
+    proc.emitLine(jsonrpcError(IDENTITY_PROBE_ID, -32600, configMessage));
+    await new Promise((r) => setTimeout(r, 10));
+
+    // Buffered send's receipt settles rejected/native-rejected.
+    const settled = await send.settled;
+    expect(settled).toMatchObject({ disposition: "rejected", reason: "native-rejected" });
+
+    // hcn ends stdin on its own; the runner does not wait for close() to
+    // be called.
+    expect(proc.stdinEnded).toBe(true);
+
+    // The fake exits cleanly; the runner records the failure and the
+    // session-close log shows cause "failed" with the failure attached.
+    proc.exit(0);
+    await proc.exited;
+    await new Promise((r) => setTimeout(r, 10));
+    const close = logged.find((e) => e.event === "session_close");
+    expect(close).toMatchObject({ cause: "failed", exitCode: 0 });
+    const failure = (close as { failure?: { class: string; message: string } })?.failure;
+    expect(failure?.class).toBe("native");
+    expect(failure?.message).toContain(configMessage);
+  });
+});
+
+describe("issue #345 popeye variant: a refused create leaves the buffered send's turn ending in done with that failure", () => {
+  test("popeye create answers error: buffered send's turn ends done with the failure", async () => {
+    const proc = new FakeProcess();
+    const { popeyeCli } = await import("../../src/knowledge/popeye.js");
+    const d = makeDeps(proc);
+    const logged: Record<string, unknown>[] = [];
+    const session = openSession(
+      popeyeCli,
+      { sessionId: "session-1" },
+      { ...d, log: (e) => logged.push(e) },
+    );
+    // Buffered send arrives before the create response.
+    const send = session.send({ id: "a", text: "say hi" });
+    expect(send.disposition).toBe("started");
+    // popeye has no native receipt; only the probe is on the wire.
+    expect(proc.stdinLines).toHaveLength(1);
+
+    // Create answers with an error: probe-failed. popeyePending stays,
+    // and the runner ends stdin so finalize can settle.
+    proc.emitLine(
+      JSON.stringify({
+        id: IDENTITY_PROBE_ID,
+        error: { code: "invalid_config", message: "config.toml parse error" },
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 10));
+    expect(proc.stdinEnded).toBe(true);
+    proc.exit(0);
+    await proc.exited;
+    await new Promise((r) => setTimeout(r, 10));
+
+    // popeyePending opens the buffered send's turn; the failure parked in
+    // preTurnEvents flushes into it.
+    const close = logged.find((e) => e.event === "session_close");
+    expect(close).toMatchObject({ cause: "failed", exitCode: 0 });
+    const failure = (close as { failure?: { class: string } })?.failure;
+    expect(failure?.class).toBe("native");
+  });
+});

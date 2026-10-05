@@ -7,6 +7,7 @@ import { session } from "../../src/cli/session.js";
 import { runJsonSession, type SessionOrigin } from "../../src/cli/session-json.js";
 import { openSession } from "../../src/execution/open-session.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
+import { codexCli } from "../../src/knowledge/codex.js";
 import { piCli } from "../../src/knowledge/pi.js";
 import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "../execution/fakes.js";
 
@@ -46,7 +47,11 @@ const rig = (
   const spawner = fakeSpawner([proc]);
   const sig = fakeSignal();
   const clock = new FakeClock();
-  const closeInfo = { exitCode: null as number | null, cause: "clean" };
+  const closeInfo: {
+    exitCode: number | null;
+    cause: string;
+    failure?: import("../../src/execution/failure.js").FailureSummary;
+  } = { exitCode: null, cause: "clean" };
   const handle = openSession(
     descriptor,
     { sessionId: sid },
@@ -58,6 +63,10 @@ const rig = (
         if (e.event === "session_close") {
           closeInfo.exitCode = (e.exitCode as number | null) ?? null;
           closeInfo.cause = (e.cause as string) ?? "clean";
+          if (e.failure !== undefined && typeof e.failure === "object") {
+            closeInfo.failure =
+              e.failure as import("../../src/execution/failure.js").FailureSummary;
+          }
         }
       },
     },
@@ -757,5 +766,54 @@ describe("issue #341: a session turn open when the harness exits nonzero lands a
     expect((closed as { failure?: { class: string } }).failure).toMatchObject({
       class: "native",
     });
+  });
+});
+
+// Issue #345: codex's identity probe was refused (invalid config.toml).
+// The runner settles the receipt, ends the session on its own, and the CLI
+// emits closed with the failure and cause "failed".
+describe("issue #345: a refused codex identity probe settles the send and closes failed", () => {
+  const INITIALIZE_ID = "hcn-initialize";
+  const IDENTITY_PROBE_ID = "hcn-identity";
+  const configMessage =
+    "failed to load configuration: <path>/config.toml:1:9: string values must be quoted, expected literal string";
+
+  test("send rejected native-rejected, closed cause failed with the native failure (exit 1)", async () => {
+    const r = rig({}, "fresh", codexCli, "codex");
+    await tick();
+    r.send({ op: "send", id: "a", text: "say hi" });
+    await tick();
+    // initialize answered, then thread/start -32600.
+    r.proc.emitLine(
+      JSON.stringify({
+        id: INITIALIZE_ID,
+        result: { userAgent: "hcn/0.9.4" },
+        jsonrpc: "2.0",
+      }),
+    );
+    r.proc.emitLine(
+      JSON.stringify({
+        error: { code: -32600, message: configMessage },
+        id: IDENTITY_PROBE_ID,
+        jsonrpc: "2.0",
+      }),
+    );
+    await tick();
+    await new Promise((r) => setTimeout(r, 10));
+    r.proc.exit(0);
+    await r.done;
+
+    const evs = r.events();
+    const rejected = evs.find(
+      (e) => e.kind === "disposition" && e.id === "a" && e.disposition === "rejected",
+    );
+    expect(rejected).toMatchObject({ reason: "native-rejected" });
+    const closed = evs.at(-1);
+    expect(closed).toMatchObject({ kind: "closed", exitCode: 0, cause: "failed" });
+    expect((closed as { failure?: { class: string; message: string } }).failure).toMatchObject({
+      class: "native",
+    });
+    const failureMessage = (closed as { failure?: { message: string } }).failure?.message ?? "";
+    expect(failureMessage).toContain(configMessage);
   });
 });

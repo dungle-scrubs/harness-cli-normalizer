@@ -150,6 +150,15 @@ export class SessionSpawnError extends Error {
   }
 }
 
+/** True for harnesses whose session input waits for the spawn-probe
+ * identity before any send can be written (popeye mint the session via
+ * the create probe; codex needs the thread id on every request). pi's
+ * prompt-wire is identity-silent and writes at send time. The single
+ * predicate `send` uses to buffer before identity and the #345 arm uses
+ * to settle buffered sends when the probe fails. */
+const buffersSendsBeforeIdentity = (input: SessionInputContract): boolean =>
+  input.kind === "popeye-rpc-prompt" || input.kind === "codex-jsonrpc";
+
 export const openSession = (
   h: HarnessDescriptor,
   opts: OpenSessionOptions,
@@ -263,6 +272,11 @@ export const openSession = (
   // A stall killed the process on purpose, so the signal death it caused
   // reports as "stall", not "killed".
   let stalled = false;
+  // Issues #344 / #345 / #347: a session-scoped failure with no turn to
+  // carry it. First wins (later sources do not overwrite an already-recorded
+  // verdict). finalize copies it onto session_close and surfaces it on the
+  // terminal `closed` event the CLI emits.
+  let sessionFailure: FailureSummary | undefined;
 
   // The supervisor spans the session; each turn begins and ends on it. A
   // session turn can hang with the process alive and the pipes open, which
@@ -630,9 +644,29 @@ export const openSession = (
         case "identity":
           await announceIdentity(record.sessionId);
           return;
-        case "probe-failed":
+        case "probe-failed": {
           await routeEvent({ kind: "error", message: record.message });
+          const failure = failureFromNativeRejection(h, record.message, deps.clock);
+          if (sessionFailure === undefined) sessionFailure = failure;
+          await pushFailure(failure);
+          // The session never minted an identity; buffered sends (the
+          // ones the harness would have replied with a thread/session id
+          // for) are stranded. Codex settles each receipt and removes
+          // them from popeyePending so finalize does not open a phantom
+          // turn for them; popeye leaves them parked so the first
+          // buffered send's turn carries the failure and the error.
+          if (buffersSendsBeforeIdentity(sessionInput)) {
+            if (sessionInput.kind === "codex-jsonrpc") {
+              for (const pending of popeyePending.splice(0)) {
+                const settle = pendingNativeReceipts.get(pending.input.id);
+                pendingNativeReceipts.delete(pending.input.id);
+                settle?.({ disposition: "rejected", reason: "native-rejected" });
+              }
+            }
+            void close(false);
+          }
           return;
+        }
         case "command-failed": {
           if (record.inputId !== undefined) {
             const settle = pendingNativeReceipts.get(record.inputId);
@@ -740,7 +774,15 @@ export const openSession = (
   const finalize = (): void => {
     if (finalized) return;
     finalized = true;
-    const cause: ExitCause = stalled
+    if (pumpError !== null) {
+      void routeEvent({ kind: "error", message: `session pump failed: ${String(pumpError)}` });
+    }
+    // Issue #345: a refused identity probe lands here with popeyePending
+    // already drained by the probe-failed arm and sessionFailure set.
+    // For a clean exit, that becomes "failed" - the harness did not crash,
+    // it refused to open, and the cause must say so. Crash, killed, stall
+    // and limit are stronger signals and stay.
+    const baseCause: ExitCause = stalled
       ? "stall"
       : state.limitSeen
         ? "limit"
@@ -749,9 +791,8 @@ export const openSession = (
           : exitCode === null
             ? "killed"
             : "crash";
-    if (pumpError !== null) {
-      void routeEvent({ kind: "error", message: `session pump failed: ${String(pumpError)}` });
-    }
+    const cause: ExitCause =
+      sessionFailure !== undefined && baseCause === "clean" ? "failed" : baseCause;
     for (const settle of pendingNativeReceipts.values()) {
       settle({ disposition: "rejected", reason: "closed" });
     }
@@ -826,6 +867,7 @@ export const openSession = (
       sessionId: opts.sessionId,
       exitCode,
       cause,
+      ...(sessionFailure !== undefined ? { failure: sessionFailure } : {}),
       ...(pipesOpenAtExit ? { pipesOpenAtExit } : {}),
       ...(cause === "crash" || cause === "killed" ? { stderrTail: stderrTail.snapshot() } : {}),
     });
@@ -901,10 +943,7 @@ export const openSession = (
       // Popeye sends before the create response - and codex sends before
       // the thread-open response - wait for identity; the flush replays
       // them with the minted session/thread id bound.
-      if (
-        (sessionInput.kind === "popeye-rpc-prompt" || sessionInput.kind === "codex-jsonrpc") &&
-        state.lastSeenId === null
-      ) {
+      if (buffersSendsBeforeIdentity(sessionInput) && state.lastSeenId === null) {
         popeyePending.push({ input });
         if (sessionInput.kind === "codex-jsonrpc") {
           // The receipt registration exists from now, so the flushed
