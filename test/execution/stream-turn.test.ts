@@ -312,16 +312,35 @@ describe("streamTurn behaviors (M3.1 boxes)", () => {
     const proc = new FakeProcess();
     const d = deps(proc);
     const turn = streamTurn(claudeCode, { prompt: "hi" }, d);
-    proc.emitStderr(`${"x".repeat(4085)} sk-abcdefghijk123`);
+    proc.emitStderr(`${"x".repeat(4085)} sk-abcdefghijk123${"y".repeat(50)}`);
     proc.exit(1);
     return collect(turn).then((events) => {
       const error = events.find((e) => e.kind === "error") as
-        | { kind: "error"; message: string }
+        | Extract<HarnessEvent, { kind: "error" }>
         | undefined;
-      expect(error).toBeDefined();
-      expect(error?.message).not.toContain("sk-abcdefg");
-      expect(error?.message).not.toContain("sk-abcdefghijk123");
+      expect(error?.message).toBe(`${"x".repeat(4085)} [redacted]`);
     });
+  });
+
+  test("pi nonzero exit with stderr yields native failure with nativeExitCode before done", async () => {
+    // Issue #341 (run-mode arm): a pi turn that exits nonzero with a
+    // stderr line gets a `native` failure carrying the native exit code,
+    // and done.failure equals it.
+    const proc = new FakeProcess();
+    const d = deps(proc);
+    const turn = streamTurn(piCli, { prompt: "hi" }, d);
+    proc.emitStderr("fatal: simulated pi startup failure");
+    proc.exit(1);
+    const events = await collect(turn);
+    const failureIdx = events.findIndex((e) => e.kind === "failure");
+    const doneIdx = events.findIndex((e) => e.kind === "done");
+    expect(failureIdx).toBeGreaterThanOrEqual(0);
+    expect(doneIdx).toBeGreaterThan(failureIdx);
+    const failure = events[failureIdx] as Extract<HarnessEvent, { kind: "failure" }>;
+    expect(failure).toMatchObject({ class: "native", nativeExitCode: 1, retryable: false });
+    const done = events[doneIdx] as Extract<HarnessEvent, { kind: "done" }>;
+    const { kind: _kind, ...summary } = failure;
+    expect(done.failure).toEqual(summary);
   });
 
   test("F-05 abort signal escalates SIGTERM and yields killed with no failure", async () => {
@@ -558,81 +577,30 @@ describe("harness fixture replay (F-20)", () => {
     expect(done.failure).toMatchObject({ class: "transport" });
   });
 
-  test("pi turn with assistant message_end stopReason error WebSocket closed classifies transport (inline)", async () => {
-    // Issue #342: pi's openai-codex provider over WebSocket reports a
-    // mid-response close as stopReason "error" with the provider's
-    // phrasing riding in errorMessage. The terminal-error classifier
-    // must recognize the WebSocket close phrasing as transport, not
-    // task. Records built inline mirror the pi-unreachable skeleton.
-    const sessionId = "01a0231c-01f7-7c9a-9bdb-289869f8fd55";
-    const lines = [
-      { type: "session", id: sessionId },
-      { type: "agent_start" },
-      { type: "turn_start" },
-      {
-        type: "message_start",
-        message: {
-          content: [{ text: "Reply with only: alpha", type: "text" }],
-          role: "user",
-          timestamp: 0,
-        },
-      },
-      {
-        type: "message_end",
-        message: {
-          content: [{ text: "Reply with only: alpha", type: "text" }],
-          role: "user",
-          timestamp: 0,
-        },
-      },
-      {
-        type: "message_start",
-        message: {
-          content: [],
-          errorMessage: "WebSocket closed 1012",
-          model: "openai-codex/gpt-6.1-sol",
-          provider: "openai-codex",
-          role: "assistant",
-          stopReason: "error",
-          timestamp: 1,
-          usage: {
-            cacheRead: 0,
-            cacheWrite: 0,
-            cost: { cacheRead: 0, cacheWrite: 0, input: 0, output: 0, total: 0 },
-            input: 0,
-            output: 0,
-            totalTokens: 0,
-          },
-        },
-      },
-      {
-        type: "message_end",
-        message: {
-          content: [],
-          errorMessage: "WebSocket closed 1012",
-          model: "openai-codex/gpt-6.1-sol",
-          provider: "openai-codex",
-          role: "assistant",
-          stopReason: "error",
-          timestamp: 1,
-          usage: {
-            cacheRead: 0,
-            cacheWrite: 0,
-            cost: { cacheRead: 0, cacheWrite: 0, input: 0, output: 0, total: 0 },
-            input: 0,
-            output: 0,
-            totalTokens: 0,
-          },
-        },
-      },
-      { type: "turn_end", message: { stopReason: "error" } },
-      { type: "agent_end", messages: [] },
-      { type: "agent_settled" },
-    ];
+  test("pi turn with assistant message_end stopReason error WebSocket closed classifies transport", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const raw = readFileSync(
+      join(import.meta.dirname, "../fixtures/harnesses/pi-unreachable.ndjson"),
+      "utf8",
+    );
+    // The pi-unreachable fixture records errorMessage "Connection error.";
+    // swap it for a coded close so the terminal-error classifier sees a
+    // WebSocket phrasing on the same skeleton.
+    const lines = raw
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line !== "")
+      .map((line) =>
+        line.replaceAll(
+          '"errorMessage":"Connection error."',
+          '"errorMessage":"WebSocket closed 1012"',
+        ),
+      );
     const proc = new FakeProcess();
     const d = deps(proc);
     const turn = streamTurn(piCli, { prompt: "hi" }, d);
-    for (const record of lines) proc.emitLine(JSON.stringify(record));
+    for (const line of lines) proc.emitLine(line);
     proc.exit(0);
     const events = await collect(turn);
     const failures = events.filter((e) => e.kind === "failure");

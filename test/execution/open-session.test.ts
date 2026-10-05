@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import type { HarnessEvent } from "../../src/execution/events.js";
 import {
@@ -12,6 +13,15 @@ import { piCli } from "../../src/knowledge/pi.js";
 import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
 
 const sid = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
+
+const PI_UNREACHABLE_NDJSON = readFileSync(
+  join(import.meta.dirname, "../fixtures/harnesses/pi-unreachable.ndjson"),
+  "utf8",
+);
+const PI_UNREACHABLE_STOP_REASON = PI_UNREACHABLE_NDJSON.split("\n").find(
+  (line) => line.includes('"type":"message_end"') && line.includes('"stopReason":"error"'),
+);
+if (PI_UNREACHABLE_STOP_REASON === undefined) throw new Error("no unreachable line");
 const init = JSON.stringify({ type: "system", subtype: "init", session_id: sid });
 const assistant = (text: string) =>
   JSON.stringify({
@@ -523,30 +533,14 @@ describe("result is_error is not double-emitted", () => {
 
 describe("pi session unreachable", () => {
   test("a pi session turn whose stdout carries the unreachable message_end ends with transport failure", async () => {
-    const { readFileSync } = await import("node:fs");
-    const { join } = await import("node:path");
     const { piCli } = await import("../../src/knowledge/pi.js");
-    const raw = readFileSync(
-      join(import.meta.dirname, "../fixtures/harnesses/pi-unreachable.ndjson"),
-      "utf8",
-    );
-    const lines = raw.split("\n").filter((l) => l.trim() !== "");
-    // pick one message_end with stopReason error
-    const found = lines.find(
-      (l) => l.includes('"type":"message_end"') && l.includes('"stopReason":"error"'),
-    );
-    if (found === undefined) throw new Error("no unreachable line");
-    const unreachableLine = found;
     const proc = new FakeProcess();
     const d = makeDeps(proc);
-    // pi session uses rpc; need to handle identity probe - just emit unreachable line as turn content
     const session = openSession(piCli, { sessionId: sid }, d);
     session.send({ id: "s", text: "hi" });
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
-    // feed session + agent start already handled by openSession's pump, but we emit the unreachable record
-    proc.emitLine(unreachableLine);
-    // end turn via agent_settled
+    proc.emitLine(PI_UNREACHABLE_STOP_REASON);
     proc.emitLine(JSON.stringify({ type: "agent_settled" }));
     const events = await drainTurn(turn1);
     const done = events.at(-1) as Extract<HarnessEvent, { kind: "done" }>;
@@ -555,18 +549,7 @@ describe("pi session unreachable", () => {
   });
 
   test("a pi session turn that dies before recovering settles its provisional error into the verdict", async () => {
-    const { readFileSync } = await import("node:fs");
-    const { join } = await import("node:path");
     const { piCli } = await import("../../src/knowledge/pi.js");
-    const raw = readFileSync(
-      join(import.meta.dirname, "../fixtures/harnesses/pi-unreachable.ndjson"),
-      "utf8",
-    );
-    const lines = raw.split("\n").filter((l) => l.trim() !== "");
-    const unreachableLine = lines.find(
-      (l) => l.includes('"type":"message_end"') && l.includes('"stopReason":"error"'),
-    );
-    if (unreachableLine === undefined) throw new Error("no unreachable line");
     const proc = new FakeProcess();
     const d = makeDeps(proc);
     const session = openSession(piCli, { sessionId: sid }, d);
@@ -577,7 +560,7 @@ describe("pi session unreachable", () => {
     // dies before any turn-end record and before any successful assistant
     // message could supersede it. Death settles the claim: the failure
     // must land INSIDE the dying turn's done, not after it.
-    proc.emitLine(unreachableLine);
+    proc.emitLine(PI_UNREACHABLE_STOP_REASON);
     proc.exit(0);
     const events = await drainTurn(turn1);
     const errorIdx = events.findIndex((e) => e.kind === "error" && e.terminal === true);
@@ -593,47 +576,72 @@ describe("pi session unreachable", () => {
 });
 
 describe("issue #341: a session turn open when the harness exits nonzero classifies the exit", () => {
-  // Session mode aligns with run mode: a session turn open at exit gets
-  // the same failureFromStderrTail classification, with the failure
-  // event landing inside the dying turn before its done.
-  test("stderr + nonzero exit yields native failure before done crash", async () => {
+  test("proc.exit(null) on an open turn yields no failure event and no done.failure", async () => {
     const proc = new FakeProcess();
     const d = makeDeps(proc);
     const session = openSession(piCli, { sessionId: sid }, d);
     session.send({ id: "s", text: "hi" });
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
-    proc.emitStderr("fatal: simulated pi startup failure");
-    proc.exit(1);
+    proc.exit(null);
     const events = await drainTurn(turn1);
-    const failures = events.filter((e) => e.kind === "failure");
-    expect(failures).toHaveLength(1);
-    const failure = failures[0] as Extract<HarnessEvent, { kind: "failure" }>;
-    expect(failure).toMatchObject({
-      kind: "failure",
-      class: "native",
-      nativeExitCode: 1,
-      retryable: false,
-    });
-    expect(failure.message).toContain("fatal: simulated pi startup failure");
+    expect(events.filter((e) => e.kind === "failure")).toEqual([]);
     const done = events.at(-1) as Extract<HarnessEvent, { kind: "done" }>;
-    expect(done.kind).toBe("done");
-    expect(done.cause).toBe("crash");
-    expect(done.exitCode).toBe(1);
-    // done.failure is the same summary minus the harness-event kind field.
-    const { kind: _kind, ...summary } = failure;
-    expect(done.failure).toEqual(summary);
-    // The failure event lands before the done event in the turn's stream.
-    const failureIdx = events.findIndex((e) => e.kind === "failure");
-    const doneIdx = events.findIndex((e) => e.kind === "done");
-    expect(failureIdx).toBeGreaterThanOrEqual(0);
-    expect(doneIdx).toBeGreaterThan(failureIdx);
+    expect(done.cause).toBe("killed");
+    expect(done.failure).toBeUndefined();
     await session.close();
   });
 
+  test.each([
+    {
+      stderr: "fatal: simulated pi startup failure",
+      class: "native",
+      retryable: false,
+      nativeExitCode: 1,
+    },
+    {
+      stderr: "WebSocket closed 1006",
+      class: "transport",
+      retryable: true,
+      nativeExitCode: undefined,
+    },
+  ])(
+    "stderr $class ($stderr) yields that class before done crash",
+    async ({ stderr, class: cls, retryable, nativeExitCode }) => {
+      const proc = new FakeProcess();
+      const d = makeDeps(proc);
+      const session = openSession(piCli, { sessionId: sid }, d);
+      session.send({ id: "s", text: "hi" });
+      const turnsIter = session.turns[Symbol.asyncIterator]();
+      const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
+      proc.emitStderr(stderr);
+      proc.exit(1);
+      const events = await drainTurn(turn1);
+      const failures = events.filter((e) => e.kind === "failure");
+      expect(failures).toHaveLength(1);
+      const failure = failures[0] as Extract<HarnessEvent, { kind: "failure" }>;
+      expect(failure).toMatchObject({
+        kind: "failure",
+        class: cls,
+        ...(nativeExitCode === undefined ? {} : { nativeExitCode }),
+        retryable,
+      });
+      expect(failure.message).toContain(stderr);
+      const done = events.at(-1) as Extract<HarnessEvent, { kind: "done" }>;
+      expect(done.kind).toBe("done");
+      expect(done.cause).toBe("crash");
+      expect(done.exitCode).toBe(1);
+      const { kind: _kind, ...summary } = failure;
+      expect(done.failure).toEqual(summary);
+      const failureIdx = events.findIndex((e) => e.kind === "failure");
+      const doneIdx = events.findIndex((e) => e.kind === "done");
+      expect(failureIdx).toBeGreaterThanOrEqual(0);
+      expect(doneIdx).toBeGreaterThan(failureIdx);
+      await session.close();
+    },
+  );
+
   test("empty stderr + nonzero exit yields transport failure before done crash", async () => {
-    // failureFromStderrTail maps an empty tail to transport, with
-    // nativeExitCode as data.
     const proc = new FakeProcess();
     const d = makeDeps(proc);
     const session = openSession(piCli, { sessionId: sid }, d);
@@ -659,32 +667,16 @@ describe("issue #341: a session turn open when the harness exits nonzero classif
   });
 
   test("a turn that already recorded a failure gets no second stderr-derived one", async () => {
-    // The terminal error path records a failure (transport, from the
-    // pi-unreachable style). The crash branch in finalize must skip its
-    // own stderr-derived classification when turnFailures is non-empty.
-    const { readFileSync } = await import("node:fs");
-    const { join } = await import("node:path");
-    const raw = readFileSync(
-      join(import.meta.dirname, "../fixtures/harnesses/pi-unreachable.ndjson"),
-      "utf8",
-    );
-    const unreachableLine = raw
-      .split("\n")
-      .find(
-        (line) => line.includes('"type":"message_end"') && line.includes('"stopReason":"error"'),
-      );
-    if (unreachableLine === undefined) throw new Error("no unreachable line");
     const proc = new FakeProcess();
     const d = makeDeps(proc);
     const session = openSession(piCli, { sessionId: sid }, d);
     session.send({ id: "s", text: "hi" });
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
-    proc.emitLine(unreachableLine);
+    proc.emitLine(PI_UNREACHABLE_STOP_REASON);
     proc.emitStderr("fatal: simulated pi startup failure");
     proc.exit(1);
     const events = await drainTurn(turn1);
-    // Exactly one failure event: the earlier terminal-error one.
     const failures = events.filter((e) => e.kind === "failure");
     expect(failures).toHaveLength(1);
     expect(failures[0]).toMatchObject({ class: "transport", retryable: true });

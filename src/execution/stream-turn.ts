@@ -52,7 +52,7 @@ import {
   failureFromTimeout,
   failureFromTransport,
   isLimitFailure,
-  redactSecrets,
+  redactBounded,
   reduceFailures,
   SECRETISH,
 } from "./failure.js";
@@ -769,13 +769,11 @@ export async function* streamTurn(
     // only in the exit log - so a crash from the real adapter's async spawn
     // failure carries the same error-event signal as the sync-throw path.
     // F-04: the startupError path already emitted the spawn error; do not
-    // duplicate it via the tail. Secret-shaped tokens in the tail are
-    // masked before the bound, the same way failureFromNative masks them
-    // for the failure event.
+    // duplicate it via the tail.
     if (!startupFailed && (cause === "crash" || cause === "killed") && tail.length > 0) {
       yield {
         kind: "error",
-        message: redactSecrets(tail.join("\n")).slice(0, 4096),
+        message: redactBounded(tail.join("\n"), 4096),
       };
     }
     terminalEventReached = true;

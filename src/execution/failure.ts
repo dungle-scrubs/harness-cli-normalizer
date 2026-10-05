@@ -83,15 +83,18 @@ export const retryableOf = (cls: FailureClass): boolean =>
   cls !== "internal";
 
 /** Stray secret-shaped tokens are masked; identifiers (session UUIDs, model
- * ids, paths) log verbatim - they are what the log exists to correlate.
- * Shared with `redactArgv` so the same rule applies everywhere a
- * harness-emitted token reaches a log line or event message. */
+ * ids, paths) log verbatim - they are what the log exists to correlate. */
 export const SECRETISH = /(sk-[A-Za-z0-9_-]{8,}|(?:token|key|secret|password)=\S+)/i;
 
-/** Replace every secret-shaped token with `[redacted]`. Built from
- * `SECRETISH` so there is one owner for the pattern. */
+/** Replace every secret-shaped token with `[redacted]`. */
 export const redactSecrets = (text: string): string =>
-  text.replace(new RegExp(SECRETISH.source, "gi"), "[redacted]");
+  text.replace(new RegExp(SECRETISH.source, `${SECRETISH.flags}g`), "[redacted]");
+
+/** Redact before slicing to `max`: a credential split by the bound is too
+ * short for `SECRETISH` to match, so redacting after the bound would leak
+ * the cut end. */
+export const redactBounded = (text: string, max: number): string =>
+  redactSecrets(text).slice(0, max);
 
 const messageFor = (cls: FailureClass, detail?: string): string => {
   switch (cls) {
@@ -126,12 +129,9 @@ const messageFor = (cls: FailureClass, detail?: string): string => {
       return `Workspace trust refused${detail ? ` (${detail})` : ""} - run \`agent\` interactively in that directory once, or use a directory Cursor already trusts; --autonomy grants unattended edits and shell for that run without persisting trust`;
     case "native":
       // D6: labeled NATIVE so it can never be confused with an hcn error.
-      // The harness's own message follows verbatim except secret-shaped
-      // tokens (masked by failureFromNative before this branch sees it);
-      // the process exit code rides as data (nativeExitCode), because
-      // harness conventions differ (codex exits 2 on usage errors - the
-      // same code hcn uses for refusals, so hcn owns its own exit code
-      // and reports the native one).
+      // The process exit code rides as data (nativeExitCode) because
+      // harness conventions differ (codex exits 2 on usage errors, the
+      // code hcn uses for refusals).
       return `NATIVE ERROR from harness${detail ? `: ${detail}` : ""} - the harness rejected or failed on its own arguments; this is not an hcn error`;
     case "internal":
       return `Internal hcn failure${detail ? `: ${detail}` : ""} - hcn hit a bug, not a harness failure; the process exits 4 with the structured pair when streaming JSON`;
@@ -145,13 +145,9 @@ export const failureFromTimeout = (): FailureSummary => ({
   message: messageFor("timeout"),
 });
 
-/** D6: a failure that belongs to the harness, not hcn. Carries the
- * native stderr verbatim except secret-shaped tokens, and the native
- * exit code as data. The last three stderr lines form the joined
- * detail, capped at 512 chars; secret-shaped tokens (API keys,
- * `token=`/`key=`/`secret=`/`password=` pairs) are masked before the
- * bound, so a credential the harness echoed on the way down never
- * rides into the consumer-visible message. */
+/** D6: a failure that belongs to the harness, not hcn. Carries the last
+ * three stderr lines, redacted and bounded, and the native exit code as
+ * data. */
 export const failureFromNative = (
   nativeExitCode: number | null,
   stderrTail: readonly string[],
@@ -160,7 +156,7 @@ export const failureFromNative = (
   retryable: retryableOf("native"),
   message: messageFor(
     "native",
-    redactSecrets(stderrTail.slice(-3).join(" | ")).slice(0, 512) || `exit ${nativeExitCode}`,
+    redactBounded(stderrTail.slice(-3).join(" | "), 512) || `exit ${nativeExitCode}`,
   ),
   nativeExitCode: nativeExitCode ?? undefined,
 });
@@ -409,9 +405,10 @@ export const failureFromStderrTail = (
   const transportLine = tail.find((line) => detectTransportInLine(line));
   const unavailableLine = tail.find((line) => detectUnavailableInLine(line));
   const trustLine = tail.find((line) => detectTrustRefusal(h, line));
-  if (transportLine !== undefined) return failureFromTransport(transportLine);
-  if (unavailableLine !== undefined) return failureFromUnavailable(unavailableLine);
-  if (trustLine !== undefined) return failureFromTrust(trustLine);
+  if (transportLine !== undefined) return failureFromTransport(redactBounded(transportLine, 512));
+  if (unavailableLine !== undefined)
+    return failureFromUnavailable(redactBounded(unavailableLine, 512));
+  if (trustLine !== undefined) return failureFromTrust(redactBounded(trustLine, 512));
   if (tail.length > 0) return failureFromNative(exitCode, tail);
   // The class stays transport, but the harness's exit code is still data: a
   // caller whose own extension exits with a reserved code reads it here.

@@ -190,6 +190,11 @@ describe("detectTransportInLine", () => {
       desc: "WS stream closed before response.completed",
     },
     { line: "WebSocket is not open: readyState 3 (CLOSED)", desc: "WS not open readyState 3" },
+    // Issue #342: WebSocket abnormal-close phrasings.
+    { line: "websocket closed abnormally", desc: "WS closed abnormally" },
+    { line: "websocket closed without a close frame", desc: "WS closed without a close frame" },
+    { line: "WebSocket closed\nabnormal closure", desc: "WS closed then abnormal on next line" },
+    { line: "rpc failed: WebSocket closed", desc: "WS closed after an error colon" },
     // Codeless and "is not open" forms anchored so prose that mentions a
     // WebSocket does not match.
     { line: "pi turn ended with stopReason error: WebSocket closed", desc: "WS closed at EOL" },
@@ -208,18 +213,23 @@ describe("detectTransportInLine", () => {
     "port 5020",
     "elapsed 502ms",
     "read 5030 bytes",
-    // Issue #342: only the abnormal-close codes read as transport.
-    // 1000 (clean), 1008 (policy-violation), and 1009 (message-too-big)
-    // are still "human" - not transport phrasings.
+    // Issue #342: deliberate close codes are not transport.
+    "WebSocket closed 1002",
+    "WebSocket closed 1003",
+    "WebSocket closed 1010",
     "WebSocket closed 1000",
     "WebSocket closed 1008 policy violation",
     "WebSocket closed 1009 message too big",
     // A code that begins with the abnormal prefixes but is not in the set.
     "WebSocket closed 10120",
     // Anchored codeless forms: prose that mentions a WebSocket does not match.
+    "I fixed it so the WebSocket closed",
+    "the WebSocket closed by the client handler",
     "the WebSocket closed event fires twice",
     "the WebSocket is not open yet so I queued the message",
     "turn failed: error_max_turns (I did not finish implementing the WebSocket closed handler.)",
+    "WebSocket is not open: see docs",
+    "I checked that the websocket is not open",
   ] as const;
   test.each(negatives)("negative %s is not transport", (line) => {
     expect(detectTransportInLine(line)).toBe(false);

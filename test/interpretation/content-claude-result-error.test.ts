@@ -62,4 +62,16 @@ describe("claude result is_error text", () => {
     if (event?.kind !== "error") throw new Error("expected a terminal error event");
     expect(failureFromTerminalError(claudeCode, event.message).class).toBe("task");
   });
+
+  test("a result carrying a WebSocket close classifies transport, retryable", () => {
+    const [event] = contentEventsOf("claude", {
+      type: "result",
+      subtype: "error_max_turns",
+      is_error: true,
+      result: "WebSocket closed 1006",
+    });
+    if (event?.kind !== "error") throw new Error("expected a terminal error event");
+    expect(failureFromTerminalError(claudeCode, event.message).class).toBe("transport");
+    expect(failureFromTerminalError(claudeCode, event.message).retryable).toBe(true);
+  });
 });

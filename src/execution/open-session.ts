@@ -784,14 +784,11 @@ export const openSession = (
         void routeEvent(event);
         void routeEvent({ kind: "failure", ...failure });
       }
-      // Issue #341: align session mode with run mode. A turn still open
-      // when the harness exits nonzero, cause crash, and no failure yet
-      // gets the same stderr-tail classification run mode uses (failure
-      // event lands inside the dying turn; done.cause is NOT rewritten).
+      // Issue #341: an open turn at a crash exit gets run mode's
+      // stderr-tail verdict. Unlike run mode, done.cause stays crash for
+      // every class.
       if (cause === "crash" && turnFailures.length === 0) {
-        const failure = failureFromStderrTail(h, exitCode, stderrTail.snapshot());
-        turnFailures.push(failure);
-        void routeEvent({ kind: "failure", ...failure });
+        void pushFailure(failureFromStderrTail(h, exitCode, stderrTail.snapshot()));
       }
     }
     endTurn({ kind: "done", exitCode, cause });

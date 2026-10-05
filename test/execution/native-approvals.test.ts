@@ -456,7 +456,7 @@ test("a buffered turn acknowledgement after exit retains submission evidence wit
   expect(events.at(-1)).toMatchObject({
     kind: "done",
     cause: "failed",
-    failure: { nativeApproval: { prompt: "acknowledged" } },
+    failure: { class: "transport", nativeExitCode: 1, nativeApproval: { prompt: "acknowledged" } },
   });
   expect(f.clock.pendingTimerCount).toBe(0);
 });
@@ -853,7 +853,11 @@ test("a buffered decision cannot write to a process whose exit is already observ
       reason: "request-unavailable",
     },
   ]);
-  expect(events.at(-1)).toMatchObject({ kind: "done", cause: "failed" });
+  expect(events.at(-1)).toMatchObject({
+    kind: "done",
+    cause: "failed",
+    failure: { class: "task", retryable: false },
+  });
   expect(f.clock.pendingTimerCount).toBe(0);
 });
 
@@ -1577,15 +1581,10 @@ test.each(["valid", "malformed"] as const)(
   },
 );
 
-test("a terminal content error carrying WebSocket closed 1012 classifies transport (#342)", async () => {
-  // Issue #342: pi's openai-codex provider over WebSocket reports a
-  // mid-response close as a terminal content error. The native-approval
-  // path used to classify any such error as task, which hid a
-  // provider-side transport fault behind a non-retryable verdict. The
-  // fix routes the error text through the same terminal-error
-  // classifier (failureFromTerminalError) that the stream path uses, so
-  // a WebSocket close reads as transport, retryable, with its
-  // nativeApproval evidence still preserved.
+test.each([
+  ["WebSocket closed 1012", "transport", true],
+  ["Fixture native refusal", "task", false],
+] as const)("terminal path classifies %s as %s (%s)", async (message, expectedClass, retryable) => {
   const f = setup();
   const events: HarnessEvent[] = [];
   for await (const event of streamTurn(codexCli, options, f.deps)) {
@@ -1598,96 +1597,7 @@ test("a terminal content error carrying WebSocket closed 1012 classifies transpo
             threadId: saved.sessionId,
             turnId: "native-turn",
             willRetry: false,
-            error: { message: "WebSocket closed 1012" },
-          },
-        }),
-      );
-      f.proc.complete();
-    }
-  }
-  const failure = events.find((event) => event.kind === "failure") as
-    | Extract<HarnessEvent, { kind: "failure" }>
-    | undefined;
-  expect(failure).toBeDefined();
-  expect(failure).toMatchObject({
-    kind: "failure",
-    class: "transport",
-    retryable: true,
-  });
-  // Native-approval evidence must still ride along: the run was a
-  // native approval flow with a submission that was acknowledged before
-  // the close.
-  expect(failure?.nativeApproval).toMatchObject({
-    reason: "native-process-failed",
-    prompt: "acknowledged",
-  });
-  expect(failure?.message).toContain("WebSocket closed 1012");
-  expect(events.at(-1)).toMatchObject({
-    kind: "done",
-    cause: "failed",
-    failure: { class: "transport", retryable: true },
-  });
-  expect(f.clock.pendingTimerCount).toBe(0);
-});
-
-test("a failed turn/completed carrying a WebSocket close still classifies transport", async () => {
-  // The complete arm also routes through stop("native-process-failed",
-  // detail) - the classifier must apply on that branch too. A failed
-  // completion with a transport-flavored error message reads as
-  // transport, not task, the same way the content-error path does.
-  const f = setup();
-  const events: HarnessEvent[] = [];
-  for await (const event of streamTurn(codexCli, options, f.deps)) {
-    events.push(event);
-    if (event.kind === "approval-request")
-      f.proc.emitLine(
-        JSON.stringify({
-          method: "turn/completed",
-          params: {
-            threadId: saved.sessionId,
-            turn: {
-              id: "native-turn",
-              status: "failed",
-              error: {
-                message: "WebSocket closed 1006",
-                additionalDetails: "abnormal closure",
-              },
-            },
-          },
-        }),
-      );
-  }
-  const failure = events.find((event) => event.kind === "failure") as Extract<
-    HarnessEvent,
-    { kind: "failure" }
-  >;
-  expect(failure).toMatchObject({ class: "transport", retryable: true });
-  expect(failure.message).toContain("WebSocket closed 1006");
-  expect(events.at(-1)).toMatchObject({
-    kind: "done",
-    cause: "failed",
-    failure: { class: "transport" },
-  });
-  expect(f.clock.pendingTimerCount).toBe(0);
-});
-
-test("an ordinary non-transport task error in the terminal path stays task", async () => {
-  // Regression guard: the existing task-class expectation for ordinary
-  // failures (e.g. "Fixture native refusal" - no transport phrasing) must
-  // still hold, so the new classifier does not over-match.
-  const f = setup();
-  const events: HarnessEvent[] = [];
-  for await (const event of streamTurn(codexCli, options, f.deps)) {
-    events.push(event);
-    if (event.kind === "approval-request") {
-      f.proc.emitLine(
-        JSON.stringify({
-          method: "error",
-          params: {
-            threadId: saved.sessionId,
-            turnId: "native-turn",
-            willRetry: false,
-            error: { message: "Fixture native refusal" },
+            error: { message },
           },
         }),
       );
@@ -1697,19 +1607,23 @@ test("an ordinary non-transport task error in the terminal path stays task", asy
   expect(events.at(-1)).toMatchObject({
     kind: "done",
     cause: "failed",
-    failure: { class: "task", retryable: false },
+    failure: { class: expectedClass, retryable },
   });
+  if (expectedClass === "transport") {
+    const failure = events.find((event) => event.kind === "failure") as Extract<
+      HarnessEvent,
+      { kind: "failure" }
+    >;
+    expect(failure.nativeApproval).toMatchObject({
+      reason: "native-process-failed",
+      prompt: "acknowledged",
+    });
+    expect(failure.message).toContain(message);
+  }
   expect(f.clock.pendingTimerCount).toBe(0);
 });
 
 test("a native approval process that exits 1 with stderr before completion classifies native (#341)", async () => {
-  // Issue #341: a native-approval process that exits nonzero before any
-  // completion record used to classify the verdict as task
-  // (failureFromTask("native process ended before response completion")),
-  // which hid a real harness-side failure behind a non-retryable task
-  // verdict. The fix routes the exit through failureFromStderrTail so a
-  // stderr line carries the native classification, with the
-  // nativeApproval evidence still preserved.
   const f = setup();
   const events: HarnessEvent[] = [];
   for await (const event of streamTurn(codexCli, options, f.deps)) {
@@ -1729,11 +1643,8 @@ test("a native approval process that exits 1 with stderr before completion class
     retryable: false,
   });
   expect(failure.message).toContain("fatal: simulated codex startup failure");
-  // Native-approval evidence must still ride along: the run was a native
-  // approval flow with a submission that was acknowledged before the exit.
-  // (FakeProcess does not implement `started`, so process is "unknown" -
-  // what matters here is that prompt is "acknowledged", meaning the
-  // turn-start receipt reached hcn before the crash.)
+  // FakeProcess omits `started`, so process lands as "unknown"; what
+  // matters is that the turn-start receipt reached hcn before the exit.
   expect(failure.nativeApproval).toMatchObject({
     prompt: "acknowledged",
   });

@@ -36,14 +36,19 @@ const tick = () => new Promise<void>((r) => setTimeout(r, 0));
 /** Drive runJsonSession over a real openSession on a fake process. Returns
  * the parsed stdout events, the input stream to write commands to, and the
  * fake process to emit harness lines from. */
-const rig = (procOpts: { exitOnStdinEnd?: boolean } = {}, origin: SessionOrigin = "fresh") => {
+const rig = (
+  procOpts: { exitOnStdinEnd?: boolean } = {},
+  origin: SessionOrigin = "fresh",
+  descriptor: typeof claudeCode = claudeCode,
+  harness: string = "claude",
+) => {
   const proc = new FakeProcess(procOpts);
   const spawner = fakeSpawner([proc]);
   const sig = fakeSignal();
   const clock = new FakeClock();
   const closeInfo = { exitCode: null as number | null, cause: "clean" };
   const handle = openSession(
-    claudeCode,
+    descriptor,
     { sessionId: sid },
     {
       spawn: spawner.spawn,
@@ -62,7 +67,7 @@ const rig = (procOpts: { exitOnStdinEnd?: boolean } = {}, origin: SessionOrigin 
   const done = runJsonSession({
     handle,
     sessionId: sid,
-    harness: "claude",
+    harness,
     hcnVersion: "9.9.9",
     questions: "ask",
     origin,
@@ -720,60 +725,17 @@ test("session refuses the fresh-turn isolation option before looking up a sessio
 
 describe("issue #341: a session turn open when the harness exits nonzero lands a failure inside the turn", () => {
   test("pi session: send, stderr + exit 1 -> failure inside turn, closed.failure carries it", async () => {
-    const proc = new FakeProcess();
-    const spawner = fakeSpawner([proc]);
-    const sig = fakeSignal();
-    const closeInfo: { exitCode: number | null; cause: string } = {
-      exitCode: null,
-      cause: "clean",
-    };
-    const handle = openSession(
-      piCli,
-      { sessionId: sid },
-      {
-        spawn: spawner.spawn,
-        clock: new FakeClock(),
-        signal: sig.signal,
-        log: (e: Record<string, unknown>) => {
-          if (e.event === "session_close") {
-            closeInfo.exitCode = (e.exitCode as number | null) ?? null;
-            closeInfo.cause = (e.cause as string) ?? "clean";
-          }
-        },
-      },
-    );
-    const input = new PassThrough();
-    const out: string[] = [];
-    const done = runJsonSession({
-      handle,
-      sessionId: sid,
-      harness: "pi",
-      hcnVersion: "9.9.9",
-      questions: "ask",
-      origin: "fresh",
-      getCloseInfo: () => closeInfo,
-      input,
-      write: (line) => {
-        out.push(line);
-        return true;
-      },
-      onDrain: (fn) => fn(),
-    });
-
-    input.write(`${JSON.stringify({ op: "send", id: "in-1", text: "doomed" })}\n`);
+    const r = rig({}, "fresh", piCli, "pi");
     await tick();
-    proc.emitStderr("fatal: simulated pi startup failure");
-    proc.exit(1);
+    r.send({ op: "send", id: "in-1", text: "doomed" });
     await tick();
-    input.end();
-    await done;
+    r.proc.emitStderr("fatal: simulated pi startup failure");
+    r.proc.exit(1);
+    await tick();
+    r.input.end();
+    await r.done;
 
-    const evs = out
-      .join("")
-      .trim()
-      .split("\n")
-      .filter(Boolean)
-      .map((l) => JSON.parse(l));
+    const evs = r.events();
     const failures = evs.filter((e) => e.kind === "failure");
     expect(failures).toHaveLength(1);
     const failure = failures[0];
@@ -786,14 +748,10 @@ describe("issue #341: a session turn open when the harness exits nonzero lands a
     expect((failure as { message: string }).message).toContain(
       "fatal: simulated pi startup failure",
     );
-    // The failure lands inside the turn's stream, before the done of that
-    // turn - so a router that reads events up to done sees the verdict.
     const failureIdx = evs.findIndex((e) => e.kind === "failure");
     const doneIdx = evs.findIndex((e) => e.kind === "done");
     expect(failureIdx).toBeGreaterThanOrEqual(0);
     expect(doneIdx).toBeGreaterThan(failureIdx);
-    // The failure rides on closed too: a session-only consumer that only
-    // reads closed still gets the verdict.
     const closed = evs.at(-1);
     expect(closed).toMatchObject({ kind: "closed", exitCode: 1, cause: "crash" });
     expect((closed as { failure?: { class: string } }).failure).toMatchObject({

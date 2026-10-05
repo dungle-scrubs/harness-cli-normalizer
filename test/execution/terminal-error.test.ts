@@ -148,6 +148,29 @@ describe("F-07 terminal error record ends clean", () => {
     expect(done?.failure?.class).toBe("task");
   });
 
+  test("codex turn.failed carrying a WebSocket close classifies transport", async () => {
+    const proc = new FakeProcess();
+    const d = depsFor(proc);
+    const turn = streamTurn(codexCli, { prompt: "hi" }, d);
+    proc.emitLine(JSON.stringify({ type: "thread.started", thread_id: "t-1" }));
+    proc.emitLine(
+      JSON.stringify({
+        type: "turn.failed",
+        error: {
+          message:
+            "stream disconnected before completion: websocket closed by server before response.completed",
+        },
+      }),
+    );
+    proc.exit(0);
+    const events = await collect(turn);
+    const done = events.find((e) => e.kind === "done") as unknown as
+      | { cause: string; failure?: { class: string; retryable: boolean } }
+      | undefined;
+    expect(done?.failure?.class).toBe("transport");
+    expect(done?.failure?.retryable).toBe(true);
+  });
+
   test("codex fatal stream error stays failed after a nonfatal warning", async () => {
     const proc = new FakeProcess();
     const turn = streamTurn(codexCli, { prompt: "hi", questions: "none" }, depsFor(proc));

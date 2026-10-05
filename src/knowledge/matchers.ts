@@ -108,23 +108,32 @@ export const SHARED_TRANSPORT_MATCHERS: ReadonlyArray<TransportMatcher> = [
   { pattern: "\\b(?:HTTP|status(?:[_ ]?code)?|code)\\b\\W*[:=]?\\W*50[234]\\b", flags: "i" },
   // Issue #342: provider WebSocket close phrasings. Pi prints
   // "WebSocket closed <code>[ <reason>]", "WebSocket closed", and
-  // "WebSocket stream closed before response.completed". The codeless
-  // forms are anchored so model prose that mentions a WebSocket (a
-  // "WebSocket closed handler") stays a work verdict. Codes 1000, 1008,
-  // and 1009 are deliberate closes and are NOT matched here.
+  // "WebSocket stream closed before response.completed". Codex 0.160.0
+  // prints "websocket closed by server before response.completed" and
+  // "realtime websocket closed: code=<n>". The `ws` library prints
+  // "WebSocket is not open: readyState <n> (<STATE>)". The codeless forms
+  // are anchored to the start of a line or an error colon, or need a
+  // close continuation, so model prose that mentions a WebSocket (a
+  // "WebSocket closed handler") stays a work verdict. Codes 1000, 1002,
+  // 1003, 1008, 1009 and 1010 are deliberate closes and are NOT matched
+  // here.
   {
     pattern:
       "\\bwebsocket(?: connection| stream)? closed\\W+(?:with )?(?:(?:close )?code\\W*)?10(?:0[16]|1[123])\\b",
     flags: "i",
   },
   {
+    pattern: "(?:^|:\\s*)websocket(?: connection| stream)? closed\\s*$",
+    flags: "im",
+  },
+  {
     pattern:
-      "\\bwebsocket(?: connection| stream)? closed(?=\\s*$|\\s+(?:before|unexpectedly|abnormally|without)\\b|\\s+by\\s+(?:the\\s+)?(?:server|peer|remote|provider)\\b)",
+      "\\bwebsocket(?: connection| stream)? closed\\s+(?:before|unexpectedly|abnormally|without\\b|by\\s+(?:the\\s+)?(?:server|peer|remote|provider)\\b)",
     flags: "i",
   },
   {
-    pattern: "\\bwebsocket is not open(?=\\s*$|:\\s*readystate\\b)",
-    flags: "i",
+    pattern: "(?:^|:\\s*)websocket is not open(?:\\s*$|:\\s*readystate\\b)",
+    flags: "im",
   },
 ];
 

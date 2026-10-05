@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { failureFromTerminalError } from "../../src/execution/failure.js";
 import {
   buildLaunchArgv,
   buildResumeArgv,
@@ -69,5 +70,16 @@ describe("popeye descriptor (RFC-02 P5 entry)", () => {
       { kind: "error", message: "boom", terminal: true },
     ]);
     expect(contentEventsOf("popeye", { kind: "done", exitCode: 0 })).toEqual([]);
+  });
+
+  test("a terminal error carrying a WebSocket close classifies transport (issue #342)", () => {
+    const [event] = contentEventsOf("popeye", {
+      kind: "error",
+      message: "WebSocket closed 1011",
+      terminal: true,
+    });
+    if (event?.kind !== "error") throw new Error("expected a terminal error event");
+    expect(failureFromTerminalError(popeyeCli, event.message).class).toBe("transport");
+    expect(failureFromTerminalError(popeyeCli, event.message).retryable).toBe(true);
   });
 });

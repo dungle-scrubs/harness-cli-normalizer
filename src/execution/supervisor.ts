@@ -26,6 +26,7 @@ import {
   failureFromLimit,
   failureFromTask,
   failureFromTrust,
+  redactBounded,
   resetsAtInLine,
 } from "./failure.js";
 
@@ -209,7 +210,7 @@ export const superviseTurn = (
       // terminal-error classifier. A trust line fails the turn at once;
       // anything else stays tail for the exit scan.
       if (detectTrustRefusal(h, line)) {
-        await io.fail(failureFromTrust(line.slice(0, 512)));
+        await io.fail(failureFromTrust(redactBounded(line, 512)));
         await io.emit({ kind: "error", message: `trust wall: trust-refused` });
         return;
       }
