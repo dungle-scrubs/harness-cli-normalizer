@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.6](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.5...v0.9.6) (2026-10-05)
+
+
+### Fixed
+
+* classify model-not-supported, stream drops and overloaded errors ([#353](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/353)) ([a82be21](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/a82be21d3285e09597e916161c9c3eb857142f03)), closes [#343](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/343) [#346](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/346) [#350](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/350)
+* end refused prompts and session opens, and classify no-turn crashes ([#351](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/351)) ([6bde560](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/6bde5608ff143b29d63bead057d2c3b665e0e7fe)), closes [#344](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/344) [#345](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/345) [#347](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/347)
+
 ## [0.9.5](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.4...v0.9.5) (2026-10-05)
 
 
