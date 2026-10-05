@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { probeExtensionOption } from "../execution/extension-probe.js";
+import type { FailureSummary } from "../execution/failure.js";
 import { nodeRunnerDeps } from "../execution/node-deps.js";
 import { CLOSE_GRACE_MS, openSession } from "../execution/open-session.js";
 import { buildTurnEnv } from "../interpretation/argv.js";
@@ -346,7 +347,13 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   }
   const baseDeps = stallMs === undefined ? nodeRunnerDeps() : nodeRunnerDeps({ stallMs });
   // Capture the runner's final exitCode/cause for the --json `closed` event.
-  const closeInfo = { exitCode: null as number | null, cause: "clean" };
+  // A refused session open (#345) or a crash with no open turn (#347)
+  // leaves a session failure for `closed` to carry.
+  const closeInfo: {
+    exitCode: number | null;
+    cause: string;
+    failure?: FailureSummary;
+  } = { exitCode: null, cause: "clean" };
   const droppedIds: string[] = [];
   const deps = wantJson
     ? {
@@ -355,6 +362,9 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
           if (e.event === "session_close") {
             closeInfo.exitCode = (e.exitCode as number | null) ?? null;
             closeInfo.cause = (e.cause as string) ?? "clean";
+            if (e.failure !== undefined && typeof e.failure === "object") {
+              closeInfo.failure = e.failure as FailureSummary;
+            }
           }
           if (e.event === "sends_dropped" && Array.isArray(e.ids)) {
             for (const id of e.ids as unknown[]) if (typeof id === "string") droppedIds.push(id);

@@ -238,6 +238,16 @@ export const failureFromTerminalError = (
   return failureFromTask(message);
 };
 
+/** No work ran, so a work verdict (task) is wrong; walls keep their class. */
+export const failureFromNativeRejection = (
+  h: HarnessDescriptor,
+  message: string,
+  clock?: Pick<Clock, "now" | "utcOffsetMinutes">,
+): FailureSummary => {
+  const result = failureFromTerminalError(h, message, clock);
+  return result.class === "task" ? failureFromNative(null, [message]) : result;
+};
+
 export const failureFromTask = (detail?: string): FailureSummary => ({
   class: "task",
   retryable: retryableOf("task"),

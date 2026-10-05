@@ -772,3 +772,190 @@ describe("openSession memory dimension (ratified 2026-08-26)", () => {
     }
   });
 });
+
+test("a pi probe without a session id leaves the next turn and session clean", async () => {
+  const proc = new FakeProcess();
+  const logged: Record<string, unknown>[] = [];
+  const session = openSession(
+    piCli,
+    { sessionId: sid },
+    {
+      ...makeDeps(proc),
+      log: (event) => logged.push(event),
+    },
+  );
+  proc.emitLine(
+    JSON.stringify({
+      id: "hcn-identity",
+      type: "response",
+      command: "get_state",
+      success: true,
+      data: { messageCount: 0 },
+    }),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  session.send({ id: "a", text: "say hi" });
+  const turns = session.turns[Symbol.asyncIterator]();
+  const turn = (await turns.next()).value as AsyncIterable<HarnessEvent>;
+  proc.emitLine(
+    JSON.stringify({
+      id: "hcn-send:a",
+      type: "response",
+      command: "prompt",
+      success: true,
+    }),
+  );
+  proc.emitLine(JSON.stringify({ type: "agent_settled" }));
+  const events = await drainTurn(turn);
+  expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+  expect(events.at(-1)).not.toHaveProperty("failure");
+  expect(events.filter((event) => event.kind === "failure")).toEqual([]);
+  const closing = session.close();
+  proc.exit(0);
+  await closing;
+  const close = logged.find((event) => event.event === "session_close");
+  expect(close).toMatchObject({ exitCode: 0, cause: "clean" });
+  expect(close).not.toHaveProperty("failure");
+});
+
+// Issue #344: pi refused a prompt natively (no API key). The runner used to
+// settle the disposition and route an error but leave the turn open, so
+// close() waited forever. The fix ends the turn: a done with cause failed
+// carrying the failure, so close() can end stdin and the session closes.
+describe("issue #344: a pi prompt refused natively ends its turn with failed", () => {
+  const NO_API_KEY =
+    "No API key found for the selected model. Set one in your environment or auth.json.";
+
+  test("the turn a refused prompt opened contains the failure and a done with cause failed", async () => {
+    const proc = new FakeProcess();
+    const d = makeDeps(proc);
+    const session = openSession(piCli, { sessionId: sid }, d);
+    const send = session.send({ id: "a", text: "say hi" });
+    expect(send.disposition).toBe("started");
+    // pi opens the turn at write time; pi is prompt-wire (steer is a
+    // separate code path). The request id is on the written line.
+    const written = JSON.parse(proc.stdinLines[1] ?? "null") as Record<string, unknown>;
+    expect(written.id).toBe("hcn-send:a");
+    const turnsIter = session.turns[Symbol.asyncIterator]();
+    const turn = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
+
+    // pi answers the prompt with success: false and the No API key error.
+    proc.emitLine(
+      JSON.stringify({
+        command: "prompt",
+        id: "hcn-send:a",
+        success: false,
+        type: "response",
+        error: NO_API_KEY,
+      }),
+    );
+    const settled = await send.settled;
+    expect(settled).toMatchObject({ disposition: "rejected", reason: "native-rejected" });
+    const events = await drainTurn(turn);
+    const errorEvent = events.find((e) => e.kind === "error");
+    expect(errorEvent).toMatchObject({ message: expect.stringContaining(NO_API_KEY) });
+    const failure = events.find((e) => e.kind === "failure");
+    expect(failure).toMatchObject({ class: "auth", retryable: true });
+    expect(events.at(-1)).toMatchObject({
+      kind: "done",
+      cause: "failed",
+      failure: expect.objectContaining({ class: "auth" }),
+    });
+
+    // close() now resolves because no hcn turn is open; the fake exits on
+    // stdin EOF.
+    const closing = session.close();
+    expect(proc.stdinEnded).toBe(true);
+    proc.exit(0);
+    await closing;
+    expect((await turnsIter.next()).done).toBe(true);
+  });
+
+  test("a refused steer reusing the accepted opener id does not end the running turn", async () => {
+    const proc = new FakeProcess();
+    const d = makeDeps(proc);
+    const session = openSession(piCli, { sessionId: sid }, d);
+    const opener = session.send({ id: "a", text: "first" });
+    const turnsIter = session.turns[Symbol.asyncIterator]();
+    const turn = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
+    proc.emitLine(
+      JSON.stringify({
+        command: "prompt",
+        id: "hcn-send:a",
+        success: true,
+        type: "response",
+      }),
+    );
+    expect(await opener.settled).toEqual({ disposition: "started" });
+    const events: HarnessEvent[] = [];
+    const draining = (async () => {
+      for await (const event of turn) events.push(event);
+    })();
+    // Steer arrives mid-turn.
+    const steer = session.send({ id: "a", text: "correct" });
+    proc.emitLine(
+      JSON.stringify({
+        command: "prompt",
+        id: "hcn-send:a",
+        success: false,
+        type: "response",
+        error: NO_API_KEY,
+      }),
+    );
+    expect(await steer.settled).toMatchObject({
+      disposition: "rejected",
+      reason: "native-rejected",
+    });
+    // The turn is still open: endTurn was not called.
+    expect(proc.stdinEnded).toBe(false);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(events.some((e) => e.kind === "done")).toBe(false);
+    expect(events.some((e) => e.kind === "failure")).toBe(false);
+    // A normal turn boundary still settles the turn.
+    proc.emitLine(JSON.stringify({ type: "agent_settled" }));
+    await draining;
+    expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+    expect(events.some((e) => e.kind === "failure")).toBe(false);
+    await session.close();
+  });
+
+  test("a refused steer during a running turn does NOT end that turn", async () => {
+    const proc = new FakeProcess();
+    const d = makeDeps(proc);
+    const session = openSession(piCli, { sessionId: sid }, d);
+    session.send({ id: "first", text: "first" });
+    const turnsIter = session.turns[Symbol.asyncIterator]();
+    const turn = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
+    proc.emitLine(
+      JSON.stringify({
+        command: "prompt",
+        id: "hcn-send:first",
+        success: true,
+        type: "response",
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 0));
+    // Steer arrives mid-turn.
+    const steer = session.send({ id: "steer", text: "correct" });
+    proc.emitLine(
+      JSON.stringify({
+        command: "prompt",
+        id: "hcn-send:steer",
+        success: false,
+        type: "response",
+        error: NO_API_KEY,
+      }),
+    );
+    expect(await steer.settled).toMatchObject({
+      disposition: "rejected",
+      reason: "native-rejected",
+    });
+    // The turn is still open: endTurn was not called.
+    expect(proc.stdinEnded).toBe(false);
+    // A normal turn boundary still settles the turn.
+    proc.emitLine(JSON.stringify({ type: "agent_settled" }));
+    const events = await drainTurn(turn);
+    expect(events.at(-1)).toMatchObject({ kind: "done" });
+    await session.close();
+  });
+});

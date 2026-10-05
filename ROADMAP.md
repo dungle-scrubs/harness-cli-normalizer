@@ -144,3 +144,29 @@ a frozen surface.
 What was done instead: the measured pause bands per harness are documented,
 so a caller sets `--stall` above them. `--stall` is opt-in and unset by
 default, so nothing regresses today.
+
+### Deadline on codex's startup handshake
+
+Declined 2026-10-05, while resolving issue #345.
+
+The candidate: a wall-clock bound on `codex app-server`'s
+`initialize` plus `thread/start` handshake, so a codex process that
+opens and never replies still ends the session instead of leaving hcn
+waiting on stdin forever. ADR 0008 names the liveness clocks as a marked
+supervising surface, so this needed the maintainer's ask.
+
+The reason it was declined: the observed stall was a refused
+`thread/start` (codex answered `initialize`, then `thread/start` with
+`-32600` for an invalid `config.toml`). hcn mishandled the refusal: it
+parked the error in pre-turn events, left the buffered send's
+registered receipt unsettled, and never ended stdin, so `close()` waited
+forever. That is fixed in the same change by settling the receipt,
+stashing a session failure, and calling `close(false)`. A codex
+`app-server` which never answers anything still waits on the caller,
+because bounding it needs a new clock the maintainer has not asked for.
+
+What was done instead: the open codex handshake is no longer a stall
+trap. A refused `thread/start` ends the session with `closed.cause
+"failed"` and `closed.failure` carrying the codex config error. A
+codex process that never replies at all is a separate case the caller
+must end.

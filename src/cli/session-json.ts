@@ -18,11 +18,12 @@ import {
 } from "../execution/open-session.js";
 import { composeAnswer, type QuestionMode } from "../interpretation/question.js";
 
-/** What the CLI reads back after a close, captured from the runner's
- * `session_close` boundary log. */
+/** Captured from `session_close`: a refused session open (#345) or a crash
+ * with no open turn (#347) leaves a session failure for `closed` to carry. */
 export interface CloseInfo {
   exitCode: number | null;
   cause: string;
+  failure?: FailureSummary;
 }
 
 export type SessionOrigin = "fresh" | "resumed";
@@ -251,11 +252,13 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
   }
 
   const info = a.getCloseInfo();
+  // The session failure wins over the last turn failure.
+  const failure: FailureSummary | undefined = info.failure ?? lastFailure;
   await emit({
     kind: "closed",
     exitCode: info.exitCode,
     cause: info.cause,
-    ...(info.cause !== "clean" && lastFailure !== undefined ? { failure: lastFailure } : {}),
+    ...(info.cause !== "clean" && failure !== undefined ? { failure } : {}),
   });
   // A consumer that stopped reading gets exit 1 even on a clean harness exit:
   // the session did not end the way the consumer asked for.

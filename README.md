@@ -284,17 +284,29 @@ equal to `closed.exitCode`). The four control events that frame the stream:
   id the harness confirmed; on pi that is the harness-minted id.
 - `session.origin` is `fresh` for a new conversation or `resumed` when `--resume` (or its `--session-id` alias) continued a conversation that already exists in the harness store. A refused unknown-id resume emits no `session` event at all.
 - `turn.id` is the id of the `send` that opened the turn.
-- `closed.cause` is one of `clean`, `limit`, `crash`, `stall`, `killed`.
-  `closed.failure` carries the reduced `FailureSummary` when the cause is
-  not clean and a failure was seen. `awaiting-input` ends a turn, never a
-  session. A session turn still open when the harness exits nonzero with
-  no failure already recorded and exit cause `crash` falls back to the
-  same stderr-tail classification run mode uses (transport, unavailable,
-  then trust phrasings first; otherwise `native` with the tail; `transport`
-  on an empty tail), and the failure event lands inside the dying turn
-  before its `done`. The matching `done.cause` stays `crash`, and
-  `closed.failure` carries the same summary. A limit wall on stderr
-  still ends the turn as `limit`.
+- `closed.cause` is one of `clean`, `limit`, `crash`, `stall`, `killed`,
+  `failed`. `closed.failure` carries the reduced `FailureSummary` when the
+  cause is not clean and a failure was seen. `awaiting-input` ends a turn,
+  never a session. `failed` is the cause when the harness refused hcn's
+  session open (codex answering `thread/start` with an error, popeye
+  refusing `create`) and then exited cleanly; codex rejects the waiting
+  send with reason `native-rejected`, and popeye ends the waiting send's
+  turn with the failure. A nonzero exit while no turn is open (for example,
+  codex dying before it answers hcn's session open or `turn/start`) reports
+  a failure on `closed.failure`, with cause `crash`. A failure already
+  reported on stderr (an auth or limit wall) wins over the stderr-tail
+  fallback; a limit wall keeps cause `limit`. A session turn
+  still open when the harness exits nonzero with no failure already
+  recorded and exit cause `crash` falls
+  back to the same stderr-tail classification run mode uses (transport,
+  unavailable, then trust phrasings first; otherwise `native` with the
+  tail; `transport` on an empty tail), and the failure event lands inside
+  the dying turn before its `done`. The matching `done.cause` stays
+  `crash`, and `closed.failure` carries the same summary. A limit wall
+  on stderr still ends the turn as `limit`. A refused prompt (pi's
+  `prompt` answered `success: false`) ends its turn with `done` cause
+  `failed` carrying the failure; the closed event that follows has
+  cause `clean` when the harness then exits 0 on stdin EOF.
 
 stdin carries one command per line (blank lines are ignored):
 

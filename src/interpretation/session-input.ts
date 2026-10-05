@@ -308,6 +308,16 @@ export const decodeSessionRecord = (
         typeof parsed.id === "string" && parsed.id.startsWith(SEND_ID_PREFIX)
           ? parsed.id.slice(SEND_ID_PREFIX.length)
           : undefined;
+      // The identity probe answered with an error: route through
+      // probe-failed so the runner's #345 arm can settle buffered sends
+      // and set the session-scoped failure, the way it does for codex.
+      if (parsed.id === IDENTITY_PROBE_ID) {
+        const message =
+          error !== null && typeof error.message === "string"
+            ? `rpc command failed: ${JSON.stringify(parsed.id)} - ${error.message}`
+            : `rpc command failed: ${JSON.stringify(error ?? parsed)}`;
+        return { kind: "probe-failed", message };
+      }
       return {
         ...(inputId === undefined ? {} : { inputId }),
         kind: "command-failed",

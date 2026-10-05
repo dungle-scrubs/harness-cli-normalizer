@@ -338,3 +338,316 @@ describe("openSession (codex app-server, fake process)", () => {
     ]);
   });
 });
+
+// Issue #345: codex app-server's identity probe fails when its config.toml
+// is invalid. hcn's runner used to park the error in preTurnEvents and let
+// the buffered sends hang forever; the fix settles the sends' receipts,
+// records it as a session-scoped failure, and ends stdin so the runner does
+// not wait for stdin EOF.
+describe("issue #345: a refused identity probe on codex settles sends and closes", () => {
+  const configMessage =
+    "failed to load configuration: <path>/config.toml:1:9: string values must be quoted, expected literal string";
+
+  test("identity probe answers -32600 with a config error: send settles rejected, session closes failed", async () => {
+    const proc = new FakeProcess();
+    const d = makeDeps(proc);
+    const logged: Record<string, unknown>[] = [];
+    const session = openSession(codexCli, { sessionId: sid }, { ...d, log: (e) => logged.push(e) });
+    // Send arrives before the probe settles; buffered.
+    const send = session.send({ id: "a", text: "say hi" });
+    expect(send.disposition).toBe("started");
+    expect(send.settled).toBeDefined();
+    expect(proc.stdinLines).toHaveLength(2); // probe only
+
+    // The probe fails: initialize answered, then thread/start -32600.
+    proc.emitLine(jsonrpc(INITIALIZE_ID, { userAgent: "hcn/0.9.4" }));
+    proc.emitLine(jsonrpcError(IDENTITY_PROBE_ID, -32600, configMessage));
+    await new Promise((r) => setTimeout(r, 10));
+
+    // Buffered send's receipt settles rejected/native-rejected.
+    const settled = await send.settled;
+    expect(settled).toMatchObject({ disposition: "rejected", reason: "native-rejected" });
+
+    // hcn ends stdin on its own; the runner does not wait for close() to
+    // be called.
+    expect(proc.stdinEnded).toBe(true);
+
+    // The fake exits cleanly; the runner records the failure and the
+    // session-close log shows cause "failed" with the failure attached.
+    proc.exit(0);
+    await proc.exited;
+    await new Promise((r) => setTimeout(r, 10));
+    const close = logged.find((e) => e.event === "session_close");
+    expect(close).toMatchObject({ cause: "failed", exitCode: 0 });
+    const failure = (close as { failure?: { class: string; message: string } })?.failure;
+    expect(failure?.class).toBe("native");
+    expect(failure?.message).toContain(configMessage);
+  });
+});
+
+describe("issue #345 popeye variant: a refused create leaves the buffered send's turn ending in done with that failure", () => {
+  test("popeye create answers error: buffered send's turn ends done with the failure", async () => {
+    const proc = new FakeProcess();
+    const { popeyeCli } = await import("../../src/knowledge/popeye.js");
+    const d = makeDeps(proc);
+    const logged: Record<string, unknown>[] = [];
+    const session = openSession(
+      popeyeCli,
+      { sessionId: "session-1" },
+      { ...d, log: (e) => logged.push(e) },
+    );
+    // Buffered send arrives before the create response.
+    const send = session.send({ id: "a", text: "say hi" });
+    expect(send.disposition).toBe("started");
+    // popeye has no native receipt; only the probe is on the wire.
+    expect(proc.stdinLines).toHaveLength(1);
+
+    // Create answers with an error: probe-failed. popeyePending stays,
+    // and the runner ends stdin so finalize can settle.
+    proc.emitLine(
+      JSON.stringify({
+        id: IDENTITY_PROBE_ID,
+        error: { code: "invalid_config", message: "config.toml parse error" },
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 10));
+    expect(proc.stdinEnded).toBe(true);
+    proc.exit(0);
+    await proc.exited;
+    await new Promise((r) => setTimeout(r, 10));
+
+    const turns = session.turns[Symbol.asyncIterator]();
+    const turn = (await turns.next()).value as SessionTurn;
+    expect(turn.inputId).toBe("a");
+    const events: HarnessEvent[] = [];
+    for await (const event of turn) events.push(event);
+    expect(events.find((event) => event.kind === "error")).toMatchObject({
+      message: expect.stringContaining("config.toml parse error"),
+    });
+    expect(events.find((event) => event.kind === "failure")).toMatchObject({ class: "native" });
+    expect(events.at(-1)).toMatchObject({
+      kind: "done",
+      failure: expect.objectContaining({ class: "native" }),
+    });
+    const close = logged.find((e) => e.event === "session_close");
+    expect(close).toMatchObject({ cause: "failed", exitCode: 0 });
+    const failure = (close as { failure?: { class: string } })?.failure;
+    expect(failure?.class).toBe("native");
+  });
+});
+
+// Issue #347: codex crashes after a send but before the turn/start
+// receipt. No hcn turn is open (codex opens its turn on the receipt).
+// session_close used to report cause "crash" with no failure; the fix
+// classifies the crash via the stderr tail and records it as a
+// session-scoped failure.
+describe("issue #347: codex crash with no open turn classifies the exit", () => {
+  test("stderr line + exit 1 before any turn/start response: closed.failure.class is native", async () => {
+    const proc = new FakeProcess();
+    const d = makeDeps(proc);
+    const logged: Record<string, unknown>[] = [];
+    const session = openSession(codexCli, { sessionId: sid }, { ...d, log: (e) => logged.push(e) });
+    const send = session.send({ id: "a", text: "say hi" });
+    expect(send.disposition).toBe("started");
+    // The send is buffered until identity lands: only the probe has been
+    // written.
+    expect(proc.stdinLines).toHaveLength(2);
+
+    // Identity settles; the buffered send flushes a turn/start, then the
+    // harness dies before the receipt arrives.
+    proc.emitLine(jsonrpc(INITIALIZE_ID, { userAgent: "hcn/0.9.4" }));
+    proc.emitLine(jsonrpc(IDENTITY_PROBE_ID, { thread: { id: THREAD } }));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(proc.stdinLines).toHaveLength(3); // probe + flushed turn/start
+    proc.emitStderr("panicked at config: bridge closed");
+    proc.exit(1);
+    await proc.exited;
+    await new Promise((r) => setTimeout(r, 10));
+
+    const settled = await send.settled;
+    expect(settled).toMatchObject({ disposition: "rejected", reason: "closed" });
+
+    const close = logged.find((e) => e.event === "session_close");
+    expect(close).toMatchObject({ cause: "crash", exitCode: 1 });
+    const failure = (close as { failure?: { class: string; message: string } })?.failure;
+    expect(failure?.class).toBe("native");
+    expect(failure?.message).toContain("panicked at config: bridge closed");
+  });
+
+  test("empty stderr + nonzero exit with no open turn: closed.failure.class is transport", async () => {
+    const proc = new FakeProcess();
+    const d = makeDeps(proc);
+    const logged: Record<string, unknown>[] = [];
+    const session = openSession(codexCli, { sessionId: sid }, { ...d, log: (e) => logged.push(e) });
+    session.send({ id: "a", text: "say hi" });
+    proc.emitLine(jsonrpc(INITIALIZE_ID, { userAgent: "hcn/0.9.4" }));
+    proc.emitLine(jsonrpc(IDENTITY_PROBE_ID, { thread: { id: THREAD } }));
+    await new Promise((r) => setTimeout(r, 10));
+    proc.exit(1);
+    await proc.exited;
+    await new Promise((r) => setTimeout(r, 10));
+
+    const close = logged.find((e) => e.event === "session_close");
+    expect(close).toMatchObject({ cause: "crash", exitCode: 1 });
+    const failure = (close as { failure?: { class: string } })?.failure;
+    expect(failure?.class).toBe("transport");
+  });
+
+  test("exit 0 with no turn and no refusal: no session_failure recorded", async () => {
+    const proc = new FakeProcess();
+    const d = makeDeps(proc);
+    const logged: Record<string, unknown>[] = [];
+    openSession(codexCli, { sessionId: sid }, { ...d, log: (e) => logged.push(e) });
+    proc.exit(0);
+    await proc.exited;
+    await new Promise((r) => setTimeout(r, 10));
+
+    const close = logged.find((e) => e.event === "session_close");
+    expect(close?.cause).toBe("clean");
+    expect((close as { failure?: unknown })?.failure).toBeUndefined();
+  });
+});
+
+test("an identified popeye session ends a refused prompt with native failure and closes", async () => {
+  const proc = new FakeProcess();
+  const { popeyeCli } = await import("../../src/knowledge/popeye.js");
+  const session = openSession(popeyeCli, { sessionId: sid }, makeDeps(proc));
+  proc.emitLine(
+    JSON.stringify({
+      id: IDENTITY_PROBE_ID,
+      result: { _tag: "snapshot", sessionId: "popeye-session" },
+    }),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  session.send({ id: "a", text: "say hi" });
+  expect(JSON.parse(proc.stdinLines.at(-1) ?? "null")).toMatchObject({
+    id: `${SEND_ID}:a`,
+    sessionId: "popeye-session",
+  });
+  const turns = session.turns[Symbol.asyncIterator]();
+  const turn = (await turns.next()).value as SessionTurn;
+  expect(turn.inputId).toBe("a");
+  proc.emitLine(jsonrpcError(`${SEND_ID}:a`, -32000, "prompt refused"));
+  const events = await drainTurn(turn);
+  expect(events.find((event) => event.kind === "failure")).toMatchObject({ class: "native" });
+  expect(events.at(-1)).toMatchObject({
+    kind: "done",
+    cause: "failed",
+    failure: { class: "native" },
+  });
+  await session.close();
+  expect(proc.stdinEnded).toBe(true);
+  expect((await turns.next()).done).toBe(true);
+});
+
+test("a codex stderr auth wall before turn acceptance closes crash with auth failure", async () => {
+  const proc = new FakeProcess();
+  const logged: Record<string, unknown>[] = [];
+  const session = openSession(
+    codexCli,
+    { sessionId: sid },
+    { ...makeDeps(proc), log: (e) => logged.push(e) },
+  );
+  proc.emitLine(jsonrpc(IDENTITY_PROBE_ID, { thread: { id: THREAD } }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const send = session.send({ id: "a", text: "say hi" });
+  expect(JSON.parse(proc.stdinLines.at(-1) ?? "null")).toMatchObject({ method: "turn/start" });
+  proc.emitStderr("401 Unauthorized");
+  proc.exit(1);
+  await session.close();
+  expect(await send.settled).toEqual({ disposition: "rejected", reason: "closed" });
+  expect((await session.turns[Symbol.asyncIterator]().next()).done).toBe(true);
+  expect(logged.find((e) => e.event === "session_close")).toMatchObject({
+    cause: "crash",
+    exitCode: 1,
+    failure: { class: "auth" },
+  });
+});
+
+test("a codex stderr limit wall before turn acceptance closes limit with usage-limit failure", async () => {
+  const proc = new FakeProcess();
+  const logged: Record<string, unknown>[] = [];
+  const session = openSession(
+    codexCli,
+    { sessionId: sid },
+    { ...makeDeps(proc), log: (e) => logged.push(e) },
+  );
+  proc.emitLine(jsonrpc(IDENTITY_PROBE_ID, { thread: { id: THREAD } }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const send = session.send({ id: "a", text: "say hi" });
+  expect(JSON.parse(proc.stdinLines.at(-1) ?? "null")).toMatchObject({ method: "turn/start" });
+  proc.emitStderr("You have hit your usage limit.");
+  proc.exit(1);
+  await session.close();
+  expect(await send.settled).toEqual({ disposition: "rejected", reason: "closed" });
+  expect((await session.turns[Symbol.asyncIterator]().next()).done).toBe(true);
+  expect(logged.find((e) => e.event === "session_close")).toMatchObject({
+    cause: "limit",
+    exitCode: 1,
+    failure: { class: "usage-limit" },
+  });
+});
+
+test("a no-turn codex crash does not inherit the completed turn's task failure", async () => {
+  const proc = new FakeProcess();
+  const logged: Record<string, unknown>[] = [];
+  const session = openSession(
+    codexCli,
+    { sessionId: sid },
+    { ...makeDeps(proc), log: (e) => logged.push(e) },
+  );
+  proc.emitLine(jsonrpc(IDENTITY_PROBE_ID, { thread: { id: THREAD } }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const first = session.send({ id: "first", text: "do work" });
+  proc.emitLine(jsonrpc(`${SEND_ID}:first`, { turn: { id: TURN } }));
+  expect(await first.settled).toEqual({ disposition: "started" });
+  const turns = session.turns[Symbol.asyncIterator]();
+  const turn = (await turns.next()).value as SessionTurn;
+  proc.emitLine(
+    notification("error", {
+      error: { message: "could not finish work", codexErrorInfo: null },
+      threadId: THREAD,
+      turnId: TURN,
+      willRetry: false,
+    }),
+  );
+  proc.emitLine(turnCompleted("failed"));
+  const events = await drainTurn(turn);
+  expect(events.at(-1)).toMatchObject({ kind: "done", failure: { class: "task" } });
+  const next = session.send({ id: "a", text: "try again" });
+  expect(JSON.parse(proc.stdinLines.at(-1) ?? "null")).toMatchObject({ method: "turn/start" });
+  proc.exit(1);
+  await session.close();
+  expect(await next.settled).toEqual({ disposition: "rejected", reason: "closed" });
+  expect((await turns.next()).done).toBe(true);
+  expect(logged.find((e) => e.event === "session_close")).toMatchObject({
+    cause: "crash",
+    failure: { class: "transport" },
+  });
+});
+
+test("a codex crash before identity rejects its buffered send without yielding a turn", async () => {
+  const proc = new FakeProcess();
+  const logged: Record<string, unknown>[] = [];
+  const session = openSession(
+    codexCli,
+    { sessionId: sid },
+    { ...makeDeps(proc), log: (e) => logged.push(e) },
+  );
+  const send = session.send({ id: "a", text: "say hi" });
+  expect(proc.stdinLines).toHaveLength(2);
+  proc.emitStderr("panicked at config: bridge closed");
+  proc.exit(1);
+  await session.close();
+  expect(await send.settled).toEqual({ disposition: "rejected", reason: "closed" });
+  expect((await session.turns[Symbol.asyncIterator]().next()).done).toBe(true);
+  expect(logged.some((e) => e.event === "sends_dropped")).toBe(false);
+  expect(logged.find((e) => e.event === "session_close")).toMatchObject({
+    cause: "crash",
+    exitCode: 1,
+    failure: {
+      class: "native",
+      message: expect.stringContaining("panicked at config: bridge closed"),
+    },
+  });
+});

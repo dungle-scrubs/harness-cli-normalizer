@@ -209,6 +209,18 @@ describe("popeye session records", () => {
       }),
     ).toMatchObject({ inputId: "s1", kind: "command-failed" });
   });
+
+  test("a create probe failure (error on the identity probe id) decodes as probe-failed", () => {
+    // Issue #345: popeye's create probe failure rides the identity-probe
+    // request id; the runner uses the same probe-failed arm codex uses
+    // so the buffered sends settle and the session closes failed.
+    expect(
+      decodeSessionRecord(popeyeCli, {
+        error: { code: "invalid_config", message: "config.toml parse error" },
+        id: IDENTITY_PROBE_ID,
+      }),
+    ).toMatchObject({ kind: "probe-failed" });
+  });
 });
 
 test("a prompt snapshot with a failed assistant entry ends the turn failed", () => {

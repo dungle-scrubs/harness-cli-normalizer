@@ -43,6 +43,7 @@ import type { FailureSummary } from "./failure.js";
 import {
   failureFromLimit,
   failureFromLineOverflow,
+  failureFromNativeRejection,
   failureFromStderrTail,
   failureFromTerminalError,
   failureFromTransport,
@@ -149,6 +150,15 @@ export class SessionSpawnError extends Error {
   }
 }
 
+/** True for harnesses whose session input waits for the spawn-probe
+ * identity before any send can be written (popeye mint the session via
+ * the create probe; codex needs the thread id on every request). pi's
+ * prompt-wire is identity-silent and writes at send time. The single
+ * predicate `send` uses to buffer before identity and the #345 arm uses
+ * to settle buffered sends when the probe fails. */
+const buffersSendsBeforeIdentity = (input: SessionInputContract): boolean =>
+  input.kind === "popeye-rpc-prompt" || input.kind === "codex-jsonrpc";
+
 export const openSession = (
   h: HarnessDescriptor,
   opts: OpenSessionOptions,
@@ -222,6 +232,13 @@ export const openSession = (
   let turnCounter = 0;
   let activeTurn: AsyncChannel<HarnessEvent> | null = null;
   let activeTurnId = "";
+  // The id of the send that opened the active turn (the inputId the turn
+  // was tagged with). Used by the #344 command-failed arm to decide
+  // whether the harness refused the command that opened the turn, vs a
+  // later input (steer, codex request with no turn). Cleared at each turn
+  // end.
+  let activeTurnInputId: string | undefined;
+  let activeTurnOpenerAccepted = false;
   let activeNativeTurnId: string | null = null;
   const pendingIds: string[] = [];
   const pendingLengths: number[] = [];
@@ -256,6 +273,9 @@ export const openSession = (
   // A stall killed the process on purpose, so the signal death it caused
   // reports as "stall", not "killed".
   let stalled = false;
+  // A refused session open (#345) or a crash with no open turn (#347)
+  // has no turn to carry its failure. First wins; session_close carries it.
+  let sessionFailure: FailureSummary | undefined;
 
   // The supervisor spans the session; each turn begins and ends on it. A
   // session turn can hang with the process alive and the pipes open, which
@@ -363,6 +383,8 @@ export const openSession = (
     turnEscalationDetection = "none";
     activeTurn = new AsyncChannel<HarnessEvent>();
     activeTurnId = `${opts.sessionId}:turn-${++turnCounter}`;
+    activeTurnInputId = inputId;
+    activeTurnOpenerAccepted = false;
     // Tag the turn with the id of the send that opened it, so the consumer
     // correlates an input to its turn by reading the tag, not by
     // shadowing the runner's delivery order.
@@ -411,6 +433,8 @@ export const openSession = (
       cause: fullDone.cause,
     });
     activeTurn = null;
+    activeTurnInputId = undefined;
+    activeTurnOpenerAccepted = false;
     activeNativeTurnId = null;
     resultError = false;
     if (turnSettled !== null) {
@@ -613,6 +637,7 @@ export const openSession = (
           // them - the turn already exists. Starting BEFORE the receipt
           // settles keeps the turn line ahead of the disposition line.
           if (activeTurn === null) startTurn(record.inputId);
+          if (record.inputId === activeTurnInputId) activeTurnOpenerAccepted = true;
           const settle = pendingNativeReceipts.get(record.inputId);
           pendingNativeReceipts.delete(record.inputId);
           settle?.({ disposition: "started" });
@@ -621,9 +646,25 @@ export const openSession = (
         case "identity":
           await announceIdentity(record.sessionId);
           return;
-        case "probe-failed":
+        case "probe-failed": {
           await routeEvent({ kind: "error", message: record.message });
+          if (buffersSendsBeforeIdentity(sessionInput)) {
+            const failure = failureFromNativeRejection(h, record.message, deps.clock);
+            if (sessionFailure === undefined) sessionFailure = failure;
+            await pushFailure(failure);
+            // Codex rejects stranded sends without opening a phantom turn;
+            // popeye keeps them so the first turn carries the refusal.
+            if (sessionInput.kind === "codex-jsonrpc") {
+              for (const pending of popeyePending.splice(0)) {
+                const settle = pendingNativeReceipts.get(pending.input.id);
+                pendingNativeReceipts.delete(pending.input.id);
+                settle?.({ disposition: "rejected", reason: "native-rejected" });
+              }
+            }
+            void close(false);
+          }
           return;
+        }
         case "command-failed": {
           if (record.inputId !== undefined) {
             const settle = pendingNativeReceipts.get(record.inputId);
@@ -634,6 +675,20 @@ export const openSession = (
               pendingLengths.splice(pendingIndex, 1);
             }
             settle?.({ disposition: "rejected", reason: "native-rejected" });
+            // Issue #344: the harness refused the command that opened the
+            // turn before acknowledging it. End it so close() cannot hang;
+            // a refused later input, even with a reused id, leaves it running.
+            if (
+              activeTurn !== null &&
+              activeTurnInputId === record.inputId &&
+              !activeTurnOpenerAccepted
+            ) {
+              await routeEvent({ kind: "error", message: record.message });
+              const failure = failureFromNativeRejection(h, record.message, deps.clock);
+              await pushFailure(failure);
+              endTurn({ kind: "done", exitCode: null, cause: "clean" });
+              return;
+            }
           }
           await routeEvent({ kind: "error", message: record.message });
           return;
@@ -719,7 +774,15 @@ export const openSession = (
   const finalize = (): void => {
     if (finalized) return;
     finalized = true;
-    const cause: ExitCause = stalled
+    if (pumpError !== null) {
+      void routeEvent({ kind: "error", message: `session pump failed: ${String(pumpError)}` });
+    }
+    // Issue #345: a refused identity probe lands here with popeyePending
+    // already drained by the probe-failed arm and sessionFailure set.
+    // For a clean exit, that becomes "failed" - the harness did not crash,
+    // it refused to open, and the cause must say so. Crash, killed, stall
+    // and limit are stronger signals and stay.
+    const baseCause: ExitCause = stalled
       ? "stall"
       : state.limitSeen
         ? "limit"
@@ -728,27 +791,27 @@ export const openSession = (
           : exitCode === null
             ? "killed"
             : "crash";
-    if (pumpError !== null) {
-      void routeEvent({ kind: "error", message: `session pump failed: ${String(pumpError)}` });
-    }
+    const cause: ExitCause =
+      sessionFailure !== undefined && baseCause === "clean" ? "failed" : baseCause;
     for (const settle of pendingNativeReceipts.values()) {
       settle({ disposition: "rejected", reason: "closed" });
     }
     pendingNativeReceipts.clear();
     if (popeyePending.length > 0) {
-      // No turn exists before identity, so an error routed now would
-      // park in preTurnEvents and die unobserved at close. Open the
-      // turn the first buffered send would have started; endTurn
-      // settles it below with the session's exit cause.
-      if (activeTurn === null) {
-        const first = popeyePending[0];
-        if (first !== undefined) startTurn(first.input.id);
+      const dropped = popeyePending.splice(0);
+      // Popeye already reported started, so its buffered send needs a turn
+      // to carry the failure. Codex receipts were rejected by the sweep above.
+      if (sessionInput.kind === "popeye-rpc-prompt") {
+        if (activeTurn === null) {
+          const first = dropped[0];
+          if (first !== undefined) startTurn(first.input.id);
+        }
+        const ids = dropped.map((pending) => pending.input.id);
+        void routeEvent({
+          kind: "error",
+          message: `${ids.length} buffered send(s) died before session identity: ${ids.join(", ")}`,
+        });
       }
-      const dropped = popeyePending.splice(0).map((pending) => pending.input.id);
-      void routeEvent({
-        kind: "error",
-        message: `${dropped.length} buffered send(s) died before session identity: ${dropped.join(", ")}`,
-      });
     }
     if (pendingIds.length > 0) {
       const droppedIds = [...pendingIds];
@@ -790,7 +853,17 @@ export const openSession = (
       if (cause === "crash" && turnFailures.length === 0) {
         void pushFailure(failureFromStderrTail(h, exitCode, stderrTail.snapshot()));
       }
+    } else if (sessionFailure === undefined && (cause === "crash" || cause === "limit")) {
+      // Between-turn walls are parked events, not stderr tail. Never reuse
+      // turnFailures here: it still holds the last completed turn's verdict.
+      sessionFailure = reduceFailures(
+        preTurnEvents.filter((event) => event.kind === "failure").map(summaryOf),
+      );
+      if (sessionFailure === undefined && cause === "crash") {
+        sessionFailure = failureFromStderrTail(h, exitCode, stderrTail.snapshot());
+      }
     }
+
     endTurn({ kind: "done", exitCode, cause });
     if (preTurnEvents.some((e) => !DROPPABLE_KINDS.has(e.kind))) {
       log({
@@ -805,6 +878,7 @@ export const openSession = (
       sessionId: opts.sessionId,
       exitCode,
       cause,
+      ...(sessionFailure !== undefined ? { failure: sessionFailure } : {}),
       ...(pipesOpenAtExit ? { pipesOpenAtExit } : {}),
       ...(cause === "crash" || cause === "killed" ? { stderrTail: stderrTail.snapshot() } : {}),
     });
@@ -880,10 +954,7 @@ export const openSession = (
       // Popeye sends before the create response - and codex sends before
       // the thread-open response - wait for identity; the flush replays
       // them with the minted session/thread id bound.
-      if (
-        (sessionInput.kind === "popeye-rpc-prompt" || sessionInput.kind === "codex-jsonrpc") &&
-        state.lastSeenId === null
-      ) {
+      if (buffersSendsBeforeIdentity(sessionInput) && state.lastSeenId === null) {
         popeyePending.push({ input });
         if (sessionInput.kind === "codex-jsonrpc") {
           // The receipt registration exists from now, so the flushed
