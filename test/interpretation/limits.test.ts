@@ -170,6 +170,19 @@ describe("detectTransportInLine", () => {
     { line: "HTTP 502 Bad Gateway", desc: "HTTP 502" },
     { line: "status code 503", desc: "status code 503" },
     { line: "code: 504", desc: "code 504" },
+    {
+      line: 'pi turn ended with stopReason error: 529 {"type":"error","error":{"type":"overloaded_error","message":"The server cluster is currently under high load. Please retry after a short wait and thank you for your patience. (2064) (529)"}}',
+      desc: "issue #350: pi overloaded error",
+    },
+    {
+      line: 'API Error: 529 {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}',
+      desc: "issue #350: API overloaded error",
+    },
+    {
+      line: "HTTP 529",
+      desc: "issue #350: HTTP 529",
+    },
+
     // Issue #342: pi's openai-codex provider WebSocket close phrasings.
     // RFC 6455 codes 1001, 1006, 1011, 1012, 1013 are abnormal closes
     // (the provider killed the connection mid-response); a codeless
@@ -235,6 +248,8 @@ describe("detectTransportInLine", () => {
   });
 
   const negatives = [
+    "processed 529 files",
+    "the overloaded server case is handled in retry.ts",
     "port 5020",
     "elapsed 502ms",
     "read 5030 bytes",

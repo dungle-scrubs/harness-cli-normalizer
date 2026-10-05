@@ -105,7 +105,10 @@ export const SHARED_TRANSPORT_MATCHERS: ReadonlyArray<TransportMatcher> = [
   { pattern: "service unavailable", flags: "i" },
   { pattern: "bad gateway", flags: "i" },
   { pattern: "gateway time-?out", flags: "i" },
-  { pattern: "\\b(?:HTTP|status(?:[_ ]?code)?|code)\\b\\W*[:=]?\\W*50[234]\\b", flags: "i" },
+  {
+    pattern: "\\b(?:HTTP|status(?:[_ ]?code)?|code)\\b\\W*[:=]?\\W*(?:50[234]|529)\\b",
+    flags: "i",
+  },
   // Issue #342: provider WebSocket close phrasings. Pi prints
   // "WebSocket closed <code>[ <reason>]", "WebSocket closed", and
   // "WebSocket stream closed before response.completed". Codex 0.160.0
@@ -147,6 +150,9 @@ export const SHARED_TRANSPORT_MATCHERS: ReadonlyArray<TransportMatcher> = [
     flags: "im",
   },
   { pattern: "(?:^|:\\s*)stream disconnected before completion:", flags: "im" },
+  // Issue #350: Anthropic's HTTP 529 API error type, also returned by
+  // compatible providers (MiniMax through pi).
+  { pattern: "\\boverloaded_error\\b", flags: "i" },
 ];
 
 export const SHARED_UNAVAILABLE_MATCHERS: ReadonlyArray<UnavailableMatcher> = [

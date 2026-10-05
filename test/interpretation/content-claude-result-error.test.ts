@@ -86,4 +86,19 @@ describe("claude result is_error text", () => {
     expect(failureFromTerminalError(claudeCode, event.message).class).toBe("transport");
     expect(failureFromTerminalError(claudeCode, event.message).retryable).toBe(true);
   });
+  test("issue #350: a result carrying an API overloaded error classifies transport, retryable", () => {
+    const [event] = contentEventsOf("claude", {
+      type: "result",
+      subtype: "success",
+      is_error: true,
+      result:
+        'API Error: 529 {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}',
+    });
+    if (event?.kind !== "error") throw new Error("expected a terminal error event");
+    expect(event.terminal).toBe(true);
+    expect(failureFromTerminalError(claudeCode, event.message)).toMatchObject({
+      class: "transport",
+      retryable: true,
+    });
+  });
 });
