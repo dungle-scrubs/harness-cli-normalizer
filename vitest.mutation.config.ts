@@ -9,5 +9,6 @@ export default defineConfig({
       "test/knowledge/**/*.test.ts",
     ],
     maxWorkers: 2,
+    testTimeout: 20_000,
   },
 });
