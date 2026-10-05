@@ -306,6 +306,43 @@ describe("streamTurn behaviors (M3.1 boxes)", () => {
     });
   });
 
+  test("run-mode crash error event masks a secret split by the 4096-character bound", () => {
+    // The cut at 4096 leaves "sk-abcdefg", too short for the pattern, so
+    // redacting after the bound would leak it.
+    const proc = new FakeProcess();
+    const d = deps(proc);
+    const turn = streamTurn(claudeCode, { prompt: "hi" }, d);
+    proc.emitStderr(`${"x".repeat(4085)} sk-abcdefghijk123${"y".repeat(50)}`);
+    proc.exit(1);
+    return collect(turn).then((events) => {
+      const error = events.find((e) => e.kind === "error") as
+        | Extract<HarnessEvent, { kind: "error" }>
+        | undefined;
+      expect(error?.message).toBe(`${"x".repeat(4085)} [redacted]`);
+    });
+  });
+
+  test("pi nonzero exit with stderr yields native failure with nativeExitCode before done", async () => {
+    // Issue #341 (run-mode arm): a pi turn that exits nonzero with a
+    // stderr line gets a `native` failure carrying the native exit code,
+    // and done.failure equals it.
+    const proc = new FakeProcess();
+    const d = deps(proc);
+    const turn = streamTurn(piCli, { prompt: "hi" }, d);
+    proc.emitStderr("fatal: simulated pi startup failure");
+    proc.exit(1);
+    const events = await collect(turn);
+    const failureIdx = events.findIndex((e) => e.kind === "failure");
+    const doneIdx = events.findIndex((e) => e.kind === "done");
+    expect(failureIdx).toBeGreaterThanOrEqual(0);
+    expect(doneIdx).toBeGreaterThan(failureIdx);
+    const failure = events[failureIdx] as Extract<HarnessEvent, { kind: "failure" }>;
+    expect(failure).toMatchObject({ class: "native", nativeExitCode: 1, retryable: false });
+    const done = events[doneIdx] as Extract<HarnessEvent, { kind: "done" }>;
+    const { kind: _kind, ...summary } = failure;
+    expect(done.failure).toEqual(summary);
+  });
+
   test("F-05 abort signal escalates SIGTERM and yields killed with no failure", async () => {
     const proc = new FakeProcess();
     const d = deps(proc);
@@ -535,6 +572,44 @@ describe("harness fixture replay (F-20)", () => {
     const failures = events.filter((e) => e.kind === "failure");
     expect(failures).toHaveLength(1);
     expect(failures[0]).toMatchObject({ class: "transport", retryable: true });
+    const done = events.at(-1) as Extract<HarnessEvent, { kind: "done" }>;
+    expect(done.cause).toBe("failed");
+    expect(done.failure).toMatchObject({ class: "transport" });
+  });
+
+  test("pi turn with assistant message_end stopReason error WebSocket closed classifies transport", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const raw = readFileSync(
+      join(import.meta.dirname, "../fixtures/harnesses/pi-unreachable.ndjson"),
+      "utf8",
+    );
+    // The pi-unreachable fixture records errorMessage "Connection error.";
+    // swap it for a coded close so the terminal-error classifier sees a
+    // WebSocket phrasing on the same skeleton.
+    const lines = raw
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line !== "")
+      .map((line) =>
+        line.replaceAll(
+          '"errorMessage":"Connection error."',
+          '"errorMessage":"WebSocket closed 1012"',
+        ),
+      );
+    const proc = new FakeProcess();
+    const d = deps(proc);
+    const turn = streamTurn(piCli, { prompt: "hi" }, d);
+    for (const line of lines) proc.emitLine(line);
+    proc.exit(0);
+    const events = await collect(turn);
+    const failures = events.filter((e) => e.kind === "failure");
+    expect(failures).toHaveLength(1);
+    const failure = failures[0] as Extract<HarnessEvent, { kind: "failure" }>;
+    expect(failure).toMatchObject({ class: "transport", retryable: true });
+    expect(failure.message).toBe(
+      "Transport failure (pi turn ended with stopReason error: WebSocket closed 1012) - retry or route to another provider",
+    );
     const done = events.at(-1) as Extract<HarnessEvent, { kind: "done" }>;
     expect(done.cause).toBe("failed");
     expect(done.failure).toMatchObject({ class: "transport" });

@@ -3,6 +3,7 @@ import type { HarnessEvent } from "../../src/execution/events.js";
 import {
   failureFromLimit,
   failureFromNative,
+  failureFromStderrTail,
   failureFromTerminalError,
   failureFromTimeout,
   failureFromTrust,
@@ -370,6 +371,43 @@ describe("failure message contracts", () => {
       nativeExitCode: undefined,
       retryable: false,
     });
+  });
+
+  test("native failure message masks secret-shaped tokens; a plain line is unchanged", () => {
+    const redacted = failureFromNative(1, ["auth failed for sk-abcdefghijk123 token=xyz"]);
+    expect(redacted.message).toContain("auth failed for [redacted] [redacted]");
+    expect(redacted.message).not.toContain("sk-abcdefghijk123");
+    expect(redacted.message).not.toContain("token=xyz");
+    const nearMiss = failureFromNative(1, ["risk-free sk-short"]);
+    expect(nearMiss.message).toContain("risk-free sk-short");
+    expect(nearMiss.message).not.toContain("[redacted]");
+    const plain = failureFromNative(1, ["error: unknown flag --bad"]);
+    expect(plain.message).toContain("error: unknown flag --bad");
+    expect(plain.message).not.toContain("[redacted]");
+  });
+
+  test("native failure masks a secret split by the 512-character bound", () => {
+    // 501 + 14 = 515 chars; the bound slices at 512, leaving a token
+    // prefix too short for SECRETISH to match. Redact before the bound
+    // so the cut end is masked.
+    const redacted = failureFromNative(1, [
+      `${"x".repeat(501)} sk-abcdefghijk123${"y".repeat(50)}`,
+    ]);
+    expect(redacted.message).toContain(
+      `${"x".repeat(501)} [redacted] - the harness rejected or failed on its own arguments; this is not an hcn error`,
+    );
+    expect(redacted.message).not.toContain("sk-abcdefg");
+    expect(redacted.message).not.toContain("sk-abcdefghijk123");
+  });
+
+  test("stderr-tail transport line is redacted and bounded to 512 chars", () => {
+    const transport = failureFromStderrTail(piCli, 1, ["WebSocket closed 1006 token=abc123"]);
+    expect(transport.class).toBe("transport");
+    expect(transport.message).toContain("[redacted]");
+    expect(transport.message).not.toContain("abc123");
+    const huge = "a".repeat(100_000);
+    const longTransport = failureFromStderrTail(piCli, 1, [`stream disconnected: ${huge}`]);
+    expect(longTransport.message.length).toBeLessThanOrEqual(512 + 200);
   });
 
   test("limit codes retain their normalized class and limit identity", () => {

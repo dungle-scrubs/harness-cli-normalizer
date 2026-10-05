@@ -456,7 +456,7 @@ test("a buffered turn acknowledgement after exit retains submission evidence wit
   expect(events.at(-1)).toMatchObject({
     kind: "done",
     cause: "failed",
-    failure: { nativeApproval: { prompt: "acknowledged" } },
+    failure: { class: "transport", nativeExitCode: 1, nativeApproval: { prompt: "acknowledged" } },
   });
   expect(f.clock.pendingTimerCount).toBe(0);
 });
@@ -853,7 +853,11 @@ test("a buffered decision cannot write to a process whose exit is already observ
       reason: "request-unavailable",
     },
   ]);
-  expect(events.at(-1)).toMatchObject({ kind: "done", cause: "failed" });
+  expect(events.at(-1)).toMatchObject({
+    kind: "done",
+    cause: "failed",
+    failure: { class: "task", retryable: false },
+  });
   expect(f.clock.pendingTimerCount).toBe(0);
 });
 
@@ -1576,3 +1580,78 @@ test.each(["valid", "malformed"] as const)(
     expect(f.clock.pendingTimerCount).toBe(0);
   },
 );
+
+test.each([
+  ["WebSocket closed 1012", "transport", true],
+  ["Fixture native refusal", "task", false],
+] as const)("terminal path classifies %s as %s (%s)", async (message, expectedClass, retryable) => {
+  const f = setup();
+  const events: HarnessEvent[] = [];
+  for await (const event of streamTurn(codexCli, options, f.deps)) {
+    events.push(event);
+    if (event.kind === "approval-request") {
+      f.proc.emitLine(
+        JSON.stringify({
+          method: "error",
+          params: {
+            threadId: saved.sessionId,
+            turnId: "native-turn",
+            willRetry: false,
+            error: { message },
+          },
+        }),
+      );
+      f.proc.complete();
+    }
+  }
+  expect(events.at(-1)).toMatchObject({
+    kind: "done",
+    cause: "failed",
+    failure: { class: expectedClass, retryable },
+  });
+  if (expectedClass === "transport") {
+    const failure = events.find((event) => event.kind === "failure") as Extract<
+      HarnessEvent,
+      { kind: "failure" }
+    >;
+    expect(failure.nativeApproval).toMatchObject({
+      reason: "native-process-failed",
+      prompt: "acknowledged",
+    });
+    expect(failure.message).toContain(message);
+  }
+  expect(f.clock.pendingTimerCount).toBe(0);
+});
+
+test("a native approval process that exits 1 with stderr before completion classifies native (#341)", async () => {
+  const f = setup();
+  const events: HarnessEvent[] = [];
+  for await (const event of streamTurn(codexCli, options, f.deps)) {
+    events.push(event);
+    if (event.kind === "approval-request") {
+      f.proc.emitStderr("fatal: simulated codex startup failure");
+      f.proc.exit(1);
+    }
+  }
+  const failure = events.find((event) => event.kind === "failure") as Extract<
+    HarnessEvent,
+    { kind: "failure" }
+  >;
+  expect(failure).toMatchObject({
+    class: "native",
+    nativeExitCode: 1,
+    retryable: false,
+  });
+  expect(failure.message).toContain("fatal: simulated codex startup failure");
+  // FakeProcess omits `started`, so process lands as "unknown"; what
+  // matters is that the turn-start receipt reached hcn before the exit.
+  expect(failure.nativeApproval).toMatchObject({
+    prompt: "acknowledged",
+  });
+  expect(events.at(-1)).toMatchObject({
+    kind: "done",
+    cause: "failed",
+    failure: { class: "native", nativeExitCode: 1 },
+  });
+  expect(f.clock.pendingTimerCount).toBe(0);
+});

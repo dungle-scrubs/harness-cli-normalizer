@@ -52,7 +52,9 @@ import {
   failureFromTimeout,
   failureFromTransport,
   isLimitFailure,
+  redactBounded,
   reduceFailures,
+  SECRETISH,
 } from "./failure.js";
 import { LineBuffer, RUN_LINE_MAX } from "./lines.js";
 import { type MuseApprovalObserver, watchMuseApprovals } from "./muse-approvals.js";
@@ -72,10 +74,6 @@ const OUTPUT_STREAMS = ["stdout", "stderr"] as const;
 
 const pumpFailureMessage = (stream: (typeof OUTPUT_STREAMS)[number], cause: unknown): string =>
   `${stream} pump failed: ${cause instanceof Error ? cause.message : String(cause)}`;
-
-/** Stray secret-shaped tokens are masked; identifiers (session UUIDs, model
- * ids, paths) log verbatim - they are what the log exists to correlate. */
-const SECRETISH = /(sk-[A-Za-z0-9_-]{8,}|(?:token|key|secret|password)=\S+)/i;
 
 /** Redact by POSITION, not shape: the prompt is a known argv slot and is
  * masked wholesale (content never reaches a log line - v1 D-005); every
@@ -773,7 +771,10 @@ export async function* streamTurn(
     // F-04: the startupError path already emitted the spawn error; do not
     // duplicate it via the tail.
     if (!startupFailed && (cause === "crash" || cause === "killed") && tail.length > 0) {
-      yield { kind: "error", message: tail.join("\n").slice(0, 4096) };
+      yield {
+        kind: "error",
+        message: redactBounded(tail.join("\n"), 4096),
+      };
     }
     terminalEventReached = true;
     // D6: when the failure is native, the harness's own exit convention is

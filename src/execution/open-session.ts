@@ -43,6 +43,7 @@ import type { FailureSummary } from "./failure.js";
 import {
   failureFromLimit,
   failureFromLineOverflow,
+  failureFromStderrTail,
   failureFromTerminalError,
   failureFromTransport,
   isLimitFailure,
@@ -782,6 +783,12 @@ export const openSession = (
         turnFailures.push(failure);
         void routeEvent(event);
         void routeEvent({ kind: "failure", ...failure });
+      }
+      // Issue #341: an open turn at a crash exit gets run mode's
+      // stderr-tail verdict. Unlike run mode, done.cause stays crash for
+      // every class.
+      if (cause === "crash" && turnFailures.length === 0) {
+        void pushFailure(failureFromStderrTail(h, exitCode, stderrTail.snapshot()));
       }
     }
     endTurn({ kind: "done", exitCode, cause });

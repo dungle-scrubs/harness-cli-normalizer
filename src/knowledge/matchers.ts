@@ -106,6 +106,35 @@ export const SHARED_TRANSPORT_MATCHERS: ReadonlyArray<TransportMatcher> = [
   { pattern: "bad gateway", flags: "i" },
   { pattern: "gateway time-?out", flags: "i" },
   { pattern: "\\b(?:HTTP|status(?:[_ ]?code)?|code)\\b\\W*[:=]?\\W*50[234]\\b", flags: "i" },
+  // Issue #342: provider WebSocket close phrasings. Pi prints
+  // "WebSocket closed <code>[ <reason>]", "WebSocket closed", and
+  // "WebSocket stream closed before response.completed". Codex 0.160.0
+  // prints "websocket closed by server before response.completed" and
+  // "realtime websocket closed: code=<n>". The `ws` library prints
+  // "WebSocket is not open: readyState <n> (<STATE>)". The codeless forms
+  // are anchored to the start of a line or an error colon, or need a
+  // close continuation, so model prose that mentions a WebSocket (a
+  // "WebSocket closed handler") stays a work verdict. Codes 1000, 1002,
+  // 1003, 1008, 1009 and 1010 are a normal close or an endpoint refusing
+  // the traffic, not a dropped connection, and are NOT matched here.
+  {
+    pattern:
+      "\\bwebsocket(?: connection| stream)? closed\\W+(?:with )?(?:(?:close )?code\\W*)?10(?:0[16]|1[123])\\b",
+    flags: "i",
+  },
+  {
+    pattern: "(?:^|:\\s*)websocket(?: connection| stream)? closed\\s*$",
+    flags: "im",
+  },
+  {
+    pattern:
+      "\\bwebsocket(?: connection| stream)? closed\\s+(?:before|unexpectedly|abnormally|without\\b|by\\s+(?:the\\s+)?(?:server|peer|remote|provider)\\b)",
+    flags: "i",
+  },
+  {
+    pattern: "(?:^|:\\s*)websocket is not open(?:\\s*$|:\\s*readystate\\b)",
+    flags: "im",
+  },
 ];
 
 export const SHARED_UNAVAILABLE_MATCHERS: ReadonlyArray<UnavailableMatcher> = [
