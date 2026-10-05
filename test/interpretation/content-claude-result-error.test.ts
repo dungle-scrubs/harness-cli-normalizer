@@ -63,6 +63,18 @@ describe("claude result is_error text", () => {
     expect(failureFromTerminalError(claudeCode, event.message).class).toBe("task");
   });
 
+  test("a result quoting a WebSocket timeout classifies task, not transport", () => {
+    const [event] = contentEventsOf("claude", {
+      type: "result",
+      subtype: "error_max_turns",
+      is_error: true,
+      result:
+        "I did not finish fixing the client that reports `WebSocket idle timeout after 300000ms`.",
+    });
+    if (event?.kind !== "error") throw new Error("expected a terminal error event");
+    expect(failureFromTerminalError(claudeCode, event.message).class).toBe("task");
+  });
+
   test("a result carrying a WebSocket close classifies transport, retryable", () => {
     const [event] = contentEventsOf("claude", {
       type: "result",

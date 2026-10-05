@@ -143,10 +143,10 @@ export const SHARED_TRANSPORT_MATCHERS: ReadonlyArray<TransportMatcher> = [
   // limit walls before transport, so a codex disconnect whose cause is a
   // 401 stays auth, not transport.
   {
-    pattern: "\\bwebsocket (?:idle|connect) timeout after \\d+\\s*ms\\b",
-    flags: "i",
+    pattern: "(?:^|:\\s*)websocket (?:idle|connect) timeout after \\d+\\s*ms\\b",
+    flags: "im",
   },
-  { pattern: "\\bstream disconnected before completion:", flags: "i" },
+  { pattern: "(?:^|:\\s*)stream disconnected before completion:", flags: "im" },
 ];
 
 export const SHARED_UNAVAILABLE_MATCHERS: ReadonlyArray<UnavailableMatcher> = [
@@ -160,5 +160,5 @@ export const SHARED_UNAVAILABLE_MATCHERS: ReadonlyArray<UnavailableMatcher> = [
   { pattern: "not a valid (?:downloaded )?model", flags: "i" },
   // Issue #343: pi's openai-codex provider reports `The '<id>' model is
   // not supported when using Codex with a ChatGPT account.`
-  { pattern: "\\bmodel is not supported\\b", flags: "i" },
+  { pattern: "['\"\\x60][^'\"\\x60\\s]{1,120}['\"\\x60] model is not supported\\b", flags: "i" },
 ];

@@ -255,10 +255,11 @@ describe("detectTransportInLine", () => {
     "turn failed: error_max_turns (I did not finish implementing the WebSocket closed handler.)",
     "WebSocket is not open: see docs",
     "I checked that the websocket is not open",
-    // Issue #346: prose that mentions a timeout or a stream disconnect
-    // is not transport. The matcher requires the exact structural phrase
-    // (`... timeout after <digits>ms`, `... before completion:`).
+    // Issue #346: even exact timeout/disconnect phrasings in prose stay
+    // task unless they start a line or follow an error colon.
+    "I did not finish fixing the client that reports `WebSocket idle timeout after 300000ms`.",
     "I added a websocket idle timeout setting",
+    "the upload stream disconnected before completion: retrying",
     "the stream disconnected before completion of the upload",
   ] as const;
   test.each(negatives)("negative %s is not transport", (line) => {
@@ -343,8 +344,8 @@ describe("detectUnavailableInLine", () => {
     "found 3 models",
     // Issue #343: keep option-level refusals (an unsupported reasoning
     // effort, an unsupported tool) out of the unavailable class - the
-    // "model is not supported" phrase must appear literally, with no
-    // effort/tool/option in between.
+    // quoted model id must directly precede "model is not supported".
+    "Reasoning effort 'high' for this model is not supported.",
     "reasoning effort is not supported",
     "the tool is not supported in this model",
     // antigravity's invalid-model-selection error mentions the model
