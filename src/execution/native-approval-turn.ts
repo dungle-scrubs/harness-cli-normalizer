@@ -31,7 +31,9 @@ import type { HarnessEvent } from "./events.js";
 import type { FailureSummary } from "./failure.js";
 import {
   failureFromRejected,
+  failureFromStderrTail,
   failureFromTask,
+  failureFromTerminalError,
   failureFromTimeout,
   failureFromTransport,
   nativeApprovalPreflightEvidence,
@@ -156,6 +158,9 @@ export async function* streamNativeApprovalTurn(
   let exited = false;
   let closing = false;
   let turnId: string | null = null;
+  // Issue #341: the supervisor's stderr tail is also the exit-time
+  // tail snapshot - shared so the two crates use the same classify().
+  const stderrTail = new StderrTail();
   const matchesTurn = (value: { readonly sessionId: string; readonly turnId: string }): boolean =>
     value.sessionId === plan.saved.sessionId && value.turnId === turnId;
   let stage: NativeApprovalPhase = "initialize";
@@ -202,7 +207,7 @@ export async function* streamNativeApprovalTurn(
       }
       stop("native-process-failed", summary.message, summary);
     },
-    tail: new StderrTail(),
+    tail: stderrTail,
     onStall: () => stop("inactivity", "native approval response exceeded inactivity budget"),
     onQuestion: () => {},
   });
@@ -425,7 +430,11 @@ export async function* streamNativeApprovalTurn(
           if (!matchesTurn(message)) stop("unsupported-native-interaction");
           else {
             if (message.event.kind === "error" && message.event.terminal)
-              stop("native-process-failed", message.event.message);
+              stop(
+                "native-process-failed",
+                message.event.message,
+                failureFromTerminalError(h, message.event.message, deps.clock),
+              );
             await queue.push(message.event);
           }
         } else if (message.kind === "message") {
@@ -438,7 +447,7 @@ export async function* streamNativeApprovalTurn(
         } else if (message.kind === "complete") {
           if (!matchesTurn(message) || message.failed) {
             const detail = message.error ?? "native response failed";
-            stop("native-process-failed", detail);
+            stop("native-process-failed", detail, failureFromTerminalError(h, detail, deps.clock));
             await queue.push({ kind: "error", message: detail, terminal: true });
             continue;
           }
@@ -569,7 +578,15 @@ export async function* streamNativeApprovalTurn(
         ? supervisor.close()
         : { asked: false, detection: "none" as const };
     if (!completed && !failure && !cancelled)
-      failure = failureFromTask("native process ended before response completion");
+      // Issue #341: a nonzero exit is a harness-side classification
+      // (native with the stderr tail, transport on an empty tail), the
+      // same precedence streamTurn applies. A zero exit with no
+      // completion record is the unusual case (the harness hung up
+      // cleanly before reporting in): keep the task verdict.
+      failure =
+        exitCode !== null && exitCode !== 0
+          ? failureFromStderrTail(h, exitCode, stderrTail.snapshot())
+          : failureFromTask("native process ended before response completion");
     if (failure) {
       failure = {
         ...failure,

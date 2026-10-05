@@ -717,3 +717,94 @@ test("session refuses the fresh-turn isolation option before looking up a sessio
     stderr.mockRestore();
   }
 });
+
+describe("issue #341: a session turn open when the harness exits nonzero lands a failure inside the turn", () => {
+  // Issue #341 / repro-341-before.ndjson: a pi session whose process
+  // writes a fatal line to stderr and exits 1 while a turn is open used
+  // to emit done(cause=crash) without a failure summary, leaving the
+  // consumer to guess. After the fix the failure lands inside the
+  // turn (so a router sees the classification before the boundary),
+  // and closed.failure carries the same summary so a session-only
+  // consumer still gets the verdict.
+  test("pi session: send, stderr + exit 1 -> failure inside turn, closed.failure carries it", async () => {
+    const proc = new FakeProcess();
+    const spawner = fakeSpawner([proc]);
+    const sig = fakeSignal();
+    const closeInfo: { exitCode: number | null; cause: string } = {
+      exitCode: null,
+      cause: "clean",
+    };
+    const handle = openSession(
+      piCli,
+      { sessionId: sid },
+      {
+        spawn: spawner.spawn,
+        clock: new FakeClock(),
+        signal: sig.signal,
+        log: (e: Record<string, unknown>) => {
+          if (e.event === "session_close") {
+            closeInfo.exitCode = (e.exitCode as number | null) ?? null;
+            closeInfo.cause = (e.cause as string) ?? "clean";
+          }
+        },
+      },
+    );
+    const input = new PassThrough();
+    const out: string[] = [];
+    const done = runJsonSession({
+      handle,
+      sessionId: sid,
+      harness: "pi",
+      hcnVersion: "9.9.9",
+      questions: "ask",
+      origin: "fresh",
+      getCloseInfo: () => closeInfo,
+      input,
+      write: (line) => {
+        out.push(line);
+        return true;
+      },
+      onDrain: (fn) => fn(),
+    });
+
+    input.write(`${JSON.stringify({ op: "send", id: "in-1", text: "doomed" })}\n`);
+    await tick();
+    proc.emitStderr("fatal: simulated pi startup failure");
+    proc.exit(1);
+    await tick();
+    input.end();
+    await done;
+
+    const evs = out
+      .join("")
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((l) => JSON.parse(l));
+    const failures = evs.filter((e) => e.kind === "failure");
+    expect(failures.length).toBeGreaterThanOrEqual(1);
+    const lastFailure = failures.at(-1);
+    expect(lastFailure).toMatchObject({
+      kind: "failure",
+      class: "native",
+      nativeExitCode: 1,
+      retryable: false,
+    });
+    expect((lastFailure as { message: string }).message).toContain(
+      "fatal: simulated pi startup failure",
+    );
+    // The failure lands inside the turn's stream, BEFORE the done of that
+    // turn - so a router that reads events up to done sees the verdict.
+    const failureIdx = evs.findIndex((e) => e.kind === "failure");
+    const doneIdx = evs.findIndex((e) => e.kind === "done");
+    expect(failureIdx).toBeGreaterThanOrEqual(0);
+    expect(doneIdx).toBeGreaterThan(failureIdx);
+    // The last failure rides on closed too: a session-only consumer
+    // that only reads closed still gets the verdict.
+    const closed = evs.at(-1);
+    expect(closed).toMatchObject({ kind: "closed", exitCode: 1, cause: "crash" });
+    expect((closed as { failure?: { class: string } }).failure).toMatchObject({
+      class: "native",
+    });
+  });
+});

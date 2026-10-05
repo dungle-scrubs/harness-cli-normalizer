@@ -43,6 +43,7 @@ import type { FailureSummary } from "./failure.js";
 import {
   failureFromLimit,
   failureFromLineOverflow,
+  failureFromStderrTail,
   failureFromTerminalError,
   failureFromTransport,
   isLimitFailure,
@@ -781,6 +782,22 @@ export const openSession = (
         }
         turnFailures.push(failure);
         void routeEvent(event);
+        void routeEvent({ kind: "failure", ...failure });
+      }
+      // Issue #341: a turn still open when the harness exits nonzero is
+      // a crash cause here, but run mode already classifies that exit
+      // through failureFromStderrTail (the same precedence: transport,
+      // unavailable, trust, native, transport-on-empty-tail). Apply the
+      // same classifier to align session mode with run mode, so the
+      // failure event lands INSIDE the dying turn before done and
+      // done.failure carries the same summary. Skip when an earlier
+      // failure was already recorded: a turn that settled its own
+      // provisional error before exit already has the verdict, and
+      // double-classifying would create a precedence fight on done.failure.
+      // cause stays "crash" - this block only classifies, never rewrites.
+      if (cause === "crash" && turnFailures.length === 0) {
+        const failure = failureFromStderrTail(h, exitCode, stderrTail.snapshot());
+        turnFailures.push(failure);
         void routeEvent({ kind: "failure", ...failure });
       }
     }
