@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.5](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.4...v0.9.5) (2026-10-05)
+
+
+### Fixed
+
+* classify session crashes and provider WebSocket closes ([#348](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/348)) ([be926f0](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/be926f083c267a3e451ecc0c4c960bf1d74175f2)), closes [#341](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/341) [#342](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/342)
+
 ## [0.9.4](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.3...v0.9.4) (2026-10-04)
 
 
