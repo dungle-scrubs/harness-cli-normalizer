@@ -14,6 +14,7 @@ import {
 import { streamTurn } from "../../src/execution/stream-turn.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
+import { cursorCli } from "../../src/knowledge/cursor.js";
 import { museCode } from "../../src/knowledge/muse.js";
 import { piCli } from "../../src/knowledge/pi.js";
 import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
@@ -447,6 +448,12 @@ describe("failure message contracts", () => {
 // run, so a work verdict (task) is wrong; specific walls (auth, limits,
 // transport, unavailable) keep their class.
 describe("failureFromNativeRejection", () => {
+  test("a trust refusal remains trust-refused", () => {
+    const failure = failureFromNativeRejection(cursorCli, "Workspace Trust Required");
+    expect(failure).toMatchObject({ class: "trust-refused", retryable: true });
+    expect(failure.message).toContain("Workspace Trust Required");
+  });
+
   test("codex config error returns native", () => {
     const failure = failureFromNativeRejection(
       codexCli,
