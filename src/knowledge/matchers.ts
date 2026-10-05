@@ -135,6 +135,18 @@ export const SHARED_TRANSPORT_MATCHERS: ReadonlyArray<TransportMatcher> = [
     pattern: "(?:^|:\\s*)websocket is not open(?:\\s*$|:\\s*readystate\\b)",
     flags: "im",
   },
+  // Issue #346: pi's openai-codex provider over WebSocket reports a
+  // mid-response close as `WebSocket idle timeout after <n>ms` and a
+  // connection failure as `WebSocket connect timeout after <n>ms`; codex
+  // prints `stream disconnected before completion: <cause>` once its own
+  // stream retries run out. `failureFromTerminalError` checks auth and
+  // limit walls before transport, so a codex disconnect whose cause is a
+  // 401 stays auth, not transport.
+  {
+    pattern: "\\bwebsocket (?:idle|connect) timeout after \\d+\\s*ms\\b",
+    flags: "i",
+  },
+  { pattern: "\\bstream disconnected before completion:", flags: "i" },
 ];
 
 export const SHARED_UNAVAILABLE_MATCHERS: ReadonlyArray<UnavailableMatcher> = [

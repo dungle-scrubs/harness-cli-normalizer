@@ -615,6 +615,46 @@ describe("harness fixture replay (F-20)", () => {
     expect(done.failure).toMatchObject({ class: "transport" });
   });
 
+  test("issue #346: pi turn with 'WebSocket idle timeout after <n>ms' errorMessage classifies transport, retryable", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const { piCli } = await import("../../src/knowledge/pi.js");
+    const raw = readFileSync(
+      join(import.meta.dirname, "../fixtures/harnesses/pi-unreachable.ndjson"),
+      "utf8",
+    );
+    // pi's openai-codex provider over WebSocket reports a mid-response
+    // close as `WebSocket idle timeout after <n>ms`; swap the existing
+    // errorMessage for that string and the classifier must surface
+    // transport, not task.
+    const lines = raw
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line !== "")
+      .map((line) =>
+        line.replaceAll(
+          '"errorMessage":"Connection error."',
+          '"errorMessage":"WebSocket idle timeout after 300000ms"',
+        ),
+      );
+    const proc = new FakeProcess();
+    const d = deps(proc);
+    const turn = streamTurn(piCli, { prompt: "hi" }, d);
+    for (const line of lines) proc.emitLine(line);
+    proc.exit(0);
+    const events = await collect(turn);
+    const failures = events.filter((e) => e.kind === "failure");
+    expect(failures).toHaveLength(1);
+    const failure = failures[0] as Extract<HarnessEvent, { kind: "failure" }>;
+    expect(failure).toMatchObject({ class: "transport", retryable: true });
+    expect(failure.message).toBe(
+      "Transport failure (pi turn ended with stopReason error: WebSocket idle timeout after 300000ms) - retry or route to another provider",
+    );
+    const done = events.at(-1) as Extract<HarnessEvent, { kind: "done" }>;
+    expect(done.cause).toBe("failed");
+    expect(done.failure).toMatchObject({ class: "transport" });
+  });
+
   test("pi-noauth yields auth not-logged-in failure and failed done", async () => {
     const { readFileSync } = await import("node:fs");
     const { join } = await import("node:path");

@@ -204,6 +204,31 @@ describe("detectTransportInLine", () => {
     },
     { line: "websocket connection closed unexpectedly", desc: "WS connection closed unexpectedly" },
     { line: "WebSocket is not open", desc: "WS is not open at EOL" },
+    // Issue #346: pi's openai-codex provider over WebSocket reports a
+    // mid-response close as `WebSocket idle timeout after <n>ms` or
+    // `WebSocket connect timeout after <n>ms`; the timeout figure rides
+    // in errorMessage. A leading turn-ended prefix must not change the
+    // classification: failureFromTerminalError sees only the message.
+    {
+      line: "pi turn ended with stopReason error: WebSocket idle timeout after 300000ms",
+      desc: "issue #346: pi WS idle timeout, full pi errorMessage",
+    },
+    {
+      line: "WebSocket idle timeout after 300000ms",
+      desc: "issue #346: WS idle timeout, bare",
+    },
+    {
+      line: "WebSocket connect timeout after 15000ms",
+      desc: "issue #346: WS connect timeout",
+    },
+    // Issue #346: codex prints `stream disconnected before completion:
+    // <cause>` once its own stream retries run out. The colon is the
+    // anchor: an inner cause (auth, network, etc.) rides after it and
+    // `failureFromTerminalError` resolves the more specific class first.
+    {
+      line: "stream disconnected before completion: error sending request for url (https://chatgpt.com/backend-api/codex/responses)",
+      desc: "issue #346: codex stream disconnected with network cause",
+    },
   ];
   test.each(positives)("positive $desc: $line", ({ line }) => {
     expect(detectTransportInLine(line)).toBe(true);
@@ -230,6 +255,11 @@ describe("detectTransportInLine", () => {
     "turn failed: error_max_turns (I did not finish implementing the WebSocket closed handler.)",
     "WebSocket is not open: see docs",
     "I checked that the websocket is not open",
+    // Issue #346: prose that mentions a timeout or a stream disconnect
+    // is not transport. The matcher requires the exact structural phrase
+    // (`... timeout after <digits>ms`, `... before completion:`).
+    "I added a websocket idle timeout setting",
+    "the stream disconnected before completion of the upload",
   ] as const;
   test.each(negatives)("negative %s is not transport", (line) => {
     expect(detectTransportInLine(line)).toBe(false);
