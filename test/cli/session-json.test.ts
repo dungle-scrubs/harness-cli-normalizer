@@ -907,3 +907,33 @@ describe("issue #347: codex crash with no open turn closes crash with the failur
     expect(code).toBe(1);
   });
 });
+
+test("codex dying before identity emits session, one rejected disposition, and closed without a turn", async () => {
+  const r = rig({}, "fresh", codexCli, "codex");
+  await tick();
+  r.send({ op: "send", id: "a", text: "say hi" });
+  await tick();
+  expect(r.proc.stdinLines).toHaveLength(2);
+  r.proc.emitStderr("panicked at config: bridge closed");
+  r.proc.exit(1);
+  r.input.end();
+  expect(await r.done).toBe(1);
+  expect(r.events()).toEqual([
+    expect.objectContaining({ kind: "session" }),
+    expect.objectContaining({
+      kind: "disposition",
+      id: "a",
+      disposition: "rejected",
+      reason: "closed",
+    }),
+    expect.objectContaining({
+      kind: "closed",
+      cause: "crash",
+      exitCode: 1,
+      failure: expect.objectContaining({
+        class: "native",
+        message: expect.stringContaining("panicked at config: bridge closed"),
+      }),
+    }),
+  ]);
+});

@@ -292,8 +292,10 @@ equal to `closed.exitCode`). The four control events that frame the stream:
   refusing `create`) and then exited cleanly; codex rejects the waiting
   send with reason `native-rejected`, and popeye ends the waiting send's
   turn with the failure. A nonzero exit while no turn is open (for example,
-  codex dying before it answers `turn/start`) gets the same stderr-tail
-  classification on `closed.failure`, with cause `crash`. A session turn
+  codex dying before it answers hcn's session open or `turn/start`) reports
+  a failure on `closed.failure`, with cause `crash`. A failure already
+  reported on stderr (an auth or limit wall) wins over the stderr-tail
+  fallback; a limit wall keeps cause `limit`. A session turn
   still open when the harness exits nonzero with no failure already
   recorded and exit cause `crash` falls
   back to the same stderr-tail classification run mode uses (transport,

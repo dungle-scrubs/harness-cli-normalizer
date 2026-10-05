@@ -798,19 +798,20 @@ export const openSession = (
     }
     pendingNativeReceipts.clear();
     if (popeyePending.length > 0) {
-      // No turn exists before identity, so an error routed now would
-      // park in preTurnEvents and die unobserved at close. Open the
-      // turn the first buffered send would have started; endTurn
-      // settles it below with the session's exit cause.
-      if (activeTurn === null) {
-        const first = popeyePending[0];
-        if (first !== undefined) startTurn(first.input.id);
+      const dropped = popeyePending.splice(0);
+      // Popeye already reported started, so its buffered send needs a turn
+      // to carry the failure. Codex receipts were rejected by the sweep above.
+      if (sessionInput.kind === "popeye-rpc-prompt") {
+        if (activeTurn === null) {
+          const first = dropped[0];
+          if (first !== undefined) startTurn(first.input.id);
+        }
+        const ids = dropped.map((pending) => pending.input.id);
+        void routeEvent({
+          kind: "error",
+          message: `${ids.length} buffered send(s) died before session identity: ${ids.join(", ")}`,
+        });
       }
-      const dropped = popeyePending.splice(0).map((pending) => pending.input.id);
-      void routeEvent({
-        kind: "error",
-        message: `${dropped.length} buffered send(s) died before session identity: ${dropped.join(", ")}`,
-      });
     }
     if (pendingIds.length > 0) {
       const droppedIds = [...pendingIds];

@@ -625,3 +625,29 @@ test("a no-turn codex crash does not inherit the completed turn's task failure",
     failure: { class: "transport" },
   });
 });
+
+test("a codex crash before identity rejects its buffered send without yielding a turn", async () => {
+  const proc = new FakeProcess();
+  const logged: Record<string, unknown>[] = [];
+  const session = openSession(
+    codexCli,
+    { sessionId: sid },
+    { ...makeDeps(proc), log: (e) => logged.push(e) },
+  );
+  const send = session.send({ id: "a", text: "say hi" });
+  expect(proc.stdinLines).toHaveLength(2);
+  proc.emitStderr("panicked at config: bridge closed");
+  proc.exit(1);
+  await session.close();
+  expect(await send.settled).toEqual({ disposition: "rejected", reason: "closed" });
+  expect((await session.turns[Symbol.asyncIterator]().next()).done).toBe(true);
+  expect(logged.some((e) => e.event === "sends_dropped")).toBe(false);
+  expect(logged.find((e) => e.event === "session_close")).toMatchObject({
+    cause: "crash",
+    exitCode: 1,
+    failure: {
+      class: "native",
+      message: expect.stringContaining("panicked at config: bridge closed"),
+    },
+  });
+});
