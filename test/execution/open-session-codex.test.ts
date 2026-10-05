@@ -539,3 +539,89 @@ test("an identified popeye session ends a refused prompt with native failure and
   expect(proc.stdinEnded).toBe(true);
   expect((await turns.next()).done).toBe(true);
 });
+
+test("a codex stderr auth wall before turn acceptance closes crash with auth failure", async () => {
+  const proc = new FakeProcess();
+  const logged: Record<string, unknown>[] = [];
+  const session = openSession(
+    codexCli,
+    { sessionId: sid },
+    { ...makeDeps(proc), log: (e) => logged.push(e) },
+  );
+  proc.emitLine(jsonrpc(IDENTITY_PROBE_ID, { thread: { id: THREAD } }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const send = session.send({ id: "a", text: "say hi" });
+  expect(JSON.parse(proc.stdinLines.at(-1) ?? "null")).toMatchObject({ method: "turn/start" });
+  proc.emitStderr("401 Unauthorized");
+  proc.exit(1);
+  await session.close();
+  expect(await send.settled).toEqual({ disposition: "rejected", reason: "closed" });
+  expect((await session.turns[Symbol.asyncIterator]().next()).done).toBe(true);
+  expect(logged.find((e) => e.event === "session_close")).toMatchObject({
+    cause: "crash",
+    exitCode: 1,
+    failure: { class: "auth" },
+  });
+});
+
+test("a codex stderr limit wall before turn acceptance closes limit with usage-limit failure", async () => {
+  const proc = new FakeProcess();
+  const logged: Record<string, unknown>[] = [];
+  const session = openSession(
+    codexCli,
+    { sessionId: sid },
+    { ...makeDeps(proc), log: (e) => logged.push(e) },
+  );
+  proc.emitLine(jsonrpc(IDENTITY_PROBE_ID, { thread: { id: THREAD } }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const send = session.send({ id: "a", text: "say hi" });
+  expect(JSON.parse(proc.stdinLines.at(-1) ?? "null")).toMatchObject({ method: "turn/start" });
+  proc.emitStderr("You have hit your usage limit.");
+  proc.exit(1);
+  await session.close();
+  expect(await send.settled).toEqual({ disposition: "rejected", reason: "closed" });
+  expect((await session.turns[Symbol.asyncIterator]().next()).done).toBe(true);
+  expect(logged.find((e) => e.event === "session_close")).toMatchObject({
+    cause: "limit",
+    exitCode: 1,
+    failure: { class: "usage-limit" },
+  });
+});
+
+test("a no-turn codex crash does not inherit the completed turn's task failure", async () => {
+  const proc = new FakeProcess();
+  const logged: Record<string, unknown>[] = [];
+  const session = openSession(
+    codexCli,
+    { sessionId: sid },
+    { ...makeDeps(proc), log: (e) => logged.push(e) },
+  );
+  proc.emitLine(jsonrpc(IDENTITY_PROBE_ID, { thread: { id: THREAD } }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const first = session.send({ id: "first", text: "do work" });
+  proc.emitLine(jsonrpc(`${SEND_ID}:first`, { turn: { id: TURN } }));
+  expect(await first.settled).toEqual({ disposition: "started" });
+  const turns = session.turns[Symbol.asyncIterator]();
+  const turn = (await turns.next()).value as SessionTurn;
+  proc.emitLine(
+    notification("error", {
+      error: { message: "could not finish work", codexErrorInfo: null },
+      threadId: THREAD,
+      turnId: TURN,
+      willRetry: false,
+    }),
+  );
+  proc.emitLine(turnCompleted("failed"));
+  const events = await drainTurn(turn);
+  expect(events.at(-1)).toMatchObject({ kind: "done", failure: { class: "task" } });
+  const next = session.send({ id: "a", text: "try again" });
+  expect(JSON.parse(proc.stdinLines.at(-1) ?? "null")).toMatchObject({ method: "turn/start" });
+  proc.exit(1);
+  await session.close();
+  expect(await next.settled).toEqual({ disposition: "rejected", reason: "closed" });
+  expect((await turns.next()).done).toBe(true);
+  expect(logged.find((e) => e.event === "session_close")).toMatchObject({
+    cause: "crash",
+    failure: { class: "transport" },
+  });
+});
