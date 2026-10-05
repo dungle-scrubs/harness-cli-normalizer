@@ -852,6 +852,14 @@ export const openSession = (
       if (cause === "crash" && turnFailures.length === 0) {
         void pushFailure(failureFromStderrTail(h, exitCode, stderrTail.snapshot()));
       }
+    } else if (cause === "crash" && sessionFailure === undefined) {
+      // Issue #347: a crash after a send but before the turn open (codex
+      // opens its turn on the turn/start receipt) leaves no hcn turn to
+      // carry the failure. Classify via the stderr tail the same way the
+      // #341 branch does for an open turn, then stash the summary on
+      // sessionFailure so session_close and the CLI's closed event
+      // surface it.
+      sessionFailure = failureFromStderrTail(h, exitCode, stderrTail.snapshot());
     }
     endTurn({ kind: "done", exitCode, cause });
     if (preTurnEvents.some((e) => !DROPPABLE_KINDS.has(e.kind))) {

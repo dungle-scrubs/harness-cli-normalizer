@@ -769,6 +769,47 @@ describe("issue #341: a session turn open when the harness exits nonzero lands a
   });
 });
 
+// Issue #344: pi's prompt was refused natively. The runner ends the turn
+// with done carrying the failure; the CLI sees turn's done, then closed.
+describe("issue #344: a refused pi prompt ends its turn with done then closed exit 0", () => {
+  test("turn ends with done cause failed, closed follows (exit 0)", async () => {
+    const r = rig({}, "fresh", piCli, "pi");
+    await tick();
+    r.send({ op: "send", id: "in-1", text: "say hi" });
+    await tick();
+    // pi answers the prompt with success: false and the No API key error.
+    const promptId = "hcn-send:in-1";
+    r.proc.emitLine(
+      JSON.stringify({
+        command: "prompt",
+        error: "No API key found for the selected model.",
+        id: promptId,
+        success: false,
+        type: "response",
+      }),
+    );
+    await tick();
+    r.input.end();
+    const code = await r.done;
+
+    const evs = r.events();
+    const rejected = evs.find(
+      (e) => e.kind === "disposition" && e.id === "in-1" && e.disposition === "rejected",
+    );
+    expect(rejected).toMatchObject({ reason: "native-rejected" });
+    const failure = evs.find((e) => e.kind === "failure");
+    expect(failure).toMatchObject({ class: "auth", retryable: true });
+    const done = evs.find((e) => e.kind === "done");
+    expect(done).toMatchObject({ cause: "failed" });
+    expect((done as { failure?: { class: string } }).failure).toMatchObject({
+      class: "auth",
+    });
+    const closed = evs.at(-1);
+    expect(closed).toMatchObject({ kind: "closed", exitCode: 0, cause: "clean" });
+    expect(code).toBe(0);
+  });
+});
+
 // Issue #345: codex's identity probe was refused (invalid config.toml).
 // The runner settles the receipt, ends the session on its own, and the CLI
 // emits closed with the failure and cause "failed".
@@ -815,5 +856,53 @@ describe("issue #345: a refused codex identity probe settles the send and closes
     });
     const failureMessage = (closed as { failure?: { message: string } }).failure?.message ?? "";
     expect(failureMessage).toContain(configMessage);
+  });
+});
+
+// Issue #347: codex crashed after a send but before the turn/start
+// receipt. No hcn turn opens. closed carries cause "crash" with the
+// classified failure.
+describe("issue #347: codex crash with no open turn closes crash with the failure", () => {
+  const INITIALIZE_ID = "hcn-initialize";
+  const IDENTITY_PROBE_ID = "hcn-identity";
+  const THREAD = "01a0f0db-4c47-77e1-a299-22e74c5d41df";
+
+  test("stderr + exit 1 -> send rejected closed, closed cause crash with native failure (exit 1)", async () => {
+    const r = rig({}, "fresh", codexCli, "codex");
+    await tick();
+    r.send({ op: "send", id: "a", text: "say hi" });
+    await tick();
+    r.proc.emitLine(
+      JSON.stringify({
+        id: INITIALIZE_ID,
+        result: { userAgent: "hcn/0.9.4" },
+        jsonrpc: "2.0",
+      }),
+    );
+    r.proc.emitLine(
+      JSON.stringify({
+        id: IDENTITY_PROBE_ID,
+        result: { thread: { id: THREAD } },
+        jsonrpc: "2.0",
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 10));
+    r.proc.emitStderr("panicked at config: bridge closed");
+    r.proc.exit(1);
+    await new Promise((r) => setTimeout(r, 10));
+    r.input.end();
+    const code = await r.done;
+
+    const evs = r.events();
+    const rejected = evs.find(
+      (e) => e.kind === "disposition" && e.id === "a" && e.disposition === "rejected",
+    );
+    expect(rejected).toMatchObject({ reason: "closed" });
+    const closed = evs.at(-1);
+    expect(closed).toMatchObject({ kind: "closed", exitCode: 1, cause: "crash" });
+    expect((closed as { failure?: { class: string } }).failure).toMatchObject({
+      class: "native",
+    });
+    expect(code).toBe(1);
   });
 });

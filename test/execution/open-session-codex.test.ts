@@ -424,3 +424,75 @@ describe("issue #345 popeye variant: a refused create leaves the buffered send's
     expect(failure?.class).toBe("native");
   });
 });
+
+// Issue #347: codex crashes after a send but before the turn/start
+// receipt. No hcn turn is open (codex opens its turn on the receipt).
+// session_close used to report cause "crash" with no failure; the fix
+// classifies the crash via the stderr tail and records it as a
+// session-scoped failure.
+describe("issue #347: codex crash with no open turn classifies the exit", () => {
+  test("stderr line + exit 1 before any turn/start response: closed.failure.class is native", async () => {
+    const proc = new FakeProcess();
+    const d = makeDeps(proc);
+    const logged: Record<string, unknown>[] = [];
+    const session = openSession(codexCli, { sessionId: sid }, { ...d, log: (e) => logged.push(e) });
+    const send = session.send({ id: "a", text: "say hi" });
+    expect(send.disposition).toBe("started");
+    // The send is buffered until identity lands: only the probe has been
+    // written.
+    expect(proc.stdinLines).toHaveLength(2);
+
+    // Identity settles; the buffered send flushes a turn/start, then the
+    // harness dies before the receipt arrives.
+    proc.emitLine(jsonrpc(INITIALIZE_ID, { userAgent: "hcn/0.9.4" }));
+    proc.emitLine(jsonrpc(IDENTITY_PROBE_ID, { thread: { id: THREAD } }));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(proc.stdinLines).toHaveLength(3); // probe + flushed turn/start
+    proc.emitStderr("panicked at config: bridge closed");
+    proc.exit(1);
+    await proc.exited;
+    await new Promise((r) => setTimeout(r, 10));
+
+    const settled = await send.settled;
+    expect(settled).toMatchObject({ disposition: "rejected", reason: "closed" });
+
+    const close = logged.find((e) => e.event === "session_close");
+    expect(close).toMatchObject({ cause: "crash", exitCode: 1 });
+    const failure = (close as { failure?: { class: string; message: string } })?.failure;
+    expect(failure?.class).toBe("native");
+    expect(failure?.message).toContain("panicked at config: bridge closed");
+  });
+
+  test("empty stderr + nonzero exit with no open turn: closed.failure.class is transport", async () => {
+    const proc = new FakeProcess();
+    const d = makeDeps(proc);
+    const logged: Record<string, unknown>[] = [];
+    const session = openSession(codexCli, { sessionId: sid }, { ...d, log: (e) => logged.push(e) });
+    session.send({ id: "a", text: "say hi" });
+    proc.emitLine(jsonrpc(INITIALIZE_ID, { userAgent: "hcn/0.9.4" }));
+    proc.emitLine(jsonrpc(IDENTITY_PROBE_ID, { thread: { id: THREAD } }));
+    await new Promise((r) => setTimeout(r, 10));
+    proc.exit(1);
+    await proc.exited;
+    await new Promise((r) => setTimeout(r, 10));
+
+    const close = logged.find((e) => e.event === "session_close");
+    expect(close).toMatchObject({ cause: "crash", exitCode: 1 });
+    const failure = (close as { failure?: { class: string } })?.failure;
+    expect(failure?.class).toBe("transport");
+  });
+
+  test("exit 0 with no turn and no refusal: no session_failure recorded", async () => {
+    const proc = new FakeProcess();
+    const d = makeDeps(proc);
+    const logged: Record<string, unknown>[] = [];
+    openSession(codexCli, { sessionId: sid }, { ...d, log: (e) => logged.push(e) });
+    proc.exit(0);
+    await proc.exited;
+    await new Promise((r) => setTimeout(r, 10));
+
+    const close = logged.find((e) => e.event === "session_close");
+    expect(close?.cause).toBe("clean");
+    expect((close as { failure?: unknown })?.failure).toBeUndefined();
+  });
+});
