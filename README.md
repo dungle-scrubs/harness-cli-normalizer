@@ -287,13 +287,15 @@ equal to `closed.exitCode`). The four control events that frame the stream:
 - `closed.cause` is one of `clean`, `limit`, `crash`, `stall`, `killed`,
   `failed`. `closed.failure` carries the reduced `FailureSummary` when the
   cause is not clean and a failure was seen. `awaiting-input` ends a turn,
-  never a session. `failed` is the cause for a refused session open - the
-  harness answered hcn's identity probe with an error (a `thread/start`
-  `-32600` on codex, a refused `create` on popeye, a refused
-  `--session-id` on pi) and no hcn turn ever opened; the same summary is
-  also reported when a session has no open turn and the harness crashes
-  before one is created. A session turn still open when the harness exits
-  nonzero with no failure already recorded and exit cause `crash` falls
+  never a session. `failed` is the cause when the harness refused hcn's
+  session open (codex answering `thread/start` with an error, popeye
+  refusing `create`) and then exited cleanly; codex rejects the waiting
+  send with reason `native-rejected`, and popeye ends the waiting send's
+  turn with the failure. A nonzero exit while no turn is open (for example,
+  codex dying before it answers `turn/start`) gets the same stderr-tail
+  classification on `closed.failure`, with cause `crash`. A session turn
+  still open when the harness exits nonzero with no failure already
+  recorded and exit cause `crash` falls
   back to the same stderr-tail classification run mode uses (transport,
   unavailable, then trust phrasings first; otherwise `native` with the
   tail; `transport` on an empty tail), and the failure event lands inside

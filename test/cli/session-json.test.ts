@@ -842,7 +842,8 @@ describe("issue #345: a refused codex identity probe settles the send and closes
     await tick();
     await new Promise((r) => setTimeout(r, 10));
     r.proc.exit(0);
-    await r.done;
+    const code = await r.done;
+    expect(code).toBe(1);
 
     const evs = r.events();
     const rejected = evs.find(

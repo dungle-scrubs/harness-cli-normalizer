@@ -416,8 +416,19 @@ describe("issue #345 popeye variant: a refused create leaves the buffered send's
     await proc.exited;
     await new Promise((r) => setTimeout(r, 10));
 
-    // popeyePending opens the buffered send's turn; the failure parked in
-    // preTurnEvents flushes into it.
+    const turns = session.turns[Symbol.asyncIterator]();
+    const turn = (await turns.next()).value as SessionTurn;
+    expect(turn.inputId).toBe("a");
+    const events: HarnessEvent[] = [];
+    for await (const event of turn) events.push(event);
+    expect(events.find((event) => event.kind === "error")).toMatchObject({
+      message: expect.stringContaining("config.toml parse error"),
+    });
+    expect(events.find((event) => event.kind === "failure")).toMatchObject({ class: "native" });
+    expect(events.at(-1)).toMatchObject({
+      kind: "done",
+      failure: expect.objectContaining({ class: "native" }),
+    });
     const close = logged.find((e) => e.event === "session_close");
     expect(close).toMatchObject({ cause: "failed", exitCode: 0 });
     const failure = (close as { failure?: { class: string } })?.failure;

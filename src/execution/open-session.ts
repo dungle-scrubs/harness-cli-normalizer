@@ -272,10 +272,8 @@ export const openSession = (
   // A stall killed the process on purpose, so the signal death it caused
   // reports as "stall", not "killed".
   let stalled = false;
-  // Issues #344 / #345 / #347: a session-scoped failure with no turn to
-  // carry it. First wins (later sources do not overwrite an already-recorded
-  // verdict). finalize copies it onto session_close and surfaces it on the
-  // terminal `closed` event the CLI emits.
+  // A refused session open (#345) or a crash with no open turn (#347)
+  // has no turn to carry its failure. First wins; session_close carries it.
   let sessionFailure: FailureSummary | undefined;
 
   // The supervisor spans the session; each turn begins and ends on it. A
@@ -646,16 +644,12 @@ export const openSession = (
           return;
         case "probe-failed": {
           await routeEvent({ kind: "error", message: record.message });
-          const failure = failureFromNativeRejection(h, record.message, deps.clock);
-          if (sessionFailure === undefined) sessionFailure = failure;
-          await pushFailure(failure);
-          // The session never minted an identity; buffered sends (the
-          // ones the harness would have replied with a thread/session id
-          // for) are stranded. Codex settles each receipt and removes
-          // them from popeyePending so finalize does not open a phantom
-          // turn for them; popeye leaves them parked so the first
-          // buffered send's turn carries the failure and the error.
           if (buffersSendsBeforeIdentity(sessionInput)) {
+            const failure = failureFromNativeRejection(h, record.message, deps.clock);
+            if (sessionFailure === undefined) sessionFailure = failure;
+            await pushFailure(failure);
+            // Codex rejects stranded sends without opening a phantom turn;
+            // popeye keeps them so the first turn carries the refusal.
             if (sessionInput.kind === "codex-jsonrpc") {
               for (const pending of popeyePending.splice(0)) {
                 const settle = pendingNativeReceipts.get(pending.input.id);

@@ -18,12 +18,8 @@ import {
 } from "../execution/open-session.js";
 import { composeAnswer, type QuestionMode } from "../interpretation/question.js";
 
-/** What the CLI reads back after a close, captured from the runner's
- * `session_close` boundary log. `failure` is the session-scoped summary
- * the runner records when a refused session open, a refused prompt that
- * ended a turn with no failure seen, or a crash with no open turn left
- * the session without a turn to carry the verdict. The terminal `closed`
- * event copies it onto the wire (see `runJsonSession`). */
+/** Captured from `session_close`: a refused session open (#345) or a crash
+ * with no open turn (#347) leaves a session failure for `closed` to carry. */
 export interface CloseInfo {
   exitCode: number | null;
   cause: string;
@@ -256,12 +252,7 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
   }
 
   const info = a.getCloseInfo();
-  // The session-scoped failure (a refused session open, a refused prompt
-  // that ended the turn, or a crash with no open turn) wins over the
-  // turn's lastFailure: it is the runner's own verdict, and consumers
-  // need it surfaced even when a downstream turn happened to see one
-  // too. When the runner did not record a session failure, fall back to
-  // the last failure the turns emitted.
+  // The session failure wins over the last turn failure.
   const failure: FailureSummary | undefined = info.failure ?? lastFailure;
   await emit({
     kind: "closed",

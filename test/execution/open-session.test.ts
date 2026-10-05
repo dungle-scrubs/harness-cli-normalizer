@@ -773,6 +773,51 @@ describe("openSession memory dimension (ratified 2026-08-26)", () => {
   });
 });
 
+test("a pi probe without a session id leaves the next turn and session clean", async () => {
+  const proc = new FakeProcess();
+  const logged: Record<string, unknown>[] = [];
+  const session = openSession(
+    piCli,
+    { sessionId: sid },
+    {
+      ...makeDeps(proc),
+      log: (event) => logged.push(event),
+    },
+  );
+  proc.emitLine(
+    JSON.stringify({
+      id: "hcn-identity",
+      type: "response",
+      command: "get_state",
+      success: true,
+      data: { messageCount: 0 },
+    }),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  session.send({ id: "a", text: "say hi" });
+  const turns = session.turns[Symbol.asyncIterator]();
+  const turn = (await turns.next()).value as AsyncIterable<HarnessEvent>;
+  proc.emitLine(
+    JSON.stringify({
+      id: "hcn-send:a",
+      type: "response",
+      command: "prompt",
+      success: true,
+    }),
+  );
+  proc.emitLine(JSON.stringify({ type: "agent_settled" }));
+  const events = await drainTurn(turn);
+  expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+  expect(events.at(-1)).not.toHaveProperty("failure");
+  expect(events.filter((event) => event.kind === "failure")).toEqual([]);
+  const closing = session.close();
+  proc.exit(0);
+  await closing;
+  const close = logged.find((event) => event.event === "session_close");
+  expect(close).toMatchObject({ exitCode: 0, cause: "clean" });
+  expect(close).not.toHaveProperty("failure");
+});
+
 // Issue #344: pi refused a prompt natively (no API key). The runner used to
 // settle the disposition and route an error but leave the turn open, so
 // close() waited forever. The fix ends the turn: a done with cause failed
