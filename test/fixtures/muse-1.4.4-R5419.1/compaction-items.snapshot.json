@@ -1,0 +1,17 @@
+[
+  {
+    "itemId": "a709b8ca-38e1-4019-81ce-76f8c78305b9",
+    "kind": "compaction",
+    "turnId": "4fef3263-9f53-42be-93e3-93a76239f9d2",
+    "revision": 2,
+    "status": "completed",
+    "recordedAt": "2026-10-10T01:00:36.510023Z",
+    "fallbackText": "Context compaction",
+    "outcome": "compacted",
+    "trigger": "auto",
+    "strategyId": "summary-preserved-suffix/v1",
+    "summarizedThrough": "run:4fef3263-9f53-42be-93e3-93a76239f9d2:seq:29",
+    "tokensBefore": 170718,
+    "tokensAfter": 25861
+  }
+]
