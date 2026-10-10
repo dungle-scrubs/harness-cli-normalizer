@@ -28,7 +28,7 @@ jobs:
           persist-credentials: false
           ref: ${{ github.event.release.tag_name || inputs.tag }}
 
-      - uses: pnpm/setup@v2
+      - uses: pnpm/setup@v3
         with:
           cache: false
           install: false
