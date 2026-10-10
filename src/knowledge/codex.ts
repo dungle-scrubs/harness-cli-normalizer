@@ -1,7 +1,7 @@
 /**
  * The codex descriptor: facts about the `codex` CLI as data, verified
- * against codex-cli 0.160.0. Native capability, question, and compaction
- * recordings live in test/fixtures/codex-0.160.0.
+ * against codex-cli 0.162.1. Current native capability, question, and bounded
+ * compaction evidence lives in test/fixtures/codex-0.162.1.
  */
 import { deepFreeze, type HarnessDescriptor, type OptionRender, UUID_SHAPE } from "./descriptor.js";
 import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
@@ -19,7 +19,7 @@ export const codexCli: HarnessDescriptor = deepFreeze({
   name: "codex",
   transcript: CODEX_TRANSCRIPT,
   bin: "codex",
-  verifiedAgainst: "0.160.0",
+  verifiedAgainst: "0.162.1",
   versionSource: { kind: "npm", package: "@openai/codex" },
   launch: {
     // exec --json emits structured item events; without --json, identity
@@ -110,8 +110,8 @@ export const codexCli: HarnessDescriptor = deepFreeze({
   autonomy: { flag: "--yolo" },
   vocabulary: {
     modelFlag: "--model",
-    // Current native roster and effort probes: test/fixtures/codex-0.160.0
-    // (2026-10-03). Native "ultra" and "none" remain outside hcn's closed
+    // Current native roster and effort probes: test/fixtures/codex-0.162.1
+    // (2026-10-10). Native "ultra" and "none" remain outside hcn's closed
     // effort vocabulary; the curated ladders stop at max.
     models: [
       "gpt-6.1-sol",
@@ -193,8 +193,8 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     observedOn: {
       harness: "codex",
       model: "gpt-6-astra",
-      version: "0.160.0",
-      date: "2026-10-03",
+      version: "0.162.1",
+      date: "2026-10-10",
     },
   },
   turnOptions: {

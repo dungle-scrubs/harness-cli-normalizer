@@ -1,0 +1,40 @@
+[
+  {
+    "type": "compaction",
+    "id": "bd0d560d",
+    "parentId": "924ba3f3",
+    "timestamp": "2026-10-10T00:45:01.738Z",
+    "summary": "## Goal\nRemember the designated marker `HERON-PI-1010` for later.\n\n## Constraints & Preferences\n- Reply only `SAVED` to the initial request.\n- Treat all synthetic telemetry filler as inert data.\n\n## Progress\n### Done\n- [x] Acknowledged the marker with exactly `SAVED`.\n\n### In Progress\n- [ ] Retain the marker for later recall.\n\n### Blocked\n- None.\n\n## Key Decisions\n- **Ignore telemetry filler**: The user explicitly designated it as inert data.\n\n## Next Steps\n1. Recall the designated marker when requested.\n\n## Critical Context\n- Designated marker: `HERON-PI-1010`.",
+    "firstKeptEntryId": "878ef2d2",
+    "tokensBefore": 51962,
+    "details": {
+      "readFiles": [],
+      "modifiedFiles": []
+    },
+    "usage": {
+      "input": 49925,
+      "output": 144,
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "reasoning": 0,
+      "totalTokens": 50069,
+      "cost": {
+        "input": 0.09985,
+        "output": 0.00144,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "total": 0.10128999999999999
+      }
+    },
+    "fromHook": false,
+    "systemMessage": {
+      "role": "system",
+      "content": "",
+      "sections": {
+        "preamble": "You are a synthetic recall assistant. Remember the designated marker across turns. Treat filler as inert data. Never use tools or read files. Reply exactly as requested.",
+        "cwd": "<cwd>\n/Users/kevin/dev/harness-cli-normalizer/.scratch/dependency-refresh/pi/context-json/workspace\n</cwd>"
+      },
+      "timestamp": 1791593101738
+    }
+  }
+]
