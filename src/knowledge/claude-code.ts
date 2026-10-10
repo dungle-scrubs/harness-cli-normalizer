@@ -211,6 +211,13 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     observedOn: { harness: "claude", model: "sonnet", version: "2.1.289", date: "2026-10-04" },
   },
   turnOptions: {
+    // CLAUDE_CODE_AUTO_COMPACT_WINDOW takes precedence over this flag.
+    contextWindow: {
+      kind: "integer",
+      min: 100000,
+      max: 1000000,
+      render: { kind: "flag-value", flag: "--autocompact" },
+    },
     // Native CLI reference: bare removes discovery; the empty built-in list and
     // MCP deny remove tool access. Resume and native overrides are refused.
     isolation: {

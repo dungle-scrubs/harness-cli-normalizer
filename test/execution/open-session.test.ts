@@ -82,6 +82,35 @@ describe("openSession effort (claude, fake process)", () => {
   });
 });
 
+describe("openSession context window (claude, fake process)", () => {
+  test("explicit values reach fresh and resumed spawns, including both bounds", () => {
+    for (const isResume of [false, true]) {
+      for (const contextWindow of [100000, 150000, 1000000]) {
+        const d = makeDeps(new FakeProcess());
+        openSession(claudeCode, { sessionId: sid, contextWindow, isResume }, d);
+        expect(d.spawner.calls).toHaveLength(1);
+        const argv = d.spawner.calls[0]?.argv ?? [];
+        expect(argv).toContain("--autocompact");
+        expect(argv[argv.indexOf("--autocompact") + 1]).toBe(String(contextWindow));
+      }
+    }
+  });
+
+  test("an omitted window leaves the native default unchanged", () => {
+    const d = makeDeps(new FakeProcess());
+    openSession(claudeCode, { sessionId: sid }, d);
+    expect(d.spawner.calls[0]?.argv).not.toContain("--autocompact");
+  });
+
+  test("invalid windows refuse without spawning a process", () => {
+    for (const contextWindow of [99999, 1000001, 1.5, Number.NaN]) {
+      const d = makeDeps(new FakeProcess());
+      expect(() => openSession(claudeCode, { sessionId: sid, contextWindow }, d)).toThrow();
+      expect(d.spawner.calls).toHaveLength(0);
+    }
+  });
+});
+
 describe("openSession skills (#332, fake process)", () => {
   test("the allowlist rides the one session spawn argv; sends still work after", async () => {
     const proc = new FakeProcess();

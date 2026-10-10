@@ -14,7 +14,9 @@ import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
 import { cursorCli } from "../../src/knowledge/cursor.js";
 import { museCode } from "../../src/knowledge/muse.js";
+import { parseOverrides } from "../../src/knowledge/overrides.js";
 import { piCli } from "../../src/knowledge/pi.js";
+import { popeyeCli } from "../../src/knowledge/popeye.js";
 import { DEFAULT_TURN_PROFILE } from "../../src/knowledge/profile.js";
 
 const base: TurnOptions = { prompt: "hi" };
@@ -337,6 +339,59 @@ describe("discovery.tools off suppresses all-known expansion", () => {
       undefined,
     );
     expect(r.options.tools).toEqual(["read"]);
+  });
+});
+
+describe("claude contextWindow profile exemption", () => {
+  it("profile 272000 does not transfer to an --autocompact threshold; no divergence", () => {
+    const r = resolveEffectiveOptions(claudeCode, base, undefined);
+    expect(r.options.contextWindow).toBeUndefined();
+    expect(r.unrenderable).not.toContainEqual({ key: "contextWindow", tier: "profile" });
+    expect(r.provenance).toContainEqual({
+      key: "contextWindow",
+      value: "none (native auto-compaction threshold keeps its harness default)",
+      tier: "harness",
+    });
+  });
+
+  it("arg and config tiers still apply on the same harness", () => {
+    const arg = resolveEffectiveOptions(claudeCode, { ...base, contextWindow: 150000 }, undefined);
+    expect(arg.options.contextWindow).toBe(150000);
+    const cfg = resolveEffectiveOptions(claudeCode, base, { user: { contextWindow: 400000 } });
+    expect(cfg.options.contextWindow).toBe(400000);
+    expect(cfg.provenance).toContainEqual({
+      key: "contextWindow",
+      value: 400000,
+      tier: "user-config",
+    });
+  });
+
+  it("keeps the native default when a descriptor override changes the flag spelling", () => {
+    const overridden = parseOverrides(
+      JSON.stringify({
+        claude: {
+          turnOptions: {
+            contextWindow: { render: { flag: "--renamed-autocompact" } },
+          },
+        },
+      }),
+      "test-override.json",
+    ).claude;
+    if (overridden === undefined) throw new Error("Claude descriptor missing from override result");
+    expect(overridden.turnOptions.contextWindow).toMatchObject({
+      kind: "integer",
+      render: { kind: "flag-value", flag: "--renamed-autocompact" },
+    });
+    const r = resolveEffectiveOptions(overridden, base, undefined);
+    expect(r.options.contextWindow).toBeUndefined();
+    expect(r.unrenderable).not.toContainEqual({ key: "contextWindow", tier: "profile" });
+  });
+
+  it("codex and popeye keep the profile window", () => {
+    const rc = resolveEffectiveOptions(codexCli, base, undefined);
+    expect(rc.options.contextWindow).toBe(272000);
+    const rp = resolveEffectiveOptions(popeyeCli, base, undefined);
+    expect(rp.options.contextWindow).toBe(272000);
   });
 });
 

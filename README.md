@@ -511,7 +511,7 @@ support; its native 10MB input cap still applies.
 | `--model <id>` | `model` | Validated via `validateModel` |
 | `--effort <value>` | `effort` | Validated via `validateEffort` |
 | `--sandbox <value>` | `sandbox` | Codex; Antigravity accepts normalized `workspace-write` and renders its boolean `--sandbox` flag |
-| `--context-window <tokens>` | `contextWindow` | Codex, integer 1-272000; launch default 272000 |
+| `--context-window <tokens>` | `contextWindow` | Codex, integer 1-272000 (launch default 272000); Popeye 1-10000000; Claude 100000-1000000 as native `--autocompact` (auto-compact window, no launch default). Session spawns accept explicit flags only |
 | `--provider <value>` | `provider` | pi only |
 | `--agent <name>` | `agent` | Select a named agent the harness defines natively - hcn selects among them, never defines them. claude, antigravity, and popeye (native `--agent`); pi is **extension-registered** (ADR 0010): its subagent extension provides the flag, hcn verifies with a runtime probe before spawn (`extension-option-unavailable` refusal names the extension when it is absent; one provenance line on a verified pass), and `inspect pi --runtime` answers for the machine; codex, muse, and cursor refuse before spawn. An unknown name is the harness's own native error (antigravity and pi tolerate one and continue with a warning; claude and popeye reject with a typed error); no harness exposes a stable machine roster, so hcn does not validate the name beyond the selector rule. Rendered on session spawn and on resume as well (probed: claude `--resume`, antigravity `--conversation`) |
 | `--tools <a,b>` | `tools` | Canonical names (read, write, edit, shell, grep, glob, list, web-fetch, web-search, subagent, skill); `native:<name>` passes a harness-native or extension tool through. Per-tool allowlist; claude and pi (pi strict, claude via grant + deny-complement). A bare name matching a configured toolset expands to it |
@@ -586,8 +586,10 @@ args  >  .hcn/config.json (git root, auto-discovered)  >  ~/.config/hcn/config.j
 The built-in profile pins the ratified defaults: effort `medium` (the only
 value in all five uniform ladders; profile-tier effort reports divergence on
 cursor, whose ladders are per-family), sandbox `workspace-write` (codex and
-Antigravity; reported as divergence elsewhere), context window `272000` (codex-only; divergence
-elsewhere), discovery fully on, autonomy off, memory off. A dimension a
+Antigravity; reported as divergence elsewhere), context window `272000`
+(codex and popeye; Claude keeps its native auto-compaction default;
+other harnesses report divergence),
+discovery fully on, autonomy off, memory off. A dimension a
 harness cannot express is reported as divergence, never a silent skip and
 never a refusal. Resume turns bypass turn-option resolution and pass explicit
 turn options. Omitted settings follow the native harness's resume behavior;
@@ -612,10 +614,22 @@ that machine or repo. Native memory settings still apply:
 Codex callers can set `"contextWindow": 100000` in either config file or
 pass `--context-window 100000`. The range is 1-272000 tokens. hcn renders
 the numeric Codex override `-c model_context_window=272000` for a bare
-launch. Resume applies only an explicit flag, without profile or config
-defaults. Codex owns automatic compaction; this setting is not a hard
-per-request token or billing limit. A large prompt or tool result can
-exceed the configured window before compaction. Native arguments after
+launch. Claude accepts the same flag and config key at 100000-1000000
+and renders native `--autocompact <tokens>`, an auto-compact window.
+Without a flag or config value, hcn leaves Claude's native default intact.
+The shared config key applies to Claude too; values below 100000 refuse.
+`CLAUDE_CODE_AUTO_COMPACT_WINDOW` overrides that native flag;
+Claude also provides `DISABLE_AUTO_COMPACT` and `DISABLE_COMPACT` controls;
+their interaction with this flag was not tested. The actual compaction trigger
+can depend on other native controls, including `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`.
+Claude caps the supplied window
+at the selected model's actual window; hcn forwards the requested value.
+Native flag acceptance was checked with Claude Code 2.1.296; the earliest
+supporting release is not established.
+Resume and `hcn session` spawns apply only an explicit flag, without
+profile or config defaults. Each harness owns automatic compaction;
+these settings are not hard per-request token or billing limits. A large
+prompt or tool result can exceed the configured window before compaction. Native arguments after
 `--` can also override it. See the [Codex config reference](https://developers.openai.com/codex/config-reference).
 
 Project config (`.hcn/config.json` at the git root, code-reviewed with the

@@ -122,6 +122,7 @@
           "harness": "claude",
           "option": "sandbox",
           "supported": [
+            "contextWindow",
             "isolation",
             "effort",
             "systemPrompt",
@@ -142,36 +143,21 @@
             }
           ],
           "hint": "claude has no sandbox modes; approximate with a per-tool allowlist (--tools Read,Bash) or --disallowedTools to keep tools out, and run untrusted work in a disposable directory or container",
-          "message": "claude cannot express option \"sandbox\" (read-only); supported: isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"sandbox\" (read-only); supported: contextWindow, isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "context-window": {
-        "refusal": {
-          "issue": "unsupported-option",
-          "harness": "claude",
-          "option": "contextWindow",
-          "supported": [
-            "isolation",
-            "effort",
-            "systemPrompt",
-            "appendSystemPrompt",
-            "agent",
-            "discovery",
-            "access",
-            "memory"
-          ],
-          "supportedBy": [
-            {
-              "harness": "codex",
-              "spelling": "-c"
-            },
-            {
-              "harness": "popeye",
-              "spelling": "--context-window"
-            }
-          ],
-          "message": "claude cannot express option \"contextWindow\" (100000); supported: isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
-        }
+        "argv": [
+          "claude",
+          "-p",
+          "--autocompact",
+          "100000",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--verbose",
+          "--include-partial-messages"
+        ]
       },
       "provider": {
         "refusal": {
@@ -179,6 +165,7 @@
           "harness": "claude",
           "option": "provider",
           "supported": [
+            "contextWindow",
             "isolation",
             "effort",
             "systemPrompt",
@@ -195,7 +182,7 @@
             }
           ],
           "hint": "claude routes models through Anthropic only (Bedrock/Vertex via settings); use --model to pick within it - there is no separate provider selector",
-          "message": "claude cannot express option \"provider\" (zai); supported: isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"provider\" (zai); supported: contextWindow, isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "agent": {
@@ -281,6 +268,7 @@
           "harness": "claude",
           "option": "write",
           "supported": [
+            "contextWindow",
             "isolation",
             "effort",
             "systemPrompt",
@@ -297,7 +285,7 @@
             }
           ],
           "hint": "claude has no write toggle; keep the Write tool out with --tools that omits it, or --disallowedTools Write for the deny-complement spelling",
-          "message": "claude cannot express option \"write\" (false); supported: isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"write\" (false); supported: contextWindow, isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "shell-off": {
@@ -306,6 +294,7 @@
           "harness": "claude",
           "option": "shell",
           "supported": [
+            "contextWindow",
             "isolation",
             "effort",
             "systemPrompt",
@@ -322,7 +311,7 @@
             }
           ],
           "hint": "claude has no shell toggle; disallow the Bash tool (--tools without Bash, or --disallowedTools Bash) and note Monitor can still run commands in headless runs",
-          "message": "claude cannot express option \"shell\" (false); supported: isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"shell\" (false); supported: contextWindow, isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "max-steps": {
@@ -331,6 +320,7 @@
           "harness": "claude",
           "option": "maxSteps",
           "supported": [
+            "contextWindow",
             "isolation",
             "effort",
             "systemPrompt",
@@ -347,7 +337,7 @@
             }
           ],
           "hint": "claude has no step cap flag; bound the work in the prompt (task size, 'stop after N operations') or impose a wall-clock timeout at the caller",
-          "message": "claude cannot express option \"maxSteps\" (5); supported: isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"maxSteps\" (5); supported: contextWindow, isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "system-prompt": {
@@ -1396,6 +1386,10 @@
           ],
           "supportedBy": [
             {
+              "harness": "claude",
+              "spelling": "--autocompact"
+            },
+            {
               "harness": "codex",
               "spelling": "-c"
             },
@@ -1918,6 +1912,10 @@
             "access"
           ],
           "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--autocompact"
+            },
             {
               "harness": "codex",
               "spelling": "-c"
@@ -2705,6 +2703,10 @@
           ],
           "supportedBy": [
             {
+              "harness": "claude",
+              "spelling": "--autocompact"
+            },
+            {
               "harness": "codex",
               "spelling": "-c"
             },
@@ -3296,6 +3298,10 @@
             "sandbox"
           ],
           "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--autocompact"
+            },
             {
               "harness": "codex",
               "spelling": "-c"
@@ -4348,6 +4354,7 @@
           "option": "isolation",
           "supported": [
             "effort",
+            "contextWindow",
             "discovery",
             "memory",
             "systemPrompt",
@@ -4355,7 +4362,7 @@
             "access",
             "agent"
           ],
-          "message": "\"isolation\" cannot be expressed on resume for claude; supported: effort, discovery, memory, systemPrompt, appendSystemPrompt, access, agent - re-launch instead of resuming or drop the option"
+          "message": "\"isolation\" cannot be expressed on resume for claude; supported: effort, contextWindow, discovery, memory, systemPrompt, appendSystemPrompt, access, agent - re-launch instead of resuming or drop the option"
         }
       },
       "tool-free-conflict": {
@@ -4457,6 +4464,7 @@
           "harness": "claude",
           "option": "sandbox",
           "supported": [
+            "contextWindow",
             "isolation",
             "effort",
             "systemPrompt",
@@ -4477,36 +4485,23 @@
             }
           ],
           "hint": "claude has no sandbox modes; approximate with a per-tool allowlist (--tools Read,Bash) or --disallowedTools to keep tools out, and run untrusted work in a disposable directory or container",
-          "message": "claude cannot express option \"sandbox\" (read-only); supported: isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"sandbox\" (read-only); supported: contextWindow, isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "context-window": {
-        "refusal": {
-          "issue": "unsupported-option",
-          "harness": "claude",
-          "option": "contextWindow",
-          "supported": [
-            "isolation",
-            "effort",
-            "systemPrompt",
-            "appendSystemPrompt",
-            "agent",
-            "discovery",
-            "access",
-            "memory"
-          ],
-          "supportedBy": [
-            {
-              "harness": "codex",
-              "spelling": "-c"
-            },
-            {
-              "harness": "popeye",
-              "spelling": "--context-window"
-            }
-          ],
-          "message": "claude cannot express option \"contextWindow\" (100000); supported: isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
-        }
+        "argv": [
+          "claude",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "--autocompact",
+          "100000",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--verbose",
+          "--include-partial-messages"
+        ]
       },
       "provider": {
         "refusal": {
@@ -4514,6 +4509,7 @@
           "harness": "claude",
           "option": "provider",
           "supported": [
+            "contextWindow",
             "isolation",
             "effort",
             "systemPrompt",
@@ -4530,7 +4526,7 @@
             }
           ],
           "hint": "claude routes models through Anthropic only (Bedrock/Vertex via settings); use --model to pick within it - there is no separate provider selector",
-          "message": "claude cannot express option \"provider\" (zai); supported: isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"provider\" (zai); supported: contextWindow, isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "agent": {
@@ -4624,6 +4620,7 @@
           "harness": "claude",
           "option": "write",
           "supported": [
+            "contextWindow",
             "isolation",
             "effort",
             "systemPrompt",
@@ -4640,7 +4637,7 @@
             }
           ],
           "hint": "claude has no write toggle; keep the Write tool out with --tools that omits it, or --disallowedTools Write for the deny-complement spelling",
-          "message": "claude cannot express option \"write\" (false); supported: isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"write\" (false); supported: contextWindow, isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "shell-off": {
@@ -4649,6 +4646,7 @@
           "harness": "claude",
           "option": "shell",
           "supported": [
+            "contextWindow",
             "isolation",
             "effort",
             "systemPrompt",
@@ -4665,7 +4663,7 @@
             }
           ],
           "hint": "claude has no shell toggle; disallow the Bash tool (--tools without Bash, or --disallowedTools Bash) and note Monitor can still run commands in headless runs",
-          "message": "claude cannot express option \"shell\" (false); supported: isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"shell\" (false); supported: contextWindow, isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "max-steps": {
@@ -4674,6 +4672,7 @@
           "harness": "claude",
           "option": "maxSteps",
           "supported": [
+            "contextWindow",
             "isolation",
             "effort",
             "systemPrompt",
@@ -4690,7 +4689,7 @@
             }
           ],
           "hint": "claude has no step cap flag; bound the work in the prompt (task size, 'stop after N operations') or impose a wall-clock timeout at the caller",
-          "message": "claude cannot express option \"maxSteps\" (5); supported: isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"maxSteps\" (5); supported: contextWindow, isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
       "system-prompt": {
@@ -5781,6 +5780,10 @@
           ],
           "supportedBy": [
             {
+              "harness": "claude",
+              "spelling": "--autocompact"
+            },
+            {
               "harness": "codex",
               "spelling": "-c"
             },
@@ -6347,6 +6350,10 @@
             "access"
           ],
           "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--autocompact"
+            },
             {
               "harness": "codex",
               "spelling": "-c"
@@ -7166,6 +7173,10 @@
           ],
           "supportedBy": [
             {
+              "harness": "claude",
+              "spelling": "--autocompact"
+            },
+            {
               "harness": "codex",
               "spelling": "-c"
             },
@@ -7773,6 +7784,10 @@
             "sandbox"
           ],
           "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--autocompact"
+            },
             {
               "harness": "codex",
               "spelling": "-c"
@@ -8913,6 +8928,7 @@
           "option": "isolation",
           "supported": [
             "effort",
+            "contextWindow",
             "discovery",
             "memory",
             "systemPrompt",
@@ -8920,7 +8936,7 @@
             "access",
             "agent"
           ],
-          "message": "\"isolation\" cannot be expressed on resume for claude; supported: effort, discovery, memory, systemPrompt, appendSystemPrompt, access, agent - re-launch instead of resuming or drop the option"
+          "message": "\"isolation\" cannot be expressed on resume for claude; supported: effort, contextWindow, discovery, memory, systemPrompt, appendSystemPrompt, access, agent - re-launch instead of resuming or drop the option"
         }
       },
       "id-and-last-refuse": {
@@ -9628,6 +9644,7 @@
           "harness": "claude",
           "option": "provider",
           "supported": [
+            "contextWindow",
             "isolation",
             "effort",
             "systemPrompt",
@@ -9644,8 +9661,26 @@
             }
           ],
           "hint": "claude routes models through Anthropic only (Bedrock/Vertex via settings); use --model to pick within it - there is no separate provider selector",
-          "message": "claude cannot express option \"provider\" (zai); supported: isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
+          "message": "claude cannot express option \"provider\" (zai); supported: contextWindow, isolation, effort, systemPrompt, appendSystemPrompt, agent, discovery, access, memory - drop the option or route this work to a harness that supports it"
         }
+      },
+      "context-window": {
+        "argv": [
+          "claude",
+          "-p",
+          "--input-format",
+          "stream-json",
+          "--output-format",
+          "stream-json",
+          "--include-partial-messages",
+          "--verbose",
+          "--setting-sources",
+          "project",
+          "--session-id",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "--autocompact",
+          "100000"
+        ]
       },
       "resume": {
         "argv": [
@@ -9730,6 +9765,14 @@
           "message": "codex cannot express option \"provider\" (zai); supported: contextWindow, effort, systemPrompt, sandbox, access, memory - drop the option or route this work to a harness that supports it"
         }
       },
+      "context-window": {
+        "argv": [
+          "codex",
+          "app-server",
+          "-c",
+          "model_context_window=100000"
+        ]
+      },
       "resume": {
         "argv": [
           "codex",
@@ -9802,6 +9845,39 @@
           "--provider",
           "zai"
         ]
+      },
+      "context-window": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "pi",
+          "option": "contextWindow",
+          "supported": [
+            "effort",
+            "provider",
+            "agent",
+            "systemPrompt",
+            "appendSystemPrompt",
+            "extensions",
+            "discovery",
+            "access",
+            "memory"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--autocompact"
+            },
+            {
+              "harness": "codex",
+              "spelling": "-c"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--context-window"
+            }
+          ],
+          "message": "pi cannot express option \"contextWindow\" (100000); supported: effort, provider, agent, systemPrompt, appendSystemPrompt, extensions, discovery, access, memory - drop the option or route this work to a harness that supports it"
+        }
       },
       "resume": {
         "argv": [
@@ -9881,6 +9957,20 @@
         }
       },
       "provider": {
+        "refusal": {
+          "issue": "no-session-mode",
+          "harness": "muse",
+          "supported": [
+            "claude",
+            "codex",
+            "pi",
+            "antigravity",
+            "popeye"
+          ],
+          "message": "muse declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
+        }
+      },
+      "context-window": {
         "refusal": {
           "issue": "no-session-mode",
           "harness": "muse",
@@ -9994,6 +10084,20 @@
           "message": "cursor declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       },
+      "context-window": {
+        "refusal": {
+          "issue": "no-session-mode",
+          "harness": "cursor",
+          "supported": [
+            "claude",
+            "codex",
+            "pi",
+            "antigravity",
+            "popeye"
+          ],
+          "message": "cursor declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
+        }
+      },
       "resume": {
         "refusal": {
           "issue": "no-session-mode",
@@ -10087,6 +10191,33 @@
           "message": "antigravity cannot express option \"provider\" (zai); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
         }
       },
+      "context-window": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "antigravity",
+          "option": "contextWindow",
+          "supported": [
+            "agent",
+            "effort",
+            "sandbox"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--autocompact"
+            },
+            {
+              "harness": "codex",
+              "spelling": "-c"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--context-window"
+            }
+          ],
+          "message": "antigravity cannot express option \"contextWindow\" (100000); supported: agent, effort, sandbox - drop the option or route this work to a harness that supports it"
+        }
+      },
       "resume": {
         "argv": [
           "agy",
@@ -10173,6 +10304,16 @@
           "message": "popeye cannot express option \"provider\" (zai); supported: effort, systemPrompt, appendSystemPrompt, contextWindow, access, agent, memory - drop the option or route this work to a harness that supports it"
         }
       },
+      "context-window": {
+        "argv": [
+          "popeye",
+          "-p",
+          "--mode",
+          "rpc",
+          "--context-window",
+          "100000"
+        ]
+      },
       "resume": {
         "argv": [
           "popeye",
@@ -10216,7 +10357,7 @@
             },
             {
               "key": "contextWindow",
-              "value": 272000,
+              "value": "none (native auto-compaction threshold keeps its harness default)",
               "tier": "harness"
             },
             {
@@ -10259,10 +10400,6 @@
             {
               "key": "sandbox",
               "tier": "profile"
-            },
-            {
-              "key": "contextWindow",
-              "tier": "profile"
             }
           ]
         }
@@ -10287,7 +10424,7 @@
             },
             {
               "key": "contextWindow",
-              "value": 272000,
+              "value": "none (native auto-compaction threshold keeps its harness default)",
               "tier": "harness"
             },
             {
@@ -10334,10 +10471,6 @@
           "unrenderable": [
             {
               "key": "sandbox",
-              "tier": "profile"
-            },
-            {
-              "key": "contextWindow",
               "tier": "profile"
             }
           ]
@@ -10364,7 +10497,7 @@
             },
             {
               "key": "contextWindow",
-              "value": 272000,
+              "value": "none (native auto-compaction threshold keeps its harness default)",
               "tier": "harness"
             },
             {
@@ -10408,12 +10541,7 @@
               "tier": "arg"
             }
           ],
-          "unrenderable": [
-            {
-              "key": "contextWindow",
-              "tier": "profile"
-            }
-          ]
+          "unrenderable": []
         }
       },
       "access-read-config-sandbox": {
@@ -10437,7 +10565,7 @@
             },
             {
               "key": "contextWindow",
-              "value": 272000,
+              "value": "none (native auto-compaction threshold keeps its harness default)",
               "tier": "harness"
             },
             {
@@ -10481,12 +10609,7 @@
               "tier": "arg"
             }
           ],
-          "unrenderable": [
-            {
-              "key": "contextWindow",
-              "tier": "profile"
-            }
-          ]
+          "unrenderable": []
         }
       },
       "access-and-tools": {
@@ -10520,7 +10643,7 @@
             },
             {
               "key": "contextWindow",
-              "value": 272000,
+              "value": "none (native auto-compaction threshold keeps its harness default)",
               "tier": "harness"
             },
             {
@@ -10568,10 +10691,6 @@
             {
               "key": "sandbox",
               "tier": "profile"
-            },
-            {
-              "key": "contextWindow",
-              "tier": "profile"
             }
           ]
         }
@@ -10610,7 +10729,7 @@
             },
             {
               "key": "contextWindow",
-              "value": 272000,
+              "value": "none (native auto-compaction threshold keeps its harness default)",
               "tier": "harness"
             },
             {
@@ -10654,10 +10773,6 @@
           "unrenderable": [
             {
               "key": "sandbox",
-              "tier": "profile"
-            },
-            {
-              "key": "contextWindow",
               "tier": "profile"
             }
           ]
@@ -10716,7 +10831,7 @@
             },
             {
               "key": "contextWindow",
-              "value": 272000,
+              "value": "none (native auto-compaction threshold keeps its harness default)",
               "tier": "harness"
             },
             {
@@ -10762,10 +10877,6 @@
             {
               "key": "sandbox",
               "tier": "profile"
-            },
-            {
-              "key": "contextWindow",
-              "tier": "profile"
             }
           ]
         }
@@ -10797,7 +10908,7 @@
             },
             {
               "key": "contextWindow",
-              "value": 272000,
+              "value": "none (native auto-compaction threshold keeps its harness default)",
               "tier": "harness"
             },
             {
@@ -10840,10 +10951,6 @@
             {
               "key": "sandbox",
               "tier": "profile"
-            },
-            {
-              "key": "contextWindow",
-              "tier": "profile"
             }
           ]
         }
@@ -10870,7 +10977,7 @@
             },
             {
               "key": "contextWindow",
-              "value": 272000,
+              "value": "none (native auto-compaction threshold keeps its harness default)",
               "tier": "harness"
             },
             {
@@ -10910,10 +11017,6 @@
             {
               "key": "sandbox",
               "tier": "profile"
-            },
-            {
-              "key": "contextWindow",
-              "tier": "profile"
             }
           ]
         }
@@ -10937,7 +11040,7 @@
             },
             {
               "key": "contextWindow",
-              "value": 272000,
+              "value": "none (native auto-compaction threshold keeps its harness default)",
               "tier": "harness"
             },
             {
@@ -10979,10 +11082,6 @@
           "unrenderable": [
             {
               "key": "sandbox",
-              "tier": "profile"
-            },
-            {
-              "key": "contextWindow",
               "tier": "profile"
             }
           ]
@@ -11007,7 +11106,7 @@
             },
             {
               "key": "contextWindow",
-              "value": 272000,
+              "value": "none (native auto-compaction threshold keeps its harness default)",
               "tier": "harness"
             },
             {
@@ -11049,10 +11148,6 @@
           "unrenderable": [
             {
               "key": "sandbox",
-              "tier": "profile"
-            },
-            {
-              "key": "contextWindow",
               "tier": "profile"
             }
           ]
@@ -11079,7 +11174,7 @@
             },
             {
               "key": "contextWindow",
-              "value": 272000,
+              "value": "none (native auto-compaction threshold keeps its harness default)",
               "tier": "harness"
             },
             {
@@ -11131,10 +11226,6 @@
           "unrenderable": [
             {
               "key": "sandbox",
-              "tier": "profile"
-            },
-            {
-              "key": "contextWindow",
               "tier": "profile"
             }
           ]
