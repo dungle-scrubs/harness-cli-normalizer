@@ -1,0 +1,23 @@
+{
+  "ranAt": "2026-10-10T00:26:03.148Z",
+  "results": {
+    "pi": {
+      "status": "pass",
+      "observedOn": {
+        "harness": "pi",
+        "model": "openai-codex/gpt-6.1-sol",
+        "version": "1.1.0",
+        "date": "2026-10-10"
+      },
+      "detail": "question \"Which environment must deploy-\""
+    }
+  },
+  "observations": {
+    "pi": {
+      "harness": "pi",
+      "model": "openai-codex/gpt-6.1-sol",
+      "version": "1.1.0",
+      "date": "2026-10-10"
+    }
+  }
+}

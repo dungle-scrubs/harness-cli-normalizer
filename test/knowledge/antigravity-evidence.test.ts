@@ -8,6 +8,9 @@ import { antigravityCli } from "../../src/knowledge/antigravity.js";
 const read = (file: string): string =>
   readFileSync(new URL(`../fixtures/antigravity-1.2.16/${file}`, import.meta.url), "utf8");
 
+const readCurrent = (file: string): string =>
+  readFileSync(new URL(`../fixtures/antigravity-1.3.3/${file}`, import.meta.url), "utf8");
+
 const decoded = (file: string): HarnessEvent[] => {
   const state = freshDecodeState(null, antigravityCli.name);
   return read(file)
@@ -17,11 +20,11 @@ const decoded = (file: string): HarnessEvent[] => {
 };
 
 test("antigravity's verification anchor has passing native capability and question captures", () => {
-  const seven = JSON.parse(read("seven.snapshot.json"));
+  const seven = JSON.parse(readCurrent("seven.snapshot.json"));
   expect(Object.values(seven.results.antigravity)).toHaveLength(7);
   for (const cell of Object.values(seven.results.antigravity))
     expect(cell).toMatchObject({ status: "pass" });
-  const questions = JSON.parse(read("questions.snapshot.json"));
+  const questions = JSON.parse(readCurrent("questions.snapshot.json"));
   expect(questions.results.antigravity.status).toBe("pass");
   expect(questions.observations.antigravity).toEqual(antigravityCli.escalation.observedOn);
   expect(questions.observations.antigravity.version).toBe(antigravityCli.verifiedAgainst);
@@ -126,7 +129,7 @@ const toolNames = (file: string): string[] =>
     .filter((event): event is Extract<HarnessEvent, { kind: "tool" }> => event.kind === "tool")
     .map((event) => event.name);
 
-test("current antigravity seven captures decode to the named turn outcomes", () => {
+test("historical antigravity 1.2.16 seven captures decode to the named turn outcomes", () => {
   const single = decoded("seven-01.ndjson");
   expect(identityOf("seven-01.ndjson").sessionId).toBe("53cc8f7c-c814-478f-9627-20cd4533ec77");
   expect(
@@ -165,7 +168,7 @@ test("current antigravity seven captures decode to the named turn outcomes", () 
 });
 
 test("the verified antigravity public model roster matches the descriptor vocabulary", () => {
-  const lines = read("models.txt")
+  const lines = readCurrent("models.txt")
     .split("\n")
     .map((line) => line.split("\t"));
   const nativeSlugs = lines.flatMap((cells) =>
@@ -182,8 +185,7 @@ test("the verified antigravity public model roster matches the descriptor vocabu
   expect(antigravityCli.vocabulary.extensible).toBe(true);
 });
 
-test("the antigravity version file matches the descriptor's verified version", () => {
+test("the historical antigravity version file retains its original anchor", () => {
   const version = read("version.txt").trim();
-  expect(version).toBe(antigravityCli.verifiedAgainst);
   expect(version).toBe("1.2.16");
 });

@@ -1,0 +1,9 @@
+{
+  "checkedAt": "2026-10-10T00:53:40.780Z",
+  "version": "1.1.0",
+  "latest": "1.1.0",
+  "versionSource": {
+    "kind": "npm",
+    "package": "@earendil-works/pi-coding-agent"
+  }
+}

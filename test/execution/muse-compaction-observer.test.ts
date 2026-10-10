@@ -281,6 +281,36 @@ describe("the MSP view fold (#241)", () => {
     await s.watch.close();
   });
 
+  test("native 1.4.4 approval errors fail closed even with a completed compaction", async () => {
+    const replies = readFileSync(
+      new URL("../fixtures/muse-1.4.4-R5419.1/msp-approval-failure.ndjson", import.meta.url),
+      "utf8",
+    )
+      .trim()
+      .split("\n");
+    const items = JSON.parse(
+      readFileSync(
+        new URL("../fixtures/muse-1.4.4-R5419.1/compaction-items.snapshot.json", import.meta.url),
+        "utf8",
+      ),
+    );
+    const s = setup();
+    s.reply(1, {});
+    await flush();
+    for (const [index, line] of replies.entries()) {
+      s.proc.emitLine(line);
+      s.replyView(index + 1, { items, nextCursor: null });
+      await flush();
+      s.clock.advance(1_000);
+      await flush();
+    }
+    expect(s.unavailable()).toBe(1);
+    expect(s.incompatible()).toBe(0);
+    expect(s.compactions).toHaveLength(1);
+    expect(s.compactions[0]).toMatchObject({ state: "compacted", tokensAfter: 25861 });
+    await s.watch.close();
+  });
+
   test("with no sink the helper never asks for a view page at all", async () => {
     const proc = new FakeProcess({ exitOnStdinEnd: false });
     const clock = new FakeClock();

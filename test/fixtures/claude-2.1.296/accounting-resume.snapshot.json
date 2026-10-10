@@ -1,0 +1,8 @@
+{
+  "contextWindowTokens": 1000000,
+  "inputLimitTokens": 967000,
+  "method": "native-context-estimate",
+  "model": "claude-sonnet-5-5",
+  "status": "available",
+  "totalTokens": 65781
+}

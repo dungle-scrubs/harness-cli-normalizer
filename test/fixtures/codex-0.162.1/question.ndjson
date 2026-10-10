@@ -1,0 +1,3 @@
+{"type":"thread.started","thread_id":"01a12334-38d2-7cd0-b09b-8a2b52dacf64"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"The requirements conflict, and neither environment has priority. I need that decision before writing the file.\n\n```hcn-question\n{\"question\":\"Which environment must deploy-target.txt contain?\",\"options\":[\"staging\",\"production\"],\"recommended\":\"staging\"}\n```"}}
+{"type":"turn.completed","usage":{"input_tokens":28567,"cached_input_tokens":0,"cache_write_input_tokens":0,"output_tokens":70,"reasoning_output_tokens":14}}
