@@ -105,7 +105,11 @@ const streaming = async (h: HarnessDescriptor): Promise<Cell> => {
     return { status: "skip", detail: "not token-granular" };
   }
   const events = await collect(
-    streamTurn(h, opts(h, { prompt: "Count: one two three" }), smokeDeps()),
+    streamTurn(
+      h,
+      opts(h, { prompt: "Reply with only: one two three. Do not inspect files or use tools." }),
+      smokeDeps(),
+    ),
   );
   const tokenText = events
     .filter((e): e is Extract<HarnessEvent, { kind: "token" }> => e.kind === "token")

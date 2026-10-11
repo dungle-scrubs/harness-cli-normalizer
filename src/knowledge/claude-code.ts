@@ -136,6 +136,7 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     // https://platform.claude.com/docs/en/models/opus-5-5/overview
     // claude-sonnet-5-5 (issue #333):
     // https://platform.claude.com/docs/en/models/sonnet-5-5/whats-new-sonnet-5-5
+    // Haiku 5.5: https://code.claude.com/docs/en/model-config#model-aliases
     models: [
       "claude-fable-5-1",
       "claude-fable-5",
@@ -143,13 +144,14 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
       "claude-opus-5",
       "claude-sonnet-5-5",
       "claude-sonnet-5",
+      "claude-haiku-5-5",
       "claude-haiku-4-5-20251001",
     ],
     aliases: {
       fable: "claude-fable-5-1",
       opus: "claude-opus-5-5",
       sonnet: "claude-sonnet-5-5",
-      haiku: "claude-haiku-4-5-20251001",
+      haiku: "claude-haiku-5-5",
     },
     efforts: ["low", "medium", "high", "xhigh", "max"],
     extensible: false,

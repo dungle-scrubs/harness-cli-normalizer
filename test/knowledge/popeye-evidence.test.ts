@@ -20,13 +20,18 @@ const rows = (name: string) =>
     .split("\n")
     .map((line) => JSON.parse(line));
 
-test("current source-built Popeye passes every applicable standard seven scenario", () => {
-  const snapshot = JSON.parse(read("seven.snapshot.json"));
+test("current npm-distributed Popeye passes every applicable standard seven scenario", () => {
+  const current = (name: string): string =>
+    readFileSync(
+      new URL(`../fixtures/popeye-${popeyeCli.verifiedAgainst}/${name}`, import.meta.url),
+      "utf8",
+    );
+  const snapshot = JSON.parse(current("seven.snapshot.json"));
   expect(Object.keys(snapshot.results.popeye)).toHaveLength(7);
   for (const [name, cell] of Object.entries(snapshot.results.popeye)) {
     expect(cell).toMatchObject({ status: name === "tool-use" ? "skip" : "pass" });
   }
-  expect(read("version.txt").trim()).toBe(popeyeCli.verifiedAgainst);
+  expect(current("version.txt").trim()).toBe(popeyeCli.verifiedAgainst);
 });
 
 test("native Popeye HCN streaming records decode the live loopback response", () => {
