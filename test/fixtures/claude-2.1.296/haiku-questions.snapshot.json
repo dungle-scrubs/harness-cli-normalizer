@@ -1,0 +1,23 @@
+{
+  "ranAt": "2026-10-11T09:55:42.131Z",
+  "results": {
+    "claude": {
+      "status": "pass",
+      "observedOn": {
+        "harness": "claude",
+        "model": "claude-haiku-5-5",
+        "version": "2.1.296",
+        "date": "2026-10-11"
+      },
+      "detail": "question \"Which environment should deplo\""
+    }
+  },
+  "observations": {
+    "claude": {
+      "harness": "claude",
+      "model": "claude-haiku-5-5",
+      "version": "2.1.296",
+      "date": "2026-10-11"
+    }
+  }
+}

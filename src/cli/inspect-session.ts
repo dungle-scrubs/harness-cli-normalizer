@@ -9,6 +9,7 @@ import { runtimeCompatibility } from "./runtime-compatibility.js";
 
 const SESSION_PREVIEW_OPTIONS = new Set([
   "argv",
+  "context-window",
   "cwd",
   "effort",
   "json",
@@ -76,6 +77,8 @@ export async function inspectSessionRuntime(
       model: typeof values.model === "string" ? values.model : undefined,
       effort: typeof values.effort === "string" ? values.effort : undefined,
       provider: typeof values.provider === "string" ? values.provider : undefined,
+      contextWindow:
+        typeof values["context-window"] === "string" ? Number(values["context-window"]) : undefined,
     });
     const resolved = resolveSessionMemory(memoryFlagOf(values), {
       project: loadProjectConfig()?.config,

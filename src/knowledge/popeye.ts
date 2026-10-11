@@ -1,10 +1,12 @@
 /**
  * The popeye descriptor: facts about the `popeye` CLI as data, verified
- * against popeye 0.1.4 (live re-verification 2026-09-27: `--version`,
+ * against popeye 0.2.0 (six applicable compatibility probes passed on
+ * 2026-10-11; test/fixtures/popeye-0.2.0). Historical 0.1.4 probes cover
+ * live re-verification 2026-09-27: `--version`,
  * `--help` modes, `-p --mode hcn` event stream, `--model`, `--effort`,
  * `--context-window`, `--system-prompt`, `--append-system-prompt`,
  * `--resume`, `--agent`, exit codes; fixtures in
- * test/fixtures/popeye-0.1.4, fake provider). Launch, resume, session,
+ * test/fixtures/popeye-0.1.4, fake provider. Launch, resume, session,
  * and grant surfaces are live-verified; transcript reading is exercised
  * by test/transcript/popeye.test.ts against both fixture sets.
  * `--agent` reads from ./.popeye/agents and ~/.popeye/agents
@@ -23,10 +25,8 @@ export const popeyeCli: HarnessDescriptor = deepFreeze({
   name: "popeye",
   transcript: POPEYE_TRANSCRIPT,
   bin: "popeye",
-  verifiedAgainst: "0.1.4",
-  // No npm package: never distributed via Homebrew or npm per author
-  // policy; source tag v0.1.4 and --version were rechecked on 2026-10-03.
-  versionSource: { kind: "installed" },
+  verifiedAgainst: "0.2.0",
+  versionSource: { kind: "npm", package: "@dungle-scrubs/popeye" },
   launch: {
     // `-p` headless with a positional prompt. `--mode hcn` emits the HCN
     // event stream (identity/token/message/done); `--mode json` the

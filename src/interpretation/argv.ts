@@ -415,6 +415,7 @@ export interface SessionOptions {
   /** Named-agent selection (map #288): rendered at session spawn exactly
    * as a one-shot launch renders it. A harness with no spec refuses. */
   readonly agent?: string;
+  readonly contextWindow?: number;
   /** True when this argv should resume an existing conversation, false for a
    * fresh session. Controls which descriptor flag is rendered: resumeFlag
    * vs idFlag. Only consumers that alias --resume/--session-id set this. */
@@ -463,7 +464,12 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
     if (modelRender !== undefined) argv.push(...tokensFor(modelRender, validated.id));
     else argv.push(h.vocabulary.modelFlag, validated.id);
   }
-  if (opts.agent !== undefined || opts.provider !== undefined || opts.effort !== undefined) {
+  if (
+    opts.agent !== undefined ||
+    opts.provider !== undefined ||
+    opts.effort !== undefined ||
+    opts.contextWindow !== undefined
+  ) {
     // All dimensions render through the same code path a launch argv uses,
     // so the flag spelling and the refusal (with supportedBy) stay
     // identical. The phase is RESUME, not launch, for two reasons. First,
@@ -486,6 +492,7 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
           ...(opts.effort !== undefined ? { effort: opts.effort } : {}),
           ...(opts.provider !== undefined ? { provider: opts.provider } : {}),
           ...(opts.agent !== undefined ? { agent: opts.agent } : {}),
+          ...(opts.contextWindow !== undefined ? { contextWindow: opts.contextWindow } : {}),
           ...(opts.model !== undefined ? { model: opts.model } : {}),
         } as TurnOptions,
         "resume",

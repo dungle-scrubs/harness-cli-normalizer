@@ -153,12 +153,9 @@ const unknownFlagRefusal = (
     ? native.entries
     : supportedBy(defaultDescriptors(), native.option);
   const facet = native.option.split(".")[1];
-  const normalizedSpelling =
-    native.option === "excludeTools"
-      ? "--exclude-tools"
-      : native.option.startsWith("discovery.")
-        ? `--no-${facet === "instructionFiles" ? "instruction-files" : facet}`
-        : `--${native.option}`;
+  const normalizedSpelling = native.option.startsWith("discovery.")
+    ? `--no-${facet === "instructionFiles" ? "instruction-files" : facet}`
+    : `--${native.option.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}`;
   return {
     message: `unknown flag: ${rawFlag} is a native spelling (used by ${native.entries.map((e) => e.harness).join(", ")}) - use the normalized ${normalizedSpelling} flag instead`,
     issue: "invalid-option-value",

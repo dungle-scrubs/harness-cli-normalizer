@@ -10,7 +10,7 @@
  * tokens on identical tasks vs 436 at medium); pinning makes bare runs
  * cheaper on claude, uniform everywhere, and knowable from the outside.
  */
-import { deepFreeze } from "./descriptor.js";
+import { deepFreeze, type HarnessName } from "./descriptor.js";
 
 export const DEFAULT_TURN_PROFILE = deepFreeze({
   effort: "medium",
@@ -58,3 +58,11 @@ export const DEFAULT_TURN_PROFILE = deepFreeze({
 } as const);
 
 export type ProfileKey = keyof typeof DEFAULT_TURN_PROFILE;
+
+export const PROFILE_DEFAULT_DEFERRALS: Readonly<
+  Partial<Record<HarnessName, Readonly<Partial<Record<ProfileKey, string>>>>>
+> = deepFreeze({
+  claude: {
+    contextWindow: "native auto-compaction threshold keeps its harness default",
+  },
+});

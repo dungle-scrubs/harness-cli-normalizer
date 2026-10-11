@@ -6,6 +6,51 @@ import { expect, test } from "vitest";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { cliFixtureTmpdir } from "./fixture-tmpdir.js";
 
+test.each([undefined, "150000", "99999", "1.5"])(
+  "persistent Claude preview validates an explicit window: %s",
+  (window) => {
+    const dir = mkdtempSync(join(cliFixtureTmpdir(), "hcn-runtime-window-"));
+    writeFileSync(join(dir, "claude"), "#!/bin/sh\nprintf '%s\\n' '2.1.296'\n", { mode: 0o700 });
+    try {
+      const result = spawnSync(
+        "bun",
+        [
+          resolve("src/cli/index.ts"),
+          "inspect",
+          "claude",
+          "--runtime",
+          "--mode",
+          "headless-session",
+          "--resume",
+          "11111111-1111-4111-8111-111111111111",
+          ...(window === undefined ? [] : ["--context-window", window]),
+        ],
+        {
+          cwd: dir,
+          encoding: "utf8",
+          timeout: 30_000,
+          env: { HOME: dir, XDG_CONFIG_HOME: dir, PATH: `${dir}:${env.PATH ?? ""}` },
+        },
+      );
+      const valid = window === undefined || window === "150000";
+      expect(result.status, result.stderr).toBe(valid ? 0 : 2);
+      if (!valid) {
+        expect(result.stderr).toContain("[100000, 1000000] integer");
+        return;
+      }
+      const facts = JSON.parse(result.stdout);
+      if (window === undefined) expect(facts.argv).not.toContain("--autocompact");
+      else {
+        const index = facts.argv.indexOf("--autocompact");
+        expect(index).toBeGreaterThan(-1);
+        expect(facts.argv[index + 1]).toBe(window);
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  },
+);
+
 test.each(
   ["claude", "pi"].flatMap((harness) =>
     ["0.0.0", "999.0.0", "unusable version"].map((version) => ({ harness, version })),

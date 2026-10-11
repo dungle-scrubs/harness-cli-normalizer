@@ -174,6 +174,7 @@ const sessionCases = (h: HarnessDescriptor): ReadonlyArray<readonly [string, Ses
   ["effort", { sessionId: SESSION_ID, effort: "high" }],
   ["model-effort", { sessionId: SESSION_ID, model: modelFor(h), effort: "high" }],
   ["provider", { sessionId: SESSION_ID, provider: "zai" }],
+  ["context-window", { sessionId: SESSION_ID, contextWindow: 100000 }],
   ["resume", { sessionId: SESSION_ID, isResume: true }],
   ["bad-id", { sessionId: "../etc" }],
 ];

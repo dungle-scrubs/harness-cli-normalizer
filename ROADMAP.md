@@ -15,11 +15,12 @@ Planned work for hcn. Each item must pass the scope test in `AGENTS.md`.
 
 ## Shipped harnesses
 
-- **Popeye 0.1.0** - descriptor entry plus journal reader, session
-  driving, and smoke wiring (RFC-02 P5). Verified: create/prompt
-  snapshot turns, buffered pre-identity sends, close with grace,
-  torn-tail report-only export. Deferred: full argv-corpus snapshot
-  and hosted fixture re-capture.
+- **Popeye 0.2.0** - the npm-distributed CLI is verified for fresh turns,
+  streaming, persistent sessions, separate-process resume, interruption, and
+  missing-executable failures (2026-10-11). The version source now tracks
+  `@dungle-scrubs/popeye` on npm. Question escalation remains unverified and
+  disabled; native context management remains undeclared. Earlier descriptor,
+  journal reader, and session-driving evidence is retained (RFC-02 P5).
 
 - **Antigravity CLI 1.2.8** - authenticated qualification covers headless
   streaming, native permissions, cancellation, timeout, model selection,

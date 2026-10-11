@@ -66,8 +66,17 @@ Options:
   --model <id>              Model id (validated per harness)
   --effort <value>          Effort level (validated per harness/model)
   --sandbox <value>         Sandbox mode (codex; antigravity workspace-write)
-  --context-window <tokens> Context window (codex, integer 1-272000;
-                            launch default 272000; config: contextWindow)
+  --context-window <tokens> Context window. codex 1-272000
+                            (launch default 272000); popeye 1-10000000;
+                            claude 100000-1000000 rendered as native
+                            --autocompact, an auto-compact window.
+                            hcn adds no request-token or cost enforcement.
+                            No launch default for claude:
+                            keeps its native default unless a flag or config
+                            sets it. Native env CLAUDE_CODE_AUTO_COMPACT_WINDOW
+                            overrides the flag. Native percentage and
+                            compaction-disable controls are separate;
+                            their interaction here is untested. config: contextWindow
   --provider <value>        Provider (pi only)
   --agent <name>            Named agent the harness defines natively - hcn
                             selects among them, never defines. claude,
@@ -172,7 +181,9 @@ Defaults with no flags:
   git root) > user config (~/.config/hcn/config.json) > built-in profile
   > harness default. The profile pins: effort medium, sandbox
   workspace-write (codex and antigravity; other harnesses report divergence),
-  context window 272000 (codex only; divergence elsewhere), discovery on,
+  context window 272000 (codex and popeye; claude keeps its native
+  auto-compaction default - the profile window does not transfer there;
+  other harnesses report divergence), discovery on,
   autonomy off, write/shell on. timeout, max-steps and
   access have no default; harness default applies (access write emits
   nothing on claude/pi/muse/cursor/antigravity, --sandbox workspace-write on
@@ -229,6 +240,11 @@ Options:
   --effort <value>          Effort level for the session spawn (validated
                             per harness/model; no default - the harness's
                             own effort applies without the flag)
+  --context-window <tokens> Context window for the session spawn (claude
+                            100000-1000000 as native --autocompact, an
+                            auto-compact window; codex 1-272000;
+                            popeye 1-10000000; no default - the harness's
+                            own setting applies without the flag)
   --resume <uuid>           Resume session id (UUID). Continues the
                             conversation where it left off. --session-id
                             is an alias (mutually exclusive with --resume).
@@ -309,14 +325,18 @@ Options:
                             (default headless-turn)
                             --runtime excludes interactive; headless-session requires
                             --resume and accepts no native passthrough arguments
-                            Session preview needs no prompt; only model, effort,
-                            provider and cwd process options are accepted
+                            Session preview needs no prompt; only model,
+                            effort, provider, context-window and cwd
+                            process options are accepted
   --prompt <text>           Prompt for argv preview
   --prompt-file <path|->    Read prompt from file
   --model <id>              Model
   --effort <value>          Effort
   --sandbox <value>         Sandbox
-  --context-window <tokens> Context window (codex, integer 1-272000)
+  --context-window <tokens> Context window (codex 1-272000; popeye
+                            1-10000000; claude 100000-1000000 as native
+                            --autocompact, an auto-compact window
+                            with no launch default)
   --provider <value>        Provider
   --tools <a,b>             Tools - canonical names (read, write, edit,
                             shell, grep, glob, list, web-fetch,

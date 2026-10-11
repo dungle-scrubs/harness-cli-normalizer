@@ -64,6 +64,22 @@ describe("buildLaunchArgv (claude)", () => {
     expect(session[session.indexOf("--model") + 1]).toBe("claude-opus-5-5");
   });
 
+  test.each(["claude-haiku-5-5", "haiku"])("routes %s to Haiku 5.5", (model) => {
+    for (const argv of [
+      buildLaunchArgv(claudeCode, { model, prompt: "hello", effort: "medium" }),
+      buildResumeArgv(claudeCode, { model, prompt: "hello", sessionId: "haiku-check" }),
+      buildSessionArgv(claudeCode, { model, sessionId: "haiku-check" }),
+    ]) {
+      expect(argv[argv.indexOf("--model") + 1]).toBe("claude-haiku-5-5");
+    }
+  });
+
+  test("keeps explicit Haiku 4.5 selection available", () => {
+    const model = "claude-haiku-4-5-20251001";
+    const argv = buildLaunchArgv(claudeCode, { model, prompt: "hello" });
+    expect(argv[argv.indexOf("--model") + 1]).toBe(model);
+  });
+
   test.each(["claude-fable-5-1", "fable"])("routes %s to Fable 5.1", (model) => {
     const launch = buildLaunchArgv(claudeCode, { model, prompt: "hello" });
     const session = buildSessionArgv(claudeCode, { model, sessionId: "fable-check" });

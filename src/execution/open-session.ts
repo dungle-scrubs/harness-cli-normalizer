@@ -108,6 +108,7 @@ export interface OpenSessionOptions {
   /** Named-agent selection (map #288); refused on a harness without a
    * spec, the same way a one-shot turn refuses. */
   readonly agent?: string;
+  readonly contextWindow?: number;
   /** Effort level for the session spawn, validated per harness/model the
    * way a one-shot launch validates it. Undefined means the caller made
    * no effort decision: the session runs at the harness's own default
@@ -171,6 +172,7 @@ export const openSession = (
     ...(opts.effort !== undefined ? { effort: opts.effort } : {}),
     ...(opts.provider !== undefined ? { provider: opts.provider } : {}),
     ...(opts.agent !== undefined ? { agent: opts.agent } : {}),
+    ...(opts.contextWindow !== undefined ? { contextWindow: opts.contextWindow } : {}),
     ...(opts.isResume !== undefined ? { isResume: opts.isResume } : {}),
     ...(opts.skills !== undefined ? { skills: opts.skills } : {}),
   });

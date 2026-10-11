@@ -8,7 +8,11 @@
  */
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
-import { DEFAULT_TURN_PROFILE, type ProfileKey } from "../knowledge/profile.js";
+import {
+  DEFAULT_TURN_PROFILE,
+  PROFILE_DEFAULT_DEFERRALS,
+  type ProfileKey,
+} from "../knowledge/profile.js";
 import type { TurnOptions } from "./argv.js";
 import { hintFor } from "./hints.js";
 import { assertIsolationCombination, ISOLATION_OVERRIDES } from "./isolation.js";
@@ -358,6 +362,15 @@ export const resolveEffectiveOptions = (
     if (tier !== undefined) {
       provenance.push({ key, value: config[key as keyof TurnOptions], tier });
       resolved[key] = config[key as keyof TurnOptions];
+      continue;
+    }
+    const deferralReason = PROFILE_DEFAULT_DEFERRALS[h.name]?.[key as ProfileKey];
+    if (deferralReason !== undefined) {
+      provenance.push({
+        key,
+        value: `none (${deferralReason})`,
+        tier: "harness",
+      });
       continue;
     }
     const expressible = EXPRESSIBLE[key as ProfileKey]?.(h) ?? false;

@@ -202,6 +202,8 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   const provider = values.provider as string | undefined;
   const agent = values.agent as string | undefined;
   const effort = values.effort as string | undefined;
+  const contextWindow =
+    values["context-window"] !== undefined ? Number(values["context-window"]) : undefined;
 
   // question mode: the arg is validated through the one predicate, then
   // precedence resolves through the one owner (RFC-02 change 6).
@@ -408,6 +410,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
         provider,
         agent,
         effort,
+        ...(contextWindow !== undefined ? { contextWindow } : {}),
         isResume,
         clientVersion: getVersion(),
         ...(memoryExpressible ? { memory } : {}),
