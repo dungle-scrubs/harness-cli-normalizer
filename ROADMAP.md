@@ -124,6 +124,28 @@ ADR 0008 closed the supervising list in `CONTEXT.md`. A supervising candidate
 declined under that rule is recorded here with its date and reason, so the next
 session that thinks of it reads the answer instead of judging it from scratch.
 
+### Probe the public output channel for a vanished consumer
+
+Declined 2026-10-11, while fixing the release-0.9.7 CI failure in the
+native-approvals broken-pipe test.
+
+The candidate: while a native approval awaits its consumer's decision (and the
+public output stream is otherwise idle), periodically probe stdout - a
+keepalive write or a poll - so a consumer that broke its read end is detected
+even when no further event write ever happens. The liveness clocks and the
+native-approvals responder are marked supervising surfaces (ADR 0008), so this
+needed the maintainer's ask.
+
+The reason it was declined: the existing contract closes the session after
+stdout fails with EPIPE or stdin reaches EOF. Detecting a vanished consumer
+while both channels are idle adds a decision to a frozen supervising surface;
+the maintainer did not ask for it.
+
+The regression test instead routes stdout through a FIFO and synchronously
+closes its read descriptor before inducing the CLI's next write. The test
+retains the owned-process termination, absent approval reply, and exit-code
+assertions without adding a product liveness probe.
+
 ### Teach the inactivity clock about compaction
 
 Declined 2026-09-22, by the maintainer, while resolving the compaction map

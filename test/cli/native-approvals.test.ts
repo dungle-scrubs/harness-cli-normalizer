@@ -1,5 +1,16 @@
 import { execFileSync, spawn, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  constants,
+  mkdirSync,
+  mkdtempSync,
+  openSync,
+  readFileSync,
+  readSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join, resolve } from "node:path";
 import { expect, test } from "vitest";
 import { cliFixtureTmpdir } from "./fixture-tmpdir.js";
@@ -91,6 +102,9 @@ test(
   "a broken public output pipe terminates the owned approval process before HCN exits",
   async () => {
     const root = realpathSync(mkdtempSync(join(cliFixtureTmpdir(), "hcn-native-broken-output-")));
+    let poll: ReturnType<typeof setInterval> | undefined;
+    let fifoRead: number | undefined;
+    let fifoWrite: number | undefined;
     try {
       const { env, fingerprint, nativeLog } = nativeApprovalFixture(root);
       const peer = join(root, "bin", "codex");
@@ -99,6 +113,13 @@ test(
         readFileSync(peer, "utf8") +
           '\nprocess.on("SIGTERM",()=>{save({signal:"SIGTERM"});process.exit(0);});\n',
       );
+      // Stream-based closure remained racy on Bun/Linux. A FIFO lets the
+      // consumer close the read descriptor before inducing the CLI's next write.
+      const fifo = join(root, "stdout.fifo");
+      const made = spawnSync("/usr/bin/mkfifo", [fifo]);
+      expect(made.status, String(made.stderr)).toBe(0);
+      fifoRead = openSync(fifo, constants.O_RDONLY | constants.O_NONBLOCK);
+      fifoWrite = openSync(fifo, constants.O_WRONLY | constants.O_NONBLOCK);
       const child = spawn(
         bun,
         [
@@ -118,20 +139,38 @@ test(
           "--prompt",
           "fixture",
         ],
-        { cwd: root, env, stdio: "pipe" },
+        { cwd: root, env, stdio: ["pipe", fifoWrite, "pipe"] },
       );
       let output = "";
       let disconnected = false;
-      child.stderr.resume();
-      child.stdin.on("error", () => {});
-      child.stdout.on("data", (chunk) => {
-        output += String(chunk);
+      child.stderr?.resume();
+      child.stdin?.on("error", () => {});
+      const buf = Buffer.alloc(65536);
+      poll = setInterval(() => {
+        if (fifoRead === undefined) return;
+        let read: number;
+        try {
+          read = readSync(fifoRead, buf, 0, buf.byteLength, null);
+        } catch (error) {
+          if (
+            error instanceof Error &&
+            "code" in error &&
+            (error.code === "EAGAIN" || error.code === "EWOULDBLOCK")
+          ) {
+            return;
+          }
+          throw error;
+        }
+        if (read <= 0) return;
+        output += buf.subarray(0, read).toString();
         if (!disconnected && output.includes('"approval-request"')) {
           disconnected = true;
-          child.stdout.destroy();
-          child.stdin.write('{"op":"invalid"}\n');
+          clearInterval(poll);
+          closeSync(fifoRead);
+          fifoRead = undefined;
+          child.stdin?.write('{"op":"invalid"}\n');
         }
-      });
+      }, 1);
       let watchdogFired = false;
       const watchdog = setTimeout(() => {
         watchdogFired = true;
@@ -152,6 +191,17 @@ test(
       expect(calls.filter((call) => call.id === 7 && call.result)).toEqual([]);
       expect(code).toBe(1);
     } finally {
+      if (poll !== undefined) clearInterval(poll);
+      if (fifoRead !== undefined) {
+        try {
+          closeSync(fifoRead);
+        } catch {}
+      }
+      if (fifoWrite !== undefined) {
+        try {
+          closeSync(fifoWrite);
+        } catch {}
+      }
       rmSync(root, { recursive: true, force: true });
     }
   },
