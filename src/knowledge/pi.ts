@@ -1,6 +1,6 @@
 /**
  * The pi descriptor: facts about the `pi` CLI as data, verified against
- * pi 1.0.2 (test/fixtures/pi-1.0.2). Descriptor groundwork only (D-003). The load-bearing scars:
+ * pi 1.1.0 (test/fixtures/pi-1.1.0). Descriptor groundwork only (D-003). The load-bearing scars:
  * pi reads stdin even in -p mode (a backgrounded call without `< /dev/null`
  * hangs forever), it auto-discovers instruction files/skills/extensions
  * unless disabled, and its model registry is runtime-extensible (D-008) -
@@ -14,7 +14,7 @@ export const piCli: HarnessDescriptor = deepFreeze({
   name: "pi",
   transcript: PI_TRANSCRIPT,
   bin: "pi",
-  verifiedAgainst: "1.0.2",
+  verifiedAgainst: "1.1.0",
   versionSource: { kind: "npm", package: "@earendil-works/pi-coding-agent" },
   launch: {
     // -p --mode json: bare -p prints plain text; --mode json emits the
@@ -215,8 +215,8 @@ export const piCli: HarnessDescriptor = deepFreeze({
     observedOn: {
       harness: "pi",
       model: "openai-codex/gpt-6.1-sol",
-      version: "1.0.2",
-      date: "2026-10-04",
+      version: "1.1.0",
+      date: "2026-10-10",
     },
   },
   turnOptions: {

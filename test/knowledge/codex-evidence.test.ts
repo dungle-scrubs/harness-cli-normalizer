@@ -21,7 +21,7 @@ const decoded = (
 };
 
 test("the Codex verified version has passing capability and question captures", () => {
-  const seven = JSON.parse(read("seven.snapshot.json"));
+  const seven = JSON.parse(read("seven.snapshot.json", "codex-0.162.1"));
   const cells = Object.values(seven.results.codex);
   expect(cells).toHaveLength(7);
   for (const name of [
@@ -38,13 +38,13 @@ test("the Codex verified version has passing capability and question captures", 
     expect(seven.results.codex[name]).toMatchObject({ status: "pass" });
   for (const name of ["streaming"])
     expect(seven.results.codex[name]).toMatchObject({ status: "skip" });
-  const questions = JSON.parse(read("questions.snapshot.json"));
+  const questions = JSON.parse(read("questions.snapshot.json", "codex-0.162.1"));
   expect(questions.results.codex.status).toBe("pass");
   expect(questions.observations.codex).toEqual(codexCli.escalation.observedOn);
   expect(questions.observations.codex.version).toBe(codexCli.verifiedAgainst);
 });
 
-test("native fresh and tool events still decode on the verified Codex CLI", () => {
+test("historical Codex 0.160.0 fresh and tool events still decode", () => {
   expect(decoded("fresh.ndjson")).toContainEqual(
     expect.objectContaining({ kind: "message", text: "alpha" }),
   );
@@ -62,7 +62,7 @@ test("native resume retains the announced session and recalls its earlier prompt
   expect(resumed.some((event) => event.kind === "error")).toBe(false);
 });
 
-test("native automatic compaction installs replacement history and a later process recalls", () => {
+test("historical Codex 0.160.0 compaction retains its replacement-window contracts", () => {
   const records = JSON.parse(read("compaction-rollout-records.json"));
   // 0.160.0 carries each compaction as an `item_completed` record whose
   // item is a bare ContextCompaction reference: id and type, no encrypted
@@ -96,7 +96,6 @@ test("native automatic compaction installs replacement history and a later proce
   }
 });
 
-// This version's question stream is the decoding evidence; prior captures stay intact.
 test("the native decision response contains a valid escalation block", () => {
   const text = decoded("question.ndjson")
     .filter(

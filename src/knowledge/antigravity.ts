@@ -1,7 +1,9 @@
 /**
  * Antigravity CLI descriptor. Current Google documentation and authenticated
  * probes establish the argv, stream, permission, session, resume, model, and
- * escalation contracts. The 1.2.16 tripwires, automatic checkpoint,
+ * escalation contracts. Current tripwires, questions, checkpoint, later-process
+ * marker recall and model inventory are captured in test/fixtures/antigravity-1.3.3.
+ * The historical 1.2.16 tripwires, automatic checkpoint,
  * replacement-store entry and later-process marker recall are captured in
  * test/fixtures/antigravity-1.2.16. The permission, sandbox, store and
  * validation corpus behind the remaining claims was captured on 1.2.7
@@ -15,8 +17,7 @@ export const antigravityCli: HarnessDescriptor = deepFreeze({
   name: "antigravity",
   transcript: ANTIGRAVITY_TRANSCRIPT,
   bin: "agy",
-  verifiedAgainst: "1.2.16",
-  // Rechecked against the installed binary on 2026-10-03.
+  verifiedAgainst: "1.3.3",
   versionSource: { kind: "installed" },
   launch: {
     // --print consumes the immediately following positional prompt. Keep
@@ -104,15 +105,16 @@ export const antigravityCli: HarnessDescriptor = deepFreeze({
   // blocks in sequential turns: gemini-3.8-flash-medium installed a
   // checkpoint, then recalled LANTERN-903 in a later process. GPT-OSS also
   // checkpointed before a native capacity failure, which remains a failure.
+  // Reproduced on 1.3.2: checkpoint and later-process LANTERN-1010 recall
+  // are captured in test/fixtures/antigravity-1.3.2. Reproduced again on 1.3.3
+  // with LANTERN-133-1010 (test/fixtures/antigravity-1.3.3).
   //
   // The stream says nothing while it runs and one bare record afterwards: a
   // `step_update` with `step_type: "checkpoint"`, `state: "DONE"` and a
   // `duration_seconds` that measures the pause (4.5 to 18 s observed). There
   // is no ACTIVE phase, no summary, no reason and no token count on it - the
-  // summary is written to the brain store instead. hcn's antigravity reader
-  // drops the record today; reporting it upward is ADR 0009's work, not this
-  // descriptor's. 1.2.8 is also the release that resized the compaction
-  // budgets from the model's full window, so these facts are anchored to
+  // summary is written to the brain store instead. 1.2.8 also resized the
+  // compaction budgets from the model's full window, so these facts are anchored to
   // 1.2.8 and must not be read back onto 1.2.7.
   nativeContextManagement: { kind: "auto-compaction", modes: ["headless-session"] },
   // One `checkpoint` step in state DONE, carrying a duration and nothing
@@ -144,8 +146,8 @@ export const antigravityCli: HarnessDescriptor = deepFreeze({
     observedOn: {
       harness: "antigravity",
       model: "gemini-3.8-flash-medium",
-      version: "1.2.16",
-      date: "2026-10-03",
+      version: "1.3.3",
+      date: "2026-10-10",
     },
   },
   turnOptions: {

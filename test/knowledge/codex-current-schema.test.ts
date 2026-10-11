@@ -10,7 +10,7 @@ import { codexCli } from "../../src/knowledge/codex.js";
 const schema = (name: string) =>
   JSON.parse(
     readFileSync(
-      new URL(`../fixtures/codex-0.160.0/${name}.schema.snapshot.json`, import.meta.url),
+      new URL(`../fixtures/codex-0.162.1/${name}.schema.snapshot.json`, import.meta.url),
       "utf8",
     ),
   );

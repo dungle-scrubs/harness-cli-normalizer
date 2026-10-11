@@ -9,7 +9,7 @@ const readHistorical = (file: string): string =>
   readFileSync(new URL(`../fixtures/pi-1.0.0/${file}`, import.meta.url), "utf8");
 
 const readCurrent = (file: string): string =>
-  readFileSync(new URL(`../fixtures/pi-1.0.2/${file}`, import.meta.url), "utf8");
+  readFileSync(new URL(`../fixtures/pi-1.1.0/${file}`, import.meta.url), "utf8");
 
 const decoded = (file: string): HarnessEvent[] => {
   const state = freshDecodeState(null);
@@ -41,7 +41,7 @@ test("pi's verification anchor has passing native capability and question captur
 // extension queued a follow-up and pushed the turn past the runner's
 // 90-second deadline. That was local configuration, and its first-attempt
 // snapshot stays in test/fixtures/pi-0.85.1. The 0.86.1 and 0.87.0 runs
-// passed on the first attempt, so the current anchor has no retry to assert.
+// passed on the first attempt.
 
 test("historical pi 1.0.0 major-release evidence decodes identity, tokens and the final message", () => {
   const events = decoded("fresh.ndjson");

@@ -6,7 +6,7 @@ import { codexCli } from "../../src/knowledge/codex.js";
 const read = (file: string): string =>
   readFileSync(new URL(`../fixtures/codex-0.160.0/${file}`, import.meta.url), "utf8");
 
-test("Codex admits the current native effort ladders and rejects removed minimal", () => {
+test("Codex retains historical effort contracts and matches the current native ladders", () => {
   for (const [model, effort] of [
     ["gpt-5.6-sol", "low"],
     ["gpt-5.6-terra", "low"],
@@ -21,18 +21,21 @@ test("Codex admits the current native effort ladders and rejects removed minimal
   expect(read("effort-gpt-5.5-minimal-no-web.ndjson")).toContain("unsupported_value");
   expect(validateEffort(codexCli, "minimal", "gpt-5.5").ok).toBe(false);
   expect(validateEffort(codexCli, "ultra", "gpt-6.1-sol").ok).toBe(false);
-  const roster = JSON.parse(read("models-curated.json"));
+  const readCurrent = (file: string): string =>
+    readFileSync(new URL(`../fixtures/codex-0.162.1/${file}`, import.meta.url), "utf8");
+  const roster = JSON.parse(readCurrent("models-all.rpc.ndjson")).result.data;
+  const visible = JSON.parse(readCurrent("models.rpc.ndjson")).result.data;
   expect([...codexCli.vocabulary.models].sort()).toEqual(
-    roster
-      .filter((entry: { visibility: string }) => entry.visibility === "list")
-      .map((entry: { slug: string }) => entry.slug)
-      .sort(),
+    [...visible.map((entry: { model: string }) => entry.model), "gpt-5.5"].sort(),
   );
+  expect(roster.find((entry: { model: string }) => entry.model === "gpt-5.5")).toMatchObject({
+    hidden: true,
+    upgradeInfo: { retirementAt: 1792004400 },
+  });
   for (const model of codexCli.vocabulary.models) {
-    const native = roster.find((entry: { slug: string }) => entry.slug === model);
-    expect(native.visibility).toBe("list");
-    const efforts = native.supported_reasoning_levels
-      .map((level: { effort: string }) => level.effort)
+    const native = roster.find((entry: { model: string }) => entry.model === model);
+    const efforts = native.supportedReasoningEfforts
+      .map((level: { reasoningEffort: string }) => level.reasoningEffort)
       .filter((effort: string) => effort !== "ultra" && effort !== "none");
     expect([...(codexCli.vocabulary.effortsByModel?.[model] ?? [])].sort()).toEqual(
       [...efforts].sort(),
@@ -46,7 +49,7 @@ test("Codex admits the current native effort ladders and rejects removed minimal
       }
     }
   }
-  const source = JSON.parse(read("version-source.snapshot.json"));
+  const source = JSON.parse(readCurrent("version-source.snapshot.json"));
   expect(source.latest).toBe(codexCli.verifiedAgainst);
   expect(source.versionSource).toEqual(codexCli.versionSource);
 });

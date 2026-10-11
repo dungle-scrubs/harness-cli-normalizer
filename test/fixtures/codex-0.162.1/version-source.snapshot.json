@@ -1,0 +1,9 @@
+{
+  "checkedAt": "2026-10-10T00:53:40.780Z",
+  "version": "0.162.1",
+  "latest": "0.162.1",
+  "versionSource": {
+    "kind": "npm",
+    "package": "@openai/codex"
+  }
+}

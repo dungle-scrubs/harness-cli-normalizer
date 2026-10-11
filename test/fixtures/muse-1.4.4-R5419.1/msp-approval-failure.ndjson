@@ -1,0 +1,3 @@
+{"jsonrpc":"2.0","id":2,"error":{"code":-32603,"message":"internal error: classify turns: session fork rejected: MalformedJsonl","data":{"kind":"internal"}}}
+{"jsonrpc":"2.0","id":3,"error":{"code":-32603,"message":"internal error: classify turns: session fork rejected: MalformedJsonl","data":{"kind":"internal"}}}
+{"jsonrpc":"2.0","id":4,"error":{"code":-32603,"message":"internal error: classify turns: session fork rejected: MalformedJsonl","data":{"kind":"internal"}}}

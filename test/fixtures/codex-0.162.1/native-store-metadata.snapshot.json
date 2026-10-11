@@ -1,0 +1,39 @@
+{
+  "standing": "local-agent-observed-metadata",
+  "route": "qwen3.6-35b-a3b@pi/lmstudio",
+  "family": "qwen",
+  "privacy": "secret",
+  "source": "synthetic native rollout for the context probe session",
+  "completion": {
+    "recordType": "event_msg",
+    "payloadType": "item_completed",
+    "itemType": "ContextCompaction",
+    "lines": [
+      28,
+      51
+    ],
+    "atLeast": 2
+  },
+  "installedReplacement": {
+    "recordType": "compacted",
+    "field": "payload.replacement_history",
+    "type": "array",
+    "nonempty": true,
+    "lines": [
+      23,
+      46
+    ],
+    "firstRoles": [
+      "developer",
+      "user"
+    ]
+  },
+  "limits": [
+    "grep returned at most two matching rows; total counts are unknown",
+    "large rows were truncated; complete replacement contents and window links were not inspected",
+    "previous_window_id matched grep, but its location, value and type were not visible",
+    "no encrypted values, summaries, prompts, keys or operator configuration are copied"
+  ],
+  "version": "0.162.1",
+  "sessionId": "01a12344-f8d3-7d92-a424-30174589b1f6"
+}
