@@ -242,6 +242,15 @@ describe("detectTransportInLine", () => {
       line: "stream disconnected before completion: error sending request for url (https://chatgpt.com/backend-api/codex/responses)",
       desc: "issue #346: codex stream disconnected with network cause",
     },
+    // Issue #364: OpenAI's capacity error through pi's openai-codex provider.
+    {
+      line: "pi turn ended with stopReason error: Codex error: Our servers are currently overloaded. Please try again later.",
+      desc: "issue #364: pi openai-codex overload, full pi errorMessage",
+    },
+    {
+      line: "The server is overloaded or not ready yet.",
+      desc: "issue #364: OpenAI short overload phrasing",
+    },
   ];
   test.each(positives)("positive $desc: $line", ({ line }) => {
     expect(detectTransportInLine(line)).toBe(true);
@@ -276,6 +285,9 @@ describe("detectTransportInLine", () => {
     "I added a websocket idle timeout setting",
     "the upload stream disconnected before completion: retrying",
     "the stream disconnected before completion of the upload",
+    // Issue #364: the overload phrasing in prose stays task.
+    "I added a retry for when our servers are currently overloaded",
+    "turn failed: error_max_turns (I did not finish the case where the server is overloaded.)",
   ] as const;
   test.each(negatives)("negative %s is not transport", (line) => {
     expect(detectTransportInLine(line)).toBe(false);

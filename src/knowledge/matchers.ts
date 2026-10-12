@@ -153,6 +153,15 @@ export const SHARED_TRANSPORT_MATCHERS: ReadonlyArray<TransportMatcher> = [
   // Issue #350: Anthropic's HTTP 529 API error type, also returned by
   // compatible providers (MiniMax through pi).
   { pattern: "\\boverloaded_error\\b", flags: "i" },
+  // Issue #364: OpenAI's capacity error, as pi's openai-codex provider
+  // reports it: `Codex error: Our servers are currently overloaded. Please
+  // try again later.` Also its shorter `The server is overloaded`. Anchored
+  // like the timeout phrasings above, so prose about an overloaded server
+  // stays task.
+  {
+    pattern: "(?:^|:\\s*)(?:our |the )?servers? (?:is|are) (?:currently )?overloaded\\b",
+    flags: "im",
+  },
 ];
 
 export const SHARED_UNAVAILABLE_MATCHERS: ReadonlyArray<UnavailableMatcher> = [
