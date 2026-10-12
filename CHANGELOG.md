@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.8](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.7...v0.9.8) (2026-10-12)
+
+
+### Fixed
+
+* classify OpenAI's server-overloaded error as transport ([#365](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/365)) ([8190773](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/819077353fe8d2b470ce59a0a3ae4efde863543c))
+
 ## [0.9.7](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.6...v0.9.7) (2026-10-11)
 
 
