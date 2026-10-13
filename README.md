@@ -51,6 +51,12 @@ antigravity@1.3.3 (installed:agy)
 popeye@0.2.0 (npm:@dungle-scrubs/popeye)
 ```
 
+To teach your coding agents hcn's flags, events and refusals, install its agent skill:
+
+```sh
+npx skills add dungle-scrubs/harness-cli-normalizer --skill hcn -g
+```
+
 ## Usage
 
 ### Run a turn
@@ -268,7 +274,7 @@ You need Node 24 or newer, pnpm, and Bun.
 
 ```sh
 pnpm install
-pnpm check                 # lint, typecheck, build, vitest, bun test, package check
+pnpm check                 # lint, typecheck, build, vitest, bun test, skill check, package check
 bun run demo claude "hi"   # run a harness and print its event stream
 ```
 

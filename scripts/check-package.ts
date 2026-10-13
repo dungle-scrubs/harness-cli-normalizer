@@ -56,6 +56,8 @@ for (const required of [
   "LICENSE",
   "README.md",
   "package.json",
+  "skills/hcn/SKILL.md",
+  "skills/hcn/scripts/check-claims.sh",
 ]) {
   assert.ok(files.has(required), `packed package is missing ${required}`);
 }

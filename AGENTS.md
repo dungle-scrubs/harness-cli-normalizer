@@ -116,7 +116,7 @@ them; if a change needs to, change the gate test deliberately.
 
 ```bash
 pnpm install                # install deps (frozen lockfile in CI)
-pnpm check                  # lint + typecheck + build, then vitest + bun test (the full gate; the build runs first because dist/ is git-ignored and the CLI stub tests fail when it is missing or stale)
+pnpm check                  # lint + typecheck + build, then vitest + bun test + the skill claim check (the full gate; the build runs first because dist/ is git-ignored and the CLI stub tests fail when it is missing or stale)
 pnpm lint                   # biome check .
 pnpm typecheck              # tsc --noEmit
 pnpm test                   # vitest run
@@ -127,14 +127,17 @@ bun scripts/check-versions.ts       # compare descriptors to published versions
 
 ## Conventions
 
-- Whenever hcn is updated, audit the hcn skill at
-  `~/.agents/skills/hcn/SKILL.md` and its references and verification scripts
-  against the updated CLI. Edit the source in
-  `~/dev/skills/skills/vendor/hcn/` so flags, defaults, harness support, examples,
-  and event contracts reflect the update. Before calling the work complete,
-  run `scripts/check-claims.sh` against the updated binary and
-  `scripts/check-claims.test.sh` from that skill directory; report any remaining
-  mismatch or blocker.
+- Whenever hcn is updated, audit the hcn skill in `skills/hcn/` (`SKILL.md`,
+  its references and its scripts) against the updated CLI, so flags,
+  defaults, harness support, examples, and event contracts reflect the
+  update. Before calling the work complete, run `pnpm build` and then
+  `pnpm check:skill`, which runs `skills/hcn/scripts/check-claims.sh`
+  against `dist/cli.js` and `test/skill/check-claims.test.sh`; report any
+  remaining mismatch or blocker. `pnpm check:skill` sets
+  `CHECK_CLAIMS_REQUIRE_SNAPSHOT=1`, so it needs `TMPDIR` on a clone-capable
+  filesystem (APFS on macOS, XFS with reflink or btrfs on Linux); CI mounts
+  one. This repository is the skill's only source: edit it here, never in a
+  copy downstream.
 - When a harness ships, update the harness rosters in `AGENTS.md`, `CONTEXT.md`,
   `README.md`, and `CONTRIBUTING.md` in the same change.
 - A hand-written reader for an external binary format ships with byte-level
@@ -142,7 +145,7 @@ bun scripts/check-versions.ts       # compare descriptors to published versions
   declared lengths, out-of-bounds offsets, cyclic chains, and cross-boundary
   reads. Cross-checking against a reference implementation proves only that
   well-formed input agrees. Close that parser's independent review before
-  updating help text, docs, README, or the vendored hcn skill on top of it.
+  updating help text, docs, README, or the hcn skill on top of it.
 - Survey a native store through this repository's own resolution, never a
   hardcoded default path. `src/cli/store-root.ts` (`transcriptStoreRoot`,
   `transcriptListingRoot`) applies each harness's environment overrides
