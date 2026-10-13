@@ -47,7 +47,8 @@ and MCP elicitation. HCN terminates these with owned cleanup.
 Duplicate decision ID/content returns the recorded disposition without another
 write. Conflicting content is rejected. Save a durable write intent before
 sending when acting as a host. Missing acknowledgement never authorizes replay
-or sending a choice to a replacement process. HCN retains no cross-process state.
+or sending a choice to a replacement process. HCN retains no approval state
+across processes.
 
 Bounds: 4 KiB per decision including newline, 64 KiB UTF-8 details, 16 choices,
 32 pending requests, 4096 request identities and recorded decisions per process.

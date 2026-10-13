@@ -1,15 +1,31 @@
 #!/usr/bin/env bash
 # Tests for check-claims.sh.
 # A default or explicit working CLI passes; a known-bad expectation or broken
-# CLI fails; a missing binary yields "blocked: ..." and exit 2.
+# CLI fails with exit 1; a missing binary, an old Node or an unlaunchable CLI
+# yields "blocked: ..." and exit 2; a TMPDIR that cannot clone blocks only the
+# snapshot checks (exit 3) unless CHECK_CLAIMS_REQUIRE_SNAPSHOT=1 makes it a
+# failure.
 set -u
 
 dir=$(cd "$(dirname "$0")" && pwd)
 script="$dir/../../skills/hcn/scripts/check-claims.sh"
 fails=0
 fixture_dir=$(mktemp -d) || exit 1
-trap 'rm -rf "$fixture_dir"' EXIT
-mkdir "$fixture_dir/working" "$fixture_dir/broken" "$fixture_dir/invalid" "$fixture_dir/pi-settings" "$fixture_dir/muse-evidence" "$fixture_dir/aliases"
+noclone_dir=""
+noclone_mount=""
+# shellcheck disable=SC2329 # the EXIT trap invokes it
+cleanup() {
+  if [ -n "$noclone_mount" ]; then
+    hdiutil detach -quiet "$noclone_mount" || hdiutil detach -force -quiet "$noclone_mount"
+  fi
+  case "$noclone_dir" in /dev/shm/*) rm -rf "$noclone_dir" ;; esac
+  rm -rf "$fixture_dir"
+}
+trap cleanup EXIT
+mkdir "$fixture_dir/working" "$fixture_dir/broken" "$fixture_dir/invalid" "$fixture_dir/pi-settings" "$fixture_dir/muse-evidence" "$fixture_dir/aliases" \
+  "$fixture_dir/node-only" "$fixture_dir/old-node" "$fixture_dir/no-interpreter" "$fixture_dir/home-launcher"
+real_node=$(node -p 'process.execPath')
+ln -s "$real_node" "$fixture_dir/node-only/node"
 
 # Test 1: a working binary passes through both selection paths, and a known-bad
 # expectation exits 1.
@@ -73,10 +89,11 @@ EOF
   esac
 fi
 
-# Test 2: missing binary -> "blocked" and exit 2.
-out=$(env -u HCN_BIN PATH="/var/empty" /bin/bash "$script" 2>&1)
+# Test 2: missing binary -> "blocked" and exit 2. PATH holds only node, so
+# the hcn lookup is what blocks.
+out=$(env -u HCN_BIN PATH="$fixture_dir/node-only" /bin/bash "$script" 2>&1)
 rc=$?
-if [ "$rc" -eq 2 ] && [ "${out#blocked:}" != "$out" ]; then
+if [ "$rc" -eq 2 ] && [ "${out#blocked: hcn not on PATH}" != "$out" ]; then
   echo "ok: missing binary exits 2 with blocked message"
 else
   echo "FAIL: missing binary gave exit $rc, output: $out"
@@ -90,6 +107,33 @@ if [ "$rc" -eq 2 ] && [ "${out#blocked:}" != "$out" ]; then
   echo "ok: missing explicit binary exits 2 with blocked message"
 else
   echo "FAIL: missing explicit binary gave exit $rc, output: $out"
+  fails=$((fails + 1))
+fi
+
+# Node older than hcn's floor blocks every check with exit 2.
+cat >"$fixture_dir/old-node/node" <<'EOF'
+#!/bin/sh
+echo 22.12.0
+EOF
+chmod +x "$fixture_dir/old-node/node"
+out=$(PATH="$fixture_dir/old-node:$PATH" HCN_BIN="$fixture_dir/missing-hcn" /bin/bash "$script" 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ] && [ "${out#blocked: node 22.12.0}" != "$out" ]; then
+  echo "ok: old Node exits 2 with blocked message"
+else
+  echo "FAIL: old Node gave exit $rc, output: $out"
+  fails=$((fails + 1))
+fi
+
+# A CLI whose launcher cannot start (missing interpreter) is blocked, not a MISS.
+printf '#!/nonexistent/interpreter\n' >"$fixture_dir/no-interpreter/hcn"
+chmod +x "$fixture_dir/no-interpreter/hcn"
+out=$(HCN_BIN="$fixture_dir/no-interpreter/hcn" /bin/bash "$script" 2>&1)
+rc=$?
+if [ "$rc" -eq 2 ] && [ "${out#blocked:}" != "$out" ]; then
+  echo "ok: unlaunchable CLI exits 2 with blocked message"
+else
+  echo "FAIL: unlaunchable CLI gave exit $rc, output: $out"
   fails=$((fails + 1))
 fi
 
@@ -169,6 +213,102 @@ EOF
       else
         echo "FAIL: invalid observed Muse evidence gave exit $rc"
         fails=$((fails + 1))
+      fi
+      ;;
+  esac
+fi
+
+# Environment blocks on the transcript checks. They need a CLI with transcripts.
+if [ -n "$working_hcn" ]; then
+  case "$("$working_hcn" --help)" in
+    *"transcript read"*)
+      # A launcher that needs the caller's HOME starts for the help checks but
+      # not under the transcript checks' isolated HOME: blocked, exit 3.
+      {
+        printf '#!/usr/bin/env bash\n'
+        # shellcheck disable=SC2016 # the generated script expands $HOME
+        printf 'if [ "$HOME" != %q ]; then echo "launcher needs HOME" >&2; exit 1; fi\n' "$HOME"
+        printf 'exec %q "$@"\n' "$working_hcn"
+      } >"$fixture_dir/home-launcher/hcn"
+      chmod +x "$fixture_dir/home-launcher/hcn"
+      out=$(env -u CHECK_CLAIMS_REQUIRE_SNAPSHOT HCN_BIN="$fixture_dir/home-launcher/hcn" \
+        /bin/bash "$script" 2>&1)
+      rc=$?
+      case "$out" in
+        *"blocked: transcript checks:"*"isolated HOME"*) found=1 ;;
+        *) found=0 ;;
+      esac
+      if [ "$rc" -eq 3 ] && [ "$found" -eq 1 ]; then
+        echo "ok: HOME-dependent launcher blocks the transcript checks with exit 3"
+      else
+        echo "FAIL: HOME-dependent launcher gave exit $rc, output: $out"
+        fails=$((fails + 1))
+      fi
+
+      # Find a writable directory that cannot take a copy-on-write clone:
+      # tmpfs on Linux, a small HFS+ disk image on macOS.
+      case "$(uname -s)" in
+        Linux)
+          if [ -d /dev/shm ] && [ -w /dev/shm ]; then
+            candidate=$(mktemp -d /dev/shm/hcn-noclone.XXXXXX)
+            echo probe >"$candidate/a"
+            if cp --reflink=always "$candidate/a" "$candidate/b" 2>/dev/null; then
+              rm -rf "$candidate"
+            else
+              rm -f "$candidate/a"
+              noclone_dir=$candidate
+            fi
+          fi
+          ;;
+        Darwin)
+          if command -v hdiutil >/dev/null 2>&1 &&
+            hdiutil create -size 16m -fs HFS+ -volname hcn-noclone -quiet "$fixture_dir/noclone.dmg" &&
+            mkdir "$fixture_dir/noclone" &&
+            hdiutil attach -nobrowse -mountpoint "$fixture_dir/noclone" -quiet "$fixture_dir/noclone.dmg"; then
+            noclone_mount="$fixture_dir/noclone"
+            noclone_dir="$noclone_mount"
+          fi
+          ;;
+      esac
+      if [ -n "$noclone_dir" ]; then
+        # Portable checks pass; snapshot checks report blocked; exit 3, not 1.
+        out=$(env -u CHECK_CLAIMS_REQUIRE_SNAPSHOT TMPDIR="$noclone_dir" HCN_BIN="$working_hcn" \
+          /bin/bash "$script" 2>&1)
+        rc=$?
+        case "$out" in
+          *"blocked: snapshot checks"*) found=1 ;;
+          *) found=0 ;;
+        esac
+        if [ "$rc" -eq 3 ] && [ "$found" -eq 1 ] && [ "${out#*MISS:}" = "$out" ]; then
+          echo "ok: clone-incapable TMPDIR blocks only the snapshot checks with exit 3"
+        else
+          echo "FAIL: clone-incapable TMPDIR gave exit $rc, output: $out"
+          fails=$((fails + 1))
+        fi
+
+        # The opt-in turns the blocked snapshot checks into a failure.
+        CHECK_CLAIMS_REQUIRE_SNAPSHOT=1 TMPDIR="$noclone_dir" HCN_BIN="$working_hcn" \
+          /bin/bash "$script" >/dev/null 2>&1
+        rc=$?
+        if [ "$rc" -eq 1 ]; then
+          echo "ok: CHECK_CLAIMS_REQUIRE_SNAPSHOT=1 turns blocked snapshot checks into exit 1"
+        else
+          echo "FAIL: required snapshot checks on a clone-incapable TMPDIR gave exit $rc"
+          fails=$((fails + 1))
+        fi
+
+        # A claim mismatch still exits 1 when snapshot checks are blocked.
+        env -u CHECK_CLAIMS_REQUIRE_SNAPSHOT CHECK_CLAIMS_EXTRA="no-such-flag-injected-by-test" \
+          TMPDIR="$noclone_dir" HCN_BIN="$working_hcn" /bin/bash "$script" >/dev/null 2>&1
+        rc=$?
+        if [ "$rc" -eq 1 ]; then
+          echo "ok: a claim mismatch outranks blocked snapshot checks"
+        else
+          echo "FAIL: claim mismatch with blocked snapshot checks gave exit $rc, want 1"
+          fails=$((fails + 1))
+        fi
+      else
+        echo "skip: no clone-incapable filesystem available, blocked-snapshot tests not run"
       fi
       ;;
   esac

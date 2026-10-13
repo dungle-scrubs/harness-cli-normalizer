@@ -145,7 +145,9 @@ agent/child conversations stay separate; remote stores are outside these methods
 The Claude, Muse, Cursor and Antigravity readers require a passive filesystem
 clone through HCN's packaged helper on macOS or Linux. The source and temporary
 directory must support the same-filesystem clone operation. `TMPDIR` can select
-a caller-owned private temporary location on the source filesystem. A failed
+a caller-owned private temporary location on the source filesystem. When the
+skill's install check reports `blocked: snapshot checks`, these readers fail the
+same way on that machine until `TMPDIR` names such a location. A failed
 clone does not fall back to an ordinary copy or native resume. The helper has a
 five-second acquisition deadline and one-second cleanup bound. A clone captures
 a byte view that can fall between native writes; it does not prove a complete

@@ -1,33 +1,84 @@
 #!/usr/bin/env bash
 # check-claims.sh - re-verify the hcn skill's binary-checkable claims
-# against the selected hcn CLI's help output.
+# against the selected hcn CLI.
 #
-# Exit 0: every expectation found. Exit 1: at least one expectation
-# missing (each miss is printed). Exit 2: blocked - the selected binary is
-# missing or not executable, so nothing was checked.
+# Run it with bash from any directory:
+#   bash "<skill-dir>/scripts/check-claims.sh"
+#   HCN_BIN=/absolute/path/to/hcn bash "<skill-dir>/scripts/check-claims.sh"
+#
+# Exit codes:
+#   0  every check ran and every expectation was found.
+#   1  at least one claim mismatch: the CLI disagrees with the skill. Each
+#      mismatch prints a MISS line. A mismatch outranks any blocked check.
+#   2  blocked before any check ran: Bash, Node or a launchable hcn is
+#      missing. Each "blocked:" line names what to provide.
+#   3  every check that ran passed, but some checks could not run here.
+#      Each "blocked:" line names the operations it covers and the fix;
+#      nothing else is affected.
+# An environment that cannot run a check never exits 1.
 #
 # HCN_BIN selects the binary under test and defaults to hcn on PATH.
+# CHECK_CLAIMS_REQUIRE_SNAPSHOT=1 turns a blocked snapshot check into a
+# MISS, so a maintainer or CI run cannot pass without exercising it.
 # CHECK_CLAIMS_EXTRA adds one expectation to the top-level help check.
 # The test file uses it to prove a bad expectation fails with exit 1.
+
+# A POSIX sh that is not bash stops here, before any bash-only syntax.
+if [ -z "${BASH_VERSION:-}" ]; then
+  echo 'blocked: this check needs Bash; run it as: bash "<skill-dir>/scripts/check-claims.sh"'
+  exit 2
+fi
 set -u
+
+# hcn's own runtime floor (package.json "engines"); the checker needs it too.
+node_floor=24
+if ! command -v node >/dev/null 2>&1; then
+  printf 'blocked: node is not on PATH; install Node %s or newer (hcn requires it)\n' "$node_floor"
+  exit 2
+fi
+node_version=$(node -p 'process.versions.node' 2>/dev/null)
+node_major=${node_version%%.*}
+case "$node_major" in
+  '' | *[!0-9]*)
+    printf 'blocked: node on PATH did not report a version; install Node %s or newer\n' "$node_floor"
+    exit 2
+    ;;
+esac
+if [ "$node_major" -lt "$node_floor" ]; then
+  printf 'blocked: node %s is older than hcn'"'"'s floor; install Node %s or newer and rerun\n' \
+    "$node_version" "$node_floor"
+  exit 2
+fi
 
 bin=${HCN_BIN:-hcn}
 case "$bin" in
   */*)
     if [ ! -f "$bin" ] || [ ! -x "$bin" ]; then
-      printf 'blocked: %s is missing or not executable\n' "$bin"
+      printf 'blocked: %s is missing or not executable; set HCN_BIN to the hcn executable\n' "$bin"
       exit 2
     fi
     ;;
   *)
     if ! command -v "$bin" >/dev/null 2>&1; then
-      printf 'blocked: %s not on PATH\n' "$bin"
+      printf 'blocked: %s not on PATH; install hcn (npm install -g @dungle-scrubs/harness-cli-normalizer) or set HCN_BIN\n' "$bin"
       exit 2
     fi
+    bin=$(command -v "$bin")
     ;;
 esac
 
+# 126 and 127 come from the launcher (bad interpreter, missing node), not
+# from hcn, whose own exit codes are 0, 1, 2 and 4.
+launch_output=$("$bin" --version 2>&1)
+launch_rc=$?
+if [ "$launch_rc" -eq 126 ] || [ "$launch_rc" -eq 127 ]; then
+  printf 'blocked: %s could not be launched (exit %s): %s\n' \
+    "$bin" "$launch_rc" "$(printf '%s' "$launch_output" | head -n 1)"
+  exit 2
+fi
+
 misses=0
+blocked=0
 
 require() {
   # require <label> <haystack> <needle>...
@@ -281,7 +332,12 @@ case "$help_top" in
         ;;
     esac
     script_dir=$(cd "$(dirname "$0")" && pwd)
-    node "$script_dir/check-transcripts.mjs" || misses=$((misses + 1))
+    HCN_BIN="$bin" node "$script_dir/check-transcripts.mjs"
+    case $? in
+      0) ;;
+      3) blocked=$((blocked + 1)) ;;
+      *) misses=$((misses + 1)) ;;
+    esac
     ;;
   *)
     if [ "${CHECK_CLAIMS_REQUIRE_TRANSCRIPT:-0}" = 1 ]; then
@@ -339,6 +395,10 @@ fi
 if [ "$misses" -gt 0 ]; then
   printf '%d expectation(s) missing\n' "$misses"
   exit 1
+fi
+if [ "$blocked" -gt 0 ]; then
+  printf 'partial: every check that ran passed; the blocked lines above name what did not run\n'
+  exit 3
 fi
 printf 'ok: all hcn expectations found\n'
 exit 0

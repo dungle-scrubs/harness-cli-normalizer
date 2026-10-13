@@ -83,9 +83,30 @@ describe("hcn skill", () => {
     expect(m?.[1] ?? "").toBe("https://github.com/dungle-scrubs/harness-cli-normalizer");
   });
 
-  test("SKILL.md has at most 500 lines", () => {
+  test("SKILL.md stays a short entry point of at most 200 lines", () => {
+    // Detail belongs in references/; raise this bound only with a reason.
     const lineCount = skillText.split("\n").length;
-    expect(lineCount).toBeLessThanOrEqual(500);
+    expect(lineCount).toBeLessThanOrEqual(200);
+  });
+
+  test("no skill file counts harnesses or grammars", () => {
+    // The roster grows; a count goes stale with the next harness.
+    const count =
+      /\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+)\s+(?:harnesses|grammars)\b/i;
+    for (const file of listAllFiles(skillDir)) {
+      const match = readFileSync(file, "utf8").match(count);
+      expect(match?.[0], `${file} counts: ${JSON.stringify(match?.[0])}`).toBeUndefined();
+    }
+  });
+
+  test("the claim checker's Node floor matches package.json engines", () => {
+    const pkg = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as {
+      engines?: { node?: string };
+    };
+    const floor = pkg.engines?.node?.match(/^>=(\d+)$/)?.[1];
+    expect(floor, "engines.node is >=<major>").toBeDefined();
+    const script = readFileSync(join(skillDir, "scripts/check-claims.sh"), "utf8");
+    expect(script).toContain(`node_floor=${floor}\n`);
   });
 
   test("no file under skills/hcn contains a forbidden private pointer", () => {

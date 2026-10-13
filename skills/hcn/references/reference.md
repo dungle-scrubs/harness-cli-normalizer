@@ -19,14 +19,14 @@ typed transport failure, never permission to start an empty task.
 | `--model <id>` | per-harness vocab | validated; aliases resolve; on cursor only listed slugs run - a bare family stem (e.g. `claude-opus-4-8`) without `--effort` refuses naming that family's slugs |
 | `--effort <level>` | all | ladder per harness; profile defaults medium; on cursor the level resolves into the `--model` slug through per-family ladders and only arg-tier `--effort` enforces (profile/config values report divergence) |
 | `--sandbox <mode>` | codex, antigravity | codex: read-only, workspace-write, danger-full-access; antigravity: normalized workspace-write renders its boolean `--sandbox`; profile: workspace-write; cursor refuses any value |
-| `--context-window <tokens>` | codex, popeye (1-10000000), claude (100000-1000000); run and session | integer 1-272000 on codex (launch default 272000); popeye 1-10000000; claude renders native `--autocompact` - an auto-compact window; hcn adds no request-token or cost enforcement - with NO launch default (the profile window does not transfer; claude's native default applies unless a flag or config sets it); native env `CLAUDE_CODE_AUTO_COMPACT_WINDOW` overrides the flag; Claude also provides `DISABLE_AUTO_COMPACT` and `DISABLE_COMPACT` (interaction with the flag untested); native percentage controls can trigger compaction earlier; config key `contextWindow` on run launches only (resume and session spawns use explicit flags) |
+| `--context-window <tokens>` | codex, popeye (1-10000000), claude (100000-1000000); run and session | integer 1-272000 on codex (launch default 272000); popeye 1-10000000; claude renders native `--autocompact` (builds whose run help lists it) - an auto-compact window; hcn adds no request-token or cost enforcement - with NO launch default (the profile window does not transfer; claude's native default applies unless a flag or config sets it); native env `CLAUDE_CODE_AUTO_COMPACT_WINDOW` overrides the flag; Claude also provides `DISABLE_AUTO_COMPACT` and `DISABLE_COMPACT` (interaction with the flag untested); native percentage controls can trigger compaction earlier; config key `contextWindow` on run launches only (resume and session spawns use explicit flags) |
 | `--provider <id>` | pi | pi routes providers; Pi 1.0 requires an accompanying model, or use a provider/model selector; provider-only failures stay native; others refuse with hint |
 | `--agent <name>` | claude, antigravity, popeye (codex, muse, cursor refuse exit 2); pi extension-registered (ADR 0010) | select a named agent the harness defines natively - hcn selects, never defines; the name passes through beyond the selector rule, so an unknown name is the harness's own native error (antigravity tolerates one and runs with its default; popeye and claude strictly reject with a typed error and the roster of valid agents); popeye reads from ./.popeye/agents and ~/.popeye/agents (POPEYE_AGENTS_DIR overrides); no stable machine roster exists across harnesses, so `hcn inspect <harness>` `namedAgents` (and `--capabilities`) is the planning surface ; pi's roster fact is machine-conditional: `hcn inspect pi --runtime` runs the declared probe and answers expressible-here / not-here (ADR 0010) |
-| `--tools <a,b>` | claude, pi (muse via category switches; codex, cursor, antigravity refuse) | canonical names only (`read write edit shell grep glob list web-fetch web-search subagent skill`); `native:<name>` passes through; a configured toolset name expands; `toolMap` config maps canonical -> extension names; cursor allow/deny lives in config files, named in the refusal hint |
-| `--exclude-tools <a,b>` | claude, pi (muse via category switches; codex, cursor, antigravity refuse) | canonical names; complement over the harness's known names; mutually exclusive with --tools |
+| `--tools <a,b>` | claude, pi, popeye (muse via category switches; codex, cursor, antigravity refuse) | claude renders an `--allowedTools` grant plus a `--disallowedTools` deny complement; pi and popeye render a strict `--tools` allowlist; canonical names only (`read write edit shell grep glob list web-fetch web-search subagent skill`); `native:<name>` passes through; a configured toolset name expands; `toolMap` config maps canonical -> extension names; cursor allow/deny lives in config files, named in the refusal hint |
+| `--exclude-tools <a,b>` | claude, pi, popeye (muse via category switches; codex, cursor, antigravity refuse) | canonical names; complement over the harness's known names; mutually exclusive with --tools |
 | `--isolation <tool-free>` | claude, builds listing it in help | fresh turn only; no tools, MCP, instruction files, hooks, or extensions; refuses resume/session/native passthrough and grants; requires bare-mode authentication; invocation-only |
-| `--access <read\|write>` | claude, codex, pi, muse, popeye (cursor and antigravity refuse) | preset grant: `read` = read, grep, glob, list, web-fetch, web-search; claude/pi/popeye -> `--tools`, codex -> `--sandbox read-only`/`workspace-write`, muse -> `--disable-write --disable-shell`; no default; mutually exclusive with --tools/--exclude-tools (and --sandbox on codex); honors --no-tools |
-| `--skills <a,b>` | claude, codex, pi; `hcn run` and `hcn session` | caller-directed skills allowlist; names resolve against the registry root ($HCN_SKILLS_ROOT, default ~/.agents/skills); unknown names refuse exit 2 listing the registry; on a session the allowlist is a spawn property and holds across every turn (resume included); muse, cursor, and antigravity refuse with a hint (antigravity and popeye sessions refuse the same way rather than open with the full set) |
+| `--access <read\|write>` | claude, codex, pi, muse, popeye (cursor and antigravity refuse) | preset grant: `read` = read, grep, glob, list, web-fetch, web-search; claude -> `--allowedTools` grant + `--disallowedTools` deny complement, pi/popeye -> `--tools`, codex -> `--sandbox read-only`/`workspace-write`, muse -> `--disable-write --disable-shell`; no default; mutually exclusive with --tools/--exclude-tools (and --sandbox on codex); honors --no-tools |
+| `--skills <a,b>` | claude, codex, pi; `hcn run` and `hcn session` | caller-directed skills allowlist; names resolve against the registry root ($HCN_SKILLS_ROOT, default ~/.agents/skills); unknown names refuse exit 2 listing the registry; on a session the allowlist is a spawn property and holds across every turn (resume included); muse, cursor, antigravity, and popeye refuse with a hint (antigravity and popeye sessions refuse the same way rather than open with the full set) |
 | `--autonomy` / `--no-autonomy` | claude, codex, muse, cursor, antigravity | profile: off; on antigravity renders `--dangerously-skip-permissions`; on cursor renders `--force`, which also bypasses the workspace-trust gate per run without persisting trust |
 | `--questions <ask\|assume\|none>` | all (hcn-owned), run and session | default ask; assume instructs the worker to state assumptions and continue; none injects nothing; question detection only in ask; config key `questions` |
 | `--system-prompt <text>` | claude, codex, pi, popeye | replace the built-in prompt; codex accepts text or a path; muse refuses; opt-in |
@@ -40,10 +40,49 @@ typed transport failure, never permission to start an empty task.
 | `--resume-last` | claude, codex, pi, cursor, antigravity (muse refuses) | most-recent session in the exact spawn cwd, no id; mutually exclusive with `--resume`/`--session-id`; refused on `session`, with `--native-approvals`, and with `--native-settings-fingerprint`; preview with `inspect <harness> --argv --resume-last --prompt "preview only"` |
 | `-- <args>` | passthrough | verbatim to harness at the descriptor placement, no separator rendered; failures are native-labeled; a `prompt-joins` harness refuses any tail instead of rewriting the prompt (none today) |
 
+## Defaults, config and tool grants
+
+Every launch resolves through one chain:
+
+```
+args  >  .hcn/config.json (git root)  >  ~/.config/hcn/config.json  >  profile  >  harness
+```
+
+The profile pins: effort medium, sandbox workspace-write (codex and
+antigravity) and context window 272000 (codex and popeye; claude keeps its
+native default), discovery on, autonomy off, memory off, write/shell true
+(named, emitting nothing). Timeout and maxSteps are opt-in only - no
+default, caller's number. Model is permanently out of profile scope.
+`hcn run --help` restates the profile in its Defaults section.
+
+Tool grants use hcn's canonical names only. hcn maps them to each harness
+(`read` is claude `Read`, pi `read`; `glob` is claude `Glob`, pi `find`).
+A native name passed bare (`Read`, `find`) refuses exit 2 listing the
+canonical set. `native:<name>` passes a harness-native or extension tool
+through untouched and shows up in provenance. A canonical name the
+requested harness cannot express refuses with the nearest control (codex
+`--sandbox`, muse category switches, cursor config-file allow/deny lists) -
+never a silent narrowing. Extension tools get a name through config:
+`"toolMap": {"pi": {"web-search": "web_search"}}` in either tier; the
+refusal hint names the key to add. `--access read` never re-enables tools
+switched off by `--no-tools`.
+
+Project `tools` is grant AND floor: a `--tools` grant exceeding it
+refuses naming both sets; an empty floor refuses every grant. Named
+toolsets (`"toolsets": {"review": [...]}`) expand from a bare `--tools
+review` before the floor check.
+
+`--isolation tool-free` (builds whose `hcn run --help` lists it) rejects
+resume, sessions, native passthrough, and explicit tool, skill, access,
+autonomy, or discovery overrides. Config defaults for those dimensions
+yield to isolation; model and effort still resolve normally. Bare-mode
+authentication is required; an OAuth-only setup may fail. An optional
+naming caller keeps its fallback. Older builds refuse the unknown flag.
+
 ## Resume-last render and hazards
 
-One flag, six grammars. hcn only renders; the harness picks the
-session.
+One flag, a different native grammar on each harness. hcn only renders;
+the harness picks the session.
 
 | Harness | Rendered most-recent grammar | No prior session in scope |
 |---|---|---|
@@ -63,6 +102,9 @@ pi, and cursor; claude forks under a new id instead, so the parent
 file is never written, though the child still inherits its history.
 Callers that need strict continuation store ids and use `--resume`.
 Cursor `--effort` needs a slugged `--model` alongside it.
+
+On Antigravity, a named unknown conversation ID was observed to start fresh
+and announce a different ID.
 
 ## Runtime inspection
 
@@ -98,8 +140,8 @@ automatic-compaction threshold. No unavailable result authorizes dispatch.
 Codex 0.156.1 supports verified native resume, but its context inspection
 returns `unsupported-adapter`. Its native usage updates describe executed
 turns, not a preflight count of the pending prompt. Version verification
-alone does not establish context-accounting support. Descriptor inspection separately declares `nativeContextManagement`. All six
-harnesses now carry a probed value: claude
+alone does not establish context-accounting support. Descriptor inspection separately declares `nativeContextManagement`. Every
+harness except popeye (null) carries a probed value: claude
 `{ kind: "native-session-auto-compaction", modes: ["headless-turn"] }`; codex,
 muse and cursor `{ kind: "auto-compaction", modes: ["headless-turn"] }`; pi
 `{ kind: "auto-compaction", modes: ["headless-turn", "headless-session"] }`;
@@ -147,7 +189,7 @@ command. The version probe has bounded time and output.
 | agent | --agent | - (refuses) | --agent (extension-verified) | - (refuses) | - (refuses) | --agent | --agent |
 | tools include | --allowedTools (grant) + deny complement | - (refuses, --sandbox hint) | --tools (strict) | category switches (--disable-write/--disable-shell/--disable-web-tools) | - (refuses, config-file hint) | - (refuses) | --tools (strict) |
 | tools exclude | --disallowedTools | - (refuses, hint) | --exclude-tools | category switches | - (refuses, hint) | - (refuses) | --exclude-tools |
-| access | --tools (read subset) | --sandbox | --tools (read subset) | --disable-write --disable-shell | - (refuses) | - (refuses) | --tools (read subset) |
+| access | --allowedTools (read subset) + deny complement | --sandbox | --tools (read subset) | --disable-write --disable-shell | - (refuses) | - (refuses) | --tools (read subset) |
 | autonomy | --dangerously-skip-permissions | --yolo | - | --yolo | --force (also bypasses trust per run) | --dangerously-skip-permissions | - |
 | write | - | - | - | --disable-write | - | - | - |
 | shell | - | - | - | --disable-shell | - | - | - |
@@ -155,8 +197,11 @@ command. The version probe has bounded time and output.
 | skills allowlist | skillOverrides complement | -c skills.config disable-set | --skill (exact set) | - (refuses, hint) | - (refuses, hint) | - (refuses, hint) | - (refuses, hint) |
 
 Tools defaults: a bare pi run emits no tool list, preserving its native
-defaults and any extension or MCP tools. Explicit pi grants are strict
-allowlists; include extension tools through `toolMap` or `native:<name>`.
+defaults and any extension or MCP tools. Any rendered pi list (an explicit
+grant or `--access read`) is a strict allowlist that drops the extension
+and MCP tools pi registered at run time; a pi delegation that needs
+`web_search`, `background_task`, or tool-proxy under a grant must name
+them through `toolMap` or `native:<name>`.
 Skills allowlist rendering:
 pi gets `-ns` plus one `--skill <path>` per pick (only those load); claude
 gets `--settings '{"skillOverrides":{"<name>":"off",...}}'` turning off
@@ -167,9 +212,12 @@ the same two entries with `enabled=true` restating the picks (the path
 selector covers a frontmatter name that differs from the basename; the
 name selector also kills duplicate copies at paths HCN does not know;
 restating the picks shields them from a user-level config.toml disable).
-Muse refuses with a hint. Registry names come from the top level of the
-root, so a skill that only exists at a nested path is unknown to the
-allowlist on every harness.
+Muse, cursor, antigravity and popeye refuse with a hint. Registry names
+come from the top level of the root, so a skill that only exists at a
+nested path is unknown to the allowlist on every harness. The allowlist
+governs the harness's skill-loading surface, not the filesystem: pi and
+codex have no runtime skill tool, so a worker with file tools can still
+read skill files off disk.
 
 Claude include is a permission grant, not a visibility filter: hcn
 renders an exact allowlist there as grant + deny-complement. Pi include
@@ -187,8 +235,6 @@ code plus hcn's exit cause, `killed` included). The harness child gets
 fire-and-forget: a missing, failing or slow observer never fails or delays
 the run, and an unset variable leaves the run unchanged. Contract:
 https://github.com/dungle-scrubs/harness-cli-normalizer/blob/main/docs/observer.md.
-0.9.0 also removes 0.8.0's `REFLECT_INTAKE_CAPTURE`; hcn no longer runs
-reflect-intake capture itself.
 
 ## Event schema (NDJSON, --json)
 
@@ -261,8 +307,11 @@ mid-compaction. `--stall` is opt-in and unset by default.
 and escalation is on. It always precedes `done`, which then carries
 cause `awaiting-input` with exit 0 - the turn succeeded at asking.
 Resume with the answer as the prompt; the session id came from the
-`identity` event. A malformed block surfaces as an `error` event
-instead, and the turn is judged on its own content. Detection is armed
+`identity` event. A malformed block is not a question: hcn emits an
+`error` event and fails the turn with a non-retryable `failure.class:
+"task"`, so `done` carries cause `failed` and a run exits 1. Do not treat
+that turn's text as an answer; wait for `done` and branch on its cause.
+Detection is armed
 only in `ask` mode - a block emitted under `--questions assume` or
 `--questions none` produces no question event.
 
@@ -309,6 +358,14 @@ for a consumer that owns its input timing. The human REPL without
 `--json` is unchanged. First stdout line is `session`; the last is
 `closed`.
 
+`hcn session --help` lists the harnesses with a session mode; the others
+use the run/resume protocol. Native transports: pi sessions run over
+`--mode rpc`; claude and Antigravity sessions run over stream-json (JSONL
+both directions); codex sessions run `codex app-server` (newline-delimited
+JSON-RPC over stdio, one process, many `turn/start` calls). In the human
+REPL a worker's question renders as a pickable menu (recommended
+starred); the answer flows back as the next message on the same session.
+
 Control events (stdout):
 
 ```
@@ -335,19 +392,21 @@ Commands (stdin, one JSON object per line; blank lines ignored):
 | harness exit | a turn still open when the harness exits nonzero with no failure yet gets run mode's stderr-tail classification: a transport, unavailable or trust phrasing first, else `native` with the tail, else `transport` on empty stderr. The detail is bounded with secret-shaped tokens masked. The `failure` lands in that turn before its `done` (cause stays `crash`), and `closed.failure` carries it. From hcn 0.9.6 a nonzero exit with no open turn also puts a failure on `closed.failure`: one hcn already read from stderr (an auth or limit wall; a limit keeps cause `limit`) first, else the same stderr-tail classification. A codex crash before the session opens creates no turn for its rejected sends |
 | refusals | from hcn 0.9.6. A harness that refuses the command that opened a turn, before acknowledging it (pi `prompt` with `success:false`, a popeye prompt error), ends that turn with the classified failure and `done` cause `failed`; a refused later send, even one reusing the id, leaves the turn running. A refused session open (codex `thread/start` error, popeye `create` error) ends the session: codex rejects the waiting sends with `native-rejected`, popeye ends the first waiting send's turn with the failure, and `closed` reports cause `failed` (exit 1) with the failure. A refusal is classified like a terminal error, except that a generic one is `native`, not `task`. A codex app-server that never answers still waits on the caller |
 | ids | `session.sessionId` = caller-side handle; `identity.sessionId` (first turn) = harness-confirmed id (pi and codex: minted; codex mints the thread id at open, `--resume <id>` reopens it via `thread/resume`) |
-| exit codes | 0 `closed.cause` clean, 1 anything else, 2 refusal before the stream opens. A refusal still writes `failure` + `closed cause=failed` on stdout (prose to stderr); a spawn failure writes a `transport` failure + the same `closed`, exit 1. The exit code is set after the terminal line flushes. EPIPE on stdout: hcn closes the session (grace, then signal) and exits 1 |
+| exit codes | 0 `closed.cause` clean, 1 any other harness or session outcome, 2 refusal before the stream opens, 4 hcn internal crash (an `internal` failure and `closed` with cause `crash`; an hcn bug - report it, do not retry or reroute). A refusal still writes `failure` + `closed cause=failed` on stdout (prose to stderr); a spawn failure writes a `transport` failure + the same `closed`, exit 1. The exit code is set after the terminal line flushes. EPIPE on stdout: hcn closes the session (grace, then signal) and exits 1 |
 | flags | `--stall <s>` per-turn inactivity budget (0 disables, no default; expiry ends the turn `stall` and closes the session `stall`); `--provider` pi only, same validation as run; `--agent <name>` claude, antigravity, popeye, and pi (extension-verified at open), rendered at spawn exactly as run renders it; `--effort <v>` (>= 0.6.0) validated against the ladder for the picked `--model` exactly as on run - no default, the harness's own effort applies without it; `--skills <a,b>` (issue #332) the run allowlist at session spawn through the same resolution and render, holding across every turn, antigravity/popeye refusing exit 2 before spawn; `--model` renders per harness (codex sessions take `-c model=<id>` - app-server has no `--model` flag - and sessions render no sandbox flag, so codex's own sandbox default applies) |
 
 ## Native memory controls
 
-`--no-memory` is the launch and session profile default. Claude renders
+In builds whose help lists `--memory`, `--no-memory` is the launch and
+session profile default. Claude renders
 `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` in the child environment, and Codex
 renders `--disable memories`. `inspect --argv` includes an `env:` diagnostic
 for descriptor environment settings. HCN stores no memory.
 
 `--memory` and config `memory: true` remove HCN's disable override; they
 do not force native memory on. Pi's built-in memory is absent and custom
-extensions remain outside this control. Muse, cursor, and antigravity have no declared
+extensions remain outside this control. Popeye declares memory a no-op:
+both values emit nothing. Muse, cursor, and antigravity have no declared
 off switch: profile defaults report divergence and explicit values refuse. Resumed
 runs bypass the profile and config defaults; session memory resolves once
 at spawn through arg, project config, user config, then profile.

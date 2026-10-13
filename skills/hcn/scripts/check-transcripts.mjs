@@ -1,10 +1,20 @@
 #!/usr/bin/env node
-// Synthetic consumer checks. Never reads the caller's native history stores.
+// Synthetic consumer checks for the transcript claims. Never reads the
+// caller's native history stores: every hcn child runs with HOME, TMPDIR,
+// CODEX_HOME and PI_CODING_AGENT_DIR pointed at a private temporary
+// directory, and no other caller variable reaches it.
+//
+// Exit 0: every check passed. Exit 1: at least one MISS. Exit 3: no MISS,
+// but the environment blocked at least one check group; each prints
+// "blocked: <scope>: <reason and fix>". CHECK_CLAIMS_REQUIRE_SNAPSHOT=1
+// reports a blocked check as a MISS instead.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   appendFileSync,
+  constants,
+  copyFileSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -12,23 +22,66 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 
-const directory = mkdtempSync(join(tmpdir(), "hcn-skill-transcript-"));
+const strict = process.env.CHECK_CLAIMS_REQUIRE_SNAPSHOT === "1";
+let missed = false;
+let blockedAny = false;
+function miss(text) {
+  console.error(`MISS: ${text}`);
+  missed = true;
+}
+function blocked(scope, reason) {
+  if (strict) miss(`${scope} required for this verification, but blocked: ${reason}`);
+  else {
+    console.log(`blocked: ${scope}: ${reason}`);
+    blockedAny = true;
+  }
+}
+function finish() {
+  if (!missed) {
+    console.log(
+      blockedAny
+        ? "ok: synthetic transcript claims that could run"
+        : "ok: synthetic transcript claims",
+    );
+  }
+  process.exitCode = missed ? 1 : blockedAny ? 3 : 0;
+}
+
+const callerTmp = tmpdir();
+let directory;
+try {
+  directory = mkdtempSync(join(callerTmp, "hcn-skill-transcript-"));
+} catch (error) {
+  blocked(
+    "transcript checks",
+    `cannot create a temporary directory in TMPDIR=${callerTmp} (${error.code ?? error.message}); set TMPDIR to a writable directory`,
+  );
+  finish();
+  process.exit();
+}
 const hcnBin = process.env.HCN_BIN ?? "hcn";
-function wire(args, expected = 0) {
-  const result = spawnSync(hcnBin, args, {
+// The node running this check comes first on the child's PATH, so a
+// `#!/usr/bin/env node` launcher finds a real binary rather than a version
+// manager shim that would need the caller's HOME.
+const childEnv = {
+  PATH: [dirname(process.execPath), process.env.PATH].filter(Boolean).join(delimiter),
+  HOME: directory,
+  TMPDIR: directory,
+  CODEX_HOME: directory,
+  PI_CODING_AGENT_DIR: directory,
+};
+function spawnHcn(args) {
+  return spawnSync(hcnBin, args, {
     encoding: "utf8",
     cwd: directory,
-    env: {
-      PATH: process.env.PATH,
-      HOME: directory,
-      TMPDIR: directory,
-      CODEX_HOME: directory,
-      PI_CODING_AGENT_DIR: directory,
-    },
+    env: childEnv,
     maxBuffer: 12 * 1024 * 1024,
   });
+}
+function wire(args, expected = 0) {
+  const result = spawnHcn(args);
   assert.ifError(result.error);
   assert.equal(result.status, expected, `hcn ${args.slice(0, 3).join(" ")} exit`);
   return result.stdout;
@@ -39,12 +92,73 @@ function run(args, expected = 0) {
     .split("\n")
     .map((line) => JSON.parse(line));
 }
+const lines = (rows) => rows.map((row) => JSON.stringify(row)).join("\n") + "\n";
 const guarantees = ["history", "branches", "original-records", "embedded-content"];
-try {
-  const help = wire(["transcript", "--help"]);
-  // Both surfaces are additive; an older installed binary lacks them.
-  const writerBuildReported = help.includes("reports the cli_version its own header names");
-  const listsSessions = help.includes("hcn transcript ls");
+const source = join(directory, "synthetic.jsonl");
+let help = "";
+let writerBuildReported = false;
+let listsSessions = false;
+
+/** Clone support of TMPDIR observed without hcn: "clones", "no-clone", or
+ * "unknown" where Node has no forced clone (macOS returns ENOSYS). */
+function independentClone() {
+  const from = join(directory, "clone-probe-source");
+  const to = join(directory, "clone-probe-copy");
+  try {
+    writeFileSync(from, "probe");
+    copyFileSync(from, to, constants.COPYFILE_FICLONE_FORCE);
+    return "clones";
+  } catch (error) {
+    return error.code === "ENOSYS" ? "unknown" : "no-clone";
+  } finally {
+    rmSync(from, { force: true });
+    rmSync(to, { force: true });
+  }
+}
+
+/** Decide whether this TMPDIR can run the snapshot checks. Returns null when
+ * it can, or the blocked reason. Throws (a MISS) when the evidence says the
+ * filesystem clones but hcn could not. */
+function snapshotBlocker() {
+  const helperTargets = ["darwin", "linux-x64", "linux-arm64"];
+  const target = process.platform === "darwin" ? "darwin" : `${process.platform}-${process.arch}`;
+  if (!helperTargets.includes(target)) {
+    return `hcn ships its clone helper for macOS and for Linux x64 and arm64, not ${target}`;
+  }
+  const probe = join(directory, "snapshot-probe.jsonl");
+  writeFileSync(
+    probe,
+    lines([
+      {
+        type: "user",
+        uuid: "probe",
+        sessionId: "synthetic-probe",
+        parentUuid: null,
+        message: { role: "user", content: "probe" },
+      },
+    ]),
+  );
+  const result = spawnHcn(["transcript", "read", "claude", "--file", probe]);
+  assert.ifError(result.error);
+  const last = JSON.parse(result.stdout.trim().split("\n").at(-1));
+  if (result.status === 0 && last.status === "complete") return null;
+  const failure = last.failure ?? {};
+  assert.ok(
+    failure.issue === "guarantee-unmet" && failure.requirement === "consistency",
+    `snapshot probe ended with exit ${result.status} and issue ${failure.issue}`,
+  );
+  assert.notEqual(
+    independentClone(),
+    "clones",
+    `TMPDIR=${callerTmp} takes a forced clone, but hcn reported: ${failure.message}`,
+  );
+  return (
+    `TMPDIR=${callerTmp} cannot take a copy-on-write clone (hcn: ${failure.message}). ` +
+    "Set TMPDIR to a writable directory on APFS (macOS), or on XFS with reflink or btrfs (Linux), and rerun"
+  );
+}
+
+async function portableChecks() {
   assert.ok(
     help.includes("legacy and paginated rollouts with ID/file lookup, batches and bookmarks"),
   );
@@ -91,16 +205,8 @@ try {
             rule.description.includes("no ordinary-copy fallback"),
         ),
       );
-      const [source, result] = run(
-        ["transcript", "read", harness, "--file", join(directory, "missing.jsonl")],
-        1,
-      );
-      assert.deepEqual(source.sources, []);
-      assert.equal(result.failure.issue, "source-not-found");
-      assert.equal(result.bookmark, null);
     }
   }
-  const source = join(directory, "synthetic.jsonl");
   const original =
     '{"type":"session","version":3,"id":"synthetic","cwd":"/synthetic"}\n{"type":"message","id":"a","parentId":null,"message":{"role":"user","content":"synthetic question"}}\n{"type":"message","id":"b","parentId":"a","message":{"role":"assistant","content":[{"type":"text","text":"synthetic answer"}]}}\n';
   writeFileSync(source, original);
@@ -215,7 +321,6 @@ try {
   mkdirSync(store);
   const parentId = "11111111-2222-4333-8444-555555555555";
   const childId = "11111111-2222-4333-8444-666666666666";
-  const lines = (rows) => rows.map((row) => JSON.stringify(row)).join("\n") + "\n";
   const parent = lines([
     {
       type: "session_meta",
@@ -317,46 +422,6 @@ try {
     ]),
   );
   assert.equal(run(codexArgs, 1).at(-1).failure.issue, "guarantee-unmet");
-  for (const harness of ["claude", "muse"]) {
-    const native =
-      harness === "claude"
-        ? {
-            type: "user",
-            uuid: "entry",
-            sessionId: "synthetic-claude",
-            parentUuid: null,
-            message: { role: "user", content: "synthetic question" },
-          }
-        : {
-            schema_version: 1,
-            id: "entry",
-            stream: { kind: "session", id: "synthetic-muse" },
-            sequence: 1,
-            recorded_at: 1771088000000000,
-            record_type: "event",
-            durability: "durable",
-            causation_id: null,
-            payload_type: "runtime.session",
-            payload_schema_version: 1,
-            payload: { kind: "run", event: { kind: "started", prompt: "synthetic question" } },
-          };
-    const input = lines([native]);
-    writeFileSync(source, input);
-    const args = ["transcript", "read", harness, "--file", source];
-    const result = run(args);
-    assert.equal(result[0].conversation.nativeId, "synthetic-" + harness);
-    assert.deepEqual(result[1].original, native);
-    assert.equal(result[1].normalized.parts[0].text, "synthetic question");
-    assert.equal(result.at(-1).consistency.method, "native-snapshot");
-    assert.equal(result.at(-1).status, "complete");
-    assert.equal(run([...args, "--since", result.at(-1).bookmark]).at(-1).recordsReturned, 0);
-    assert.equal(readFileSync(source, "utf8"), input);
-    writeFileSync(source, input.replace("synthetic question", "rewritten question"));
-    assert.equal(
-      run([...args, "--since", result.at(-1).bookmark], 1).at(-1).failure.issue,
-      "fresh-read-required",
-    );
-  }
   if (listsSessions) {
     // Listing reads the isolated store this check built, never the caller's.
     const piId = "11111111-2222-4333-8444-aaaaaaaaaaaa";
@@ -474,6 +539,65 @@ try {
       assert.deepEqual(doc.methods[0].selectors, ["id", "file"]);
       assert.ok(doc.capabilities.history.evidence[0].reference.includes("transcript-evidence.md"));
     }
+  }
+}
+
+async function snapshotChecks() {
+  const reason = snapshotBlocker();
+  if (reason) {
+    blocked("snapshot checks (transcript read on claude, muse, cursor and antigravity)", reason);
+    return;
+  }
+  for (const harness of ["claude", "muse"]) {
+    // A missing source is reported by the snapshot helper, so this read
+    // needs the helper but not clone support.
+    const [missingSource, missingResult] = run(
+      ["transcript", "read", harness, "--file", join(directory, "missing.jsonl")],
+      1,
+    );
+    assert.deepEqual(missingSource.sources, []);
+    assert.equal(missingResult.failure.issue, "source-not-found");
+    assert.equal(missingResult.bookmark, null);
+    const native =
+      harness === "claude"
+        ? {
+            type: "user",
+            uuid: "entry",
+            sessionId: "synthetic-claude",
+            parentUuid: null,
+            message: { role: "user", content: "synthetic question" },
+          }
+        : {
+            schema_version: 1,
+            id: "entry",
+            stream: { kind: "session", id: "synthetic-muse" },
+            sequence: 1,
+            recorded_at: 1771088000000000,
+            record_type: "event",
+            durability: "durable",
+            causation_id: null,
+            payload_type: "runtime.session",
+            payload_schema_version: 1,
+            payload: { kind: "run", event: { kind: "started", prompt: "synthetic question" } },
+          };
+    const input = lines([native]);
+    writeFileSync(source, input);
+    const args = ["transcript", "read", harness, "--file", source];
+    const result = run(args);
+    assert.equal(result[0].conversation.nativeId, "synthetic-" + harness);
+    assert.deepEqual(result[1].original, native);
+    assert.equal(result[1].normalized.parts[0].text, "synthetic question");
+    assert.equal(result.at(-1).consistency.method, "native-snapshot");
+    assert.equal(result.at(-1).status, "complete");
+    assert.equal(run([...args, "--since", result.at(-1).bookmark]).at(-1).recordsReturned, 0);
+    assert.equal(readFileSync(source, "utf8"), input);
+    writeFileSync(source, input.replace("synthetic question", "rewritten question"));
+    assert.equal(
+      run([...args, "--since", result.at(-1).bookmark], 1).at(-1).failure.issue,
+      "fresh-read-required",
+    );
+  }
+  if (help.includes("Cursor chat stores")) {
     const conversation = "11111111-2222-4333-8444-888888888888";
     const logs = join(
       directory,
@@ -522,47 +646,85 @@ try {
       run(["transcript", "read", "antigravity", "--id", conversation], 1).at(-1).failure.issue,
       "guarantee-unmet",
     );
-    const { DatabaseSync } = await import("node:sqlite");
-    const agent = "11111111-2222-4333-8444-999999999999";
-    const chat = join(directory, ".cursor", "chats", "0".repeat(32), agent);
-    mkdirSync(chat, { recursive: true });
-    const storePath = join(chat, "store.db");
-    const blob = (value) => Buffer.from(typeof value === "string" ? value : JSON.stringify(value));
-    const digest = (data) => createHash("sha256").update(data).digest("hex");
-    const message = blob({ role: "user", content: [{ type: "text", text: "synthetic question" }] });
-    const root = Buffer.from([0x0a, 0x20, ...Buffer.from(digest(message), "hex")]);
-    const db = new DatabaseSync(storePath);
-    db.exec("CREATE TABLE blobs (id TEXT PRIMARY KEY, data BLOB)");
-    db.exec("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT)");
-    for (const data of [message, root])
-      db.prepare("INSERT INTO blobs VALUES (?, ?)").run(digest(data), data);
-    db.prepare("INSERT INTO meta VALUES (?, ?)").run(
-      "0",
-      blob({
-        agentId: agent,
-        latestRootBlobId: digest(root),
-        blobEncryptionKey: "synthetic-key",
-      }).toString("hex"),
-    );
-    db.close();
-    const chatRead = wire(["transcript", "read", "cursor", "--id", agent]);
-    assert.ok(!chatRead.includes("synthetic-key"));
-    const chatRows = chatRead
-      .trim()
-      .split("\n")
-      .map((line) => JSON.parse(line));
-    assert.equal(chatRows[0].conversation.nativeId, agent);
-    assert.equal(chatRows[1].nativeId, digest(message));
-    assert.equal(chatRows[1].normalized.parts[0].text, "synthetic question");
-    writeFileSync(storePath + "-wal", "synthetic frames");
-    const live = run(["transcript", "read", "cursor", "--id", agent], 1).at(-1);
-    assert.equal(live.failure.issue, "guarantee-unmet");
-    assert.equal(live.failure.requirement, "consistency");
+    let DatabaseSync;
+    try {
+      ({ DatabaseSync } = await import("node:sqlite"));
+    } catch {
+      blocked(
+        "the Cursor snapshot check",
+        `Node ${process.version} has no node:sqlite, which this check uses to build a synthetic Cursor store; use Node 24 or newer`,
+      );
+    }
+    if (DatabaseSync) {
+      const agent = "11111111-2222-4333-8444-999999999999";
+      const chat = join(directory, ".cursor", "chats", "0".repeat(32), agent);
+      mkdirSync(chat, { recursive: true });
+      const storePath = join(chat, "store.db");
+      const blob = (value) =>
+        Buffer.from(typeof value === "string" ? value : JSON.stringify(value));
+      const digest = (data) => createHash("sha256").update(data).digest("hex");
+      const message = blob({
+        role: "user",
+        content: [{ type: "text", text: "synthetic question" }],
+      });
+      const root = Buffer.from([0x0a, 0x20, ...Buffer.from(digest(message), "hex")]);
+      const db = new DatabaseSync(storePath);
+      db.exec("CREATE TABLE blobs (id TEXT PRIMARY KEY, data BLOB)");
+      db.exec("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT)");
+      for (const data of [message, root])
+        db.prepare("INSERT INTO blobs VALUES (?, ?)").run(digest(data), data);
+      db.prepare("INSERT INTO meta VALUES (?, ?)").run(
+        "0",
+        blob({
+          agentId: agent,
+          latestRootBlobId: digest(root),
+          blobEncryptionKey: "synthetic-key",
+        }).toString("hex"),
+      );
+      db.close();
+      const chatRead = wire(["transcript", "read", "cursor", "--id", agent]);
+      assert.ok(!chatRead.includes("synthetic-key"));
+      const chatRows = chatRead
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line));
+      assert.equal(chatRows[0].conversation.nativeId, agent);
+      assert.equal(chatRows[1].nativeId, digest(message));
+      assert.equal(chatRows[1].normalized.parts[0].text, "synthetic question");
+      writeFileSync(storePath + "-wal", "synthetic frames");
+      const live = run(["transcript", "read", "cursor", "--id", agent], 1).at(-1);
+      assert.equal(live.failure.issue, "guarantee-unmet");
+      assert.equal(live.failure.requirement, "consistency");
+    }
   } else console.log("skip: installed hcn has no Cursor or Antigravity transcript reader");
-  console.log("ok: synthetic transcript claims");
-} catch (error) {
-  console.error(`MISS: transcript claims: ${error.message}`);
-  process.exitCode = 1;
+}
+
+try {
+  const launch = spawnHcn(["--version"]);
+  if (launch.error || launch.status !== 0) {
+    const detail =
+      launch.error?.message ?? (launch.stderr.trim().split("\n")[0] || `exit ${launch.status}`);
+    blocked(
+      "transcript checks",
+      `${hcnBin} did not start under the check's isolated HOME (${detail}); a launcher that needs your HOME cannot run here. Set HCN_BIN to hcn's JavaScript entry, "$(npm root -g)/@dungle-scrubs/harness-cli-normalizer/dist/cli.js"`,
+    );
+  } else {
+    try {
+      help = wire(["transcript", "--help"]);
+      // Both surfaces are additive; an older installed binary lacks them.
+      writerBuildReported = help.includes("reports the cli_version its own header names");
+      listsSessions = help.includes("hcn transcript ls");
+      await portableChecks();
+    } catch (error) {
+      miss(`transcript claims: ${error.message}`);
+    }
+    try {
+      await snapshotChecks();
+    } catch (error) {
+      miss(`snapshot transcript claims: ${error.message}`);
+    }
+  }
 } finally {
   rmSync(directory, { recursive: true, force: true });
 }
+finish();

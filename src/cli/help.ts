@@ -125,9 +125,11 @@ Options:
                             loads even with --no-extensions)
   --access <read|write>     Access preset - read = read-only tool subset
                             (canonical: read, grep, glob, list, web-fetch,
-                            web-search; claude/pi/popeye via --tools, codex via
-                            --sandbox read-only, muse via --disable-write
-                            --disable-shell, cursor/antigravity refuse); write = no restriction;
+                            web-search; claude via an --allowedTools grant
+                            plus --disallowedTools complement, pi/popeye via
+                            --tools, codex via --sandbox read-only, muse via
+                            --disable-write --disable-shell, cursor and
+                            antigravity refuse); write = no restriction;
                             mutually exclusive with --tools/--exclude-tools
                             and with --sandbox on codex; no default
   --max-steps <n>           Max steps (muse, 1-10000)
