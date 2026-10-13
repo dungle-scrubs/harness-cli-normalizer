@@ -60,13 +60,60 @@ export const QUESTION_MODES: readonly QuestionMode[] = ["ask", "assume", "none"]
 export const isQuestionMode = (value: string): value is QuestionMode =>
   (QUESTION_MODES as readonly string[]).includes(value);
 
+/** What a leading-harness-command split looks like: the slash token the
+ * harness should match first, plus the prompt text that follows it
+ * (one whitespace char consumed). A null result means there is no
+ * leading command and the prompt is composed the legacy way. */
+interface LeadingCommand {
+  readonly command: string;
+  readonly rest: string;
+}
+
+/** Detect a leading harness slash command. The token is `/` + one
+ * `[A-Za-z0-9]` + zero or more `[A-Za-z0-9_:.-]`, and the token must
+ * end at whitespace or end-of-prompt - so `/Users/kevin/x` is not a
+ * command (the token `/Users` is followed by `/`, not whitespace) and
+ * ` /dev-mode` is not (the prompt does not start with `/`). */
+const LEADING_COMMAND_RE = /^\/([A-Za-z0-9][A-Za-z0-9_:.-]*)/;
+
+const parseLeadingCommand = (prompt: string): LeadingCommand | null => {
+  const m = LEADING_COMMAND_RE.exec(prompt);
+  if (m === null) return null;
+  // `m[0]` is the WHOLE token including the leading `/` - that is what
+  // we hand back as the command so the composed prompt keeps the `/`.
+  const command = m[0];
+  const after = prompt.slice(command.length);
+  if (after === "") return { command, rest: "" };
+  // Token must end at whitespace or end-of-prompt; consume one
+  // whitespace char so the remaining text is `<rest>`. Only one of
+  // space, tab, or newline separates the command from its tail.
+  if (after[0] !== " " && after[0] !== "\t" && after[0] !== "\n" && after[0] !== "\r") {
+    return null;
+  }
+  return { command, rest: after.slice(1) };
+};
+
+/** Choose the preamble by mode (and the channel only matters for ask). */
+const preambleFor = (mode: QuestionMode, channel: "turn" | "session"): string => {
+  if (mode === "assume") return NO_ESCALATION_PREAMBLE;
+  return channel === "session" ? SESSION_ESCALATION_PREAMBLE : ESCALATION_PREAMBLE;
+};
+
 /** Compose the transport preamble onto a prompt. `mode` selects which
  * preamble to inject (ask/assume/none), and `channel` selects the
  * contract wording: "turn" (exit-and-resume transport, hcn run) or
  * "session" (live channel, hcn session). Idempotent: a prompt that
  * already carries any preamble passes through unchanged - a turn-mode
  * preamble is never re-composed into a session one (the marker matches
- * both; the already-composed contract stands). */
+ * both; the already-composed contract stands).
+ *
+ * Leading slash command: when a prompt begins with a harness command
+ * (`/skill:dev-mode do x`, `/dev-mode`), hcn puts the command FIRST and
+ * inserts the preamble between it and the rest of the prompt -
+ * `<command> <preamble>\n\n<rest>`. The harness therefore still sees
+ * the command as the first token and continues to invoke its native
+ * mode (dev-mode, etc.). When `<rest>` is empty, the trailing blank
+ * line is dropped: `<command> <preamble>`. */
 export const composeEscalatedPrompt = (
   prompt: string,
   mode: QuestionMode,
@@ -74,8 +121,19 @@ export const composeEscalatedPrompt = (
 ): string => {
   if (prompt.startsWith(QUESTION_PREAMBLE_MARKER)) return prompt;
   if (mode === "none") return prompt;
-  if (mode === "assume") return `${NO_ESCALATION_PREAMBLE}\n\n${prompt}`;
-  return `${channel === "session" ? SESSION_ESCALATION_PREAMBLE : ESCALATION_PREAMBLE}\n\n${prompt}`;
+  const leading = parseLeadingCommand(prompt);
+  if (leading === null) {
+    return `${preambleFor(mode, channel)}\n\n${prompt}`;
+  }
+  // Idempotence for the leading-command form: if the text right after
+  // `<command> ` already starts with the marker, the preamble is
+  // already composed and we pass through unchanged. Composing twice
+  // never doubles the preamble.
+  if (leading.rest.startsWith(QUESTION_PREAMBLE_MARKER)) return prompt;
+  const preamble = preambleFor(mode, channel);
+  return leading.rest === ""
+    ? `${leading.command} ${preamble}`
+    : `${leading.command} ${preamble}\n\n${leading.rest}`;
 };
 
 /** The structured question a worker asks (the block's fields). */
