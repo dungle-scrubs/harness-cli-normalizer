@@ -22,7 +22,7 @@ pnpm install
 ## Day-to-day commands
 
 ```bash
-pnpm check       # the full gate: lint + typecheck + build, then vitest + bun test
+pnpm check       # the full gate: lint + typecheck + build, then vitest + bun test + skill check
 pnpm lint        # biome check .
 pnpm typecheck   # tsc --noEmit
 pnpm test        # vitest run

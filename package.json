@@ -15,7 +15,8 @@
   },
   "files": [
     "dist",
-    "src"
+    "src",
+    "skills"
   ],
   "sideEffects": false,
   "publishConfig": {
@@ -29,8 +30,9 @@
     "build": "node scripts/build.ts",
     "build:native": "node scripts/build-native.ts",
     "build:release": "node scripts/build.ts --release",
-    "check": "pnpm lint && pnpm typecheck && pnpm build && pnpm test && pnpm test:bun && pnpm check:package",
+    "check": "pnpm lint && pnpm typecheck && pnpm build && pnpm test && pnpm test:bun && pnpm check:skill && pnpm check:package",
     "check:package": "node scripts/check-package.ts",
+    "check:skill": "HCN_BIN=\"$PWD/dist/cli.js\" bash skills/hcn/scripts/check-claims.sh && HCN_BIN=\"$PWD/dist/cli.js\" bash test/skill/check-claims.test.sh",
     "lint": "biome check .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
