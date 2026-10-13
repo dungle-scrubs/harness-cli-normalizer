@@ -133,8 +133,11 @@ bun scripts/check-versions.ts       # compare descriptors to published versions
   update. Before calling the work complete, run `pnpm build` and then
   `pnpm check:skill`, which runs `skills/hcn/scripts/check-claims.sh`
   against `dist/cli.js` and `test/skill/check-claims.test.sh`; report any
-  remaining mismatch or blocker. The owner's private skill library vendors
-  this skill from here, so edit it only here.
+  remaining mismatch or blocker. `pnpm check:skill` sets
+  `CHECK_CLAIMS_REQUIRE_SNAPSHOT=1`, so it needs `TMPDIR` on a clone-capable
+  filesystem (APFS on macOS, XFS with reflink or btrfs on Linux); CI mounts
+  one. The owner's private skill library vendors this skill from here, so
+  edit it only here.
 - When a harness ships, update the harness rosters in `AGENTS.md`, `CONTEXT.md`,
   `README.md`, and `CONTRIBUTING.md` in the same change.
 - A hand-written reader for an external binary format ships with byte-level
