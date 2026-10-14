@@ -99,12 +99,13 @@ A dispatch-level usage error with `--json` in argv also writes the
 
 ## Reading events
 
-Pipe `--json` and consume NDJSON: `identity`, `token`, `message`,
-`progress`, `tool`, `compaction`, `question`, `limit`, `error`, `failure`,
-`done`. Branch on `failure.class` and `done.cause` (clean, limit, crash,
-stall, killed, failed, awaiting-input), using the rules above. Kinds and
-classes are additive; ignore one you do not recognize and still wait for
-`done`.
+Consume `--json` as NDJSON. For tool outputs, token/cost accounting or
+schema parsing, read [the result and usage contract](references/reference.md#tool-results-and-usage).
+
+A clean `done` is not proof of tool success: inspect `tool-result.isError`
+and `result` using the native contract. Missing error flags mean unknown.
+Branch on `failure.class` and `done.cause` using the rules above. Ignore
+unrecognized kinds/classes and still wait for `done`.
 
 ## Answering worker questions
 

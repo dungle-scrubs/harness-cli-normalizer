@@ -1,0 +1,46 @@
+[
+  {
+    "name": "baseline",
+    "status": 0,
+    "timedOut": false,
+    "seed": "CHANGED\n",
+    "insideFile": false,
+    "shellFile": false,
+    "outsideFile": false,
+    "version": "2026.10.01-e373342",
+    "flags": []
+  },
+  {
+    "name": "read",
+    "status": 0,
+    "timedOut": false,
+    "seed": "CURSOR-ACCESS-MARKER\n",
+    "insideFile": false,
+    "shellFile": false,
+    "outsideFile": false,
+    "version": "2026.10.01-e373342",
+    "flags": ["--mode", "ask", "--sandbox", "enabled"]
+  },
+  {
+    "name": "write",
+    "status": 0,
+    "timedOut": false,
+    "seed": "CHANGED\n",
+    "insideFile": false,
+    "shellFile": true,
+    "outsideFile": true,
+    "version": "2026.10.01-e373342",
+    "flags": ["--force", "--sandbox", "enabled"]
+  },
+  {
+    "name": "write-current",
+    "status": 0,
+    "timedOut": false,
+    "seed": " CHANGED\n",
+    "insideFile": false,
+    "shellFile": true,
+    "outsideFile": true,
+    "version": "2026.10.12-d47ca18",
+    "flags": ["--force", "--sandbox", "enabled"]
+  }
+]

@@ -101,6 +101,68 @@ const openCodexSession = async (
 };
 
 describe("openSession (codex app-server, fake process)", () => {
+  test("native command result and session usage survive a clean persistent turn without rewriting the payload", async () => {
+    const proc = new FakeProcess();
+    const { session, turnsIter } = await openCodexSession(proc);
+    session.send({ id: "in-1", text: "fixture" });
+    proc.emitLine(
+      jsonrpc(`${SEND_ID}:in-1`, { turn: { id: TURN, items: [], status: "inProgress" } }),
+    );
+    const turn = (await turnsIter.next()).value as SessionTurn;
+    const item = {
+      id: "cmd-1",
+      type: "commandExecution",
+      command: "false",
+      aggregatedOutput: "failed",
+      exitCode: 1,
+      status: "completed",
+    };
+    proc.emitLine(
+      notification("item/started", {
+        item: { ...item, status: "inProgress", exitCode: null },
+        threadId: THREAD,
+        turnId: TURN,
+      }),
+    );
+    proc.emitLine(notification("item/completed", { item, threadId: THREAD, turnId: TURN }));
+    proc.emitLine(
+      notification("thread/tokenUsage/updated", {
+        threadId: THREAD,
+        tokenUsage: {
+          total: {
+            inputTokens: 20,
+            cachedInputTokens: 10,
+            outputTokens: 5,
+            reasoningOutputTokens: 2,
+            totalTokens: 25,
+          },
+        },
+      }),
+    );
+    proc.emitLine(turnCompleted("completed"));
+    const events = await drainTurn(turn);
+    expect(events).toContainEqual({ kind: "tool", name: "shell", callId: "cmd-1", input: "false" });
+    expect(events).toContainEqual({
+      kind: "tool-result",
+      name: "shell",
+      callId: "cmd-1",
+      result: item,
+      isError: true,
+    });
+    expect(events).toContainEqual({
+      kind: "usage",
+      scope: "session",
+      inputTokens: 20,
+      cacheReadTokens: 10,
+      outputTokens: 5,
+      reasoningTokens: 2,
+      totalTokens: 25,
+      inputIncludesCache: true,
+    });
+    expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+    await session.close();
+  });
+
   test("the spawn probe is initialize plus thread/start; the response announces harness-minted identity", async () => {
     const proc = new FakeProcess();
     const { session } = await openCodexSession(proc, { clientVersion: "0.9.2" });

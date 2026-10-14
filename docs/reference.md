@@ -234,7 +234,14 @@ Rendering per harness:
 | pi | `--tools read,grep,find,ls` (+ web-search via toolMap) | nothing |
 | codex | `--sandbox read-only` | `--sandbox workspace-write` |
 | muse | `--disable-write --disable-shell` | nothing |
+| cursor | `--mode ask --sandbox enabled` | `--force` (unconfined commands) |
 | popeye | `--tools read,grep,glob,list,web-fetch,web-search` | nothing |
+
+Cursor write access also bypasses workspace trust and retains native explicit denials. It is
+**not a workspace sandbox**: `--force --sandbox enabled` allowed a task-owned shell write outside
+the workspace on both 2026.10.01-e373342 and 2026.10.12-d47ca18. hcn therefore does not render that
+ineffective sandbox switch for write or offer normalized Cursor `--sandbox` values. The read
+preset selects native read-only ask mode. See [the access verification](cursor-access.md).
 
 `--access` together with `--tools` or `--exclude-tools` in the same run refuses `mutually-exclusive-options` (access is a preset allowlist, not a filter over one). `--access` together with an explicit `--sandbox` on codex refuses the same way.
 
@@ -271,9 +278,49 @@ and applies no idle budget of its own, so the caller owns any timeout.
 
 ## Events
 
-- The normalized event surface is `HarnessEvent` in `src/execution/events.ts`: `identity`, `token`, `message`, `progress`, `tool`, `compaction`, `limit`, `error`, `failure`, `question`, `done` (with `done.failure`; `done.cause` includes `awaiting-input`). Event kinds and failure classes are additive across releases; a consumer ignores a kind or class it does not recognize and still waits for `done`. Additive optional fields (such as `resumeLast: true` on `identity`) never break that rule: branch on presence, never on prose.
+- The normalized event surface is `HarnessEvent` in `src/execution/events.ts`: `identity`, `token`, `message`, `progress`, `tool`, `tool-result`, `usage`, `compaction`, `limit`, `error`, `failure`, `question`, `done` (with `done.failure`; `done.cause` includes `awaiting-input`). Event kinds and failure classes are additive across releases; a consumer ignores a kind or class it does not recognize and still waits for `done`. Additive optional fields (such as `resumeLast: true` on `identity`) never break that rule: branch on presence, never on prose.
 - `DROPPABLE_KINDS` (`token`, `progress`) marks events safe to drop when you only need the full messages. `failure` is never droppable, and neither is `compaction`.
 - `compaction` reports that the harness compacted its own context (ADR 0009). It carries `state`, a closed union of `started`, `compacted`, `noop`, `failed` and `aborted`, so a consumer branches with no default arm. `trigger` (`auto`, `manual`, `overflow`), `tokensBefore`, `tokensAfter` and `durationMs` are present only where the harness itself reported them; hcn derives none of them, and no harness pushes a context-occupancy percentage on a live signal. `detail` carries the harness's own reason or error text, so branch on `state` and never on it. Which harnesses report is `capabilities.compactionReporting` on the `identity` event; the roster is below. **Count `compacted`, not `started`:** hcn reports each record the harness sends, and claude has been observed sending two `compacting` status records for one compaction, so a start can repeat. A compaction can also arrive **between** turns - pi checks its threshold before a new prompt, so the event may reach a session caller on the next turn rather than the one that triggered it. Muse compacts **before** the turn and blocking, so its event arrives once the observer's first view page is read, after the turn has already started.
+
+### Tool results and usage
+
+`tool` carries `name`, optional `input`, and optional native `callId`. `tool-result` carries
+optional `name`, `callId`, native `result`, and `isError`. Missing native fields stay absent:
+Claude result blocks commonly identify only their call, so match them to `tool.callId` for the
+name. Results retain structured values, including Pi extension `details`, rather than flattening
+or truncating them. Pi's execution-end record is emitted once; partial updates and message echoes
+are not duplicate results. Cursor completions also retain their native success/error/rejection
+payloads. Codex results retain the completed tool item, Muse its result text, and Antigravity its
+output or structured error. Popeye's current stream reports no tool results.
+
+A tool error does not establish a failed turn. `done.cause: clean` is the harness's successful
+terminal verdict, not a verdict on each tool or on a workflow's structured status. Inspect
+`tool-result.isError` and the native result contract; hcn does not interpret extension-specific
+statuses or invent a turn failure. An absent error flag means unknown, not success.
+
+`usage` is a lossless observation with `scope` and optional `inputTokens`, `outputTokens`,
+`cacheReadTokens`, `cacheWriteTokens`, `reasoningTokens`, `totalTokens`, `costUsd`,
+`inputIncludesCache`, `callId`, and `model`. Only finite nonnegative reported counts and costs
+are emitted. Missing counts and prices are not zero, and totals are never synthesized.
+`reasoningTokens` is already included in output. When `inputIncludesCache` is true (Codex), cache
+counts are subsets of input; false marks separate counts; absent means that relationship is
+unknown. `costUsd` is the harness's estimate, not authoritative billing or subscription spend.
+
+| Harness | Usage observations | Accounting rule |
+|---|---|---|
+| Pi | `message` per completed assistant response, `tool` for reported nested model usage, `compaction` for reported summarization usage | Sum completed operations of the scopes needed; streaming/turn/agent echoes are not emitted. Failed attempts retain reported usage. |
+| Claude | `turn` for main-loop tokens; `session` for cumulative cost and each reported per-model breakdown (`model`) | Keep the latest session values per metric/model (or overall); do not add snapshots or combine per-model totals with main-loop totals. Session cost includes subagents and restored spend. |
+| Codex exec | `turn` | Native turn totals; cached input is included in input. |
+| Codex app-server | `session` snapshots from `tokenUsage.total` | Read the latest snapshot, not a sum; it can include earlier turns. hcn does not turn the latest-request `last` field into a turn total. |
+| Cursor | `turn` | Native terminal usage. |
+| Antigravity | `session` | Native result accounting accumulates through the persistent session/process; do not sum snapshots. |
+| Muse, Popeye | none in their current streams | Silence is missing reporting, not zero usage. |
+
+Both observations are available on run and live-session JSON streams where native records
+provide them. Text mode shows tool-error markers but does not dump tool payloads or accounting.
+[ADR 0012](adr/0012-native-results-and-usage-are-observations.md) records why these observations
+remain separate from turn verdicts and caller-owned accounting. Closed-schema consumers need
+updates for the new kinds and optional `tool.callId` before adopting this build.
 
 ### Which harnesses report compaction
 

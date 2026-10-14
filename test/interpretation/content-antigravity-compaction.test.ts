@@ -117,6 +117,7 @@ describe("antigravity compaction decoding", () => {
     };
     expect(contentEventsOf("antigravity", resultUsage)).toEqual([
       { kind: "message", role: "assistant", text: "done" },
+      { kind: "usage", scope: "session", inputTokens: 9, outputTokens: 1, totalTokens: 10 },
     ]);
   });
 

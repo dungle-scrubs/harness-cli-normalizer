@@ -167,6 +167,15 @@ describe("pi message_end with no text (invented records)", () => {
           terminal: true,
           provisional: true,
         },
+        {
+          kind: "usage",
+          scope: "message",
+          inputTokens: 1234,
+          outputTokens: 5678,
+          reasoningTokens: 910,
+          totalTokens: 6912,
+          inputIncludesCache: false,
+        },
       ]);
     },
   );
@@ -183,6 +192,13 @@ describe("pi message_end with no text (invented records)", () => {
         message: "pi turn ended with stopReason stop and no text (usage: input 7, output 0)",
         terminal: true,
         provisional: true,
+      },
+      {
+        kind: "usage",
+        scope: "message",
+        inputTokens: 7,
+        outputTokens: 0,
+        inputIncludesCache: false,
       },
     ]);
     expect(contentEventsOf("pi", messageEnd({ content: [], stopReason: "length" }))).toEqual([
@@ -205,7 +221,16 @@ describe("pi message_end with no text (invented records)", () => {
           usage: { input: 1, output: 2 },
         }),
       ),
-    ).toEqual([{ kind: "message", role: "assistant", text: "invented answer" }]);
+    ).toEqual([
+      { kind: "message", role: "assistant", text: "invented answer" },
+      {
+        kind: "usage",
+        scope: "message",
+        inputTokens: 1,
+        outputTokens: 2,
+        inputIncludesCache: false,
+      },
+    ]);
     expect(
       contentEventsOf("pi", messageEnd({ content: reasoningOnly, stopReason: "toolUse" })),
     ).toEqual([]);

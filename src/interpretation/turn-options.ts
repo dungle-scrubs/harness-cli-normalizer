@@ -236,6 +236,12 @@ export const renderTurnOptions = (
           supported: ["re-launch with --access, or resume without it"],
         });
       }
+      const alreadyRenderedByAutonomy =
+        opts.autonomy === true &&
+        render.kind === "flag-list" &&
+        render.flags.length === 1 &&
+        render.flags[0] === h.autonomy?.flag;
+      if (alreadyRenderedByAutonomy) continue;
       sequences.push([...tokensFor(render, target.value)]);
       continue;
     }

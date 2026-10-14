@@ -56,12 +56,13 @@ describe("one access spec", () => {
     expect(r.options.access).toBe("read");
   });
 
-  test("support spellings for access are unchanged", () => {
+  test("support spellings for access include Cursor's native mode", () => {
     expect(supportedBy(defaultDescriptors(), "access")).toEqual([
       { harness: "claude", spelling: "--allowedTools" },
       { harness: "codex", spelling: "--sandbox" },
       { harness: "pi", spelling: "--tools" },
       { harness: "muse", spelling: "--disable-write" },
+      { harness: "cursor", spelling: "--mode" },
       { harness: "popeye", spelling: "--tools" },
     ]);
   });

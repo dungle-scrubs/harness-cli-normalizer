@@ -128,9 +128,12 @@ Options:
                             web-search; claude via an --allowedTools grant
                             plus --disallowedTools complement, pi/popeye via
                             --tools, codex via --sandbox read-only, muse via
-                            --disable-write --disable-shell, cursor and
-                            antigravity refuse); write = no restriction;
-                            mutually exclusive with --tools/--exclude-tools
+                            --disable-write --disable-shell, cursor via
+                            --mode ask --sandbox enabled; antigravity refuses);
+                            write = no restriction; cursor write renders
+                            --force (unconfined commands, also bypasses trust).
+                            Native tool denials still apply.
+                            Mutually exclusive with --tools/--exclude-tools
                             and with --sandbox on codex; no default
   --max-steps <n>           Max steps (muse, 1-10000)
   --timeout <seconds>       Wall-clock budget for the run (all harnesses,

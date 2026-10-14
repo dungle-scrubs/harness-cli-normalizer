@@ -49,12 +49,23 @@ describe("pi compaction decoding", () => {
         tokensBefore: 58656,
         tokensAfter: 39452,
       },
+      {
+        kind: "usage",
+        scope: "compaction",
+        inputTokens: 18768,
+        outputTokens: 377,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        reasoningTokens: 169,
+        totalTokens: 19145,
+        inputIncludesCache: false,
+      },
     ]);
   });
 
   test("one compaction yields exactly one start and one end", () => {
     const crossing = [start, end].flatMap((r) => contentEventsOf("pi", r));
-    expect(crossing.map((e) => (e.kind === "compaction" ? e.state : e.kind))).toEqual([
+    expect(crossing.filter((e) => e.kind === "compaction").map((e) => e.state)).toEqual([
       "started",
       "compacted",
     ]);

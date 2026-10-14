@@ -695,11 +695,17 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
     },
   },
   turnOptions: {
-    // No effort flag exists on cursor: effort resolves into the --model
-    // slug via effortSlugs. No other turn option is expressed in v1, and
-    // no sandbox spelling confines headless (probes 60-61, 70-71), so an
-    // explicit --sandbox refuses unsupported-option.
     effort: { kind: "effort-in-model", render: { kind: "in-model" } },
+    // --force --sandbox enabled still permits writes outside the workspace
+    // on both the anchor and 2026.10.12-d47ca18 (#373 access captures).
+    // Write grants commands, not confinement; normalized sandbox stays absent.
+    access: {
+      kind: "access",
+      renders: {
+        read: { render: { kind: "flag-list", flags: ["--mode", "ask", "--sandbox", "enabled"] } },
+        write: { render: { kind: "flag-list", flags: ["--force"] } },
+      },
+    },
   },
   // No per-skill CLI surface (config trust scoping only).
   skills: null,
