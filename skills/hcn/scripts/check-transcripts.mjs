@@ -92,7 +92,7 @@ function run(args, expected = 0) {
     .split("\n")
     .map((line) => JSON.parse(line));
 }
-const lines = (rows) => rows.map((row) => JSON.stringify(row)).join("\n") + "\n";
+const lines = (rows) => `${rows.map((row) => JSON.stringify(row)).join("\n")}\n`;
 const guarantees = ["history", "branches", "original-records", "embedded-content"];
 const source = join(directory, "synthetic.jsonl");
 let help = "";
@@ -183,7 +183,7 @@ async function portableChecks() {
     assert.ok(doc.methods[0].cleanupTimeoutMs > 0);
     if (harness === "claude" || harness === "muse") {
       assert.deepEqual(doc.methods[0].selectors, ["id", "file"]);
-      assert.equal(doc.methods[0].id, harness + "-file-v1");
+      assert.equal(doc.methods[0].id, `${harness}-file-v1`);
       assert.equal(doc.verifiedAgainst, JSON.parse(wire(["inspect", harness])).verifiedAgainst);
       const historyEvidence = doc.capabilities.history.evidence;
       assert.ok(
@@ -259,19 +259,19 @@ async function portableChecks() {
     unknown: "LARGE",
   };
   const toolWire = JSON.stringify(tool).replace('"LARGE"', "9007199254740993");
-  writeFileSync(source, original + toolWire + "\n");
+  writeFileSync(source, `${original}${toolWire}\n`);
   const complete = wire(readArgs);
   assert.ok(complete.includes('"unknown":9007199254740993'));
   const toolRecord = JSON.parse(complete.trim().split("\n").at(-2));
   assert.equal(toolRecord.normalized.parts[0].text.length, 2200000);
   assert.equal(toolRecord.normalized.relationships["tool-call"].targets[0].kind, "tool-call");
   assert.equal(toolRecord.normalized.relationships["tool-call"].targets[0].nativeId, "native-call");
-  writeFileSync(source, original + '{"type":"custom"}');
+  writeFileSync(source, `${original}{"type":"custom"}`);
   const tail = run(readArgs).at(-1);
   assert.equal(tail.status, "complete");
   assert.ok(tail.incompleteTail);
   assert.equal(tail.more, false);
-  writeFileSync(source, original + "malformed\n");
+  writeFileSync(source, `${original}malformed\n`);
   const corrupt = run(readArgs, 1).at(-1);
   assert.equal(corrupt.failure.issue, "source-malformed");
   assert.equal(corrupt.bookmark, null);
@@ -329,13 +329,13 @@ async function portableChecks() {
     },
     { type: "event_msg", ordinal: 1, payload: { type: "synthetic", text: "inherited" } },
   ]);
-  const parentFile = join(store, "rollout-2026-09-11T00-00-00-" + parentId + ".jsonl");
+  const parentFile = join(store, `rollout-2026-09-11T00-00-00-${parentId}.jsonl`);
   writeFileSync(
     parentFile,
     parent + lines([{ type: "event_msg", ordinal: 2, payload: { text: "parent-only" } }]),
   );
   writeFileSync(
-    join(store, "rollout-2026-09-12T00-00-00-" + childId + ".jsonl"),
+    join(store, `rollout-2026-09-12T00-00-00-${childId}.jsonl`),
     lines([
       {
         type: "session_meta",
@@ -371,7 +371,7 @@ async function portableChecks() {
   const archived = join(directory, "archived_sessions", "2026", "09", "12");
   mkdirSync(archived, { recursive: true });
   const archiveId = "11111111-2222-4333-8444-777777777777";
-  const archiveName = "rollout-2026-09-12T00-00-00-" + archiveId + ".jsonl";
+  const archiveName = `rollout-2026-09-12T00-00-00-${archiveId}.jsonl`;
   const archiveHeader = lines([
     { type: "session_meta", payload: { id: archiveId, cli_version: "0.147.0" } },
   ]);
@@ -584,7 +584,7 @@ async function snapshotChecks() {
     writeFileSync(source, input);
     const args = ["transcript", "read", harness, "--file", source];
     const result = run(args);
-    assert.equal(result[0].conversation.nativeId, "synthetic-" + harness);
+    assert.equal(result[0].conversation.nativeId, `synthetic-${harness}`);
     assert.deepEqual(result[1].original, native);
     assert.equal(result[1].normalized.parts[0].text, "synthetic question");
     assert.equal(result.at(-1).consistency.method, "native-snapshot");
@@ -691,7 +691,7 @@ async function snapshotChecks() {
       assert.equal(chatRows[0].conversation.nativeId, agent);
       assert.equal(chatRows[1].nativeId, digest(message));
       assert.equal(chatRows[1].normalized.parts[0].text, "synthetic question");
-      writeFileSync(storePath + "-wal", "synthetic frames");
+      writeFileSync(`${storePath}-wal`, "synthetic frames");
       const live = run(["transcript", "read", "cursor", "--id", agent], 1).at(-1);
       assert.equal(live.failure.issue, "guarantee-unmet");
       assert.equal(live.failure.requirement, "consistency");
