@@ -53,6 +53,7 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   // plus the identity resumeLast signal, never a refusal: the absent case
   // is also the legitimate first run in a new cwd.
   const resume = plan.options.resume;
+  let resumeVerified: true | undefined;
   if (resume !== undefined && h.resume.onMissing === "create") {
     // The guard reads the child's effective environment once: --env merged
     // over the process env with the spawn's delete rule, plus the
@@ -80,6 +81,7 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
       );
       return;
     }
+    if (path !== null && exists) resumeVerified = true;
   }
 
   // D-025: a child harness must not inherit Herdr's environment.
@@ -196,6 +198,7 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
       h,
       {
         ...plan.options,
+        ...(resumeVerified === true ? { resumeVerified } : {}),
         ...(resumeLastNotices !== undefined ? { resumeLastNotices } : {}),
         signal: abortController.signal,
       },

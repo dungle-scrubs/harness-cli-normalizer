@@ -100,7 +100,7 @@ A dispatch-level usage error with `--json` in argv also writes the
 ## Reading events
 
 Pipe `--json` and consume NDJSON: `identity`, `token`, `message`,
-`progress`, `tool`, `compaction`, `question`, `limit`, `error`, `failure`,
+`progress`, `tool`, `compaction`, `question`, `limit`, `warning`, `error`, `failure`,
 `done`. Branch on `failure.class` and `done.cause` (clean, limit, crash,
 stall, killed, failed, awaiting-input), using the rules above. Kinds and
 classes are additive; ignore one you do not recognize and still wait for

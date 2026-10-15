@@ -246,11 +246,19 @@ https://github.com/dungle-scrubs/harness-cli-normalizer/blob/main/docs/observer.
 {"kind":"tool","name":..,"input":..}
 {"kind":"compaction","state":..,"trigger":?,"tokensBefore":?,"tokensAfter":?,"durationMs":?,"detail":?}
 {"kind":"limit","code":..,"message":..}
+{"kind":"warning","message":..}       # advisory, not a failure
 {"kind":"error","message":..,"denial":?}  # structured rejected tool call ({tool, reason}), non-terminal, exit can stay 0
 {"kind":"failure","class":..,"retryable":..,"message":..}
 {"kind":"question","question":..,"options":[..],"recommended":?}  # issue #41
 {"kind":"done","exitCode":..,"cause":..,"failure":?}
 ```
+
+For a named `--resume` on a create-on-missing harness (pi, muse, cursor),
+hcn refuses a checkable missing id before spawn. A confirmed existing id
+emits no unknown-id notice. If existence cannot be checked, an early
+`warning` with `message` asks the caller to verify the id; it establishes no
+failure and does not change `done.cause`. Text mode renders it as an advisory,
+not a red error.
 
 A resume-last turn carries `"resumeLast": true` on `identity` (first
 announce and attestation re-emit alike): the announced id was picked by
