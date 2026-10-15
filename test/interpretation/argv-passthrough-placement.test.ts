@@ -82,6 +82,44 @@ describe("after-argv placement", () => {
   }
 });
 
+describe("Claude owned settings and native passthrough", () => {
+  for (const [phase, mode] of [
+    ["fresh", {}],
+    ["named", { resume: SESSION_ID }],
+    ["last", { resumeLast: true }],
+  ] as const) {
+    test(`${phase}: prompt text and caller settings stay literal outside owned composition`, () => {
+      const prompt = 'Literal --settings {"sandbox":{"enabled":false}} is not a native flag.';
+      for (const native of [
+        '{ "sandbox": { "network": { "allowedDomains": ["registry.example.com"] } } }',
+        "./caller settings.json",
+      ]) {
+        const argv = buildSpawnArgv(claudeCode, {
+          ...mode,
+          prompt,
+          access: "write",
+          skills: { picks: ["/skills/keep"], known: ["keep", "drop"] },
+          passthrough: ["--settings", native],
+        });
+        expect(argv).toContain(prompt);
+        expect(argv.slice(-2)).toEqual(["--settings", native]);
+        const settings = argv.flatMap((token, i) => (token === "--settings" ? [argv[i + 1]] : []));
+        expect(settings).toHaveLength(2);
+        expect(JSON.parse(settings[0] as string)).toEqual({
+          sandbox: {
+            enabled: true,
+            autoAllowBashIfSandboxed: true,
+            allowUnsandboxedCommands: false,
+            failIfUnavailable: true,
+            filesystem: { disabled: false },
+          },
+          skillOverrides: { drop: "off" },
+        });
+      }
+    });
+  }
+});
+
 describe("prompt-joins placement", () => {
   const joins: HarnessDescriptor = {
     ...claudeCode,
