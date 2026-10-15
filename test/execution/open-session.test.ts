@@ -988,3 +988,39 @@ describe("issue #344: a pi prompt refused natively ends its turn with failed", (
     await session.close();
   });
 });
+
+test("#376: a process crash after a completed session turn does not rewrite the turn verdict", async () => {
+  const proc = new FakeProcess();
+  const log: Record<string, unknown>[] = [];
+  const session = openSession(
+    claudeCode,
+    { sessionId: sid, questions: "none" },
+    {
+      ...makeDeps(proc),
+      log: (event) => log.push(event),
+    },
+  );
+  session.send({ id: "s", text: "invented" });
+  const turns = session.turns[Symbol.asyncIterator]();
+  const turn = (await turns.next()).value as AsyncIterable<HarnessEvent>;
+  proc.emitLine(init);
+  proc.emitLine(assistant("delivered"));
+  proc.emitLine(result);
+  const events = await drainTurn(turn);
+  expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean", exitCode: null });
+  proc.emitStderr("Error: extension failed after turn");
+  for (let i = 0; i < 30; i++) proc.emitStderr("    at inventedFrame (invented.js:1:1)");
+  proc.exit(1);
+  expect((await turns.next()).done).toBe(true);
+  expect(events.filter((event) => event.kind === "done")).toHaveLength(1);
+  expect(log.find((event) => event.event === "session_close")).toMatchObject({
+    cause: "crash",
+    exitCode: 1,
+    failure: {
+      class: "native",
+      nativeExitCode: 1,
+      retryable: false,
+      message: expect.stringContaining("Error: extension failed after turn"),
+    },
+  });
+});

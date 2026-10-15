@@ -104,7 +104,9 @@ Pipe `--json` and consume NDJSON: `identity`, `token`, `message`,
 `done`. Branch on `failure.class` and `done.cause` (clean, limit, crash,
 stall, killed, failed, awaiting-input), using the rules above. Kinds and
 classes are additive; ignore one you do not recognize and still wait for
-`done`.
+`done`. On nonzero run exits, `done.completion` distinguishes native turn
+completion (`native-terminal`) from delivered text only (`message-delivered`).
+The process failure remains separate; see the event contract in the reference.
 
 ## Answering worker questions
 

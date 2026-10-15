@@ -30,6 +30,7 @@ import type { RunnerDeps, SpawnedProcess, TimerHandle } from "./deps.js";
 import type { HarnessEvent } from "./events.js";
 import type { FailureSummary } from "./failure.js";
 import {
+  failureFromNative,
   failureFromRejected,
   failureFromStderrTail,
   failureFromTask,
@@ -154,6 +155,7 @@ export async function* streamNativeApprovalTurn(
           : "unknown";
   });
   let completed = false;
+  let messageDelivered = false;
   let cancelled = false;
   let exited = false;
   let closing = false;
@@ -437,6 +439,7 @@ export async function* streamNativeApprovalTurn(
           if (!matchesTurn(message)) stop("unsupported-native-interaction");
           else {
             const event = { kind: "message", role: "assistant", text: message.text } as const;
+            messageDelivered = true;
             supervisor.noteEvent(event);
             await queue.push(event);
           }
@@ -573,6 +576,16 @@ export async function* streamNativeApprovalTurn(
       completed && !failure && exitCode === 0
         ? supervisor.close()
         : { asked: false, detection: "none" as const };
+    const completion =
+      completed && !failure && !cancelled
+        ? "native-terminal"
+        : messageDelivered
+          ? "message-delivered"
+          : undefined;
+    if (completion === "native-terminal" && exitCode !== null && exitCode !== 0) {
+      failure = failureFromNative(exitCode, stderrTail.snapshot());
+      failureReason = "native-process-failed";
+    }
     if (!completed && !failure && !cancelled)
       // Issue #341: a nonzero exit gets streamTurn's stderr-tail verdict;
       // a zero or signal exit without a completion record stays task.
@@ -604,6 +617,7 @@ export async function* streamNativeApprovalTurn(
               : "clean"
             : "failed",
       ...(failure ? { failure } : {}),
+      ...(exitCode !== null && exitCode !== 0 && !cancelled && completion ? { completion } : {}),
       escalation: { mode, detection: close.detection },
     };
     log({

@@ -26,6 +26,7 @@ import {
   failureFromLimit,
   failureFromTask,
   failureFromTrust,
+  isStderrErrorHeadline,
   redactBounded,
   resetsAtInLine,
 } from "./failure.js";
@@ -58,12 +59,17 @@ export function superviseTermination(
   };
 }
 
-/** Bounded tail of unmatched stderr - the crash context a nonzero exit is
- * explained by (v1 kept the turn's output slice for exactly this). */
+/** Bounded unmatched stderr: a rolling tail plus the first Error headline
+ * (at most 512 characters), so long stacks cannot erase the crash reason. */
 export class StderrTail {
   private readonly lines: string[] = [];
   private bytes = 0;
+  private firstError: string | undefined;
   push(line: string): void {
+    // Keep the actionable headline even when a long stack evicts it.
+    if (this.firstError === undefined && isStderrErrorHeadline(line)) {
+      this.firstError = redactBounded(line, 512);
+    }
     this.lines.push(line);
     this.bytes += line.length;
     while (this.lines.length > 20 || (this.bytes > 4096 && this.lines.length > 1)) {
@@ -72,7 +78,9 @@ export class StderrTail {
     }
   }
   snapshot(): readonly string[] {
-    return [...this.lines];
+    return this.firstError !== undefined && !this.lines.includes(this.firstError)
+      ? [this.firstError, ...this.lines]
+      : [...this.lines];
   }
 }
 

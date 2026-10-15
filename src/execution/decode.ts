@@ -12,15 +12,19 @@ import {
 } from "../interpretation/content.js";
 import { decodeIdentity } from "../interpretation/identity.js";
 import { detectLimitInLine } from "../interpretation/limits.js";
+import { successfulTurnEnd } from "../interpretation/turn-completion.js";
 import type {
   HarnessDescriptor,
   HarnessName,
   StreamingGranularity,
 } from "../knowledge/descriptor.js";
-import type { HarnessEvent } from "./events.js";
+import type { HarnessEvent, TurnCompletion } from "./events.js";
 import { failureFromBudget, failureFromLimit } from "./failure.js";
 
 export interface DecodeState {
+  /** Output evidence is independent of process exit. Only a successful
+   * native delimiter upgrades delivered text to completed-turn evidence. */
+  completion?: TurnCompletion;
   lastSeenId: string | null;
   limitSeen: boolean;
   /** The id this turn expects (resume paths); rotation is classified
@@ -236,10 +240,14 @@ export const decodeParsed = (
       // the harness recovered, so the earlier stopReason-error attempt
       // must not poison the verdict (its evidence already streamed).
       state.provisionalError = null;
+      state.completion = "message-delivered";
       events.push(content);
     } else {
       events.push(content);
     }
+  }
+  if (successfulTurnEnd(h.name, raw) && state.provisionalError === null) {
+    state.completion = "native-terminal";
   }
   return events;
 };

@@ -133,7 +133,7 @@ const messageFor = (cls: FailureClass, detail?: string): string => {
       // The process exit code rides as data (nativeExitCode) because
       // harness conventions differ (codex exits 2 on usage errors, the
       // code hcn uses for refusals).
-      return `NATIVE ERROR from harness${detail ? `: ${detail}` : ""} - the harness rejected or failed on its own arguments; this is not an hcn error`;
+      return `NATIVE ERROR from harness${detail ? `: ${detail}` : ""} - the harness process failed; this is not an hcn error`;
     case "internal":
       return `Internal hcn failure${detail ? `: ${detail}` : ""} - hcn hit a bug, not a harness failure; the process exits 4 with the structured pair when streaming JSON`;
     default:
@@ -146,9 +146,13 @@ export const failureFromTimeout = (): FailureSummary => ({
   message: messageFor("timeout"),
 });
 
-/** D6: a failure that belongs to the harness, not hcn. Carries the last
- * three stderr lines, redacted and bounded, and the native exit code as
- * data. */
+/** A runtime error headline, distinct from its indented stack frames. */
+export const isStderrErrorHeadline = (line: string): boolean =>
+  /^\s*(?:[\w.]*Error|error):/.test(line);
+
+/** D6: a failure that belongs to the harness, not hcn. Prefers the first
+ * Error headline, otherwise the last three stderr lines. Detail is redacted
+ * and bounded; the native exit code is data. */
 export const failureFromNative = (
   nativeExitCode: number | null,
   stderrTail: readonly string[],
@@ -157,7 +161,10 @@ export const failureFromNative = (
   retryable: retryableOf("native"),
   message: messageFor(
     "native",
-    redactBounded(stderrTail.slice(-3).join(" | "), 512) || `exit ${nativeExitCode}`,
+    redactBounded(
+      stderrTail.find(isStderrErrorHeadline) ?? stderrTail.slice(-3).join(" | "),
+      512,
+    ) || `exit ${nativeExitCode}`,
   ),
   nativeExitCode: nativeExitCode ?? undefined,
 });

@@ -106,7 +106,11 @@ $ hcn run claude "name three primes, nothing else" --model haiku --json
 ```
 
 `--json` prints one JSON event per line. The format is the same for every harness, and the last
-line is always `done`. If the run failed, `done.failure.retryable` says whether a retry can help,
+line is always `done`. On a nonzero run exit, `done.completion` preserves output evidence:
+`native-terminal` means the harness reported successful turn completion;
+`message-delivered` means assistant text arrived without confirmed turn completion.
+The process failure remains in `cause`/`failure`, and `exitCode` keeps the harness's actual status.
+If the run failed, `done.failure.retryable` says whether a retry can help,
 and `done.failure.class` gives the reason, such as `rate-limit`, `auth`, `transport`, or
 `rejected`. A refusal also lists the harnesses that support the option:
 

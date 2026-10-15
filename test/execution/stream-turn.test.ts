@@ -118,7 +118,7 @@ describe("streamTurn happy path (claude, fake spawner)", () => {
     const events = await pending;
     expect(events.at(-1)).toMatchObject({
       kind: "done",
-      exitCode: null,
+      exitCode: 1,
       failure: { class: "native", nativeExitCode: 1 },
     });
     expect(events.some((event) => event.kind === "failure" && event.class === "transport")).toBe(
