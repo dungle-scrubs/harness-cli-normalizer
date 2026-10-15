@@ -58,7 +58,8 @@ with the human's authorization for that access. Even native
 `--force --sandbox enabled` allowed writes outside the workspace in
 qualification. The normalized `--sandbox` option therefore still refuses.
 `--autonomy` independently adds `--force` even with `--access read`; precedence
-against ask mode is unverified. Omit autonomy for the qualified read preset.
+against ask mode is unverified. Use `--no-autonomy` for the qualified read preset,
+including when configuration enables autonomy.
 Denied tool calls arrive as `tool-result` with `isError: true` and
 non-terminal `error` events carrying
 a structured `denial` field (`tool`, `reason`) with exit 0.

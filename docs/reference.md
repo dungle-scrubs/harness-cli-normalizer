@@ -799,7 +799,9 @@ session was created or that the response completed.
 The same stream reports native command and file completions as lossless `tool-result`
 observations, with `tool.callId` linking starts to results. Thread token updates report
 `usage` with `scope: "session"` from `tokenUsage.total`, including thread-only updates
-without a turn ID. These observations grant no approval and do not change turn verdicts.
+without a turn ID. Session updates can precede identity confirmation; they attest
+neither effective settings nor turn completion. These observations grant no approval
+and do not change turn verdicts.
 
 The JSON stream adds three version-1 events:
 
@@ -817,7 +819,7 @@ Choices alone define authority. Supported command choices include once, native s
 
 A repeated decision ID with identical content returns its recorded disposition without another native write. Conflicting content is rejected. A decision is consumed before its write, so uncertain delivery is never retried. A cleared request loses its answer right. Native request IDs cannot be reused within the process because a late clear could otherwise affect a different action. HCN stores no approval state across processes; the caller owns durable choice and write-intent records.
 
-Bounds: 4 KiB per decision including newline, 64 KiB UTF-8 details, 16 choices, 32 pending requests or buffered pre-ack requests, and 4096 request identities and recorded decisions during one process. Invalid UTF-8, framing overflow or an unsupported request ends the channel and cleans up the child. Details are never truncated into an approvable action.
+Bounds: 4 KiB per decision including newline, 64 KiB UTF-8 details, 16 choices, 32 pending requests or buffered pre-ack records, and 4096 request identities and recorded decisions during one process. Invalid UTF-8, framing overflow or an unsupported request ends the channel and cleans up the child. Details are never truncated into an approvable action.
 
 Human approval waits pause inactivity detection. An explicit `--timeout` still runs. Initialize, resume and turn acknowledgement each have a 30-second protocol deadline. Closing decision stdin ends the response, including when no request is pending. HCN completes child cleanup before `done`. Existing HCN question blocks retain `awaiting-input`; native interruption reports `killed`.
 

@@ -133,6 +133,9 @@ Options:
                             write = no restriction; cursor write renders
                             --force (unconfined commands, also bypasses trust).
                             Native tool denials still apply.
+                            Cursor read with autonomy also adds --force;
+                            precedence is unverified. Use --no-autonomy for
+                            the qualified read preset.
                             Mutually exclusive with --tools/--exclude-tools
                             and with --sandbox on codex; no default
   --max-steps <n>           Max steps (muse, 1-10000)

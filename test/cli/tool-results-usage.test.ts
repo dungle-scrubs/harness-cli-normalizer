@@ -182,7 +182,10 @@ for (const runtime of [process.execPath, bun]) {
           inputIncludesCache: true,
         },
       ]);
-      expect(JSON.parse(readFileSync(f.argvPath, "utf8"))).toContain("resume");
+      const argv = JSON.parse(readFileSync(f.argvPath, "utf8")) as string[];
+      expect(argv.slice(0, 2)).toEqual(["exec", "resume"]);
+      expect(argv.filter((arg) => arg === sessionId)).toEqual([sessionId]);
+      expect(argv).not.toContain("--last");
       expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
     } finally {
       rmSync(f.root, { recursive: true, force: true });
@@ -196,6 +199,8 @@ for (const runtime of [process.execPath, bun]) {
     expect(help).toContain("access have no default; no access preset is applied");
     expect(help).toContain("Explicit access write emits --force on cursor");
     expect(help).toContain("antigravity refuses --access");
+    expect(help).toContain("Cursor read with autonomy also adds --force; precedence is unverified");
+    expect(help).toContain("Use --no-autonomy for the qualified read preset");
     expect(help).not.toContain("nothing on claude/pi/muse/cursor/antigravity");
   }, 30000);
 

@@ -14,7 +14,8 @@ render an explicit preset identically.
 `--autonomy` independently adds `--force`, including with `--access read`.
 That combination renders `--mode ask --sandbox enabled --force`; neither
 these probes nor the official documentation establish precedence. It is not
-a verified read-only combination. Omit autonomy for the probed read preset.
+a verified read-only combination. Use `--no-autonomy` for the probed read preset,
+including when configuration enables autonomy.
 
 ## Native verification
 

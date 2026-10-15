@@ -40,6 +40,7 @@ const options: TurnRunOptions = {
 
 class ApprovalPeer extends FakeProcess {
   afterStart?: () => void;
+  beforeResume?: () => void;
   resumeModel = saved.model;
   constructor(private readonly beforeAck = false) {
     super();
@@ -71,7 +72,8 @@ class ApprovalPeer extends FakeProcess {
         const message = JSON.parse(text) as Record<string, unknown>;
         if (message.method === "initialize")
           this.emitLine(JSON.stringify({ id: message.id, result: { userAgent: "fixture" } }));
-        if (message.method === "thread/resume")
+        if (message.method === "thread/resume") {
+          this.beforeResume?.();
           this.emitLine(
             JSON.stringify({
               id: message.id,
@@ -88,6 +90,7 @@ class ApprovalPeer extends FakeProcess {
               },
             }),
           );
+        }
         if (message.method === "turn/start") {
           if (this.beforeAck) this.requestApproval();
           this.emitLine(
@@ -1842,3 +1845,173 @@ test("publishing a file result does not retain authority to approve its retired 
   });
   expect(f.clock.pendingTimerCount).toBe(0);
 });
+
+test("plan and review-mode milestones are not native tool calls or results", async () => {
+  const f = setup();
+  const events: HarnessEvent[] = [];
+  for await (const event of streamTurn(codexCli, options, f.deps)) {
+    events.push(event);
+    if (event.kind === "approval-request") {
+      for (const type of ["plan", "enteredReviewMode", "exitedReviewMode"]) {
+        for (const method of ["item/started", "item/completed"]) {
+          f.proc.emitLine(
+            JSON.stringify({
+              method,
+              params: {
+                threadId: saved.sessionId,
+                turnId: "native-turn",
+                item: { id: type, type, text: "Native plan", review: "Native review" },
+              },
+            }),
+          );
+        }
+      }
+      f.proc.complete();
+    }
+  }
+  expect(events.filter((event) => event.kind === "tool" || event.kind === "tool-result")).toEqual(
+    [],
+  );
+  expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+  expect(f.clock.pendingTimerCount).toBe(0);
+});
+
+test("session usage may precede verified identity but earlier file history is not this turn's result", async () => {
+  const f = setup();
+  f.proc.beforeResume = () => {
+    f.proc.emitLine(
+      JSON.stringify({
+        method: "item/completed",
+        params: {
+          threadId: saved.sessionId,
+          turnId: "earlier-turn",
+          item: { id: "earlier-patch", type: "fileChange", status: "completed", changes: [] },
+        },
+      }),
+    );
+    f.proc.emitLine(
+      JSON.stringify({
+        method: "thread/tokenUsage/updated",
+        params: {
+          threadId: saved.sessionId,
+          tokenUsage: { total: { inputTokens: 40 } },
+        },
+      }),
+    );
+  };
+  const events: HarnessEvent[] = [];
+  for await (const event of streamTurn(codexCli, options, f.deps)) {
+    events.push(event);
+    if (event.kind === "approval-request") f.proc.complete();
+  }
+  expect(events.slice(0, 2)).toEqual([
+    { kind: "usage", scope: "session", inputTokens: 40, inputIncludesCache: true },
+    expect.objectContaining({ kind: "identity", sessionId: saved.sessionId }),
+  ]);
+  expect(events.filter((event) => event.kind === "tool-result")).toEqual([]);
+  expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+  expect(f.clock.pendingTimerCount).toBe(0);
+});
+
+for (const count of [32, 33]) {
+  test(`pre-ack file results share the existing bounded buffer: ${count}`, async () => {
+    const f = setup(true);
+    f.proc.requestApproval = () => {
+      for (let i = 0; i < count; i++)
+        f.proc.emitLine(
+          JSON.stringify({
+            method: "item/completed",
+            params: {
+              threadId: saved.sessionId,
+              turnId: "native-turn",
+              item: { id: `patch-${i}`, type: "fileChange", status: "completed", changes: [] },
+            },
+          }),
+        );
+    };
+    f.proc.afterStart = () => f.proc.complete();
+    const events: HarnessEvent[] = [];
+    for await (const event of streamTurn(codexCli, options, f.deps)) events.push(event);
+    expect(events.filter((event) => event.kind === "tool-result")).toHaveLength(
+      count === 32 ? 32 : 0,
+    );
+    expect(events.at(-1)).toMatchObject({ kind: "done", cause: count === 32 ? "clean" : "failed" });
+    if (count === 33)
+      expect(events.at(-1)).toMatchObject({
+        failure: { nativeApproval: { reason: "unsupported-native-interaction" } },
+      });
+    expect(f.clock.pendingTimerCount).toBe(0);
+  });
+}
+
+for (const nativeTurn of ["native-turn", "foreign-turn"]) {
+  test(`pre-ack file result waits for the acknowledged turn: ${nativeTurn}`, async () => {
+    const f = setup();
+    const pipe = f.proc.stdin;
+    let startId: unknown;
+    const proc: SpawnedProcess = {
+      ...f.proc,
+      disposeOutput: () => f.proc.disposeOutput(),
+      stdin: {
+        end: () => pipe?.end(),
+        write: (text) => {
+          const request = JSON.parse(text);
+          if (request.method !== "turn/start") {
+            pipe?.write(text);
+            return;
+          }
+          f.proc.stdinWrites.push(text);
+          startId = request.id;
+          f.proc.emitLine(
+            JSON.stringify({
+              method: "item/completed",
+              params: {
+                threadId: saved.sessionId,
+                turnId: nativeTurn,
+                item: { id: "early-patch", type: "fileChange", status: "completed", changes: [] },
+              },
+            }),
+          );
+          f.proc.emitLine(
+            JSON.stringify({
+              method: "thread/tokenUsage/updated",
+              params: {
+                threadId: saved.sessionId,
+                tokenUsage: { total: { inputTokens: 40 } },
+              },
+            }),
+          );
+        },
+      },
+    };
+    const events: HarnessEvent[] = [];
+    let earlyResults: HarnessEvent[] | undefined;
+    for await (const event of streamTurn(codexCli, options, {
+      ...f.deps,
+      spawn: () => proc,
+      signal: (_proc, sig) => f.deps.signal(f.proc, sig),
+    })) {
+      events.push(event);
+      if (event.kind === "usage") {
+        earlyResults = events.filter((item) => item.kind === "tool-result");
+        f.proc.emitLine(JSON.stringify({ id: startId, result: { turn: { id: "native-turn" } } }));
+        f.proc.complete();
+      }
+    }
+    expect(earlyResults).toEqual([]);
+    if (nativeTurn === "native-turn") {
+      expect(events.filter((event) => event.kind === "tool-result")).toMatchObject([
+        { callId: "early-patch", name: "file_change", isError: false },
+      ]);
+      expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+    } else {
+      expect(events.filter((event) => event.kind === "tool-result")).toEqual([]);
+      expect(events.at(-1)).toMatchObject({
+        kind: "done",
+        cause: "failed",
+        failure: { nativeApproval: { reason: "unsupported-native-interaction" } },
+      });
+    }
+    expect(f.clock.pendingTimerCount).toBe(0);
+  });
+}

@@ -221,7 +221,15 @@ const claude = (r: Record<string, unknown>): ContentEvent[] => {
 // codex item types that are NOT tool activity - everything else on
 // item.started is a tool of some kind (command_execution, file_change,
 // mcp_tool_call, web_search, ...), surfaced generically by item.type.
-const CODEX_NON_TOOL = new Set(["agent_message", "error", "reasoning", "todo_list"]);
+const CODEX_NON_TOOL = new Set([
+  "agent_message",
+  "error",
+  "reasoning",
+  "todo_list",
+  "plan",
+  "enteredReviewMode",
+  "exitedReviewMode",
+]);
 
 // codex app-server session notifications carry ThreadItem types in
 // camelCase (verified 0.159.2); the exec --json surface spells them in
