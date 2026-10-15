@@ -112,6 +112,23 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
     );
     return;
   }
+  if (values.access !== undefined) {
+    const { refuse, refusalOf } = await import("./refuse.js");
+    refuse(
+      refusalOf(
+        new ArgvRefusalError({
+          harness: h.name,
+          message: "access presets are available only on hcn run, not hcn session",
+          issue: "invalid-option-value",
+          option: "access",
+          supported: ["hcn run --access read|write"],
+        }),
+      ),
+      jsonMode,
+      "closed",
+    );
+    return;
+  }
   if (values.isolation !== undefined) {
     const { refuse, refusalOf } = await import("./refuse.js");
     refuse(
