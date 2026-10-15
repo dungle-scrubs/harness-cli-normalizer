@@ -51,6 +51,11 @@ uncertain launch or a signal exit; 4 for an hcn internal crash.
 Exit code alone is not no-child evidence.
 `;
 
+const DENIAL_COUNT_HELP = `                            Optional done.denialCount: positive count of denial
+                            observations, not unique calls; omitted when zero.
+                            The count does not change the native exit status or cause
+                            and is not a work-success verdict.`;
+
 export const RUN_HELP = `hcn run - One-shot headless turn
 
 Usage: hcn run <harness> [prompt] [options]
@@ -130,9 +135,21 @@ Options:
                             --tools, codex via --sandbox read-only, muse via
                             --disable-write --disable-shell, cursor via
                             --mode ask --sandbox enabled; antigravity refuses);
-                            write = no restriction; cursor write renders
-                            --force (unconfined commands, also bypasses trust).
-                            Native tool denials still apply.
+                            write = claude --permission-mode acceptEdits
+                            plus strict native sandbox (auto-approves
+                            sandboxed Bash; no unsandboxed retry;
+                            requests fail-closed startup). codex uses
+                            --sandbox workspace-write; cursor uses --force
+                            (unconfined commands, also bypasses trust);
+                            pi, muse, and popeye add no restrictions.
+                            The sandbox covers Bash, not file or web tools.
+                            Native tool denials, Bash checks and network
+                            limits still apply. Unless managed policy
+                            overrides strict mode, Claude ignores project
+                            domain allowlists; trusted user or managed
+                            domain policy may be needed for installs or tests.
+                            Claude keeps the explicit write sandbox with
+                            --autonomy.
                             Cursor read with autonomy also adds --force;
                             precedence is unverified. Use --no-autonomy for
                             the qualified read preset.
@@ -181,6 +198,7 @@ Options:
   --                        Passthrough: native harness args verbatim
                             (failures surface as labeled native errors)
   --json                    NDJSON HarnessEvent to stdout
+${DENIAL_COUNT_HELP}
   -h, --help                Show help
   -V, --version             Show version
 
@@ -194,8 +212,9 @@ Defaults with no flags:
   other harnesses report divergence), discovery on,
   autonomy off, write/shell on. timeout, max-steps and
   access have no default; no access preset is applied. Explicit access write emits
-  --force on cursor, --sandbox workspace-write on codex, and no extra flags on
-  claude/pi/muse/popeye; antigravity refuses --access. The profile's sandbox
+  --force on cursor, --sandbox workspace-write on codex, and --permission-mode
+  acceptEdits plus strict sandbox settings on claude; no extra flags on
+  pi, muse, or popeye; antigravity refuses --access. The profile's sandbox
   setting is separate from access. toolMap is config-only (no flag) - canonical -> native
   mapping per harness. A bare pi run renders no --tools list: pi's list
   is a strict allowlist and would drop extension and MCP tools; name
@@ -227,6 +246,7 @@ Options:
                             with a closed event. Exit 0 clean, 1 otherwise,
                             2 refusal, 4 hcn internal crash (failure/closed pair,
                             cause crash).
+${DENIAL_COUNT_HELP}
   --stall <seconds>         Per-turn inactivity budget; the turn ends and the
                             session closes reporting a stall. 0 disables
                             (default: no limit)

@@ -18,7 +18,8 @@ Run `hcn run pi --resume <uuid> --json --prompt <text>` or alias `--session-id`;
 Preconditions: current build and disposable native store fixtures only.
 
 - Discover CLI cases with `rg -n 'resume|nonzero|crash|terminated|processing your request' test/cli` and run the matching files via `pnpm exec vitest run <files>` and `bun test --timeout=20000 <files>`.
-- Supplement CLI proof with `pnpm exec vitest run test/execution/stream-turn.test.ts test/execution/failure-classes.test.ts test/execution/terminal-error.test.ts test/interpretation/limits.test.ts` and the Bun equivalents.
+- Include `test/cli/post-turn-crash.test.ts` for built-process completion and `test/cli/session-terminal.test.ts` for supplemental command-level session exit behavior.
+- Supplement CLI proof with `pnpm exec vitest run test/execution/stream-turn.test.ts test/execution/failure-classes.test.ts test/execution/terminal-error.test.ts test/execution/post-turn-crash.test.ts test/execution/open-session.test.ts test/interpretation/limits.test.ts` and the Bun equivalents.
 - Record event ordering, child spawn count, native exit code and selected error line. For completed-work claims require the harness's terminal marker, not merely a text chunk or tool output.
 - Re-run new regressions against the pre-fix implementation and retain exact red/green output. Exercise recovered provider errors as well as terminal errors.
 

@@ -46,6 +46,104 @@ try {
     );
     process.exitCode = 3;
   } else {
+    const help = spawnSync(bin, ["run", "--help"], {
+      cwd: root,
+      env,
+      encoding: "utf8",
+      timeout: 20000,
+    });
+    assert.equal(help.status, 0, help.stderr);
+    if (help.stdout.includes("done.denialCount")) {
+      const denied = {
+        tool_name: "Bash",
+        tool_use_id: "fixture-denied-call",
+        tool_input: { command: "printf fixture" },
+      };
+      const result = (permission_denials) => ({
+        type: "result",
+        subtype: "success",
+        is_error: false,
+        result: "fixture",
+        permission_denials,
+      });
+      stub("claude", [result([denied, denied])]);
+      const events = run(["run", "claude", "--json", "--questions", "none", "--prompt", "fixture"]);
+      const observation = {
+        tool: "Bash",
+        reason: "",
+        callId: "fixture-denied-call",
+        inputSummary: '{"command":"printf fixture"}',
+      };
+      assert.deepEqual(
+        events.filter((e) => e.kind === "error").map((e) => e.denial),
+        [observation, observation],
+      );
+      assert.equal(events.at(-1).denialCount, 2, "done.denialCount counts observations");
+      assert.equal(events.at(-1).cause, "clean");
+      assert.equal(
+        events.some((e) => e.kind === "failure"),
+        false,
+      );
+      stub("claude", [result([])]);
+      const clean = run(["run", "claude", "--json", "--questions", "none", "--prompt", "fixture"]);
+      assert.equal("denialCount" in clean.at(-1), false);
+      assert.equal(
+        clean.some((e) => e.kind === "error" && e.denial),
+        false,
+      );
+      assert.equal(clean.at(-1).cause, "clean");
+      console.log("ok: Claude denial observations and counts match the skill");
+    }
+    if (
+      help.stdout
+        .replace(/\s+/g, " ")
+        .includes("claude --permission-mode acceptEdits plus strict native sandbox")
+    ) {
+      const registry = join(root, "skills");
+      for (const name of ["keep", "drop"]) {
+        const directory = join(registry, name);
+        mkdirSync(directory, { recursive: true });
+        writeFileSync(
+          join(directory, "SKILL.md"),
+          `---\nname: ${name}\ndescription: synthetic fixture\n---\nFixture.\n`,
+        );
+      }
+      env.HCN_SKILLS_ROOT = registry;
+      const capture = join(root, "claude-argv.json");
+      stub("claude", [{ type: "result", subtype: "success", is_error: false }], capture);
+      run([
+        "run",
+        "claude",
+        "--json",
+        "--questions",
+        "none",
+        "--access",
+        "write",
+        "--skills",
+        "keep",
+        "--prompt",
+        "fixture",
+      ]);
+      const argv = JSON.parse(readFileSync(capture, "utf8"));
+      assert.deepEqual(
+        argv.slice(argv.indexOf("--permission-mode"), argv.indexOf("--permission-mode") + 2),
+        ["--permission-mode", "acceptEdits"],
+      );
+      assert.equal(argv.includes("--dangerously-skip-permissions"), false);
+      assert.equal(argv.includes("--allowedTools"), false);
+      assert.equal(argv.filter((arg) => arg === "--settings").length, 1);
+      assert.deepEqual(JSON.parse(argv[argv.indexOf("--settings") + 1]), {
+        sandbox: {
+          enabled: true,
+          autoAllowBashIfSandboxed: true,
+          allowUnsandboxedCommands: false,
+          failIfUnavailable: true,
+          filesystem: { disabled: false },
+        },
+        skillOverrides: { drop: "off" },
+      });
+      console.log("ok: Claude write and selected skills share strict native settings");
+    }
     const inspected = spawnSync(bin, ["inspect", "cursor", "--json"], {
       cwd: root,
       env,

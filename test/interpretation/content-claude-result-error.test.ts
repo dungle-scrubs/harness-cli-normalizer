@@ -11,6 +11,92 @@ import { failureFromTerminalError } from "../../src/execution/failure.js";
 import { contentEventsOf } from "../../src/interpretation/content.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 
+describe("claude result permission denials", () => {
+  test("denials do not hide or replace the harness's terminal error", () => {
+    expect(
+      contentEventsOf("claude", {
+        type: "result",
+        subtype: "error_max_turns",
+        is_error: true,
+        result: "maximum turns reached",
+        permission_denials: [{ tool_name: "Bash" }],
+      }),
+    ).toEqual([
+      {
+        kind: "error",
+        message: "Tool permission denied: Bash",
+        denial: { tool: "Bash", reason: "" },
+      },
+      {
+        kind: "error",
+        message: "turn failed: error_max_turns (maximum turns reached)",
+        terminal: true,
+      },
+    ]);
+  });
+
+  test("large native input is only a bounded preview, not a terminal failure", () => {
+    const [event] = contentEventsOf("claude", {
+      type: "result",
+      is_error: false,
+      permission_denials: [{ tool_name: "Write", tool_input: { content: "x".repeat(10000) } }],
+    });
+    if (event?.kind !== "error") throw new Error("expected denial observation");
+    expect(event.denial?.tool).toBe("Write");
+    expect(event.denial?.inputSummary).toHaveLength(512);
+    expect(event.denial?.inputSummary?.startsWith('{"content":"')).toBe(true);
+    expect(event).not.toHaveProperty("terminal");
+  });
+
+  test("each valid denial survives malformed neighbors without becoming terminal", () => {
+    expect(
+      contentEventsOf("claude", {
+        type: "result",
+        is_error: false,
+        permission_denials: [
+          null,
+          { tool_name: "Bash", tool_use_id: "bash-1", tool_input: { command: "echo ok" } },
+          { tool_name: false },
+          { tool_name: "Write", tool_use_id: "write-2" },
+        ],
+      }),
+    ).toEqual([
+      {
+        kind: "error",
+        message: "Tool permission denied: Bash",
+        denial: {
+          tool: "Bash",
+          reason: "",
+          callId: "bash-1",
+          inputSummary: '{"command":"echo ok"}',
+        },
+      },
+      {
+        kind: "error",
+        message: "Tool permission denied: Write",
+        denial: { tool: "Write", reason: "", callId: "write-2" },
+      },
+    ]);
+  });
+
+  test.each([
+    { label: "absent", value: undefined },
+    { label: "null", value: null },
+    { label: "boolean", value: true },
+    { label: "string", value: "denied" },
+    { label: "object", value: { tool_name: "Bash" } },
+    { label: "empty array", value: [] },
+    {
+      label: "malformed entries",
+      value: [null, 1, "Bash", [], {}, { tool_name: 1 }, { tool_name: "" }, { tool_name: "  " }],
+    },
+  ])("$label does not invent a denial", ({ value }) => {
+    expect(
+      contentEventsOf("claude", { type: "result", is_error: false, permission_denials: value }),
+    ).toEqual([]);
+  });
+});
+
 describe("claude result is_error text", () => {
   test("the terminal error names the subtype and carries the result text", () => {
     const events = contentEventsOf("claude", {

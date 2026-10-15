@@ -7,12 +7,13 @@
 import type {
   AccessValue,
   HarnessDescriptor,
+  JsonSettingsFragment,
   StreamingGranularity,
 } from "../knowledge/descriptor.js";
-import { tokensFor } from "../knowledge/descriptor.js";
 import type { NativeSettingsSnapshot } from "../knowledge/native-settings.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { hintFor } from "./hints.js";
+import { renderArgvParts, renderInlineSettings } from "./inline-settings.js";
 import { assertIsolationCombination } from "./isolation.js";
 import { promptAfterSeparator, renderVerifiedNativeSettings } from "./native-settings-argv.js";
 import { ArgvRefusalError } from "./refusal.js";
@@ -136,12 +137,13 @@ export function stdinPromptOf(h: HarnessDescriptor, opts: TurnOptions): string |
     : null;
 }
 
-/** The shared tail of every headless-turn argv: prompt, stream flags, then
- * validated selections, with the variadic tools flag LAST and fed exactly
- * one joined token so nothing after it can be swallowed as a tool name. */
+/** The shared tail of a headless turn: inline prompt, stream flags and
+ * validated selections. Tool names travel in one joined argument; inline
+ * prompt text precedes variadic tool grants. */
 const turnTail = (
   h: HarnessDescriptor,
   opts: TurnOptions,
+  settings: readonly JsonSettingsFragment[],
   prompt: "inline" | "after-separator" = "inline",
 ): string[] => {
   const stdinPrompt = stdinPromptOf(h, opts);
@@ -184,9 +186,9 @@ const turnTail = (
     });
     tail.push(...rendered.tokens);
   }
-  if (opts.skills !== undefined) {
-    tail.push(...renderSkillsSelection(h, opts.skills));
-  }
+  const skillParts = opts.skills === undefined ? undefined : renderSkillsSelection(h, opts.skills);
+  tail.push(...(skillParts?.tokens ?? []));
+  tail.push(...renderInlineSettings([...settings, ...(skillParts?.settings ?? [])]));
   return tail;
 };
 
@@ -196,12 +198,27 @@ const separatedPrompt = (h: HarnessDescriptor, opts: TurnOptions): string[] => {
   return ["--", stdinPrompt === null ? promptTextOf(opts) : (h.launch.stdinPrompt?.argument ?? "")];
 };
 
+const renderTurnArgv = (
+  h: HarnessDescriptor,
+  opts: TurnOptions,
+  phase: "launch" | "resume",
+  nativeSettingsArgs: readonly string[] = [],
+  prompt: "inline" | "after-separator" = "inline",
+): string[] => {
+  const before = renderTurnOptions(h, opts, phase, "before-prompt");
+  const after = renderTurnOptions(h, opts, phase, "after-prompt");
+  return [
+    ...before.tokens,
+    ...nativeSettingsArgs,
+    ...turnTail(h, opts, [...before.settings, ...after.settings], prompt),
+    ...after.tokens,
+  ];
+};
+
 export const buildLaunchArgv = (h: HarnessDescriptor, opts: LaunchOptions): string[] => [
   h.bin,
   ...h.launch.baseFlags,
-  ...renderTurnOptions(h, opts, "launch", "before-prompt").tokens,
-  ...turnTail(h, opts),
-  ...renderTurnOptions(h, opts, "launch", "after-prompt").tokens,
+  ...renderTurnArgv(h, opts, "launch"),
 ];
 
 /** Descriptor-derived spawn-env assignments for a turn (claude's memory
@@ -263,10 +280,7 @@ const resumeArgv = (
     h.resume.flag,
     opts.sessionId,
     ...h.resume.extraFlags,
-    ...renderTurnOptions(h, opts, "resume", "before-prompt").tokens,
-    ...nativeSettingsArgs,
-    ...turnTail(h, opts, prompt),
-    ...renderTurnOptions(h, opts, "resume", "after-prompt").tokens,
+    ...renderTurnArgv(h, opts, "resume", nativeSettingsArgs, prompt),
     ...(prompt === "after-separator" ? separatedPrompt(h, opts) : []),
   ];
 };
@@ -323,8 +337,7 @@ const resumeLastArgv = (
 ): string[] => {
   const resumeLast = assertResumeLastRenderable(h);
   assertAccessExclusivity(h, opts);
-  const beforePrompt = renderTurnOptions(h, opts, "resume", "before-prompt").tokens;
-  const afterPrompt = renderTurnOptions(h, opts, "resume", "after-prompt").tokens;
+  const tail = renderTurnArgv(h, opts, "resume", nativeSettingsArgs);
   if (h.resume.style === "positional") {
     return [
       h.bin,
@@ -332,10 +345,7 @@ const resumeLastArgv = (
       h.resume.flag,
       resumeLast.flag,
       ...h.resume.extraFlags,
-      ...beforePrompt,
-      ...nativeSettingsArgs,
-      ...turnTail(h, opts),
-      ...afterPrompt,
+      ...tail,
     ];
   }
   const resumePrefix =
@@ -347,10 +357,7 @@ const resumeLastArgv = (
     ...h.launch.subcommands,
     ...resumePrefix,
     ...(h.contextInspection?.forkFlag !== undefined ? [h.contextInspection.forkFlag] : []),
-    ...beforePrompt,
-    ...nativeSettingsArgs,
-    ...turnTail(h, opts),
-    ...afterPrompt,
+    ...tail,
   ];
 };
 
@@ -445,6 +452,7 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
   refuseUnusableSessionId(h, opts.sessionId);
   const flag = opts.isResume ? h.sessionMode.resumeFlag : h.sessionMode.idFlag;
   const argv = [h.bin, ...h.sessionMode.flags, ...(flag !== null ? [flag, opts.sessionId] : [])];
+  const settings: JsonSettingsFragment[] = [];
   if (opts.model !== undefined) {
     const validated = validateModel(h, opts.model);
     if (!validated.ok) {
@@ -461,8 +469,11 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
     // app-server: -c model=...). Same tokensFor rule the turn options
     // use, so the config-kv quoting stays identical.
     const modelRender = h.sessionMode.modelRender;
-    if (modelRender !== undefined) argv.push(...tokensFor(modelRender, validated.id));
-    else argv.push(h.vocabulary.modelFlag, validated.id);
+    if (modelRender !== undefined) {
+      const parts = renderArgvParts(modelRender, validated.id);
+      argv.push(...parts.tokens);
+      settings.push(...parts.settings);
+    } else argv.push(h.vocabulary.modelFlag, validated.id);
   }
   if (
     opts.agent !== undefined ||
@@ -485,26 +496,31 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
     // key - but effort validation reads it, so a per-model effort ladder
     // (effortsByModel) constrains the session spawn exactly as it
     // constrains a one-shot turn.
-    argv.push(
-      ...renderTurnOptions(
-        h,
-        {
-          ...(opts.effort !== undefined ? { effort: opts.effort } : {}),
-          ...(opts.provider !== undefined ? { provider: opts.provider } : {}),
-          ...(opts.agent !== undefined ? { agent: opts.agent } : {}),
-          ...(opts.contextWindow !== undefined ? { contextWindow: opts.contextWindow } : {}),
-          ...(opts.model !== undefined ? { model: opts.model } : {}),
-        } as TurnOptions,
-        "resume",
-      ).tokens,
+    const rendered = renderTurnOptions(
+      h,
+      {
+        ...(opts.effort !== undefined ? { effort: opts.effort } : {}),
+        ...(opts.provider !== undefined ? { provider: opts.provider } : {}),
+        ...(opts.agent !== undefined ? { agent: opts.agent } : {}),
+        ...(opts.contextWindow !== undefined ? { contextWindow: opts.contextWindow } : {}),
+        ...(opts.model !== undefined ? { model: opts.model } : {}),
+      } as TurnOptions,
+      "resume",
     );
+    argv.push(...rendered.tokens);
+    settings.push(...rendered.settings);
   }
   // issue #332: the skills allowlist renders through the one owner a
   // launch argv uses (renderSkillsSelection), so a null-skills harness
   // refuses here - before spawn - with the same unsupported-option shape
   // hcn run refuses with. pi renders its discovery facet off plus one
   // --skill per pick; claude and codex render the complement-off overrides.
-  if (opts.skills !== undefined) argv.push(...renderSkillsSelection(h, opts.skills));
+  if (opts.skills !== undefined) {
+    const parts = renderSkillsSelection(h, opts.skills);
+    argv.push(...parts.tokens);
+    settings.push(...parts.settings);
+  }
+  argv.push(...renderInlineSettings(settings));
   return argv;
 };
 

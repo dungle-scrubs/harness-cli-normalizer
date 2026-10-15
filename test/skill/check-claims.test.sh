@@ -22,7 +22,7 @@ cleanup() {
   rm -rf "$fixture_dir"
 }
 trap cleanup EXIT
-mkdir "$fixture_dir/working" "$fixture_dir/broken" "$fixture_dir/invalid" "$fixture_dir/pi-settings" "$fixture_dir/muse-evidence" "$fixture_dir/aliases" \
+mkdir "$fixture_dir/working" "$fixture_dir/broken" "$fixture_dir/invalid" "$fixture_dir/pi-settings" "$fixture_dir/muse-evidence" "$fixture_dir/aliases" "$fixture_dir/denial-count" "$fixture_dir/claude-write" \
   "$fixture_dir/node-only" "$fixture_dir/old-node" "$fixture_dir/no-interpreter" "$fixture_dir/home-launcher"
 real_node=$(node -p 'process.execPath')
 ln -s "$real_node" "$fixture_dir/node-only/node"
@@ -83,6 +83,82 @@ EOF
         echo "ok: unlisted alias target fails verification"
       else
         echo "FAIL: unlisted alias target gave exit $rc"
+        fails=$((fails + 1))
+      fi
+      ;;
+  esac
+fi
+
+# A CLI that advertises denial counts must emit them for reported denials.
+if [ -n "$working_hcn" ]; then
+  case "$("$working_hcn" run --help)" in
+    *"done.denialCount"*)
+      {
+        printf '#!/usr/bin/env bash\n'
+        printf 'working_hcn=%q\n' "$working_hcn"
+        cat <<'EOF'
+json=0
+for arg in "$@"; do
+  if [ "$arg" = "--json" ]; then json=1; fi
+done
+if [ "$1" = "run" ] && [ "$json" -eq 1 ]; then
+  "$working_hcn" "$@" | node -e 'const fs=require("node:fs"); for(const line of fs.readFileSync(0,"utf8").trim().split("\n")){const event=JSON.parse(line); if(event.kind==="done")delete event.denialCount; console.log(JSON.stringify(event));}'
+  exit "${PIPESTATUS[0]}"
+fi
+exec "$working_hcn" "$@"
+EOF
+      } > "$fixture_dir/denial-count/hcn"
+      chmod +x "$fixture_dir/denial-count/hcn"
+      if [ "$("$fixture_dir/denial-count/hcn" run --help)" != "$("$working_hcn" run --help)" ]; then
+        echo "FAIL: denial-count wrapper changed help instead of only JSON events"
+        fails=$((fails + 1))
+      fi
+      HCN_BIN="$fixture_dir/denial-count/hcn" /bin/bash "$script" >/dev/null 2>&1
+      rc=$?
+      if [ "$rc" -eq 1 ]; then
+        echo "ok: omitted advertised denial count fails verification"
+      else
+        echo "FAIL: omitted advertised denial count gave exit $rc, want 1"
+        fails=$((fails + 1))
+      fi
+      ;;
+  esac
+fi
+
+# Claude write must retain its sandbox and selected skills in the native argv.
+if [ -n "$working_hcn" ]; then
+  case "$("$working_hcn" run --help)" in
+    *"strict native sandbox"*)
+      {
+        printf '#!/usr/bin/env bash\n'
+        printf 'working_hcn=%q\n' "$working_hcn"
+        cat <<'EOF'
+if [ "$1 ${2:-}" = "run claude" ]; then
+  args=()
+  while [ "$#" -gt 0 ]; do
+    if [ "$1 ${2:-}" = "--access write" ]; then
+      shift 2
+    else
+      args+=("$1")
+      shift
+    fi
+  done
+  exec "$working_hcn" "${args[@]}"
+fi
+exec "$working_hcn" "$@"
+EOF
+      } > "$fixture_dir/claude-write/hcn"
+      chmod +x "$fixture_dir/claude-write/hcn"
+      if [ "$("$fixture_dir/claude-write/hcn" run --help)" != "$("$working_hcn" run --help)" ]; then
+        echo "FAIL: Claude-write wrapper changed help instead of only Claude write requests"
+        fails=$((fails + 1))
+      fi
+      HCN_BIN="$fixture_dir/claude-write/hcn" /bin/bash "$script" >/dev/null 2>&1
+      rc=$?
+      if [ "$rc" -eq 1 ]; then
+        echo "ok: omitted Claude write preset fails verification"
+      else
+        echo "FAIL: omitted Claude write preset gave exit $rc, want 1"
         fails=$((fails + 1))
       fi
       ;;

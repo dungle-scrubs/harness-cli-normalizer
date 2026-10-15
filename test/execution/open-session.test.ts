@@ -159,6 +159,37 @@ describe("openSession skills (#332, fake process)", () => {
 });
 
 describe("openSession (claude, fake process)", () => {
+  test("denial observations mark their session turn without leaking into the next turn", async () => {
+    const deniedResult = readFileSync(
+      join(import.meta.dirname, "../fixtures/claude-2.1.296/permission-denied.result.ndjson"),
+      "utf8",
+    ).trim();
+    const nativeId = JSON.parse(deniedResult).session_id as string;
+    const proc = new FakeProcess();
+    const session = openSession(claudeCode, { sessionId: nativeId }, makeDeps(proc));
+    const turns = session.turns[Symbol.asyncIterator]();
+    try {
+      session.send({ id: "denied", text: "first" });
+      const first = (await turns.next()).value as SessionTurn;
+      proc.emitLine(JSON.stringify({ type: "system", subtype: "init", session_id: nativeId }));
+      proc.emitLine(deniedResult);
+      const denied = await drainTurn(first);
+      expect(denied.filter((e) => e.kind === "error" && e.denial)).toHaveLength(1);
+      expect(denied.some((e) => e.kind === "failure")).toBe(false);
+      expect(denied.at(-1)).toMatchObject({ kind: "done", cause: "clean", denialCount: 1 });
+
+      session.send({ id: "clear", text: "second" });
+      const second = (await turns.next()).value as SessionTurn;
+      proc.emitLine(result);
+      const clear = await drainTurn(second);
+      expect(clear.filter((e) => e.kind === "error" && e.denial)).toHaveLength(0);
+      expect(clear.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+      expect(clear.at(-1)).not.toHaveProperty("denialCount");
+    } finally {
+      await session.close();
+    }
+  });
+
   test("one process serves many turns; send during idle starts a turn; result delimits it (A-001)", async () => {
     const proc = new FakeProcess();
     const d = makeDeps(proc);

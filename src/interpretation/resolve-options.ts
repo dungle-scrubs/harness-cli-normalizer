@@ -81,7 +81,7 @@ export function assertAccessExclusivity(
       supported: [
         claimedConflict
           ? `--access or --${claimed}, not both on ${harness.name}`
-          : "--access is a preset allowlist, not a filter over --tools/--exclude-tools",
+          : "--access selects a permission preset, not a filter over --tools/--exclude-tools",
       ],
       detail: "mutual exclusion",
     });
@@ -381,8 +381,7 @@ export const resolveEffectiveOptions = (
       provenance.push({ key, value, tier: "harness" });
       continue;
     }
-    // When access is set, skip the all-known expansion (access is a preset allowlist, not a filter).
-    // Same shape as --no-tools skip; provenance owned by tier that set access.
+    // Explicit access owns the grant; the profile must not add a separate tool list.
     if (key === "tools" && value === "all-known" && resolved.access !== undefined) {
       const accessTier: ProvenanceTier =
         effectiveArgs.access !== undefined ? "arg" : (sourceTier("access") ?? "user-config");

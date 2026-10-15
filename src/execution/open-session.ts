@@ -266,6 +266,7 @@ export const openSession = (
   let resultError = false;
   let turnLimitSeen = false;
   let turnFailures: FailureSummary[] = [];
+  let turnDenialCount = 0;
   let pumpError: unknown = null;
   // issue #44: whether the active turn ended by asking, and what its close
   // detected.
@@ -381,6 +382,7 @@ export const openSession = (
   const startTurn = (inputId?: string): void => {
     turnLimitSeen = false;
     turnFailures = [];
+    turnDenialCount = 0;
     turnAsked = false;
     turnEscalationDetection = "none";
     activeTurn = new AsyncChannel<HarnessEvent>();
@@ -395,13 +397,16 @@ export const openSession = (
     log({ event: "turn_start", sessionId: opts.sessionId, turnId: activeTurnId });
     for (const held of preTurnEvents.splice(0)) {
       if (held.kind === "failure") turnFailures.push(summaryOf(held));
+      if (held.kind === "error" && held.denial !== undefined) turnDenialCount++;
       activeTurn.push(held);
     }
     turnsChannel.push(activeTurn as SessionTurn);
     sup.beginTurn();
   };
 
-  const endTurn = (done: Omit<HarnessEvent & { kind: "done" }, "escalation">): void => {
+  const endTurn = (
+    done: Omit<HarnessEvent & { kind: "done" }, "escalation" | "denialCount">,
+  ): void => {
     if (activeTurn === null) return;
     sup.disarm();
     // issue #44: the supervisor scans the last assistant message for the
@@ -417,6 +422,7 @@ export const openSession = (
     // RFC-01 every turn end carries the escalation record
     let fullDone: HarnessEvent & { kind: "done" } = {
       ...done,
+      ...(turnDenialCount > 0 ? { denialCount: turnDenialCount } : {}),
       escalation: { mode: questionMode, detection: turnEscalationDetection },
     } as HarnessEvent & { kind: "done" };
     // Every failure was already emitted as an event through pushFailure;
@@ -460,6 +466,7 @@ export const openSession = (
     }
     sup.noteEvent(event);
     if (activeTurn !== null) {
+      if (event.kind === "error" && event.denial !== undefined) turnDenialCount++;
       // Awaited by the pumps: past the channel's high water mark this
       // blocks the pump, so OS pipe backpressure reaches the child.
       return activeTurn.push(event);

@@ -19,18 +19,21 @@ const skills = { picks: ["/registry/hcn"], known: ["hcn", "other", "third"] };
 
 describe("skills rendering is descriptor-driven", () => {
   test("pi: discovery off through the descriptor's facet render, then one load per pick", () => {
-    expect(renderSkillsSelection(piCli, skills)).toEqual(["-ns", "--skill", "/registry/hcn"]);
+    expect(renderSkillsSelection(piCli, skills)).toEqual({
+      tokens: ["-ns", "--skill", "/registry/hcn"],
+      settings: [],
+    });
   });
 
   test("claude: the complement off through skillOverrides settings", () => {
-    expect(renderSkillsSelection(claudeCode, skills)).toEqual([
-      "--settings",
-      JSON.stringify({ skillOverrides: { other: "off", third: "off" } }),
-    ]);
+    expect(renderSkillsSelection(claudeCode, skills)).toEqual({
+      tokens: [],
+      settings: [{ flag: "--settings", value: { skillOverrides: { other: "off", third: "off" } } }],
+    });
   });
 
   test("codex: the complement off plus picks on through the skills.config array", () => {
-    expect(renderSkillsSelection(codexCli, skills)).toEqual([
+    expect(renderSkillsSelection(codexCli, skills).tokens).toEqual([
       "-c",
       'skills.config=[{path="/registry/hcn/SKILL.md", enabled=true}, {name="hcn", enabled=true}, ' +
         '{path="/registry/other/SKILL.md", enabled=false}, {name="other", enabled=false}, ' +
@@ -68,6 +71,9 @@ describe("skills rendering is descriptor-driven", () => {
   });
 
   test("no picks renders nothing", () => {
-    expect(renderSkillsSelection(claudeCode, { picks: [], known: ["hcn"] })).toEqual([]);
+    expect(renderSkillsSelection(claudeCode, { picks: [], known: ["hcn"] })).toEqual({
+      tokens: [],
+      settings: [],
+    });
   });
 });

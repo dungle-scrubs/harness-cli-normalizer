@@ -24,7 +24,17 @@ describe("one access spec", () => {
       expect(h.turnOptions.access?.kind).toBe("access");
     }
     expect(claudeCode.turnOptions.access).toMatchObject({
-      renders: { read: "tool-preset", write: null },
+      renders: {
+        read: "tool-preset",
+        write: {
+          render: {
+            kind: "json-settings",
+            flag: "--settings",
+            extraFlags: ["--permission-mode", "acceptEdits"],
+            value: { sandbox: { enabled: true } },
+          },
+        },
+      },
     });
     expect(piCli.turnOptions.access).toMatchObject({
       renders: { read: "tool-preset", write: null },

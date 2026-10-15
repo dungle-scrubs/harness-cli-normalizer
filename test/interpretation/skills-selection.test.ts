@@ -37,12 +37,12 @@ describe("pi rendering", () => {
 
 describe("claude rendering", () => {
   it("complement-off: every known name except the picks", () => {
-    const tokens = renderSkillsSelection(claudeCode, {
+    const rendered = renderSkillsSelection(claudeCode, {
       picks: ["/root/hcn"],
       known: ["hcn", "grill", "bro", "research"],
     });
-    expect(tokens[0]).toBe("--settings");
-    const parsed = JSON.parse(tokens[1] as string) as {
+    expect(rendered.settings[0]?.flag).toBe("--settings");
+    const parsed = rendered.settings[0]?.value as {
       skillOverrides: Record<string, string>;
     };
     expect(parsed.skillOverrides).toEqual({ grill: "off", bro: "off", research: "off" });
@@ -50,14 +50,14 @@ describe("claude rendering", () => {
   });
 
   it("all known picked: empty overrides object, still emitted", () => {
-    const tokens = renderSkillsSelection(claudeCode, { picks: ["/root/hcn"], known: ["hcn"] });
-    expect(JSON.parse(tokens[1] as string)).toEqual({ skillOverrides: {} });
+    const rendered = renderSkillsSelection(claudeCode, { picks: ["/root/hcn"], known: ["hcn"] });
+    expect(rendered.settings[0]?.value).toEqual({ skillOverrides: {} });
   });
 });
 
 describe("codex rendering", () => {
   it("complement-off plus picks restated on, both selectors per skill", () => {
-    const tokens = renderSkillsSelection(codexCli, {
+    const { tokens } = renderSkillsSelection(codexCli, {
       picks: ["/tmp/skills/hcn"],
       known: ["hcn", "grill", "bro", "research"],
     });
@@ -79,7 +79,7 @@ describe("codex rendering", () => {
 
   it("a non-empty selection never renders zero enabled entries (#209)", () => {
     for (const known of [["hcn", "grill"], ["grill"], []]) {
-      const tokens = renderSkillsSelection(codexCli, {
+      const { tokens } = renderSkillsSelection(codexCli, {
         picks: ["/tmp/skills/hcn"],
         known,
       });
@@ -88,14 +88,14 @@ describe("codex rendering", () => {
   });
 
   it("all known picked: only enabled entries", () => {
-    const tokens = renderSkillsSelection(codexCli, { picks: ["/root/a"], known: ["a"] });
+    const { tokens } = renderSkillsSelection(codexCli, { picks: ["/root/a"], known: ["a"] });
     const value = tokens[1] as string;
     expect(value).toContain("enabled=true");
     expect(value).not.toContain("enabled=false");
   });
 
   it("emitted value is a TOML-like array with quoted paths", () => {
-    const tokens = renderSkillsSelection(codexCli, { picks: ["/root/a"], known: ["a", "b"] });
+    const { tokens } = renderSkillsSelection(codexCli, { picks: ["/root/a"], known: ["a", "b"] });
     expect(tokens).toHaveLength(2);
     const value = tokens[1] as string;
     expect(value).toMatch(/^skills\.config=\[/);
@@ -103,7 +103,7 @@ describe("codex rendering", () => {
   });
 
   it("picking every known skill emits only the enabled picks, no disables", () => {
-    const tokens = renderSkillsSelection(codexCli, {
+    const { tokens } = renderSkillsSelection(codexCli, {
       picks: ["/tmp/skills/hcn", "/tmp/skills/grill"],
       known: ["hcn", "grill"],
     });
