@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { expect, test } from "vitest";
 import { storePath } from "../../src/interpretation/store.js";
@@ -301,6 +301,46 @@ for (const runtime of [process.execPath, bun]) {
       expect(help).toContain("not unique calls; omitted when zero");
       expect(help).toContain("does not change the native exit status or cause");
       expect(help).toContain("not a work-success verdict");
+    }
+  }, 30000);
+
+  test(`${runtime}: access conflicts describe a permission preset before native spawn`, () => {
+    const f = fixture("claude", []);
+    try {
+      const run = spawnSync(
+        runtime,
+        [
+          cli,
+          "run",
+          "claude",
+          "--json",
+          "--access",
+          "write",
+          "--tools",
+          "read",
+          "--prompt",
+          "fixture",
+        ],
+        { cwd: f.root, env: f.env, encoding: "utf8", timeout: 20000 },
+      );
+      expect(run.error).toBeUndefined();
+      expect(run.status).toBe(2);
+      const events = run.stdout
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line));
+      expect(events[0]).toMatchObject({
+        kind: "failure",
+        class: "rejected",
+        issue: "mutually-exclusive-options",
+        supported: [
+          "--access selects a permission preset, not a filter over --tools/--exclude-tools",
+        ],
+      });
+      expect(events.at(-1)).toMatchObject({ kind: "done", cause: "failed" });
+      expect(existsSync(f.argvPath)).toBe(false);
+    } finally {
+      rmSync(f.root, { recursive: true, force: true });
     }
   }, 30000);
 
