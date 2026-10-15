@@ -148,7 +148,7 @@ export const failureFromTimeout = (): FailureSummary => ({
 
 /** A runtime error headline, distinct from its indented stack frames. */
 export const isStderrErrorHeadline = (line: string): boolean =>
-  /^\s*(?:[\w.]*Error|error):/.test(line);
+  /^\s*(?:[\w.]*Error|error)(?: \[[A-Z][A-Z0-9_]*\])?:/.test(line);
 
 /** D6: a failure that belongs to the harness, not hcn. Prefers the first
  * Error headline, otherwise the last three stderr lines. Detail is redacted

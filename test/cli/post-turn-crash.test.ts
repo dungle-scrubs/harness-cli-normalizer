@@ -45,15 +45,20 @@ line({ type: "message_end", message });
 line({ type: "turn_end", message, toolResults: [] });
 line({ type: "agent_end", messages: [message] });
 if (process.env.STUB_TERMINAL === "1") line({ type: "agent_settled" });
-process.stderr.write("Error: This extension ctx is stale after session replacement or reload.\\n");
+process.stderr.write(process.env.STUB_STDERR_LINE + "\\n");
 for (let i = 0; i < 30; i++) process.stderr.write("    at inventedFrame (invented.js:1:1)\\n");
+if (process.env.STUB_STDERR_FOOTER) process.stderr.write(process.env.STUB_STDERR_FOOTER + "\\n");
 process.stderr.write("Node.js v24.15.0\\n");
 process.exitCode = 1;
 `;
 
 type Event = Record<string, unknown> & { kind: string };
 
-const runStubPi = (stub: { terminal: boolean }): { events: Event[]; status: number | null } => {
+const runStubPi = (stub: {
+  terminal: boolean;
+  stderrLine?: string;
+  stderrFooter?: string;
+}): { events: Event[]; status: number | null } => {
   const cli = ensureDist();
   const dir = mkdtempSync(PREFIX);
   dirs.push(dir);
@@ -74,6 +79,9 @@ const runStubPi = (stub: { terminal: boolean }): { events: Event[]; status: numb
     STUB_TERMINAL: stub.terminal ? "1" : "0",
     STUB_TEXT: "INVENTED_FINAL_ANSWER",
     STUB_STOP_REASON: "stop",
+    STUB_STDERR_LINE:
+      stub.stderrLine ?? "Error: This extension ctx is stale after session replacement or reload.",
+    STUB_STDERR_FOOTER: stub.stderrFooter ?? "",
   };
   delete env.HCN_OBSERVER;
   delete env.HCN_INVOCATION_ID;
@@ -122,11 +130,58 @@ test("a final message alone remains delivered without inventing native turn comp
   });
 });
 
+test("a late auth failure revokes native completion without losing delivered output", () => {
+  const { events, status } = runStubPi({ terminal: true, stderrLine: "401 Unauthorized" });
+  expect(status).toBe(1);
+  expect(events).toContainEqual({
+    kind: "message",
+    role: "assistant",
+    text: "INVENTED_FINAL_ANSWER",
+  });
+  expect(events.find((e) => e.kind === "done")).toMatchObject({
+    cause: "failed",
+    exitCode: 1,
+    completion: "message-delivered",
+    failure: { class: "auth" },
+  });
+});
+
+test("a late usage wall also preserves delivered output without native completion", () => {
+  const { events, status } = runStubPi({ terminal: true, stderrLine: "Usage limit reached" });
+  expect(status).toBe(1);
+  expect(events.find((e) => e.kind === "done")).toMatchObject({
+    cause: "limit",
+    exitCode: 1,
+    completion: "message-delivered",
+    failure: { class: "usage-limit" },
+  });
+});
+
 test("the harness Error headline survives a long stderr stack", () => {
   const { events } = runStubPi({ terminal: true });
   expect(events.find((e) => e.kind === "failure")?.message).toContain(
     "Error: This extension ctx is stale",
   );
+});
+
+test("a coded Node Error headline survives its long stack and code footer", () => {
+  const { events, status } = runStubPi({
+    terminal: true,
+    stderrLine: "Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'invented-extension'",
+    stderrFooter: "{\n  code: 'ERR_MODULE_NOT_FOUND'\n}",
+  });
+  expect(status).toBe(1);
+  expect(events.find((e) => e.kind === "done")).toMatchObject({
+    cause: "crash",
+    exitCode: 1,
+    completion: "native-terminal",
+    failure: { class: "native", nativeExitCode: 1 },
+  });
+  const message = events.find((e) => e.kind === "failure")?.message;
+  expect(message).toContain(
+    "Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'invented-extension'",
+  );
+  expect(message).not.toContain("inventedFrame");
 });
 
 test("a post-output native failure never invents argument rejection", () => {

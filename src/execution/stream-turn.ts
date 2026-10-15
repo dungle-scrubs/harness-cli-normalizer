@@ -701,7 +701,11 @@ export async function* streamTurn(
     // message is not a turn delimiter; a failure observed in the turn also
     // prevents a success delimiter from claiming successful completion.
     const completion =
-      state.completion === "native-terminal" && failures.length > 0 ? undefined : state.completion;
+      state.nativeTerminalSeen && failures.length === 0
+        ? "native-terminal"
+        : state.messageDelivered
+          ? "message-delivered"
+          : undefined;
 
     // Post-queue failure sources: the tail scan owns the transport,
     // unavailable, trust, native, silent precedence (failure.ts).

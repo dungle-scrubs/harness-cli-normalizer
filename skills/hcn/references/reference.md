@@ -259,10 +259,13 @@ was read, while `"message-delivered"` means assistant text arrived without
 confirmed successful turn end. A message can be intermediate; only the former
 establishes completion. Neither judges the correctness of the work. Preserve
 the delivered result rather than treating the crash as proof no work happened.
+Conflicting turn-failure evidence leaves `message-delivered` when assistant
+text was observed.
 The process still reports its failure (`cause`, `failure`), and hcn exits 1.
 `done.exitCode` is the harness's actual exit code, including native failures;
-hcn's CLI status is separate. Native detail prefers the first stderr `Error:`
-headline over stack frames, redacted and bounded, with tail lines as fallback.
+hcn's CLI status is separate. Native detail prefers the first stderr Error
+headline (including `Error [ERR_MODULE_NOT_FOUND]:`) over stack frames,
+redacted and bounded, with tail lines as fallback.
 Persistent sessions keep the existing separation: a completed turn's `done`
 stays completed and a later process crash is reported by `closed`.
 
