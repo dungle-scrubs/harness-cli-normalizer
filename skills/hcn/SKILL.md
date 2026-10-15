@@ -107,9 +107,7 @@ and `result` using the native contract. Missing error flags mean unknown.
 `warning` is advisory and does not change the turn verdict.
 Branch on `failure.class` and `done.cause` using the rules above. Ignore
 unrecognized kinds/classes and still wait for `done`.
-On nonzero run exits, `done.completion` distinguishes native turn completion
-(`native-terminal`) from delivered text only (`message-delivered`).
-The process failure remains separate; see the event contract in the reference.
+For nonzero exits and `done.completion`, read [the event schema](references/reference.md).
 
 ## Answering worker questions
 
