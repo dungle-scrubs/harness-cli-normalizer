@@ -289,6 +289,21 @@ for (const runtime of [process.execPath, bun]) {
     expect(help).not.toContain("nothing on claude/pi/muse/cursor/antigravity");
   }, 30000);
 
+  test(`${runtime}: JSON help describes denial counts without promising work success`, () => {
+    for (const command of ["run", "session"]) {
+      const result = spawnSync(runtime, [cli, command, "--help"], {
+        encoding: "utf8",
+        timeout: 20000,
+      });
+      expect(result.status).toBe(0);
+      const help = result.stdout.replace(/\s+/g, " ");
+      expect(help).toContain("done.denialCount: positive count of denial observations");
+      expect(help).toContain("not unique calls; omitted when zero");
+      expect(help).toContain("does not change the native exit status or cause");
+      expect(help).toContain("not a work-success verdict");
+    }
+  }, 30000);
+
   test(`${runtime}: Claude access help explains the strict native sandbox and its limits`, () => {
     const run = spawnSync(runtime, [cli, "run", "--help"], { encoding: "utf8", timeout: 20000 });
     expect(run.status).toBe(0);

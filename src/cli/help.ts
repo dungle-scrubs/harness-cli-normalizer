@@ -51,6 +51,11 @@ uncertain launch or a signal exit; 4 for an hcn internal crash.
 Exit code alone is not no-child evidence.
 `;
 
+const DENIAL_COUNT_HELP = `                            Optional done.denialCount: positive count of denial
+                            observations, not unique calls; omitted when zero.
+                            The count does not change the native exit status or cause
+                            and is not a work-success verdict.`;
+
 export const RUN_HELP = `hcn run - One-shot headless turn
 
 Usage: hcn run <harness> [prompt] [options]
@@ -193,6 +198,7 @@ Options:
   --                        Passthrough: native harness args verbatim
                             (failures surface as labeled native errors)
   --json                    NDJSON HarnessEvent to stdout
+${DENIAL_COUNT_HELP}
   -h, --help                Show help
   -V, --version             Show version
 
@@ -240,6 +246,7 @@ Options:
                             with a closed event. Exit 0 clean, 1 otherwise,
                             2 refusal, 4 hcn internal crash (failure/closed pair,
                             cause crash).
+${DENIAL_COUNT_HELP}
   --stall <seconds>         Per-turn inactivity budget; the turn ends and the
                             session closes reporting a stall. 0 disables
                             (default: no limit)
