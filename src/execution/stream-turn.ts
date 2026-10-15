@@ -106,6 +106,9 @@ export interface TurnRunOptions extends LaunchOptions {
    * with the descriptor's resume grammar, and identity decoding treats a
    * DIFFERENT announced id as a rotation anomaly. */
   readonly resume?: string;
+  /** The caller confirmed this id exists in the native store before spawn.
+   * Omitted means unverified, so create-on-missing resumes still warn. */
+  readonly resumeVerified?: true;
   /** Resume the harness's most recent session without naming an id (RFC-06).
    * The plan threads this from the parsed flag; the spawn renders through
    * the resume-last builder and the turn env resolves at resume phase. */
@@ -263,8 +266,11 @@ export async function* streamTurn(
 
   // F-23: create-on-missing resume warns before spawn - the harness will
   // accept any id and silently start a blank session, so the consumer
-  // must verify the id exists.
-  const resumeOnMissingCreate = effective.resume !== undefined && h.resume.onMissing === "create";
+  // must verify the id exists unless the caller already did.
+  const resumeOnMissingCreate =
+    effective.resume !== undefined &&
+    h.resume.onMissing === "create" &&
+    effective.resumeVerified !== true;
   const resumeCreateWarning = resumeOnMissingCreate
     ? `${h.name} creates a new session when ${effective.resume} is unknown; verify the id exists`
     : null;
@@ -295,7 +301,7 @@ export async function* streamTurn(
       cause: "crash",
       spawnError: message,
     });
-    if (resumeCreateWarning !== null) yield { kind: "error", message: resumeCreateWarning };
+    if (resumeCreateWarning !== null) yield { kind: "warning", message: resumeCreateWarning };
     for (const warning of resumeLastGuardMessages) yield { kind: "error", message: warning };
     yield { kind: "error", message: `spawn failed: ${message}` };
     yield { kind: "failure", ...failure };
@@ -312,7 +318,7 @@ export async function* streamTurn(
   const queue = new AsyncChannel<HarnessEvent>();
   // F-23 warning is an early stream event, before any harness output
   if (resumeCreateWarning !== null)
-    void queue.push({ kind: "error", message: resumeCreateWarning });
+    void queue.push({ kind: "warning", message: resumeCreateWarning });
   // RFC-06: the resume-last guard rides the same early slot, before any
   // harness output, on every resume-last turn.
   for (const warning of resumeLastGuardMessages)

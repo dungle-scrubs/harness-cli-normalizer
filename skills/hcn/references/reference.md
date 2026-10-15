@@ -246,6 +246,7 @@ https://github.com/dungle-scrubs/harness-cli-normalizer/blob/main/docs/observer.
 {"kind":"tool","name":..,"input":..}
 {"kind":"compaction","state":..,"trigger":?,"tokensBefore":?,"tokensAfter":?,"durationMs":?,"detail":?}
 {"kind":"limit","code":..,"message":..}
+{"kind":"warning","message":..}       # advisory, not a failure
 {"kind":"error","message":..,"denial":?}  # structured rejected tool call ({tool, reason}), non-terminal, exit can stay 0
 {"kind":"failure","class":..,"retryable":..,"message":..}
 {"kind":"question","question":..,"options":[..],"recommended":?}  # issue #41
@@ -264,6 +265,13 @@ hcn's CLI status is separate. Native detail prefers the first stderr `Error:`
 headline over stack frames, redacted and bounded, with tail lines as fallback.
 Persistent sessions keep the existing separation: a completed turn's `done`
 stays completed and a later process crash is reported by `closed`.
+
+For a named `--resume` on a create-on-missing harness (pi, muse, cursor),
+hcn refuses a checkable missing id before spawn. A confirmed existing id
+emits no unknown-id notice. If existence cannot be checked, an early
+`warning` with `message` asks the caller to verify the id; it establishes no
+failure and does not change `done.cause`. Text mode renders it as an advisory,
+not a red error.
 
 A resume-last turn carries `"resumeLast": true` on `identity` (first
 announce and attestation re-emit alike): the announced id was picked by
@@ -336,7 +344,9 @@ transport. From hcn 0.9.6 also pi's `WebSocket idle|connect timeout after
 start or after an error colon; an auth or limit cause inside still wins),
 and an `overloaded_error` / HTTP 529 provider error; from hcn 0.9.8 also
 OpenAI's `Our servers are currently overloaded` and `The server is
-overloaded`, at line start or after an error colon), unavailable (the
+overloaded`, at line start or after an error colon; also the bare
+`terminated` stream error and `An error occurred while processing your
+request`, at line start or after an error colon, not mid-sentence prose), unavailable (the
 provider cannot serve the requested model or route - model not found, not
 loaded, or `'<id>' model is not supported`; retryable, route elsewhere),
 trust-refused (cursor workspace-trust gate - untrusted directory with no

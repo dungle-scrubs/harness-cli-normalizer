@@ -28,6 +28,7 @@ const HARNESS_EVENT_KINDS = [
   "compaction",
   "question",
   "limit",
+  "warning",
   "error",
   "failure",
   "done",
