@@ -46,6 +46,54 @@ try {
     );
     process.exitCode = 3;
   } else {
+    const help = spawnSync(bin, ["run", "--help"], {
+      cwd: root,
+      env,
+      encoding: "utf8",
+      timeout: 20000,
+    });
+    assert.equal(help.status, 0, help.stderr);
+    if (help.stdout.includes("done.denialCount")) {
+      const denied = {
+        tool_name: "Bash",
+        tool_use_id: "fixture-denied-call",
+        tool_input: { command: "printf fixture" },
+      };
+      const result = (permission_denials) => ({
+        type: "result",
+        subtype: "success",
+        is_error: false,
+        result: "fixture",
+        permission_denials,
+      });
+      stub("claude", [result([denied, denied])]);
+      const events = run(["run", "claude", "--json", "--questions", "none", "--prompt", "fixture"]);
+      const observation = {
+        tool: "Bash",
+        reason: "",
+        callId: "fixture-denied-call",
+        inputSummary: '{"command":"printf fixture"}',
+      };
+      assert.deepEqual(
+        events.filter((e) => e.kind === "error").map((e) => e.denial),
+        [observation, observation],
+      );
+      assert.equal(events.at(-1).denialCount, 2, "done.denialCount counts observations");
+      assert.equal(events.at(-1).cause, "clean");
+      assert.equal(
+        events.some((e) => e.kind === "failure"),
+        false,
+      );
+      stub("claude", [result([])]);
+      const clean = run(["run", "claude", "--json", "--questions", "none", "--prompt", "fixture"]);
+      assert.equal("denialCount" in clean.at(-1), false);
+      assert.equal(
+        clean.some((e) => e.kind === "error" && e.denial),
+        false,
+      );
+      assert.equal(clean.at(-1).cause, "clean");
+      console.log("ok: Claude denial observations and counts match the skill");
+    }
     const inspected = spawnSync(bin, ["inspect", "cursor", "--json"], {
       cwd: root,
       env,
