@@ -71,6 +71,9 @@ export const renderEvent = (
         process.stdout.write(blue(`    ${mark} ${option}\n`));
       }
       break;
+    case "warning":
+      process.stdout.write(yellow(`\n  ! ${event.message}`));
+      break;
     case "error":
       process.stdout.write(red(`\n  ✗ ${event.message}`));
       break;

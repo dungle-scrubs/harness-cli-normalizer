@@ -899,7 +899,7 @@ describe("F-09 capabilities with no model use curated source and argv granularit
     expect(id?.capabilities.streaming).toBe("none");
   });
 
-  test("F-23 pi resume warns create-on-missing before spawn", async () => {
+  test("F-23 unverified create-on-missing resumes warn without reporting an error", async () => {
     const resume = "11111111-1111-4111-8111-111111111111";
     const proc = new FakeProcess();
     const d = deps(proc);
@@ -907,22 +907,66 @@ describe("F-09 capabilities with no model use curated source and argv granularit
     proc.emitLine(JSON.stringify({ type: "session", id: resume }));
     proc.exit(0);
     const events = await collect(turn);
-    const firstError = events.find((e) => e.kind === "error") as unknown as
+    expect(events.some((e) => e.kind === "error")).toBe(false);
+    expect(events[0]?.kind).toBe("warning");
+    expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+    const firstWarning = events.find((e) => e.kind === "warning") as unknown as
       | { message: string }
       | undefined;
-    expect(firstError?.message).toContain("pi creates a new session");
-    expect(firstError?.message).toContain(resume);
+    expect(firstWarning?.message).toContain("pi creates a new session");
+    expect(firstWarning?.message).toContain(resume);
     const museProc = new FakeProcess();
     const museD = deps(museProc);
     const museTurn = streamTurn(museCode, { prompt: "hi", resume }, museD);
     museProc.emitLine(JSON.stringify({ stream: { id: resume } }));
     museProc.exit(0);
     const museEvents = await collect(museTurn);
-    const museFirst = museEvents.find((e) => e.kind === "error") as unknown as
+    const museFirst = museEvents.find((e) => e.kind === "warning") as unknown as
       | { message: string }
       | undefined;
     expect(museFirst?.message).toContain("muse creates a new session");
   });
+
+  test.each([piCli, museCode])("F-23 verified $name resume has no unknown-id notice", async (h) => {
+    const proc = new FakeProcess();
+    const d = deps(proc);
+    proc.exit(0);
+    const events = await collect(
+      streamTurn(h, { prompt: "hi", resume: sid, resumeVerified: true }, d),
+    );
+    expect(events.filter((e) => e.kind === "error" || e.kind === "warning")).toEqual([]);
+    expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+  });
+
+  test.each([undefined, true] as const)(
+    "F-23 spawn failure preserves the verified=%s notice distinction",
+    async (resumeVerified) => {
+      const d = deps(new FakeProcess());
+      const events = await collect(
+        streamTurn(
+          piCli,
+          { prompt: "hi", resume: sid, resumeVerified },
+          {
+            ...d,
+            spawn: () => {
+              throw new Error("synthetic spawn failure");
+            },
+          },
+        ),
+      );
+      const warnings = events.filter((e) => e.kind === "warning");
+      if (resumeVerified) {
+        expect(warnings).toEqual([]);
+      } else {
+        expect(events[0]).toMatchObject({ kind: "warning", message: expect.stringContaining(sid) });
+        expect(warnings).toHaveLength(1);
+      }
+      expect(events.filter((e) => e.kind === "error")).toEqual([
+        { kind: "error", message: "spawn failed: synthetic spawn failure" },
+      ]);
+      expect(events.at(-1)).toMatchObject({ kind: "done", cause: "failed" });
+    },
+  );
 
   test("F-68 rotated resume emits error naming both ids and harness-minted identity", async () => {
     const resumeA = "11111111-1111-4111-8111-111111111111";
