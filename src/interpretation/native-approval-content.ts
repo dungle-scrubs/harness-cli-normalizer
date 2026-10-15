@@ -1,9 +1,9 @@
-import type { ContentEvent } from "./content.js";
+import { type ContentEvent, contentEventsOf } from "./content.js";
 import { asRecord } from "./shape.js";
 
 export type NativeApprovalContent = Extract<
   ContentEvent,
-  { kind: "token" | "tool" | "progress" | "error" }
+  { kind: "token" | "tool" | "tool-result" | "usage" | "progress" | "error" }
 >;
 
 export function nativeApprovalError(value: unknown): string | null {
@@ -19,24 +19,21 @@ export function nativeApprovalError(value: unknown): string | null {
 export function nativeApprovalContent(
   method: string,
   params: Record<string, unknown> | null,
-): NativeApprovalContent | null {
+): readonly NativeApprovalContent[] {
   if (method === "error") {
     const message = nativeApprovalError(params?.error);
-    if (message === null || typeof params?.willRetry !== "boolean") return null;
-    return {
-      kind: "error",
-      message,
-      terminal: !params.willRetry,
-    };
+    if (message === null || typeof params?.willRetry !== "boolean") return [];
+    return [{ kind: "error", message, terminal: !params.willRetry }];
   }
   if (method === "item/agentMessage/delta" && typeof params?.delta === "string")
-    return { kind: "token", text: params.delta };
-  const item = asRecord(params?.item);
-  if (
-    method === "item/started" &&
-    item?.type === "commandExecution" &&
-    typeof item.command === "string"
-  )
-    return { kind: "tool", name: "shell", input: item.command };
-  return null;
+    return [{ kind: "token", text: params.delta }];
+  return contentEventsOf("codex", { method, params }).filter(
+    (event): event is NativeApprovalContent =>
+      event.kind === "token" ||
+      event.kind === "tool" ||
+      event.kind === "tool-result" ||
+      event.kind === "usage" ||
+      event.kind === "progress" ||
+      event.kind === "error",
+  );
 }

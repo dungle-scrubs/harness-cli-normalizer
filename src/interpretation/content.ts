@@ -1,14 +1,6 @@
 /**
- * Content decoding: extract assistant text, token deltas, tool calls, and
- * progress from ONE parsed harness record. Each harness has an entirely
- * different event vocabulary, so this dispatches by harness name to a pure
- * per-harness reader. Identity and wall detection stay descriptor-driven
- * elsewhere; this owns the message/token/tool/progress classes only.
- *
- * (Kept as functions rather than descriptor data because the shapes are
- * structurally too varied - array-of-blocks text, nested delta events,
- * payload-discriminated records - for the flat match/field spec that
- * identity decoding uses.)
+ * Arrays of blocks, nested deltas and payload-discriminated records do not fit
+ * the flat descriptor match/field spec used by identity decoding.
  */
 import type {
   CompactionState,
@@ -17,11 +9,32 @@ import type {
   LimitCode,
 } from "../knowledge/descriptor.js";
 import { asRecord, readPath as at } from "./shape.js";
+import { type UsageEvent, usageEventsOf } from "./usage.js";
+
+export interface ToolEvent {
+  readonly kind: "tool";
+  readonly name: string;
+  readonly input?: unknown;
+  readonly callId?: string;
+}
+
+export interface ToolResultEvent {
+  readonly kind: "tool-result";
+  readonly name?: string;
+  readonly callId?: string;
+  readonly result?: unknown;
+  readonly isError?: boolean;
+}
+
+const callIdOf = (id: unknown): { readonly callId?: string } =>
+  typeof id === "string" ? { callId: id } : {};
 
 export type ContentEvent =
+  | ToolEvent
+  | ToolResultEvent
+  | UsageEvent
   | { readonly kind: "token"; readonly text: string }
   | { readonly kind: "message"; readonly role: string; readonly text: string }
-  | { readonly kind: "tool"; readonly name: string; readonly input?: unknown }
   | { readonly kind: "progress"; readonly label: string }
   /** ADR 0009: the harness compacted its own context. Passes through
    * `decode.ts` unchanged, so this shape matches the HarnessEvent arm. */
@@ -129,12 +142,32 @@ const claude = (r: Record<string, unknown>): ContentEvent[] => {
       for (const raw of content) {
         const block = asRecord(raw);
         if (block?.type === "tool_use" && typeof block.name === "string") {
-          events.push({ kind: "tool", name: block.name, input: block.input });
+          events.push({
+            kind: "tool",
+            name: block.name,
+            input: block.input,
+            ...callIdOf(block.id),
+          });
         }
       }
     }
     const text = textOfBlocks(content);
     if (text !== "") events.push({ kind: "message", role: "assistant", text });
+  } else if (r.type === "user") {
+    const content = at(r, "message.content");
+    if (Array.isArray(content)) {
+      for (const raw of content) {
+        const block = asRecord(raw);
+        if (block?.type !== "tool_result") continue;
+        events.push({
+          kind: "tool-result",
+          ...callIdOf(block.tool_use_id),
+          ...(typeof block.name === "string" ? { name: block.name } : {}),
+          ...(Object.hasOwn(block, "content") ? { result: block.content } : {}),
+          ...(typeof block.is_error === "boolean" ? { isError: block.is_error } : {}),
+        });
+      }
+    }
   } else if (r.type === "stream_event") {
     const delta = at(r, "event.delta");
     const d = asRecord(delta);
@@ -188,7 +221,15 @@ const claude = (r: Record<string, unknown>): ContentEvent[] => {
 // codex item types that are NOT tool activity - everything else on
 // item.started is a tool of some kind (command_execution, file_change,
 // mcp_tool_call, web_search, ...), surfaced generically by item.type.
-const CODEX_NON_TOOL = new Set(["agent_message", "error", "reasoning", "todo_list"]);
+const CODEX_NON_TOOL = new Set([
+  "agent_message",
+  "error",
+  "reasoning",
+  "todo_list",
+  "plan",
+  "enteredReviewMode",
+  "exitedReviewMode",
+]);
 
 // codex app-server session notifications carry ThreadItem types in
 // camelCase (verified 0.159.2); the exec --json surface spells them in
@@ -250,8 +291,7 @@ const codexNotificationRecord = (r: Record<string, unknown>): Record<string, unk
     }
     default:
       // turn/started, thread/started (identity rides the open response in
-      // session mode), token usage, status changes, MCP/hook noise: all
-      // bookkeeping with nothing to surface.
+      // session mode), status changes and MCP/hook noise have no content here.
       return null;
   }
 };
@@ -286,7 +326,7 @@ const codex = (raw: Record<string, unknown>): ContentEvent[] => {
   ) {
     const name = item.type === "command_execution" ? "shell" : item.type;
     const input = item.command ?? item.changes ?? item.query ?? item.invocation ?? undefined;
-    return [{ kind: "tool", name, input }];
+    return [{ kind: "tool", name, input, ...callIdOf(item.id) }];
   }
   if (r.type !== "item.completed") return [];
   if (item.type === "agent_message" && typeof item.text === "string") {
@@ -297,7 +337,33 @@ const codex = (raw: Record<string, unknown>): ContentEvent[] => {
     // establish turn failure; retain the diagnostic without inventing one.
     return [{ kind: "error", message: item.message }];
   }
-  return [];
+  if (typeof item.type !== "string" || CODEX_NON_TOOL.has(item.type)) return [];
+  const exitCode = numberOr(item.exit_code ?? item.exitCode);
+  const mcpResult = asRecord(item.result);
+  let isError: boolean | undefined;
+  if (
+    item.status === "failed" ||
+    item.status === "declined" ||
+    item.error != null ||
+    mcpResult?.isError === true
+  ) {
+    isError = true;
+  } else if (item.type === "command_execution") {
+    if (exitCode !== undefined) isError = exitCode !== 0;
+  } else if (item.status === "completed" || mcpResult?.isError === false) {
+    isError = false;
+  }
+  const nativeItem =
+    asRecord(typeof raw.method === "string" ? at(raw, "params.item") : raw.item) ?? item;
+  return [
+    {
+      kind: "tool-result",
+      name: item.type === "command_execution" ? "shell" : item.type,
+      ...callIdOf(item.id),
+      result: nativeItem,
+      ...(isError === undefined ? {} : { isError }),
+    },
+  ];
 };
 
 /**
@@ -374,7 +440,24 @@ const pi = (r: Record<string, unknown>): ContentEvent[] => {
   // One clean tool event per invocation (the toolcall_start/delta/end and
   // tool_execution_update stream is noise; tool_execution_start fires once).
   if (r.type === "tool_execution_start" && typeof r.toolName === "string") {
-    return [{ kind: "tool", name: r.toolName, input: r.args }];
+    return [{ kind: "tool", name: r.toolName, input: r.args, ...callIdOf(r.toolCallId) }];
+  }
+  if (r.type === "tool_execution_end") {
+    if (
+      typeof r.toolName !== "string" &&
+      typeof r.toolCallId !== "string" &&
+      !Object.hasOwn(r, "result")
+    )
+      return [];
+    return [
+      {
+        kind: "tool-result",
+        ...(typeof r.toolName === "string" ? { name: r.toolName } : {}),
+        ...callIdOf(r.toolCallId),
+        ...(Object.hasOwn(r, "result") ? { result: r.result } : {}),
+        ...(typeof r.isError === "boolean" ? { isError: r.isError } : {}),
+      },
+    ];
   }
   if (r.type === "message_update") {
     const ev = asRecord(r.assistantMessageEvent);
@@ -464,7 +547,26 @@ const muse = (r: Record<string, unknown>): ContentEvent[] => {
         command = undefined;
       }
     }
-    return [{ kind: "tool", name, input: command }];
+    const outcome = facts?.outcome;
+    const isError =
+      outcome === "success"
+        ? false
+        : outcome === "error" ||
+            outcome === "failure" ||
+            outcome === "failed" ||
+            outcome === "rejected"
+          ? true
+          : undefined;
+    return [
+      { kind: "tool", name, input: command, ...callIdOf(payload.call_id) },
+      {
+        kind: "tool-result",
+        name,
+        ...callIdOf(payload.call_id),
+        ...(Object.hasOwn(payload, "text") ? { result: payload.text } : {}),
+        ...(isError === undefined ? {} : { isError }),
+      },
+    ];
   }
   if (payload.kind === "run_output_delta" && typeof payload.text === "string") {
     return [{ kind: "token", text: payload.text }];
@@ -599,14 +701,25 @@ const popeyeReader = (r: Record<string, unknown>): ContentEvent[] => {
       ...(info !== null && Object.hasOwn(info, "parameters") ? { input: info.parameters } : {}),
     };
     const nativeError = info?.error;
-    if (nativeError === undefined || nativeError === null) return [tool];
+    const results: ContentEvent[] = [tool];
+    if (info !== null && (Object.hasOwn(info, "output") || nativeError != null)) {
+      results.push({
+        kind: "tool-result",
+        name,
+        result: nativeError != null ? info : info.output,
+        // An ERROR state or tool_info.error marks failure; DONE output
+        // alone does not report whether a shell command succeeded.
+        ...(nativeError != null || step.state === "ERROR" ? { isError: true } : {}),
+      });
+    }
+    if (nativeError === undefined || nativeError === null) return results;
 
     const error = asRecord(nativeError);
     const type = typeof error?.type === "string" ? error.type : "";
     const reason = typeof error?.message === "string" ? error.message : compactDetail(nativeError);
     const isDenial = /permission|denied|rejected|not[_ -]?allowed/i.test(`${type} ${reason}`);
     return [
-      tool,
+      ...results,
       {
         kind: "error",
         message: `antigravity tool ${name} failed: ${reason}`,
@@ -753,17 +866,28 @@ const denialEvent = (tool: string, reason: string): ContentEvent => ({
 });
 
 type ToolOutcome =
-  | { readonly kind: "success" }
-  | { readonly kind: "rejected"; readonly reason: string };
+  | { readonly kind: "success"; readonly isError?: boolean }
+  | { readonly kind: "error"; readonly isError: true }
+  | { readonly kind: "unknown" }
+  | { readonly kind: "rejected"; readonly reason: string; readonly isError: true };
 
-const toolOutcome = (call: Record<string, unknown>): ToolOutcome | null => {
+const toolOutcome = (call: Record<string, unknown>, toolName: string): ToolOutcome | null => {
   const result = asRecord(call.result);
-  if (result === null) return null;
-  if (Object.hasOwn(result, "success")) return { kind: "success" };
+  if (result === null || Object.keys(result).length === 0) return null;
   const rejected = asRecord(result.rejected);
-  if (rejected === null) return null;
-  const reason = typeof rejected.reason === "string" ? rejected.reason : "";
-  return { kind: "rejected", reason };
+  if (rejected !== null)
+    return {
+      kind: "rejected",
+      isError: true,
+      reason: typeof rejected.reason === "string" ? rejected.reason : "",
+    };
+  if (result.error != null) return { kind: "error", isError: true };
+  if (Object.hasOwn(result, "success")) {
+    const exitCode = numberOr(at(result, "success.exitCode"));
+    if (toolName === "shellToolCall" && exitCode === undefined) return { kind: "success" };
+    return { kind: "success", isError: exitCode !== undefined && exitCode !== 0 };
+  }
+  return { kind: "unknown" };
 };
 
 const cursorWithState = (
@@ -794,7 +918,14 @@ const cursorWithState = (
     const pending = boundedAdd(state.pending, r.call_id);
     const evicted = state.pending.filter((id) => !pending.includes(id));
     return {
-      events: [{ kind: "tool", name: entry.name, ...(args !== null ? { input: args } : {}) }],
+      events: [
+        {
+          kind: "tool",
+          name: entry.name,
+          callId: r.call_id,
+          ...(args !== null ? { input: args } : {}),
+        },
+      ],
       state: {
         ...state,
         pending,
@@ -804,7 +935,7 @@ const cursorWithState = (
   }
   if (r.type === "tool_call" && r.subtype === "completed") {
     const entry = toolCallEntry(r);
-    const outcome = entry === null ? null : toolOutcome(entry.call);
+    const outcome = entry === null ? null : toolOutcome(entry.call, entry.name);
     if (typeof r.call_id !== "string" || entry === null || outcome === null) {
       return { events: [], state };
     }
@@ -817,34 +948,29 @@ const cursorWithState = (
       state.pending.includes(r.call_id) ||
       state.tombstones.includes(r.call_id) ||
       state.completed.includes(r.call_id);
-    if (outcome.kind === "success") {
-      // Success output is the model's context, not an event. Unknown ids
-      // emit the tool event once (a forward rule for kinds that omit
-      // started); tombstoned and completed ids never re-emit.
-      if (seen) {
-        return { events: [], state: settled };
-      }
+    const events: ContentEvent[] = [];
+    if (!seen) {
       const input = unknownInputOf(state, r, entry);
-      return {
-        events: [{ kind: "tool", name: entry.name, ...(input !== undefined ? { input } : {}) }],
-        state: settled,
-      };
+      events.push({
+        kind: "tool",
+        name: entry.name,
+        callId: r.call_id,
+        ...(input !== undefined ? { input } : {}),
+      });
     }
-    if (seen) {
-      // The tool event already fired at started (or the id finished
-      // before): the denial error rides alone, never a second tool event.
-      return { events: [denialEvent(entry.name, outcome.reason)], state: settled };
+    if (!state.completed.includes(r.call_id)) {
+      events.push({
+        kind: "tool-result",
+        name: entry.name,
+        callId: r.call_id,
+        result: entry.call.result,
+        ...(outcome.kind === "unknown" || outcome.isError === undefined
+          ? {}
+          : { isError: outcome.isError }),
+      });
     }
-    // A denial can land with no preceding started (probe 15): emit the
-    // tool event first so no denial runs without one.
-    const input = unknownInputOf(state, r, entry);
-    return {
-      events: [
-        { kind: "tool", name: entry.name, ...(input !== undefined ? { input } : {}) },
-        denialEvent(entry.name, outcome.reason),
-      ],
-      state: settled,
-    };
+    if (outcome.kind === "rejected") events.push(denialEvent(entry.name, outcome.reason));
+    return { events, state: settled };
   }
   if (r.type === "interaction_query") {
     // Handshake internals: record the query args by toolCallId for the
@@ -865,8 +991,6 @@ const cursorWithState = (
     };
   }
   if (r.type === "result") {
-    // Success ends the turn with no event of its own (the runner owns
-    // turn end); usage counts are ignored in v1 (no window, no usedPct).
     // Any other subtype, or is_error, is a forward rule to a terminal
     // error through the task failure path.
     if (r.subtype === "success" && r.is_error !== true) return { events: [], state };
@@ -922,7 +1046,8 @@ export const contentEventsWithState = (
 ): { readonly events: ContentEvent[]; readonly state: ReaderState } => {
   const record = asRecord(raw);
   if (record === null) return { events: [], state };
-  return STATEFUL_READERS[harness](record, state);
+  const decoded = STATEFUL_READERS[harness](record, state);
+  return { events: [...decoded.events, ...usageEventsOf(harness, record)], state: decoded.state };
 };
 
 export const contentEventsOf = (harness: HarnessName, raw: unknown): ContentEvent[] =>

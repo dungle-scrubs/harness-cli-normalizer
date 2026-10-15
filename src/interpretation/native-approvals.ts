@@ -32,11 +32,20 @@ export type ApprovalProtocolMessage =
       readonly kind: "content";
       readonly sessionId: string;
       readonly turnId: string;
-      readonly event: NativeApprovalContent;
+      readonly events: readonly NativeApprovalContent[];
+    }
+  | {
+      readonly kind: "session-usage";
+      readonly sessionId: string;
+      readonly event: Extract<NativeApprovalContent, { kind: "usage" }>;
     }
   | { readonly kind: "file-item"; readonly item: FileApprovalItem }
   | { readonly kind: "file-request"; readonly request: FileApprovalRequest }
-  | { readonly kind: "file-item-ended"; readonly item: FileApprovalIdentity }
+  | {
+      readonly kind: "file-item-ended";
+      readonly item: FileApprovalIdentity;
+      readonly events: readonly NativeApprovalContent[];
+    }
   | {
       readonly kind: "reply";
       readonly operation: keyof typeof NATIVE_APPROVAL_REQUEST_IDS;
@@ -253,6 +262,7 @@ export function decodeApprovalProtocol(value: unknown): ApprovalProtocolMessage 
           ? {
               kind: "file-item-ended",
               item: { itemId: item.id, sessionId: params.threadId, turnId: params.turnId },
+              events: nativeApprovalContent(record.method, params),
             }
           : { kind: "unsupported" };
       if (
@@ -283,10 +293,17 @@ export function decodeApprovalProtocol(value: unknown): ApprovalProtocolMessage 
       };
     }
     const content = nativeApprovalContent(record.method, params);
-    if (record.method === "error" && !content) return { kind: "unsupported" };
-    if (content)
+    if (record.method === "error" && content.length === 0) return { kind: "unsupported" };
+    if (record.method === "thread/tokenUsage/updated") {
+      const usage = content.find((event) => event.kind === "usage");
+      if (usage)
+        return typeof params?.threadId === "string"
+          ? { kind: "session-usage", sessionId: params.threadId, event: usage }
+          : { kind: "unsupported" };
+    }
+    if (content.length > 0)
       return typeof params?.threadId === "string" && typeof params.turnId === "string"
-        ? { kind: "content", sessionId: params.threadId, turnId: params.turnId, event: content }
+        ? { kind: "content", sessionId: params.threadId, turnId: params.turnId, events: content }
         : { kind: "unsupported" };
     return { kind: "ignored", method: record.method };
   }

@@ -349,6 +349,23 @@ case "$help_top" in
     ;;
 esac
 
+# New observations and Cursor access are conditional for older installed builds.
+case "$help_run" in
+  *"unconfined commands"*)
+    require "Cursor access help" "$help_run" "--mode ask --sandbox enabled" "--force" "bypasses trust"
+    script_dir=$(cd "$(dirname "$0")" && pwd)
+    node "$script_dir/check-observations.mjs" "$bin"
+    case $? in
+      0) ;;
+      3) blocked=$((blocked + 1)) ;;
+      *)
+        printf 'MISS: tool result, usage, or Cursor access contract disagrees with the skill\n'
+        misses=$((misses + 1))
+        ;;
+    esac
+    ;;
+esac
+
 # ADR 0009: the compaction-reporting roster in references/reference.md is a
 # per-harness fact, not help text, so it is checked against the binary's own
 # `inspect --json` rather than against a --help string. A binary predating the

@@ -85,11 +85,11 @@ describe("cursor assistant-shape discriminator on fixtures", () => {
     expect(messages[1]).toEqual({ kind: "message", role: "assistant", text: "DONE" });
   });
 
-  test("probe 13: read then edit calls each emit one tool event, successes nothing", () => {
+  test("probe 13: read then edit calls each emit one tool event and result", () => {
     const events = decoded("probe-13.ndjson");
     expect(events.filter((e) => e.kind === "tool")).toEqual([
-      { kind: "tool", name: "readToolCall", input: expect.anything() },
-      { kind: "tool", name: "editToolCall", input: expect.anything() },
+      { kind: "tool", name: "readToolCall", callId: expect.any(String), input: expect.anything() },
+      { kind: "tool", name: "editToolCall", callId: expect.any(String), input: expect.anything() },
     ]);
     expect(kinds(events)).not.toContain("error");
   });
@@ -131,7 +131,12 @@ describe("cursor denial fixtures", () => {
   test("probe 20: the query pair before started feeds the ask call; the turn still ends success", () => {
     const events = decoded("probe-20.ndjson");
     expect(events.filter((e) => e.kind === "tool")).toEqual([
-      { kind: "tool", name: "askQuestionToolCall", input: expect.anything() },
+      {
+        kind: "tool",
+        name: "askQuestionToolCall",
+        callId: expect.any(String),
+        input: expect.anything(),
+      },
     ]);
     const errors = events.filter((e) => e.kind === "error");
     expect(errors).toHaveLength(1);
@@ -154,7 +159,12 @@ describe("cursor --force success shapes", () => {
   test("probe 51: a pre-approved query pair before started emits nothing; success emits no denial", () => {
     const events = decoded("probe-51.ndjson");
     expect(events.filter((e) => e.kind === "tool")).toEqual([
-      { kind: "tool", name: "webSearchToolCall", input: expect.anything() },
+      {
+        kind: "tool",
+        name: "webSearchToolCall",
+        callId: expect.any(String),
+        input: expect.anything(),
+      },
     ]);
     expect(kinds(events)).not.toContain("error");
   });

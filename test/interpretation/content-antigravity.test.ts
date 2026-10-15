@@ -40,6 +40,7 @@ describe("Antigravity stream-json decoding", () => {
         name: "run_command",
         input: { CommandLine: "echo seventest" },
       },
+      { kind: "tool-result", name: "run_command", result: "seventest\r\n" },
     ]);
   });
 
@@ -73,6 +74,12 @@ describe("Antigravity stream-json decoding", () => {
           CommandLine:
             "printf denied-probe > /Users/kevin/hcn-antigravity-denied-probe-20260919.txt",
         },
+      },
+      {
+        kind: "tool-result",
+        name: "run_command",
+        isError: true,
+        result: expect.objectContaining({ error: expect.anything() }),
       },
       {
         kind: "error",
@@ -182,6 +189,12 @@ describe("Antigravity stream-json boundary records", () => {
       }),
     ).toEqual([
       { kind: "tool", name: "read_file" },
+      {
+        kind: "tool-result",
+        name: "read_file",
+        result: { name: "read_file", error: { type: "IO_ERROR", message: "file disappeared" } },
+        isError: true,
+      },
       { kind: "error", message: "antigravity tool read_file failed: file disappeared" },
     ]);
 
@@ -196,6 +209,12 @@ describe("Antigravity stream-json boundary records", () => {
       }),
     ).toEqual([
       { kind: "tool", name: "read_file" },
+      {
+        kind: "tool-result",
+        name: "read_file",
+        result: { name: "read_file", error: "opaque failure" },
+        isError: true,
+      },
       { kind: "error", message: "antigravity tool read_file failed: opaque failure" },
     ]);
 
@@ -210,12 +229,18 @@ describe("Antigravity stream-json boundary records", () => {
       }),
     ).toEqual([
       { kind: "tool", name: "read_file" },
+      {
+        kind: "tool-result",
+        name: "read_file",
+        result: { name: "read_file", error: { code: 500 } },
+        isError: true,
+      },
       { kind: "error", message: 'antigravity tool read_file failed: {"code":500}' },
     ]);
   });
 
   test("recognizes denial variants only inside the structured native error", () => {
-    const [tool, error] = contentEventsOf("antigravity", {
+    const [tool, result, error] = contentEventsOf("antigravity", {
       event: "step_update",
       step_update: {
         step_type: "tool",
@@ -228,6 +253,7 @@ describe("Antigravity stream-json boundary records", () => {
     });
 
     expect(tool).toEqual({ kind: "tool", name: "run_command" });
+    expect(result).toMatchObject({ kind: "tool-result", isError: true });
     expect(error).toEqual({
       kind: "error",
       message: "antigravity tool run_command failed: policy blocked this call",
@@ -245,7 +271,7 @@ describe("Antigravity stream-json boundary records", () => {
         },
       },
     });
-    expect(compactDenial[1]).toMatchObject({
+    expect(compactDenial[2]).toMatchObject({
       kind: "error",
       denial: { tool: "run_command", reason: "policy blocked this call" },
     });

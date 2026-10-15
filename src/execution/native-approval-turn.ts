@@ -2,7 +2,10 @@ import { promptTextOf } from "../interpretation/argv.js";
 import { capabilitiesOf } from "../interpretation/capabilities.js";
 import type { FileApprovalItem } from "../interpretation/native-approval-files.js";
 import { assembleFileApproval, fileApprovalKey } from "../interpretation/native-approval-files.js";
-import type { ApprovalProposal } from "../interpretation/native-approvals.js";
+import type {
+  ApprovalProposal,
+  ApprovalProtocolMessage,
+} from "../interpretation/native-approvals.js";
 import {
   approvalInitialize,
   approvalInitialized,
@@ -135,7 +138,7 @@ export async function* streamNativeApprovalTurn(
       readonly disposition: Extract<HarnessEvent, { kind: "approval-disposition" }>;
     }
   >();
-  const beforeAck: ApprovalProposal[] = [];
+  const beforeAck: Extract<ApprovalProtocolMessage, { kind: "request" | "file-item-ended" }>[] = [];
   const nativeRequestIds = new Set<string>();
   const requestIds = new Set<string>();
   const ignoredNativeMethods = new Set<string>();
@@ -296,12 +299,18 @@ export async function* streamNativeApprovalTurn(
     if (stage === "turn-start") {
       if (beforeAck.length >= NATIVE_APPROVAL_LIMITS.pending)
         stop("unsupported-native-interaction");
-      else beforeAck.push(proposal);
+      else beforeAck.push({ kind: "request", proposal });
     } else await publishRequest(proposal);
   };
   const publishFileActivity = async (item: FileApprovalItem): Promise<void> => {
     if (!matchesTurn(item)) stop("unsupported-native-interaction");
-    else await queue.push({ kind: "tool", name: "file_change", input: item.details });
+    else
+      await queue.push({
+        kind: "tool",
+        name: "file_change",
+        input: item.details,
+        callId: item.itemId,
+      });
   };
   const stdout = (async (): Promise<void> => {
     const lines = new ControlLines(NATIVE_APPROVAL_LIMITS.nativeFrameBytes);
@@ -373,9 +382,11 @@ export async function* streamNativeApprovalTurn(
               if (closing) break;
               await publishFileActivity(item);
             }
-            for (const proposal of beforeAck) {
+            for (const buffered of beforeAck) {
               if (closing) break;
-              await publishRequest(proposal);
+              if (buffered.kind === "request") await publishRequest(buffered.proposal);
+              else if (!matchesTurn(buffered.item)) stop("unsupported-native-interaction");
+              else for (const event of buffered.events) await queue.push(event);
             }
             beforeAck.length = 0;
           } else stop("native-protocol-failed", "unexpected native protocol reply");
@@ -409,7 +420,16 @@ export async function* streamNativeApprovalTurn(
             (turnId !== null && message.item.turnId !== turnId)
           )
             stop("unsupported-native-interaction");
-          else fileItems.delete(fileApprovalKey(message.item));
+          else {
+            fileItems.delete(fileApprovalKey(message.item));
+            if (stage === "turn-start") {
+              if (beforeAck.length >= NATIVE_APPROVAL_LIMITS.pending)
+                stop("unsupported-native-interaction");
+              else beforeAck.push(message);
+            } else if (stage === "running") {
+              for (const event of message.events) await queue.push(event);
+            }
+          }
         } else if (message.kind === "ignored") {
           ignoredNativeNotificationCount++;
           if (
@@ -421,17 +441,22 @@ export async function* streamNativeApprovalTurn(
           if (message.sessionId !== plan.saved.sessionId) stop("unsupported-native-interaction");
           else {
             const buffered = beforeAck.findIndex(
-              (proposal) => proposal.nativeId === message.nativeId,
+              (buffered) =>
+                buffered.kind === "request" && buffered.proposal.nativeId === message.nativeId,
             );
             if (buffered !== -1) beforeAck.splice(buffered, 1);
             await clear(JSON.stringify(message.nativeId), "native-resolved");
           }
+        } else if (message.kind === "session-usage") {
+          if (message.sessionId !== plan.saved.sessionId) stop("unsupported-native-interaction");
+          else await queue.push(message.event);
         } else if (message.kind === "content") {
           if (!matchesTurn(message)) stop("unsupported-native-interaction");
           else {
-            if (message.event.kind === "error" && message.event.terminal)
-              failTerminal(message.event.message);
-            await queue.push(message.event);
+            for (const event of message.events) {
+              if (event.kind === "error" && event.terminal) failTerminal(event.message);
+              await queue.push(event);
+            }
           }
         } else if (message.kind === "message") {
           if (!matchesTurn(message)) stop("unsupported-native-interaction");

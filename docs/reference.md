@@ -57,7 +57,7 @@ Usage: `hcn run <harness> [prompt] [options]`. Each flag sets one turn option.
 | `--system-prompt <text>` | `systemPrompt` | Replace built-in system prompt (claude, pi; codex uses -c instructions; muse refuses) |
 | `--append-system-prompt <text>` | `appendSystemPrompt` | Append to built-in prompt (claude, pi only) |
 | `--extension <path>` | `extensions` | Load this extension file for the turn (pi only; absolute path to a regular file; repeatable; loads even with `--no-extensions`; allowed beside `--native-settings-fingerprint`) |
-| `--access <read|write>` | `access` | Access preset - read = read, grep, glob, list, web-fetch, web-search (canonical); write = no restriction; claude via an --allowedTools grant + --disallowedTools deny complement, pi/popeye via --tools (toolMap aware), codex via --sandbox, muse via --disable-write/--disable-shell; mutually exclusive with --tools/--exclude-tools and with --sandbox on codex; no default |
+| `--access <read|write>` | `access` | Access preset - read = read, grep, glob, list, web-fetch, web-search (canonical); write = no restriction; claude via an --allowedTools grant + --disallowedTools deny complement, pi/popeye via --tools (toolMap aware), codex via --sandbox, muse via --disable-write/--disable-shell; Cursor read via --mode ask --sandbox enabled, write via --force (unconfined and bypasses trust); antigravity refuses; mutually exclusive with --tools/--exclude-tools and with --sandbox on codex; no default |
 | `--json` | output mode | NDJSON `HarnessEvent` to stdout |
 
 Claude prompts larger than 65,536 UTF-8 bytes use native print-mode stdin,
@@ -234,7 +234,14 @@ Rendering per harness:
 | pi | `--tools read,grep,find,ls` (+ web-search via toolMap) | nothing |
 | codex | `--sandbox read-only` | `--sandbox workspace-write` |
 | muse | `--disable-write --disable-shell` | nothing |
+| cursor | `--mode ask --sandbox enabled` | `--force` (unconfined commands) |
 | popeye | `--tools read,grep,glob,list,web-fetch,web-search` | nothing |
+
+Cursor write access also bypasses workspace trust and retains native explicit denials. It is
+**not a workspace sandbox**: `--force --sandbox enabled` allowed a task-owned shell write outside
+the workspace on both 2026.10.01-e373342 and 2026.10.12-d47ca18. hcn therefore does not render that
+ineffective sandbox switch for write or offer normalized Cursor `--sandbox` values. The read
+preset selects native read-only ask mode. See [the access verification](cursor-access.md).
 
 `--access` together with `--tools` or `--exclude-tools` in the same run refuses `mutually-exclusive-options` (access is a preset allowlist, not a filter over one). `--access` together with an explicit `--sandbox` on codex refuses the same way.
 
@@ -271,10 +278,55 @@ and applies no idle budget of its own, so the caller owns any timeout.
 
 ## Events
 
-- The normalized event surface is `HarnessEvent` in `src/execution/events.ts`: `identity`, `token`, `message`, `progress`, `tool`, `compaction`, `limit`, `warning`, `error`, `failure`, `question`, `done` (with `done.failure`; `done.cause` includes `awaiting-input`). Event kinds and failure classes are additive across releases; a consumer ignores a kind or class it does not recognize and still waits for `done`. Additive optional fields (such as `resumeLast: true` on `identity`) never break that rule: branch on presence, never on prose.
+- The normalized event surface is `HarnessEvent` in `src/execution/events.ts`: `identity`, `token`, `message`, `progress`, `tool`, `tool-result`, `usage`, `compaction`, `limit`, `warning`, `error`, `failure`, `question`, `done` (with `done.failure`; `done.cause` includes `awaiting-input`). Event kinds and failure classes are additive across releases; a consumer ignores a kind or class it does not recognize and still waits for `done`. Additive optional fields (such as `resumeLast: true` on `identity`) never break that rule: branch on presence, never on prose.
 - For named resumes on create-on-missing harnesses, a checkable missing id is refused before spawn. A confirmed existing id produces no unknown-id diagnostic. When existence cannot be checked, an early `{kind: "warning", message: string}` advisory asks the caller to verify the id; it establishes no failure and does not change the turn verdict.
 - `DROPPABLE_KINDS` (`token`, `progress`) marks events safe to drop when you only need the full messages. `failure` is never droppable, and neither is `compaction`.
 - `compaction` reports that the harness compacted its own context (ADR 0009). It carries `state`, a closed union of `started`, `compacted`, `noop`, `failed` and `aborted`, so a consumer branches with no default arm. `trigger` (`auto`, `manual`, `overflow`), `tokensBefore`, `tokensAfter` and `durationMs` are present only where the harness itself reported them; hcn derives none of them, and no harness pushes a context-occupancy percentage on a live signal. `detail` carries the harness's own reason or error text, so branch on `state` and never on it. Which harnesses report is `capabilities.compactionReporting` on the `identity` event; the roster is below. **Count `compacted`, not `started`:** hcn reports each record the harness sends, and claude has been observed sending two `compacting` status records for one compaction, so a start can repeat. A compaction can also arrive **between** turns - pi checks its threshold before a new prompt, so the event may reach a session caller on the next turn rather than the one that triggered it. Muse compacts **before** the turn and blocking, so its event arrives once the observer's first view page is read, after the turn has already started.
+
+### Tool results and usage
+
+`tool` carries `name`, optional `input`, and optional native `callId`. `tool-result` carries
+optional `name`, `callId`, native `result`, and `isError`. Missing native fields stay absent:
+Claude result blocks commonly identify only their call, so match them to `tool.callId` for the
+name. Results retain structured values, including Pi extension `details`, rather than flattening
+or truncating them. Pi's execution-end record is emitted once; partial updates and message echoes
+are not duplicate results. Cursor completions also retain their native success/error/rejection
+payloads. Codex results retain the completed tool item, Muse its result text, and Antigravity its
+output or structured error. Popeye's current stream reports no tool results.
+
+A tool error does not establish a failed turn. `done.cause: clean` is the harness's successful
+terminal verdict, not a verdict on each tool or on a workflow's structured status. Inspect
+`tool-result.isError` and the native result contract; hcn does not interpret extension-specific
+statuses or invent a turn failure. An absent error flag means unknown, not success.
+
+`usage` is a lossless observation with `scope` and optional `inputTokens`, `outputTokens`,
+`cacheReadTokens`, `cacheWriteTokens`, `reasoningTokens`, `totalTokens`, `costUsd`,
+`inputIncludesCache`, `callId`, and `model`. Only finite nonnegative reported counts and costs
+are emitted. Missing counts and prices are not zero, and totals are never synthesized.
+`reasoningTokens` is already included in output. When `inputIncludesCache` is true (Codex), cache
+counts are subsets of input; false marks separate counts; absent means that relationship is
+unknown. `costUsd` is the harness's estimate, not authoritative billing or subscription spend.
+
+| Harness | Usage observations | Accounting rule |
+|---|---|---|
+| Pi | `message` per completed assistant response, `tool` for reported nested model usage, `compaction` for reported summarization usage | Sum completed operations of the scopes needed; streaming/turn/agent echoes are not emitted. Failed attempts retain reported usage. |
+| Claude | `turn` for main-loop tokens; `session` for cumulative cost and each reported per-model breakdown (`model`) | Keep the latest session values per metric/model (or overall); do not add snapshots or combine per-model totals with main-loop totals. Session cost includes subagents and restored spend. |
+| Codex exec | `session` | Cumulative thread totals, including earlier turns on resume; cached input is included in input. Read the latest snapshot, not a sum or a derived turn delta. |
+| Codex app-server | `session` snapshots from `tokenUsage.total` | Read the latest snapshot, not a sum; it can include earlier turns. hcn does not turn the latest-request `last` field into a turn total. |
+| Cursor | `turn` | Native terminal usage. |
+| Antigravity | `session` | Native result accounting accumulates through the persistent session/process; do not sum snapshots. |
+| Muse, Popeye | none in their current streams | Silence is missing reporting, not zero usage. |
+
+Codex exec's `turn.completed` name does not establish turn-scoped accounting:
+[Codex 0.162.1's emitter](https://github.com/openai/codex/blob/rust-v0.162.1/codex-rs/exec/src/event_processor_with_jsonl_output.rs#L118-L128)
+reads its stored `tokenUsage.total`, not `last`. Establish/resume observation confirmed that
+these values include the earlier response; hcn reports the session snapshot without subtraction.
+
+Both observations are available on run and live-session JSON streams where native records
+provide them. Text mode shows tool-error markers but does not dump tool payloads or accounting.
+[ADR 0012](adr/0012-native-results-and-usage-are-observations.md) records why these observations
+remain separate from turn verdicts and caller-owned accounting. Closed-schema consumers need
+updates for the new kinds and optional `tool.callId` before adopting this build.
 
 ### Which harnesses report compaction
 
@@ -744,6 +796,13 @@ HCN reports an `identity` event with `authority: "harness-minted"` before submit
 the prompt. This confirms the resumed native identity; it does not mean a new
 session was created or that the response completed.
 
+The same stream reports native command and file completions as lossless `tool-result`
+observations, with `tool.callId` linking starts to results. Thread token updates report
+`usage` with `scope: "session"` from `tokenUsage.total`, including thread-only updates
+without a turn ID. Session updates can precede identity confirmation; they attest
+neither effective settings nor turn completion. These observations grant no approval
+and do not change turn verdicts.
+
 The JSON stream adds three version-1 events:
 
 - `approval-request`: opaque `requestId`, exact `sessionId` and native `turnId`, `category`, complete plain-text `details`, and `choices` with `id`, `label`, `scope`.
@@ -756,11 +815,11 @@ Send one UTF-8 NDJSON line on the same live process's stdin:
 {"v":1,"op":"approval","id":"<new decision UUID>","requestId":"<offered request UUID>","choiceId":"<offered choice ID>"}
 ```
 
-Choices alone define authority. Supported command choices include once, native session, deny, cancel, and an explicitly offered persistent command-prefix rule. File choices show the complete patch; their session grant covers future changes to those same files. Permission requests support exact absolute-path entries and an explicit network toggle, with response or session duration and an empty denial. Native payloads remain private. Symbolic/glob/legacy permission scopes, grouped network command requests, non-local environments and file `grantRoot` currently terminate as unsupported. Native model questions and MCP elicitation are also unsupported by this responder.
+Choices alone define authority. Supported command choices include once, native session, deny, cancel, and an explicitly offered persistent command-prefix rule. File choices show the complete patch; their session grant covers future changes to those same files. Permission requests support exact absolute-path entries and an explicit network toggle, with response or session duration and an empty denial. Native decision payloads remain private. Symbolic/glob/legacy permission scopes, grouped network command requests, non-local environments and file `grantRoot` currently terminate as unsupported. Native model questions and MCP elicitation are also unsupported by this responder.
 
 A repeated decision ID with identical content returns its recorded disposition without another native write. Conflicting content is rejected. A decision is consumed before its write, so uncertain delivery is never retried. A cleared request loses its answer right. Native request IDs cannot be reused within the process because a late clear could otherwise affect a different action. HCN stores no approval state across processes; the caller owns durable choice and write-intent records.
 
-Bounds: 4 KiB per decision including newline, 64 KiB UTF-8 details, 16 choices, 32 pending requests or buffered pre-ack requests, and 4096 request identities and recorded decisions during one process. Invalid UTF-8, framing overflow or an unsupported request ends the channel and cleans up the child. Details are never truncated into an approvable action.
+Bounds: 4 KiB per decision including newline, 64 KiB UTF-8 details, 16 choices, 32 pending requests or buffered pre-ack records, and 4096 request identities and recorded decisions during one process. Invalid UTF-8, framing overflow or an unsupported request ends the channel and cleans up the child. Details are never truncated into an approvable action.
 
 Human approval waits pause inactivity detection. An explicit `--timeout` still runs. Initialize, resume and turn acknowledgement each have a 30-second protocol deadline. Closing decision stdin ends the response, including when no request is pending. HCN completes child cleanup before `done`. Existing HCN question blocks retain `awaiting-input`; native interruption reports `killed`.
 

@@ -2345,7 +2345,8 @@
           "harness": "cursor",
           "option": "isolation",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
           "supportedBy": [
             {
@@ -2353,7 +2354,7 @@
               "spelling": "--bare"
             }
           ],
-          "message": "cursor cannot express option \"isolation\" (tool-free); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"isolation\" (tool-free); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "tool-free-conflict": {
@@ -2679,7 +2680,8 @@
           "harness": "cursor",
           "option": "sandbox",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
           "supportedBy": [
             {
@@ -2691,7 +2693,7 @@
               "spelling": "--sandbox"
             }
           ],
-          "message": "cursor cannot express option \"sandbox\" (read-only); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"sandbox\" (read-only); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "context-window": {
@@ -2700,7 +2702,8 @@
           "harness": "cursor",
           "option": "contextWindow",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
           "supportedBy": [
             {
@@ -2716,7 +2719,7 @@
               "spelling": "--context-window"
             }
           ],
-          "message": "cursor cannot express option \"contextWindow\" (100000); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"contextWindow\" (100000); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "provider": {
@@ -2725,7 +2728,8 @@
           "harness": "cursor",
           "option": "provider",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
           "supportedBy": [
             {
@@ -2733,7 +2737,7 @@
               "spelling": "--provider"
             }
           ],
-          "message": "cursor cannot express option \"provider\" (zai); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"provider\" (zai); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "agent": {
@@ -2742,7 +2746,8 @@
           "harness": "cursor",
           "option": "agent",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
           "supportedBy": [
             {
@@ -2762,7 +2767,7 @@
               "spelling": "--agent"
             }
           ],
-          "message": "cursor cannot express option \"agent\" (scout-agent); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"agent\" (scout-agent); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "no-tools": {
@@ -2771,9 +2776,10 @@
           "harness": "cursor",
           "option": "discovery",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
-          "message": "cursor cannot express option \"discovery\" (tools); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"discovery\" (tools); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "no-instruction-files": {
@@ -2782,9 +2788,10 @@
           "harness": "cursor",
           "option": "discovery",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
-          "message": "cursor cannot express option \"discovery\" (instructionFiles); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"discovery\" (instructionFiles); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "no-extensions": {
@@ -2793,9 +2800,10 @@
           "harness": "cursor",
           "option": "discovery",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
-          "message": "cursor cannot express option \"discovery\" (extensions); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"discovery\" (extensions); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "no-skills": {
@@ -2804,9 +2812,10 @@
           "harness": "cursor",
           "option": "discovery",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
-          "message": "cursor cannot express option \"discovery\" (skills); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"discovery\" (skills); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "discovery-all-on": {
@@ -2825,7 +2834,8 @@
           "harness": "cursor",
           "option": "write",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
           "supportedBy": [
             {
@@ -2833,7 +2843,7 @@
               "spelling": "--disable-write"
             }
           ],
-          "message": "cursor cannot express option \"write\" (false); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"write\" (false); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "shell-off": {
@@ -2842,7 +2852,8 @@
           "harness": "cursor",
           "option": "shell",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
           "supportedBy": [
             {
@@ -2850,7 +2861,7 @@
               "spelling": "--disable-shell"
             }
           ],
-          "message": "cursor cannot express option \"shell\" (false); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"shell\" (false); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "max-steps": {
@@ -2859,7 +2870,8 @@
           "harness": "cursor",
           "option": "maxSteps",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
           "supportedBy": [
             {
@@ -2867,7 +2879,7 @@
               "spelling": "--max-model-steps"
             }
           ],
-          "message": "cursor cannot express option \"maxSteps\" (5); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"maxSteps\" (5); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "system-prompt": {
@@ -2876,10 +2888,11 @@
           "harness": "cursor",
           "option": "systemPrompt",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
           "supportedBy": [],
-          "message": "cursor cannot express option \"systemPrompt\" (you are terse); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"systemPrompt\" (you are terse); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "append-system-prompt": {
@@ -2888,33 +2901,37 @@
           "harness": "cursor",
           "option": "appendSystemPrompt",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
           "supportedBy": [],
-          "message": "cursor cannot express option \"appendSystemPrompt\" (and polite); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"appendSystemPrompt\" (and polite); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "access-read": {
-        "refusal": {
-          "issue": "unsupported-option",
-          "harness": "cursor",
-          "option": "access",
-          "supported": [
-            "effort"
-          ],
-          "message": "cursor cannot express option \"access\" (read); supported: effort - drop the option or route this work to a harness that supports it"
-        }
+        "argv": [
+          "agent",
+          "-p",
+          "--mode",
+          "ask",
+          "--sandbox",
+          "enabled",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--stream-partial-output"
+        ]
       },
       "access-write": {
-        "refusal": {
-          "issue": "unsupported-option",
-          "harness": "cursor",
-          "option": "access",
-          "supported": [
-            "effort"
-          ],
-          "message": "cursor cannot express option \"access\" (write); supported: effort - drop the option or route this work to a harness that supports it"
-        }
+        "argv": [
+          "agent",
+          "-p",
+          "--force",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--stream-partial-output"
+        ]
       },
       "access-read-no-tools": {
         "refusal": {
@@ -2922,9 +2939,10 @@
           "harness": "cursor",
           "option": "discovery",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
-          "message": "cursor cannot express option \"discovery\" (tools); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"discovery\" (tools); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "tools-include": {
@@ -6810,7 +6828,8 @@
           "harness": "cursor",
           "option": "isolation",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
           "supportedBy": [
             {
@@ -6818,7 +6837,7 @@
               "spelling": "--bare"
             }
           ],
-          "message": "cursor cannot express option \"isolation\" (tool-free); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"isolation\" (tool-free); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "tool-free-conflict": {
@@ -7150,7 +7169,8 @@
           "harness": "cursor",
           "option": "sandbox",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
           "supportedBy": [
             {
@@ -7162,7 +7182,7 @@
               "spelling": "--sandbox"
             }
           ],
-          "message": "cursor cannot express option \"sandbox\" (read-only); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"sandbox\" (read-only); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "context-window": {
@@ -7171,7 +7191,8 @@
           "harness": "cursor",
           "option": "contextWindow",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
           "supportedBy": [
             {
@@ -7187,7 +7208,7 @@
               "spelling": "--context-window"
             }
           ],
-          "message": "cursor cannot express option \"contextWindow\" (100000); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"contextWindow\" (100000); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "provider": {
@@ -7196,7 +7217,8 @@
           "harness": "cursor",
           "option": "provider",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
           "supportedBy": [
             {
@@ -7204,7 +7226,7 @@
               "spelling": "--provider"
             }
           ],
-          "message": "cursor cannot express option \"provider\" (zai); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"provider\" (zai); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "agent": {
@@ -7213,7 +7235,8 @@
           "harness": "cursor",
           "option": "agent",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
           "supportedBy": [
             {
@@ -7233,7 +7256,7 @@
               "spelling": "--agent"
             }
           ],
-          "message": "cursor cannot express option \"agent\" (scout-agent); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"agent\" (scout-agent); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "no-tools": {
@@ -7242,9 +7265,10 @@
           "harness": "cursor",
           "option": "discovery",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
-          "message": "cursor cannot express option \"discovery\" (tools); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"discovery\" (tools); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "no-instruction-files": {
@@ -7253,9 +7277,10 @@
           "harness": "cursor",
           "option": "discovery",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
-          "message": "cursor cannot express option \"discovery\" (instructionFiles); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"discovery\" (instructionFiles); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "no-extensions": {
@@ -7264,9 +7289,10 @@
           "harness": "cursor",
           "option": "discovery",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
-          "message": "cursor cannot express option \"discovery\" (extensions); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"discovery\" (extensions); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "no-skills": {
@@ -7275,9 +7301,10 @@
           "harness": "cursor",
           "option": "discovery",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
-          "message": "cursor cannot express option \"discovery\" (skills); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"discovery\" (skills); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "discovery-all-on": {
@@ -7298,7 +7325,8 @@
           "harness": "cursor",
           "option": "write",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
           "supportedBy": [
             {
@@ -7306,7 +7334,7 @@
               "spelling": "--disable-write"
             }
           ],
-          "message": "cursor cannot express option \"write\" (false); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"write\" (false); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "shell-off": {
@@ -7315,7 +7343,8 @@
           "harness": "cursor",
           "option": "shell",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
           "supportedBy": [
             {
@@ -7323,7 +7352,7 @@
               "spelling": "--disable-shell"
             }
           ],
-          "message": "cursor cannot express option \"shell\" (false); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"shell\" (false); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "max-steps": {
@@ -7332,7 +7361,8 @@
           "harness": "cursor",
           "option": "maxSteps",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
           "supportedBy": [
             {
@@ -7340,7 +7370,7 @@
               "spelling": "--max-model-steps"
             }
           ],
-          "message": "cursor cannot express option \"maxSteps\" (5); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"maxSteps\" (5); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "system-prompt": {
@@ -7349,10 +7379,11 @@
           "harness": "cursor",
           "option": "systemPrompt",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
           "supportedBy": [],
-          "message": "cursor cannot express option \"systemPrompt\" (you are terse); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"systemPrompt\" (you are terse); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "append-system-prompt": {
@@ -7361,33 +7392,41 @@
           "harness": "cursor",
           "option": "appendSystemPrompt",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
           "supportedBy": [],
-          "message": "cursor cannot express option \"appendSystemPrompt\" (and polite); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"appendSystemPrompt\" (and polite); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "access-read": {
-        "refusal": {
-          "issue": "unsupported-option",
-          "harness": "cursor",
-          "option": "access",
-          "supported": [
-            "effort"
-          ],
-          "message": "cursor cannot express option \"access\" (read); supported: effort - drop the option or route this work to a harness that supports it"
-        }
+        "argv": [
+          "agent",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "--mode",
+          "ask",
+          "--sandbox",
+          "enabled",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--stream-partial-output"
+        ]
       },
       "access-write": {
-        "refusal": {
-          "issue": "unsupported-option",
-          "harness": "cursor",
-          "option": "access",
-          "supported": [
-            "effort"
-          ],
-          "message": "cursor cannot express option \"access\" (write); supported: effort - drop the option or route this work to a harness that supports it"
-        }
+        "argv": [
+          "agent",
+          "--resume",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-p",
+          "--force",
+          "hi",
+          "--output-format",
+          "stream-json",
+          "--stream-partial-output"
+        ]
       },
       "access-read-no-tools": {
         "refusal": {
@@ -7395,9 +7434,10 @@
           "harness": "cursor",
           "option": "discovery",
           "supported": [
-            "effort"
+            "effort",
+            "access"
           ],
-          "message": "cursor cannot express option \"discovery\" (tools); supported: effort - drop the option or route this work to a harness that supports it"
+          "message": "cursor cannot express option \"discovery\" (tools); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "tools-include": {
@@ -14076,36 +14116,255 @@
         }
       },
       "access-read": {
-        "refusal": {
-          "issue": "unsupported-option",
-          "harness": "cursor",
-          "option": "access",
-          "supported": [
-            "effort"
+        "resolved": {
+          "options": {
+            "access": "read"
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": "all-known",
+              "tier": "harness"
+            },
+            {
+              "key": "access",
+              "value": "read",
+              "tier": "arg"
+            }
           ],
-          "message": "cursor cannot express option \"access\" (read); supported: effort - drop the option or route this work to a harness that supports it"
+          "unrenderable": [
+            {
+              "key": "effort",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
+          ]
         }
       },
       "access-read-explicit-sandbox": {
-        "refusal": {
-          "issue": "unsupported-option",
-          "harness": "cursor",
-          "option": "access",
-          "supported": [
-            "effort"
+        "resolved": {
+          "options": {
+            "access": "read",
+            "sandbox": "read-only"
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "read-only",
+              "tier": "arg"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": "all-known",
+              "tier": "harness"
+            },
+            {
+              "key": "access",
+              "value": "read",
+              "tier": "arg"
+            }
           ],
-          "message": "cursor cannot express option \"access\" (read); supported: effort - drop the option or route this work to a harness that supports it"
+          "unrenderable": [
+            {
+              "key": "effort",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
+          ]
         }
       },
       "access-read-config-sandbox": {
-        "refusal": {
-          "issue": "unsupported-option",
-          "harness": "cursor",
-          "option": "access",
-          "supported": [
-            "effort"
+        "resolved": {
+          "options": {
+            "access": "read",
+            "sandbox": "read-only"
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "read-only",
+              "tier": "user-config"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": "all-known",
+              "tier": "harness"
+            },
+            {
+              "key": "access",
+              "value": "read",
+              "tier": "arg"
+            }
           ],
-          "message": "cursor cannot express option \"access\" (read); supported: effort - drop the option or route this work to a harness that supports it"
+          "unrenderable": [
+            {
+              "key": "effort",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
+          ]
         }
       },
       "access-and-tools": {
@@ -14120,14 +14379,89 @@
         }
       },
       "access-from-project": {
-        "refusal": {
-          "issue": "unsupported-option",
-          "harness": "cursor",
-          "option": "access",
-          "supported": [
-            "effort"
+        "resolved": {
+          "options": {
+            "access": "read"
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": "all-known",
+              "tier": "harness"
+            },
+            {
+              "key": "access",
+              "value": "read",
+              "tier": "project-config"
+            }
           ],
-          "message": "cursor cannot express option \"access\" (read); supported: effort - drop the option or route this work to a harness that supports it"
+          "unrenderable": [
+            {
+              "key": "effort",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
+          ]
         }
       },
       "access-invalid": {

@@ -95,6 +95,10 @@ hcn run claude "find bugs in src/" --context-window 200000
 tool names on every harness: `read`, `write`, `edit`, `shell`, `grep`, `glob`, `list`, `web-fetch`,
 `web-search`, `subagent`, and `skill`. `--skills` limits skills in the same way.
 
+On Cursor, `--access read` selects native ask mode. **Cursor write access is unconfined**:
+`--access write` renders `--force`, allowing commands and bypassing workspace trust. It does not
+provide a workspace sandbox; native explicit denials still apply.
+
 ### Read results as JSON
 
 ```console
@@ -105,9 +109,13 @@ $ hcn run claude "name three primes, nothing else" --model haiku --json
 {"kind":"done","exitCode":0,"cause":"clean","escalation":{"mode":"ask","detection":"none"}}
 ```
 
-`--json` prints one JSON event per line. The format is the same for every harness, and the last
-line is always `done`. If the run failed, `done.failure.retryable` says whether a retry can help,
-and `done.failure.class` gives the reason, such as `rate-limit`, `auth`, `transport`, or
+`--json` prints one JSON event per line. Native tool outputs arrive as `tool-result` events,
+including structured extension results and error flags when reported. Native token counts and
+cost estimates arrive as scoped `usage` events. A clean `done` does not mean every tool succeeded;
+check the tool results. See the [event contract](docs/reference.md#tool-results-and-usage).
+The format is the same for every harness, and the last line is always `done`. If the run failed,
+`done.failure.retryable` says whether a retry can help, and `done.failure.class` gives the reason,
+such as `rate-limit`, `auth`, `transport`, or
 `rejected`. A refusal also lists the harnesses that support the option:
 
 ```console

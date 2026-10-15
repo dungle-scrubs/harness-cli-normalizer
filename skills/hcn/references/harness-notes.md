@@ -51,8 +51,17 @@ bypasses the gate per run without persisting trust. hcn never passes
 `--trust`. Effort on cursor resolves into the
 `--model` slug through per-family ladders (`--model gpt-5.2 --effort high`
 runs `gpt-5.2-high`); a bare family stem without `--effort` refuses, and
-only arg-tier `--effort` enforces. `--sandbox` has no cursor spelling and
-refuses; denied tool calls arrive as non-terminal `error` events carrying
+only arg-tier `--effort` enforces. `--access read` selects native ask mode
+(`--mode ask --sandbox enabled`). `--access write` renders `--force`,
+which grants unconfined commands and bypasses workspace trust: use it only
+with the human's authorization for that access. Even native
+`--force --sandbox enabled` allowed writes outside the workspace in
+qualification. The normalized `--sandbox` option therefore still refuses.
+`--autonomy` independently adds `--force` even with `--access read`; precedence
+against ask mode is unverified. Use `--no-autonomy` for the qualified read preset,
+including when configuration enables autonomy.
+Denied tool calls arrive as `tool-result` with `isError: true` and
+non-terminal `error` events carrying
 a structured `denial` field (`tool`, `reason`) with exit 0.
 
 ## Antigravity

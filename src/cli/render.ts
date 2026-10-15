@@ -45,6 +45,12 @@ export const renderEvent = (
     case "tool":
       process.stdout.write(cyan(`\n  ⚙ ${event.name}`));
       break;
+    case "tool-result":
+      if (event.isError === true)
+        process.stdout.write(red(`\n  ✗ tool ${event.name ?? event.callId ?? "result"} failed`));
+      break;
+    case "usage":
+      break;
     case "progress":
       // droppable
       break;

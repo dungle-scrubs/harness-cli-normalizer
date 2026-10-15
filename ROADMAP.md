@@ -33,6 +33,16 @@ Planned work for hcn. Each item must pass the scope test in `AGENTS.md`.
   when the capability tripwires were re-run on it
   (`test/fixtures/antigravity-1.2.8`).
 
+## Native stream and access normalization
+
+- **Tool results and usage (#372)** - built: preserve native tool payloads,
+  call identifiers and error flags, and report native tokens/costs as scoped
+  observations. Clean completion is not a tool-success verdict. See the
+  [event contract](docs/reference.md#tool-results-and-usage).
+- **Cursor access (#373)** - built: read selects native ask mode, write
+  renders `--force`. Write is explicitly unconfined; normalized sandbox
+  options remain unsupported. See [verification](docs/cursor-access.md).
+
 ## Provider configurations
 
 - **OpenCode Go through Pi** - verify and document the subscription as a Pi
