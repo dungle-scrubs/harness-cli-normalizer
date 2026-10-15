@@ -11,6 +11,7 @@ terminal. Native transcripts are documented in
 
 - [Turn flags](#turn-flags)
 - [Defaults, config, provenance](#defaults-config-provenance)
+  - [Access presets](#access-presets)
 - [Question escalation](#question-escalation)
 - [Events](#events)
 - [Failures](#failures)
@@ -57,7 +58,7 @@ Usage: `hcn run <harness> [prompt] [options]`. Each flag sets one turn option.
 | `--system-prompt <text>` | `systemPrompt` | Replace built-in system prompt (claude, pi; codex uses -c instructions; muse refuses) |
 | `--append-system-prompt <text>` | `appendSystemPrompt` | Append to built-in prompt (claude, pi only) |
 | `--extension <path>` | `extensions` | Load this extension file for the turn (pi only; absolute path to a regular file; repeatable; loads even with `--no-extensions`; allowed beside `--native-settings-fingerprint`) |
-| `--access <read|write>` | `access` | Access preset - read = read, grep, glob, list, web-fetch, web-search (canonical); write = no restriction; claude via an --allowedTools grant + --disallowedTools deny complement, pi/popeye via --tools (toolMap aware), codex via --sandbox, muse via --disable-write/--disable-shell; Cursor read via --mode ask --sandbox enabled, write via --force (unconfined and bypasses trust); antigravity refuses; mutually exclusive with --tools/--exclude-tools and with --sandbox on codex; no default |
+| `--access <read\|write>` | `access` | Native permission preset. Claude write selects `acceptEdits` plus strict sandbox settings; Cursor write is unconfined. See [Access presets](#access-presets) for mappings and limits. Antigravity refuses. Mutually exclusive with `--tools` or `--exclude-tools`, and with `--sandbox` on Codex. No default. |
 | `--json` | output mode | NDJSON `HarnessEvent` to stdout |
 
 Claude prompts larger than 65,536 UTF-8 bytes use native print-mode stdin,
@@ -224,18 +225,54 @@ a strict-allowlist harness; pi's dormant `grep`, `find`, `ls` stay off
 unless granted). A pi grant that needs an extension tool names it through
 `toolMap` or `native:<name>`.
 
-`--access` is a preset allowlist: `read` = `read, grep, glob, list, web-fetch, web-search` (canonical), `write` = no restriction.
+### Access presets
+
+`--access read` selects the canonical `read, grep, glob, list, web-fetch, web-search` preset.
+`--access write` selects the harness's native write behavior below. These presets do not provide
+a uniform security boundary across harnesses.
 
 Rendering per harness:
 
 | harness | `read` renders | `write` renders |
 |---|---|---|
-| claude | `--allowedTools Read,Grep,Glob,WebFetch,WebSearch` + deny complement (toolMap aware) | nothing (harness default) |
+| claude | `--allowedTools Read,Grep,Glob,WebFetch,WebSearch` + deny complement (toolMap aware) | `--permission-mode acceptEdits` + strict sandbox `--settings` |
 | pi | `--tools read,grep,find,ls` (+ web-search via toolMap) | nothing |
 | codex | `--sandbox read-only` | `--sandbox workspace-write` |
 | muse | `--disable-write --disable-shell` | nothing |
 | cursor | `--mode ask --sandbox enabled` | `--force` (unconfined commands) |
 | popeye | `--tools read,grep,glob,list,web-fetch,web-search` | nothing |
+
+Claude write requests these native settings, without a blanket `Bash` grant:
+
+```json
+{
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true,
+    "allowUnsandboxedCommands": false,
+    "failIfUnavailable": true,
+    "filesystem": { "disabled": false }
+  }
+}
+```
+
+Claude auto-approves sandboxed Bash, keeps filesystem isolation enabled, disables unsandboxed
+retries, and is asked to stop if the sandbox cannot start. Native Bash checks still apply.
+The sandbox covers shell commands, not native file or web tools. Native writable roots,
+command exclusions, and managed policy still apply; this is not an all-tool workspace boundary.
+
+The CLI `allowUnsandboxedCommands: false` setting makes Claude's sandbox admin-required unless
+managed policy overrides it. Claude then ignores project settings that loosen the sandbox,
+including project domain allowlists. Installs and tests may need trusted user or managed network
+policy and writable paths. hcn does not add domains or widen that policy. See Claude's
+[repository settings under an admin-required sandbox](https://code.claude.com/docs/en/sandboxing#repository-settings-under-an-admin-required-sandbox).
+
+Explicit `--access write --autonomy` keeps the Bash sandbox settings and selects native
+`bypassPermissions`; autonomy alone does not request this sandbox. Other tools follow the native
+permission mode. hcn combines its sandbox and skill-selection fragments into one `--settings`
+argument on fresh, named-resume, and resume-last launches. Caller passthrough stays verbatim:
+on verified Claude 2.1.296, a later native `--settings` replaces earlier CLI settings, so a partial
+caller override can remove hcn's sandbox settings. hcn does not merge caller JSON or settings files.
 
 Cursor write access also bypasses workspace trust and retains native explicit denials. It is
 **not a workspace sandbox**: `--force --sandbox enabled` allowed a task-owned shell write outside
@@ -243,7 +280,7 @@ the workspace on both 2026.10.01-e373342 and 2026.10.12-d47ca18. hcn therefore d
 ineffective sandbox switch for write or offer normalized Cursor `--sandbox` values. The read
 preset selects native read-only ask mode. See [the access verification](cursor-access.md).
 
-`--access` together with `--tools` or `--exclude-tools` in the same run refuses `mutually-exclusive-options` (access is a preset allowlist, not a filter over one). `--access` together with an explicit `--sandbox` on codex refuses the same way.
+`--access` together with `--tools` or `--exclude-tools` in the same run refuses `mutually-exclusive-options` (access selects a permission preset, not a filter over a tool grant). `--access` together with an explicit `--sandbox` on codex refuses the same way.
 
 ## Question escalation
 
@@ -299,6 +336,20 @@ A tool error does not establish a failed turn. `done.cause: clean` is the harnes
 terminal verdict, not a verdict on each tool or on a workflow's structured status. Inspect
 `tool-result.isError` and the native result contract; hcn does not interpret extension-specific
 statuses or invent a turn failure. An absent error flag means unknown, not success.
+
+Native tool-denial reports can also produce `error.denial`, with required `tool` and `reason` strings,
+optional `callId`, and optional `inputSummary`. Claude's final `result.permission_denials` entries
+produce one nonterminal observation per valid entry. Claude does not include a reason there, so
+`reason` is empty. `inputSummary` is JSON text limited to 512 characters; truncation can leave
+incomplete JSON. Missing or unserializable input has no summary.
+
+A turn that emits denial observations includes a positive `done.denialCount`. The count covers
+observations in that turn, including persistent sessions, not distinct call IDs. Repeated native
+reports count again. Zero observations leave the field absent. Human output appends `[denials: N]`
+when the count is positive. Neither a denial nor its count changes native exit status or cause;
+a native terminal error still produces failure independently. hcn does not retry or judge task
+correctness from this count. A failed command or blocked network request can appear only as
+`tool-result.isError`, so a missing count does not establish success.
 
 `usage` is a lossless observation with `scope` and optional `inputTokens`, `outputTokens`,
 `cacheReadTokens`, `cacheWriteTokens`, `reasoningTokens`, `totalTokens`, `costUsd`,

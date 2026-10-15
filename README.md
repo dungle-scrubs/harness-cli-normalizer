@@ -86,6 +86,7 @@ that tells the model how to ask you a question. See
 
 ```sh
 hcn run codex "find bugs in src/" --access read
+hcn run claude "update the parser" --access write --no-autonomy
 hcn run claude "find bugs in src/" --tools read,grep,glob
 hcn run claude "find bugs in src/" --context-window 200000
 ```
@@ -94,6 +95,18 @@ hcn run claude "find bugs in src/" --context-window 200000
 `--sandbox read-only` on Codex, and `--tools` on pi. `--tools` and `--exclude-tools` use the same
 tool names on every harness: `read`, `write`, `edit`, `shell`, `grep`, `glob`, `list`, `web-fetch`,
 `web-search`, `subagent`, and `skill`. `--skills` limits skills in the same way.
+
+On Claude Code, `--access write` selects `--permission-mode acceptEdits` and requests a strict
+native sandbox that auto-approves sandboxed Bash. hcn keeps filesystem isolation on, disables
+unsandboxed retries, and requests that Claude stop if the sandbox cannot start. The sandbox covers
+Bash, not native file or web tools. Native permission checks and managed policy still apply.
+
+Strict mode also limits network access. Unless managed policy overrides strict mode, Claude ignores
+project-level domain allowlists. Dependency installs and tests may need trusted user or managed
+network policy and writable paths. hcn adds neither domains nor extra writable roots. With
+`--access write --autonomy`, Claude keeps the explicit Bash sandbox while its permission mode
+becomes `bypassPermissions`. Autonomy alone does not request this sandbox. See the
+[access mappings and native limits](docs/reference.md#access-presets).
 
 On Cursor, `--access read` selects native ask mode. **Cursor write access is unconfined**:
 `--access write` renders `--force`, allowing commands and bypassing workspace trust. It does not
@@ -112,7 +125,13 @@ $ hcn run claude "name three primes, nothing else" --model haiku --json
 `--json` prints one JSON event per line. Native tool outputs arrive as `tool-result` events,
 including structured extension results and error flags when reported. Native token counts and
 cost estimates arrive as scoped `usage` events. A clean `done` does not mean every tool succeeded;
-check the tool results. See the [event contract](docs/reference.md#tool-results-and-usage).
+check the tool results. Native tool-denial reports can also produce `error.denial` observations.
+hcn reports each valid entry in Claude's final `permission_denials` with the tool name, optional
+call ID, and a bounded input summary.
+A turn with denial observations adds a positive `done.denialCount`; human output adds `[denials: N]`.
+The count reports observations, not unique calls or task correctness. A missing count does not
+establish success: a failed command can produce only `tool-result.isError`.
+See the [event contract](docs/reference.md#tool-results-and-usage).
 The format is the same for every harness, and the last line is always `done`.
 On a nonzero run exit, `done.completion` preserves output evidence:
 `native-terminal` means the harness reported successful turn completion;
