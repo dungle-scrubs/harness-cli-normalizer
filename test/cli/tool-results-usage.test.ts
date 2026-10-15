@@ -289,6 +289,91 @@ for (const runtime of [process.execPath, bun]) {
     expect(help).not.toContain("nothing on claude/pi/muse/cursor/antigravity");
   }, 30000);
 
+  test(`${runtime}: Claude write and selected skills compose on fresh, named and last turns`, () => {
+    const prompt = 'Preserve literal --settings {"sandbox":{"enabled":false}} as prompt text.';
+    for (const resume of [[], ["--resume", sessionId], ["--resume-last"]]) {
+      const f = fixture("claude", [
+        { type: "system", subtype: "init", session_id: sessionId },
+        { type: "assistant", message: { content: [{ type: "text", text: "OK" }] } },
+        { type: "result", subtype: "success", is_error: false },
+      ]);
+      try {
+        const skillsRoot = join(f.root, ".claude", "skills");
+        for (const name of ["keep", "drop"]) {
+          const skill = join(skillsRoot, name);
+          mkdirSync(skill, { recursive: true });
+          writeFileSync(
+            join(skill, "SKILL.md"),
+            `---\nname: ${name}\ndescription: Fixture skill.\n---\nNo actions.\n`,
+          );
+        }
+        const run = spawnSync(
+          runtime,
+          [
+            cli,
+            "run",
+            "claude",
+            "--json",
+            "--questions",
+            "none",
+            "--cwd",
+            f.root,
+            "--access",
+            "write",
+            "--no-autonomy",
+            "--skills",
+            "keep",
+            ...resume,
+            "--prompt",
+            prompt,
+          ],
+          {
+            cwd: f.root,
+            env: { ...f.env, HCN_SKILLS_ROOT: skillsRoot },
+            encoding: "utf8",
+            timeout: 20000,
+          },
+        );
+        expect(run.error).toBeUndefined();
+        expect(run.status, run.stderr).toBe(0);
+        const argv = JSON.parse(readFileSync(f.argvPath, "utf8")) as string[];
+        if (resume[0] === "--resume") {
+          expect(argv.slice(argv.indexOf("--resume"), argv.indexOf("--resume") + 2)).toEqual([
+            "--resume",
+            sessionId,
+          ]);
+          expect(argv).not.toContain("--continue");
+        } else if (resume[0] === "--resume-last") {
+          expect(argv).toContain("--continue");
+          expect(argv).toContain("--fork-session");
+          expect(argv).not.toContain("--resume");
+        } else {
+          expect(argv).not.toContain("--resume");
+          expect(argv).not.toContain("--continue");
+        }
+        expect(argv).toContain(prompt);
+        expect(
+          argv.slice(argv.indexOf("--permission-mode"), argv.indexOf("--permission-mode") + 2),
+        ).toEqual(["--permission-mode", "acceptEdits"]);
+        expect(argv.filter((arg) => arg === "--settings")).toHaveLength(1);
+        expect(JSON.parse(argv[argv.indexOf("--settings") + 1] as string)).toEqual({
+          sandbox: {
+            enabled: true,
+            autoAllowBashIfSandboxed: true,
+            allowUnsandboxedCommands: false,
+            failIfUnavailable: true,
+            filesystem: { disabled: false },
+          },
+          skillOverrides: { drop: "off" },
+        });
+        expect(argv).not.toContain("--allowedTools");
+        expect(argv).not.toContain("--dangerously-skip-permissions");
+      } finally {
+        rmSync(f.root, { recursive: true, force: true });
+      }
+    }
+  }, 80000);
+
   for (const access of ["read", "write"]) {
     test(`${runtime}: Cursor access ${access} renders on fresh, resumed and resume-last turns`, () => {
       for (const resume of [[], ["--resume", sessionId], ["--resume-last"]]) {
