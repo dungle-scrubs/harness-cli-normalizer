@@ -339,7 +339,7 @@ describe("native token usage observations", () => {
     ).toEqual([]);
   });
 
-  test("Codex caches overlap input; app-server session totals are not invented turn deltas", () => {
+  test("Codex caches overlap input; exec and app-server session totals are not invented turn deltas", () => {
     expect(
       usageEventsOf("codex", {
         type: "turn.completed",
@@ -353,7 +353,7 @@ describe("native token usage observations", () => {
     ).toEqual([
       {
         kind: "usage",
-        scope: "turn",
+        scope: "session",
         inputTokens: 20,
         cacheReadTokens: 10,
         outputTokens: 5,

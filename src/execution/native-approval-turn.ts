@@ -301,7 +301,13 @@ export async function* streamNativeApprovalTurn(
   };
   const publishFileActivity = async (item: FileApprovalItem): Promise<void> => {
     if (!matchesTurn(item)) stop("unsupported-native-interaction");
-    else await queue.push({ kind: "tool", name: "file_change", input: item.details });
+    else
+      await queue.push({
+        kind: "tool",
+        name: "file_change",
+        input: item.details,
+        callId: item.itemId,
+      });
   };
   const stdout = (async (): Promise<void> => {
     const lines = new ControlLines(NATIVE_APPROVAL_LIMITS.nativeFrameBytes);
@@ -409,7 +415,10 @@ export async function* streamNativeApprovalTurn(
             (turnId !== null && message.item.turnId !== turnId)
           )
             stop("unsupported-native-interaction");
-          else fileItems.delete(fileApprovalKey(message.item));
+          else {
+            fileItems.delete(fileApprovalKey(message.item));
+            for (const event of message.events) await queue.push(event);
+          }
         } else if (message.kind === "ignored") {
           ignoredNativeNotificationCount++;
           if (
@@ -426,12 +435,16 @@ export async function* streamNativeApprovalTurn(
             if (buffered !== -1) beforeAck.splice(buffered, 1);
             await clear(JSON.stringify(message.nativeId), "native-resolved");
           }
+        } else if (message.kind === "session-usage") {
+          if (message.sessionId !== plan.saved.sessionId) stop("unsupported-native-interaction");
+          else await queue.push(message.event);
         } else if (message.kind === "content") {
           if (!matchesTurn(message)) stop("unsupported-native-interaction");
           else {
-            if (message.event.kind === "error" && message.event.terminal)
-              failTerminal(message.event.message);
-            await queue.push(message.event);
+            for (const event of message.events) {
+              if (event.kind === "error" && event.terminal) failTerminal(event.message);
+              await queue.push(event);
+            }
           }
         } else if (message.kind === "message") {
           if (!matchesTurn(message)) stop("unsupported-native-interaction");

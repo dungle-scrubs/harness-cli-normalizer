@@ -1,14 +1,6 @@
 /**
- * Content decoding: extract assistant text, token deltas, tool calls, and
- * progress from ONE parsed harness record. Each harness has an entirely
- * different event vocabulary, so this dispatches by harness name to a pure
- * per-harness reader. Identity and wall detection stay descriptor-driven
- * elsewhere; this owns the message/token/tool/progress classes only.
- *
- * (Kept as functions rather than descriptor data because the shapes are
- * structurally too varied - array-of-blocks text, nested delta events,
- * payload-discriminated records - for the flat match/field spec that
- * identity decoding uses.)
+ * Arrays of blocks, nested deltas and payload-discriminated records do not fit
+ * the flat descriptor match/field spec used by identity decoding.
  */
 import type {
   CompactionState,
@@ -291,8 +283,7 @@ const codexNotificationRecord = (r: Record<string, unknown>): Record<string, unk
     }
     default:
       // turn/started, thread/started (identity rides the open response in
-      // session mode), token usage, status changes, MCP/hook noise: all
-      // bookkeeping with nothing to surface.
+      // session mode), status changes and MCP/hook noise have no content here.
       return null;
   }
 };
@@ -992,8 +983,6 @@ const cursorWithState = (
     };
   }
   if (r.type === "result") {
-    // Success ends the turn with no event of its own (the runner owns
-    // turn end); usage counts are ignored in v1 (no window, no usedPct).
     // Any other subtype, or is_error, is a forward rule to a terminal
     // error through the task failure path.
     if (r.subtype === "success" && r.is_error !== true) return { events: [], state };

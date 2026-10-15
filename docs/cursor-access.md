@@ -11,6 +11,11 @@ native CLI did not enforce in the probes below. No access preset is applied
 unless the caller requests one. Fresh, named-resume, and resume-last runs
 render an explicit preset identically.
 
+`--autonomy` independently adds `--force`, including with `--access read`.
+That combination renders `--mode ask --sandbox enabled --force`; neither
+these probes nor the official documentation establish precedence. It is not
+a verified read-only combination. Omit autonomy for the probed read preset.
+
 ## Native verification
 
 The probes used disposable git repositories, `gpt-5-mini`, print mode,

@@ -190,10 +190,10 @@ Defaults with no flags:
   auto-compaction default - the profile window does not transfer there;
   other harnesses report divergence), discovery on,
   autonomy off, write/shell on. timeout, max-steps and
-  access have no default; harness default applies (access write emits
-  nothing on claude/pi/muse/cursor/antigravity, --sandbox workspace-write on
-  codex and antigravity via
-  profile). toolMap is config-only (no flag) - canonical -> native
+  access have no default; no access preset is applied. Explicit access write emits
+  --force on cursor, --sandbox workspace-write on codex, and no extra flags on
+  claude/pi/muse/popeye; antigravity refuses --access. The profile's sandbox
+  setting is separate from access. toolMap is config-only (no flag) - canonical -> native
   mapping per harness. A bare pi run renders no --tools list: pi's list
   is a strict allowlist and would drop extension and MCP tools; name
   them through toolMap or native:<name> when you grant. Question mode defaults to ask (config keys

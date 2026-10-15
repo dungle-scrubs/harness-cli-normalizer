@@ -10,7 +10,7 @@ Read and write access express native harness controls, including their limitatio
 
 ## How to get to it (user POV)
 
-Run `hcn run cursor --access read|write --prompt <text>`, optionally with `--resume <uuid>` or `--resume-last`. `hcn inspect cursor` describes resolved configuration without a model turn.
+Run `hcn run cursor --access read|write --prompt <text>`, optionally with `--resume <uuid>` or `--resume-last`. `hcn inspect cursor` describes native support; add `--argv --access read --prompt probe` to preview resolved argv without a model turn.
 
 ## Driving it with CLI integration tests
 

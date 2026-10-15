@@ -34,7 +34,11 @@ conversation service.
 complete plain-text details, and choices with ID, label and scope.
 `approval-disposition` reports sent or rejected with a reason.
 `approval-cleared` means the request stopped waiting, not that its tool worked.
-Render subsequent output for the result.
+Render subsequent output for the result. `tool-result` retains each completed
+native command/file item; match it to `tool.callId` when present. Inspect the
+result for workflow status rather than treating a clean turn as tool success.
+`usage` reports cumulative session `tokenUsage.total`, even on thread-only
+updates; keep the latest snapshot instead of adding it to earlier snapshots.
 
 Command choices can grant once, for the native session, or through an offered
 persistent command-prefix rule. File session grants cover future changes to

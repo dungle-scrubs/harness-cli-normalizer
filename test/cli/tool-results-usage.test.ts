@@ -122,6 +122,83 @@ for (const runtime of [process.execPath, bun]) {
     }
   }, 30000);
 
+  test(`${runtime}: human output marks a failed tool without inventing a failed turn`, () => {
+    const f = fixture("pi", records);
+    try {
+      const run = spawnSync(
+        runtime,
+        [cli, "run", "pi", "--questions", "none", "--cwd", f.root, "--prompt", "fixture"],
+        { cwd: f.root, env: f.env, encoding: "utf8", timeout: 20000 },
+      );
+      expect(run.error).toBeUndefined();
+      expect(run.status, run.stderr).toBe(0);
+      expect(run.stdout).toContain("✗ tool workflow failed");
+      expect(run.stdout).toContain("○ clean");
+      expect(run.stdout).toContain("(exit 0)");
+    } finally {
+      rmSync(f.root, { recursive: true, force: true });
+    }
+  }, 30000);
+
+  test(`${runtime}: Codex exec reports resumed thread totals without computing turn deltas`, () => {
+    const f = fixture("codex", [
+      { type: "thread.started", thread_id: sessionId },
+      {
+        type: "turn.completed",
+        usage: { input_tokens: 40, cached_input_tokens: 20, output_tokens: 10 },
+      },
+    ]);
+    try {
+      const run = spawnSync(
+        runtime,
+        [
+          cli,
+          "run",
+          "codex",
+          "--json",
+          "--questions",
+          "none",
+          "--cwd",
+          f.root,
+          "--resume",
+          sessionId,
+          "--prompt",
+          "fixture",
+        ],
+        { cwd: f.root, env: f.env, encoding: "utf8", timeout: 20000 },
+      );
+      expect(run.status, run.stderr).toBe(0);
+      const events = run.stdout
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line));
+      expect(events.filter((e) => e.kind === "usage")).toEqual([
+        {
+          kind: "usage",
+          scope: "session",
+          inputTokens: 40,
+          cacheReadTokens: 20,
+          outputTokens: 10,
+          inputIncludesCache: true,
+        },
+      ]);
+      expect(JSON.parse(readFileSync(f.argvPath, "utf8"))).toContain("resume");
+      expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+    } finally {
+      rmSync(f.root, { recursive: true, force: true });
+    }
+  }, 30000);
+
+  test(`${runtime}: access help separates no default from explicit Cursor write and Antigravity refusal`, () => {
+    const run = spawnSync(runtime, [cli, "run", "--help"], { encoding: "utf8", timeout: 20000 });
+    expect(run.status).toBe(0);
+    const help = run.stdout.replace(/\s+/g, " ");
+    expect(help).toContain("access have no default; no access preset is applied");
+    expect(help).toContain("Explicit access write emits --force on cursor");
+    expect(help).toContain("antigravity refuses --access");
+    expect(help).not.toContain("nothing on claude/pi/muse/cursor/antigravity");
+  }, 30000);
+
   for (const access of ["read", "write"]) {
     test(`${runtime}: Cursor access ${access} renders on fresh, resumed and resume-last turns`, () => {
       for (const resume of [[], ["--resume", sessionId], ["--resume-last"]]) {
@@ -153,6 +230,19 @@ for (const runtime of [process.execPath, bun]) {
           expect(run.error).toBeUndefined();
           expect(run.status, run.stderr).toBe(0);
           const argv = JSON.parse(readFileSync(f.argvPath, "utf8")) as string[];
+          if (resume[0] === "--resume") {
+            expect(argv.slice(argv.indexOf("--resume"), argv.indexOf("--resume") + 2)).toEqual([
+              "--resume",
+              sessionId,
+            ]);
+            expect(argv).not.toContain("--continue");
+          } else if (resume[0] === "--resume-last") {
+            expect(argv).toContain("--continue");
+            expect(argv).not.toContain("--resume");
+          } else {
+            expect(argv).not.toContain("--resume");
+            expect(argv).not.toContain("--continue");
+          }
           if (access === "read") {
             expect(argv.slice(argv.indexOf("--sandbox"), argv.indexOf("--sandbox") + 2)).toEqual([
               "--sandbox",

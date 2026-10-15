@@ -101,6 +101,39 @@ try {
       ],
     );
     assert.equal(events.at(-1).cause, "clean");
+    const sessionId = "907feafe-e82b-4df4-91ba-4f1aeb987508";
+    stub("codex", [
+      { type: "thread.started", thread_id: sessionId },
+      {
+        type: "turn.completed",
+        usage: { input_tokens: 40, cached_input_tokens: 20, output_tokens: 10 },
+      },
+    ]);
+    const resumed = run([
+      "run",
+      "codex",
+      "--json",
+      "--questions",
+      "none",
+      "--resume",
+      sessionId,
+      "--prompt",
+      "fixture",
+    ]);
+    assert.deepEqual(
+      resumed.filter((e) => e.kind === "usage"),
+      [
+        {
+          kind: "usage",
+          scope: "session",
+          inputTokens: 40,
+          cacheReadTokens: 20,
+          outputTokens: 10,
+          inputIncludesCache: true,
+        },
+      ],
+    );
+    assert.equal(resumed.at(-1).cause, "clean");
     const capture = join(root, "argv.json");
     stub("agent", [{ type: "result", subtype: "success", is_error: false }], capture);
     for (const access of ["read", "write"]) {

@@ -308,7 +308,7 @@ test("native streamed text and tool activity remain visible around an approval",
   }
   expect(events.filter((event) => ["token", "tool", "message"].includes(event.kind))).toEqual([
     { kind: "token", text: "Working" },
-    { kind: "tool", name: "shell", input: "echo fixture" },
+    { kind: "tool", name: "shell", input: "echo fixture", callId: "tool" },
     { kind: "message", role: "assistant", text: "Working. Done." },
   ]);
   expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
@@ -1652,6 +1652,193 @@ test("a native approval process that exits 1 with stderr before completion class
     kind: "done",
     cause: "failed",
     failure: { class: "native", nativeExitCode: 1 },
+  });
+  expect(f.clock.pendingTimerCount).toBe(0);
+});
+
+test("native approval observations preserve command results, call identity and thread-only usage", async () => {
+  const f = setup();
+  const item = {
+    id: "command-result",
+    type: "commandExecution",
+    command: "echo fixture",
+    aggregatedOutput: "complete native output",
+    status: "completed",
+    exitCode: 0,
+    opaqueDetail: { nested: ["kept", 42] },
+  };
+  const events: HarnessEvent[] = [];
+  for await (const event of streamTurn(codexCli, options, f.deps)) {
+    events.push(event);
+    if (event.kind === "approval-request") {
+      for (const method of ["item/started", "item/completed"]) {
+        f.proc.emitLine(
+          JSON.stringify({
+            method,
+            params: { threadId: saved.sessionId, turnId: "native-turn", item },
+          }),
+        );
+      }
+      f.proc.emitLine(
+        JSON.stringify({
+          method: "thread/tokenUsage/updated",
+          params: {
+            threadId: saved.sessionId,
+            tokenUsage: {
+              total: { inputTokens: 40, cachedInputTokens: 20, outputTokens: 10, totalTokens: 50 },
+              last: { inputTokens: 5, outputTokens: 1 },
+            },
+          },
+        }),
+      );
+      f.proc.complete();
+    }
+  }
+  expect(events.filter((event) => event.kind === "tool")).toEqual([
+    { kind: "tool", name: "shell", input: "echo fixture", callId: "command-result" },
+  ]);
+  expect(events.filter((event) => event.kind === "tool-result")).toEqual([
+    { kind: "tool-result", name: "shell", callId: "command-result", result: item, isError: false },
+  ]);
+  expect(events.filter((event) => event.kind === "usage")).toEqual([
+    {
+      kind: "usage",
+      scope: "session",
+      inputTokens: 40,
+      cacheReadTokens: 20,
+      outputTokens: 10,
+      totalTokens: 50,
+      inputIncludesCache: true,
+    },
+  ]);
+  expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean", exitCode: 0 });
+  expect(f.clock.pendingTimerCount).toBe(0);
+});
+
+test.each([
+  {
+    label: "foreign-thread usage",
+    frame: {
+      method: "thread/tokenUsage/updated",
+      params: { threadId: "another-thread", tokenUsage: { total: { inputTokens: 12 } } },
+    },
+  },
+  {
+    label: "RPC-shaped usage",
+    frame: {
+      id: 99,
+      method: "thread/tokenUsage/updated",
+      params: { threadId: saved.sessionId, tokenUsage: { total: { inputTokens: 12 } } },
+    },
+  },
+  {
+    label: "foreign-turn file completion",
+    frame: {
+      method: "item/completed",
+      params: {
+        threadId: saved.sessionId,
+        turnId: "another-turn",
+        item: { id: "patch", type: "fileChange", status: "completed", changes: [] },
+      },
+    },
+  },
+])("native approval observations reject $label without granting authority", async ({ frame }) => {
+  const f = setup();
+  const events: HarnessEvent[] = [];
+  for await (const event of streamTurn(codexCli, options, f.deps)) {
+    events.push(event);
+    if (event.kind === "approval-request") {
+      f.proc.emitLine(JSON.stringify(frame));
+      f.proc.complete();
+    }
+  }
+  expect(events.filter((event) => event.kind === "usage" || event.kind === "tool-result")).toEqual(
+    [],
+  );
+  expect(events.at(-1)).toMatchObject({
+    kind: "done",
+    cause: "failed",
+    failure: { nativeApproval: { reason: "unsupported-native-interaction" } },
+  });
+  expect(
+    f.proc.stdinLines.map((line) => JSON.parse(line)).filter((line) => line.id === 99),
+  ).toEqual([]);
+  expect(f.clock.pendingTimerCount).toBe(0);
+});
+
+test("native approval usage omits absent and malformed counts rather than inventing zero", async () => {
+  const f = setup();
+  const events: HarnessEvent[] = [];
+  for await (const event of streamTurn(codexCli, options, f.deps)) {
+    events.push(event);
+    if (event.kind === "approval-request") {
+      for (const total of [{}, { inputTokens: "unknown", outputTokens: -3 }]) {
+        f.proc.emitLine(
+          JSON.stringify({
+            method: "thread/tokenUsage/updated",
+            params: {
+              threadId: saved.sessionId,
+              tokenUsage: { total },
+            },
+          }),
+        );
+      }
+      f.proc.complete();
+    }
+  }
+  expect(events.filter((event) => event.kind === "usage")).toEqual([]);
+  expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean", exitCode: 0 });
+  expect(f.clock.pendingTimerCount).toBe(0);
+});
+
+test("publishing a file result does not retain authority to approve its retired patch", async () => {
+  const f = setup();
+  const params = { threadId: saved.sessionId, turnId: "native-turn" };
+  const item = {
+    id: "retired-patch",
+    type: "fileChange",
+    changes: [{ path: "/fixture/retired.txt", kind: { type: "add" }, diff: "+retired\n" }],
+  };
+  const events: HarnessEvent[] = [];
+  for await (const event of streamTurn(codexCli, options, f.deps)) {
+    events.push(event);
+    if (event.kind === "approval-request" && event.category === "command") {
+      f.proc.emitLine(
+        JSON.stringify({
+          method: "item/started",
+          params: {
+            ...params,
+            item: { ...item, status: "inProgress" },
+          },
+        }),
+      );
+      f.proc.emitLine(
+        JSON.stringify({
+          method: "item/completed",
+          params: {
+            ...params,
+            item: { ...item, status: "completed" },
+          },
+        }),
+      );
+      f.proc.emitLine(
+        JSON.stringify({
+          id: 8,
+          method: "item/fileChange/requestApproval",
+          params: { ...params, itemId: item.id, startedAtMs: 0, grantRoot: null },
+        }),
+      );
+      f.proc.complete();
+    }
+  }
+  expect(events.filter((event) => event.kind === "tool-result")).toMatchObject([
+    { name: "file_change", callId: "retired-patch", isError: false },
+  ]);
+  expect(events.filter((event) => event.kind === "approval-request")).toHaveLength(1);
+  expect(events.at(-1)).toMatchObject({
+    kind: "done",
+    cause: "failed",
+    failure: { nativeApproval: { reason: "unsupported-native-interaction" } },
   });
   expect(f.clock.pendingTimerCount).toBe(0);
 });

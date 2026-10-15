@@ -266,7 +266,8 @@ than treating `done.cause: clean` as workflow success.
 Pi reports completed assistant messages, nested-tool usage and compaction
 separately. Claude turn tokens cover the main loop; its session cost and
 per-model (`model`) counts include subagents and restored spend. Codex exec
-reports turn totals; app-server reports cumulative session snapshots.
+and app-server both report cumulative session snapshots, including earlier
+turns on resume; keep the latest snapshot rather than summing or deriving deltas.
 Cursor reports turn usage; Antigravity reports cumulative session usage.
 Muse and Popeye currently report none. Keep the latest session value for
 each metric and model (or overall), never a sum of cumulative snapshots.

@@ -125,7 +125,8 @@ export function usageEventsOf(harness: HarnessName, r: Record<string, unknown>):
         ),
       ];
     case "codex":
-      if (r.type === "turn.completed") return usageEvent(r.usage, CODEX_FIELDS, "turn", true);
+      // Codex exec emits ThreadTokenUsage.total at turn completion, including restored turns.
+      if (r.type === "turn.completed") return usageEvent(r.usage, CODEX_FIELDS, "session", true);
       if (r.method === "thread/tokenUsage/updated")
         return usageEvent(
           readPath(r, "params.tokenUsage.total"),
