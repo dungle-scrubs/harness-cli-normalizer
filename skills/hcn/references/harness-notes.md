@@ -1,8 +1,8 @@
 # Per-harness native behavior
 
 Read this before relying on behavior that differs by harness: model choice,
-provider selection, native approvals and input requests, Cursor trust and
-effort, and Antigravity results. The flag table and support matrix are in
+provider selection, Claude write sandbox limits, native approvals and input
+requests, Cursor trust and effort, and Antigravity results. The flag table and support matrix are in
 [reference.md](reference.md).
 
 ## Claude models
@@ -12,6 +12,43 @@ Before selecting a newer Claude model, check `hcn inspect claude --json`:
 alias's current target. An alias can move between generations; use a listed
 explicit ID to retain an older generation. Native CLI version and account
 access still determine whether the provider accepts that model.
+
+## Claude write access
+
+On builds advertising strict Claude write access in `hcn run --help`,
+`hcn run claude --access write` renders `--permission-mode acceptEdits` and
+one owned `--settings` object with these sandbox fields:
+
+```json
+{
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true,
+    "allowUnsandboxedCommands": false,
+    "failIfUnavailable": true,
+    "filesystem": { "disabled": false }
+  }
+}
+```
+
+Claude auto-approves sandboxed Bash, forbids unsandboxed retry and is asked to
+fail startup if the sandbox is unavailable. Native tool permissions, Bash checks
+and network policy still apply. The OS sandbox covers Bash, not file or web tools.
+This is not a promise that every platform or command works unattended.
+
+Unless managed policy overrides strict mode, Claude ignores project settings
+that loosen sandbox restrictions, including project domain allowlists and extra
+write paths. Trusted user, CLI or managed policy may be needed for installs or
+tests. hcn adds no network allowlist and does not change native policy sources.
+`--autonomy` changes native permission mode but retains this explicit write
+sandbox. Autonomy without explicit write access does not add the sandbox.
+
+Selected skills share the same owned settings object. This preserves selection
+fields, not a promise that skills load under every native mode: Claude safe mode
+disables skills. Caller-provided settings and passthrough remain untouched.
+On Claude 2.1.296, a later CLI `--settings` object replaces the earlier object.
+hcn does not merge caller JSON or settings files. Inspect the intended argv and
+native policy before relying on added settings.
 
 ## Pi provider
 

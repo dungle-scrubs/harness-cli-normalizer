@@ -104,6 +104,9 @@ schema parsing, read [the result and usage contract](references/reference.md#too
 
 A clean `done` is not proof of tool success: inspect `tool-result.isError`
 and `result` using the native contract. Missing error flags mean unknown.
+Also inspect `error.denial` and optional positive `done.denialCount`:
+[denial observations](references/reference.md#denial-observations) can coexist
+with a clean turn. Neither missing counts nor clean exits prove work success.
 `warning` is advisory and does not change the turn verdict.
 Branch on `failure.class` and `done.cause` using the rules above. Ignore
 unrecognized kinds/classes and still wait for `done`.
@@ -190,7 +193,7 @@ command ledger: every invocation appends a start and an end line to
 | Read | Before |
 |---|---|
 | [references/reference.md](references/reference.md) | Choosing flags, defaults, config, tool grants, skills, memory or context window; parsing the event schema, failure classes or the `hcn session --json` surface; using `--resume-last`; runtime or context inspection. |
-| [references/harness-notes.md](references/harness-notes.md) | Relying on one harness's native behavior: Claude model aliases, Pi providers, native approval and input requests, Cursor trust and effort, Antigravity results. |
+| [references/harness-notes.md](references/harness-notes.md) | Relying on one harness's native behavior: Claude model aliases and write sandbox limits, Pi providers, native approval and input requests, Cursor trust and effort, Antigravity results. |
 | [references/transcripts.md](references/transcripts.md) | `hcn transcript ls` or `hcn transcript read`, choosing a native source, or consuming bookmarks. |
 | [references/interactive.md](references/interactive.md) | `hcn interactive` (native terminal resume, launch provenance), or inspecting and fingerprint-checking saved native settings. |
 | [references/native-approvals.md](references/native-approvals.md) | Permission-preserving headless continuation, or answering a live native approval. |

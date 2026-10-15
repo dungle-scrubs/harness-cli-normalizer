@@ -25,7 +25,7 @@ typed transport failure, never permission to start an empty task.
 | `--tools <a,b>` | claude, pi, popeye (muse via category switches; codex, cursor, antigravity refuse) | claude renders an `--allowedTools` grant plus a `--disallowedTools` deny complement; pi and popeye render a strict `--tools` allowlist; canonical names only (`read write edit shell grep glob list web-fetch web-search subagent skill`); `native:<name>` passes through; a configured toolset name expands; `toolMap` config maps canonical -> extension names; cursor allow/deny lives in config files, named in the refusal hint |
 | `--exclude-tools <a,b>` | claude, pi, popeye (muse via category switches; codex, cursor, antigravity refuse) | canonical names; complement over the harness's known names; mutually exclusive with --tools |
 | `--isolation <tool-free>` | claude, builds listing it in help | fresh turn only; no tools, MCP, instruction files, hooks, or extensions; refuses resume/session/native passthrough and grants; requires bare-mode authentication; invocation-only |
-| `--access <read\|write>` | claude, codex, pi, muse, cursor, popeye (antigravity refuses) | preset grant: `read` = read, grep, glob, list, web-fetch, web-search; claude -> `--allowedTools` grant + `--disallowedTools` deny complement, pi/popeye -> `--tools`, codex -> `--sandbox read-only`/`workspace-write`, muse -> `--disable-write --disable-shell`; cursor read -> `--mode ask --sandbox enabled`, write -> `--force` (unconfined commands, bypasses trust; human authorization required); no default; mutually exclusive with --tools/--exclude-tools (and --sandbox on codex); honors --no-tools |
+| `--access <read\|write>` | claude, codex, pi, muse, cursor, popeye (antigravity refuses) | preset grant: `read` = read, grep, glob, list, web-fetch, web-search; claude read -> `--allowedTools` grant + `--disallowedTools` deny complement, write -> `--permission-mode acceptEdits` plus strict native Bash sandbox ([limits](harness-notes.md#claude-write-access)); pi/popeye -> `--tools`, codex -> `--sandbox read-only`/`workspace-write`, muse -> `--disable-write --disable-shell`; cursor read -> `--mode ask --sandbox enabled`, write -> `--force` (unconfined commands, bypasses trust; human authorization required); no default; mutually exclusive with --tools/--exclude-tools (and --sandbox on codex); honors --no-tools |
 | `--skills <a,b>` | claude, codex, pi; `hcn run` and `hcn session` | caller-directed skills allowlist; names resolve against the registry root ($HCN_SKILLS_ROOT, default ~/.agents/skills); unknown names refuse exit 2 listing the registry; on a session the allowlist is a spawn property and holds across every turn (resume included); muse, cursor, antigravity, and popeye refuse with a hint (antigravity and popeye sessions refuse the same way rather than open with the full set) |
 | `--autonomy` / `--no-autonomy` | claude, codex, muse, cursor, antigravity | profile: off; on antigravity renders `--dangerously-skip-permissions`; on cursor renders `--force`, which also bypasses the workspace-trust gate per run without persisting trust |
 | `--questions <ask\|assume\|none>` | all (hcn-owned), run and session | default ask; assume instructs the worker to state assumptions and continue; none injects nothing; question detection only in ask; config key `questions` |
@@ -189,7 +189,7 @@ command. The version probe has bounded time and output.
 | agent | --agent | - (refuses) | --agent (extension-verified) | - (refuses) | - (refuses) | --agent | --agent |
 | tools include | --allowedTools (grant) + deny complement | - (refuses, --sandbox hint) | --tools (strict) | category switches (--disable-write/--disable-shell/--disable-web-tools) | - (refuses, config-file hint) | - (refuses) | --tools (strict) |
 | tools exclude | --disallowedTools | - (refuses, hint) | --exclude-tools | category switches | - (refuses, hint) | - (refuses) | --exclude-tools |
-| access | --allowedTools (read subset) + deny complement | --sandbox | --tools (read subset) | --disable-write --disable-shell | --mode ask --sandbox enabled (read); --force (write, unconfined) | - (refuses) | --tools (read subset) |
+| access | read: --allowedTools + deny complement; write: acceptEdits + strict native Bash sandbox | --sandbox | --tools (read subset) | --disable-write --disable-shell | --mode ask --sandbox enabled (read); --force (write, unconfined) | - (refuses) | --tools (read subset) |
 | autonomy | --dangerously-skip-permissions | --yolo | - | --yolo | --force (also bypasses trust per run) | --dangerously-skip-permissions | - |
 | write | - | - | - | --disable-write | - | - | - |
 | shell | - | - | - | --disable-shell | - | - | - |
@@ -205,7 +205,11 @@ them through `toolMap` or `native:<name>`.
 Skills allowlist rendering:
 pi gets `-ns` plus one `--skill <path>` per pick (only those load); claude
 gets `--settings '{"skillOverrides":{"<name>":"off",...}}'` turning off
-every registry skill except the picks; codex gets one
+every registry skill except the picks. With explicit Claude write access,
+hcn combines this and its sandbox fields in one owned settings object.
+Caller-provided inline settings, file paths and passthrough stay unchanged.
+[Claude write access](harness-notes.md#claude-write-access) explains native precedence.
+Codex gets one
 `-c skills.config=[...]` pair per skill, `{path="<root>/<n>/SKILL.md",
 enabled=false}` plus `{name="<n>", enabled=false}` for the complement and
 the same two entries with `enabled=true` restating the picks (the path
@@ -249,10 +253,10 @@ https://github.com/dungle-scrubs/harness-cli-normalizer/blob/main/docs/observer.
 {"kind":"compaction","state":..,"trigger":?,"tokensBefore":?,"tokensAfter":?,"durationMs":?,"detail":?}
 {"kind":"limit","code":..,"message":..}
 {"kind":"warning","message":..}       # advisory, not a failure
-{"kind":"error","message":..,"denial":?}  # structured rejected tool call ({tool, reason}), non-terminal, exit can stay 0
+{"kind":"error","message":..,"denial":?}  # {tool, reason, callId?, inputSummary?}; non-terminal observation
 {"kind":"failure","class":..,"retryable":..,"message":..}
 {"kind":"question","question":..,"options":[..],"recommended":?}  # issue #41
-{"kind":"done","exitCode":..,"cause":..,"failure":?,"completion":?}
+{"kind":"done","exitCode":..,"cause":..,"failure":?,"completion":?,"denialCount":?}
 ```
 
 On a nonzero `run` exit, `done.completion` separates delivered output from
@@ -377,6 +381,27 @@ exit 0 - resume with the answer). In sessions the same
 awaiting-input cause ends the ASKING TURN while the session stays
 live (hcn >= 0.4.3, claude + pi; Antigravity in builds whose `hcn ls` reports `antigravity@1.2.7`) - answer via the next send, not a
 resume.
+
+### Denial observations
+
+Structured native tool denials emit non-terminal `error.denial` observations.
+`tool` is the native tool name. `reason` is native text, or an empty string when
+absent, as in Claude's final `permission_denials` entries. Optional `callId`
+preserves the native call ID. Optional `inputSummary` is hcn's JSON preview of
+native input, bounded to 512 characters. A truncated preview may not be valid
+JSON. Assistant prose never establishes a denial.
+
+On builds whose JSON help advertises `done.denialCount`, a positive count
+reports emitted denial observations for that turn. Zero is omitted. Repeated
+native reports count again, even with the same call ID; this is not a unique-call
+count. Session counts reset each turn. Text mode adds `[denials: N]` to the
+usual terminal line for a positive count.
+
+Denials do not by themselves fail a turn. Native exit status and `done.cause`
+remain unchanged, and a count can also accompany a failed turn. Neither a clean
+turn nor a missing count proves tool or work success: the native tool result can
+still report failure without a structured denial. Older builds can omit these
+fields. The caller owns any judgment or continuation decision.
 
 ### Tool results and usage
 

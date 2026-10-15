@@ -359,7 +359,7 @@ case "$help_run" in
       0) ;;
       3) blocked=$((blocked + 1)) ;;
       *)
-        printf 'MISS: tool result, usage, or Cursor access contract disagrees with the skill\n'
+        printf 'MISS: access or event observations disagree with the skill\n'
         misses=$((misses + 1))
         ;;
     esac
