@@ -2,8 +2,7 @@
 
 Thanks for your interest in `harness-cli-normalizer`. This CLI product (`hcn`) normalizes
 the differences between AI coding-agent CLIs (Claude Code, Codex, pi, Muse, Cursor CLI,
-Antigravity CLI)
-into pure data descriptors plus interpretation and execution layers. The `hcn`
+Antigravity CLI, and popeye) into pure data descriptors plus interpretation and execution layers. The `hcn`
 binary is the product; internal library layers are not an install surface.
 
 ## Setup

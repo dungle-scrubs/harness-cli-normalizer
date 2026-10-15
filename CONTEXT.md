@@ -1,6 +1,6 @@
 # harness-cli-normalizer
 
-`hcn` is a CLI that drives six coding-agent harnesses through one surface. It
+`hcn` is a CLI that drives seven coding-agent harnesses through one surface. It
 does two different jobs, and the difference matters enough to name: it
 **normalizes** the harnesses' interfaces, and it **supervises** the runs it
 starts. This file says which parts are which.
@@ -31,7 +31,7 @@ says "this is not available here" instead of pretending parity. _Avoid_:
 ### The domain
 
 **Harness**: one coding-agent CLI that hcn drives - claude, codex, pi, muse, cursor,
-or antigravity.
+antigravity, or popeye.
 _Avoid_: "provider" (that is the model vendor), "agent" (that is the model; a
 harness's selectable persona is a **named agent**, never a bare "agent").
 
