@@ -99,8 +99,8 @@ A dispatch-level usage error with `--json` in argv also writes the
 
 ## Reading events
 
-Consume `--json` as NDJSON. For tool outputs, token/cost accounting or
-schema parsing, read [the result and usage contract](references/reference.md#tool-results-and-usage).
+Consume `--json` as NDJSON. For tool results, usage, nonzero exits or
+`done.completion`, read [the event contract](references/reference.md).
 
 A clean `done` is not proof of tool success: inspect `tool-result.isError`
 and `result` using the native contract. Missing error flags mean unknown.
@@ -110,7 +110,6 @@ with a clean turn. Neither missing counts nor clean exits prove work success.
 `warning` is advisory and does not change the turn verdict.
 Branch on `failure.class` and `done.cause` using the rules above. Ignore
 unrecognized kinds/classes and still wait for `done`.
-For nonzero exits and `done.completion`, read [the event schema](references/reference.md).
 
 ## Answering worker questions
 
@@ -183,16 +182,13 @@ verdict. **Contains:** the events above, ending in `done` with its cause,
 and the session id in the `identity` event for resumes. **Not:** any
 judgment on the worker's answer, and no conversation state of hcn's own
 between runs - session continuity belongs to the harness, reached through
-`--resume`, `--resume-last`, or `hcn session`. hcn keeps only a diagnostic
-command ledger: every invocation appends a start and an end line to
-`hcn/commands.jsonl` under `$HCN_STATE_DIR`, else `$XDG_STATE_HOME`, else
-`~/.local/state`. A start with no end is the trace of a killed invocation.
+`--resume`, `--resume-last`, or `hcn session`.
 
 ## Load on demand
 
 | Read | Before |
 |---|---|
-| [references/reference.md](references/reference.md) | Choosing flags, defaults, config, tool grants, skills, memory or context window; parsing the event schema, failure classes or the `hcn session --json` surface; using `--resume-last`; runtime or context inspection. |
+| [references/reference.md](references/reference.md) | Choosing flags, defaults, config, tool grants, skills, memory or context window; parsing the event schema, failure classes or the `hcn session --json` surface; using `--resume-last`; command-ledger diagnostics; runtime or context inspection. |
 | [references/harness-notes.md](references/harness-notes.md) | Relying on one harness's native behavior: Claude model aliases and write sandbox limits, Pi providers, native approval and input requests, Cursor trust and effort, Antigravity results. |
 | [references/transcripts.md](references/transcripts.md) | `hcn transcript ls` or `hcn transcript read`, choosing a native source, or consuming bookmarks. |
 | [references/interactive.md](references/interactive.md) | `hcn interactive` (native terminal resume, launch provenance), or inspecting and fingerprint-checking saved native settings. |

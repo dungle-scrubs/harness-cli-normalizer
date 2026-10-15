@@ -228,6 +228,13 @@ renders an exact allowlist there as grant + deny-complement. Pi include
 is strict over built-ins; its exclude subtracts from defaults, so hcn
 renders pi excludes as computed includes.
 
+## Command ledger
+
+Every invocation appends a start and an end line to `hcn/commands.jsonl`
+under `$HCN_STATE_DIR`, else `$XDG_STATE_HOME`, else `~/.local/state`.
+A start with no end is the trace of a killed invocation. This diagnostic
+ledger is not conversation state.
+
 ## Run lifecycle observer (0.9.0+)
 
 Off by default. When `HCN_OBSERVER` names an executable file, `hcn run`
