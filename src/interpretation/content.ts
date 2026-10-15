@@ -26,6 +26,23 @@ export interface ToolResultEvent {
   readonly isError?: boolean;
 }
 
+export interface ToolDenial {
+  readonly tool: string;
+  readonly reason: string;
+  readonly callId?: string;
+  /** JSON input preview, limited to 512 characters; it may be truncated. */
+  readonly inputSummary?: string;
+}
+
+const inputSummaryOf = (input: unknown): { readonly inputSummary?: string } => {
+  try {
+    const text = JSON.stringify(input);
+    return text === undefined ? {} : { inputSummary: text.slice(0, 512) };
+  } catch {
+    return {};
+  }
+};
+
 const callIdOf = (id: unknown): { readonly callId?: string } =>
   typeof id === "string" ? { callId: id } : {};
 
@@ -62,7 +79,7 @@ export type ContentEvent =
       /** A refused tool call or rejected question:
        * the native tool name and the harness's reason, which may be
        * empty. Machine consumers branch on presence, never on prose. */
-      readonly denial?: { readonly tool: string; readonly reason: string };
+      readonly denial?: ToolDenial;
     }
   | { readonly kind: "budget"; readonly detail: string }
   /** A structured limit record on the stream (claude's rate_limit_event);
@@ -183,19 +200,31 @@ const claude = (r: Record<string, unknown>): ContentEvent[] => {
     const compaction = claudeCompaction(r);
     if (compaction !== null) events.push(...compaction);
     else events.push({ kind: "progress", label: r.subtype });
-  } else if (r.type === "result" && r.is_error === true) {
-    // A result line marked is_error is a failed turn (max-turns, execution
-    // error, auth wall) - surface it so a streamTurn consumer sees the
-    // failure, not a clean turn. (openSession handles result boundaries
-    // itself.) The harness's own text rides along: without it the
-    // classifier sees only the subtype (often "success") and degrades an
-    // auth wall to a work-verdict task instead of retryable auth.
-    const sub = typeof r.subtype === "string" ? r.subtype : "result error";
-    // Bounded like the native stderr tail (failureFromNative slices to
-    // 512): a result text can carry a full final answer.
-    const detail =
-      typeof r.result === "string" && r.result.length > 0 ? ` (${r.result.slice(0, 512)})` : "";
-    events.push({ kind: "error", message: `turn failed: ${sub}${detail}`, terminal: true });
+  } else if (r.type === "result") {
+    if (Array.isArray(r.permission_denials)) {
+      for (const raw of r.permission_denials) {
+        const denial = asRecord(raw);
+        if (typeof denial?.tool_name !== "string" || denial.tool_name.trim() === "") continue;
+        events.push({
+          kind: "error",
+          message: `Tool permission denied: ${denial.tool_name}`,
+          denial: {
+            tool: denial.tool_name,
+            reason: "",
+            ...callIdOf(denial.tool_use_id),
+            ...inputSummaryOf(denial.tool_input),
+          },
+        });
+      }
+    }
+    if (r.is_error === true) {
+      // The native turn verdict is independent of its denial observations.
+      // Keep the harness's text for auth and other native failure classification.
+      const sub = typeof r.subtype === "string" ? r.subtype : "result error";
+      const detail =
+        typeof r.result === "string" && r.result.length > 0 ? ` (${r.result.slice(0, 512)})` : "";
+      events.push({ kind: "error", message: `turn failed: ${sub}${detail}`, terminal: true });
+    }
   } else if (r.type === "rate_limit_event") {
     // Only "rejected" is a limit; "allowed_warning" still serves the request.
     // overageStatus is a separate billing signal, not a rate limit.

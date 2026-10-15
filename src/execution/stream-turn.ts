@@ -677,7 +677,11 @@ export async function* streamTurn(
     .then(() => queue.close());
 
   try {
-    for await (const event of queue) yield event;
+    let denialCount = 0;
+    for await (const event of queue) {
+      if (event.kind === "error" && event.denial !== undefined) denialCount++;
+      yield event;
+    }
 
     // F-04: a harness binary that is not installed surfaces as an
     // async ENOENT. The adapter records it in startupError and resolves
@@ -802,6 +806,7 @@ export async function* streamTurn(
       // Native status is data, distinct from hcn's CLI exit policy.
       exitCode: approvalBlocked ? null : exitCode,
       cause,
+      ...(denialCount > 0 ? { denialCount } : {}),
       ...(reduced ? { failure: reduced } : {}),
       ...(exitCode !== null && exitCode !== 0 && !killedByAbort && !killedByWatchdog && completion
         ? { completion }

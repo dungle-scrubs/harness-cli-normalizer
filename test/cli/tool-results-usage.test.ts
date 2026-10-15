@@ -122,6 +122,70 @@ for (const runtime of [process.execPath, bun]) {
     }
   }, 30000);
 
+  test(`${runtime}: Claude permission denials are observations and mark the terminal done`, () => {
+    const capture = readFileSync(
+      resolve("test/fixtures/claude-2.1.296/permission-denied.result.ndjson"),
+      "utf8",
+    );
+    const f = fixture(
+      "claude",
+      capture
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line)),
+    );
+    try {
+      const run = spawnSync(
+        runtime,
+        [
+          cli,
+          "run",
+          "claude",
+          "--json",
+          "--questions",
+          "none",
+          "--cwd",
+          f.root,
+          "--prompt",
+          "fixture",
+        ],
+        { cwd: f.root, env: f.env, encoding: "utf8", timeout: 20000 },
+      );
+      expect(run.error).toBeUndefined();
+      expect(run.status, run.stderr).toBe(0);
+      const events = run.stdout
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line));
+      const denials = events.filter((event) => event.kind === "error" && event.denial);
+      expect(denials).toEqual([
+        {
+          kind: "error",
+          message: expect.any(String),
+          denial: {
+            tool: "Bash",
+            reason: "",
+            callId: "toolu_018RHAFRUDCVdcbCtkfzhhiq",
+            inputSummary: expect.any(String),
+          },
+        },
+      ]);
+      expect(JSON.parse(denials[0].denial.inputSummary)).toEqual({
+        command: "node -e \"require('node:fs').writeFileSync('marker.txt', 'hcn-write-probe\\n')\"",
+        description: "Write probe marker file via node",
+      });
+      expect(events.some((event) => event.kind === "failure")).toBe(false);
+      expect(events.at(-1)).toMatchObject({
+        kind: "done",
+        cause: "clean",
+        exitCode: 0,
+        denialCount: 1,
+      });
+    } finally {
+      rmSync(f.root, { recursive: true, force: true });
+    }
+  }, 30000);
+
   test(`${runtime}: human output marks a failed tool without inventing a failed turn`, () => {
     const f = fixture("pi", records);
     try {

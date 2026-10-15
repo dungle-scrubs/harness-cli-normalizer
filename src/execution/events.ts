@@ -16,7 +16,7 @@
  */
 
 import type { CapabilityResult } from "../interpretation/capabilities.js";
-import type { ToolEvent, ToolResultEvent } from "../interpretation/content.js";
+import type { ToolDenial, ToolEvent, ToolResultEvent } from "../interpretation/content.js";
 import type { QuestionMode } from "../interpretation/question.js";
 import type { UsageEvent } from "../interpretation/usage.js";
 import type { CompactionState, CompactionTrigger, LimitCode } from "../knowledge/descriptor.js";
@@ -96,20 +96,24 @@ export type HarnessEvent =
   | { readonly kind: "warning"; readonly message: string }
   /** `terminal: true` marks an error that ended the turn; the matching
    * `failure` (class task) follows it. `denial` is present only for a
-   * refused tool call or rejected question (cursor only in v1): the native
+   * refused tool call or rejected question: the native
    * tool name and the harness's reason, which may be empty. Machine
    * consumers branch on its presence, never on prose (ADR 0002). */
   | {
       readonly kind: "error";
       readonly message: string;
       readonly terminal?: boolean;
-      readonly denial?: { readonly tool: string; readonly reason: string };
+      readonly denial?: ToolDenial;
     }
   | ({ readonly kind: "failure" } & FailureSummary)
   | {
       readonly kind: "done";
       readonly exitCode: number | null;
       readonly cause: ExitCause;
+      /** Positive count of emitted error.denial observations in this turn.
+       * Omitted when none were observed; it does not change the native verdict
+       * or assert that the remaining work succeeded. */
+      readonly denialCount?: number;
       /** On a nonzero one-shot exit, output survived the process failure.
        * message-delivered alone does NOT establish a finished turn;
        * native-terminal means the harness also reported successful turn end.
