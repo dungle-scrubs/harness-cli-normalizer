@@ -269,7 +269,13 @@ policy and writable paths. hcn does not add domains or widen that policy. See Cl
 
 Explicit `--access write --autonomy` keeps the Bash sandbox settings and selects native
 `bypassPermissions`; autonomy alone does not request this sandbox. Other tools follow the native
-permission mode. hcn combines its sandbox and skill-selection fragments into one `--settings`
+permission mode. Keeping filesystem isolation does not establish network confinement: Claude's
+[network approval rules](https://code.claude.com/docs/en/sandboxing#hosts-outside-your-allowed-domains)
+allow hosts outside the allowlist in `bypassPermissions` unless `strictAllowlist`,
+`allowManagedDomainsOnly`, or native denied-domain policy blocks them. This is the documented
+native behavior; the network-plus-autonomy combination was not live-probed in the 2.1.296 qualification.
+
+hcn combines its sandbox and skill-selection fragments into one `--settings`
 argument on fresh, named-resume, and resume-last launches. Caller passthrough stays verbatim:
 on verified Claude 2.1.296, a later native `--settings` replaces earlier CLI settings, so a partial
 caller override can remove hcn's sandbox settings. hcn does not merge caller JSON or settings files.

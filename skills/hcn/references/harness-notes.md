@@ -41,7 +41,12 @@ that loosen sandbox restrictions, including project domain allowlists and extra
 write paths. Trusted user, CLI or managed policy may be needed for installs or
 tests. hcn adds no network allowlist and does not change native policy sources.
 `--autonomy` changes native permission mode but retains this explicit write
-sandbox. Autonomy without explicit write access does not add the sandbox.
+sandbox. It can allow network hosts outside the allowlist unless native strict
+or managed restrictions block them. Preserved filesystem isolation does not
+prove network confinement. This follows Claude's
+[network approval rules](https://code.claude.com/docs/en/sandboxing#hosts-outside-your-allowed-domains),
+not a network-plus-autonomy probe in the 2.1.296 qualification.
+Autonomy without explicit write access does not add the sandbox.
 
 Selected skills share the same owned settings object. This preserves selection
 fields, not a promise that skills load under every native mode: Claude safe mode
