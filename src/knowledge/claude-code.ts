@@ -277,9 +277,33 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
         },
       },
     },
-    // read renders the read preset through the tool list (grant plus deny
-    // complement); write is the harness default and emits nothing.
-    access: { kind: "access", renders: { read: "tool-preset", write: null } },
+    // Write pairs edit approval with native sandboxed Bash approval. The
+    // sandbox must start; native permission and network policies still apply.
+    access: {
+      kind: "access",
+      renders: {
+        read: "tool-preset",
+        write: {
+          value: "acceptEdits",
+          render: {
+            kind: "flag-value",
+            flag: "--permission-mode",
+            extraFlags: [
+              "--settings",
+              JSON.stringify({
+                sandbox: {
+                  enabled: true,
+                  autoAllowBashIfSandboxed: true,
+                  allowUnsandboxedCommands: false,
+                  failIfUnavailable: true,
+                  filesystem: { disabled: false },
+                },
+              }),
+            ],
+          },
+        },
+      },
+    },
     // Persistent auto-memory (loads ~/.claude/projects/<slug>/memory/ into
     // the system prompt each session) is disabled ONLY via env var - there
     // is no argv flag. Live-verified 2.1.241 (evidence:

@@ -31,6 +31,22 @@ describe("--access preset", () => {
     expect(count).toBe(1);
     expect(argv).toContain("read-only");
   });
+  it("Claude write accepts edits and auto-approves shell commands inside a required sandbox", () => {
+    const argv = buildLaunchArgv(claudeCode, { prompt: "hi", access: "write" });
+    expect(argv).toContain("--permission-mode");
+    expect(argv[argv.indexOf("--permission-mode") + 1]).toBe("acceptEdits");
+    expect(argv).toContain("--settings");
+    expect(JSON.parse(argv[argv.indexOf("--settings") + 1] ?? "")).toEqual({
+      sandbox: {
+        enabled: true,
+        autoAllowBashIfSandboxed: true,
+        allowUnsandboxedCommands: false,
+        failIfUnavailable: true,
+        filesystem: { disabled: false },
+      },
+    });
+    expect(argv).not.toContain("--dangerously-skip-permissions");
+  });
   it("codex write -> --sandbox workspace-write once", () => {
     const argv = buildLaunchArgv(codexCli, { prompt: "hi", access: "write" });
     const count = argv.filter((a) => a === "--sandbox").length;
@@ -56,7 +72,7 @@ describe("--access preset", () => {
     expect(both.filter((token) => token === "--force")).toHaveLength(1);
     expect(buildLaunchArgv(cursorCli, { prompt: "hi" })).not.toContain("--force");
   });
-  it("write on claude/pi/muse -> nothing", () => {
+  it("write on Claude/pi/Muse does not set tool-selection flags", () => {
     expect(buildLaunchArgv(claudeCode, { prompt: "hi", access: "write" }).join(" ")).not.toContain(
       "--allowedTools",
     );
