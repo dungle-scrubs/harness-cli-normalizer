@@ -94,6 +94,56 @@ try {
       assert.equal(clean.at(-1).cause, "clean");
       console.log("ok: Claude denial observations and counts match the skill");
     }
+    if (
+      help.stdout
+        .replace(/\s+/g, " ")
+        .includes("claude --permission-mode acceptEdits plus strict native sandbox")
+    ) {
+      const registry = join(root, "skills");
+      for (const name of ["keep", "drop"]) {
+        const directory = join(registry, name);
+        mkdirSync(directory, { recursive: true });
+        writeFileSync(
+          join(directory, "SKILL.md"),
+          `---\nname: ${name}\ndescription: synthetic fixture\n---\nFixture.\n`,
+        );
+      }
+      env.HCN_SKILLS_ROOT = registry;
+      const capture = join(root, "claude-argv.json");
+      stub("claude", [{ type: "result", subtype: "success", is_error: false }], capture);
+      run([
+        "run",
+        "claude",
+        "--json",
+        "--questions",
+        "none",
+        "--access",
+        "write",
+        "--skills",
+        "keep",
+        "--prompt",
+        "fixture",
+      ]);
+      const argv = JSON.parse(readFileSync(capture, "utf8"));
+      assert.deepEqual(
+        argv.slice(argv.indexOf("--permission-mode"), argv.indexOf("--permission-mode") + 2),
+        ["--permission-mode", "acceptEdits"],
+      );
+      assert.equal(argv.includes("--dangerously-skip-permissions"), false);
+      assert.equal(argv.includes("--allowedTools"), false);
+      assert.equal(argv.filter((arg) => arg === "--settings").length, 1);
+      assert.deepEqual(JSON.parse(argv[argv.indexOf("--settings") + 1]), {
+        sandbox: {
+          enabled: true,
+          autoAllowBashIfSandboxed: true,
+          allowUnsandboxedCommands: false,
+          failIfUnavailable: true,
+          filesystem: { disabled: false },
+        },
+        skillOverrides: { drop: "off" },
+      });
+      console.log("ok: Claude write and selected skills share strict native settings");
+    }
     const inspected = spawnSync(bin, ["inspect", "cursor", "--json"], {
       cwd: root,
       env,
