@@ -10668,9 +10668,9 @@
           "harness": "claude",
           "option": "access",
           "supported": [
-            "--access is a preset allowlist, not a filter over --tools/--exclude-tools"
+            "--access selects a permission preset, not a filter over --tools/--exclude-tools"
           ],
-          "message": "claude cannot combine option \"access\" (mutual exclusion); supported: --access is a preset allowlist, not a filter over --tools/--exclude-tools - pass exactly one of them"
+          "message": "claude cannot combine option \"access\" (mutual exclusion); supported: --access selects a permission preset, not a filter over --tools/--exclude-tools - pass exactly one of them"
         }
       },
       "access-from-project": {
@@ -11452,9 +11452,9 @@
           "harness": "codex",
           "option": "access",
           "supported": [
-            "--access is a preset allowlist, not a filter over --tools/--exclude-tools"
+            "--access selects a permission preset, not a filter over --tools/--exclude-tools"
           ],
-          "message": "codex cannot combine option \"access\" (mutual exclusion); supported: --access is a preset allowlist, not a filter over --tools/--exclude-tools - pass exactly one of them"
+          "message": "codex cannot combine option \"access\" (mutual exclusion); supported: --access selects a permission preset, not a filter over --tools/--exclude-tools - pass exactly one of them"
         }
       },
       "access-from-project": {
@@ -12371,9 +12371,9 @@
           "harness": "pi",
           "option": "access",
           "supported": [
-            "--access is a preset allowlist, not a filter over --tools/--exclude-tools"
+            "--access selects a permission preset, not a filter over --tools/--exclude-tools"
           ],
-          "message": "pi cannot combine option \"access\" (mutual exclusion); supported: --access is a preset allowlist, not a filter over --tools/--exclude-tools - pass exactly one of them"
+          "message": "pi cannot combine option \"access\" (mutual exclusion); supported: --access selects a permission preset, not a filter over --tools/--exclude-tools - pass exactly one of them"
         }
       },
       "access-from-project": {
@@ -13349,9 +13349,9 @@
           "harness": "muse",
           "option": "access",
           "supported": [
-            "--access is a preset allowlist, not a filter over --tools/--exclude-tools"
+            "--access selects a permission preset, not a filter over --tools/--exclude-tools"
           ],
-          "message": "muse cannot combine option \"access\" (mutual exclusion); supported: --access is a preset allowlist, not a filter over --tools/--exclude-tools - pass exactly one of them"
+          "message": "muse cannot combine option \"access\" (mutual exclusion); supported: --access selects a permission preset, not a filter over --tools/--exclude-tools - pass exactly one of them"
         }
       },
       "access-from-project": {
@@ -14381,9 +14381,9 @@
           "harness": "cursor",
           "option": "access",
           "supported": [
-            "--access is a preset allowlist, not a filter over --tools/--exclude-tools"
+            "--access selects a permission preset, not a filter over --tools/--exclude-tools"
           ],
-          "message": "cursor cannot combine option \"access\" (mutual exclusion); supported: --access is a preset allowlist, not a filter over --tools/--exclude-tools - pass exactly one of them"
+          "message": "cursor cannot combine option \"access\" (mutual exclusion); supported: --access selects a permission preset, not a filter over --tools/--exclude-tools - pass exactly one of them"
         }
       },
       "access-from-project": {
@@ -15215,9 +15215,9 @@
           "harness": "antigravity",
           "option": "access",
           "supported": [
-            "--access is a preset allowlist, not a filter over --tools/--exclude-tools"
+            "--access selects a permission preset, not a filter over --tools/--exclude-tools"
           ],
-          "message": "antigravity cannot combine option \"access\" (mutual exclusion); supported: --access is a preset allowlist, not a filter over --tools/--exclude-tools - pass exactly one of them"
+          "message": "antigravity cannot combine option \"access\" (mutual exclusion); supported: --access selects a permission preset, not a filter over --tools/--exclude-tools - pass exactly one of them"
         }
       },
       "access-from-project": {
@@ -16103,9 +16103,9 @@
           "harness": "popeye",
           "option": "access",
           "supported": [
-            "--access is a preset allowlist, not a filter over --tools/--exclude-tools"
+            "--access selects a permission preset, not a filter over --tools/--exclude-tools"
           ],
-          "message": "popeye cannot combine option \"access\" (mutual exclusion); supported: --access is a preset allowlist, not a filter over --tools/--exclude-tools - pass exactly one of them"
+          "message": "popeye cannot combine option \"access\" (mutual exclusion); supported: --access selects a permission preset, not a filter over --tools/--exclude-tools - pass exactly one of them"
         }
       },
       "access-from-project": {
