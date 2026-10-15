@@ -5,8 +5,8 @@ Shared, harness-independent guidance for any agent working in this repo.
 ## What this is
 
 A CLI product (`hcn`) that normalizes the differences between AI coding-agent
-CLIs (Claude Code, Codex, pi, Muse, Cursor CLI, Antigravity CLI) into one stable
-surface. Each harness is described as pure data; interpretation and execution
+CLIs (Claude Code, Codex, pi, Muse, Cursor CLI, Antigravity CLI, and popeye) into one
+stable surface. Each harness is described as pure data; interpretation and execution
 layers consume those descriptors. The `hcn` binary is the product; internal
 library layers are not an install surface. The package is published to npm as
 `@dungle-scrubs/harness-cli-normalizer` (`publishConfig.access: public`) and is
@@ -26,7 +26,7 @@ knowledge        -> interpretation        -> execution
 
 - `src/knowledge/` - immutable harness **descriptors** as pure data. One file
   per harness (`claude-code.ts`, `codex.ts`, `pi.ts`, `muse.ts`, `cursor.ts`,
-  `antigravity.ts`)
+  `antigravity.ts`, `popeye.ts`)
   plus shared types in `descriptor.ts`. Descriptors are `deepFreeze`'d. Vocabularies that
   consumers branch on (`LimitCode`, `AuthFailureKind`, `HarnessMode`) are
   closed unions on purpose - a descriptor cannot invent a code a consumer has
