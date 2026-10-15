@@ -2,7 +2,7 @@
  * Caller-directed skills allowlist rendering (issue #38), descriptor-driven
  * (RFC-02 change 2). The delegating agent picks the subset from its own
  * registry; the CLI supplies the resolved picks and the registry's known
- * names; this module turns them into per-harness argv tokens by reading
+ * names; this module turns them into per-harness argv parts by reading
  * the descriptor's `skills` field:
  *
  * - a load flag (pi): the discovery.skills facet off, then one load per
@@ -34,10 +34,11 @@
  * - null (muse): refuse, with the support list derived like every other
  *   refusal's.
  */
-import type { HarnessDescriptor } from "../knowledge/descriptor.js";
+import type { HarnessDescriptor, JsonSettingsFragment } from "../knowledge/descriptor.js";
 import { tokensFor } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import { hintFor } from "./hints.js";
+import type { ArgvParts } from "./inline-settings.js";
 import { ArgvRefusalError } from "./refusal.js";
 import { supportedBy } from "./support.js";
 
@@ -64,10 +65,10 @@ const complementOf = (skills: SkillsSelection): readonly string[] => {
   return skills.known.filter((name) => !picks.has(name));
 };
 
-const settingsOverrides = (skills: SkillsSelection): readonly string[] => {
+const settingsOverrides = (skills: SkillsSelection): JsonSettingsFragment => {
   const offs: Record<string, string> = {};
   for (const name of complementOf(skills)) offs[name] = "off";
-  return ["--settings", JSON.stringify({ skillOverrides: offs })];
+  return { flag: "--settings", value: { skillOverrides: offs } };
 };
 
 const configSkillsArray = (skills: SkillsSelection): readonly string[] => {
@@ -83,11 +84,8 @@ const configSkillsArray = (skills: SkillsSelection): readonly string[] => {
   return entries.length === 0 ? [] : ["-c", `skills.config=[${entries.join(", ")}]`];
 };
 
-export const renderSkillsSelection = (
-  h: HarnessDescriptor,
-  skills: SkillsSelection,
-): readonly string[] => {
-  if (skills.picks.length === 0) return [];
+export const renderSkillsSelection = (h: HarnessDescriptor, skills: SkillsSelection): ArgvParts => {
+  if (skills.picks.length === 0) return { tokens: [], settings: [] };
 
   if (h.skills === null) {
     throw new ArgvRefusalError({
@@ -114,16 +112,16 @@ export const renderSkillsSelection = (
         : undefined;
     const tokens: string[] = facet === undefined ? [] : [...tokensFor(facet.render)];
     for (const path of skills.picks) tokens.push(h.skills.loadFlag, path);
-    return tokens;
+    return { tokens, settings: [] };
   }
 
   switch (h.skills.overridesVia) {
     case "settings-skilloverrides":
-      return settingsOverrides(skills);
+      return { tokens: [], settings: [settingsOverrides(skills)] };
     case "config-skills-array":
-      return configSkillsArray(skills);
+      return { tokens: configSkillsArray(skills), settings: [] };
     case null:
-      return [];
+      return { tokens: [], settings: [] };
     default: {
       const exhaustive: never = h.skills.overridesVia;
       return exhaustive;

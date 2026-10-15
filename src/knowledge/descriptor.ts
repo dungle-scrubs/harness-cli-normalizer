@@ -251,6 +251,16 @@ export const DISCOVERY_FACETS = deepFreeze([
 ] as const);
 export type DiscoveryFacet = (typeof DISCOVERY_FACETS)[number];
 
+export type JsonValue = string | number | boolean | null | JsonObject | readonly JsonValue[];
+export interface JsonObject {
+  readonly [key: string]: JsonValue;
+}
+
+export interface JsonSettingsFragment {
+  readonly flag: string;
+  readonly value: JsonObject;
+}
+
 export type OptionRender =
   /** `--flag <value>`; `extraFlags` are fixed companion tokens emitted
    *  before the value pair (claude's --system-prompt pairs with
@@ -260,6 +270,12 @@ export type OptionRender =
       readonly flag: string;
       readonly extraFlags?: readonly string[];
     }
+  /** Fixed inline JSON, composed with other hcn-owned fragments before argv
+   * serialization. Companion flags do not participate in JSON composition. */
+  | (JsonSettingsFragment & {
+      readonly kind: "json-settings";
+      readonly extraFlags?: readonly string[];
+    })
   /** A fixed multi-token flag set emitted verbatim, value-less. */
   | { readonly kind: "flag-list"; readonly flags: readonly string[] }
   /** A spawn-environment assignment, not an argv token (claude's
@@ -397,6 +413,8 @@ export const tokensFor = (
         throw new Error(`render ${render.flag} needs a value and none was given`);
       }
       return [...(render.extraFlags ?? []), render.flag, value];
+    case "json-settings":
+      return [...(render.extraFlags ?? []), render.flag, JSON.stringify(render.value)];
     case "config-kv":
       if (value === undefined) {
         throw new Error(`render ${render.flag} ${render.key} needs a value and none was given`);

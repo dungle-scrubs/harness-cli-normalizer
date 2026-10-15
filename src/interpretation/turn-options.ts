@@ -13,17 +13,24 @@
  * knowledge layer (RFC-02 change 1): every arm here validates its value,
  * resolves the render for the phase, and calls it.
  */
-import type { AccessValue, HarnessDescriptor, SpecBase } from "../knowledge/descriptor.js";
+import type {
+  AccessValue,
+  HarnessDescriptor,
+  JsonSettingsFragment,
+  OptionRender,
+  Quoting,
+  SpecBase,
+} from "../knowledge/descriptor.js";
 import {
   ACCESS_VALUES,
   DISCOVERY_FACETS,
   resolveRender,
   TURN_OPTION_KEYS,
-  tokensFor,
 } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
 import type { DiscoveryOptions, TurnOptions } from "./argv.js";
 import { hintFor } from "./hints.js";
+import { type ArgvParts, renderArgvParts } from "./inline-settings.js";
 import { assertIsolationCombination } from "./isolation.js";
 import { ArgvRefusalError } from "./refusal.js";
 import { supportedBy } from "./support.js";
@@ -37,12 +44,11 @@ const isPlainObject = (v: unknown): v is Record<string, unknown> =>
 /** Render turn options for a given phase, in TURN_OPTION_KEYS order and with
  * discovery facets in DISCOVERY_FACETS order, de-duplicating by exact token
  * sequence (first wins) so claude's two facets sharing one flag emit once.
- * Returns argv tokens AND descriptor-derived spawn-env assignments (the
- * `env` render kind contributes no tokens - the execution layer merges
+ * Returns tokens, composable inline JSON settings and spawn-env assignments.
+ * The `env` render kind contributes no tokens - the execution layer merges
  * `env` over the caller's env at spawn, so a descriptor-derived disable
- * wins over a contradicting caller-set variable). */
-export interface RenderedTurnOptions {
-  readonly tokens: string[];
+ * wins over a contradicting caller-set variable. */
+export interface RenderedTurnOptions extends ArgvParts {
   readonly env: Record<string, string>;
 }
 
@@ -55,6 +61,12 @@ export const renderTurnOptions = (
   const env: Record<string, string> = {};
   assertIsolationCombination(h, opts);
   const sequences: string[][] = [];
+  const settings: JsonSettingsFragment[] = [];
+  const emit = (render: OptionRender, value?: string, quoting: Quoting = "toml"): void => {
+    const parts = renderArgvParts(render, value, quoting);
+    sequences.push([...parts.tokens]);
+    settings.push(...parts.settings);
+  };
   // The turn option the access preset displaces when set (codex: sandbox),
   // read from the descriptor so no arm below branches on a harness name.
   const accessSpec = h.turnOptions.access;
@@ -179,7 +191,7 @@ export const renderTurnOptions = (
             supported: ["flag-list only for discovery"],
           });
         }
-        sequences.push([...tokensFor(effective)]);
+        emit(effective);
       }
       continue;
     }
@@ -242,7 +254,7 @@ export const renderTurnOptions = (
         render.flags.length === 1 &&
         render.flags[0] === h.autonomy?.flag;
       if (alreadyRenderedByAutonomy) continue;
-      sequences.push([...tokensFor(render, target.value)]);
+      emit(render, target.value);
       continue;
     }
 
@@ -261,7 +273,7 @@ export const renderTurnOptions = (
         const effective = resolveRender(spec, phase);
         if (effective === null) continue; // should not happen for launch
         // config-kv is allowed for enum (closed vocab) - no rejection needed here
-        sequences.push([...tokensFor(effective, spec.default)]);
+        emit(effective, spec.default);
       }
       continue;
     }
@@ -360,7 +372,7 @@ export const renderTurnOptions = (
             detail: raw,
           });
         }
-        sequences.push([...tokensFor(render, raw)]);
+        emit(render, raw);
         break;
       }
       case "enum": {
@@ -382,7 +394,7 @@ export const renderTurnOptions = (
             detail: raw,
           });
         }
-        sequences.push([...tokensFor(render, raw)]);
+        emit(render, raw);
         break;
       }
       case "prompt-text": {
@@ -399,7 +411,7 @@ export const renderTurnOptions = (
             detail: typeof raw === "string" ? "(empty)" : String(raw),
           });
         }
-        sequences.push([...tokensFor(render, raw, "verbatim")]);
+        emit(render, raw, "verbatim");
         break;
       }
       case "path-list": {
@@ -420,8 +432,7 @@ export const renderTurnOptions = (
             detail: String(bad ?? raw),
           });
         }
-        for (const path of paths)
-          sequences.push([...tokensFor(render, path as string, "verbatim")]);
+        for (const path of paths) emit(render, path as string, "verbatim");
         break;
       }
       case "selector": {
@@ -443,7 +454,7 @@ export const renderTurnOptions = (
             detail: raw,
           });
         }
-        sequences.push([...tokensFor(render, raw)]);
+        emit(render, raw);
         break;
       }
       case "toggle": {
@@ -464,7 +475,7 @@ export const renderTurnOptions = (
           env[render.name] = render.value;
           break;
         }
-        sequences.push([...tokensFor(render, String(raw))]);
+        emit(render, String(raw));
         break;
       }
       case "integer": {
@@ -486,7 +497,7 @@ export const renderTurnOptions = (
             detail: String(raw),
           });
         }
-        sequences.push([...tokensFor(render, String(raw), "verbatim")]);
+        emit(render, String(raw), "verbatim");
         break;
       }
       case "effort-in-model": {
@@ -503,7 +514,7 @@ export const renderTurnOptions = (
             detail: String(raw),
           });
         }
-        sequences.push([...tokensFor(render)]);
+        emit(render);
         break;
       }
       default: {
@@ -528,5 +539,5 @@ export const renderTurnOptions = (
     seen.add(k);
     deduped.push(seq);
   }
-  return { tokens: deduped.flat(), env };
+  return { tokens: deduped.flat(), env, settings };
 };

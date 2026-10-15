@@ -387,11 +387,15 @@
         "argv": [
           "claude",
           "-p",
+          "--permission-mode",
+          "acceptEdits",
           "hi",
           "--output-format",
           "stream-json",
           "--verbose",
-          "--include-partial-messages"
+          "--include-partial-messages",
+          "--settings",
+          "{\"sandbox\":{\"enabled\":true,\"autoAllowBashIfSandboxed\":true,\"allowUnsandboxedCommands\":false,\"failIfUnavailable\":true,\"filesystem\":{\"disabled\":false}}}"
         ]
       },
       "access-read-no-tools": {
@@ -4766,11 +4770,15 @@
           "--resume",
           "0199a4c5-1111-2222-3333-444455556666",
           "-p",
+          "--permission-mode",
+          "acceptEdits",
           "hi",
           "--output-format",
           "stream-json",
           "--verbose",
-          "--include-partial-messages"
+          "--include-partial-messages",
+          "--settings",
+          "{\"sandbox\":{\"enabled\":true,\"autoAllowBashIfSandboxed\":true,\"allowUnsandboxedCommands\":false,\"failIfUnavailable\":true,\"filesystem\":{\"disabled\":false}}}"
         ]
       },
       "access-read-no-tools": {

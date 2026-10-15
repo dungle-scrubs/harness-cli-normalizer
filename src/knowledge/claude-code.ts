@@ -284,22 +284,19 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
       renders: {
         read: "tool-preset",
         write: {
-          value: "acceptEdits",
           render: {
-            kind: "flag-value",
-            flag: "--permission-mode",
-            extraFlags: [
-              "--settings",
-              JSON.stringify({
-                sandbox: {
-                  enabled: true,
-                  autoAllowBashIfSandboxed: true,
-                  allowUnsandboxedCommands: false,
-                  failIfUnavailable: true,
-                  filesystem: { disabled: false },
-                },
-              }),
-            ],
+            kind: "json-settings",
+            flag: "--settings",
+            extraFlags: ["--permission-mode", "acceptEdits"],
+            value: {
+              sandbox: {
+                enabled: true,
+                autoAllowBashIfSandboxed: true,
+                allowUnsandboxedCommands: false,
+                failIfUnavailable: true,
+                filesystem: { disabled: false },
+              },
+            },
           },
         },
       },

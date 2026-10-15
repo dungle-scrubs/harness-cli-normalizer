@@ -47,6 +47,24 @@ describe("--access preset", () => {
     });
     expect(argv).not.toContain("--dangerously-skip-permissions");
   });
+  it("Claude write and a skills allowlist share one native settings object", () => {
+    const argv = buildLaunchArgv(claudeCode, {
+      prompt: "hi",
+      access: "write",
+      skills: { picks: ["/skills/keep"], known: ["keep", "drop"] },
+    });
+    expect(argv.filter((token) => token === "--settings")).toHaveLength(1);
+    expect(JSON.parse(argv[argv.indexOf("--settings") + 1] ?? "")).toEqual({
+      sandbox: {
+        enabled: true,
+        autoAllowBashIfSandboxed: true,
+        allowUnsandboxedCommands: false,
+        failIfUnavailable: true,
+        filesystem: { disabled: false },
+      },
+      skillOverrides: { drop: "off" },
+    });
+  });
   it("codex write -> --sandbox workspace-write once", () => {
     const argv = buildLaunchArgv(codexCli, { prompt: "hi", access: "write" });
     const count = argv.filter((a) => a === "--sandbox").length;
