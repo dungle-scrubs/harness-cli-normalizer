@@ -331,7 +331,9 @@ transport. From hcn 0.9.6 also pi's `WebSocket idle|connect timeout after
 start or after an error colon; an auth or limit cause inside still wins),
 and an `overloaded_error` / HTTP 529 provider error; from hcn 0.9.8 also
 OpenAI's `Our servers are currently overloaded` and `The server is
-overloaded`, at line start or after an error colon), unavailable (the
+overloaded`, at line start or after an error colon; also the bare
+`terminated` stream error and `An error occurred while processing your
+request`, at line start or after an error colon, not mid-sentence prose), unavailable (the
 provider cannot serve the requested model or route - model not found, not
 loaded, or `'<id>' model is not supported`; retryable, route elsewhere),
 trust-refused (cursor workspace-trust gate - untrusted directory with no
