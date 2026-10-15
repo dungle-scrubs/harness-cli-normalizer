@@ -209,55 +209,44 @@ describe("planTurn cursor effort resolve step", () => {
     expect(r.options.sandbox).toBeUndefined();
   });
 
-  test("config-tier access read refuses unsupported-option, never diverges to a wide run", async () => {
-    // H1: a read-only project or user policy must refuse like an arg-tier
-    // value, not drop to divergence while argv ends in --force.
-    const withProjectAccess: PlanDeps = {
-      ...deps,
-      loadProjectConfig: () => ({ config: { access: "read" } }),
-    };
-    const project = await planTurn(
-      cursorCli,
-      ["--prompt", "hi"],
-      { command: "run" },
-      withProjectAccess,
-    );
-    expect(project).toMatchObject({ kind: "refusal", refusal: { issue: "unsupported-option" } });
-    const withUserAccess: PlanDeps = {
-      ...deps,
-      loadUserConfig: () => ({ config: { access: "read" } }),
-    };
-    const user = await planTurn(cursorCli, ["--prompt", "hi"], { command: "run" }, withUserAccess);
-    expect(user).toMatchObject({ kind: "refusal", refusal: { issue: "unsupported-option" } });
-    const withProjectWrite: PlanDeps = {
-      ...deps,
-      loadProjectConfig: () => ({ config: { access: "write" } }),
-    };
-    const write = await planTurn(
-      cursorCli,
-      ["--prompt", "hi"],
-      { command: "run" },
-      withProjectWrite,
-    );
-    expect(write).toMatchObject({ kind: "refusal", refusal: { issue: "unsupported-option" } });
-  });
+  test.each(["read", "write"] as const)(
+    "config-tier access %s renders from either config tier",
+    async (access) => {
+      for (const configDeps of [
+        { ...deps, loadProjectConfig: () => ({ config: { access } }) },
+        { ...deps, loadUserConfig: () => ({ config: { access } }) },
+      ]) {
+        const outcome = await planTurn(
+          cursorCli,
+          ["--prompt", "hi"],
+          { command: "run" },
+          configDeps,
+        );
+        expect(outcome.kind).toBe("plan");
+        if (outcome.kind !== "plan") return;
+        expect(outcome.plan.argv).toContain(access === "read" ? "ask" : "--force");
+        if (access === "read") expect(outcome.plan.argv).not.toContain("--force");
+        expect(outcome.plan.provenance).toContainEqual(
+          expect.objectContaining({ key: "access", value: access }),
+        );
+      }
+    },
+  );
 
-  test("explicit --access refuses unsupported-option on launch and resume", async () => {
-    // Launch must refuse, not diverge: a restriction request must never
-    // degrade to a full-default run. Resume refuses through the renderer.
-    const launch = await planTurn(
-      cursorCli,
-      ["--prompt", "hi", "--access", "read"],
-      { command: "run" },
-      deps,
-    );
-    expect(launch).toMatchObject({ kind: "refusal", refusal: { issue: "unsupported-option" } });
-    const resume = await planTurn(
-      cursorCli,
-      ["--prompt", "hi", "--resume", "0199a4c5-1111-2222-3333-444455556666", "--access", "read"],
-      { command: "run" },
-      deps,
-    );
-    expect(resume).toMatchObject({ kind: "refusal", refusal: { issue: "unsupported-option" } });
-  });
+  test.each(["read", "write"] as const)(
+    "explicit access %s renders on launch and resume",
+    async (access) => {
+      for (const resume of [[], ["--resume", "0199a4c5-1111-2222-3333-444455556666"]]) {
+        const outcome = await planTurn(
+          cursorCli,
+          ["--prompt", "hi", "--access", access, ...resume],
+          { command: "run" },
+          deps,
+        );
+        expect(outcome.kind).toBe("plan");
+        if (outcome.kind !== "plan") return;
+        expect(outcome.plan.argv).toContain(access === "read" ? "ask" : "--force");
+      }
+    },
+  );
 });

@@ -95,6 +95,10 @@ hcn run claude "find bugs in src/" --context-window 200000
 tool names on every harness: `read`, `write`, `edit`, `shell`, `grep`, `glob`, `list`, `web-fetch`,
 `web-search`, `subagent`, and `skill`. `--skills` limits skills in the same way.
 
+On Cursor, `--access read` selects native ask mode. **Cursor write access is unconfined**:
+`--access write` renders `--force`, allowing commands and bypassing workspace trust. It does not
+provide a workspace sandbox; native explicit denials still apply.
+
 ### Read results as JSON
 
 ```console
@@ -105,8 +109,12 @@ $ hcn run claude "name three primes, nothing else" --model haiku --json
 {"kind":"done","exitCode":0,"cause":"clean","escalation":{"mode":"ask","detection":"none"}}
 ```
 
-`--json` prints one JSON event per line. The format is the same for every harness, and the last
-line is always `done`. On a nonzero run exit, `done.completion` preserves output evidence:
+`--json` prints one JSON event per line. Native tool outputs arrive as `tool-result` events,
+including structured extension results and error flags when reported. Native token counts and
+cost estimates arrive as scoped `usage` events. A clean `done` does not mean every tool succeeded;
+check the tool results. See the [event contract](docs/reference.md#tool-results-and-usage).
+The format is the same for every harness, and the last line is always `done`.
+On a nonzero run exit, `done.completion` preserves output evidence:
 `native-terminal` means the harness reported successful turn completion;
 `message-delivered` means assistant text arrived without confirmed turn completion.
 The process failure remains in `cause`/`failure`, and `exitCode` keeps the harness's actual status.

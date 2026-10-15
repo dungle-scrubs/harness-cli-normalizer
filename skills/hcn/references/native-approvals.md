@@ -34,7 +34,13 @@ conversation service.
 complete plain-text details, and choices with ID, label and scope.
 `approval-disposition` reports sent or rejected with a reason.
 `approval-cleared` means the request stopped waiting, not that its tool worked.
-Render subsequent output for the result.
+Render subsequent output for the result. `tool-result` retains each completed
+native command/file item; match it to `tool.callId` when present. Inspect the
+result for workflow status rather than treating a clean turn as tool success.
+`usage` reports cumulative session `tokenUsage.total`, even on thread-only
+updates; keep the latest snapshot instead of adding it to earlier snapshots.
+A session snapshot can precede identity confirmation; it attests neither settings
+nor turn completion.
 
 Command choices can grant once, for the native session, or through an offered
 persistent command-prefix rule. File session grants cover future changes to
@@ -51,7 +57,7 @@ or sending a choice to a replacement process. HCN retains no approval state
 across processes.
 
 Bounds: 4 KiB per decision including newline, 64 KiB UTF-8 details, 16 choices,
-32 pending requests, 4096 request identities and recorded decisions per process.
+32 pending requests or buffered pre-ack records, 4096 request identities and recorded decisions per process.
 Human waits pause inactivity detection; explicit `--timeout` keeps running.
 Initialize, resume and turn acknowledgement each have a 30-second deadline.
 EOF on decision stdin ends the response and cleans up the child.

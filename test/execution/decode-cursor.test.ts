@@ -25,8 +25,9 @@ const rejectedCompletion = (callId: string): Record<string, unknown> => ({
 describe("decode cursor denials", () => {
   test("a rejected completion surfaces tool plus error with the denial payload", () => {
     const events = decodeParsed(cursorCli, rejectedCompletion("call-1"), freshDecodeState(), "");
-    expect(events.map((e) => e.kind)).toEqual(["tool", "error"]);
-    const error = events[1];
+    expect(events.map((e) => e.kind)).toEqual(["tool", "tool-result", "error"]);
+    expect(events[1]).toMatchObject({ callId: "call-1", isError: true });
+    const error = events[2];
     if (error?.kind !== "error") throw new Error("expected an error event");
     expect(error.message).toBe("cursor denied webSearchToolCall: needs approval");
     expect(error.denial).toEqual({ tool: "webSearchToolCall", reason: "needs approval" });
@@ -49,8 +50,8 @@ describe("decode cursor denials", () => {
     const first = decodeParsed(cursorCli, started, state, "");
     const second = decodeParsed(cursorCli, completed, state, "");
     expect(first.map((e) => e.kind)).toEqual(["tool"]);
-    expect(second.map((e) => e.kind)).toEqual(["error"]);
-    const denial = second[0];
+    expect(second.map((e) => e.kind)).toEqual(["tool-result", "error"]);
+    const denial = second[1];
     if (denial?.kind !== "error") throw new Error("expected an error event");
     expect(denial.message).toBe("cursor denied shellToolCall (no reason given)");
     expect(denial.denial).toEqual({ tool: "shellToolCall", reason: "" });

@@ -107,6 +107,8 @@ These translate and decide nothing:
 
 - argv construction and per-harness flag spellings
 - the `HarnessEvent` vocabulary and the exit-code contract
+- native tool results and scoped token/cost observations; callers interpret
+  tool-specific outcomes and own cross-turn accounting
 - failure **classification** - reading a stream and naming what happened
 - the tool vocabulary, with `native:` passthrough for names hcn cannot vouch for
 - access presets rendered per harness (`--tools`, `--sandbox`, category switches)

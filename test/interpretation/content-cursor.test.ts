@@ -82,17 +82,30 @@ describe("cursor tool calls", () => {
     session_id: sid,
   });
 
-  test("started emits one tool event and success completion emits nothing", () => {
+  test("started emits one tool event and success completion emits its result", () => {
     const first = contentEventsWithState("cursor", started("tool-1"), freshCursorReaderState());
     expect(first.events).toEqual([
-      { kind: "tool", name: "readToolCall", input: { path: "/tmp/ws/notes.txt" } },
+      {
+        kind: "tool",
+        name: "readToolCall",
+        callId: "tool-1",
+        input: { path: "/tmp/ws/notes.txt" },
+      },
     ]);
     const second = contentEventsWithState(
       "cursor",
       completed("tool-1", { success: { content: "alpha" } }),
       first.state,
     );
-    expect(second.events).toEqual([]);
+    expect(second.events).toEqual([
+      {
+        kind: "tool-result",
+        name: "readToolCall",
+        callId: "tool-1",
+        result: { success: { content: "alpha" } },
+        isError: false,
+      },
+    ]);
   });
 
   test("rejected completion emits a denial error with the specified message", () => {
@@ -103,6 +116,13 @@ describe("cursor tool calls", () => {
       first.state,
     );
     expect(second.events).toEqual([
+      {
+        kind: "tool-result",
+        name: "readToolCall",
+        callId: "tool-1",
+        result: { rejected: { reason: "User Rejected" } },
+        isError: true,
+      },
       {
         kind: "error",
         message: "cursor denied readToolCall: User Rejected",
@@ -119,6 +139,13 @@ describe("cursor tool calls", () => {
       first.state,
     );
     expect(second.events).toEqual([
+      {
+        kind: "tool-result",
+        name: "readToolCall",
+        callId: "tool-2",
+        result: { rejected: { reason: "" } },
+        isError: true,
+      },
       {
         kind: "error",
         message: "cursor denied readToolCall (no reason given)",
@@ -177,7 +204,15 @@ describe("cursor interaction queries", () => {
       {
         kind: "tool",
         name: "webSearchToolCall",
+        callId: "tool-9",
         input: { searchTerm: "example.com page title", toolCallId: "tool-9" },
+      },
+      {
+        kind: "tool-result",
+        name: "webSearchToolCall",
+        callId: "tool-9",
+        result: { rejected: { reason: "User Rejected" } },
+        isError: true,
       },
       {
         kind: "error",
@@ -193,7 +228,7 @@ describe("cursor interaction queries", () => {
     ]);
   });
 
-  test("an unknown success completion emits the tool event only, with empty input", () => {
+  test("an unknown success completion emits the tool and result, with empty input", () => {
     const done = contentEventsWithState(
       "cursor",
       {
@@ -208,7 +243,16 @@ describe("cursor interaction queries", () => {
       },
       freshCursorReaderState(),
     );
-    expect(done.events).toEqual([{ kind: "tool", name: "shellToolCall" }]);
+    expect(done.events).toEqual([
+      { kind: "tool", name: "shellToolCall", callId: "tool-new" },
+      {
+        kind: "tool-result",
+        name: "shellToolCall",
+        callId: "tool-new",
+        result: { success: { exitCode: 0 } },
+        isError: false,
+      },
+    ]);
   });
 });
 
@@ -237,7 +281,15 @@ describe("cursor reader state", () => {
       freshCursorReaderState(),
     );
     const done = contentEventsWithState("cursor", okCompleted("tool-t"), start.state);
-    expect(done.events).toEqual([]);
+    expect(done.events).toEqual([
+      {
+        kind: "tool-result",
+        name: "shellToolCall",
+        callId: "tool-t",
+        result: { success: { exitCode: 0 } },
+        isError: false,
+      },
+    ]);
     // A duplicate completion for the settled id emits nothing on success...
     const dup = contentEventsWithState("cursor", okCompleted("tool-t"), done.state);
     expect(dup.events).toEqual([]);
@@ -285,11 +337,27 @@ describe("cursor reader state", () => {
     for (let i = 1; i < 129; i++) {
       const out = contentEventsWithState("cursor", okCompleted(`c${i}`), state);
       if (out.state === null) throw new Error("expected cursor reader state");
-      expect(out.events).toEqual([]);
+      expect(out.events).toEqual([
+        {
+          kind: "tool-result",
+          name: "shellToolCall",
+          callId: `c${i}`,
+          result: { success: { exitCode: 0 } },
+          isError: false,
+        },
+      ]);
       state = out.state;
     }
     const late = contentEventsWithState("cursor", okCompleted("c0"), state);
-    expect(late.events).toEqual([]);
+    expect(late.events).toEqual([
+      {
+        kind: "tool-result",
+        name: "shellToolCall",
+        callId: "c0",
+        result: { success: { exitCode: 0 } },
+        isError: false,
+      },
+    ]);
   });
 
   test("pending and tombstones hold 128 entries with drop-oldest into tombstones", () => {

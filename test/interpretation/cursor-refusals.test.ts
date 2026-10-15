@@ -1,8 +1,7 @@
 /**
  * RFC-05 Phase 4: cursor refusal pins at the argv seam. Tools selection
  * refuses (flags are null like codex/muse) with the cursor config-file
- * hint; session open refuses no-session-mode; explicit access values
- * refuse unsupported-option. Sandbox launch/resume refusal plus
+ * hint; session open refuses no-session-mode. Sandbox launch/resume refusal plus
  * profile-tier divergence live in plan-turn-cursor; passthrough placement
  * (prompt-joins refusal included) lives in argv-passthrough-placement.
  */
@@ -46,14 +45,12 @@ describe("cursor refusals", () => {
     expect(err.harness).toBe("cursor");
   });
 
-  test("--access read refuses unsupported-option naming the expressible options", () => {
-    // The house convention lists the harness's other expressible options
-    // in supported (claude lists seven, cursor lists its one: effort).
-    // The RFC Sandbox section says "empty supported"; the code follows
-    // the convention instead. Recorded as an RFC difference, not changed.
-    const err = refusalOf(() => buildLaunchArgv(cursorCli, { prompt: "hi", access: "read" }));
+  test("explicit sandbox still refuses, even though access read selects ask mode", () => {
+    const err = refusalOf(() =>
+      buildLaunchArgv(cursorCli, { prompt: "hi", sandbox: "workspace-write" }),
+    );
     expect(err.issue).toBe("unsupported-option");
-    expect(err.option).toBe("access");
-    expect(err.supported).toEqual(["effort"]);
+    expect(err.option).toBe("sandbox");
+    expect(err.supported).toEqual(["effort", "access"]);
   });
 });

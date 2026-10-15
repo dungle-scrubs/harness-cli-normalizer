@@ -5,6 +5,7 @@ import { resolveEffectiveOptions } from "../../src/interpretation/resolve-option
 import { renderTurnOptions } from "../../src/interpretation/turn-options.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
+import { cursorCli } from "../../src/knowledge/cursor.js";
 import { museCode } from "../../src/knowledge/muse.js";
 import { piCli } from "../../src/knowledge/pi.js";
 
@@ -40,6 +41,20 @@ describe("--access preset", () => {
     const argv = buildLaunchArgv(museCode, { prompt: "hi", access: "read" });
     expect(argv).toContain("--disable-write");
     expect(argv).toContain("--disable-shell");
+  });
+  it("Cursor access read selects ask mode; write grants commands without claiming a sandbox", () => {
+    const read = buildLaunchArgv(cursorCli, { prompt: "hi", access: "read" });
+    expect(read.slice(read.indexOf("--mode"), read.indexOf("--mode") + 2)).toEqual([
+      "--mode",
+      "ask",
+    ]);
+    expect(read).not.toContain("--force");
+    const write = buildLaunchArgv(cursorCli, { prompt: "hi", access: "write" });
+    expect(write).toContain("--force");
+    expect(write).not.toContain("--sandbox");
+    const both = buildLaunchArgv(cursorCli, { prompt: "hi", access: "write", autonomy: true });
+    expect(both.filter((token) => token === "--force")).toHaveLength(1);
+    expect(buildLaunchArgv(cursorCli, { prompt: "hi" })).not.toContain("--force");
   });
   it("write on claude/pi/muse -> nothing", () => {
     expect(buildLaunchArgv(claudeCode, { prompt: "hi", access: "write" }).join(" ")).not.toContain(

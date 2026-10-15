@@ -208,16 +208,20 @@ test(
   TEST_TIMEOUT_MS,
 );
 
-test(
-  "public native approvals resume the exact thread and answer one live request before cleanup",
-  async () => {
+test.each([
+  [bun, cli],
+  [process.execPath, resolve("dist/cli.js")],
+  [bun, resolve("dist/cli.js")],
+])(
+  "%s %s: public native approvals preserve observations and answer one live request before cleanup",
+  async (runtime, entry) => {
     const root = realpathSync(mkdtempSync(join(cliFixtureTmpdir(), "hcn-native-approval-")));
     try {
       const { env, fingerprint, nativeLog } = nativeApprovalFixture(root);
       const child = spawn(
-        bun,
+        runtime,
         [
-          cli,
+          entry,
           "run",
           "codex",
           "--native-approvals",
@@ -283,6 +287,53 @@ test(
         true,
       );
       expect(events.some((e) => e.kind === "message" && e.text === "FIXTURE_DONE")).toBe(true);
+      expect(events.filter((e) => e.kind === "tool-result")).toEqual([
+        {
+          kind: "tool-result",
+          name: "shell",
+          callId: "command-1",
+          isError: false,
+          result: {
+            id: "command-1",
+            type: "commandExecution",
+            command: "echo fixture",
+            status: "completed",
+            exitCode: 0,
+            aggregatedOutput: "NATIVE_OUTPUT",
+            opaque: { nested: [42, "kept"] },
+          },
+        },
+        {
+          kind: "tool-result",
+          name: "file_change",
+          callId: "patch-1",
+          isError: false,
+          result: {
+            id: "patch-1",
+            type: "fileChange",
+            status: "completed",
+            changes: [
+              { path: join(root, "output.txt"), kind: { type: "add" }, diff: "+fixture\n" },
+            ],
+            opaque: { kept: true },
+          },
+        },
+      ]);
+      expect(events.filter((e) => e.kind === "usage")).toEqual([
+        {
+          kind: "usage",
+          scope: "session",
+          inputTokens: 40,
+          cacheReadTokens: 20,
+          outputTokens: 10,
+          totalTokens: 50,
+          inputIncludesCache: true,
+        },
+      ]);
+      expect(events.filter((e) => e.kind === "tool").map((e) => e.callId)).toEqual([
+        "command-1",
+        "patch-1",
+      ]);
       expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
       const calls = readFileSync(nativeLog, "utf8")
         .trim()
@@ -377,6 +428,13 @@ if(message.method === "turn/start") {
 }
 if(message.id === 7 && message.result) {
   emit({method:"serverRequest/resolved",params:{threadId:${JSON.stringify(sessionId)},requestId:7}});
+  const command={id:"command-1",type:"commandExecution",command:"echo fixture",status:"completed",exitCode:0,aggregatedOutput:"NATIVE_OUTPUT",opaque:{nested:[42,"kept"]}};
+  emit({method:"item/started",params:{threadId:${JSON.stringify(sessionId)},turnId:"native-turn",item:command}});
+  emit({method:"item/completed",params:{threadId:${JSON.stringify(sessionId)},turnId:"native-turn",item:command}});
+  const patch={id:"patch-1",type:"fileChange",status:"completed",changes:[{path:${JSON.stringify(join(root, "output.txt"))},kind:{type:"add"},diff:"+fixture\\n"}],opaque:{kept:true}};
+  emit({method:"item/started",params:{threadId:${JSON.stringify(sessionId)},turnId:"native-turn",item:{id:patch.id,type:patch.type,status:"inProgress",changes:patch.changes}}});
+  emit({method:"item/completed",params:{threadId:${JSON.stringify(sessionId)},turnId:"native-turn",item:patch}});
+  emit({method:"thread/tokenUsage/updated",params:{threadId:${JSON.stringify(sessionId)},tokenUsage:{total:{inputTokens:40,cachedInputTokens:20,outputTokens:10,totalTokens:50},last:{inputTokens:5,outputTokens:1}}}});
   emit({method:"item/completed",params:{threadId:${JSON.stringify(sessionId)},turnId:"native-turn",item:{id:"answer",type:"agentMessage",text:"FIXTURE_DONE"}}});
   emit({method:"turn/completed",params:{threadId:${JSON.stringify(sessionId)},turn:{id:"native-turn",status:"completed",error:null}}});
 }

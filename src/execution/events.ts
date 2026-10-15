@@ -16,7 +16,9 @@
  */
 
 import type { CapabilityResult } from "../interpretation/capabilities.js";
+import type { ToolEvent, ToolResultEvent } from "../interpretation/content.js";
 import type { QuestionMode } from "../interpretation/question.js";
+import type { UsageEvent } from "../interpretation/usage.js";
 import type { CompactionState, CompactionTrigger, LimitCode } from "../knowledge/descriptor.js";
 import type { NativeApprovalEvent } from "../knowledge/native-approvals.js";
 import type { FailureSummary } from "./failure.js";
@@ -45,6 +47,9 @@ export interface EscalationRecord {
 
 export type HarnessEvent =
   | NativeApprovalEvent
+  | ToolEvent
+  | ToolResultEvent
+  | UsageEvent
   | {
       readonly kind: "identity";
       readonly sessionId: string;
@@ -60,7 +65,6 @@ export type HarnessEvent =
   | { readonly kind: "token"; readonly text: string }
   | { readonly kind: "message"; readonly role: string; readonly text: string }
   | { readonly kind: "progress"; readonly label: string }
-  | { readonly kind: "tool"; readonly name: string; readonly input?: unknown }
   /** ADR 0009: the harness compacted its own context. Lossless and ordered -
    * a dropped compaction event is a boundary the caller cannot rebuild from
    * anything else on the stream, and a caller that missed it does not know

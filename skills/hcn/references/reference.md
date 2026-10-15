@@ -25,7 +25,7 @@ typed transport failure, never permission to start an empty task.
 | `--tools <a,b>` | claude, pi, popeye (muse via category switches; codex, cursor, antigravity refuse) | claude renders an `--allowedTools` grant plus a `--disallowedTools` deny complement; pi and popeye render a strict `--tools` allowlist; canonical names only (`read write edit shell grep glob list web-fetch web-search subagent skill`); `native:<name>` passes through; a configured toolset name expands; `toolMap` config maps canonical -> extension names; cursor allow/deny lives in config files, named in the refusal hint |
 | `--exclude-tools <a,b>` | claude, pi, popeye (muse via category switches; codex, cursor, antigravity refuse) | canonical names; complement over the harness's known names; mutually exclusive with --tools |
 | `--isolation <tool-free>` | claude, builds listing it in help | fresh turn only; no tools, MCP, instruction files, hooks, or extensions; refuses resume/session/native passthrough and grants; requires bare-mode authentication; invocation-only |
-| `--access <read\|write>` | claude, codex, pi, muse, popeye (cursor and antigravity refuse) | preset grant: `read` = read, grep, glob, list, web-fetch, web-search; claude -> `--allowedTools` grant + `--disallowedTools` deny complement, pi/popeye -> `--tools`, codex -> `--sandbox read-only`/`workspace-write`, muse -> `--disable-write --disable-shell`; no default; mutually exclusive with --tools/--exclude-tools (and --sandbox on codex); honors --no-tools |
+| `--access <read\|write>` | claude, codex, pi, muse, cursor, popeye (antigravity refuses) | preset grant: `read` = read, grep, glob, list, web-fetch, web-search; claude -> `--allowedTools` grant + `--disallowedTools` deny complement, pi/popeye -> `--tools`, codex -> `--sandbox read-only`/`workspace-write`, muse -> `--disable-write --disable-shell`; cursor read -> `--mode ask --sandbox enabled`, write -> `--force` (unconfined commands, bypasses trust; human authorization required); no default; mutually exclusive with --tools/--exclude-tools (and --sandbox on codex); honors --no-tools |
 | `--skills <a,b>` | claude, codex, pi; `hcn run` and `hcn session` | caller-directed skills allowlist; names resolve against the registry root ($HCN_SKILLS_ROOT, default ~/.agents/skills); unknown names refuse exit 2 listing the registry; on a session the allowlist is a spawn property and holds across every turn (resume included); muse, cursor, antigravity, and popeye refuse with a hint (antigravity and popeye sessions refuse the same way rather than open with the full set) |
 | `--autonomy` / `--no-autonomy` | claude, codex, muse, cursor, antigravity | profile: off; on antigravity renders `--dangerously-skip-permissions`; on cursor renders `--force`, which also bypasses the workspace-trust gate per run without persisting trust |
 | `--questions <ask\|assume\|none>` | all (hcn-owned), run and session | default ask; assume instructs the worker to state assumptions and continue; none injects nothing; question detection only in ask; config key `questions` |
@@ -189,7 +189,7 @@ command. The version probe has bounded time and output.
 | agent | --agent | - (refuses) | --agent (extension-verified) | - (refuses) | - (refuses) | --agent | --agent |
 | tools include | --allowedTools (grant) + deny complement | - (refuses, --sandbox hint) | --tools (strict) | category switches (--disable-write/--disable-shell/--disable-web-tools) | - (refuses, config-file hint) | - (refuses) | --tools (strict) |
 | tools exclude | --disallowedTools | - (refuses, hint) | --exclude-tools | category switches | - (refuses, hint) | - (refuses) | --exclude-tools |
-| access | --allowedTools (read subset) + deny complement | --sandbox | --tools (read subset) | --disable-write --disable-shell | - (refuses) | - (refuses) | --tools (read subset) |
+| access | --allowedTools (read subset) + deny complement | --sandbox | --tools (read subset) | --disable-write --disable-shell | --mode ask --sandbox enabled (read); --force (write, unconfined) | - (refuses) | --tools (read subset) |
 | autonomy | --dangerously-skip-permissions | --yolo | - | --yolo | --force (also bypasses trust per run) | --dangerously-skip-permissions | - |
 | write | - | - | - | --disable-write | - | - | - |
 | shell | - | - | - | --disable-shell | - | - | - |
@@ -243,7 +243,9 @@ https://github.com/dungle-scrubs/harness-cli-normalizer/blob/main/docs/observer.
 {"kind":"token","text":..}              # delta
 {"kind":"message","role":..,"text":..}  # complete message
 {"kind":"progress","label":..}
-{"kind":"tool","name":..,"input":..}
+{"kind":"tool","name":..,"input":?,"callId":?}
+{"kind":"tool-result","name":?,"callId":?,"result":?,"isError":?}
+{"kind":"usage","scope":..,"inputTokens":?,"outputTokens":?,"cacheReadTokens":?,"cacheWriteTokens":?,"reasoningTokens":?,"totalTokens":?,"costUsd":?,"inputIncludesCache":?,"callId":?,"model":?}
 {"kind":"compaction","state":..,"trigger":?,"tokensBefore":?,"tokensAfter":?,"durationMs":?,"detail":?}
 {"kind":"limit","code":..,"message":..}
 {"kind":"warning","message":..}       # advisory, not a failure
@@ -375,6 +377,33 @@ exit 0 - resume with the answer). In sessions the same
 awaiting-input cause ends the ASKING TURN while the session stays
 live (hcn >= 0.4.3, claude + pi; Antigravity in builds whose `hcn ls` reports `antigravity@1.2.7`) - answer via the next send, not a
 resume.
+
+### Tool results and usage
+
+On builds emitting these kinds, `tool-result` preserves the native result,
+including structured extension details; use native `callId` to associate it
+with `tool`. Names and error flags can be absent. A clean turn can contain
+failed tools; inspect `isError` and the tool's native result contract rather
+than treating `done.cause: clean` as workflow success.
+
+`usage.scope` is `message`, `tool`, `compaction`, `turn`, or `session`.
+Pi reports completed assistant messages, nested-tool usage and compaction
+separately. Claude turn tokens cover the main loop; its session cost and
+per-model (`model`) counts include subagents and restored spend. Codex exec
+and app-server both report cumulative session snapshots, including earlier
+turns on resume; keep the latest snapshot rather than summing or deriving deltas.
+Cursor reports turn usage; Antigravity reports cumulative session usage.
+Muse and Popeye currently report none. Keep the latest session value for
+each metric and model (or overall), never a sum of cumulative snapshots.
+Avoid combining overlapping scopes or per-model totals.
+
+Count and price fields are optional. Missing reporting is unknown, not
+zero. hcn derives no totals or prices. `costUsd` is a native estimate,
+not billing truth. `reasoningTokens` is part of output; cache counts overlap
+input when `inputIncludesCache: true` (Codex), are separate when false,
+and have an unknown relationship when absent. Results and usage are
+lossless; only `token` and `progress` are droppable. Text mode does not dump
+the result payloads or usage. Older builds can omit these event kinds.
 
 ## Session machine surface (`hcn session <h> --json`)
 
