@@ -130,9 +130,21 @@ Options:
                             --tools, codex via --sandbox read-only, muse via
                             --disable-write --disable-shell, cursor via
                             --mode ask --sandbox enabled; antigravity refuses);
-                            write = no restriction; cursor write renders
-                            --force (unconfined commands, also bypasses trust).
-                            Native tool denials still apply.
+                            write = claude --permission-mode acceptEdits
+                            plus strict native sandbox (auto-approves
+                            sandboxed Bash; no unsandboxed retry;
+                            requests fail-closed startup). codex uses
+                            --sandbox workspace-write; cursor uses --force
+                            (unconfined commands, also bypasses trust);
+                            pi, muse, and popeye add no restrictions.
+                            The sandbox covers Bash, not file or web tools.
+                            Native tool denials, Bash checks and network
+                            limits still apply. Unless managed policy
+                            overrides strict mode, Claude ignores project
+                            domain allowlists; trusted user or managed
+                            domain policy may be needed for installs or tests.
+                            Claude keeps the explicit write sandbox with
+                            --autonomy.
                             Cursor read with autonomy also adds --force;
                             precedence is unverified. Use --no-autonomy for
                             the qualified read preset.
@@ -194,8 +206,9 @@ Defaults with no flags:
   other harnesses report divergence), discovery on,
   autonomy off, write/shell on. timeout, max-steps and
   access have no default; no access preset is applied. Explicit access write emits
-  --force on cursor, --sandbox workspace-write on codex, and no extra flags on
-  claude/pi/muse/popeye; antigravity refuses --access. The profile's sandbox
+  --force on cursor, --sandbox workspace-write on codex, and --permission-mode
+  acceptEdits plus strict sandbox settings on claude; no extra flags on
+  pi, muse, or popeye; antigravity refuses --access. The profile's sandbox
   setting is separate from access. toolMap is config-only (no flag) - canonical -> native
   mapping per harness. A bare pi run renders no --tools list: pi's list
   is a strict allowlist and would drop extension and MCP tools; name

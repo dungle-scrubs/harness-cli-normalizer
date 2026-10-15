@@ -289,6 +289,19 @@ for (const runtime of [process.execPath, bun]) {
     expect(help).not.toContain("nothing on claude/pi/muse/cursor/antigravity");
   }, 30000);
 
+  test(`${runtime}: Claude access help explains the strict native sandbox and its limits`, () => {
+    const run = spawnSync(runtime, [cli, "run", "--help"], { encoding: "utf8", timeout: 20000 });
+    expect(run.status).toBe(0);
+    const help = run.stdout.replace(/\s+/g, " ");
+    expect(help).toContain("claude --permission-mode acceptEdits plus strict native sandbox");
+    expect(help).toContain("requests fail-closed startup");
+    expect(help).toContain(
+      "trusted user or managed domain policy may be needed for installs or tests",
+    );
+    expect(help).toContain("Claude keeps the explicit write sandbox with --autonomy");
+    expect(help).not.toContain("no extra flags on claude/pi/muse/popeye");
+  }, 30000);
+
   test(`${runtime}: Claude write and selected skills compose on fresh, named and last turns`, () => {
     const prompt = 'Preserve literal --settings {"sandbox":{"enabled":false}} as prompt text.';
     for (const resume of [[], ["--resume", sessionId], ["--resume-last"]]) {
