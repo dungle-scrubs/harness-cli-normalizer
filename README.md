@@ -106,8 +106,9 @@ project-level domain allowlists. Dependency installs and tests may need trusted 
 network policy and writable paths. hcn adds neither domains nor extra writable roots. With
 `--access write --autonomy`, Claude keeps the explicit Bash sandbox while its permission mode
 becomes `bypassPermissions`. That mode can approve hosts outside the network allowlist unless
-native strict or managed restrictions block them. Keeping the filesystem sandbox does not promise
-network confinement. Autonomy alone does not request this sandbox. See the
+`strictAllowlist`, `allowManagedDomainsOnly`, or native denied-domain policy blocks them. Keeping
+the filesystem sandbox does not promise network confinement. Autonomy alone does not request
+this sandbox. See the
 [access mappings and native limits](docs/reference.md#access-presets).
 
 On Cursor, `--access read` selects native ask mode. **Cursor write access is unconfined**:
