@@ -100,6 +100,12 @@ export const SHARED_TRANSPORT_MATCHERS: ReadonlyArray<TransportMatcher> = [
   { pattern: "EAI_AGAIN", flags: "i" },
   { pattern: "ETIMEDOUT", flags: "i" },
   { pattern: "fetch failed", flags: "i" },
+  // Issue #377: pi reports a cut fetch body stream as the bare "terminated"
+  // error. Anchor the whole message so prose about a terminated process stays task.
+  { pattern: "(?:^|:\\s*)terminated\\s*$", flags: "im" },
+  // OpenAI's generic retryable server error, including pi's "Codex error:"
+  // prefix. Like the overload phrasing, do not match mid-sentence model prose.
+  { pattern: "(?:^|:\\s*)an error occurred while processing your request\\b", flags: "im" },
   { pattern: "socket hang up", flags: "i" },
   { pattern: "network error", flags: "i" },
   { pattern: "service unavailable", flags: "i" },
