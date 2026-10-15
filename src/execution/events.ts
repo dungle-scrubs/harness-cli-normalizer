@@ -90,6 +90,8 @@ export type HarnessEvent =
       readonly recommended?: string;
     }
   | { readonly kind: "limit"; readonly code: LimitCode; readonly message: string }
+  /** Advisory only: no failure has been established. Lossless like errors. */
+  | { readonly kind: "warning"; readonly message: string }
   /** `terminal: true` marks an error that ended the turn; the matching
    * `failure` (class task) follows it. `denial` is present only for a
    * refused tool call or rejected question (cursor only in v1): the native

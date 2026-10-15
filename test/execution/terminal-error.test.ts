@@ -92,6 +92,49 @@ describe("F-07 terminal error record ends clean", () => {
     expect(done?.failure?.retryable).toBe(true);
   });
 
+  test.each([
+    ["terminated", "transport", true],
+    [
+      "Codex error: An error occurred while processing your request. You can retry your request, or contact us through our help center at help.openai.com if the error persists.",
+      "transport",
+      true,
+    ],
+    [
+      "I did not finish fixing the client where an error occurred while processing your request.",
+      "task",
+      false,
+    ],
+    ["I did not finish because the process terminated unexpectedly.", "task", false],
+    ["The process terminated", "task", false],
+  ] as const)(
+    "issue #377: pi terminal error %s classifies %s",
+    async (message, failureClass, retryable) => {
+      // Reuse a captured pi stream skeleton, changing only the provider message.
+      const raw = readFileSync(
+        join(import.meta.dirname, "../fixtures/harnesses/pi-unreachable.ndjson"),
+        "utf8",
+      ).replaceAll(
+        '"errorMessage":"Connection error."',
+        `"errorMessage":${JSON.stringify(message)}`,
+      );
+      const proc = new FakeProcess();
+      const turn = streamTurn(piCli, { prompt: "hi" }, depsFor(proc));
+      for (const line of raw.split("\n")) {
+        if (line.trim() !== "") proc.emitLine(line);
+      }
+      proc.exit(0);
+      const events = await collect(turn);
+      const failures = events.filter((event) => event.kind === "failure");
+      expect(failures).toHaveLength(1);
+      expect(failures[0]).toMatchObject({ class: failureClass, retryable });
+      expect(events.at(-1)).toMatchObject({
+        kind: "done",
+        cause: "failed",
+        failure: { class: failureClass, retryable },
+      });
+    },
+  );
+
   test("replay pi-terminated-recovered.ndjson: a superseded stopReason error does not poison the verdict", async () => {
     // Live capture (pi 0.85.1, lmstudio qwen3.6-35b-a3b-ud-mlx, session
     // first created under zai/glm-5.3): resuming aborted the first

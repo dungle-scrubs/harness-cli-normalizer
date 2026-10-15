@@ -104,6 +104,7 @@ schema parsing, read [the result and usage contract](references/reference.md#too
 
 A clean `done` is not proof of tool success: inspect `tool-result.isError`
 and `result` using the native contract. Missing error flags mean unknown.
+`warning` is advisory and does not change the turn verdict.
 Branch on `failure.class` and `done.cause` using the rules above. Ignore
 unrecognized kinds/classes and still wait for `done`.
 

@@ -248,38 +248,19 @@ https://github.com/dungle-scrubs/harness-cli-normalizer/blob/main/docs/observer.
 {"kind":"usage","scope":..,"inputTokens":?,"outputTokens":?,"cacheReadTokens":?,"cacheWriteTokens":?,"reasoningTokens":?,"totalTokens":?,"costUsd":?,"inputIncludesCache":?,"callId":?,"model":?}
 {"kind":"compaction","state":..,"trigger":?,"tokensBefore":?,"tokensAfter":?,"durationMs":?,"detail":?}
 {"kind":"limit","code":..,"message":..}
+{"kind":"warning","message":..}       # advisory, not a failure
 {"kind":"error","message":..,"denial":?}  # structured rejected tool call ({tool, reason}), non-terminal, exit can stay 0
 {"kind":"failure","class":..,"retryable":..,"message":..}
 {"kind":"question","question":..,"options":[..],"recommended":?}  # issue #41
 {"kind":"done","exitCode":..,"cause":..,"failure":?}
 ```
 
-### Tool results and usage
-
-On builds emitting these kinds, `tool-result` preserves the native result,
-including structured extension details; use native `callId` to associate it
-with `tool`. Names and error flags can be absent. A clean turn can contain
-failed tools; inspect `isError` and the tool's native result contract rather
-than treating `done.cause: clean` as workflow success.
-
-`usage.scope` is `message`, `tool`, `compaction`, `turn`, or `session`.
-Pi reports completed assistant messages, nested-tool usage and compaction
-separately. Claude turn tokens cover the main loop; its session cost and
-per-model (`model`) counts include subagents and restored spend. Codex exec
-and app-server both report cumulative session snapshots, including earlier
-turns on resume; keep the latest snapshot rather than summing or deriving deltas.
-Cursor reports turn usage; Antigravity reports cumulative session usage.
-Muse and Popeye currently report none. Keep the latest session value for
-each metric and model (or overall), never a sum of cumulative snapshots.
-Avoid combining overlapping scopes or per-model totals.
-
-Count and price fields are optional. Missing reporting is unknown, not
-zero. hcn derives no totals or prices. `costUsd` is a native estimate,
-not billing truth. `reasoningTokens` is part of output; cache counts overlap
-input when `inputIncludesCache: true` (Codex), are separate when false,
-and have an unknown relationship when absent. Results and usage are
-lossless; only `token` and `progress` are droppable. Text mode does not dump
-the result payloads or usage. Older builds can omit these event kinds.
+For a named `--resume` on a create-on-missing harness (pi, muse, cursor),
+hcn refuses a checkable missing id before spawn. A confirmed existing id
+emits no unknown-id notice. If existence cannot be checked, an early
+`warning` with `message` asks the caller to verify the id; it establishes no
+failure and does not change `done.cause`. Text mode renders it as an advisory,
+not a red error.
 
 A resume-last turn carries `"resumeLast": true` on `identity` (first
 announce and attestation re-emit alike): the announced id was picked by
@@ -352,7 +333,9 @@ transport. From hcn 0.9.6 also pi's `WebSocket idle|connect timeout after
 start or after an error colon; an auth or limit cause inside still wins),
 and an `overloaded_error` / HTTP 529 provider error; from hcn 0.9.8 also
 OpenAI's `Our servers are currently overloaded` and `The server is
-overloaded`, at line start or after an error colon), unavailable (the
+overloaded`, at line start or after an error colon; also the bare
+`terminated` stream error and `An error occurred while processing your
+request`, at line start or after an error colon, not mid-sentence prose), unavailable (the
 provider cannot serve the requested model or route - model not found, not
 loaded, or `'<id>' model is not supported`; retryable, route elsewhere),
 trust-refused (cursor workspace-trust gate - untrusted directory with no
@@ -378,6 +361,33 @@ exit 0 - resume with the answer). In sessions the same
 awaiting-input cause ends the ASKING TURN while the session stays
 live (hcn >= 0.4.3, claude + pi; Antigravity in builds whose `hcn ls` reports `antigravity@1.2.7`) - answer via the next send, not a
 resume.
+
+### Tool results and usage
+
+On builds emitting these kinds, `tool-result` preserves the native result,
+including structured extension details; use native `callId` to associate it
+with `tool`. Names and error flags can be absent. A clean turn can contain
+failed tools; inspect `isError` and the tool's native result contract rather
+than treating `done.cause: clean` as workflow success.
+
+`usage.scope` is `message`, `tool`, `compaction`, `turn`, or `session`.
+Pi reports completed assistant messages, nested-tool usage and compaction
+separately. Claude turn tokens cover the main loop; its session cost and
+per-model (`model`) counts include subagents and restored spend. Codex exec
+and app-server both report cumulative session snapshots, including earlier
+turns on resume; keep the latest snapshot rather than summing or deriving deltas.
+Cursor reports turn usage; Antigravity reports cumulative session usage.
+Muse and Popeye currently report none. Keep the latest session value for
+each metric and model (or overall), never a sum of cumulative snapshots.
+Avoid combining overlapping scopes or per-model totals.
+
+Count and price fields are optional. Missing reporting is unknown, not
+zero. hcn derives no totals or prices. `costUsd` is a native estimate,
+not billing truth. `reasoningTokens` is part of output; cache counts overlap
+input when `inputIncludesCache: true` (Codex), are separate when false,
+and have an unknown relationship when absent. Results and usage are
+lossless; only `token` and `progress` are droppable. Text mode does not dump
+the result payloads or usage. Older builds can omit these event kinds.
 
 ## Session machine surface (`hcn session <h> --json`)
 
