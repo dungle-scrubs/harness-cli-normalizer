@@ -13,6 +13,13 @@ const result = {
   content: [{ type: "text", text: "workflow aborted" }],
   details: { status: "aborted", runId: "workflow-123", agents: [{ status: "error" }] },
 };
+const claudeDeniedRecords = readFileSync(
+  resolve("test/fixtures/claude-2.1.296/permission-denied.result.ndjson"),
+  "utf8",
+)
+  .trim()
+  .split("\n")
+  .map((line) => JSON.parse(line));
 const records = [
   { type: "session", id: sessionId },
   { type: "tool_execution_start", toolName: "workflow", toolCallId: "call-1", args: {} },
@@ -123,17 +130,7 @@ for (const runtime of [process.execPath, bun]) {
   }, 30000);
 
   test(`${runtime}: Claude permission denials are observations and mark the terminal done`, () => {
-    const capture = readFileSync(
-      resolve("test/fixtures/claude-2.1.296/permission-denied.result.ndjson"),
-      "utf8",
-    );
-    const f = fixture(
-      "claude",
-      capture
-        .trim()
-        .split("\n")
-        .map((line) => JSON.parse(line)),
-    );
+    const f = fixture("claude", claudeDeniedRecords);
     try {
       const run = spawnSync(
         runtime,
@@ -185,6 +182,30 @@ for (const runtime of [process.execPath, bun]) {
       rmSync(f.root, { recursive: true, force: true });
     }
   }, 30000);
+
+  for (const [copies, annotation] of [
+    [1, "[denials: 1]"],
+    [2, "[denials: 2]"],
+  ] as const) {
+    test(`${runtime}: human done counts ${copies} denial reports, not unique call IDs`, () => {
+      const f = fixture("claude", Array.from({ length: copies }, () => claudeDeniedRecords).flat());
+      try {
+        const run = spawnSync(
+          runtime,
+          [cli, "run", "claude", "--questions", "none", "--cwd", f.root, "--prompt", "fixture"],
+          { cwd: f.root, env: f.env, encoding: "utf8", timeout: 20000 },
+        );
+        expect(run.error).toBeUndefined();
+        expect(run.status, run.stderr).toBe(0);
+        expect(run.stdout.split("Tool permission denied: Bash").length - 1).toBe(copies);
+        expect(run.stdout).toContain("○ clean");
+        expect(run.stdout).toContain("(exit 0)");
+        expect(run.stdout).toContain(annotation);
+      } finally {
+        rmSync(f.root, { recursive: true, force: true });
+      }
+    }, 30000);
+  }
 
   test(`${runtime}: human output marks a failed tool without inventing a failed turn`, () => {
     const f = fixture("pi", records);

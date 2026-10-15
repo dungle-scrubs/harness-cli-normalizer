@@ -104,8 +104,10 @@ export const renderEvent = (
             ? blue("○ awaiting input")
             : green("○ clean")
           : red(`○ ${event.cause}`);
+      const denials =
+        event.denialCount !== undefined ? yellow(` [denials: ${event.denialCount}]`) : "";
       const tail = event.failure ? ` ${event.failure.class}: ${event.failure.message}` : "";
-      process.stdout.write(`\n  ${mark} (exit ${event.exitCode ?? "none"})${tail}\n`);
+      process.stdout.write(`\n  ${mark} (exit ${event.exitCode ?? "none"})${denials}${tail}\n`);
       break;
     }
     default: {
