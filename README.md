@@ -113,9 +113,13 @@ $ hcn run claude "name three primes, nothing else" --model haiku --json
 including structured extension results and error flags when reported. Native token counts and
 cost estimates arrive as scoped `usage` events. A clean `done` does not mean every tool succeeded;
 check the tool results. See the [event contract](docs/reference.md#tool-results-and-usage).
-The format is the same for every harness, and the last line is always `done`. If the run failed,
-`done.failure.retryable` says whether a retry can help, and `done.failure.class` gives the reason,
-such as `rate-limit`, `auth`, `transport`, or
+The format is the same for every harness, and the last line is always `done`.
+On a nonzero run exit, `done.completion` preserves output evidence:
+`native-terminal` means the harness reported successful turn completion;
+`message-delivered` means assistant text arrived without confirmed turn completion.
+The process failure remains in `cause`/`failure`, and `exitCode` keeps the harness's actual status.
+If the run failed, `done.failure.retryable` says whether a retry can help,
+and `done.failure.class` gives the reason, such as `rate-limit`, `auth`, `transport`, or
 `rejected`. A refusal also lists the harnesses that support the option:
 
 ```console

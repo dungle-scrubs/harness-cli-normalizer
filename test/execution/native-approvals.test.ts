@@ -2015,3 +2015,26 @@ for (const nativeTurn of ["native-turn", "foreign-turn"]) {
     expect(f.clock.pendingTimerCount).toBe(0);
   });
 }
+
+test("#376: native approval completion and a subsequent process failure are separate observations", async () => {
+  const f = setup();
+  const events: HarnessEvent[] = [];
+  for await (const event of streamTurn(codexCli, options, f.deps)) {
+    events.push(event);
+    if (event.kind === "approval-request") {
+      f.proc.complete();
+      f.proc.emitStderr("Error: extension failed after completion");
+      f.proc.exit(1);
+    }
+  }
+  expect(events.at(-1)).toMatchObject({
+    kind: "done",
+    cause: "failed",
+    exitCode: 1,
+    completion: "native-terminal",
+    failure: { class: "native", nativeExitCode: 1, retryable: false },
+  });
+  expect(events.find((event) => event.kind === "failure")?.message).toContain(
+    "Error: extension failed after completion",
+  );
+});

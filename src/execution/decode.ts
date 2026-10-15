@@ -12,6 +12,7 @@ import {
 } from "../interpretation/content.js";
 import { decodeIdentity } from "../interpretation/identity.js";
 import { detectLimitInLine } from "../interpretation/limits.js";
+import { successfulTurnEnd } from "../interpretation/turn-completion.js";
 import type {
   HarnessDescriptor,
   HarnessName,
@@ -21,6 +22,10 @@ import type { HarnessEvent } from "./events.js";
 import { failureFromBudget, failureFromLimit } from "./failure.js";
 
 export interface DecodeState {
+  /** Independent evidence: a later failure can revoke successful-turn
+   * completion without erasing text that was already delivered. */
+  messageDelivered?: true;
+  nativeTerminalSeen?: true;
   lastSeenId: string | null;
   limitSeen: boolean;
   /** The id this turn expects (resume paths); rotation is classified
@@ -236,10 +241,14 @@ export const decodeParsed = (
       // the harness recovered, so the earlier stopReason-error attempt
       // must not poison the verdict (its evidence already streamed).
       state.provisionalError = null;
+      state.messageDelivered = true;
       events.push(content);
     } else {
       events.push(content);
     }
+  }
+  if (successfulTurnEnd(h.name, raw) && state.provisionalError === null) {
+    state.nativeTerminalSeen = true;
   }
   return events;
 };

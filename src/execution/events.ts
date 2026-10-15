@@ -23,6 +23,8 @@ import type { CompactionState, CompactionTrigger, LimitCode } from "../knowledge
 import type { NativeApprovalEvent } from "../knowledge/native-approvals.js";
 import type { FailureSummary } from "./failure.js";
 
+export type TurnCompletion = "message-delivered" | "native-terminal";
+
 export type ExitCause =
   | "clean"
   | "limit"
@@ -108,6 +110,11 @@ export type HarnessEvent =
       readonly kind: "done";
       readonly exitCode: number | null;
       readonly cause: ExitCause;
+      /** On a nonzero one-shot exit, output survived the process failure.
+       * message-delivered alone does NOT establish a finished turn;
+       * native-terminal means the harness also reported successful turn end.
+       * Neither asserts that the work itself is correct. */
+      readonly completion?: TurnCompletion;
       readonly failure?: FailureSummary;
       readonly escalation: EscalationRecord;
     };

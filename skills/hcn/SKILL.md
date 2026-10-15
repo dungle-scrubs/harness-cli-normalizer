@@ -107,6 +107,7 @@ and `result` using the native contract. Missing error flags mean unknown.
 `warning` is advisory and does not change the turn verdict.
 Branch on `failure.class` and `done.cause` using the rules above. Ignore
 unrecognized kinds/classes and still wait for `done`.
+For nonzero exits and `done.completion`, read [the event schema](references/reference.md).
 
 ## Answering worker questions
 

@@ -46,6 +46,7 @@ import {
   failureFromLimit,
   failureFromLineOverflow,
   failureFromMuseIncompatibleSurface,
+  failureFromNative,
   failureFromRejected,
   failureFromStderrTail,
   failureFromTerminalError,
@@ -696,6 +697,16 @@ export async function* streamTurn(
       yield { kind: "failure", ...f };
     }
 
+    // Preserve output evidence independently of the process verdict. A
+    // message is not a turn delimiter; a failure observed in the turn also
+    // prevents a success delimiter from claiming successful completion.
+    const completion =
+      state.nativeTerminalSeen && failures.length === 0
+        ? "native-terminal"
+        : state.messageDelivered
+          ? "message-delivered"
+          : undefined;
+
     // Post-queue failure sources: the tail scan owns the transport,
     // unavailable, trust, native, silent precedence (failure.ts).
     if (
@@ -707,7 +718,10 @@ export async function* streamTurn(
       !killedByWatchdog &&
       !state.limitSeen
     ) {
-      const f = failureFromStderrTail(h, exitCode, stderrTail.snapshot());
+      const f =
+        completion === "native-terminal"
+          ? failureFromNative(exitCode, stderrTail.snapshot())
+          : failureFromStderrTail(h, exitCode, stderrTail.snapshot());
       failures.push(f);
       // Need to emit this failure before done, even though queue is closed
       yield { kind: "failure", ...f };
@@ -783,19 +797,15 @@ export async function* streamTurn(
       };
     }
     terminalEventReached = true;
-    // D6: when the failure is native, the harness's own exit convention is
-    // DATA (nativeExitCode on the failure), not the done event's contract -
-    // hcn owns the process exit code (1 for any native failure) because
-    // harness conventions collide with hcn's (codex usage errors exit 2,
-    // which hcn reserves for refusals).
-    const nativeReduced = reduced?.class === "native";
     yield {
       kind: "done",
-      // Like the refusal path: hcn owns the process exit code, and a
-      // deliberately stopped turn carries no harness signal number.
-      exitCode: nativeReduced || approvalBlocked ? null : exitCode,
+      // Native status is data, distinct from hcn's CLI exit policy.
+      exitCode: approvalBlocked ? null : exitCode,
       cause,
       ...(reduced ? { failure: reduced } : {}),
+      ...(exitCode !== null && exitCode !== 0 && !killedByAbort && !killedByWatchdog && completion
+        ? { completion }
+        : {}),
       escalation: { mode: questionMode, detection: escalationDetection },
     };
   } finally {

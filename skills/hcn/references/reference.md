@@ -252,8 +252,24 @@ https://github.com/dungle-scrubs/harness-cli-normalizer/blob/main/docs/observer.
 {"kind":"error","message":..,"denial":?}  # structured rejected tool call ({tool, reason}), non-terminal, exit can stay 0
 {"kind":"failure","class":..,"retryable":..,"message":..}
 {"kind":"question","question":..,"options":[..],"recommended":?}  # issue #41
-{"kind":"done","exitCode":..,"cause":..,"failure":?}
+{"kind":"done","exitCode":..,"cause":..,"failure":?,"completion":?}
 ```
+
+On a nonzero `run` exit, `done.completion` separates delivered output from
+process failure: `"native-terminal"` means a successful native turn delimiter
+was read, while `"message-delivered"` means assistant text arrived without
+confirmed successful turn end. A message can be intermediate; only the former
+establishes completion. Neither judges the correctness of the work. Preserve
+the delivered result rather than treating the crash as proof no work happened.
+Conflicting turn-failure evidence leaves `message-delivered` when assistant
+text was observed.
+The process still reports its failure (`cause`, `failure`), and hcn exits 1.
+`done.exitCode` is the harness's actual exit code, including native failures;
+hcn's CLI status is separate. Native detail prefers the first stderr Error
+headline (including `Error [ERR_MODULE_NOT_FOUND]:`) over stack frames,
+redacted and bounded, with tail lines as fallback.
+Persistent sessions keep the existing separation: a completed turn's `done`
+stays completed and a later process crash is reported by `closed`.
 
 For a named `--resume` on a create-on-missing harness (pi, muse, cursor),
 hcn refuses a checkable missing id before spawn. A confirmed existing id

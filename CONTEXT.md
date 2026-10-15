@@ -82,8 +82,9 @@ is normalization; deciding whether to retry it is not - see `retryable` below.
 **Refusal**: hcn declining before spawning, because the call cannot be
 expressed on that harness. Exit code 2, distinct from a harness's own error.
 
-**Native error**: the harness failing on its own arguments. Exit code 1,
-labelled `NATIVE ERROR`, never confused with a refusal.
+**Native error**: the harness process failing. hcn exits 1, labelled
+`NATIVE ERROR`, never confused with a refusal. The native exit status is
+preserved as data; it does not establish that arguments were rejected.
 
 **Escalation**: hcn's protocol for a model to ask its caller a question - a
 preamble in, a fenced block out. No harness offers a headless equivalent.

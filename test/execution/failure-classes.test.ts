@@ -362,14 +362,14 @@ describe("failure message contracts", () => {
     expect(failureFromNative(7, ["first", "second", "third", "fourth"])).toEqual({
       class: "native",
       message:
-        "NATIVE ERROR from harness: second | third | fourth - the harness rejected or failed on its own arguments; this is not an hcn error",
+        "NATIVE ERROR from harness: second | third | fourth - the harness process failed; this is not an hcn error",
       nativeExitCode: 7,
       retryable: false,
     });
     expect(failureFromNative(null, [])).toEqual({
       class: "native",
       message:
-        "NATIVE ERROR from harness: exit null - the harness rejected or failed on its own arguments; this is not an hcn error",
+        "NATIVE ERROR from harness: exit null - the harness process failed; this is not an hcn error",
       nativeExitCode: undefined,
       retryable: false,
     });
@@ -396,7 +396,7 @@ describe("failure message contracts", () => {
       `${"x".repeat(501)} sk-abcdefghijk123${"y".repeat(50)}`,
     ]);
     expect(redacted.message).toContain(
-      `${"x".repeat(501)} [redacted] - the harness rejected or failed on its own arguments; this is not an hcn error`,
+      `${"x".repeat(501)} [redacted] - the harness process failed; this is not an hcn error`,
     );
     expect(redacted.message).not.toContain("sk-abcdefg");
     expect(redacted.message).not.toContain("sk-abcdefghijk123");
