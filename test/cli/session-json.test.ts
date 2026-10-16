@@ -1,6 +1,6 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { PassThrough } from "node:stream";
 import { describe, expect, test, vi } from "vitest";
 import { session } from "../../src/cli/session.js";
@@ -601,13 +601,17 @@ describe("session origin: fresh vs resumed, and refused resume emits no session"
   });
 
   test("a refused unknown-id resume emits no session event", async () => {
-    const tmpHome = mkdtempSync(`${tmpdir()}/hcn-home-`);
+    const tmpHome = realpathSync.native(mkdtempSync(`${tmpdir()}/hcn-home-`));
     const tmpCwd = mkdtempSync(`${tmpdir()}/hcn-cwd-`);
     const tmpCfg = mkdtempSync(`${tmpdir()}/hcn-cfg-`);
     const prevHome = process.env.HOME;
     const prevCfg = process.env.HCN_CONFIG_DIR;
+    const prevPiAgentDir = process.env.PI_CODING_AGENT_DIR;
+    const prevPiSessionDir = process.env.PI_CODING_AGENT_SESSION_DIR;
     process.env.HOME = tmpHome;
     process.env.HCN_CONFIG_DIR = tmpCfg;
+    delete process.env.PI_CODING_AGENT_DIR;
+    delete process.env.PI_CODING_AGENT_SESSION_DIR;
     // Use pi (store-backed) so the guard checks the filesystem; claude's
     // onMissing is "error" and would refuse via harness validation rather than
     // the store check that the origin depends on.
@@ -654,6 +658,7 @@ describe("session origin: fresh vs resumed, and refused resume emits no session"
       const beforeCheck = resumeStore(piCli, { home: tmpHome, cwd: tmpCwd, sessionId: fakeId });
       if (beforeCheck.path === null) throw new Error("expected store path");
       const filed = beforeCheck.path;
+      expect(filed.startsWith(`${tmpHome}${sep}`)).toBe(true);
       // pi files a session as <timestamp>_<id>.jsonl inside the per-cwd dir;
       // an empty dir is NOT a filed session (issue #99 follow-up).
       mkdirSync(filed, { recursive: true });
@@ -675,6 +680,10 @@ describe("session origin: fresh vs resumed, and refused resume emits no session"
       else process.env.HOME = prevHome;
       if (prevCfg === undefined) delete process.env.HCN_CONFIG_DIR;
       else process.env.HCN_CONFIG_DIR = prevCfg;
+      if (prevPiAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
+      else process.env.PI_CODING_AGENT_DIR = prevPiAgentDir;
+      if (prevPiSessionDir === undefined) delete process.env.PI_CODING_AGENT_SESSION_DIR;
+      else process.env.PI_CODING_AGENT_SESSION_DIR = prevPiSessionDir;
       rmSync(tmpHome, { recursive: true, force: true });
       rmSync(tmpCwd, { recursive: true, force: true });
       rmSync(tmpCfg, { recursive: true, force: true });
