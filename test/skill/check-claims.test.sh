@@ -10,7 +10,7 @@ set -u
 dir=$(cd "$(dirname "$0")" && pwd)
 script="$dir/../../skills/hcn/scripts/check-claims.sh"
 fails=0
-fixture_dir=$(mktemp -d) || exit 1
+fixture_dir=$(mktemp -d "${TMPDIR:-/tmp}/hcn-check-claims.XXXXXX") || exit 1
 noclone_dir=""
 noclone_mount=""
 # shellcheck disable=SC2329 # the EXIT trap invokes it
