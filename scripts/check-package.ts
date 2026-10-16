@@ -29,99 +29,108 @@ const manifest = JSON.parse(
 assert.notEqual(manifest.private, true, "package is still private");
 assert.equal(manifest.publishConfig?.access, "public");
 
-const result = spawnSync("npm", ["pack", "--dry-run", "--json", "--ignore-scripts"], {
-  cwd: repositoryRoot,
-  encoding: "utf8",
-});
-
-assert.equal(result.status, 0, result.stderr);
-
-// npm 11 prints an array of pack results; npm 12 prints an object keyed by
-// package name. The publish workflow runs this check under npm@latest, so
-// both shapes are read.
-const packed = JSON.parse(result.stdout) as
-  | readonly PackResult[]
-  | Readonly<Record<string, PackResult>>;
-const results: readonly PackResult[] = Array.isArray(packed) ? packed : Object.values(packed);
-const [pack] = results;
-assert.ok(pack?.files, "npm pack returned no package result");
-
-const files = new Set(pack.files.map(({ path }) => path));
-// CLI-only surface (Phase 7): the bin is the product. No root export, no
-// library subpaths, no d.ts entry points - src/ ships for reading, dist/
-// for running.
-for (const required of [
-  "dist/cli.js",
-  "dist/cli/index.js",
-  "LICENSE",
-  "README.md",
-  "package.json",
-  "skills/hcn/SKILL.md",
-  "skills/hcn/scripts/check-claims.sh",
-]) {
-  assert.ok(files.has(required), `packed package is missing ${required}`);
-}
-for (const forbidden of ["dist/index.js", "dist/index.d.ts"]) {
-  assert.equal(files.has(forbidden), false, `packed package must not carry ${forbidden}`);
-}
-
-// Issue #193: npm publish rewrites a "./"-prefixed bin path and reports the
-// entry as "invalid and removed". The form `npm pkg fix` writes is the only
-// one npm publishes untouched.
-assert.ok(
-  manifest.bin?.hcn === "dist/cli.js",
-  `package.json bin.hcn must be "dist/cli.js", got ${JSON.stringify(manifest.bin?.hcn)}`,
-);
-// The guard that matters: npm must publish the manifest as written. A
-// dry-run publish runs the same normalization as a real one, and any
-// auto-correction means the published manifest differs from package.json -
-// a dropped bin would ship a package with no `hcn` command. The exit status
-// is not asserted: between releases the version is already published, and
-// npm exits 1 for that after it has normalized and packed.
-const publish = spawnSync("npm", ["publish", "--dry-run", "--ignore-scripts"], {
-  cwd: repositoryRoot,
-  encoding: "utf8",
-});
-assert.match(
-  publish.stderr,
-  /npm notice name:/,
-  `npm publish --dry-run never reached packing:\n${publish.stderr}`,
-);
-assert.doesNotMatch(
-  publish.stderr,
-  /auto-corrected|was invalid and removed/,
-  "npm publish would rewrite package.json - run `npm pkg fix`",
-);
-assert.ok(files.has("dist/cli.js"), "dist/cli.js must be packed");
-assert.ok(files.has("dist/cli/index.js"), "dist/cli/index.js must be packed");
-
-for (const forbiddenPrefix of [".plans/", "scripts/", "test/"]) {
-  assert.equal(
-    [...files].some((path) => path.startsWith(forbiddenPrefix)),
-    false,
-    `packed package contains ${forbiddenPrefix}`,
-  );
-}
-
-// The packed CLI must actually run: --version exercises the built entry
-// end to end. The probe is a real invocation, so its command ledger would
-// land in whatever state directory the caller's environment resolves to;
-// point it at a scratch directory this script removes under its own prefix.
-const probeStatePrefix = join(tmpdir(), "hcn-check-package-");
-const probeState = mkdtempSync(probeStatePrefix);
+const checkRootPrefix = join(tmpdir(), "hcn-check-package-");
+const checkRoot = mkdtempSync(checkRootPrefix);
+const npmCache = join(checkRoot, "npm-cache");
 try {
+  const result = spawnSync(
+    "npm",
+    ["pack", "--dry-run", "--json", "--ignore-scripts", "--cache", npmCache],
+    {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+    },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+
+  // npm 11 prints an array of pack results; npm 12 prints an object keyed by
+  // package name. The publish workflow runs this check under npm@latest, so
+  // both shapes are read.
+  const packed = JSON.parse(result.stdout) as
+    | readonly PackResult[]
+    | Readonly<Record<string, PackResult>>;
+  const results: readonly PackResult[] = Array.isArray(packed) ? packed : Object.values(packed);
+  const [pack] = results;
+  assert.ok(pack?.files, "npm pack returned no package result");
+
+  const files = new Set(pack.files.map(({ path }) => path));
+  // CLI-only surface (Phase 7): the bin is the product. No root export, no
+  // library subpaths, no d.ts entry points - src/ ships for reading, dist/
+  // for running.
+  for (const required of [
+    "dist/cli.js",
+    "dist/cli/index.js",
+    "LICENSE",
+    "README.md",
+    "package.json",
+    "skills/hcn/SKILL.md",
+    "skills/hcn/scripts/check-claims.sh",
+  ]) {
+    assert.ok(files.has(required), `packed package is missing ${required}`);
+  }
+  for (const forbidden of ["dist/index.js", "dist/index.d.ts"]) {
+    assert.equal(files.has(forbidden), false, `packed package must not carry ${forbidden}`);
+  }
+
+  // Issue #193: npm publish rewrites a "./"-prefixed bin path and reports the
+  // entry as "invalid and removed". The form `npm pkg fix` writes is the only
+  // one npm publishes untouched.
+  assert.ok(
+    manifest.bin?.hcn === "dist/cli.js",
+    `package.json bin.hcn must be "dist/cli.js", got ${JSON.stringify(manifest.bin?.hcn)}`,
+  );
+  // The guard that matters: npm must publish the manifest as written. A
+  // dry-run publish runs the same normalization as a real one, and any
+  // auto-correction means the published manifest differs from package.json -
+  // a dropped bin would ship a package with no `hcn` command. The exit status
+  // is not asserted: between releases the version is already published, and
+  // npm exits 1 for that after it has normalized and packed.
+  const publish = spawnSync(
+    "npm",
+    ["publish", "--dry-run", "--ignore-scripts", "--cache", npmCache],
+    {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+    },
+  );
+  assert.match(
+    publish.stderr,
+    /npm notice name:/,
+    `npm publish --dry-run never reached packing:\n${publish.stderr}`,
+  );
+  assert.doesNotMatch(
+    publish.stderr,
+    /auto-corrected|was invalid and removed/,
+    "npm publish would rewrite package.json - run `npm pkg fix`",
+  );
+  assert.ok(files.has("dist/cli.js"), "dist/cli.js must be packed");
+  assert.ok(files.has("dist/cli/index.js"), "dist/cli/index.js must be packed");
+
+  for (const forbiddenPrefix of [".plans/", "scripts/", "test/"]) {
+    assert.equal(
+      [...files].some((path) => path.startsWith(forbiddenPrefix)),
+      false,
+      `packed package contains ${forbiddenPrefix}`,
+    );
+  }
+
+  // The packed CLI must actually run: --version exercises the built entry
+  // end to end. The probe is a real invocation, so its command ledger would
+  // land in whatever state directory the caller's environment resolves to;
+  // point it at a scratch directory this script removes under its own prefix.
   const cli = spawnSync(
     "node",
     [new URL("../dist/cli.js", import.meta.url).pathname, "--version"],
     {
       encoding: "utf8",
-      env: { ...process.env, HCN_STATE_DIR: probeState },
+      env: { ...process.env, HCN_STATE_DIR: join(checkRoot, "state") },
     },
   );
   assert.equal(cli.status, 0, `built cli.js --version failed: ${cli.stderr}`);
   assert.match(cli.stdout, /\d+\.\d+\.\d+/, "cli --version must print a version");
 } finally {
-  if (probeState.startsWith(probeStatePrefix)) {
-    rmSync(probeState, { recursive: true, force: true });
+  if (checkRoot.startsWith(checkRootPrefix)) {
+    rmSync(checkRoot, { recursive: true, force: true });
   }
 }
