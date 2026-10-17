@@ -16,7 +16,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: macos-15
+          # GitHub-hosted macOS runners bill at 10x the Linux rate; the
+          # darwin-universal snapshot builds on the self-hosted runner on mini.
+          - runner: [self-hosted, macos]
             target: darwin-universal
           - runner: ubuntu-24.04
             target: linux-x64
