@@ -7,7 +7,7 @@ root = "test"
 # so this wrapper (not setup-state.ts itself) registers the cleanup as a
 # bun:test afterAll; see test/cli/setup-state.ts and the matching Node
 # lane in vitest.config.ts.
-preload = ["./test/cli/setup-state.bun.ts"]
+preload = ["./test/cli/setup-build.ts", "./test/cli/setup-state.bun.ts"]
 
 # pnpm owns dependency installation; never let bun auto-install a parallel tree.
 [install]

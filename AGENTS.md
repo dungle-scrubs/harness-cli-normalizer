@@ -2,6 +2,8 @@
 
 Shared, harness-independent guidance for any agent working in this repo.
 
+Enforced rules and their proofs: [docs/agents/rules.md](docs/agents/rules.md).
+
 ## What this is
 
 A CLI product (`hcn`) that normalizes the differences between AI coding-agent
@@ -116,7 +118,7 @@ them; if a change needs to, change the gate test deliberately.
 
 ```bash
 pnpm install                # install deps (frozen lockfile in CI)
-pnpm check                  # lint + typecheck + build, then vitest + bun test + the skill claim check (the full gate; the build runs first because dist/ is git-ignored and the CLI stub tests fail when it is missing or stale)
+pnpm check                  # lint + typecheck + build, then vitest + bun test + the skill claim check (the full gate)
 pnpm lint                   # biome check .
 pnpm typecheck              # tsc --noEmit
 pnpm test                   # vitest run
