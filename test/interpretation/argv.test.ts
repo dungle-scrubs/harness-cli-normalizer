@@ -35,7 +35,7 @@ describe("buildLaunchArgv (claude)", () => {
       }),
     ).toThrow(/mutual exclusion/);
   });
-  test("read-only access renders its closed set before the prompt, with no list after it", () => {
+  test("read-only access uses after-prompt placement on launch and resume", () => {
     for (const argv of [
       buildLaunchArgv(claudeCode, { prompt: "Reply OK", access: "read" }),
       buildResumeArgv(claudeCode, {
@@ -44,13 +44,22 @@ describe("buildLaunchArgv (claude)", () => {
         sessionId: "known-session",
       }),
     ]) {
-      // The closed inventory and the mcp__* deny precede the positional
-      // prompt and no variadic tool list follows it, so the prompt can
-      // never land inside a list flag's value (issue #411: no allow
-      // rules ride the preset).
-      expect(argv.indexOf("--tools")).toBeLessThan(argv.indexOf("Reply OK"));
-      expect(argv.indexOf("Reply OK")).toBeGreaterThan(argv.indexOf("dontAsk"));
-      expect(argv.indexOf("Reply OK")).toBeGreaterThan(argv.indexOf("mcp__*"));
+      const promptAt = argv.indexOf("Reply OK");
+      expect(promptAt).toBeGreaterThan(-1);
+      for (const flag of ["--tools", "--disallowedTools"]) {
+        const at = argv.indexOf(flag);
+        expect(at, `${flag} requires access read argvPlacement: after-prompt`).toBeGreaterThan(
+          promptAt,
+        );
+        const values: string[] = [];
+        for (const token of argv.slice(at + 1)) {
+          if (token.startsWith("-")) break;
+          values.push(token);
+        }
+        expect(values).toEqual(
+          flag === "--tools" ? ["Read,Grep,Glob,WebFetch,WebSearch"] : ["mcp__*"],
+        );
+      }
       expect(argv).not.toContain("--allowedTools");
     }
   });

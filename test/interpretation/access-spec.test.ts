@@ -35,6 +35,7 @@ describe("one access spec", () => {
             extraFlags: ["--permission-mode", "dontAsk", "--disallowedTools", "mcp__*"],
           },
           value: "Read,Grep,Glob,WebFetch,WebSearch",
+          argvPlacement: "after-prompt",
         },
         write: {
           render: {
