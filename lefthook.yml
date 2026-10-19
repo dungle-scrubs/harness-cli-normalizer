@@ -1,5 +1,7 @@
 pre-commit:
   jobs:
+    - name: task-state
+      run: node scripts/check-task-state.ts
     - name: biome
       glob: "*.{js,jsx,ts,tsx,json,jsonc,css}"
       run: node_modules/.bin/biome check --write --no-errors-on-unmatched {staged_files}

@@ -42,6 +42,7 @@ jobs:
       # Mirrors `pnpm check` explicitly so each failed gate is named in Actions.
       # The build runs before the tests: dist/ is git-ignored, and the CLI
       # stub tests fail (never skip) when it is missing or older than src/.
+      - run: pnpm check:task-state
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm build

@@ -22,3 +22,6 @@ CLAUDE.local.md
 
 # scratch investigation workspaces (machine-local, never committed)
 .scratch/
+
+# Disposable test fixtures, not durable task state
+.test-tmp/

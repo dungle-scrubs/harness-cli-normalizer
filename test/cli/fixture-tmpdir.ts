@@ -6,7 +6,7 @@ const parent = join(
   dirname(fileURLToPath(import.meta.url)),
   "..",
   "..",
-  ".scratch",
+  ".test-tmp",
   "cli-fixtures",
 );
 
