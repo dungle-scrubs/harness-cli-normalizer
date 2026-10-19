@@ -14,7 +14,7 @@ without starting it and lists the harnesses that do.
 ```console
 $ hcn inspect claude --argv --access read --context-window 200000 --prompt "find bugs in src/"
 ...
-argv: claude -p --effort medium --autocompact 200000 ... --allowedTools Read,Grep,Glob,WebFetch,WebSearch --disallowedTools Bash,Edit,Write,...
+argv: claude -p --effort medium --autocompact 200000 --permission-mode dontAsk --disallowedTools mcp__* --tools Read,Grep,Glob,WebFetch,WebSearch ...
 
 $ hcn inspect codex --argv --access read --context-window 200000 --prompt "find bugs in src/"
 ...
@@ -91,7 +91,8 @@ hcn run claude "find bugs in src/" --tools read,grep,glob
 hcn run claude "find bugs in src/" --context-window 200000
 ```
 
-`--access read` becomes `--allowedTools` and `--disallowedTools` on Claude Code,
+`--access read` becomes a closed `--tools Read,Grep,Glob,WebFetch,WebSearch` set plus
+`--permission-mode dontAsk` and an explicit `mcp__*` deny on Claude Code,
 `--sandbox read-only` on Codex, and `--tools` on pi. `--tools` and `--exclude-tools` use the same
 tool names on every harness: `read`, `write`, `edit`, `shell`, `grep`, `glob`, `list`, `web-fetch`,
 `web-search`, `subagent`, and `skill`. `--skills` limits skills in the same way.
@@ -106,9 +107,11 @@ project-level domain allowlists. Dependency installs and tests may need trusted 
 network policy and writable paths. hcn adds neither domains nor extra writable roots. With
 `--access write --autonomy`, Claude keeps the explicit Bash sandbox while its permission mode
 becomes `bypassPermissions`. That mode can approve hosts outside the network allowlist unless
-`strictAllowlist`, `allowManagedDomainsOnly`, or native denied-domain policy blocks them. Keeping
-the filesystem sandbox does not promise network confinement. Autonomy alone does not request
-this sandbox. See the
+`strictAllowlist`, `allowManagedDomainsOnly`, or native denied-domain policy blocks them. Claude
+documents that matrix for interactive terminal sessions, and hcn has not verified it headless. A
+native `httpProxyPort` or `socksProxyPort` moves filtering to that custom proxy, outside Claude's
+own domain controls. Keeping the filesystem sandbox does not promise network confinement.
+Autonomy alone does not request this sandbox. See the
 [access mappings and native limits](docs/reference.md#access-presets).
 
 On Cursor, `--access read` selects native ask mode. **Cursor write access is unconfined**:

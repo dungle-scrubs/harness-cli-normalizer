@@ -361,6 +361,23 @@ describe("detectUnavailableInLine", () => {
       line: "pi turn ended with stopReason error: Codex error: The 'gpt-x' model is not supported when using Codex with a ChatGPT account.",
       desc: "issue #343: pi openai-codex 'model is not supported' wall",
     },
+    // Issue #397: LM Studio's OpenAI-compatible endpoint refuses a prompt
+    // that exceeds the loaded context; pi relays the provider body as
+    // stopReason error (live capture test/fixtures/harnesses/
+    // pi-context-refused.ndjson, pi 1.0.2, qwen/qwen3-14b at 40960), and
+    // again inside its failed overflow-compaction record.
+    {
+      line: "pi turn ended with stopReason error: The number of tokens to keep from the initial prompt is greater than the context length. Try to load the model with a larger context length, or provide a shorter input",
+      desc: "issue #397: LM Studio over-context refusal relayed by pi",
+    },
+    {
+      line: "Context overflow recovery failed: Turn prefix summarization failed: The number of tokens to keep from the initial prompt is greater than the context length. Try to load the model with a larger context length, or provide a shorter input",
+      desc: "issue #397: same refusal inside pi's failed overflow-compaction record",
+    },
+    {
+      line: "The number of tokens to keep from the initial prompt is greater than the context length. Try to load the model with a larger context length, or provide a shorter input",
+      desc: "issue #397: bare provider body",
+    },
   ];
   test.each(positives)("positive $desc: $line", ({ line }) => {
     expect(detectUnavailableInLine(line)).toBe(true);
@@ -379,6 +396,18 @@ describe("detectUnavailableInLine", () => {
     // name on both sides of an effort refusal; the effort is the
     // unavailable subject, not the model, so the message stays task.
     'invalid model selection (--model "definitely-not-an-antigravity-model" --effort "medium"): --effort is not supported for model "definitely-not-an-antigravity-model"',
+    // Issue #397: prose that mentions a context length is not an
+    // over-context refusal - and neither is prose that quotes the
+    // provider's whole verdict mid-message. The verdict clause is
+    // anchored to the start of the message body, allowed only bare or
+    // behind pi's stopReason relay, so both prose shapes below stay task.
+    "the context length for this model is 128000 tokens",
+    "I stopped writing because the context length was nearly exhausted",
+    "to fix this, load the model with a larger context length",
+    "the number of tokens to keep in the summary is greater than the token budget",
+    "I could not finish documenting the provider message: The number of tokens to keep from the initial prompt is greater than the context length.",
+    "pi turn ended with stopReason error: I could not finish documenting the provider message: The number of tokens to keep from the initial prompt is greater than the context length.",
+    "Context overflow recovery failed: Turn prefix summarization failed: I could not finish documenting the provider message: The number of tokens to keep from the initial prompt is greater than the context length.",
   ] as const;
   test.each(negatives)("negative %s is not unavailable", (line) => {
     expect(detectUnavailableInLine(line)).toBe(false);

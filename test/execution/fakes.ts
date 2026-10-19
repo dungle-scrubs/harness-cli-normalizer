@@ -87,9 +87,10 @@ export class FakeProcess implements SpawnedProcess {
     },
     end: (): void => {
       this.stdinEnded = true;
-      // Opt-in: a cooperative harness exits cleanly on stdin EOF (A-001);
-      // the default models a child that keeps running, so close-grace
-      // escalation paths stay expressible.
+      // Default: a cooperative harness exits cleanly (0) on stdin EOF
+      // (A-001). Opt out with { exitOnStdinEnd: false } to model a child
+      // that keeps running, so close-grace escalation paths stay
+      // expressible.
       if (this.exitOnStdinEnd) this.exit(0);
     },
   };

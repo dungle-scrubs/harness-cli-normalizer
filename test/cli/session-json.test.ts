@@ -1,6 +1,7 @@
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, sep } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { PassThrough } from "node:stream";
 import { describe, expect, test, vi } from "vitest";
 import { session } from "../../src/cli/session.js";
@@ -133,7 +134,6 @@ describe("T02: hcn session --json happy path", () => {
     expect(evs.at(-1)).toMatchObject({ kind: "closed", cause: "clean", exitCode: 0 });
     expect(code).toBe(0);
 
-    // stdout carries JSON only; no prose leaked in.
     for (const line of r.events()) expect(typeof line.kind).toBe("string");
   });
 
@@ -166,9 +166,8 @@ describe("T03: sends during a turn are handed to the harness; the next turn carr
     r.proc.emitLine(init);
     r.send({ op: "send", id: "in-2", text: "second while busy" });
     await tick();
-    // second was handed to the harness immediately
     expect(r.proc.stdinLines).toHaveLength(2);
-    r.proc.emitLine(result); // ends turn 1; harness had already received in-2
+    r.proc.emitLine(result); // ends turn 1
     await tick();
     r.proc.emitLine(init);
     r.proc.emitLine(result); // ends turn 2
@@ -571,6 +570,100 @@ describe("follow-ups: backpressure and a broken command stream", () => {
   });
 });
 
+/** Runs the refused-resume fixture: a pi --json --resume of an unknown id
+ * against an empty store. Every state change sits inside one try/finally so
+ * an exception during spy setup cannot leak any of it (issue #399). */
+const runRefusedResumeScenario = async (trace: { dirs: string[] } = { dirs: [] }) => {
+  const savedEnv = {
+    HOME: process.env.HOME,
+    HCN_CONFIG_DIR: process.env.HCN_CONFIG_DIR,
+    PI_CODING_AGENT_DIR: process.env.PI_CODING_AGENT_DIR,
+    PI_CODING_AGENT_SESSION_DIR: process.env.PI_CODING_AGENT_SESSION_DIR,
+  };
+  const spies: {
+    stdout?: ReturnType<typeof vi.spyOn>;
+    stderr?: ReturnType<typeof vi.spyOn>;
+  } = {};
+  const out: string[] = [];
+  const err: string[] = [];
+  const beforeExitCode = process.exitCode;
+  try {
+    const tmpHome = realpathSync.native(mkdtempSync(`${tmpdir()}/hcn-home-`));
+    trace.dirs.push(tmpHome);
+    const tmpCwd = mkdtempSync(`${tmpdir()}/hcn-cwd-`);
+    trace.dirs.push(tmpCwd);
+    const tmpCfg = mkdtempSync(`${tmpdir()}/hcn-cfg-`);
+    trace.dirs.push(tmpCfg);
+    process.env.HOME = tmpHome;
+    process.env.HCN_CONFIG_DIR = tmpCfg;
+    delete process.env.PI_CODING_AGENT_DIR;
+    delete process.env.PI_CODING_AGENT_SESSION_DIR;
+    // Use pi (store-backed) so the guard checks the filesystem; claude's
+    // onMissing is "error" and would refuse via harness validation rather
+    // than the store check.
+    const fakeId = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+    process.exitCode = 0;
+    spies.stdout = vi
+      .spyOn(process.stdout, "write")
+      .mockImplementation((c: string | Uint8Array) => {
+        out.push(String(c));
+        return true;
+      });
+    spies.stderr = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation((c: string | Uint8Array) => {
+        err.push(String(c));
+        return true;
+      });
+    await session("pi", ["--json", "--resume", fakeId, "--cwd", tmpCwd]);
+    expect(process.exitCode).toBe(2);
+    const events = out
+      .join("")
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((l) => {
+        try {
+          return JSON.parse(l) as Record<string, unknown>;
+        } catch {
+          return { raw: l };
+        }
+      });
+    expect(events.some((e) => e.kind === "session")).toBe(false);
+    expect(events[0]).toMatchObject({ kind: "failure" });
+    expect(events.at(-1)).toMatchObject({ kind: "closed" });
+    const { resumeStore } = await import("../../src/cli/resume-guard.js");
+    const beforeCheck = resumeStore(piCli, { home: tmpHome, cwd: tmpCwd, sessionId: fakeId });
+    if (beforeCheck.path === null) throw new Error("expected store path");
+    const filed = beforeCheck.path;
+    expect(filed.startsWith(`${tmpHome}${sep}`)).toBe(true);
+    // pi files a session as <timestamp>_<id>.jsonl inside the per-cwd dir
+    // (issue #99 follow-up).
+    mkdirSync(filed, { recursive: true });
+    writeFileSync(join(filed, `2026-08-23T00-00-00-000Z_${fakeId}.jsonl`), "");
+    out.length = 0;
+    err.length = 0;
+    // Use the guard's own resolved cwd so /tmp vs /private/tmp on macOS does
+    // not diverge.
+    const check = resumeStore(piCli, { home: tmpHome, cwd: tmpCwd, sessionId: fakeId });
+    expect(check.exists).toBe(true);
+    expect(check.path).toBe(filed);
+  } finally {
+    // Restore the prior exit status as an EFFECTIVE value. Bun ignores
+    // `process.exitCode = undefined`, so restoring the unset state verbatim
+    // would leave the refusal's 2 set and exit the whole Bun lane 2 after a
+    // fully passing run; zero is the only value both runtimes accept here.
+    process.exitCode = beforeExitCode ?? 0;
+    spies.stderr?.mockRestore();
+    spies.stdout?.mockRestore();
+    for (const [key, value] of Object.entries(savedEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    for (const dir of trace.dirs) rmSync(dir, { recursive: true, force: true });
+  }
+};
+
 describe("session origin: fresh vs resumed, and refused resume emits no session", () => {
   test("fresh session reports origin fresh", async () => {
     const r = rig({}, "fresh");
@@ -601,92 +694,97 @@ describe("session origin: fresh vs resumed, and refused resume emits no session"
   });
 
   test("a refused unknown-id resume emits no session event", async () => {
-    const tmpHome = realpathSync.native(mkdtempSync(`${tmpdir()}/hcn-home-`));
-    const tmpCwd = mkdtempSync(`${tmpdir()}/hcn-cwd-`);
-    const tmpCfg = mkdtempSync(`${tmpdir()}/hcn-cfg-`);
-    const prevHome = process.env.HOME;
-    const prevCfg = process.env.HCN_CONFIG_DIR;
-    const prevPiAgentDir = process.env.PI_CODING_AGENT_DIR;
-    const prevPiSessionDir = process.env.PI_CODING_AGENT_SESSION_DIR;
-    process.env.HOME = tmpHome;
-    process.env.HCN_CONFIG_DIR = tmpCfg;
-    delete process.env.PI_CODING_AGENT_DIR;
-    delete process.env.PI_CODING_AGENT_SESSION_DIR;
-    // Use pi (store-backed) so the guard checks the filesystem; claude's
-    // onMissing is "error" and would refuse via harness validation rather than
-    // the store check that the origin depends on.
-    const fakeId = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
-    // Ensure store does NOT exist - fresh tmp dirs guarantee that.
-    const out: string[] = [];
-    const err: string[] = [];
-    const outSpy = vi
-      .spyOn(process.stdout, "write")
-      .mockImplementation((c: string | Uint8Array) => {
-        out.push(String(c));
-        return true;
-      });
-    const errSpy = vi
-      .spyOn(process.stderr, "write")
-      .mockImplementation((c: string | Uint8Array) => {
-        err.push(String(c));
-        return true;
-      });
-    const before = process.exitCode ?? 0;
-    process.exitCode = 0;
+    await runRefusedResumeScenario();
+  });
+});
+
+describe("issue #399: fixture cleanup survives spy-setup exceptions", () => {
+  /** Redefines `stream.write` as a getter-only descriptor whose value is not
+   * a function, so the fixture's real vi.spyOn(stream, "write") throws a
+   * genuine setup exception. Vitest asserts the descriptor's resolved value is
+   * a function (its getter path calls the getter); bun rejects writing a value
+   * over a getter-only descriptor. configurable stays true, so restore() can
+   * put the original descriptor back. */
+  const sabotageWriteSpy = (stream: NodeJS.WriteStream): (() => void) => {
+    const original = Object.getOwnPropertyDescriptor(stream, "write");
+    Object.defineProperty(stream, "write", {
+      configurable: true,
+      enumerable: true,
+      get: () => "unspiable descriptor",
+    });
+    return () => {
+      if (original) Object.defineProperty(stream, "write", original);
+      else delete (stream as { write?: unknown }).write;
+    };
+  };
+
+  const envSnapshot = () => ({
+    HOME: process.env.HOME,
+    HCN_CONFIG_DIR: process.env.HCN_CONFIG_DIR,
+    PI_CODING_AGENT_DIR: process.env.PI_CODING_AGENT_DIR,
+    PI_CODING_AGENT_SESSION_DIR: process.env.PI_CODING_AGENT_SESSION_DIR,
+  });
+
+  test("a stdout spy-setup exception restores the environment and the temp dirs", async () => {
+    const restore = sabotageWriteSpy(process.stdout);
+    const envBefore = envSnapshot();
+    const exitBefore = process.exitCode;
+    const trace = { dirs: [] as string[] };
     try {
-      await session("pi", ["--json", "--resume", fakeId, "--cwd", tmpCwd]);
-      expect(process.exitCode).toBe(2);
-      const events = out
-        .join("")
-        .trim()
-        .split("\n")
-        .filter(Boolean)
-        .map((l) => {
-          try {
-            return JSON.parse(l) as Record<string, unknown>;
-          } catch {
-            return { raw: l };
-          }
-        });
-      expect(events.some((e) => e.kind === "session")).toBe(false);
-      expect(events[0]).toMatchObject({ kind: "failure" });
-      expect(events.at(-1)).toMatchObject({ kind: "closed" });
-      // Also verify the same store-path would be reported as fresh if we
-      // created it: file the session and check the complementary path reports
-      // resumed. Reuses the same tmp dirs rather than building a second fake.
-      const { resumeStore } = await import("../../src/cli/resume-guard.js");
-      const beforeCheck = resumeStore(piCli, { home: tmpHome, cwd: tmpCwd, sessionId: fakeId });
-      if (beforeCheck.path === null) throw new Error("expected store path");
-      const filed = beforeCheck.path;
-      expect(filed.startsWith(`${tmpHome}${sep}`)).toBe(true);
-      // pi files a session as <timestamp>_<id>.jsonl inside the per-cwd dir;
-      // an empty dir is NOT a filed session (issue #99 follow-up).
-      mkdirSync(filed, { recursive: true });
-      writeFileSync(join(filed, `2026-08-23T00-00-00-000Z_${fakeId}.jsonl`), "");
-      out.length = 0;
-      err.length = 0;
-      // Verify the store helper now sees it - proves the fake is wired to the
-      // same path the refusal checked. Uses the guard's own resolved cwd so
-      // /tmp vs /private/tmp on macOS does not diverge.
-      const check = resumeStore(piCli, { home: tmpHome, cwd: tmpCwd, sessionId: fakeId });
-      expect(check.exists).toBe(true);
-      expect(check.path).toBe(filed);
+      await expect(runRefusedResumeScenario(trace)).rejects.toThrow();
     } finally {
-      process.exitCode = before;
-      if (process.exitCode === undefined) process.exitCode = 0;
-      outSpy.mockRestore();
-      errSpy.mockRestore();
-      if (prevHome === undefined) delete process.env.HOME;
-      else process.env.HOME = prevHome;
-      if (prevCfg === undefined) delete process.env.HCN_CONFIG_DIR;
-      else process.env.HCN_CONFIG_DIR = prevCfg;
-      if (prevPiAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
-      else process.env.PI_CODING_AGENT_DIR = prevPiAgentDir;
-      if (prevPiSessionDir === undefined) delete process.env.PI_CODING_AGENT_SESSION_DIR;
-      else process.env.PI_CODING_AGENT_SESSION_DIR = prevPiSessionDir;
-      rmSync(tmpHome, { recursive: true, force: true });
-      rmSync(tmpCwd, { recursive: true, force: true });
-      rmSync(tmpCfg, { recursive: true, force: true });
+      restore();
+    }
+    expect(trace.dirs).toHaveLength(3);
+    for (const dir of trace.dirs) expect(existsSync(dir)).toBe(false);
+    expect(envSnapshot()).toEqual(envBefore);
+    // Effective status (`?? 0`), not the raw property.
+    expect(process.exitCode ?? 0).toBe(exitBefore ?? 0);
+  });
+
+  test("a stderr spy-setup exception also restores the partially installed stdout spy", async () => {
+    const restore = sabotageWriteSpy(process.stderr);
+    const realStdoutWrite = process.stdout.write;
+    const envBefore = envSnapshot();
+    const exitBefore = process.exitCode;
+    const trace = { dirs: [] as string[] };
+    try {
+      await expect(runRefusedResumeScenario(trace)).rejects.toThrow();
+    } finally {
+      restore();
+    }
+    expect(trace.dirs).toHaveLength(3);
+    for (const dir of trace.dirs) expect(existsSync(dir)).toBe(false);
+    expect(envSnapshot()).toEqual(envBefore);
+    // Effective status (`?? 0`): see the stdout-spy test above.
+    expect(process.exitCode ?? 0).toBe(exitBefore ?? 0);
+    // The stdout spy was really installed before stderr's vi.spyOn threw.
+    expect(process.stdout.write).toBe(realStdoutWrite);
+  });
+});
+
+describe("issue #399: a clean process exits 0 after the refused-resume fixtures", () => {
+  // Recursion guard: the child re-runs skip this test by clearing themselves.
+  const childProof = process.env.HCN_SESSION_JSON_CHILD_PROOF === "1";
+
+  test("standalone Bun and Node invocations of this file exit 0", () => {
+    if (childProof) return;
+    const file = import.meta.filename;
+    const repositoryRoot = resolve(import.meta.dirname, "../..");
+    const vitestBin = join(repositoryRoot, "node_modules/vitest/vitest.mjs");
+    const childEnv = { ...process.env, HCN_SESSION_JSON_CHILD_PROOF: "1" };
+    for (const command of [
+      { label: "bun", bin: "bun", args: ["test", file] },
+      { label: "node (vitest)", bin: "node", args: [vitestBin, "run", file] },
+    ]) {
+      const result = spawnSync(command.bin, command.args, {
+        cwd: repositoryRoot,
+        env: childEnv,
+        encoding: "utf8",
+        timeout: 10_000,
+      });
+      expect(result.error, `${command.label} child failed to spawn`).toBeUndefined();
+      expect(result.status, `${command.label} child stderr:\n${result.stderr}`).toBe(0);
     }
   });
 });
@@ -735,7 +833,7 @@ test("session refuses the fresh-turn isolation option before looking up a sessio
     expect(process.exitCode).toBe(2);
     expect(out.join("")).toContain("isolation");
   } finally {
-    process.exitCode = before;
+    process.exitCode = before ?? 0;
     stdout.mockRestore();
     stderr.mockRestore();
   }

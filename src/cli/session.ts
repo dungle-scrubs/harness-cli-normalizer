@@ -11,7 +11,7 @@ import {
   QUESTION_MODES,
   type QuestionMode,
 } from "../interpretation/question.js";
-import { ArgvRefusalError } from "../interpretation/refusal.js";
+import { ArgvRefusalError, type RefusalOption } from "../interpretation/refusal.js";
 import type { BehaviorTier } from "../interpretation/resolve-options.js";
 import type { SkillsSelection } from "../interpretation/skills-selection.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
@@ -22,6 +22,27 @@ import { gateExtensionOptions, writeExtensionProvenance } from "./extension-gate
 import { createRenderState, renderEvent } from "./render.js";
 import { resolveHarness } from "./resolve-harness.js";
 import { listKnownSkills, resolveSkillNames } from "./skills-root.js";
+
+/** Issue #392 / #386: permission dimensions the common parser accepts but a
+ * session never consumes. A polarity pair (write/no-write) is one
+ * dimension and refuses under either spelling. Non-permission options
+ * (--system-prompt, --max-steps, ...) stay out of this table. */
+const RUN_ONLY_PERMISSION_OPTIONS: ReadonlyArray<{
+  readonly valueKey: string;
+  readonly flag: string;
+  readonly option: RefusalOption;
+}> = [
+  { valueKey: "tools", flag: "--tools", option: "tools" },
+  { valueKey: "exclude-tools", flag: "--exclude-tools", option: "excludeTools" },
+  { valueKey: "no-tools", flag: "--no-tools", option: "discovery.tools" },
+  { valueKey: "write", flag: "--write", option: "write" },
+  { valueKey: "no-write", flag: "--no-write", option: "write" },
+  { valueKey: "shell", flag: "--shell", option: "shell" },
+  { valueKey: "no-shell", flag: "--no-shell", option: "shell" },
+  { valueKey: "sandbox", flag: "--sandbox", option: "sandbox" },
+  { valueKey: "autonomy", flag: "--autonomy", option: "autonomy" },
+  { valueKey: "no-autonomy", flag: "--no-autonomy", option: "autonomy" },
+];
 
 export const session = async (harnessName: string, rawArgs: string[]): Promise<void> => {
   // Decided before any refusal can fire: a refused --json session still owes
@@ -128,6 +149,25 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
       "closed",
     );
     return;
+  }
+  for (const dimension of RUN_ONLY_PERMISSION_OPTIONS) {
+    if (values[dimension.valueKey] !== undefined) {
+      const { refuse, refusalOf } = await import("./refuse.js");
+      refuse(
+        refusalOf(
+          new ArgvRefusalError({
+            harness: h.name,
+            message: `${dimension.flag} is available only on hcn run, not hcn session`,
+            issue: "invalid-option-value",
+            option: dimension.option,
+            supported: [`hcn run ${dimension.flag}`],
+          }),
+        ),
+        jsonMode,
+        "closed",
+      );
+      return;
+    }
   }
   if (values.isolation !== undefined) {
     const { refuse, refusalOf } = await import("./refuse.js");

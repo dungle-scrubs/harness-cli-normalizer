@@ -235,12 +235,19 @@ Rendering per harness:
 
 | harness | `read` renders | `write` renders |
 |---|---|---|
-| claude | `--allowedTools Read,Grep,Glob,WebFetch,WebSearch` + deny complement (toolMap aware) | `--permission-mode acceptEdits` + strict sandbox `--settings` |
+| claude | `--tools Read,Grep,Glob,WebFetch,WebSearch` + `--permission-mode dontAsk` + `--disallowedTools mcp__*` (closed inventory; no allow rules; MCP tools denied) | `--permission-mode acceptEdits` + strict sandbox `--settings` |
 | pi | `--tools read,grep,find,ls` (+ web-search via toolMap) | nothing |
 | codex | `--sandbox read-only` | `--sandbox workspace-write` |
 | muse | `--disable-write --disable-shell` | nothing |
 | cursor | `--mode ask --sandbox enabled` | `--force` (unconfined commands) |
 | popeye | `--tools read,grep,glob,list,web-fetch,web-search` | nothing |
+
+On claude, the read preset denies every MCP tool (`mcp__*`). A deny rule wins over
+allow rules, so the denial also overrides native MCP pre-approvals from settings.
+The web tools keep their native approval semantics: the inventory lists them, but
+it pre-approves no web requests, and it confines neither files (`Read` works on any
+path) nor network. Use `--tools` for a custom or remapped set or to drop the web
+tools; `--tools` refuses to combine with `--access`.
 
 Claude write requests these native settings, without a blanket `Bash` grant:
 
@@ -269,11 +276,21 @@ policy and writable paths. hcn does not add domains or widen that policy. See Cl
 
 Explicit `--access write --autonomy` keeps the Bash sandbox settings and selects native
 `bypassPermissions`; autonomy alone does not request this sandbox. Other tools follow the native
-permission mode. Keeping filesystem isolation does not establish network confinement: Claude's
+permission mode. Keeping filesystem isolation does not establish network confinement, and hcn sets
+no domain policy. Claude's
 [network approval rules](https://code.claude.com/docs/en/sandboxing#hosts-outside-your-allowed-domains)
 allow hosts outside the allowlist in `bypassPermissions` unless `strictAllowlist`,
-`allowManagedDomainsOnly`, or native denied-domain policy blocks them. This is the documented
-native behavior; the network-plus-autonomy combination was not live-probed in the 2.1.296 qualification.
+`allowManagedDomainsOnly`, or native denied-domain policy blocks them. Claude documents that
+decision matrix for an interactive terminal session. hcn has not verified it in a headless run.
+The network-plus-autonomy combination was not live-probed in the 2.1.296 qualification. The
+matrix also governs only traffic that goes through Claude's own sandbox proxy. When a native
+`httpProxyPort` or `socksProxyPort` applies, that custom proxy filters the traffic sent to it,
+and Claude's `allowedDomains`, `deniedDomains`, `strictAllowlist`, approval prompts, and
+local-address check stop applying to that traffic. A sandboxed command can connect to either
+proxy, so setting only one port does not confine what the command reaches through the custom one.
+These limits restate Claude's
+[custom proxy configuration](https://code.claude.com/docs/en/sandboxing#custom-proxy-configuration)
+page, checked 2026-10-18. No live native probe backs them.
 
 hcn combines its sandbox and skill-selection fragments into one `--settings`
 argument on fresh, named-resume, and resume-last launches. Caller passthrough stays verbatim:

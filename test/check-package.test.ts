@@ -18,10 +18,23 @@ interface CacheRecord {
   readonly command: "pack" | "publish";
   readonly outcome: "accepted" | "rejected";
   readonly cache: string;
+  readonly compileCache: string;
 }
 
 const node = execFileSync("node", ["-p", "process.execPath"], { encoding: "utf8" }).trim();
 const checker = readFileSync(new URL("../scripts/check-package.ts", import.meta.url), "utf8");
+
+// Issue #406: every recorded npm child must scope its compile cache under
+// the checker's disposable root, not the caller's shared TMPDIR.
+function expectCheckOwnedCompileCaches(temp: string, records: readonly CacheRecord[]): void {
+  const checkOwnedRoot = join(temp, "hcn-check-package-");
+  for (const { compileCache } of records) {
+    expect(
+      compileCache.startsWith(checkOwnedRoot),
+      `compile cache ${compileCache} is not check-owned`,
+    ).toBe(true);
+  }
+}
 
 function runPackageCheck(mode: "npm11" | "npm12" | "pack-failure" | "publish-rewrite") {
   const root = realpathSync(mkdtempSync(join(tmpdir(), "hcn-package-check-test-")));
@@ -41,6 +54,7 @@ function runPackageCheck(mode: "npm11" | "npm12" | "pack-failure" | "publish-rew
     ]) {
       mkdirSync(directory, { recursive: true });
     }
+    writeFileSync(join(bin, "package.json"), JSON.stringify({ type: "commonjs" }));
     writeFileSync(join(temp, "retained"), "caller artifact");
     writeFileSync(join(repository, "scripts/check-package.ts"), checker);
     writeFileSync(
@@ -68,6 +82,7 @@ console.log("0.0.0");
     writeFileSync(
       join(bin, "npm"),
       String.raw`#!/usr/bin/env node
+require("node:module").enableCompileCache();
 const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
@@ -76,7 +91,7 @@ const explicit = index >= 0 ? args[index + 1] : args.find(arg => arg.startsWith(
 const cache = explicit || process.env.npm_config_cache || process.env.NPM_CONFIG_CACHE || path.join(process.env.HOME, ".npm");
 const relative = path.relative(process.env.FIXTURE_TMP, cache);
 const owned = relative !== "" && !path.isAbsolute(relative) && relative.split(path.sep)[0] !== "..";
-fs.appendFileSync(process.env.FIXTURE_NPM_TRACE, JSON.stringify({ command: args[0], outcome: owned ? "accepted" : "rejected", cache }) + "\n");
+fs.appendFileSync(process.env.FIXTURE_NPM_TRACE, JSON.stringify({ command: args[0], outcome: owned ? "accepted" : "rejected", cache, compileCache: require("node:module").getCompileCacheDir() }) + "\n");
 if (!owned) {
   console.error("fixture npm: cache must be owned before any write");
   process.exit(97);
@@ -138,25 +153,28 @@ test.each(["npm11", "npm12"] as const)("package checking owns its temporary cach
   expect(records.map(({ command }) => command)).toContain("pack");
   expect(records.map(({ command }) => command)).toContain("publish");
   expect(records.filter(({ outcome }) => outcome === "rejected")).toEqual([]);
+  expectCheckOwnedCompileCaches(temp, records);
   expect(cliState).toContain(`${temp}/`);
   expect(remaining).toEqual(["retained"]);
   expect(callerArtifact).toBe("caller artifact");
 });
 
 test("package checking removes its cache when npm pack fails", () => {
-  const { result, records, remaining, callerArtifact } = runPackageCheck("pack-failure");
+  const { result, records, remaining, callerArtifact, temp } = runPackageCheck("pack-failure");
   expect(result.status).toBe(1);
   expect(result.stderr).toContain("fixture npm pack failure after cache write");
   expect(records.find(({ command }) => command === "pack")?.outcome).toBe("accepted");
+  expectCheckOwnedCompileCaches(temp, records);
   expect(remaining).toEqual(["retained"]);
   expect(callerArtifact).toBe("caller artifact");
 });
 
 test("package checking removes its cache when npm would rewrite the manifest", () => {
-  const { result, records, remaining, callerArtifact } = runPackageCheck("publish-rewrite");
+  const { result, records, remaining, callerArtifact, temp } = runPackageCheck("publish-rewrite");
   expect(result.status).toBe(1);
   expect(result.stderr).toContain("npm publish would rewrite package.json");
   expect(records.find(({ command }) => command === "publish")?.outcome).toBe("accepted");
+  expectCheckOwnedCompileCaches(temp, records);
   expect(remaining).toEqual(["retained"]);
   expect(callerArtifact).toBe("caller artifact");
 });

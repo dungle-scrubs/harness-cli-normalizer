@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildLaunchArgv } from "../../src/interpretation/argv.js";
+import { buildLaunchArgv, buildResumeArgv } from "../../src/interpretation/argv.js";
 import { ArgvRefusalError } from "../../src/interpretation/refusal.js";
 import { resolveEffectiveOptions } from "../../src/interpretation/resolve-options.js";
 import { renderTurnOptions } from "../../src/interpretation/turn-options.js";
@@ -17,13 +17,36 @@ describe("--access preset", () => {
     const val = argv[idx + 1] ?? "";
     expect(val.split(",").sort()).toEqual(["find", "grep", "ls", "read"].sort());
   });
-  it("claude read -> Read,Grep,Glob,WebFetch,WebSearch plus deny complement", () => {
+  it("claude read -> closed --tools set, dontAsk, mcp__* deny; never allow rules", () => {
     const argv = buildLaunchArgv(claudeCode, { prompt: "hi", access: "read" });
-    expect(argv.join(" ")).toContain("--allowedTools");
-    const idx = argv.indexOf("--allowedTools");
-    expect(argv[idx + 1]).toContain("Read");
-    expect(argv[idx + 1]).toContain("Grep");
-    expect(argv.join(" ")).toContain("--disallowedTools");
+    // Pinned argv (issue #411): --tools is the only flag that limits
+    // which built-in tools exist, so the read inventory rides it;
+    // dontAsk pins the permission mode so unmatched calls deny instead
+    // of prompting; the mcp__* deny closes MCP tools, which --tools
+    // leaves alone and whose native pre-approvals dontAsk would
+    // otherwise honor (deny wins over allow). No allow rule rides the
+    // preset, so web requests keep their native approval semantics.
+    expect(argv.join(" ")).not.toContain("--allowedTools");
+    const denyIdx = argv.indexOf("--disallowedTools");
+    expect(denyIdx).toBeGreaterThan(-1);
+    expect(argv[denyIdx + 1]).toBe("mcp__*");
+    const toolsIdx = argv.indexOf("--tools");
+    expect(toolsIdx).toBeGreaterThan(-1);
+    expect(argv[toolsIdx + 1]).toBe("Read,Grep,Glob,WebFetch,WebSearch");
+    const modeIdx = argv.indexOf("--permission-mode");
+    expect(modeIdx).toBeGreaterThan(-1);
+    expect(argv[modeIdx + 1]).toBe("dontAsk");
+  });
+  it("claude read on resume keeps the closed --tools set, dontAsk mode and mcp__* deny", () => {
+    const argv = buildResumeArgv(claudeCode, {
+      prompt: "hi",
+      sessionId: "0199a4c5-1111-2222-3333-444455556666",
+      access: "read",
+    });
+    expect(argv[argv.indexOf("--tools") + 1]).toBe("Read,Grep,Glob,WebFetch,WebSearch");
+    expect(argv[argv.indexOf("--permission-mode") + 1]).toBe("dontAsk");
+    expect(argv[argv.indexOf("--disallowedTools") + 1]).toBe("mcp__*");
+    expect(argv.join(" ")).not.toContain("--allowedTools");
   });
   it("codex read -> --sandbox read-only exactly once even with profile sandbox", () => {
     const argv = buildLaunchArgv(codexCli, { prompt: "hi", access: "read" });

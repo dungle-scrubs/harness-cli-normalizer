@@ -277,12 +277,21 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
         },
       },
     },
-    // Write pairs edit approval with native sandboxed Bash approval. The
-    // sandbox must start; native permission and network policies still apply.
+    // --tools restricts built-ins, not MCP; explicit MCP denial overrides
+    // existing approvals, which dontAsk alone would still honor. Web requests
+    // retain native approval policy; this is not filesystem/network confinement.
+    // Write pairs edit approval with native sandboxed Bash; startup must succeed.
     access: {
       kind: "access",
       renders: {
-        read: "tool-preset",
+        read: {
+          render: {
+            kind: "flag-value",
+            flag: "--tools",
+            extraFlags: ["--permission-mode", "dontAsk", "--disallowedTools", "mcp__*"],
+          },
+          value: "Read,Grep,Glob,WebFetch,WebSearch",
+        },
         write: {
           render: {
             kind: "json-settings",
@@ -323,6 +332,8 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
   // compose, deny winning on overlap. Patterns (Bash(git *)) valid in both
   // lists; unknown PATTERN spellings warn on stderr, unknown exact names
   // are the silent-acceptance hazard the curated vocabulary guards.
+  // --tools (not these flags) is the flag that limits which built-in tools
+  // exist; the access read preset names its closed inventory there.
   skills: { loadFlag: null, overridesVia: "settings-skilloverrides" },
   tools: {
     includeFlag: "--allowedTools",
@@ -330,18 +341,40 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     includeIsStrictAllowlist: false,
     builtins: [
       { name: "Bash", defaultEnabled: true, canonical: "shell" },
+      { name: "CronCreate", defaultEnabled: true, canonical: null },
+      { name: "CronDelete", defaultEnabled: true, canonical: null },
+      { name: "CronList", defaultEnabled: true, canonical: null },
+      { name: "DesignSync", defaultEnabled: true, canonical: null },
       { name: "Edit", defaultEnabled: true, canonical: "edit" },
-      { name: "Glob", defaultEnabled: true, canonical: "glob" },
-      { name: "Grep", defaultEnabled: true, canonical: "grep" },
+      { name: "EnterWorktree", defaultEnabled: true, canonical: null },
+      { name: "ExitWorktree", defaultEnabled: true, canonical: null },
+      // Absent by default on macOS/Linux/WSL (search rides Bash instead);
+      // naming either in --tools or --allowedTools restores it.
+      { name: "Glob", defaultEnabled: false, canonical: "glob" },
+      { name: "Grep", defaultEnabled: false, canonical: "grep" },
+      { name: "LSP", defaultEnabled: true, canonical: null },
+      { name: "ListAgents", defaultEnabled: true, canonical: null },
+      { name: "ListMcpResourcesTool", defaultEnabled: true, canonical: null },
+      { name: "Monitor", defaultEnabled: true, canonical: null },
+      { name: "NotebookEdit", defaultEnabled: true, canonical: null },
+      { name: "PushNotification", defaultEnabled: true, canonical: null },
       { name: "Read", defaultEnabled: true, canonical: "read" },
-      { name: "Write", defaultEnabled: true, canonical: "write" },
+      { name: "ReadMcpResourceDirTool", defaultEnabled: true, canonical: null },
+      { name: "ReadMcpResourceTool", defaultEnabled: true, canonical: null },
+      { name: "RemoteTrigger", defaultEnabled: true, canonical: null },
+      { name: "ReportFindings", defaultEnabled: true, canonical: null },
+      { name: "ScheduleWakeup", defaultEnabled: true, canonical: null },
+      { name: "SendMessage", defaultEnabled: true, canonical: null },
+      { name: "Skill", defaultEnabled: true, canonical: "skill" },
+      { name: "Task", defaultEnabled: true, canonical: "subagent" },
+      // Removed in claude 2.1.277; classified for the fixtures that list it.
+      { name: "TaskOutput", defaultEnabled: false, canonical: null },
+      { name: "TaskStop", defaultEnabled: true, canonical: null },
+      { name: "ToolSearch", defaultEnabled: true, canonical: null },
       { name: "WebFetch", defaultEnabled: true, canonical: "web-fetch" },
       { name: "WebSearch", defaultEnabled: true, canonical: "web-search" },
-      { name: "Monitor", defaultEnabled: true, canonical: null },
-      { name: "Task", defaultEnabled: true, canonical: "subagent" },
-      { name: "Skill", defaultEnabled: true, canonical: "skill" },
-      { name: "NotebookEdit", defaultEnabled: true, canonical: null },
-      { name: "LSP", defaultEnabled: true, canonical: null },
+      { name: "Workflow", defaultEnabled: true, canonical: null },
+      { name: "Write", defaultEnabled: true, canonical: "write" },
     ],
     categories: [],
     denySemantics: "remove-from-set",

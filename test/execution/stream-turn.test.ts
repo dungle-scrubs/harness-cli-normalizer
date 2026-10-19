@@ -492,6 +492,18 @@ describe("harness fixture replay (F-20)", () => {
       nonError: false,
       identities: 2,
     },
+    // Issue #397: LM Studio over-context refusal relayed as stopReason
+    // error after a failed overflow compaction; the dedicated
+    // terminal-error test asserts the unavailable classification. The
+    // captured turn echoes its ~210 KB synthetic prompt three times, so
+    // the fixture is an order larger than its neighbours.
+    {
+      file: "pi-context-refused.ndjson",
+      harness: "pi",
+      exitCode: 0,
+      nonError: false,
+      identities: 2,
+    },
     {
       file: "pi-model-observed.ndjson",
       harness: "pi",

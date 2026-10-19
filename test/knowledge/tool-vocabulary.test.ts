@@ -39,11 +39,20 @@ describe("claude tool surface (claude-tool-interplay.md)", () => {
     expect(claudeCode.tools.includeIsStrictAllowlist).toBe(false);
   });
 
-  it("core built-ins are curated and default-enabled", () => {
-    for (const name of ["Bash", "Read", "Edit", "Write", "Grep", "Skill"]) {
+  it("core built-ins are curated; the search tools ship off on macOS/Linux/WSL", () => {
+    for (const name of ["Bash", "Read", "Edit", "Write", "Skill"]) {
       const entry = claudeCode.tools.builtins.find((t) => t.name === name);
       expect(entry, name).toBeDefined();
       expect(entry?.defaultEnabled).toBe(true);
+    }
+    // Docs (tools-reference, Glob/Grep tool behavior): absent by default
+    // on macOS, Linux, and WSL - search rides Bash - and naming either in
+    // --tools or --allowedTools restores it. The 2.1.296 fixture's init
+    // event lists neither.
+    for (const name of ["Grep", "Glob"]) {
+      const entry = claudeCode.tools.builtins.find((t) => t.name === name);
+      expect(entry, name).toBeDefined();
+      expect(entry?.defaultEnabled).toBe(false);
     }
   });
 

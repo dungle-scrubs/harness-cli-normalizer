@@ -35,7 +35,7 @@ describe("buildLaunchArgv (claude)", () => {
       }),
     ).toThrow(/mutual exclusion/);
   });
-  test("read-only access does not put the prompt inside a variadic tool list", () => {
+  test("read-only access renders its closed set before the prompt, with no list after it", () => {
     for (const argv of [
       buildLaunchArgv(claudeCode, { prompt: "Reply OK", access: "read" }),
       buildResumeArgv(claudeCode, {
@@ -44,8 +44,14 @@ describe("buildLaunchArgv (claude)", () => {
         sessionId: "known-session",
       }),
     ]) {
-      expect(argv.indexOf("Reply OK")).toBeLessThan(argv.indexOf("--allowedTools"));
-      expect(argv.indexOf("Reply OK")).toBeLessThan(argv.indexOf("--disallowedTools"));
+      // The closed inventory and the mcp__* deny precede the positional
+      // prompt and no variadic tool list follows it, so the prompt can
+      // never land inside a list flag's value (issue #411: no allow
+      // rules ride the preset).
+      expect(argv.indexOf("--tools")).toBeLessThan(argv.indexOf("Reply OK"));
+      expect(argv.indexOf("Reply OK")).toBeGreaterThan(argv.indexOf("dontAsk"));
+      expect(argv.indexOf("Reply OK")).toBeGreaterThan(argv.indexOf("mcp__*"));
+      expect(argv).not.toContain("--allowedTools");
     }
   });
   test("pi keeps its positional prompt outside the read preset on launch and resume", () => {

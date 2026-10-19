@@ -42,6 +42,16 @@ Planned work for hcn. Each item must pass the scope test in `AGENTS.md`.
 - **Cursor access (#373)** - built: read selects native ask mode, write
   renders `--force`. Write is explicitly unconfined; normalized sandbox
   options remain unsupported. See [verification](docs/cursor-access.md).
+- **Claude read access (#411)** - built: `--access read` renders a closed
+  inventory (`--tools Read,Grep,Glob,WebFetch,WebSearch`) plus
+  `--permission-mode dontAsk` and an explicit `--disallowedTools mcp__*`
+  deny (deny wins over native MCP pre-approvals), never allow rules; the
+  builtin roster is
+  classified against every committed fixture's init tool list
+  (`test/knowledge/claude-builtin-roster.test.ts`). The optional
+  readable-files option from the ticket was declined: not asked for in the
+  fix request, and a fresh-directory copy scheme is caller policy, not
+  normalization.
 
 ## Provider configurations
 
