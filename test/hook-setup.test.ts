@@ -692,9 +692,11 @@ describe("existing hook state", () => {
     const historical = readFileSync(join(repo, "test/historical/install-hooks.ts.txt"), "utf8");
     expect(historical).toContain('"lefthook", ["install", "--force"]');
     put(f.main, ".test-tmp/historical-install-hooks.ts", historical);
-    const bin = join(f.base, "bin");
+    const bin = join(f.base, "bin with space");
     mkdirSync(bin);
-    symlinkSync(installedLefthook(f.main), join(bin, "lefthook"));
+    const executable = join(bin, "lefthook");
+    copyFileSync(installedLefthook(f.main), executable);
+    chmodSync(executable, 0o755);
     const produced = spawnSync(node, [".test-tmp/historical-install-hooks.ts"], {
       cwd: f.main,
       env: { ...f.env, PATH: `${bin}:${f.env.PATH}` },
@@ -707,8 +709,10 @@ describe("existing hook state", () => {
     );
     for (const [hook, bytes] of Object.entries(generated)) {
       expect(bytes.toString()).toContain(`\ncall_lefthook run "${hook}" "$@"`);
-      // The generated wrapper embeds the absolute path of the Lefthook that installed it.
-      expect(bytes.toString()).toMatch(/\n {2}elif \/.*\/lefthook -h >\/dev\/null 2>&1\n/);
+      const installed = `'${realpathSync(executable)}'`;
+      expect(bytes.toString()).toContain(
+        `\n  elif ${installed} -h >/dev/null 2>&1\n  then\n    ${installed} "$@"\n`,
+      );
     }
     expect(readiness(f, f.linked).stderr).toContain("no registered primary checkout");
 
