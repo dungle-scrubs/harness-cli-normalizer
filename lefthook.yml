@@ -1,3 +1,6 @@
+# Hooks are installed only by `pnpm setup:hooks` in the primary checkout.
+no_auto_install: true
+
 pre-commit:
   jobs:
     - name: task-state

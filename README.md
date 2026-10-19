@@ -311,7 +311,8 @@ You need Node 24 or newer, pnpm, and Bun.
 
 ```sh
 pnpm install
-pnpm check                 # lint, typecheck, build, vitest, bun test, skill check, package check
+pnpm setup:hooks           # once, from the primary checkout root: installs the Git hooks
+pnpm check                 # full verification, including hook readiness and placement
 bun run demo claude "hi"   # run a harness and print its event stream
 ```
 

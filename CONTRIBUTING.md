@@ -14,9 +14,23 @@ Requires Node >= 24, [Bun](https://bun.sh/), and
 git clone https://github.com/dungle-scrubs/harness-cli-normalizer.git
 cd harness-cli-normalizer
 pnpm install
+pnpm setup:hooks
 ```
 
-`pnpm install` runs the `prepare` script, which installs the lefthook hooks.
+Installing never touches Git hooks. `pnpm setup:hooks`, run once from the
+primary checkout root (never a linked worktree), registers that checkout as
+the primary (`core.worktree`) and installs the shared hooks into the common Git
+directory with their own copy of Lefthook. `pnpm check` starts with
+`pnpm check:setup`, which fails until this is done. Any existing configured hook
+that this setup did not write, including one an older `lefthook install`
+generated, stops it; inspect them, then rerun with `pnpm setup:hooks --replace`
+to back them up and replace them. Hooks under other names are left alone.
+
+The primary checkout is always the current directory, but the setup script may
+come from another checkout of the same repository, which then supplies the
+hook runtime, `lefthook.yml` and Lefthook:
+`node <checkout>/scripts/install-hooks.ts`. A script from a different
+repository is refused.
 
 ## Day-to-day commands
 
