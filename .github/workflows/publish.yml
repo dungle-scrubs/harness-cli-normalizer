@@ -43,6 +43,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
       - run: bash .github/prepare-transcript-test-filesystem.sh
+      # Installing never sets up Git hooks; `pnpm check` requires the explicit setup.
+      - run: pnpm setup:hooks
       - uses: actions/download-artifact@v8
         with:
           name: snapshot-darwin-universal

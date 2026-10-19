@@ -111,14 +111,15 @@ them; if a change needs to, change the gate test deliberately.
   always; 2-space; width 100).
 - **Tests**: dual lane - `vitest run` (`test/**`) and `bun test`. Both must
   pass. The bun lane is scoped to `test/` via `bunfig.toml`.
-- **Hooks**: lefthook. Pre-commit runs Biome `--write` + `tsc --noEmit`;
-  pre-push runs TruffleHog on the repo.
+- **Hooks**: lefthook. Pre-commit runs the placement gate, Biome `--write` and
+  `tsc --noEmit`; pre-push runs TruffleHog on the repo.
 
 ## Commands
 
 ```bash
 pnpm install                # install deps (frozen lockfile in CI)
-pnpm check                  # lint + typecheck + build, then vitest + bun test + the skill claim check (the full gate)
+pnpm setup:hooks            # primary checkout root only: register it and install the shared hooks
+pnpm check                  # full verification gate
 pnpm lint                   # biome check .
 pnpm typecheck              # tsc --noEmit
 pnpm test                   # vitest run

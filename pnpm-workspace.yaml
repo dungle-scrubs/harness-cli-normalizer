@@ -1,6 +1,6 @@
 allowBuilds:
   koffi: true
-  lefthook: true
+  lefthook: false
 
 overrides:
   "typed-rest-client@2.3.1>qs": 6.16.0

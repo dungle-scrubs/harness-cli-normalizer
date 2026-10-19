@@ -1,6 +1,6 @@
-import { execFileSync } from "node:child_process";
-import { lstatSync, readdirSync, realpathSync } from "node:fs";
-import { isAbsolute, join } from "node:path";
+import { lstatSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import { git, gitPath, ownerFailure, resolveOwner } from "./git-context.ts";
 
 // Repository-owned outputs, not an ignore-pattern policy. Source ownership comes
 // from the index below; adding an ignore entry does not create an output owner.
@@ -20,30 +20,8 @@ const localOwners = new Set([
   "CLAUDE.local.md",
 ]);
 
-function git(cwd: string, ...args: string[]): string {
-  return execFileSync("git", args, {
-    cwd,
-    encoding: "utf8",
-    timeout: 5000,
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-}
-
-export function primaryWorktree(porcelain: string): string {
-  const fields = porcelain.split("\0");
-  const end = fields.indexOf("");
-  const first = fields.slice(0, end);
-  const path = first[0];
-  if (end < 1 || !path?.startsWith("worktree ") || first.includes("bare")) {
-    throw new Error("no usable primary checkout (missing record or bare primary)");
-  }
-  const root = path.slice("worktree ".length);
-  if (!isAbsolute(root)) throw new Error("no usable primary checkout (non-absolute owner)");
-  return root;
-}
-
 function limitation(): string {
-  return "task-state: cannot resolve a primary checkout\nRun from a Git checkout with an accessible non-bare primary worktree; restore its location before saving task state.";
+  return "task-state: cannot resolve a primary checkout\nRun from a Git checkout whose primary checkout is registered by `pnpm setup:hooks`; no files were changed.";
 }
 
 /** Names and structure in this checkout only; never reads artifact contents. */
@@ -52,31 +30,12 @@ export function checkTaskState(cwd: string): string[] {
   let primary: string;
   let indexed: string[];
   try {
-    // rev-parse appends one newline; trim() would corrupt a newline in the path.
-    root = realpathSync(git(cwd, "rev-parse", "--show-toplevel").replace(/\n$/, ""));
-    primary = realpathSync(primaryWorktree(git(root, "worktree", "list", "--porcelain", "-z")));
-    const common = realpathSync(
-      git(root, "rev-parse", "--path-format=absolute", "--git-common-dir").replace(/\n$/, ""),
-    );
-    // Porcelain can name separate metadata (or its parent if named .git).
-    // An explicit primary owner takes precedence over that metadata location.
-    const explicitOwner = git(
-      root,
-      "--git-dir",
-      common,
-      "config",
-      "--default",
-      "",
-      "--get",
-      "core.worktree",
-    ).replace(/\n$/, "");
-    if (explicitOwner) {
-      primary = realpathSync(
-        git(root, "--git-dir", common, "rev-parse", "--show-toplevel").replace(/\n$/, ""),
-      );
-    }
-    if (primary === common) return [limitation()];
-    indexed = git(root, "ls-files", "--cached", "-z").split("\0").filter(Boolean);
+    // This checkout's own context, including a partial commit's GIT_INDEX_FILE.
+    root = gitPath(cwd, ["--show-toplevel"]);
+    const owner = resolveOwner(gitPath(root, ["--git-common-dir"]));
+    if (owner.kind !== "registered") return [ownerFailure(owner, "task-state")];
+    primary = owner.root;
+    indexed = git(root, ["ls-files", "--cached", "-z"]).split("\0").filter(Boolean);
   } catch {
     return [limitation()];
   }
