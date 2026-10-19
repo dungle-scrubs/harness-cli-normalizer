@@ -130,8 +130,10 @@ Options:
                             loads even with --no-extensions)
   --access <read|write>     Access preset - read = read-only tool subset
                             (canonical: read, grep, glob, list, web-fetch,
-                            web-search; claude via an --allowedTools grant
-                            plus --disallowedTools complement, pi/popeye via
+                            web-search; claude via a closed --tools set
+                            (Read, Grep, Glob, WebFetch, WebSearch) plus
+                            --permission-mode dontAsk and an explicit
+                            --disallowedTools mcp__* deny, pi/popeye via
                             --tools, codex via --sandbox read-only, muse via
                             --disable-write --disable-shell, cursor via
                             --mode ask --sandbox enabled; antigravity refuses);

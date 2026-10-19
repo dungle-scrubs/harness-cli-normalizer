@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { HarnessEvent } from "../../src/execution/events.js";
+import { openSession, type SessionTurn } from "../../src/execution/open-session.js";
 import { streamTurn } from "../../src/execution/stream-turn.js";
 import { antigravityCli } from "../../src/knowledge/antigravity.js";
 import { cursorCli } from "../../src/knowledge/cursor.js";
@@ -124,5 +125,112 @@ for (const { harness, denial, ordinaryError, terminalError } of cases) {
         control.filter((event) => event.kind === "failure"),
       );
     });
+
+    // Issue #394: nonzero native exit beside an independent task failure.
+    test("denial observations stay advisory beside a task failure on a nonzero exit", async () => {
+      const control = await run(harness, [terminalError], 7);
+      const events = await run(harness, [denial, denial, terminalError], 7);
+      expect(control.at(-1)).toMatchObject({
+        kind: "done",
+        exitCode: 7,
+        cause: "failed",
+        failure: { class: "task", retryable: false },
+      });
+      expect(control.at(-1)).not.toHaveProperty("denialCount");
+      expect(events.at(-1)).toEqual({ ...control.at(-1), denialCount: 2 });
+      expect(events.filter((event) => event.kind === "failure")).toEqual(
+        control.filter((event) => event.kind === "failure"),
+      );
+    });
   });
 }
+
+// Issue #394: Antigravity persistent-session denial observations. Records
+// mirror native shapes captured under test/fixtures/antigravity-1.2.7
+// (persistent-session.ndjson for turn delimiters, permission-denied.ndjson
+// for the PermissionDenied step_update). Cursor has no persistent session
+// mode, so it has no cell here.
+describe("antigravity persistent-session denial observations", () => {
+  const conversationId = "d297ac09-9d33-4fb3-b696-b8ae081c239e";
+  const init = JSON.stringify({ event: "init", conversation_id: conversationId });
+  const denialStep = JSON.stringify({
+    event: "step_update",
+    step_update: {
+      step_type: "tool",
+      step_id: "same-step",
+      state: "ERROR",
+      tool_info: {
+        name: "run_command",
+        error: { type: "PermissionDenied", message: "user denied permission to run command" },
+      },
+    },
+  });
+  const result = (response: string) =>
+    JSON.stringify({
+      event: "result",
+      result: {
+        conversation_id: conversationId,
+        status: "SUCCESS",
+        response,
+        usage: {
+          input_tokens: 12036,
+          output_tokens: 104,
+          thinking_tokens: 103,
+          cache_read_tokens: 0,
+          total_tokens: 12140,
+        },
+      },
+    });
+
+  const drain = async (turn: AsyncIterable<HarnessEvent>): Promise<HarnessEvent[]> => {
+    const out: HarnessEvent[] = [];
+    for await (const event of turn) out.push(event);
+    return out;
+  };
+
+  test("a session turn counts its step_update denials and the next turn starts from zero", async () => {
+    const proc = new FakeProcess();
+    const spawner = fakeSpawner([proc]);
+    const session = openSession(
+      antigravityCli,
+      { sessionId: "11111111-2222-4333-8444-555555555555" },
+      { spawn: spawner.spawn, clock: new FakeClock(), signal: fakeSignal().signal },
+    );
+    const turns = session.turns[Symbol.asyncIterator]();
+    try {
+      // One process, the session argv - the denials ride the session wire.
+      expect(spawner.calls).toHaveLength(1);
+      expect(spawner.calls[0]?.argv).toContain("--input-format");
+
+      session.send({ id: "denied", text: "first" });
+      const first = (await turns.next()).value as SessionTurn;
+      proc.emitLine(init);
+      proc.emitLine(denialStep);
+      proc.emitLine(denialStep);
+      proc.emitLine(result("done despite denials"));
+      const denied = await drain(first);
+      expect(denied.filter((e) => e.kind === "error" && e.denial)).toHaveLength(2);
+      // Advisory: the turn still succeeds - denial observations are
+      // counted, never turned into a failure.
+      expect(denied.some((e) => e.kind === "failure")).toBe(false);
+      expect(denied.at(-1)).toMatchObject({
+        kind: "done",
+        exitCode: null,
+        cause: "clean",
+        denialCount: 2,
+      });
+
+      // The count resets at the next turn boundary: no denials observed,
+      // no denialCount on that turn's done, and no leak of turn 1's count.
+      session.send({ id: "clear", text: "second" });
+      const second = (await turns.next()).value as SessionTurn;
+      proc.emitLine(result("clear turn"));
+      const clear = await drain(second);
+      expect(clear.filter((e) => e.kind === "error" && e.denial)).toHaveLength(0);
+      expect(clear.at(-1)).toMatchObject({ kind: "done", exitCode: null, cause: "clean" });
+      expect(clear.at(-1)).not.toHaveProperty("denialCount");
+    } finally {
+      await session.close();
+    }
+  });
+});

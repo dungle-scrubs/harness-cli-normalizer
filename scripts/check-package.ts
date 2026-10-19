@@ -32,6 +32,15 @@ assert.equal(manifest.publishConfig?.access, "public");
 const checkRootPrefix = join(tmpdir(), "hcn-check-package-");
 const checkRoot = mkdtempSync(checkRootPrefix);
 const npmCache = join(checkRoot, "npm-cache");
+// npm enables Node's module compile cache internally. Pointed nowhere, it
+// lands in path.join(os.tmpdir(), "node-compile-cache") - the caller's shared
+// TMPDIR, outside this disposable root (issue #406). NODE_COMPILE_CACHE is the
+// override Node documents for exactly this: enableCompileCache() called
+// without a directory honors it before falling back to the shared default.
+const npmEnv = {
+  ...process.env,
+  NODE_COMPILE_CACHE: join(checkRoot, "node-compile-cache"),
+};
 try {
   const result = spawnSync(
     "npm",
@@ -39,6 +48,7 @@ try {
     {
       cwd: repositoryRoot,
       encoding: "utf8",
+      env: npmEnv,
     },
   );
 
@@ -92,6 +102,7 @@ try {
     {
       cwd: repositoryRoot,
       encoding: "utf8",
+      env: npmEnv,
     },
   );
   assert.match(
@@ -130,6 +141,13 @@ try {
   assert.equal(cli.status, 0, `built cli.js --version failed: ${cli.stderr}`);
   assert.match(cli.stdout, /\d+\.\d+\.\d+/, "cli --version must print a version");
 } finally {
+  // Cleanup limits (issue #407): this finally owns every outcome where the
+  // script itself keeps running - normal completion and assertion failures
+  // alike (an AssertionError still unwinds through here). Terminating
+  // signals are outside it, on purpose: no signal handler is installed, so
+  // SIGINT and SIGTERM end the process without unwinding this block, and
+  // after SIGKILL no in-process cleanup is possible at all. The owned root
+  // then survives until the caller removes it.
   if (checkRoot.startsWith(checkRootPrefix)) {
     rmSync(checkRoot, { recursive: true, force: true });
   }

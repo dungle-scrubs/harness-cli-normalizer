@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import type { HarnessEvent } from "../../src/execution/events.js";
+import { failureFromTerminalError } from "../../src/execution/failure.js";
 import { streamTurn } from "../../src/execution/stream-turn.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
@@ -92,6 +93,58 @@ describe("F-07 terminal error record ends clean", () => {
     expect(done?.failure?.retryable).toBe(true);
   });
 
+  test("replay pi-context-refused.ndjson: an over-context provider refusal classifies unavailable so fallback walks advance (issue #397)", async () => {
+    // Live capture (pi 1.0.2 through pro's LM Studio OpenAI-compatible
+    // endpoint, qwen/qwen3-14b loaded at a 40960 context, prompt of ~60k
+    // synthetic tokens): LM Studio answered the request with HTTP 400
+    // `The number of tokens to keep from the initial prompt is greater
+    // than the context length. Try to load the model with a larger
+    // context length, or provide a shorter input`; pi relayed the body as
+    // stopReason error, tried its overflow compaction, failed on the same
+    // provider refusal, and ended the turn (exit 0). Before the fix the
+    // terminal error matched no phrase list and classified task
+    // (retryable false), stopping every fallback walk at the first route
+    // whose loaded context could not fit the prompt; the provider reached
+    // no verdict on the work, so the class is unavailable.
+    const raw = readFileSync(
+      join(import.meta.dirname, "../fixtures/harnesses/pi-context-refused.ndjson"),
+      "utf8",
+    );
+    const proc = new FakeProcess();
+    const d = depsFor(proc);
+    const turn = streamTurn(piCli, { prompt: "Reply with only: overflow-probe-397-alpha" }, d);
+    for (const line of raw.split("\n")) {
+      if (line.trim() !== "") proc.emitLine(line);
+    }
+    proc.exit(0);
+    const events = await collect(turn);
+    const done = events.find((e) => e.kind === "done") as unknown as
+      | { cause: string; failure?: { class: string; retryable: boolean; message: string } }
+      | undefined;
+    expect(events.some((e) => e.kind === "error")).toBe(true);
+    expect(done?.cause).toBe("failed");
+    expect(done?.failure?.class).toBe("unavailable");
+    expect(done?.failure?.retryable).toBe(true);
+    expect(done?.failure?.message).toContain("number of tokens to keep from the initial prompt");
+  });
+
+  test("issue #397 revision: prose quoting the whole refusal verdict classifies task, not unavailable", () => {
+    // The anchored matcher leaves both the bare quoted prose and pi's
+    // wrapper-prefixed form task.
+    const quoted =
+      "I could not finish documenting the provider message: The number of tokens to keep from the initial prompt is greater than the context length.";
+    expect(failureFromTerminalError(piCli, quoted)).toMatchObject({
+      class: "task",
+      retryable: false,
+    });
+    expect(
+      failureFromTerminalError(piCli, `pi turn ended with stopReason error: ${quoted}`),
+    ).toMatchObject({
+      class: "task",
+      retryable: false,
+    });
+  });
+
   test.each([
     ["terminated", "transport", true],
     [
@@ -106,6 +159,28 @@ describe("F-07 terminal error record ends clean", () => {
     ],
     ["I did not finish because the process terminated unexpectedly.", "task", false],
     ["The process terminated", "task", false],
+    // Issue #397: a terminal error that mentions a context window in
+    // prose, without refusing, stays a work verdict - only the provider's
+    // whole over-context verdict clause classifies unavailable.
+    [
+      "I did not finish summarizing because the context length is 128000 tokens and I ran out of room.",
+      "task",
+      false,
+    ],
+    [
+      "To run this model locally, load the model with a larger context length first.",
+      "task",
+      false,
+    ],
+    // Issue #397 revision: quoting the provider's whole verdict inside
+    // prose stays a work verdict. The refusal is anchored to the start of
+    // the message body, so the full quoted clause behind pi's stopReason
+    // wrapper (added by the decoder below) still classifies task.
+    [
+      "I could not finish documenting the provider message: The number of tokens to keep from the initial prompt is greater than the context length.",
+      "task",
+      false,
+    ],
   ] as const)(
     "issue #377: pi terminal error %s classifies %s",
     async (message, failureClass, retryable) => {

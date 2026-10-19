@@ -9,6 +9,27 @@ const runtimes = ["node", "bun"].map((name) =>
   execFileSync("which", [name], { encoding: "utf8" }).trim(),
 );
 
+/** Issue #392: every permission dimension the common parser accepts but a
+ * session never consumes - the eight probed flags from the issue plus the
+ * positive --write/--shell spellings, which are the same dimensions as
+ * their negations. */
+const runOnlyPermissionFlags: ReadonlyArray<{
+  readonly flags: readonly string[];
+  readonly flag: string;
+  readonly option: string;
+}> = [
+  { flags: ["--tools", "read"], flag: "--tools", option: "tools" },
+  { flags: ["--exclude-tools", "shell"], flag: "--exclude-tools", option: "excludeTools" },
+  { flags: ["--no-tools"], flag: "--no-tools", option: "discovery.tools" },
+  { flags: ["--write"], flag: "--write", option: "write" },
+  { flags: ["--no-write"], flag: "--no-write", option: "write" },
+  { flags: ["--shell"], flag: "--shell", option: "shell" },
+  { flags: ["--no-shell"], flag: "--no-shell", option: "shell" },
+  { flags: ["--sandbox", "read-only"], flag: "--sandbox", option: "sandbox" },
+  { flags: ["--autonomy"], flag: "--autonomy", option: "autonomy" },
+  { flags: ["--no-autonomy"], flag: "--no-autonomy", option: "autonomy" },
+];
+
 function runSession(runtime: string, flags: string[]) {
   const root = mkdtempSync(join(cliFixtureTmpdir(), "hcn-session-access-"));
   const bin = join(root, "bin");
@@ -75,4 +96,23 @@ for (const runtime of runtimes) {
     expect(result.events[0]).toMatchObject({ kind: "session", harness: "claude" });
     expect(result.events.at(-1)).toMatchObject({ kind: "closed", cause: "clean", exitCode: 0 });
   });
+
+  for (const permission of runOnlyPermissionFlags) {
+    test(`${runtime}: session refuses ${permission.flag} before native spawn`, () => {
+      const result = runSession(runtime, [...permission.flags]);
+      expect(result.status, `${result.stderr}\nnative spawned: ${result.spawned}`).toBe(2);
+      expect(result.spawned).toBe(false);
+      expect(result.events).toHaveLength(2);
+      expect(result.events[0]).toMatchObject({
+        kind: "failure",
+        class: "rejected",
+        issue: "invalid-option-value",
+        option: permission.option,
+      });
+      expect(result.stderr).toContain(
+        `${permission.flag} is available only on hcn run, not hcn session`,
+      );
+      expect(result.events[1]).toMatchObject({ kind: "closed", cause: "failed", exitCode: null });
+    });
+  }
 }

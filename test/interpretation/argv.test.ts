@@ -35,7 +35,7 @@ describe("buildLaunchArgv (claude)", () => {
       }),
     ).toThrow(/mutual exclusion/);
   });
-  test("read-only access does not put the prompt inside a variadic tool list", () => {
+  test("read-only access uses after-prompt placement on launch and resume", () => {
     for (const argv of [
       buildLaunchArgv(claudeCode, { prompt: "Reply OK", access: "read" }),
       buildResumeArgv(claudeCode, {
@@ -44,8 +44,23 @@ describe("buildLaunchArgv (claude)", () => {
         sessionId: "known-session",
       }),
     ]) {
-      expect(argv.indexOf("Reply OK")).toBeLessThan(argv.indexOf("--allowedTools"));
-      expect(argv.indexOf("Reply OK")).toBeLessThan(argv.indexOf("--disallowedTools"));
+      const promptAt = argv.indexOf("Reply OK");
+      expect(promptAt).toBeGreaterThan(-1);
+      for (const flag of ["--tools", "--disallowedTools"]) {
+        const at = argv.indexOf(flag);
+        expect(at, `${flag} requires access read argvPlacement: after-prompt`).toBeGreaterThan(
+          promptAt,
+        );
+        const values: string[] = [];
+        for (const token of argv.slice(at + 1)) {
+          if (token.startsWith("-")) break;
+          values.push(token);
+        }
+        expect(values).toEqual(
+          flag === "--tools" ? ["Read,Grep,Glob,WebFetch,WebSearch"] : ["mcp__*"],
+        );
+      }
+      expect(argv).not.toContain("--allowedTools");
     }
   });
   test("pi keeps its positional prompt outside the read preset on launch and resume", () => {

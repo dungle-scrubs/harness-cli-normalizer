@@ -42,10 +42,16 @@ write paths. Trusted user, CLI or managed policy may be needed for installs or
 tests. hcn adds no network allowlist and does not change native policy sources.
 `--autonomy` changes native permission mode but retains this explicit write
 sandbox. It can allow network hosts outside the allowlist unless `strictAllowlist`,
-`allowManagedDomainsOnly`, or native denied-domain policy blocks them. Preserved
-filesystem isolation does not prove network confinement. This follows Claude's
-[network approval rules](https://code.claude.com/docs/en/sandboxing#hosts-outside-your-allowed-domains),
-not a network-plus-autonomy probe in the 2.1.296 qualification.
+`allowManagedDomainsOnly`, or native denied-domain policy blocks them. Claude documents that
+decision matrix for an interactive terminal session. hcn has not verified it in a headless run,
+and the 2.1.296 qualification included no network-plus-autonomy probe. The matrix governs only
+traffic that goes through Claude's own sandbox proxy. When native `httpProxyPort` or
+`socksProxyPort` applies, that custom proxy filters the traffic sent to it, and Claude's
+`allowedDomains`, `deniedDomains`, `strictAllowlist`, approval prompts and local-address check
+stop applying to that traffic. Preserved filesystem isolation does not prove network
+confinement. See Claude's
+[network approval rules](https://code.claude.com/docs/en/sandboxing#hosts-outside-your-allowed-domains)
+and [custom proxy configuration](https://code.claude.com/docs/en/sandboxing#custom-proxy-configuration).
 Autonomy without explicit write access does not add the sandbox.
 
 Selected skills share the same owned settings object. This preserves selection

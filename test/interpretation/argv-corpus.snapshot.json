@@ -377,10 +377,12 @@
           "stream-json",
           "--verbose",
           "--include-partial-messages",
-          "--allowedTools",
-          "Read,Grep,Glob,WebFetch,WebSearch",
+          "--permission-mode",
+          "dontAsk",
           "--disallowedTools",
-          "Bash,Edit,Write,Monitor,Task,Skill,NotebookEdit,LSP"
+          "mcp__*",
+          "--tools",
+          "Read,Grep,Glob,WebFetch,WebSearch"
         ]
       },
       "access-write": {
@@ -424,7 +426,7 @@
           "--allowedTools",
           "Read,Bash",
           "--disallowedTools",
-          "Edit,Glob,Grep,Write,WebFetch,WebSearch,Monitor,Task,Skill,NotebookEdit,LSP"
+          "CronCreate,CronDelete,CronList,DesignSync,Edit,EnterWorktree,ExitWorktree,Glob,Grep,LSP,ListAgents,ListMcpResourcesTool,Monitor,NotebookEdit,PushNotification,ReadMcpResourceDirTool,ReadMcpResourceTool,RemoteTrigger,ReportFindings,ScheduleWakeup,SendMessage,Skill,Task,TaskOutput,TaskStop,ToolSearch,WebFetch,WebSearch,Workflow,Write"
         ]
       },
       "tools-include-native": {
@@ -439,7 +441,7 @@
           "--allowedTools",
           "Read,web_search",
           "--disallowedTools",
-          "Bash,Edit,Glob,Grep,Write,WebFetch,WebSearch,Monitor,Task,Skill,NotebookEdit,LSP"
+          "Bash,CronCreate,CronDelete,CronList,DesignSync,Edit,EnterWorktree,ExitWorktree,Glob,Grep,LSP,ListAgents,ListMcpResourcesTool,Monitor,NotebookEdit,PushNotification,ReadMcpResourceDirTool,ReadMcpResourceTool,RemoteTrigger,ReportFindings,ScheduleWakeup,SendMessage,Skill,Task,TaskOutput,TaskStop,ToolSearch,WebFetch,WebSearch,Workflow,Write"
         ]
       },
       "tools-include-empty": {
@@ -452,7 +454,7 @@
           "--verbose",
           "--include-partial-messages",
           "--disallowedTools",
-          "Bash,Edit,Glob,Grep,Read,Write,WebFetch,WebSearch,Monitor,Task,Skill,NotebookEdit,LSP"
+          "Bash,CronCreate,CronDelete,CronList,DesignSync,Edit,EnterWorktree,ExitWorktree,Glob,Grep,LSP,ListAgents,ListMcpResourcesTool,Monitor,NotebookEdit,PushNotification,Read,ReadMcpResourceDirTool,ReadMcpResourceTool,RemoteTrigger,ReportFindings,ScheduleWakeup,SendMessage,Skill,Task,TaskOutput,TaskStop,ToolSearch,WebFetch,WebSearch,Workflow,Write"
         ]
       },
       "tools-exclude": {
@@ -504,7 +506,7 @@
           "--allowedTools",
           "WebSearch",
           "--disallowedTools",
-          "Bash,Edit,Glob,Grep,Read,Write,WebFetch,Monitor,Task,Skill,NotebookEdit,LSP"
+          "Bash,CronCreate,CronDelete,CronList,DesignSync,Edit,EnterWorktree,ExitWorktree,Glob,Grep,LSP,ListAgents,ListMcpResourcesTool,Monitor,NotebookEdit,PushNotification,Read,ReadMcpResourceDirTool,ReadMcpResourceTool,RemoteTrigger,ReportFindings,ScheduleWakeup,SendMessage,Skill,Task,TaskOutput,TaskStop,ToolSearch,WebFetch,Workflow,Write"
         ]
       },
       "tools-unknown-name": {
@@ -4758,10 +4760,12 @@
           "stream-json",
           "--verbose",
           "--include-partial-messages",
-          "--allowedTools",
-          "Read,Grep,Glob,WebFetch,WebSearch",
+          "--permission-mode",
+          "dontAsk",
           "--disallowedTools",
-          "Bash,Edit,Write,Monitor,Task,Skill,NotebookEdit,LSP"
+          "mcp__*",
+          "--tools",
+          "Read,Grep,Glob,WebFetch,WebSearch"
         ]
       },
       "access-write": {
@@ -4809,7 +4813,7 @@
           "--allowedTools",
           "Read,Bash",
           "--disallowedTools",
-          "Edit,Glob,Grep,Write,WebFetch,WebSearch,Monitor,Task,Skill,NotebookEdit,LSP"
+          "CronCreate,CronDelete,CronList,DesignSync,Edit,EnterWorktree,ExitWorktree,Glob,Grep,LSP,ListAgents,ListMcpResourcesTool,Monitor,NotebookEdit,PushNotification,ReadMcpResourceDirTool,ReadMcpResourceTool,RemoteTrigger,ReportFindings,ScheduleWakeup,SendMessage,Skill,Task,TaskOutput,TaskStop,ToolSearch,WebFetch,WebSearch,Workflow,Write"
         ]
       },
       "tools-include-native": {
@@ -4826,7 +4830,7 @@
           "--allowedTools",
           "Read,web_search",
           "--disallowedTools",
-          "Bash,Edit,Glob,Grep,Write,WebFetch,WebSearch,Monitor,Task,Skill,NotebookEdit,LSP"
+          "Bash,CronCreate,CronDelete,CronList,DesignSync,Edit,EnterWorktree,ExitWorktree,Glob,Grep,LSP,ListAgents,ListMcpResourcesTool,Monitor,NotebookEdit,PushNotification,ReadMcpResourceDirTool,ReadMcpResourceTool,RemoteTrigger,ReportFindings,ScheduleWakeup,SendMessage,Skill,Task,TaskOutput,TaskStop,ToolSearch,WebFetch,WebSearch,Workflow,Write"
         ]
       },
       "tools-include-empty": {
@@ -4841,7 +4845,7 @@
           "--verbose",
           "--include-partial-messages",
           "--disallowedTools",
-          "Bash,Edit,Glob,Grep,Read,Write,WebFetch,WebSearch,Monitor,Task,Skill,NotebookEdit,LSP"
+          "Bash,CronCreate,CronDelete,CronList,DesignSync,Edit,EnterWorktree,ExitWorktree,Glob,Grep,LSP,ListAgents,ListMcpResourcesTool,Monitor,NotebookEdit,PushNotification,Read,ReadMcpResourceDirTool,ReadMcpResourceTool,RemoteTrigger,ReportFindings,ScheduleWakeup,SendMessage,Skill,Task,TaskOutput,TaskStop,ToolSearch,WebFetch,WebSearch,Workflow,Write"
         ]
       },
       "tools-exclude": {
@@ -4899,7 +4903,7 @@
           "--allowedTools",
           "WebSearch",
           "--disallowedTools",
-          "Bash,Edit,Glob,Grep,Read,Write,WebFetch,Monitor,Task,Skill,NotebookEdit,LSP"
+          "Bash,CronCreate,CronDelete,CronList,DesignSync,Edit,EnterWorktree,ExitWorktree,Glob,Grep,LSP,ListAgents,ListMcpResourcesTool,Monitor,NotebookEdit,PushNotification,Read,ReadMcpResourceDirTool,ReadMcpResourceTool,RemoteTrigger,ReportFindings,ScheduleWakeup,SendMessage,Skill,Task,TaskOutput,TaskStop,ToolSearch,WebFetch,Workflow,Write"
         ]
       },
       "tools-unknown-name": {
@@ -8954,7 +8958,7 @@
           "--allowedTools",
           "Read,Bash",
           "--disallowedTools",
-          "Edit,Glob,Grep,Write,WebFetch,WebSearch,Monitor,Task,Skill,NotebookEdit,LSP"
+          "CronCreate,CronDelete,CronList,DesignSync,Edit,EnterWorktree,ExitWorktree,Glob,Grep,LSP,ListAgents,ListMcpResourcesTool,Monitor,NotebookEdit,PushNotification,ReadMcpResourceDirTool,ReadMcpResourceTool,RemoteTrigger,ReportFindings,ScheduleWakeup,SendMessage,Skill,Task,TaskOutput,TaskStop,ToolSearch,WebFetch,WebSearch,Workflow,Write"
         ]
       },
       "autonomy": {
@@ -10442,7 +10446,7 @@
             },
             {
               "key": "tools",
-              "value": "all known (already default)",
+              "value": "none (include flag only pre-approves calls, never adds tools; harness default applies)",
               "tier": "profile"
             }
           ],
@@ -10728,7 +10732,7 @@
             },
             {
               "key": "tools",
-              "value": "all known (already default)",
+              "value": "none (include flag only pre-approves calls, never adds tools; harness default applies)",
               "tier": "profile"
             },
             {
@@ -10993,7 +10997,7 @@
             },
             {
               "key": "tools",
-              "value": "all known (already default)",
+              "value": "none (include flag only pre-approves calls, never adds tools; harness default applies)",
               "tier": "profile"
             }
           ],
@@ -11125,7 +11129,7 @@
             },
             {
               "key": "tools",
-              "value": "all known (already default)",
+              "value": "none (include flag only pre-approves calls, never adds tools; harness default applies)",
               "tier": "profile"
             }
           ],
@@ -11191,7 +11195,7 @@
             },
             {
               "key": "tools",
-              "value": "all known (already default)",
+              "value": "none (include flag only pre-approves calls, never adds tools; harness default applies)",
               "tier": "profile"
             }
           ],
@@ -11259,7 +11263,7 @@
             },
             {
               "key": "tools",
-              "value": "all known (already default)",
+              "value": "none (include flag only pre-approves calls, never adds tools; harness default applies)",
               "tier": "profile"
             },
             {

@@ -393,13 +393,14 @@ export const resolveEffectiveOptions = (
       provenance.push({ key, value: `${String(value)} (access)`, tier: "harness" });
       continue;
     }
-    // D13: the tools marker expands per descriptor. On a harness whose
-    // default is already everything (claude), expansion emits nothing -
-    // the emit-nothing rule, recorded in provenance. On a harness whose
+    // D13: the tools marker never renders a list. On a harness whose
     // include flag is a strict allowlist (pi), a rendered list would drop
-    // every extension and MCP tool the harness registered at run time, so
-    // the marker emits nothing there too: the dormant built-ins stay off
-    // unless a caller grants them, and a worker keeps its extensions.
+    // every extension and MCP tool the harness registered at run time;
+    // on a harness whose include flag is a permission grant (claude), a
+    // rendered list would blanket-approve the default set and restore
+    // dormant built-ins. Either way the marker emits nothing, recorded
+    // in provenance: dormant built-ins stay off unless a caller grants
+    // them, and a worker keeps its extensions and native defaults.
     if (key === "tools" && value === "all-known") {
       // --no-tools containment: a tier that switched discovery.tools off
       // must not have the profile grant switch them back on (pi reads
@@ -427,17 +428,20 @@ export const resolveEffectiveOptions = (
         });
         continue;
       }
-      const enabled = h.tools.builtins.filter((t) => t.defaultEnabled).length;
-      const all = h.tools.builtins.length;
-      if (enabled === all) {
-        provenance.push({ key, value: "all known (already default)", tier: "profile" });
-        continue;
-      }
-      const expanded = h.tools.builtins
-        .filter((t) => t.canonical !== null)
-        .map((t) => t.canonical as string);
-      resolved[key] = expanded;
-      provenance.push({ key, value: expanded, tier: "profile" });
+      // claude shape (issue #411): the include flag is a permission
+      // grant, never a restriction. Rendering "all known" there would
+      // pre-approve every default tool - a bare `Bash` grant approves
+      // any command - and restore dormant built-ins (Glob/Grep are off
+      // by default on macOS/Linux/WSL), changing bare-run behavior
+      // instead of adding availability. The marker emits nothing on a
+      // non-strict include flag; dormant built-ins stay off unless a
+      // caller grants them, exactly as on the strict-allowlist harnesses.
+      provenance.push({
+        key,
+        value:
+          "none (include flag only pre-approves calls, never adds tools; harness default applies)",
+        tier: "profile",
+      });
       continue;
     }
     // Dimensions whose value reduces to "emit nothing" (autonomy false,

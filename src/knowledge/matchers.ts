@@ -79,10 +79,9 @@ export const SHARED_LIMIT_MATCHERS: ReadonlyArray<LimitMatcher> = [
     code: "rate-limit",
   },
   { pattern: "Too Many Requests", flags: "i", code: "rate-limit" },
-  // Underscore and hyphen forms ride inside provider error payloads, not
-  // prose: "error":{"type":"rate_limit_error"} (issue #322). Wall-eligible
-  // input only (stderr, non-JSON tails, terminal error messages), so a
-  // payload type name is a wall claim, not chatter.
+  // Underscore and hyphen forms ride inside provider error payloads:
+  // "error":{"type":"rate_limit_error"} (issue #322). Wall-eligible input
+  // only (stderr, non-JSON tails, terminal error messages).
   { pattern: "rate[_ -]?limit(?:ed|ing)?", flags: "i", code: "rate-limit" },
   { pattern: "Retry-After", flags: "i", code: "rate-limit" },
 ];
@@ -101,10 +100,10 @@ export const SHARED_TRANSPORT_MATCHERS: ReadonlyArray<TransportMatcher> = [
   { pattern: "ETIMEDOUT", flags: "i" },
   { pattern: "fetch failed", flags: "i" },
   // Issue #377: pi reports a cut fetch body stream as the bare "terminated"
-  // error. Anchor the whole message so prose about a terminated process stays task.
+  // error. Anchor the whole message.
   { pattern: "(?:^|:\\s*)terminated\\s*$", flags: "im" },
   // OpenAI's generic retryable server error, including pi's "Codex error:"
-  // prefix. Like the overload phrasing, do not match mid-sentence model prose.
+  // prefix.
   { pattern: "(?:^|:\\s*)an error occurred while processing your request\\b", flags: "im" },
   { pattern: "socket hang up", flags: "i" },
   { pattern: "network error", flags: "i" },
@@ -122,10 +121,9 @@ export const SHARED_TRANSPORT_MATCHERS: ReadonlyArray<TransportMatcher> = [
   // "realtime websocket closed: code=<n>". The `ws` library prints
   // "WebSocket is not open: readyState <n> (<STATE>)". The codeless forms
   // are anchored to the start of a line or an error colon, or need a
-  // close continuation, so model prose that mentions a WebSocket (a
-  // "WebSocket closed handler") stays a work verdict. Codes 1000, 1002,
-  // 1003, 1008, 1009 and 1010 are a normal close or an endpoint refusing
-  // the traffic, not a dropped connection, and are NOT matched here.
+  // close continuation. Codes 1000, 1002, 1003, 1008, 1009 and 1010 are a
+  // normal close or an endpoint refusing the traffic, not a dropped
+  // connection, and are NOT matched here.
   {
     pattern:
       "\\bwebsocket(?: connection| stream)? closed\\W+(?:with )?(?:(?:close )?code\\W*)?10(?:0[16]|1[123])\\b",
@@ -162,8 +160,7 @@ export const SHARED_TRANSPORT_MATCHERS: ReadonlyArray<TransportMatcher> = [
   // Issue #364: OpenAI's capacity error, as pi's openai-codex provider
   // reports it: `Codex error: Our servers are currently overloaded. Please
   // try again later.` Also its shorter `The server is overloaded`. Anchored
-  // like the timeout phrasings above, so prose about an overloaded server
-  // stays task.
+  // like the timeout phrasings above.
   {
     pattern: "(?:^|:\\s*)(?:our |the )?servers? (?:is|are) (?:currently )?overloaded\\b",
     flags: "im",
@@ -182,4 +179,24 @@ export const SHARED_UNAVAILABLE_MATCHERS: ReadonlyArray<UnavailableMatcher> = [
   // Issue #343: pi's openai-codex provider reports `The '<id>' model is
   // not supported when using Codex with a ChatGPT account.`
   { pattern: "['\"\\x60][^'\"\\x60\\s]{1,120}['\"\\x60] model is not supported\\b", flags: "i" },
+  // Issue #397: LM Studio's OpenAI-compatible endpoint answers a request
+  // whose prompt exceeds the loaded context with the refusal verdict
+  // below (HTTP 400, provider body captured verbatim; pi relays it as a
+  // stopReason error and again inside its failed overflow-compaction
+  // record - live capture test/fixtures/harnesses/pi-context-refused.ndjson,
+  // pi 1.0.2, qwen/qwen3-14b loaded at 40960). The verdict is anchored to
+  // the start of the message body and allowed only bare, behind pi's
+  // stopReason relay, or behind the compaction record's wrapper. The remedy
+  // clause ("load the model with a larger context length") is deliberately
+  // unmatched.
+  {
+    pattern:
+      "^(?:pi turn ended with stopReason error: )?the number of tokens to keep from the initial prompt is greater than the context length\\b",
+    flags: "i",
+  },
+  {
+    pattern:
+      "^context overflow recovery failed: turn prefix summarization failed: the number of tokens to keep from the initial prompt is greater than the context length\\b",
+    flags: "i",
+  },
 ];

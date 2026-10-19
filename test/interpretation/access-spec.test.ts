@@ -25,7 +25,18 @@ describe("one access spec", () => {
     }
     expect(claudeCode.turnOptions.access).toMatchObject({
       renders: {
-        read: "tool-preset",
+        // issue #411: read is a closed inventory on --tools plus a pinned
+        // dontAsk permission mode and an explicit mcp__* deny (deny wins
+        // over native pre-approvals), never allow rules.
+        read: {
+          render: {
+            kind: "flag-value",
+            flag: "--tools",
+            extraFlags: ["--permission-mode", "dontAsk", "--disallowedTools", "mcp__*"],
+          },
+          value: "Read,Grep,Glob,WebFetch,WebSearch",
+          argvPlacement: "after-prompt",
+        },
         write: {
           render: {
             kind: "json-settings",
@@ -68,7 +79,7 @@ describe("one access spec", () => {
 
   test("support spellings for access include Cursor's native mode", () => {
     expect(supportedBy(defaultDescriptors(), "access")).toEqual([
-      { harness: "claude", spelling: "--allowedTools" },
+      { harness: "claude", spelling: "--tools" },
       { harness: "codex", spelling: "--sandbox" },
       { harness: "pi", spelling: "--tools" },
       { harness: "muse", spelling: "--disable-write" },

@@ -281,12 +281,13 @@ describe("D13: tools all-known marker", () => {
     expect(r.options.tools).toEqual(["read", "grep"]);
   });
 
-  it("claude is already-everything: emit nothing, record in provenance", () => {
+  it("claude emits nothing: the include flag only pre-approves, and a grant would change behavior", () => {
     const r = resolveEffectiveOptions(claudeCode, base, undefined);
     expect(r.options.tools).toBeUndefined();
     expect(r.provenance).toContainEqual({
       key: "tools",
-      value: "all known (already default)",
+      value:
+        "none (include flag only pre-approves calls, never adds tools; harness default applies)",
       tier: "profile",
     });
   });
