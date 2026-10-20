@@ -112,10 +112,13 @@ export const codexCli: HarnessDescriptor = deepFreeze({
   vocabulary: {
     modelFlag: "--model",
     // Current native roster and effort probes: test/fixtures/codex-0.163.0
-    // (2026-10-20). GPT-5.5 retired from the catalog on schedule (2026-10-14)
-    // and left the roster; the 0.162.1 capture keeps its historical evidence.
-    // Native "ultra" and "none" remain outside hcn's closed effort
-    // vocabulary; the curated ladders stop at max.
+    // (2026-10-20). That catalog omits gpt-5.5 from both its visible and
+    // includeHidden lists (0.162.1 showed it hidden with a 2026-10-14
+    // retirement date), but its historical ladder - captured native on
+    // 0.160.0 - stays so older compatible codex installs keep working;
+    // native acceptance was not re-probed on 0.163.0. Native "ultra" and
+    // "none" remain outside hcn's closed effort vocabulary; the curated
+    // ladders stop at max.
     models: [
       "gpt-6.1-sol",
       "gpt-6-astra",
@@ -124,6 +127,7 @@ export const codexCli: HarnessDescriptor = deepFreeze({
       "gpt-5.6-sol",
       "gpt-5.6-terra",
       "gpt-5.6-luna",
+      "gpt-5.5",
     ],
     aliases: {},
     efforts: ["minimal", "low", "medium", "high", "xhigh", "max"],
@@ -134,6 +138,7 @@ export const codexCli: HarnessDescriptor = deepFreeze({
       "gpt-6-astra": ["low", "medium", "high", "xhigh", "max"],
       "gpt-6-sol": ["low", "medium", "high", "xhigh", "max"],
       "gpt-6-luna": ["low", "medium", "high", "xhigh", "max"],
+      "gpt-5.5": ["low", "medium", "high", "xhigh"],
       "gpt-5.6-sol": ["low", "medium", "high", "xhigh", "max"],
       "gpt-5.6-terra": ["low", "medium", "high", "xhigh", "max"],
       "gpt-5.6-luna": ["low", "medium", "high", "xhigh", "max"],
