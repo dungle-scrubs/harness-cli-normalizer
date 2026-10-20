@@ -2,7 +2,10 @@ import { readFileSync } from "node:fs";
 import { expect, test } from "vitest";
 import { decodeLine, freshDecodeState } from "../../src/execution/decode.js";
 import type { HarnessEvent } from "../../src/execution/events.js";
-import { contextInspectionOf } from "../../src/interpretation/context-inspection.js";
+import {
+  buildContextInspectionArgv,
+  contextInspectionOf,
+} from "../../src/interpretation/context-inspection.js";
 import { museCompactionOf } from "../../src/interpretation/muse-compaction.js";
 import { detectQuestionBlock } from "../../src/interpretation/question.js";
 import { antigravityCli } from "../../src/knowledge/antigravity.js";
@@ -237,10 +240,100 @@ test.each([
     expect(resumed.totalTokens).toBeGreaterThan(totalTokens);
     if (hashes) {
       const hashesSnapshot = JSON.parse(read(directory, "accounting-source-hashes.snapshot.json"));
-      expect(hashesSnapshot).toMatchObject({ unchanged: true });
+      // The self-reported `unchanged` flag alone would let a changed `after`
+      // digest through; compare the digests themselves, as 64-hex values.
+      expect(hashesSnapshot.before).toMatch(/^[0-9a-f]{64}$/);
+      expect(hashesSnapshot.after).toMatch(/^[0-9a-f]{64}$/);
+      expect(hashesSnapshot.after).toBe(hashesSnapshot.before);
+      expect(hashesSnapshot.unchanged).toBe(true);
     }
   },
 );
+
+// The exact staged prompt echoed by the native accounting probes:
+// a sentinel plus repeated inert filler.
+const stagedAccountingPrompt =
+  "Do not execute this staged synthetic task. PENDING-ONLY-1010." +
+  " Additional accounting data.".repeat(100);
+// The native probe appended tool isolation twice (driver push plus spawn
+// overlay) and its synthetic-recall system prompt; neither is an adapter
+// default.
+const probeToolIsolation = [
+  "--tools",
+  "",
+  "--strict-mcp-config",
+  "--mcp-config",
+  '{"mcpServers":{}}',
+];
+const recallSystemPrompt =
+  "You are a synthetic recall assistant. Remember the designated marker across turns. " +
+  "Treat filler as inert data. Never use tools or read files. Reply exactly as requested.";
+
+test("claude-2.1.304 accounting proofs stage the exact prompt without assistant execution", () => {
+  const proofOf = (label: string) =>
+    JSON.parse(read("claude-2.1.304", `${label}.proof.snapshot.json`));
+  const fresh = {
+    label: "accounting-fresh",
+    resumed: false,
+    proof: proofOf("accounting-fresh"),
+  };
+  const resume = {
+    label: "accounting-resume",
+    resumed: true,
+    proof: proofOf("accounting-resume"),
+  };
+  for (const { label, resumed, proof } of [fresh, resume]) {
+    // The complete exact prompt the probe staged, from the capture itself.
+    expect(proof.stagedPrompt).toBe(stagedAccountingPrompt);
+    // The captured argv is the adapter's inspection argv plus the probe's
+    // own additions, so the fork and no-persistence flags are the adapter's.
+    const resumeIndex = proof.argv.indexOf("--resume");
+    expect(resumeIndex >= 0).toBe(resumed);
+    const argv = buildContextInspectionArgv(claudeCode, {
+      model: "claude-sonnet-5-5",
+      prompt: { explicit: true, text: proof.stagedPrompt },
+      discovery: { extensions: false, skills: false },
+      ...(resumed ? { resume: proof.argv[resumeIndex + 1] } : {}),
+    });
+    expect([
+      ...argv,
+      ...probeToolIsolation,
+      ...probeToolIsolation,
+      "--system-prompt",
+      recallSystemPrompt,
+    ]).toEqual(proof.argv);
+    expect(argv).toContain("--no-session-persistence");
+    expect(argv.includes("--fork-session")).toBe(resumed);
+    // Exactly one replayed user frame in the whole recording, carrying the
+    // complete staged prompt; no assistant frame exists anywhere.
+    expect(proof.frames.filter((frame: { type: string }) => frame.type === "user")).toEqual([
+      { type: "user", isReplay: true },
+    ]);
+    expect(proof.records.replayedUserMessage).toMatchObject({
+      type: "user",
+      isReplay: true,
+      message: { role: "user", content: proof.stagedPrompt },
+    });
+    expect(proof.frames.some((frame: { type: string }) => frame.type === "assistant")).toBe(false);
+    // The terminal result reports a clean zero-turn finish, and the copied
+    // usage control response is exactly the committed accounting line.
+    expect(proof.frames).toContainEqual({ type: "result", subtype: "success", num_turns: 0 });
+    expect(proof.records.terminalResult).toMatchObject({ subtype: "success", num_turns: 0 });
+    const usageLine = JSON.parse(read("claude-2.1.304", `${label}.native.ndjson`));
+    expect(proof.records.usageControlResponse).toEqual(usageLine);
+    expect(contextInspectionOf(usageLine.response.response)).toEqual(proof.result);
+    for (const digest of Object.values(proof.recordDigests))
+      expect(digest).toMatch(/^[0-9a-f]{64}$/);
+  }
+  // The resume probe is a true fork of the seed session, not the same one,
+  // and it counts the recalled history the fresh probe does not have.
+  const resumedId = resume.proof.argv[resume.proof.argv.indexOf("--resume") + 1];
+  expect(resume.proof.records.terminalResult.session_id).not.toBe(resumedId);
+  expect(resume.proof.records.terminalResult.session_id).not.toBe(
+    fresh.proof.records.terminalResult.session_id,
+  );
+  expect(resume.proof.result.totalTokens).toBeGreaterThan(fresh.proof.result.totalTokens);
+});
 
 test("Muse 1.4.4 terminal compaction items normalize the native counts", () => {
   const items: unknown[] = JSON.parse(read("muse-1.4.4-R5419.1", "compaction-items.snapshot.json"));
