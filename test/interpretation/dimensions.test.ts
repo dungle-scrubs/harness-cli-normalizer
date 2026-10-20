@@ -136,8 +136,8 @@ describe("observed model provenance (pi)", () => {
     expect(piCli.escalation.observedOn).toEqual({
       harness: "pi",
       model: "openai-codex/gpt-6.1-sol",
-      version: "1.1.0",
-      date: "2026-10-10",
+      version: "1.3.0",
+      date: "2026-10-20",
     });
     // The static probe record above is untouched by design: the decoder
     // fills the re-emitted identity's observedOn from the stream

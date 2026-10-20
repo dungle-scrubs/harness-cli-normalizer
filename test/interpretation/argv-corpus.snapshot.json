@@ -691,10 +691,9 @@
             "gpt-6-luna",
             "gpt-5.6-sol",
             "gpt-5.6-terra",
-            "gpt-5.6-luna",
-            "gpt-5.5"
+            "gpt-5.6-luna"
           ],
-          "message": "unknown codex model \"no-such-model\"; supported: gpt-6.1-sol, gpt-6-astra, gpt-6-sol, gpt-6-luna, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.5 - use one of the supported models"
+          "message": "unknown codex model \"no-such-model\"; supported: gpt-6.1-sol, gpt-6-astra, gpt-6-sol, gpt-6-luna, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna - use one of the supported models"
         }
       },
       "sandbox-read-only": {
@@ -5094,10 +5093,9 @@
             "gpt-6-luna",
             "gpt-5.6-sol",
             "gpt-5.6-terra",
-            "gpt-5.6-luna",
-            "gpt-5.5"
+            "gpt-5.6-luna"
           ],
-          "message": "unknown codex model \"no-such-model\"; supported: gpt-6.1-sol, gpt-6-astra, gpt-6-sol, gpt-6-luna, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.5 - use one of the supported models"
+          "message": "unknown codex model \"no-such-model\"; supported: gpt-6.1-sol, gpt-6-astra, gpt-6-sol, gpt-6-luna, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna - use one of the supported models"
         }
       },
       "sandbox-read-only": {

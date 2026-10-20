@@ -41,6 +41,14 @@ const captures = [
   { harness: antigravityCli, directory: "antigravity-1.3.3", version: "1.3.3" },
 ];
 
+// Issue 416: the 2026-10-20 re-verification anchors. The earlier captures
+// above stay as history; the test below holds both generations decodable.
+const currentCaptures = [
+  { harness: claudeCode, directory: "claude-2.1.304", version: "2.1.304" },
+  { harness: codexCli, directory: "codex-0.163.0", version: "0.163.0" },
+  { harness: piCli, directory: "pi-1.3.0", version: "1.3.0" },
+];
+
 test.each(captures)(
   "$directory fresh and question records still decode",
   ({ harness, directory, version }) => {
@@ -53,6 +61,29 @@ test.each(captures)(
     const questions = JSON.parse(read(directory, "questions.snapshot.json"));
     expect(questions.results[harness.name].status).toBe("pass");
     expect(questions.observations[harness.name]).toMatchObject({ version, date: "2026-10-10" });
+  },
+);
+
+test.each(currentCaptures)(
+  "$directory fresh and question records still decode (issue 416 anchors)",
+  ({ harness, directory, version }) => {
+    expect(textOf(decoded(harness, directory, "fresh.ndjson"))).toBe("alpha");
+    expect(
+      detectQuestionBlock(textOf(decoded(harness, directory, "question.ndjson"))),
+    ).toMatchObject({
+      block: { question: expect.any(String), options: expect.any(Array) },
+    });
+    const questions = JSON.parse(read(directory, "questions.snapshot.json"));
+    expect(questions.results[harness.name].status).toBe("pass");
+    expect(questions.observations[harness.name]).toMatchObject({
+      version,
+      date: "2026-10-20",
+    });
+    expect(questions.observations[harness.name]).toEqual(harness.escalation.observedOn);
+    const source = JSON.parse(read(directory, "version-source.snapshot.json"));
+    expect(source.version).toBe(harness.verifiedAgainst);
+    expect(source.latest).toBe(harness.verifiedAgainst);
+    expect(source.versionSource).toEqual(harness.versionSource);
   },
 );
 
@@ -80,7 +111,7 @@ test.each([
     expect(textOf(decoded(harness, directory, "later-recall.ndjson"))).toBe(marker);
     const source = JSON.parse(read(directory, "version-source.snapshot.json"));
     expect(source.version).toBe(version);
-    expect(source.version).toBe(harness.verifiedAgainst);
+    // The issue 416 anchors moved claude to 2.1.304; this capture is history.
     expect(source.versionSource).toEqual(harness.versionSource);
   },
 );
@@ -103,7 +134,7 @@ test("Codex 0.162.1 local store metadata and later-process recall retain their e
   const metadata = JSON.parse(read("codex-0.162.1", "native-store-metadata.snapshot.json"));
   expect(metadata).toMatchObject({
     standing: "local-agent-observed-metadata",
-    version: codexCli.verifiedAgainst,
+    version: "0.162.1",
     completion: { payloadType: "item_completed", itemType: "ContextCompaction", atLeast: 2 },
     installedReplacement: { recordType: "compacted", type: "array", nonempty: true },
   });
@@ -120,6 +151,72 @@ test("Pi 1.1 RPC compaction still reports one completion", () => {
   expect(
     events.filter((event) => event.kind === "compaction" && event.state === "compacted"),
   ).toHaveLength(1);
+});
+
+test.each([
+  {
+    harness: claudeCode,
+    directory: "claude-2.1.304",
+    version: "2.1.304",
+    marker: "HERON-CLAUDE-1010",
+  },
+  { harness: piCli, directory: "pi-1.3.0", version: "1.3.0", marker: "HERON-PI-1010" },
+])(
+  "$directory completed compaction and later-process recall decode (issue 416)",
+  ({ harness, directory, marker }) => {
+    const events = decoded(harness, directory, "compaction.ndjson");
+    expect(
+      events.filter((event) => event.kind === "compaction" && event.state === "compacted"),
+    ).toHaveLength(1);
+    expect(textOf(decoded(harness, directory, "later-recall.ndjson"))).toBe(marker);
+  },
+);
+
+test("Pi 1.3.0 RPC compaction still reports one completion", () => {
+  const events = decoded(piCli, "pi-1.3.0", "compaction-rpc.ndjson");
+  expect(
+    events.filter((event) => event.kind === "compaction" && event.state === "compacted"),
+  ).toHaveLength(1);
+  const installed = JSON.parse(read("pi-1.3.0", "installed-compactions.snapshot.json"));
+  expect(installed).toHaveLength(1);
+  expect(installed[0].summary).toContain("HERON-PI-1010");
+});
+
+test("Codex 0.163.0 local store metadata and later-process recall retain their evidence limits", () => {
+  const metadata = JSON.parse(read("codex-0.163.0", "native-store-metadata.snapshot.json"));
+  expect(metadata).toMatchObject({
+    standing: "local-agent-observed-metadata",
+    version: codexCli.verifiedAgainst,
+    completion: { payloadType: "item_completed", itemType: "ContextCompaction", atLeast: 2 },
+    installedReplacement: { recordType: "compacted", type: "array", nonempty: true },
+  });
+  expect(metadata.limits).toContain(
+    "large rows were truncated; complete replacement contents and window links were not inspected",
+  );
+  expect(textOf(decoded(codexCli, "codex-0.163.0", "later-recall.ndjson"))).toBe(
+    "HERON-CODEX-1010",
+  );
+});
+
+test("Claude 2.1.304 native accounting preserves the used count and input limit", () => {
+  const accounting = (label: string) => {
+    const native = JSON.parse(read("claude-2.1.304", `${label}.native.ndjson`));
+    return contextInspectionOf(native.response.response);
+  };
+  expect(accounting("accounting-fresh")).toMatchObject({
+    status: "available",
+    method: "native-context-estimate",
+    model: "claude-sonnet-5-5",
+    totalTokens: 2565,
+    contextWindowTokens: 1000000,
+    inputLimitTokens: 967000,
+  });
+  const resumed = accounting("accounting-resume");
+  expect(resumed).toMatchObject({ status: "available", inputLimitTokens: 967000 });
+  if (resumed.status !== "available") throw new Error("Missing resumed accounting");
+  expect(resumed.totalTokens).toBeGreaterThan(2565);
+  const hashes = JSON.parse(read("claude-2.1.304", "accounting-source-hashes.snapshot.json"));
+  expect(hashes).toMatchObject({ unchanged: true });
 });
 
 test("Claude 2.1.296 native accounting preserves the used count and input limit", () => {
