@@ -21,7 +21,7 @@ const decoded = (
 };
 
 test("the Codex verified version has passing capability and question captures", () => {
-  const seven = JSON.parse(read("seven.snapshot.json", "codex-0.162.1"));
+  const seven = JSON.parse(read("seven.snapshot.json", "codex-0.163.0"));
   const cells = Object.values(seven.results.codex);
   expect(cells).toHaveLength(7);
   for (const name of [
@@ -38,7 +38,7 @@ test("the Codex verified version has passing capability and question captures", 
     expect(seven.results.codex[name]).toMatchObject({ status: "pass" });
   for (const name of ["streaming"])
     expect(seven.results.codex[name]).toMatchObject({ status: "skip" });
-  const questions = JSON.parse(read("questions.snapshot.json", "codex-0.162.1"));
+  const questions = JSON.parse(read("questions.snapshot.json", "codex-0.163.0"));
   expect(questions.results.codex.status).toBe("pass");
   expect(questions.observations.codex).toEqual(codexCli.escalation.observedOn);
   expect(questions.observations.codex.version).toBe(codexCli.verifiedAgainst);

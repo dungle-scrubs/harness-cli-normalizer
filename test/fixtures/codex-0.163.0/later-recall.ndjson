@@ -1,0 +1,3 @@
+{"type":"thread.started","thread_id":"01a159c3-61e0-74f3-9171-f75fc20ba157"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"HERON-CODEX-1010"}}
+{"type":"turn.completed","usage":{"input_tokens":383301,"cached_input_tokens":59904,"cache_write_input_tokens":0,"output_tokens":30,"reasoning_output_tokens":0}}

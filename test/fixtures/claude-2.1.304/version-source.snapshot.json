@@ -1,0 +1,9 @@
+{
+  "checkedAt": "2026-10-20T14:56:40.450Z",
+  "version": "2.1.304",
+  "latest": "2.1.304",
+  "versionSource": {
+    "kind": "npm",
+    "package": "@anthropic-ai/claude-code"
+  }
+}

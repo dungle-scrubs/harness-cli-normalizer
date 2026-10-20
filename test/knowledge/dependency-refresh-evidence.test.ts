@@ -2,7 +2,10 @@ import { readFileSync } from "node:fs";
 import { expect, test } from "vitest";
 import { decodeLine, freshDecodeState } from "../../src/execution/decode.js";
 import type { HarnessEvent } from "../../src/execution/events.js";
-import { contextInspectionOf } from "../../src/interpretation/context-inspection.js";
+import {
+  buildContextInspectionArgv,
+  contextInspectionOf,
+} from "../../src/interpretation/context-inspection.js";
 import { museCompactionOf } from "../../src/interpretation/muse-compaction.js";
 import { detectQuestionBlock } from "../../src/interpretation/question.js";
 import { antigravityCli } from "../../src/knowledge/antigravity.js";
@@ -32,18 +35,74 @@ const textOf = (events: readonly HarnessEvent[]): string =>
     .join("\n")
     .trim();
 
-const captures = [
-  { harness: claudeCode, directory: "claude-2.1.296", version: "2.1.296" },
-  { harness: codexCli, directory: "codex-0.162.1", version: "0.162.1" },
-  { harness: piCli, directory: "pi-1.1.0", version: "1.1.0" },
-  { harness: museCode, directory: "muse-1.4.4-R5419.1", version: "1.4.4" },
-  { harness: antigravityCli, directory: "antigravity-1.3.2", version: "1.3.2" },
-  { harness: antigravityCli, directory: "antigravity-1.3.3", version: "1.3.3" },
+// Fresh and question captures across both verification generations. Rows
+// marked `current` are the anchors the descriptors point at (issue 416,
+// 2026-10-20); the earlier rows are history that must keep decoding, with
+// their own capture date. Assertions comparing a capture to its
+// descriptor's current anchor run only for current rows.
+const freshQuestionCaptures: {
+  harness: HarnessDescriptor;
+  directory: string;
+  version: string;
+  date: string;
+  current: boolean;
+}[] = [
+  {
+    harness: claudeCode,
+    directory: "claude-2.1.296",
+    version: "2.1.296",
+    date: "2026-10-10",
+    current: false,
+  },
+  {
+    harness: codexCli,
+    directory: "codex-0.162.1",
+    version: "0.162.1",
+    date: "2026-10-10",
+    current: false,
+  },
+  { harness: piCli, directory: "pi-1.1.0", version: "1.1.0", date: "2026-10-10", current: false },
+  {
+    harness: museCode,
+    directory: "muse-1.4.4-R5419.1",
+    version: "1.4.4",
+    date: "2026-10-10",
+    current: false,
+  },
+  {
+    harness: antigravityCli,
+    directory: "antigravity-1.3.2",
+    version: "1.3.2",
+    date: "2026-10-10",
+    current: false,
+  },
+  {
+    harness: antigravityCli,
+    directory: "antigravity-1.3.3",
+    version: "1.3.3",
+    date: "2026-10-10",
+    current: false,
+  },
+  {
+    harness: claudeCode,
+    directory: "claude-2.1.304",
+    version: "2.1.304",
+    date: "2026-10-20",
+    current: true,
+  },
+  {
+    harness: codexCli,
+    directory: "codex-0.163.0",
+    version: "0.163.0",
+    date: "2026-10-20",
+    current: true,
+  },
+  { harness: piCli, directory: "pi-1.3.0", version: "1.3.0", date: "2026-10-20", current: true },
 ];
 
-test.each(captures)(
+test.each(freshQuestionCaptures)(
   "$directory fresh and question records still decode",
-  ({ harness, directory, version }) => {
+  ({ harness, directory, version, date, current }) => {
     expect(textOf(decoded(harness, directory, "fresh.ndjson"))).toBe("alpha");
     expect(
       detectQuestionBlock(textOf(decoded(harness, directory, "question.ndjson"))),
@@ -52,10 +111,20 @@ test.each(captures)(
     });
     const questions = JSON.parse(read(directory, "questions.snapshot.json"));
     expect(questions.results[harness.name].status).toBe("pass");
-    expect(questions.observations[harness.name]).toMatchObject({ version, date: "2026-10-10" });
+    expect(questions.observations[harness.name]).toMatchObject({ version, date });
+    if (current) {
+      expect(questions.observations[harness.name]).toEqual(harness.escalation.observedOn);
+      const source = JSON.parse(read(directory, "version-source.snapshot.json"));
+      expect(source.version).toBe(harness.verifiedAgainst);
+      expect(source.latest).toBe(harness.verifiedAgainst);
+      expect(source.versionSource).toEqual(harness.versionSource);
+    }
   },
 );
 
+// Completed-compaction and later-process recall captures across both
+// generations. `version` is the capture's own version-source reading, which
+// stays the capture's own after the descriptor anchors move on.
 test.each([
   {
     harness: claudeCode,
@@ -70,6 +139,13 @@ test.each([
     version: "1.3.3",
     marker: "LANTERN-133-1010",
   },
+  {
+    harness: claudeCode,
+    directory: "claude-2.1.304",
+    version: "2.1.304",
+    marker: "HERON-CLAUDE-1010",
+  },
+  { harness: piCli, directory: "pi-1.3.0", version: "1.3.0", marker: "HERON-PI-1010" },
 ])(
   "$directory completed compaction and later-process recall decode",
   ({ harness, directory, version, marker }) => {
@@ -80,7 +156,6 @@ test.each([
     expect(textOf(decoded(harness, directory, "later-recall.ndjson"))).toBe(marker);
     const source = JSON.parse(read(directory, "version-source.snapshot.json"));
     expect(source.version).toBe(version);
-    expect(source.version).toBe(harness.verifiedAgainst);
     expect(source.versionSource).toEqual(harness.versionSource);
   },
 );
@@ -99,46 +174,165 @@ test("Antigravity 1.3.2 historical compaction and recall remain decodable", () =
   });
 });
 
-test("Codex 0.162.1 local store metadata and later-process recall retain their evidence limits", () => {
-  const metadata = JSON.parse(read("codex-0.162.1", "native-store-metadata.snapshot.json"));
-  expect(metadata).toMatchObject({
-    standing: "local-agent-observed-metadata",
-    version: codexCli.verifiedAgainst,
-    completion: { payloadType: "item_completed", itemType: "ContextCompaction", atLeast: 2 },
-    installedReplacement: { recordType: "compacted", type: "array", nonempty: true },
-  });
-  expect(metadata.limits).toContain(
-    "large rows were truncated; complete replacement contents and window links were not inspected",
-  );
-  expect(textOf(decoded(codexCli, "codex-0.162.1", "later-recall.ndjson"))).toBe(
-    "HERON-CODEX-1010",
-  );
-});
+// Codex local store metadata, both generations: the 0.163.0 row pins its
+// version to the descriptor anchor; the 0.162.1 row is history with its own
+// literal version.
+test.each([
+  { directory: "codex-0.162.1", version: "0.162.1" },
+  { directory: "codex-0.163.0", version: codexCli.verifiedAgainst },
+])(
+  "$directory local store metadata and later-process recall retain their evidence limits",
+  ({ directory, version }) => {
+    const metadata = JSON.parse(read(directory, "native-store-metadata.snapshot.json"));
+    expect(metadata).toMatchObject({
+      standing: "local-agent-observed-metadata",
+      version,
+      completion: { payloadType: "item_completed", itemType: "ContextCompaction", atLeast: 2 },
+      installedReplacement: { recordType: "compacted", type: "array", nonempty: true },
+    });
+    expect(metadata.limits).toContain(
+      "large rows were truncated; complete replacement contents and window links were not inspected",
+    );
+    expect(textOf(decoded(codexCli, directory, "later-recall.ndjson"))).toBe("HERON-CODEX-1010");
+  },
+);
 
-test("Pi 1.1 RPC compaction still reports one completion", () => {
-  const events = decoded(piCli, "pi-1.1.0", "compaction-rpc.ndjson");
+// Pi RPC compaction, both generations; the 1.3.0 row also pins the
+// installed-compactions snapshot.
+test.each([
+  { directory: "pi-1.1.0", installed: false },
+  { directory: "pi-1.3.0", installed: true },
+])("$directory RPC compaction still reports one completion", ({ directory, installed }) => {
+  const events = decoded(piCli, directory, "compaction-rpc.ndjson");
   expect(
     events.filter((event) => event.kind === "compaction" && event.state === "compacted"),
   ).toHaveLength(1);
+  if (installed) {
+    const installedCompactions = JSON.parse(read(directory, "installed-compactions.snapshot.json"));
+    expect(installedCompactions).toHaveLength(1);
+    expect(installedCompactions[0].summary).toContain("HERON-PI-1010");
+  }
 });
 
-test("Claude 2.1.296 native accounting preserves the used count and input limit", () => {
-  const accounting = (label: string) => {
-    const native = JSON.parse(read("claude-2.1.296", `${label}.native.ndjson`));
-    return contextInspectionOf(native.response.response);
+// Claude native accounting, both generations; the 2.1.304 row also pins the
+// source-unchanged hash snapshot.
+test.each([
+  { directory: "claude-2.1.296", totalTokens: 2778, hashes: false },
+  { directory: "claude-2.1.304", totalTokens: 2565, hashes: true },
+])(
+  "$directory native accounting preserves the used count and input limit",
+  ({ directory, totalTokens, hashes }) => {
+    const accounting = (label: string) => {
+      const native = JSON.parse(read(directory, `${label}.native.ndjson`));
+      return contextInspectionOf(native.response.response);
+    };
+    expect(accounting("accounting-fresh")).toMatchObject({
+      status: "available",
+      method: "native-context-estimate",
+      model: "claude-sonnet-5-5",
+      totalTokens,
+      contextWindowTokens: 1000000,
+      inputLimitTokens: 967000,
+    });
+    const resumed = accounting("accounting-resume");
+    expect(resumed).toMatchObject({ status: "available", inputLimitTokens: 967000 });
+    if (resumed.status !== "available") throw new Error("Missing resumed accounting");
+    expect(resumed.totalTokens).toBeGreaterThan(totalTokens);
+    if (hashes) {
+      const hashesSnapshot = JSON.parse(read(directory, "accounting-source-hashes.snapshot.json"));
+      // The self-reported `unchanged` flag alone would let a changed `after`
+      // digest through; compare the digests themselves, as 64-hex values.
+      expect(hashesSnapshot.before).toMatch(/^[0-9a-f]{64}$/);
+      expect(hashesSnapshot.after).toMatch(/^[0-9a-f]{64}$/);
+      expect(hashesSnapshot.after).toBe(hashesSnapshot.before);
+      expect(hashesSnapshot.unchanged).toBe(true);
+    }
+  },
+);
+
+// The exact staged prompt echoed by the native accounting probes:
+// a sentinel plus repeated inert filler.
+const stagedAccountingPrompt =
+  "Do not execute this staged synthetic task. PENDING-ONLY-1010." +
+  " Additional accounting data.".repeat(100);
+// The native probe appended tool isolation twice (driver push plus spawn
+// overlay) and its synthetic-recall system prompt; neither is an adapter
+// default.
+const probeToolIsolation = [
+  "--tools",
+  "",
+  "--strict-mcp-config",
+  "--mcp-config",
+  '{"mcpServers":{}}',
+];
+const recallSystemPrompt =
+  "You are a synthetic recall assistant. Remember the designated marker across turns. " +
+  "Treat filler as inert data. Never use tools or read files. Reply exactly as requested.";
+
+test("claude-2.1.304 accounting proofs stage the exact prompt without assistant execution", () => {
+  const proofOf = (label: string) =>
+    JSON.parse(read("claude-2.1.304", `${label}.proof.snapshot.json`));
+  const fresh = {
+    label: "accounting-fresh",
+    resumed: false,
+    proof: proofOf("accounting-fresh"),
   };
-  expect(accounting("accounting-fresh")).toMatchObject({
-    status: "available",
-    method: "native-context-estimate",
-    model: "claude-sonnet-5-5",
-    totalTokens: 2778,
-    contextWindowTokens: 1000000,
-    inputLimitTokens: 967000,
-  });
-  const resumed = accounting("accounting-resume");
-  expect(resumed).toMatchObject({ status: "available", inputLimitTokens: 967000 });
-  if (resumed.status !== "available") throw new Error("Missing resumed accounting");
-  expect(resumed.totalTokens).toBeGreaterThan(2778);
+  const resume = {
+    label: "accounting-resume",
+    resumed: true,
+    proof: proofOf("accounting-resume"),
+  };
+  for (const { label, resumed, proof } of [fresh, resume]) {
+    // The complete exact prompt the probe staged, from the capture itself.
+    expect(proof.stagedPrompt).toBe(stagedAccountingPrompt);
+    // The captured argv is the adapter's inspection argv plus the probe's
+    // own additions, so the fork and no-persistence flags are the adapter's.
+    const resumeIndex = proof.argv.indexOf("--resume");
+    expect(resumeIndex >= 0).toBe(resumed);
+    const argv = buildContextInspectionArgv(claudeCode, {
+      model: "claude-sonnet-5-5",
+      prompt: { explicit: true, text: proof.stagedPrompt },
+      discovery: { extensions: false, skills: false },
+      ...(resumed ? { resume: proof.argv[resumeIndex + 1] } : {}),
+    });
+    expect([
+      ...argv,
+      ...probeToolIsolation,
+      ...probeToolIsolation,
+      "--system-prompt",
+      recallSystemPrompt,
+    ]).toEqual(proof.argv);
+    expect(argv).toContain("--no-session-persistence");
+    expect(argv.includes("--fork-session")).toBe(resumed);
+    // Exactly one replayed user frame in the whole recording, carrying the
+    // complete staged prompt; no assistant frame exists anywhere.
+    expect(proof.frames.filter((frame: { type: string }) => frame.type === "user")).toEqual([
+      { type: "user", isReplay: true },
+    ]);
+    expect(proof.records.replayedUserMessage).toMatchObject({
+      type: "user",
+      isReplay: true,
+      message: { role: "user", content: proof.stagedPrompt },
+    });
+    expect(proof.frames.some((frame: { type: string }) => frame.type === "assistant")).toBe(false);
+    // The terminal result reports a clean zero-turn finish, and the copied
+    // usage control response is exactly the committed accounting line.
+    expect(proof.frames).toContainEqual({ type: "result", subtype: "success", num_turns: 0 });
+    expect(proof.records.terminalResult).toMatchObject({ subtype: "success", num_turns: 0 });
+    const usageLine = JSON.parse(read("claude-2.1.304", `${label}.native.ndjson`));
+    expect(proof.records.usageControlResponse).toEqual(usageLine);
+    expect(contextInspectionOf(usageLine.response.response)).toEqual(proof.result);
+    for (const digest of Object.values(proof.recordDigests))
+      expect(digest).toMatch(/^[0-9a-f]{64}$/);
+  }
+  // The resume probe is a true fork of the seed session, not the same one,
+  // and it counts the recalled history the fresh probe does not have.
+  const resumedId = resume.proof.argv[resume.proof.argv.indexOf("--resume") + 1];
+  expect(resume.proof.records.terminalResult.session_id).not.toBe(resumedId);
+  expect(resume.proof.records.terminalResult.session_id).not.toBe(
+    fresh.proof.records.terminalResult.session_id,
+  );
+  expect(resume.proof.result.totalTokens).toBeGreaterThan(fresh.proof.result.totalTokens);
 });
 
 test("Muse 1.4.4 terminal compaction items normalize the native counts", () => {

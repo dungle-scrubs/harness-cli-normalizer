@@ -1,6 +1,7 @@
 /**
  * The pi descriptor: facts about the `pi` CLI as data, verified against
- * pi 1.1.0 (test/fixtures/pi-1.1.0). Descriptor groundwork only (D-003). The load-bearing scars:
+ * pi 1.3.0 (test/fixtures/pi-1.3.0; pi-1.1.0 kept as the prior anchor).
+ * Descriptor groundwork only (D-003). The load-bearing scars:
  * pi reads stdin even in -p mode (a backgrounded call without `< /dev/null`
  * hangs forever), it auto-discovers instruction files/skills/extensions
  * unless disabled, and its model registry is runtime-extensible (D-008) -
@@ -14,7 +15,7 @@ export const piCli: HarnessDescriptor = deepFreeze({
   name: "pi",
   transcript: PI_TRANSCRIPT,
   bin: "pi",
-  verifiedAgainst: "1.1.0",
+  verifiedAgainst: "1.3.0",
   versionSource: { kind: "npm", package: "@earendil-works/pi-coding-agent" },
   launch: {
     // -p --mode json: bare -p prints plain text; --mode json emits the
@@ -155,7 +156,11 @@ export const piCli: HarnessDescriptor = deepFreeze({
   // 1.0.0: JSON and RPC threshold replacement installation and later-process
   // recall reproduced at lowered thresholds (test/fixtures/pi-1.0.0/VERIFICATION.md).
   // This does not establish lossless recall or steady full-capacity behavior.
-  // 0.99.1 re-probe: reproduced (test/fixtures/pi-0.99.1/VERIFICATION.md).
+  // 0.99.1 and 1.1.0 re-probes: reproduced (their VERIFICATION.md files).
+  // 1.3.0 re-probe: reproduced (test/fixtures/pi-1.3.0/VERIFICATION.md); the
+  // probe's reserveTokens rose to 480000 because 1.3.0 gives
+  // openai-codex/gpt-6.1-sol a 500K context window, so the old 256000
+  // reserve no longer crossed the trigger.
   // Three forcing configurations: project .pi/settings.json with
   // reserveTokens 950k and 5M (plus keepRecentTokens 500 and --approve)
   // both fired threshold compaction inside one hcn-shaped resume turn
@@ -215,8 +220,8 @@ export const piCli: HarnessDescriptor = deepFreeze({
     observedOn: {
       harness: "pi",
       model: "openai-codex/gpt-6.1-sol",
-      version: "1.1.0",
-      date: "2026-10-10",
+      version: "1.3.0",
+      date: "2026-10-20",
     },
   },
   turnOptions: {
