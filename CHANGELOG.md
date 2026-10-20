@@ -5,6 +5,39 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.10](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.9...v0.9.10) (2026-10-20)
+
+
+### Added
+
+* expose native tool results, usage, and Cursor access ([e8c19bf](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/e8c19bfda2d15bb94b0c6e4c8aa0458bbb698c77))
+* ship the hcn agent skill in the package ([#371](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/371)) ([84d0345](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/84d034511a68c307784960c49fac517ed98a572c))
+
+
+### Fixed
+
+* classify transient pi provider faults as transport ([cd815c6](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/cd815c67b830864c2f11bd1f5c799a2dc811ccfe))
+* close CLI permission and package-check gaps ([#412](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/412)) ([ee906c9](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/ee906c95061e188de8040ea948239999f33608d0))
+* make shared hooks explicit and primary-owned ([#415](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/415)) ([4b4ae5d](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/4b4ae5d51e3a6ed508053c2a07d917888fc31d24))
+* normalize Claude write access and denial observations ([2a42a2d](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/2a42a2d854ce71e6b9e8c14931ee62319e03ef68)), closes [#378](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/378) [#379](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/379)
+* preserve delivered output after a harness process crash ([#383](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/383)) ([d5e3497](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/d5e34979222bb30b781202eeb6e1fbc11c122460))
+* refresh Claude Codex and pi compatibility evidence ([#417](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/417)) ([909f72c](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/909f72c1335252ea13e187b3c9133049c9b5bc77))
+* refuse session access flags and protect denial counts ([893cc9d](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/893cc9d1caa92ed22644df689fd15b9a2a91808d))
+* suppress false unknown-session errors on verified resumes ([a295af5](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/a295af5830bd5d93de748defa3a264f91c3ee5d3))
+
+
+### Changed
+
+* align supported harness rosters with Popeye ([8740ade](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/8740adef1eaa97f21376740d558eaf1111d42718))
+* **ci:** build darwin snapshot on the self-hosted mini runner ([#410](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/410)) ([769c1cd](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/769c1cdbfe92b5419d6430803d67996442399b13))
+* clear transcript skill lint diagnostics ([b7777d2](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/b7777d2c40f9e6d22671f5251b3da908c7a7e1b1))
+* enforce primary-checkout ownership of task artifacts ([#414](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/414)) ([6d7f5c3](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/6d7f5c36a37cff029a958398676899348cdfc9c3))
+* enforce the explicit build prerequisite at runner startup ([#413](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/413)) ([20ff319](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/20ff319d1d842b50dd6063cd5e746664a7371807))
+* honor TMPDIR in the skill self-test ([#405](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/405)) ([c99be17](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/c99be171b2027c110ea1dd286b44e9a3c1b98315))
+* isolate npm cache for package checks ([#408](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/408)) ([cd75476](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/cd75476394e44ba2f422fd695f43860ba5bcb3a8))
+* isolate Pi resume fixture from inherited store paths ([#400](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/400)) ([97c0ef3](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/97c0ef3fcec0d915cc20ba5f2acd0d6aa72aefcf))
+* rewrite the README around one interface for many coding agents ([#369](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/369)) ([a2eec54](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/a2eec54518996078e217b3cf7ee2215f0870d622))
+
 ## [0.9.9](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.8...v0.9.9) (2026-10-13)
 
 
