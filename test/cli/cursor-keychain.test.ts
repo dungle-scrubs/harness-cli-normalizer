@@ -10,9 +10,9 @@
  */
 import { spawnSync } from "node:child_process";
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "vitest";
+import { cliFixtureTmpdir } from "./fixture-tmpdir.js";
 import { ensureDist } from "./stub-dist.js";
 
 const VERSION = "2026.10.01-e373342";
@@ -31,7 +31,7 @@ interface RunResult {
 /** Drive the built CLI against a stub `agent` in fully disposable roots. */
 const runStub = (stderrLines: string[]): RunResult => {
   const cli = ensureDist();
-  const root = mkdtempSync(join(tmpdir(), "hcn-keychain-"));
+  const root = mkdtempSync(join(cliFixtureTmpdir(), "hcn-keychain-"));
   try {
     mkdirSync(join(root, "bin"), { recursive: true });
     mkdirSync(join(root, "cwd"), { recursive: true });
