@@ -129,6 +129,25 @@ export type SessionInputKind = (typeof SESSION_INPUT_KINDS)[number];
 export const APPROVAL_OBSERVERS = deepFreeze(["msp-list-pending"] as const);
 export type ApprovalObserver = (typeof APPROVAL_OBSERVERS)[number];
 
+/** Explicit live-session delivery modes a caller may request (issue #426).
+ * `queue` delivers after the active work finishes; `steer` delivers at the
+ * native boundary after the current assistant turn and its tool calls.
+ * Omitting a mode keeps the harness's native busy-send behavior. */
+export const SESSION_DELIVERIES = deepFreeze(["queue", "steer"] as const);
+export type SessionDelivery = (typeof SESSION_DELIVERIES)[number];
+
+/** The live-session controls a harness supports natively, as verified data.
+ * The runner refuses anything not listed here before writing native input. */
+export interface SessionControls {
+  /** Explicit delivery modes; an empty list means only omitted delivery. */
+  readonly delivery: readonly SessionDelivery[];
+  /** Interrupting the active turn while the same process continues, or
+   * null when unsupported. Tool cancellation is best effort: interruption
+   * neither undoes completed actions nor guarantees that a running tool
+   * and its children stop. */
+  readonly interrupt: { readonly toolCancellation: "best-effort" } | null;
+}
+
 export interface SessionInputContract {
   readonly kind: SessionInputKind;
 }
@@ -149,8 +168,12 @@ export type LimitCode =
 
 /** Auth walls are separate from usage limits because the remedy is entirely
  * different (re-auth vs wait), and a detached process misreading one as the
- * other sends the human to fix the wrong thing. */
-export type AuthFailureKind = "not-logged-in" | "expired" | "invalid-key";
+ * other sends the human to fix the wrong thing. `credential-access` (issue
+ * #425): the harness holds credentials it cannot READ in its execution
+ * context - cursor stores auth in the macOS login keychain, which is locked
+ * in contexts like an SSH login. The remedy is the owner restoring access
+ * in that context, not re-authenticating. */
+export type AuthFailureKind = "not-logged-in" | "expired" | "invalid-key" | "credential-access";
 
 /** Compaction states (ADR 0009). Closed, like `LimitCode`, so a consumer
  * branches with no default arm. A member exists only where a caller would do
@@ -543,6 +566,9 @@ export interface HarnessDescriptor {
      * `resume.onMissing` as the single source. */
     readonly resumeFlag: SessionResumeFlag | null;
     readonly input: SessionInputContract;
+    /** Issue #426: explicit delivery modes and interruption, verified per
+     * harness version. */
+    readonly controls: SessionControls;
     readonly turnEnd: Readonly<Record<string, string>>;
     /** The command the runner writes at spawn to learn the session id, and
      * the dot-path to that id in the response (pi rpc: `get_state`,

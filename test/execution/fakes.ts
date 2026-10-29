@@ -102,6 +102,44 @@ export class FakeProcess implements SpawnedProcess {
       write.split("\n").filter((line) => line.trim() !== ""),
     );
   }
+  /** The ids of the correlated send requests written so far, oldest first,
+   * so a native fake answers with the id it actually received (issue #426:
+   * the runner mints one per command; caller ids never ride the wire). */
+  get sendRequestIds(): string[] {
+    return this.stdinLines.flatMap((line) => {
+      try {
+        const id = (JSON.parse(line) as { id?: unknown }).id;
+        return typeof id === "string" && id.startsWith("hcn-send") ? [id] : [];
+      } catch {
+        return [];
+      }
+    });
+  }
+  /** The most recent correlated send request id. */
+  lastSendRequestId(): string {
+    const id = this.sendRequestIds.at(-1);
+    if (id === undefined) throw new Error("no correlated send request written");
+    return id;
+  }
+  /** The native message uuids stamped on the claude user frames written so
+   * far, oldest first. A fake claude names the uuid it actually received,
+   * the way the native init/status/message_start records do (issue #426). */
+  get sentUuids(): string[] {
+    return this.stdinLines.flatMap((line) => {
+      try {
+        const frame = JSON.parse(line) as { type?: unknown; uuid?: unknown };
+        return frame.type === "user" && typeof frame.uuid === "string" ? [frame.uuid] : [];
+      } catch {
+        return [];
+      }
+    });
+  }
+  /** The uuid of the most recent claude user frame. */
+  lastSentUuid(): string {
+    const uuid = this.sentUuids.at(-1);
+    if (uuid === undefined) throw new Error("no uuid-stamped user frame written");
+    return uuid;
+  }
   private exitResolve!: (code: number | null) => void;
 
   constructor(options: { exitOnStdinEnd?: boolean } = {}) {
@@ -158,6 +196,19 @@ export class FakeProcess implements SpawnedProcess {
     this.exit(127);
   }
 }
+
+/** The claude 2.1.312 init record that opens a native turn for the input
+ * the fake last received: it names that input's uuid, as the native record
+ * does. A test whose input is meant to be accepted emits it before awaiting
+ * the turn; the runner publishes an input-owned claude turn only on native
+ * uuid evidence (issue #426). */
+export const claudeInitNaming = (sessionId: string, proc: FakeProcess): string =>
+  JSON.stringify({
+    type: "system",
+    subtype: "init",
+    session_id: sessionId,
+    user_message_uuids: [proc.lastSentUuid()],
+  });
 
 export class FakeClock implements Clock {
   private time = 0;

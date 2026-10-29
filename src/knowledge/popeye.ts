@@ -73,6 +73,8 @@ export const popeyeCli: HarnessDescriptor = deepFreeze({
     idFlag: null,
     resumeFlag: "--resume",
     input: { kind: "popeye-rpc-prompt" },
+    // Issue #426: no explicit delivery mode or interruption is verified.
+    controls: { delivery: [], interrupt: null },
     turnEnd: { result: "snapshot" },
     identityProbe: { command: "create", responseIdField: "result.sessionId" },
   },

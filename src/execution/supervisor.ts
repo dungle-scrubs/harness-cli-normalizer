@@ -21,8 +21,10 @@ import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import type { Clock, SignalName, TimerHandle } from "./deps.js";
 import type { HarnessEvent } from "./events.js";
 import {
+  DIAGNOSTIC_MAX,
   type FailureSummary,
   failureFromAuth,
+  failureFromCredentialAccess,
   failureFromLimit,
   failureFromTask,
   failureFromTrust,
@@ -132,8 +134,18 @@ export interface TurnSupervisor {
   settle(): void;
   /** Classify one stderr line: a limit wall becomes a limit event plus a
    * failure, an auth wall a failure plus an error event, anything else
-   * goes to the tail. Returns the limit code when the line was a limit. */
+   * goes to the tail. The credential-access auth kind (issue #425) is the
+   * exception among auth walls: its summary carries the native exit code,
+   * so the line opens a retained observation instead of failing the turn,
+   * and also goes to the tail. The observation keeps that line and the
+   * stderr after it (redacted, bounded to DIAGNOSTIC_MAX) outside the
+   * rolling tail, so tail eviction cannot lose it. */
   stderrLine(line: string): Promise<void>;
+  /** At finalization: the credential-access failure this turn observed,
+   * carrying the actual nonzero exit code, or null. Exit 0 and a signal-only
+   * exit (null) report nothing. Settles the observation: it is reported at
+   * most once, and beginTurn discards one never collected. */
+  credentialAccessFailure(exitCode: number | null): FailureSummary | null;
   /** A decoded event passed by: the last assistant message is where the
    * protocol says the hcn-question block lives (tracked in ask mode). */
   noteEvent(event: HarnessEvent): void;
@@ -154,6 +166,8 @@ export const superviseTurn = (
   let turnOpen = false;
   let inactivityPaused = false;
   let lastAssistantText: string | null = null;
+  // The retained credential-access observation (see stderrLine).
+  let credentialDiagnostic: string | null = null;
 
   const disarm = (): void => {
     if (stallTimer !== null) io.clock.clearTimeout(stallTimer);
@@ -179,6 +193,7 @@ export const superviseTurn = (
   return {
     beginTurn(): void {
       lastAssistantText = null;
+      credentialDiagnostic = null;
       turnOpen = true;
       inactivityPaused = false;
       armStall();
@@ -202,6 +217,11 @@ export const superviseTurn = (
       disarm();
     },
     async stderrLine(line: string): Promise<void> {
+      // Redact before bounding the joined text, so a bound cannot cut a
+      // secret short of the pattern.
+      if (credentialDiagnostic !== null && credentialDiagnostic.length < DIAGNOSTIC_MAX) {
+        credentialDiagnostic = redactBounded(`${credentialDiagnostic}\n${line}`, DIAGNOSTIC_MAX);
+      }
       const limit = detectLimitInLine(h, line);
       if (limit !== null) {
         await io.emit({ kind: "limit", code: limit, message: `limit wall detected (${limit})` });
@@ -209,6 +229,12 @@ export const superviseTurn = (
         return;
       }
       const auth = detectAuthFailureInLine(h, line);
+      if (auth === "credential-access") {
+        // Classification waits for the exit code: credentialAccessFailure.
+        credentialDiagnostic ??= redactBounded(line, DIAGNOSTIC_MAX);
+        io.tail.push(line);
+        return;
+      }
       if (auth !== null) {
         await io.fail(failureFromAuth(auth));
         await io.emit({ kind: "error", message: `auth wall: ${auth}` });
@@ -223,6 +249,12 @@ export const superviseTurn = (
         return;
       }
       io.tail.push(line);
+    },
+    credentialAccessFailure(exitCode: number | null): FailureSummary | null {
+      const diagnostic = credentialDiagnostic;
+      credentialDiagnostic = null;
+      if (diagnostic === null || exitCode === null || exitCode === 0) return null;
+      return failureFromCredentialAccess(h.name, diagnostic, exitCode);
     },
     noteEvent(event: HarnessEvent): void {
       if (questionMode === "ask" && event.kind === "message" && event.role === "assistant") {

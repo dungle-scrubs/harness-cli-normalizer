@@ -379,6 +379,16 @@ split the task), internal (hcn's own bug, not a harness outcome;
 non-retryable; the process exits 4 and a `--json` stream gets the
 `failure`/`done` pair with cause `crash`).
 
+For `auth`, `authKind` distinguishes `not-logged-in`, `expired`, `invalid-key`
+and `credential-access`. The last means the harness cannot read credentials it
+already holds. When cursor reports its locked-keychain line on stderr and exits
+nonzero, hcn retains that line and following stderr in the failure message,
+redacted and bounded to 4,096 characters, and records the exit code in
+`nativeExitCode`. A stream-reported terminal error can carry the same kind
+without that field. The owner must restore credential access in the context the
+run executed in. hcn never unlocks a keychain or enters a password; an unlock
+from another shell or SSH session may not reach that context.
+
 Codex nonfatal error items remain informational `error` events without
 `terminal: true`. Native `turn.failed` and top-level `error` records are
 terminal. A warning alone does not make the final `done` fail.
@@ -461,9 +471,10 @@ starred); the answer flows back as the next message on the same session.
 Control events (stdout):
 
 ```
-{"kind":"session","sessionId":..,"harness":..,"hcn":..,"questions":"ask|assume|none","origin":"fresh|resumed"}  # first line
-{"kind":"turn","turnId":"<sid>:turn-<n>","id":..}   # id = the send that opened the turn
+{"kind":"session","sessionId":..,"harness":..,"hcn":..,"questions":"ask|assume|none","origin":"fresh|resumed","controls":..}  # first line
+{"kind":"turn","turnId":"<sid>:turn-<n>","id":..}   # id is present when a send opened the turn
 {"kind":"disposition","id":..,"disposition":"started|rejected","reason":?}
+{"kind":"interruption","id":..,"state":"requested|interrupted|not-active|rejected","reason":?}
 {"kind":"closed","exitCode":..,"cause":"clean|limit|crash|stall|killed|failed","failure":?}  # last line
 ```
 
@@ -472,20 +483,51 @@ Commands (stdin, one JSON object per line; blank lines ignored):
 ```
 {"op":"send","id":..,"text":..}
 {"op":"answer","id":..,"text":..}
+{"op":"interrupt","id":..}
 {"op":"close"}
 ```
 
+`send` and `answer` also accept optional `delivery: "queue"` or `"steer"`.
+Read `controls.deliveryModes` and `controls.interrupt.supported` from the
+session packet before requesting controls. `hcn inspect <h> --capabilities`
+reports the same data as `sessionControls`; null means no persistent session.
+Missing fields mean the build does not advertise these controls.
+
 | Rule | Detail |
 |---|---|
-| disposition | every well-formed send/answer gets exactly one, in command order: `started` (accepted by the harness), or `rejected` with reason `closed` \| `no-open-question` \| `native-rejected` \| `write-failed`. Pi and codex wait for their native command response before reporting the disposition; a busy Pi send uses native `steer` and joins the current turn; a busy codex send uses `turn/steer` under codex's `expectedTurnId` precondition and also joins the RUNNING turn, so a send arriving after the native turn ended reports `rejected`/`native-rejected` (codex's out-of-band `codex queue` CLI is not reachable from the session protocol, so no queue disposition exists). Other harnesses report after their input write and keep their native busy-input behavior. hcn has no send queue; a send that opens a turn carries the input id |
+| disposition | every well-formed send/answer gets exactly one, in command order: `started` (accepted by the harness), or `rejected` with reason `closed` \| `no-open-question` \| `native-rejected` \| `unsupported-delivery` \| `write-failed`. Pi and codex wait for their native command response before reporting the disposition; without explicit delivery, a busy Pi send uses native `steer` and joins the current turn; a busy codex send uses `turn/steer` under codex's `expectedTurnId` precondition and also joins the RUNNING turn, so a send arriving after the native turn ended reports `rejected`/`native-rejected` (codex's out-of-band `codex queue` CLI is not reachable from the session protocol, so no queue disposition exists). Other harnesses report after their input write and keep their native busy-input behavior. hcn has no send queue; a send that opens a turn carries the input id |
 | answer | hcn composes the preamble (`The user answered the question: "<q>" with: <text>. Continue accordingly.`); a plain `send` after a question adds none |
-| malformed | not JSON / unknown op / bad id / non-string text -> `error` event, no disposition, session continues |
+| malformed | not JSON / unknown op / bad id / non-string text / invalid delivery / interrupt carrying text -> `error` event, no disposition, session continues |
 | close | `close` op or stdin EOF; turn-scoped `done` never ends the process |
-| harness exit | a turn still open when the harness exits nonzero with no failure yet gets run mode's stderr-tail classification: a transport, unavailable or trust phrasing first, else `native` with the tail, else `transport` on empty stderr. The detail is bounded with secret-shaped tokens masked. The `failure` lands in that turn before its `done` (cause stays `crash`), and `closed.failure` carries it. From hcn 0.9.6 a nonzero exit with no open turn also puts a failure on `closed.failure`: one hcn already read from stderr (an auth or limit wall; a limit keeps cause `limit`) first, else the same stderr-tail classification. A codex crash before the session opens creates no turn for its rejected sends |
+| harness exit | a turn still open when the harness exits nonzero with no failure yet gets run mode's stderr-tail classification: a transport, unavailable or trust phrasing, else `native` with the tail, else `transport` on empty stderr. The detail is bounded with secret-shaped tokens masked. The `failure` lands in that turn before its `done` (cause stays `crash`), and `closed.failure` carries it. From hcn 0.9.6 a nonzero exit with no open turn also puts a failure on `closed.failure`: one hcn already read from stderr (an auth or limit wall; a limit keeps cause `limit`) first, else the same stderr-tail classification. A codex crash before the session opens creates no turn for its rejected sends |
 | refusals | from hcn 0.9.6. A harness that refuses the command that opened a turn, before acknowledging it (pi `prompt` with `success:false`, a popeye prompt error), ends that turn with the classified failure and `done` cause `failed`; a refused later send, even one reusing the id, leaves the turn running. A refused session open (codex `thread/start` error, popeye `create` error) ends the session: codex rejects the waiting sends with `native-rejected`, popeye ends the first waiting send's turn with the failure, and `closed` reports cause `failed` (exit 1) with the failure. A refusal is classified like a terminal error, except that a generic one is `native`, not `task`. A codex app-server that never answers still waits on the caller |
 | ids | `session.sessionId` = caller-side handle; `identity.sessionId` (first turn) = harness-confirmed id (pi and codex: minted; codex mints the thread id at open, `--resume <id>` reopens it via `thread/resume`) |
 | exit codes | 0 `closed.cause` clean, 1 any other harness or session outcome, 2 refusal before the stream opens, 4 hcn internal crash (an `internal` failure and `closed` with cause `crash`; an hcn bug - report it, do not retry or reroute). A refusal still writes `failure` + `closed cause=failed` on stdout (prose to stderr); a spawn failure writes a `transport` failure + the same `closed`, exit 1. The exit code is set after the terminal line flushes. EPIPE on stdout: hcn closes the session (grace, then signal) and exits 1 |
 | flags | `--stall <s>` per-turn inactivity budget (0 disables, no default; expiry ends the turn `stall` and closes the session `stall`); `--provider` pi only, same validation as run; `--agent <name>` claude, antigravity, popeye, and pi (extension-verified at open), rendered at spawn exactly as run renders it; `--effort <v>` (>= 0.6.0) validated against the ladder for the picked `--model` exactly as on run - no default, the harness's own effort applies without it; `--skills <a,b>` (issue #332) the run allowlist at session spawn through the same resolution and render, holding across every turn, antigravity/popeye refusing exit 2 before spawn; `--model` renders per harness (codex sessions take `-c model=<id>` - app-server has no `--model` flag - and sessions render no sandbox flag, so codex's own sandbox default applies). Run-only permission flags (`--access`, `--tools`, `--exclude-tools`, `--no-tools`, `--write`/`--no-write`, `--shell`/`--no-shell`, `--sandbox`, `--autonomy`/`--no-autonomy`) refuse with exit 2 and a typed failure before spawn instead of being dropped silently (issues #386 and #392) |
+
+### Delivery and interruption
+
+An explicit mode absent from `controls.deliveryModes` is rejected with
+`unsupported-delivery`; no native input is written and the session remains
+usable. Omit `delivery` to keep native behavior. A queued message need not get
+its own hcn turn: Pi follow-ups and steering can remain in one native run;
+Claude can merge a steer into the current result. Native background output has
+no caller id. Pi's `handled` receipt accepts input without publishing an empty
+turn.
+
+Send `{"op":"interrupt","id":"stop-1"}` without replacement text. A written
+request emits `interruption` state `requested`. Wait for its terminal state:
+`interrupted` confirms a native aborted run; `not-active` means work settled
+normally or none was active; `rejected` carries `unsupported`, `closed`,
+`write-failed` or `native-rejected`. An immediate refusal has no `requested`
+phase. A native success response alone does not confirm interruption.
+
+After the terminal receipt, send the replacement instruction on the same
+session. Interrupting keeps the process and conversation. Native queued
+messages remain queued; the caller owns queue policy. Tool cancellation is
+best effort and cannot undo completed actions or guarantee child processes
+stop. The command stream stays readable while receipts are pending, and send
+and answer dispositions remain in command order even when ids are reused.
 
 ## Native memory controls
 

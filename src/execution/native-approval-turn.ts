@@ -41,6 +41,7 @@ import {
   failureFromTimeout,
   failureFromTransport,
   nativeApprovalPreflightEvidence,
+  reduceFailures,
 } from "./failure.js";
 import { ControlFrameError, ControlLines, LineBuffer } from "./lines.js";
 import { nativeApprovalPlan } from "./native-approval-plan.js";
@@ -595,6 +596,21 @@ export async function* streamNativeApprovalTurn(
       failureReason = "spawn-failed";
     }
     if (hardDeadline !== null) deps.clock.clearTimeout(hardDeadline);
+    // Issue #425: the supervisor's credential-access observation settles
+    // before completion and the tail fallback, so neither a native terminal
+    // record nor an earlier failure hides it; reduction applies precedence.
+    // Caller abort, the hard deadline and inactivity keep their authority.
+    // `stop` assigns failureReason from callbacks TypeScript's narrowing
+    // does not see, so the read widens it back to its declared type.
+    const stoppedBy = failureReason as NativeApprovalFailureReason;
+    const credential =
+      cancelled || failure?.class === "timeout" || stoppedBy === "inactivity"
+        ? null
+        : supervisor.credentialAccessFailure(exitCode);
+    if (credential !== null) {
+      if (failure === undefined) failureReason = "native-process-failed";
+      failure = reduceFailures(failure === undefined ? [credential] : [failure, credential]);
+    }
     for (const key of pending.keys())
       await clear(key, failure ? "channel-failed" : "process-ended");
     const close =

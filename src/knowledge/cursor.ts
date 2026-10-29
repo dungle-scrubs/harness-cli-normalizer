@@ -101,6 +101,11 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
     // logged in throughout, so Phase 4 re-verifies both on logged-out runs.
     { pattern: "Authentication required. Please run 'agent login' first", kind: "not-logged-in" },
     { pattern: "The provided API key is invalid", kind: "invalid-key" },
+    // Issue #425: observed from SSH when cursor could not read its locked
+    // macOS login keychain. The supervisor retains a typed observation
+    // outside the rolling stderr tail, then classifies it at the actual
+    // nonzero exit through credentialAccessFailure.
+    { pattern: "Your macOS login keychain is locked\\.", kind: "credential-access" },
     ...SHARED_AUTH_MATCHERS,
   ],
   trustMatchers: [

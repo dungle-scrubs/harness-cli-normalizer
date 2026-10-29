@@ -9,7 +9,7 @@ import type { HarnessEvent } from "../../src/execution/events.js";
 import { openSession } from "../../src/execution/open-session.js";
 import { streamTurn } from "../../src/execution/stream-turn.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
-import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
+import { claudeInitNaming, FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
 
 /** The turn's `done` event, or a clear failure. A missing `done` is a real
  * test failure and should read as one rather than as a null dereference. */
@@ -185,7 +185,6 @@ describe("openSession escalation record - same State Machine, second runner", ()
     for await (const e of turn) out.push(e);
     return out;
   };
-  const claudeInit = init;
   const claudeAssistant = assistantWith;
   const claudeResult = result;
 
@@ -194,9 +193,10 @@ describe("openSession escalation record - same State Machine, second runner", ()
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid, questions: "ask" }, d);
     session.send({ id: "s1", text: "task" });
+    // Native uuid evidence publishes the input's turn (issue #426).
+    proc.emitLine(claudeInitNaming(sid, proc));
     const turns = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turns.next()).value as AsyncIterable<HarnessEvent>;
-    proc.emitLine(claudeInit);
     proc.emitLine(claudeAssistant(ASK_TEXT));
     proc.emitLine(claudeResult);
     const events = await drainTurn(turn1);
@@ -211,9 +211,10 @@ describe("openSession escalation record - same State Machine, second runner", ()
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid, questions: "ask" }, d);
     session.send({ id: "s1", text: "task" });
+    // Native uuid evidence publishes the input's turn (issue #426).
+    proc.emitLine(claudeInitNaming(sid, proc));
     const turns = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turns.next()).value as AsyncIterable<HarnessEvent>;
-    proc.emitLine(claudeInit);
     proc.emitLine(claudeAssistant(MALFORMED_TEXT));
     proc.emitLine(claudeResult);
     const events = await drainTurn(turn1);
@@ -228,9 +229,10 @@ describe("openSession escalation record - same State Machine, second runner", ()
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid, questions: "ask" }, d);
     session.send({ id: "s1", text: "task" });
+    // Native uuid evidence publishes the input's turn (issue #426).
+    proc.emitLine(claudeInitNaming(sid, proc));
     const turns = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turns.next()).value as AsyncIterable<HarnessEvent>;
-    proc.emitLine(claudeInit);
     proc.emitLine(claudeAssistant("plain"));
     proc.emitLine(claudeResult);
     const events = await drainTurn(turn1);
@@ -245,9 +247,10 @@ describe("openSession escalation record - same State Machine, second runner", ()
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid, questions: "assume" }, d);
     session.send({ id: "s1", text: "task" });
+    // Native uuid evidence publishes the input's turn (issue #426).
+    proc.emitLine(claudeInitNaming(sid, proc));
     const turns = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turns.next()).value as AsyncIterable<HarnessEvent>;
-    proc.emitLine(claudeInit);
     proc.emitLine(claudeAssistant(ASK_TEXT));
     proc.emitLine(claudeResult);
     const events = await drainTurn(turn1);
@@ -261,9 +264,10 @@ describe("openSession escalation record - same State Machine, second runner", ()
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid, questions: "none" }, d);
     session.send({ id: "s1", text: "task" });
+    // Native uuid evidence publishes the input's turn (issue #426).
+    proc.emitLine(claudeInitNaming(sid, proc));
     const turns = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turns.next()).value as AsyncIterable<HarnessEvent>;
-    proc.emitLine(claudeInit);
     proc.emitLine(claudeAssistant("plain"));
     proc.emitLine(claudeResult);
     const events = await drainTurn(turn1);

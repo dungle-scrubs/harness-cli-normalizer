@@ -106,7 +106,7 @@ describe("openSession (codex app-server, fake process)", () => {
     const { session, turnsIter } = await openCodexSession(proc);
     session.send({ id: "in-1", text: "fixture" });
     proc.emitLine(
-      jsonrpc(`${SEND_ID}:in-1`, { turn: { id: TURN, items: [], status: "inProgress" } }),
+      jsonrpc(proc.lastSendRequestId(), { turn: { id: TURN, items: [], status: "inProgress" } }),
     );
     const turn = (await turnsIter.next()).value as SessionTurn;
     const item = {
@@ -207,7 +207,8 @@ describe("openSession (codex app-server, fake process)", () => {
     expect(proc.stdinLines).toHaveLength(3);
     expect(JSON.parse(proc.stdinLines[2] ?? "null")).toEqual({
       jsonrpc: "2.0",
-      id: `${SEND_ID}:in-1`,
+      // Issue #426: the runner's own per-command request id.
+      id: expect.stringMatching(new RegExp(`^${SEND_ID}:`)),
       method: "turn/start",
       params: {
         threadId: THREAD,
@@ -219,7 +220,7 @@ describe("openSession (codex app-server, fake process)", () => {
     expect((turnPromise as { done?: boolean }).done).toBeUndefined();
 
     proc.emitLine(
-      jsonrpc(`${SEND_ID}:in-1`, { turn: { id: TURN, items: [], status: "inProgress" } }),
+      jsonrpc(proc.lastSendRequestId(), { turn: { id: TURN, items: [], status: "inProgress" } }),
     );
     const settled = await (sent as SessionSendResult).settled;
     expect(settled).toMatchObject({ disposition: "started" });
@@ -242,7 +243,7 @@ describe("openSession (codex app-server, fake process)", () => {
       sent = session.send({ id: "in-1", text: "doomed" });
     });
     await new Promise((r) => setTimeout(r, 10));
-    proc.emitLine(jsonrpcError(`${SEND_ID}:in-1`, -32000, "thread is closed"));
+    proc.emitLine(jsonrpcError(proc.lastSendRequestId(), -32000, "thread is closed"));
     const settled = await (sent as SessionSendResult).settled;
     expect(settled).toMatchObject({ disposition: "rejected", reason: "native-rejected" });
     // No turn opened: the next idle send starts fresh, same process.
@@ -259,7 +260,7 @@ describe("openSession (codex app-server, fake process)", () => {
     const { session, turnsIter } = await openCodexSession(proc);
     session.send({ id: "in-1", text: "long turn" });
     proc.emitLine(
-      jsonrpc(`${SEND_ID}:in-1`, { turn: { id: TURN, items: [], status: "inProgress" } }),
+      jsonrpc(proc.lastSendRequestId(), { turn: { id: TURN, items: [], status: "inProgress" } }),
     );
     const turn1 = (await turnsIter.next()).value as SessionTurn;
     expect(turn1.inputId).toBe("in-1");
@@ -268,7 +269,7 @@ describe("openSession (codex app-server, fake process)", () => {
     const busy = session.send({ id: "in-2", text: "guidance" });
     expect(JSON.parse(proc.stdinLines.at(-1) ?? "null")).toEqual({
       jsonrpc: "2.0",
-      id: `${SEND_ID}:in-2`,
+      id: expect.stringMatching(new RegExp(`^${SEND_ID}:`)),
       method: "turn/steer",
       params: {
         threadId: THREAD,
@@ -276,7 +277,7 @@ describe("openSession (codex app-server, fake process)", () => {
         input: [{ text: composeEscalatedPrompt("guidance", "ask", "session"), type: "text" }],
       },
     });
-    proc.emitLine(jsonrpc(`${SEND_ID}:in-2`, { turnId: TURN }));
+    proc.emitLine(jsonrpc(proc.lastSendRequestId(), { turnId: TURN }));
     const settled = await busy.settled;
     expect(settled).toMatchObject({ disposition: "started" });
 
@@ -296,14 +297,14 @@ describe("openSession (codex app-server, fake process)", () => {
     const { session, turnsIter } = await openCodexSession(proc);
     session.send({ id: "in-1", text: "long turn" });
     proc.emitLine(
-      jsonrpc(`${SEND_ID}:in-1`, { turn: { id: TURN, items: [], status: "inProgress" } }),
+      jsonrpc(proc.lastSendRequestId(), { turn: { id: TURN, items: [], status: "inProgress" } }),
     );
     const turn1 = (await turnsIter.next()).value as SessionTurn;
 
     const busy = session.send({ id: "in-2", text: "guidance" });
     proc.emitLine(
       jsonrpcError(
-        `${SEND_ID}:in-2`,
+        proc.lastSendRequestId(),
         -32600,
         `expected active turn id \`${TURN}\` but found \`other\``,
       ),
@@ -326,7 +327,7 @@ describe("openSession (codex app-server, fake process)", () => {
     const { session, turnsIter } = await openCodexSession(proc);
     session.send({ id: "in-1", text: "turn" });
     proc.emitLine(
-      jsonrpc(`${SEND_ID}:in-1`, { turn: { id: TURN, items: [], status: "inProgress" } }),
+      jsonrpc(proc.lastSendRequestId(), { turn: { id: TURN, items: [], status: "inProgress" } }),
     );
     const turn = (await turnsIter.next()).value as SessionTurn;
     proc.emitLine(
@@ -368,7 +369,7 @@ describe("openSession (codex app-server, fake process)", () => {
       params: { threadId: THREAD },
     });
     proc.emitLine(
-      jsonrpc(`${SEND_ID}:early`, { turn: { id: TURN, items: [], status: "inProgress" } }),
+      jsonrpc(proc.lastSendRequestId(), { turn: { id: TURN, items: [], status: "inProgress" } }),
     );
     const turn = (await turnsIter.next()).value as SessionTurn;
     expect(turn.inputId).toBe("early");
@@ -583,13 +584,13 @@ test("an identified popeye session ends a refused prompt with native failure and
   await new Promise((resolve) => setTimeout(resolve, 0));
   session.send({ id: "a", text: "say hi" });
   expect(JSON.parse(proc.stdinLines.at(-1) ?? "null")).toMatchObject({
-    id: `${SEND_ID}:a`,
+    id: expect.stringMatching(new RegExp(`^${SEND_ID}:`)),
     sessionId: "popeye-session",
   });
   const turns = session.turns[Symbol.asyncIterator]();
   const turn = (await turns.next()).value as SessionTurn;
   expect(turn.inputId).toBe("a");
-  proc.emitLine(jsonrpcError(`${SEND_ID}:a`, -32000, "prompt refused"));
+  proc.emitLine(jsonrpcError(proc.lastSendRequestId(), -32000, "prompt refused"));
   const events = await drainTurn(turn);
   expect(events.find((event) => event.kind === "failure")).toMatchObject({ class: "native" });
   expect(events.at(-1)).toMatchObject({
@@ -661,7 +662,7 @@ test("a no-turn codex crash does not inherit the completed turn's task failure",
   proc.emitLine(jsonrpc(IDENTITY_PROBE_ID, { thread: { id: THREAD } }));
   await new Promise((resolve) => setTimeout(resolve, 0));
   const first = session.send({ id: "first", text: "do work" });
-  proc.emitLine(jsonrpc(`${SEND_ID}:first`, { turn: { id: TURN } }));
+  proc.emitLine(jsonrpc(proc.lastSendRequestId(), { turn: { id: TURN } }));
   expect(await first.settled).toEqual({ disposition: "started" });
   const turns = session.turns[Symbol.asyncIterator]();
   const turn = (await turns.next()).value as SessionTurn;

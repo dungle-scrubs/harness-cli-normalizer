@@ -10,6 +10,7 @@ import type {
   CompactionState,
   HarnessDescriptor,
   HarnessMode,
+  SessionDelivery,
   StreamingGranularity,
 } from "../knowledge/descriptor.js";
 import { compareVersions } from "./versions.js";
@@ -62,7 +63,30 @@ export interface CapabilityResult {
    * spec - the spec table is the single owner of the fact - so this does
    * not degrade for an uncurated model, exactly like `compactionReporting`. */
   readonly namedAgents: boolean;
+  /** Issue #426: the explicit live-session controls, or null for a harness
+   * with no persistent session. A protocol fact from the descriptor, so it
+   * does not degrade for an uncurated model. */
+  readonly sessionControls: SessionControlsCapability | null;
 }
+
+export interface SessionControlsCapability {
+  readonly deliveryModes: readonly SessionDelivery[];
+  readonly interrupt:
+    | { readonly supported: true; readonly toolCancellation: "best-effort" }
+    | { readonly supported: false };
+}
+
+export const sessionControlsOf = (h: HarnessDescriptor): SessionControlsCapability | null => {
+  const controls = h.sessionMode?.controls;
+  if (controls === undefined) return null;
+  return {
+    deliveryModes: [...controls.delivery],
+    interrupt:
+      controls.interrupt === null
+        ? { supported: false }
+        : { supported: true, toolCancellation: controls.interrupt.toolCancellation },
+  };
+};
 
 const escalationOf = (h: HarnessDescriptor): EscalationClaim => {
   const obs = h.escalation.observedOn;
@@ -111,6 +135,7 @@ export const capabilitiesOf = (
       escalation: { supported: false, source: "unknown", confidence: "none" },
       compactionReporting: h.compactionReporting,
       namedAgents: h.turnOptions.agent !== undefined,
+      sessionControls: sessionControlsOf(h),
     };
   }
   return {
@@ -123,5 +148,6 @@ export const capabilitiesOf = (
     escalation: escalationOf(h),
     compactionReporting: h.compactionReporting,
     namedAgents: h.turnOptions.agent !== undefined,
+    sessionControls: sessionControlsOf(h),
   };
 };

@@ -2038,3 +2038,41 @@ test("#376: native approval completion and a subsequent process failure are sepa
     "Error: extension failed after completion",
   );
 });
+
+test("#425: a credential-access observation is not hidden by native completion", async () => {
+  // codex has no credential-access matcher; a synthetic descriptor exposes
+  // the kind so the native-approval runner's settlement is exercised.
+  const withKind = {
+    ...codexCli,
+    authMatchers: [
+      { pattern: "Your macOS login keychain is locked\\.", kind: "credential-access" as const },
+      ...codexCli.authMatchers,
+    ],
+  };
+  const f = setup();
+  const events: HarnessEvent[] = [];
+  for await (const event of streamTurn(withKind, options, f.deps)) {
+    events.push(event);
+    if (event.kind === "approval-request") {
+      f.proc.complete();
+      f.proc.emitStderr("Error: Your macOS login keychain is locked.");
+      f.proc.emitStderr("Run security unlock-keychain and try again.");
+      f.proc.exit(1);
+    }
+  }
+  const failures = events.filter((event) => event.kind === "failure");
+  expect(failures).toHaveLength(1);
+  expect(failures[0]).toMatchObject({
+    class: "auth",
+    authKind: "credential-access",
+    nativeExitCode: 1,
+    nativeApproval: { reason: "native-process-failed" },
+  });
+  expect(failures[0]?.message).toContain("Run security unlock-keychain and try again.");
+  const done = events.at(-1);
+  expect(done).toMatchObject({ kind: "done", cause: "failed", exitCode: 1 });
+  expect(done).not.toHaveProperty("completion");
+  const { kind: _kind, ...summary } = failures[0] as Extract<HarnessEvent, { kind: "failure" }>;
+  expect((done as Extract<HarnessEvent, { kind: "done" }>).failure).toEqual(summary);
+  expect(f.clock.pendingTimerCount).toBe(0);
+});

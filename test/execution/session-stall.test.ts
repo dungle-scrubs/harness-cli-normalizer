@@ -5,7 +5,7 @@ import { buildSessionArgv } from "../../src/interpretation/argv.js";
 import { ArgvRefusalError } from "../../src/interpretation/refusal.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { piCli } from "../../src/knowledge/pi.js";
-import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
+import { claudeInitNaming, FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
 
 const sid = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
 const init = JSON.stringify({ type: "system", subtype: "init", session_id: sid });
@@ -41,6 +41,8 @@ describe("T05: per-turn stall watchdog", () => {
   test("a turn that goes silent past the budget ends stall and kills the process", async () => {
     const r = rig(1_000);
     r.session.send({ id: "in-1", text: "hi" });
+    // Native uuid evidence publishes the input's turn (issue #426).
+    r.proc.emitLine(claudeInitNaming(sid, r.proc));
     const turns = r.session.turns[Symbol.asyncIterator]();
     const turn1 = (await turns.next()).value as AsyncIterable<HarnessEvent>;
 
@@ -60,6 +62,8 @@ describe("T05: per-turn stall watchdog", () => {
   test("output rearms the budget, so a slow but live turn is not stalled", async () => {
     const r = rig(1_000);
     r.session.send({ id: "in-1", text: "hi" });
+    // Native uuid evidence publishes the input's turn (issue #426).
+    r.proc.emitLine(claudeInitNaming(sid, r.proc));
     const turns = r.session.turns[Symbol.asyncIterator]();
     const turn1 = (await turns.next()).value as AsyncIterable<HarnessEvent>;
 
@@ -78,6 +82,8 @@ describe("T05: per-turn stall watchdog", () => {
   test("with no budget set, a silent turn is never stalled", async () => {
     const r = rig();
     r.session.send({ id: "in-1", text: "hi" });
+    // Native uuid evidence publishes the input's turn (issue #426).
+    r.proc.emitLine(claudeInitNaming(sid, r.proc));
     const turns = r.session.turns[Symbol.asyncIterator]();
     await turns.next();
     r.proc.emitLine(init);
@@ -90,6 +96,8 @@ describe("T05: per-turn stall watchdog", () => {
   test("the budget is disarmed at turn end, so an idle session is not stalled", async () => {
     const r = rig(1_000);
     r.session.send({ id: "in-1", text: "hi" });
+    // Native uuid evidence publishes the input's turn (issue #426).
+    r.proc.emitLine(claudeInitNaming(sid, r.proc));
     const turns = r.session.turns[Symbol.asyncIterator]();
     const turn1 = (await turns.next()).value as AsyncIterable<HarnessEvent>;
     r.proc.emitLine(init);

@@ -22,6 +22,73 @@ describe("session input encoding", () => {
     expect(encodeSessionInput({ kind: "claude-sdk-user-message" }, text)).toBe(expected);
   });
 
+  test.each([
+    ["queue", "later"],
+    ["steer", "next"],
+  ] as const)("encodes explicit Claude %s delivery as native priority %s", (delivery, priority) => {
+    const record = JSON.parse(
+      encodeSessionInput({ kind: "claude-sdk-user-message" }, "instruction", {
+        busy: true,
+        id: "delivery",
+        delivery,
+      }),
+    );
+    expect(record.priority).toBe(priority);
+    expect(record.message.content).toEqual([{ type: "text", text: "instruction" }]);
+  });
+
+  test.each([
+    ["queue", "followUp"],
+    ["steer", "steer"],
+  ] as const)(
+    "encodes explicit Pi %s delivery atomically in prompt",
+    (delivery, streamingBehavior) => {
+      for (const busy of [false, true]) {
+        const record = JSON.parse(
+          encodeSessionInput({ kind: "pi-rpc-prompt" }, "instruction", {
+            busy,
+            id: "delivery",
+            delivery,
+          }),
+        );
+        expect(record).toEqual({
+          id: "hcn-send:delivery",
+          message: "instruction",
+          streamingBehavior,
+          type: "prompt",
+        });
+      }
+    },
+  );
+
+  test.each([
+    ["antigravity-stream-user", "queue"],
+    ["antigravity-stream-user", "steer"],
+    ["popeye-rpc-prompt", "queue"],
+    ["popeye-rpc-prompt", "steer"],
+    ["codex-jsonrpc", "queue"],
+  ] as const)("refuses unsupported %s delivery %s", (kind, delivery) => {
+    expect(() =>
+      encodeSessionInput({ kind }, "instruction", { busy: true, id: "delivery", delivery }),
+    ).toThrowError(expect.objectContaining({ issue: "unsupported-delivery" }));
+  });
+
+  test("explicit Codex steer retains native start-or-steer behavior", () => {
+    for (const busy of [false, true]) {
+      const record = JSON.parse(
+        encodeSessionInput({ kind: "codex-jsonrpc" }, "instruction", {
+          busy,
+          id: "delivery",
+          delivery: "steer",
+          sessionId: "thread-1",
+          activeTurnId: "turn-1",
+        }),
+      );
+      expect(record.method).toBe(busy ? "turn/steer" : "turn/start");
+      if (busy) expect(record.params.expectedTurnId).toBe("turn-1");
+    }
+  });
+
   test("Claude declares the session input contract as descriptor data", () => {
     expect(claudeCode.sessionMode?.input).toEqual({ kind: "claude-sdk-user-message" });
   });

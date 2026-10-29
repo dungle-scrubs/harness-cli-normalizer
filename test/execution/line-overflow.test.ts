@@ -10,7 +10,7 @@ import { LineBuffer, type LineOverflow, RUN_LINE_MAX } from "../../src/execution
 import { openSession } from "../../src/execution/open-session.js";
 import { streamTurn } from "../../src/execution/stream-turn.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
-import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
+import { claudeInitNaming, FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
 
 const sid = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
 const init = JSON.stringify({ type: "system", subtype: "init", session_id: sid });
@@ -203,6 +203,8 @@ describe("openSession: an over-long line fails the turn it lands in", () => {
       { spawn: fakeSpawner([proc]).spawn, clock: new FakeClock(), signal: fakeSignal().signal },
     );
     session.send({ id: "s", text: "invented prompt" });
+    // Native uuid evidence publishes the input's turn (issue #426).
+    proc.emitLine(claudeInitNaming(sid, proc));
     const turn = (await session.turns[Symbol.asyncIterator]().next())
       .value as AsyncIterable<HarnessEvent>;
     return { proc, session, turn };

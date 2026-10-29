@@ -191,6 +191,17 @@ describe("live stdout fixture (pi-model-observed.ndjson, pi 0.85.1)", () => {
     const d = { spawn: spawner.spawn, clock: new FakeClock(), signal: fakeSignal().signal };
     const session = openSession(piCli, { sessionId: sid }, d);
     session.send({ id: "s1", text: "hi" });
+    // Pi 1.4 answers the prompt with its receipt (naming the request id the
+    // runner wrote) before run output; it publishes the turn (issue #426).
+    proc.emitLine(
+      JSON.stringify({
+        id: proc.lastSendRequestId(),
+        type: "response",
+        command: "prompt",
+        success: true,
+        data: { disposition: "started" },
+      }),
+    );
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
     const seen: HarnessEvent[] = [];

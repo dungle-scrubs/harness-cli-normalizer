@@ -42,6 +42,8 @@ export const antigravityCli: HarnessDescriptor = deepFreeze({
     idFlag: null,
     resumeFlag: "--conversation",
     input: { kind: "antigravity-stream-user" },
+    // Issue #426: no explicit delivery mode or interruption is verified.
+    controls: { delivery: [], interrupt: null },
     turnEnd: { event: "result" },
     identityProbe: null,
   },

@@ -15,7 +15,7 @@ import {
 } from "../../src/interpretation/question.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { piCli } from "../../src/knowledge/pi.js";
-import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
+import { claudeInitNaming, FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
 
 const sid = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
 
@@ -39,7 +39,19 @@ const ASK_TEXT = `Need a decision.
 \`\`\``;
 
 // ---- claude session-mode shapes ----
-const claudeInit = JSON.stringify({ type: "system", subtype: "init", session_id: sid });
+/** The init naming the input the fake last received: native uuid evidence
+ * publishes that input's turn (issue #426). */
+const claudeInit = (proc: FakeProcess) => claudeInitNaming(sid, proc);
+/** Pi 1.4 answers a prompt with its receipt, naming the request id the
+ * runner wrote, before any run output (issue #426). */
+const piStarted = (proc: FakeProcess) =>
+  JSON.stringify({
+    id: proc.lastSendRequestId(),
+    type: "response",
+    command: "prompt",
+    success: true,
+    data: { disposition: "started" },
+  });
 const claudeAssistant = (text: string) =>
   JSON.stringify({
     type: "assistant",
@@ -73,10 +85,10 @@ describe("openSession question escalation - claude transport", () => {
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
     session.send({ id: "s", text: "task" });
+    proc.emitLine(claudeInit(proc));
     const turns = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turns.next()).value as AsyncIterable<HarnessEvent>;
 
-    proc.emitLine(claudeInit);
     proc.emitLine(claudeAssistant(ASK_TEXT));
     proc.emitLine(claudeResult);
     const events1 = await drainTurn(turn1);
@@ -95,8 +107,8 @@ describe("openSession question escalation - claude transport", () => {
     // The answer is the next send on the SAME process - no respawn.
     session.send({ id: "s", text: "The user answered: production." });
     expect(d.spawner.calls).toHaveLength(1);
+    proc.emitLine(claudeInit(proc));
     const turn2 = (await turns.next()).value as AsyncIterable<HarnessEvent>;
-    proc.emitLine(claudeInit);
     proc.emitLine(claudeAssistant("done: deploy-target names production"));
     proc.emitLine(claudeResult);
     const events2 = await drainTurn(turn2);
@@ -110,6 +122,7 @@ describe("openSession question escalation - claude transport", () => {
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid, questions: "assume" }, d);
     session.send({ id: "s", text: "task" });
+    proc.emitLine(claudeInit(proc));
     const turns = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turns.next()).value as AsyncIterable<HarnessEvent>;
 
@@ -118,7 +131,6 @@ describe("openSession question escalation - claude transport", () => {
     expect(write).toContain("state the assumption");
     expect(write).not.toContain(SESSION_ESCALATION_PREAMBLE.slice(0, 60));
 
-    proc.emitLine(claudeInit);
     // A worker that asks anyway produces NO question event.
     proc.emitLine(claudeAssistant(ASK_TEXT));
     proc.emitLine(claudeResult);
@@ -133,9 +145,9 @@ describe("openSession question escalation - claude transport", () => {
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
     session.send({ id: "s", text: "task" });
+    proc.emitLine(claudeInit(proc));
     const turns = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turns.next()).value as AsyncIterable<HarnessEvent>;
-    proc.emitLine(claudeInit);
     proc.emitLine(claudeAssistant('```hcn-question\n{"question":"q"}\n```'));
     proc.emitLine(claudeResult);
     const events1 = await drainTurn(turn1);
@@ -183,6 +195,7 @@ describe("openSession question escalation - pi rpc transport", () => {
     // probe response announces the requested id -> identity event
     const turns = session.turns[Symbol.asyncIterator]();
     session.send({ id: "s", text: "task" });
+    proc.emitLine(piStarted(proc));
     const turn1 = (await turns.next()).value as AsyncIterable<HarnessEvent>;
 
     proc.emitLine(piStateResp("hcn-identity"));
@@ -206,6 +219,7 @@ describe("openSession question escalation - pi rpc transport", () => {
       type: "prompt",
       message: expect.stringContaining("production"),
     });
+    proc.emitLine(piStarted(proc));
     const turn2 = (await turns.next()).value as AsyncIterable<HarnessEvent>;
     proc.emitLine(piAssistant("done: names production"));
     proc.emitLine(piSettled);
@@ -221,6 +235,7 @@ describe("openSession question escalation - pi rpc transport", () => {
     const session = openSession(piCli, { sessionId: sid }, d);
     const turns = session.turns[Symbol.asyncIterator]();
     session.send({ id: "s", text: "task" });
+    proc.emitLine(piStarted(proc));
     const turn1 = (await turns.next()).value as AsyncIterable<HarnessEvent>;
     // pi session mode now carries --session-id (caller-assigned, verified
     // phase10 test/fixtures/phase10-pi-rpc-resume); the probe returning the
@@ -249,6 +264,7 @@ describe("openSession question escalation - pi rpc transport", () => {
     const session = openSession(piCli, { sessionId: sid }, d);
     const turns = session.turns[Symbol.asyncIterator]();
     session.send({ id: "s", text: "task" });
+    proc.emitLine(piStarted(proc));
     const turn1 = (await turns.next()).value as AsyncIterable<HarnessEvent>;
     proc.emitLine(piStateResp("hcn-identity"));
     proc.emitLine(

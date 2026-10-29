@@ -17,6 +17,7 @@ import {
   type SessionSendResult,
 } from "../execution/open-session.js";
 import { composeAnswer, type QuestionMode } from "../interpretation/question.js";
+import { SESSION_DELIVERIES, type SessionDelivery } from "../knowledge/descriptor.js";
 
 /** Captured from `session_close`: a refused session open (#345) or a crash
  * with no open turn (#347) leaves a session failure for `closed` to carry. */
@@ -47,9 +48,25 @@ export interface JsonSessionArgs {
 }
 
 type ParsedCommand =
-  | { readonly op: "send" | "answer"; readonly id: string; readonly text: string }
+  | {
+      readonly op: "send" | "answer";
+      readonly id: string;
+      readonly text: string;
+      readonly delivery?: SessionDelivery;
+    }
+  | { readonly op: "interrupt"; readonly id: string }
   | { readonly op: "close" }
   | { readonly malformed: string };
+
+/** One send/answer's answer on the wire: the runner's disposition, or the
+ * CLI's own refusal of an answer with no open question. */
+type Disposition = {
+  readonly disposition: SessionSendResult["disposition"];
+  readonly reason?: SessionSendResult["reason"] | "no-open-question";
+};
+
+const isSessionDelivery = (value: unknown): value is SessionDelivery =>
+  SESSION_DELIVERIES.some((delivery) => delivery === value);
 
 const parseCommand = (line: string): ParsedCommand => {
   let obj: unknown;
@@ -66,7 +83,23 @@ const parseCommand = (line: string): ParsedCommand => {
   if (rec.op === "send" || rec.op === "answer") {
     if (typeof rec.id !== "string" || rec.id === "") return { malformed: "missing or empty id" };
     if (typeof rec.text !== "string") return { malformed: "text must be a string" };
-    return { op: rec.op, id: rec.id, text: rec.text };
+    // Issue #426: an unknown or mistyped mode is a malformed command, never
+    // a silent fallback to the native default.
+    if ("delivery" in rec && !isSessionDelivery(rec.delivery)) {
+      return { malformed: `delivery must be one of ${SESSION_DELIVERIES.join(", ")}` };
+    }
+    return {
+      op: rec.op,
+      id: rec.id,
+      text: rec.text,
+      ...(isSessionDelivery(rec.delivery) ? { delivery: rec.delivery } : {}),
+    };
+  }
+  if (rec.op === "interrupt") {
+    if (typeof rec.id !== "string" || rec.id === "") return { malformed: "missing or empty id" };
+    // The caller keeps replacement text and sends it after the receipt.
+    if ("text" in rec) return { malformed: "interrupt carries no text; send it after the receipt" };
+    return { op: "interrupt", id: rec.id };
   }
   return { malformed: `unknown op ${JSON.stringify(rec.op)}` };
 };
@@ -124,6 +157,9 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
     hcn: a.hcnVersion,
     questions: qMode,
     origin: a.origin,
+    // Issue #426: the explicit delivery modes and interrupt support this
+    // session accepts, read once before the first command.
+    controls: a.handle.controls,
   });
 
   // Shared between the pumps: the last question asked, whether the last turn
@@ -156,10 +192,50 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
   })();
 
   const rl = createInterface({ input: a.input ?? process.stdin });
-  // Ids accepted from stdin but not yet answered with a disposition. If the
-  // command stream itself fails, each is owed one: silence would leave the
-  // consumer waiting on an answer that can no longer arrive.
-  const unanswered = new Set<string>();
+  // Commands accepted from stdin but not yet answered with a disposition,
+  // by command position (caller ids may repeat). If the command stream
+  // itself fails, each is owed one: silence would leave the consumer
+  // waiting on an answer that can no longer arrive.
+  const unanswered = new Map<number, string>();
+  let commandIndex = 0;
+  // Issue #426: a native receipt can take a while, and the command stream
+  // keeps being read meanwhile so an interrupt or close still reaches the
+  // session. Dispositions still leave in command order: each waits for its
+  // own receipt and for every earlier disposition.
+  let dispositionChain: Promise<void> = Promise.resolve();
+  let dispositionsInFlight = 0;
+  const receipts = new Set<Promise<void>>();
+  const dispositionOf = (id: string, sent: Disposition) => ({
+    kind: "disposition",
+    id,
+    disposition: sent.disposition,
+    ...(sent.reason !== undefined ? { reason: sent.reason } : {}),
+  });
+  const answerCommand = async (
+    id: string,
+    outcome: Disposition | Promise<Disposition>,
+  ): Promise<void> => {
+    if (!(outcome instanceof Promise) && dispositionsInFlight === 0) {
+      await emit(dispositionOf(id, outcome));
+      return;
+    }
+    const index = ++commandIndex;
+    unanswered.set(index, id);
+    dispositionsInFlight++;
+    const prior = dispositionChain;
+    dispositionChain = (async () => {
+      let sent: Disposition;
+      try {
+        sent = await outcome;
+      } catch {
+        sent = { disposition: "rejected", reason: "closed" };
+      }
+      await prior;
+      dispositionsInFlight--;
+      if (!unanswered.delete(index)) return;
+      await emit(dispositionOf(id, sent));
+    })();
+  };
   let stdinError: string | null = null;
   const commandStream = (a.input ?? process.stdin) as {
     on?: (event: string, listener: (err: NodeJS.ErrnoException) => void) => unknown;
@@ -176,47 +252,52 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
         continue;
       }
       if (cmd.op === "close") return;
+      if (cmd.op === "interrupt") {
+        const id = cmd.id;
+        const requested = a.handle.interrupt({ id });
+        if (requested.state === "rejected") {
+          await emit({ kind: "interruption", id, state: "rejected", reason: requested.reason });
+          continue;
+        }
+        // Two phases: the request is on the wire now; the terminal receipt
+        // follows the harness's own settlement.
+        await emit({ kind: "interruption", id, state: "requested" });
+        const receipt = requested.settled.then((settled) =>
+          emit({
+            kind: "interruption",
+            id,
+            state: settled.state,
+            ...(settled.reason !== undefined ? { reason: settled.reason } : {}),
+          }),
+        );
+        receipts.add(receipt);
+        continue;
+      }
       let text = cmd.text;
       if (cmd.op === "answer") {
         if (!awaitingAnswer) {
-          await emit({
-            kind: "disposition",
-            id: cmd.id,
-            disposition: "rejected",
-            reason: "no-open-question",
-          });
+          await answerCommand(cmd.id, { disposition: "rejected", reason: "no-open-question" });
           continue;
         }
         text = composeAnswer(lastQuestion, cmd.text);
       }
       let sent: SessionSendResult;
-      unanswered.add(cmd.id);
       try {
-        sent = a.handle.send({ id: cmd.id, text });
-        if (sent.settled !== undefined) sent = await sent.settled;
+        sent = a.handle.send({
+          id: cmd.id,
+          text,
+          ...(cmd.delivery === undefined ? {} : { delivery: cmd.delivery }),
+        });
       } catch (err) {
         // A session the caller already closed, or one already dead: a
         // different remedy from a broken pipe, so a different reason.
         if (err instanceof SessionClosedError) {
-          unanswered.delete(cmd.id);
-          await emit({
-            kind: "disposition",
-            id: cmd.id,
-            disposition: "rejected",
-            reason: "closed",
-          });
+          await answerCommand(cmd.id, { disposition: "rejected", reason: "closed" });
           continue;
         }
-        unanswered.delete(cmd.id);
         throw err;
       }
-      unanswered.delete(cmd.id);
-      await emit({
-        kind: "disposition",
-        id: cmd.id,
-        disposition: sent.disposition,
-        ...(sent.reason !== undefined ? { reason: sent.reason } : {}),
-      });
+      await answerCommand(cmd.id, sent.settled ?? sent);
     }
   })();
   // A command stream that breaks is not a clean end of input, but it is also
@@ -234,13 +315,17 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
   await a.handle.close();
   rl.close();
   await Promise.allSettled([stdinDone, stdoutPump]);
+  // The closed session settled every outstanding receipt; each disposition
+  // and interruption receipt leaves before the terminal line.
+  await dispositionChain;
+  await Promise.allSettled([...receipts]);
 
   // A broken command stream is a fact the consumer needs, and every send it
   // swallowed is owed its answer.
   if (stdinError !== null) {
     await emit({ kind: "error", message: `command stream failed: ${stdinError}` });
   }
-  for (const id of unanswered) {
+  for (const id of unanswered.values()) {
     await emit({ kind: "disposition", id, disposition: "rejected", reason: "closed" });
   }
   unanswered.clear();

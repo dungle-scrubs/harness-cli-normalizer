@@ -451,7 +451,7 @@ if (done.failure) {
 }
 ```
 
-`nativeExitCode` is the harness process's own exit code. It is set on a `native` failure and on the `transport` failure hcn reports for a nonzero exit with empty stderr. hcn masks secret-shaped tokens (`sk-` followed by 8 or more letters, digits, `_` or `-`; `token=`, `key=`, `secret=`, `password=` pairs become `[redacted]`) in the stderr text it puts in a failure message for a nonzero exit, of every class, and in run mode's stderr-tail `error` event, before the length bound. Decoded terminal errors and hcn's logs carry the harness text unchanged. Identifiers (session UUIDs, model ids, paths) are kept verbatim because they are what the log exists to correlate.
+`nativeExitCode` is the harness process's own exit code. It is set on a `native` failure, on the `transport` failure hcn reports for a nonzero exit with empty stderr, and on an `auth` failure with `authKind: credential-access` when cursor reports a locked-keychain diagnostic on stderr and then exits nonzero. That failure retains the diagnostic line and following stderr, redacted and bounded to 4,096 characters, even if later lines evict it from the stderr tail. A stream-reported terminal error can carry the same kind without `nativeExitCode`. hcn masks secret-shaped tokens (`sk-` followed by 8 or more letters, digits, `_` or `-`; `token=`, `key=`, `secret=`, `password=` pairs become `[redacted]`) in the stderr text it puts in a failure message for a nonzero exit, of every class, and in run mode's stderr-tail `error` event, before the length bound. Decoded `error` events and hcn's logs carry the harness text unchanged. Identifiers (session UUIDs, model ids, paths) are kept verbatim because they are what the log exists to correlate.
 
 A harness writes each record on one output line, and a whole reply (reasoning included) can ride on one line. hcn reads lines up to 16,777,216 characters on every stdout and stderr stream of a run or a session. A longer line is discarded and is never silent: it fails the run (or the session turn it lands in) with a `transport` failure whose message starts `output line overflow:` and names the stream and the line's size in UTF-8 bytes.
 
@@ -596,7 +596,11 @@ as hcn 0.9.8 emitted them for one send:
   or a random UUID). The `identity` event inside the first turn carries the
   id the harness confirmed; on pi that is the harness-minted id.
 - `session.origin` is `fresh` for a new conversation or `resumed` when `--resume` (or its `--session-id` alias) continued a conversation that already exists in the harness store. A refused unknown-id resume emits no `session` event at all.
-- `turn.id` is the id of the `send` that opened the turn.
+- `turn.id` is the id of the `send` that opened the turn. Native background
+  output has no caller id.
+- `session.controls` advertises `deliveryModes` and `interrupt.supported`.
+  The same information is `sessionControls` in `hcn inspect --capabilities`.
+  If these fields are absent, the build does not advertise explicit controls.
 - `closed.cause` is one of `clean`, `limit`, `crash`, `stall`, `killed`,
   `failed`. `closed.failure` carries the reduced `FailureSummary` when the
   cause is not clean and a failure was seen. `awaiting-input` ends a turn,
@@ -612,8 +616,8 @@ as hcn 0.9.8 emitted them for one send:
   still open when the harness exits nonzero with no failure already
   recorded and exit cause `crash` falls
   back to the same stderr-tail classification run mode uses (transport,
-  unavailable, then trust phrasings first; otherwise `native` with the
-  tail; `transport` on an empty tail), and the failure event lands inside
+  unavailable, and trust phrasings; otherwise
+  `native` with the tail; `transport` on an empty tail), and the failure event lands inside
   the dying turn before its `done`. The matching `done.cause` stays
   `crash`, and `closed.failure` carries the same summary. A limit wall
   on stderr still ends the turn as `limit`. A refused prompt (pi's
@@ -633,28 +637,28 @@ stdin carries one command per line (blank lines are ignored):
   in command order. `started`: the harness accepted the text. Pi and codex
   wait for their native command response before reporting this disposition
   (codex settles on the `turn/start` / `turn/steer` JSON-RPC response).
-  When no turn was open, a turn opened; when one was, the harness holds the
-  text natively (claude queues it for the next turn; pi and codex deliver
-  it INTO the running turn - codex under its `expectedTurnId` precondition,
+  The native mechanism decides when the input runs. Claude's default busy
+  input can join the current turn; pi and codex steer it into the running
+  turn - codex under its `expectedTurnId` precondition,
   so a send that arrives after the native turn ended reports `rejected`,
-  not silence). hcn keeps no queue of its own - ADR 0007. `rejected`: the
+  not silence. hcn keeps no queue of its own - ADR 0007. `rejected`: the
   text was not delivered and will not be. Rejected reasons: `closed`
   (session closing or harness dead), `no-open-question` (`answer` with no
   `awaiting-input` turn to answer), `native-rejected` (Pi or codex refused
-  the command), or `write-failed` (the harness's stdin pipe broke; a
-  `closed` follows).
+  the command), `unsupported-delivery` (an explicit mode is not supported),
+  or `write-failed` (the harness's stdin pipe broke; a `closed` follows).
 - A send's id rides to the turn it opens: correlate by reading `turn.id`.
   Pi and codex steer a mid-turn send into the running turn, which keeps its
-  opening send's id. If hcn receives Pi's prompt acceptance after the prior
-  turn settles, hcn opens a turn carrying that send's id. This receipt race
-  has a deterministic regression; the native capture covers queued steering.
+  opening send's id. A merged Claude input creates no additional turn.
+  Pi's `handled` receipt accepts an input without starting a run; queued
+  input and late receipts create no phantom turn.
 - `answer` composes hcn's question-answer preamble
   (`The user answered the question: "<q>" with: <text>. Continue accordingly.`)
   around the text, so the consumer never re-derives it. A plain `send` after
   a question opens a turn with no preamble: `answer` to answer, `send` to
   change the subject.
 - End of stdin means `close`. A malformed line (not JSON, unknown `op`,
-  missing or empty `id`, non-string `text`) produces an `error` event, no
+  missing or empty `id`, non-string `text`, invalid `delivery`) produces an `error` event, no
 disposition, and the session continues.
 
 Exit codes: 0 when `closed.cause` is `clean`; 1 otherwise; 2 for a refusal
@@ -718,6 +722,47 @@ for await (const line of rl) {
   if (ev.kind === "closed") console.error(`closed cause=${ev.cause} exit=${ev.exitCode}`);
 }
 ```
+
+### Delivery and interruption controls
+
+`send` and `answer` accept optional `"delivery":"queue"` or
+`"delivery":"steer"`. Omission preserves the native default.
+
+| Harness | Queue | Steer | Interrupt |
+|---|---|---|---|
+| Claude | `priority: "later"`, a later native turn | `priority: "next"`, can join the current turn | Unsupported |
+| Pi | Prompt with `streamingBehavior: "followUp"` | Prompt with `streamingBehavior: "steer"` | Native `abort` |
+| Codex | Unsupported | `turn/start` when idle, `turn/steer` while busy | Unsupported |
+| Antigravity, Popeye | Unsupported | Unsupported | Unsupported |
+
+Cursor and Muse have no persistent sessions. Pi follow-ups run when the active
+work finishes; Pi steering reaches the next native boundary after the current
+assistant response and tool calls. Both can remain inside one native run, so a
+queued message does not promise a separate hcn `done` event. Unknown modes are
+malformed commands. A recognized but unsupported mode gets one rejected
+`disposition` with reason `unsupported-delivery`, without writing native input;
+the session remains usable.
+
+To interrupt, send `{"op":"interrupt","id":"stop-1"}`. Keep replacement text
+in the caller. After writing the native request, hcn emits:
+
+```jsonl
+{"kind":"interruption","id":"stop-1","state":"requested"}
+{"kind":"interruption","id":"stop-1","state":"interrupted"}
+```
+
+Exactly one terminal receipt follows `requested`: `interrupted` when the harness
+reports an aborted run, `not-active` when work settled normally or no run was
+active, or `rejected` with reason `closed` or `native-rejected`. An already closed session,
+unsupported interruption or failed write is rejected immediately, with reason
+`closed`, `unsupported` or `write-failed`. A successful native command response alone is not confirmation
+of interruption. An interrupt carrying `text` is malformed; send the replacement
+as a new `send` after the terminal receipt.
+
+Interruption retains the process and conversation. Pi retains its native queued
+messages through abort. Cancellation is best effort: it cannot undo completed
+actions or guarantee that every running tool or child process stops. hcn adds no
+queue clearing, message promotion or cancellation timeout.
 
 ## Inspection
 

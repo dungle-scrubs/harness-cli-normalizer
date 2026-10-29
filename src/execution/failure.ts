@@ -27,6 +27,7 @@ import type {
   AuthFailureKind,
   DiscoveryFacet,
   HarnessDescriptor,
+  HarnessName,
   LimitCode,
 } from "../knowledge/descriptor.js";
 import type { NativeApprovalFailure } from "../knowledge/native-approvals.js";
@@ -199,11 +200,37 @@ export const failureFromLimit = (
   };
 };
 
-export const failureFromAuth = (kind: AuthFailureKind): FailureSummary => ({
+/** The auth kinds whose remedy is re-authenticating. `credential-access`
+ * has its own constructor, so the wrong remedy cannot be built for it. */
+export const failureFromAuth = (
+  kind: Exclude<AuthFailureKind, "credential-access">,
+): FailureSummary => ({
   class: "auth",
   retryable: retryableOf("auth"),
   message: messageFor("auth", kind),
   authKind: kind,
+});
+
+/** Bound on native diagnostic text carried in a failure or error event. */
+export const DIAGNOSTIC_MAX = 4096;
+
+/** Issue #425: the harness holds credentials it cannot read in the context
+ * the run executed in. Class `auth`, kind `credential-access`, the family's
+ * retryable convention: no verdict on the work ran. The message carries the
+ * native diagnostic (redacted, bounded) and the known native exit code as
+ * data; the remedy asks the OWNER to restore credential access in that same
+ * context: hcn never unlocks keychains or enters passwords, and an unlock
+ * from a different shell or SSH session is not guaranteed to reach it. */
+export const failureFromCredentialAccess = (
+  harness: HarnessName,
+  diagnostic: string,
+  nativeExitCode?: number,
+): FailureSummary => ({
+  class: "auth",
+  retryable: retryableOf("auth"),
+  message: `Authentication failed (credential-access: ${redactBounded(diagnostic, DIAGNOSTIC_MAX)}) - the owner must restore ${harness} credential access in the context this run executed in; hcn never unlocks keychains or enters passwords, and an unlock from a different shell or SSH session is not guaranteed to reach that context`,
+  authKind: "credential-access",
+  ...(nativeExitCode === undefined ? {} : { nativeExitCode }),
 });
 
 /** Whether a summary is a limit failure (rate-limit, usage-limit, quota):
@@ -236,6 +263,8 @@ export const failureFromTerminalError = (
   clock?: Pick<Clock, "now" | "utcOffsetMinutes">,
 ): FailureSummary => {
   const auth = detectAuthFailureInLine(h, message);
+  // A stream-reported error carries no native exit code.
+  if (auth === "credential-access") return failureFromCredentialAccess(h.name, message);
   if (auth !== null) return failureFromAuth(auth);
   const limit = detectLimitInLine(h, message);
   if (limit !== null) return failureFromLimit(limit, message, resetsAtInLine(message, clock));
