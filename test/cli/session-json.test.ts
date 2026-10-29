@@ -10,10 +10,19 @@ import { openSession } from "../../src/execution/open-session.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
 import { piCli } from "../../src/knowledge/pi.js";
-import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "../execution/fakes.js";
+import {
+  claudeInitNaming,
+  FakeClock,
+  FakeProcess,
+  fakeSignal,
+  fakeSpawner,
+} from "../execution/fakes.js";
 
 const sid = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
 const init = JSON.stringify({ type: "system", subtype: "init", session_id: sid });
+/** The claude init naming the input the fake last received: native uuid
+ * evidence publishes that input's turn (issue #426). */
+const initFor = (proc: FakeProcess) => claudeInitNaming(sid, proc);
 const assistant = (text: string) =>
   JSON.stringify({
     type: "assistant",
@@ -107,7 +116,7 @@ describe("T02: hcn session --json happy path", () => {
 
     r.send({ op: "send", id: "in-1", text: "hi" });
     await tick();
-    r.proc.emitLine(init);
+    r.proc.emitLine(initFor(r.proc));
     r.proc.emitLine(assistant("hello back"));
     r.proc.emitLine(result);
     await tick();
@@ -144,7 +153,7 @@ describe("T02: hcn session --json happy path", () => {
     await tick();
     r.send({ op: "send", id: "in-1", text: "hi" });
     await tick();
-    r.proc.emitLine(init);
+    r.proc.emitLine(initFor(r.proc));
     r.proc.emitLine(result);
     await tick();
     r.input.end();
@@ -163,13 +172,22 @@ describe("T03: sends during a turn are handed to the harness; the next turn carr
     await tick();
     r.send({ op: "send", id: "in-1", text: "first" });
     await tick();
-    r.proc.emitLine(init);
+    r.proc.emitLine(initFor(r.proc));
     r.send({ op: "send", id: "in-2", text: "second while busy" });
     await tick();
     expect(r.proc.stdinLines).toHaveLength(2);
     r.proc.emitLine(result); // ends turn 1
     await tick();
-    r.proc.emitLine(init);
+    // Issue #426: the native record naming the queued input opens its turn.
+    const queuedUuid = (JSON.parse(r.proc.stdinLines[1] ?? "null") as { uuid: string }).uuid;
+    r.proc.emitLine(
+      JSON.stringify({
+        type: "system",
+        subtype: "init",
+        session_id: sid,
+        user_message_uuids: [queuedUuid],
+      }),
+    );
     r.proc.emitLine(result); // ends turn 2
     await tick();
     r.input.end();
@@ -352,7 +370,7 @@ describe("branch review: fixes for the findings the cross-family review raised",
 
     input.write(`${JSON.stringify({ op: "send", id: "in-1", text: "first" })}\n`);
     await tick();
-    proc.emitLine(init);
+    proc.emitLine(initFor(proc));
     input.write(`${JSON.stringify({ op: "send", id: "in-2", text: "pending and doomed" })}\n`);
     await tick();
     proc.exit(1); // dies before the boundary ever flushes in-2
@@ -383,7 +401,7 @@ describe("branch review: fixes for the findings the cross-family review raised",
     await tick();
     r.send({ op: "send", id: "in-1", text: "ask me" });
     await tick();
-    r.proc.emitLine(init);
+    r.proc.emitLine(initFor(r.proc));
     r.proc.emitLine(question("Deploy where?", ["prod", "staging"]));
     r.proc.emitLine(result);
 
@@ -391,7 +409,7 @@ describe("branch review: fixes for the findings the cross-family review raised",
     while (!r.events().some((e) => e.kind === "done")) await tick();
     r.send({ op: "answer", id: "in-2", text: "prod" });
     await tick();
-    r.proc.emitLine(init);
+    r.proc.emitLine(initFor(r.proc));
     r.proc.emitLine(result);
     await tick();
     r.input.end();
@@ -409,13 +427,13 @@ describe("T04: answer wraps the preamble; no-open-question is refused", () => {
     await tick();
     r.send({ op: "send", id: "in-1", text: "ask me" });
     await tick();
-    r.proc.emitLine(init);
+    r.proc.emitLine(initFor(r.proc));
     r.proc.emitLine(question("Deploy where?", ["prod", "staging"]));
     r.proc.emitLine(result); // turn ends awaiting-input
     await tick();
     r.send({ op: "answer", id: "in-2", text: "prod" });
     await tick();
-    r.proc.emitLine(init);
+    r.proc.emitLine(initFor(r.proc));
     r.proc.emitLine(result);
     await tick();
     r.input.end();
@@ -440,7 +458,7 @@ describe("T04: answer wraps the preamble; no-open-question is refused", () => {
     await tick();
     r.send({ op: "send", id: "in-2", text: "hi" });
     await tick();
-    r.proc.emitLine(init);
+    r.proc.emitLine(initFor(r.proc));
     r.proc.emitLine(result);
     await tick();
     r.input.end();
@@ -518,10 +536,30 @@ describe("follow-ups: backpressure and a broken command stream", () => {
     await tick();
 
     // The first opened a turn; the rest were handed to the harness immediately.
-    r.proc.emitLine(init);
     await tick();
     await r.release();
+    // Issue #426: the native init naming a publishes that turn.
+    const aUuid = (JSON.parse(r.proc.stdinLines[0] ?? "null") as { uuid: string }).uuid;
+    r.proc.emitLine(
+      JSON.stringify({
+        type: "system",
+        subtype: "init",
+        session_id: sid,
+        user_message_uuids: [aUuid],
+      }),
+    );
     r.proc.emitLine(result);
+    await tick();
+    // Issue #426: the native turn for b opens on the record naming its uuid.
+    const bUuid = (JSON.parse(r.proc.stdinLines[1] ?? "null") as { uuid: string }).uuid;
+    r.proc.emitLine(
+      JSON.stringify({
+        type: "system",
+        subtype: "init",
+        session_id: sid,
+        user_message_uuids: [bUuid],
+      }),
+    );
     await tick();
     // The queue delivers b, c, d one per turn boundary. close() now waits
     // for an open turn to finish (issue #99), so the fake finishes each one
@@ -670,7 +708,7 @@ describe("session origin: fresh vs resumed, and refused resume emits no session"
     await tick();
     r.send({ op: "send", id: "in-1", text: "hi" });
     await tick();
-    r.proc.emitLine(init);
+    r.proc.emitLine(initFor(r.proc));
     r.proc.emitLine(result);
     await tick();
     r.input.end();
@@ -684,7 +722,7 @@ describe("session origin: fresh vs resumed, and refused resume emits no session"
     await tick();
     r.send({ op: "send", id: "in-1", text: "hi" });
     await tick();
-    r.proc.emitLine(init);
+    r.proc.emitLine(initFor(r.proc));
     r.proc.emitLine(result);
     await tick();
     r.input.end();
@@ -885,7 +923,7 @@ describe("issue #344: a refused pi prompt ends its turn with done then closed ex
     r.send({ op: "send", id: "in-1", text: "say hi" });
     await tick();
     // pi answers the prompt with success: false and the No API key error.
-    const promptId = "hcn-send:in-1";
+    const promptId = r.proc.lastSendRequestId();
     r.proc.emitLine(
       JSON.stringify({
         command: "prompt",

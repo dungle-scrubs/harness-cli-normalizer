@@ -86,6 +86,10 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     idFlag: null,
     resumeFlag: null,
     input: { kind: "codex-jsonrpc" },
+    // Issue #426, verified 0.165.0: explicit steer is the native
+    // turn/start-or-turn/steer mapping. Queue and interruption are not
+    // verified.
+    controls: { delivery: ["steer"], interrupt: null },
     turnEnd: { method: "turn/completed" },
     identityProbe: { command: "thread/start", responseIdField: "result.thread.id" },
     modelRender: { kind: "config-kv", flag: "-c", key: "model" },

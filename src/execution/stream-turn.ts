@@ -41,6 +41,7 @@ import {
 import type { FailureSummary } from "./failure.js";
 import {
   blockedApprovalDetail,
+  DIAGNOSTIC_MAX,
   failureFromApprovalUnobserved,
   failureFromBlockedApproval,
   failureFromLimit,
@@ -701,6 +702,18 @@ export async function* streamTurn(
       yield { kind: "failure", ...f };
     }
 
+    // Issue #425: the supervisor's credential-access observation settles
+    // before completion and the tail fallback, so neither a native terminal
+    // record nor an earlier failure hides it; reduction applies precedence.
+    // Caller abort and hcn's watchdog keep their authority.
+    if (!startupFailed && !killedByAbort && !killedByWatchdog) {
+      const credential = sup.credentialAccessFailure(exitCode);
+      if (credential !== null) {
+        failures.push(credential);
+        yield { kind: "failure", ...credential };
+      }
+    }
+
     // Preserve output evidence independently of the process verdict. A
     // message is not a turn delimiter; a failure observed in the turn also
     // prevents a success delimiter from claiming successful completion.
@@ -797,7 +810,7 @@ export async function* streamTurn(
     if (!startupFailed && (cause === "crash" || cause === "killed") && tail.length > 0) {
       yield {
         kind: "error",
-        message: redactBounded(tail.join("\n"), 4096),
+        message: redactBounded(tail.join("\n"), DIAGNOSTIC_MAX),
       };
     }
     terminalEventReached = true;

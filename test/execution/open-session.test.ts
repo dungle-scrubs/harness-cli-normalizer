@@ -22,13 +22,38 @@ const PI_UNREACHABLE_STOP_REASON = PI_UNREACHABLE_NDJSON.split("\n").find(
   (line) => line.includes('"type":"message_end"') && line.includes('"stopReason":"error"'),
 );
 if (PI_UNREACHABLE_STOP_REASON === undefined) throw new Error("no unreachable line");
-const init = JSON.stringify({ type: "system", subtype: "init", session_id: sid });
 const assistant = (text: string) =>
   JSON.stringify({
     type: "assistant",
     message: { role: "assistant", content: [{ type: "text", text }] },
   });
 const result = JSON.stringify({ type: "result", subtype: "success" });
+/** Pi 1.4 answers a prompt with its receipt before any run output; the
+ * receipt names the request id the runner wrote. */
+const piStarted = (proc: FakeProcess) =>
+  JSON.stringify({
+    id: proc.lastSendRequestId(),
+    type: "response",
+    command: "prompt",
+    success: true,
+    data: { disposition: "started" },
+  });
+/** The native message uuid the runner stamped on the nth written frame. */
+const uuidAt = (proc: FakeProcess, index: number): string =>
+  String((JSON.parse(proc.stdinLines[index] ?? "null") as { uuid?: unknown }).uuid);
+/** Claude 2.1.312 opens each native turn with an init naming its inputs. */
+const initNaming = (uuid: string) =>
+  JSON.stringify({ type: "system", subtype: "init", session_id: sid, user_message_uuids: [uuid] });
+
+/** Whether a promise has settled once pending I/O has had its turn. */
+const settledYet = async (promise: Promise<unknown>): Promise<boolean> => {
+  let settled = false;
+  void promise.then(() => {
+    settled = true;
+  });
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  return settled;
+};
 
 const drainTurn = async (turn: AsyncIterable<HarnessEvent>): Promise<HarnessEvent[]> => {
   const out: HarnessEvent[] = [];
@@ -58,8 +83,16 @@ const expectClaudeUserWrite = (proc: FakeProcess, index: number, text: string): 
       ],
     },
   };
-  expect(proc.stdinWrites[index]).toBe(`${JSON.stringify(expectedInput)}\n`);
-  expect(JSON.parse(proc.stdinLines[index] ?? "null")).toEqual(expectedInput);
+  // Issue #426: the runtime stamps a native message uuid on every frame
+  // for turn correlation; omitted delivery sets no priority.
+  const written = JSON.parse(proc.stdinLines[index] ?? "null") as { uuid?: unknown };
+  expect(written.uuid).toEqual(
+    expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),
+  );
+  const withUuid = { ...expectedInput, uuid: written.uuid };
+  expect(proc.stdinWrites[index]).toBe(`${JSON.stringify(withUuid)}\n`);
+  expect(written).toEqual(withUuid);
+  expect(written).not.toHaveProperty("priority");
 };
 
 describe("openSession effort (claude, fake process)", () => {
@@ -128,9 +161,10 @@ describe("openSession skills (#332, fake process)", () => {
     // The session is a normal session: a send is accepted and opens a turn
     // that consumes it.
     expect(session.send({ id: "s", text: "turn one" }).disposition).toBe("started");
+    // Issue #426: native uuid evidence publishes the input's turn.
+    proc.emitLine(initNaming(proc.lastSentUuid()));
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
-    proc.emitLine(init);
     proc.emitLine(assistant("answer"));
     proc.emitLine(result);
     const events = await drainTurn(turn);
@@ -169,9 +203,17 @@ describe("openSession (claude, fake process)", () => {
     const session = openSession(claudeCode, { sessionId: nativeId }, makeDeps(proc));
     const turns = session.turns[Symbol.asyncIterator]();
     try {
+      // Issue #426: each native turn's init names the input it answers.
+      const nativeInit = () =>
+        JSON.stringify({
+          type: "system",
+          subtype: "init",
+          session_id: nativeId,
+          user_message_uuids: [proc.lastSentUuid()],
+        });
       session.send({ id: "denied", text: "first" });
+      proc.emitLine(nativeInit());
       const first = (await turns.next()).value as SessionTurn;
-      proc.emitLine(JSON.stringify({ type: "system", subtype: "init", session_id: nativeId }));
       proc.emitLine(deniedResult);
       const denied = await drainTurn(first);
       expect(denied.filter((e) => e.kind === "error" && e.denial)).toHaveLength(1);
@@ -179,6 +221,7 @@ describe("openSession (claude, fake process)", () => {
       expect(denied.at(-1)).toMatchObject({ kind: "done", cause: "clean", denialCount: 1 });
 
       session.send({ id: "clear", text: "second" });
+      proc.emitLine(nativeInit());
       const second = (await turns.next()).value as SessionTurn;
       proc.emitLine(result);
       const clear = await drainTurn(second);
@@ -204,10 +247,11 @@ describe("openSession (claude, fake process)", () => {
     expect(first.disposition).toBe("started");
     expectClaudeUserWrite(proc, 0, "turn one prompt");
 
+    // Issue #426: the turn is published on the native init naming the input.
     const turnsIter = session.turns[Symbol.asyncIterator]();
+    proc.emitLine(initNaming(uuidAt(proc, 0)));
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
 
-    proc.emitLine(init);
     proc.emitLine(assistant("first answer"));
     proc.emitLine(result);
 
@@ -218,8 +262,8 @@ describe("openSession (claude, fake process)", () => {
     // Second turn on the SAME process.
     const second = session.send({ id: "s", text: "turn two prompt" });
     expect(second.disposition).toBe("started");
+    proc.emitLine(initNaming(uuidAt(proc, 1))); // A-001: init re-emitted per turn, same id - no new identity event
     const turn2 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
-    proc.emitLine(init); // A-001: init re-emitted per turn, same id - no new identity event
     proc.emitLine(assistant("second answer"));
     proc.emitLine(result);
     const events2 = await drainTurn(turn2);
@@ -235,10 +279,10 @@ describe("openSession (claude, fake process)", () => {
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
     session.send({ id: "s", text: "first" });
+    proc.emitLine(initNaming(uuidAt(proc, 0)));
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
 
-    proc.emitLine(init);
     const second = session.send({ id: "s", text: "second while busy" });
     expect(second.disposition).toBe("started");
     // Passed through immediately - the harness decides what to do with it.
@@ -247,6 +291,8 @@ describe("openSession (claude, fake process)", () => {
 
     proc.emitLine(result);
     await drainTurn(turn1);
+    // Issue #426: the queued input's turn opens on the native record naming it.
+    proc.emitLine(initNaming(uuidAt(proc, 1)));
     const turn2 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
     proc.emitLine(result);
     await drainTurn(turn2);
@@ -310,9 +356,9 @@ describe("openSession (claude, fake process)", () => {
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
     session.send({ id: "s", text: "walled turn" });
+    proc.emitLine(initNaming(proc.lastSentUuid()));
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
-    proc.emitLine(init);
     proc.emitLine(
       JSON.stringify({
         type: "result",
@@ -342,9 +388,9 @@ describe("openSession (claude, fake process)", () => {
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
     session.send({ id: "s", text: "doomed turn" });
+    proc.emitLine(initNaming(proc.lastSentUuid()));
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
-    proc.emitLine(init);
     proc.exit(3); // dies mid-turn
     const events = await drainTurn(turn1);
     expect(events.at(-1)).toMatchObject({ kind: "done", exitCode: 3, cause: "crash" });
@@ -381,15 +427,25 @@ test("Pi steering stays in the current turn, then a sequential turn closes witho
     success: true,
     data: { disposition: "queued" },
   });
+  // Issue #426: the runner writes its own request id per command, so the
+  // replayed receipts answer the ids actually written, not the capture's.
+  const wireIds = new Map<string, string>();
+  const replay = (line: string): void => {
+    const record = JSON.parse(line) as { id?: unknown };
+    const wire = typeof record.id === "string" ? wireIds.get(record.id) : undefined;
+    proc.emitLine(wire === undefined ? line : JSON.stringify({ ...record, id: wire }));
+  };
   const firstSend = session.send({ id: "first", text: "first prompt" });
+  wireIds.set("hcn-send:first", proc.lastSendRequestId());
+  for (const line of lines.slice(0, steerReceipt)) replay(line);
   const first = (await turns.next()).value as SessionTurn;
   expect(first.inputId).toBe("first");
-  for (const line of lines.slice(0, steerReceipt)) proc.emitLine(line);
   expect(await firstSend.settled).toEqual({ disposition: "started" });
   const steerSend = session.send({ id: "steer", text: "correct the current answer" });
   const steer = JSON.parse(proc.stdinLines.at(-1) ?? "null");
-  expect(steer).toMatchObject({ type: "prompt", streamingBehavior: "steer", id: "hcn-send:steer" });
-  for (const line of lines.slice(steerReceipt, firstBoundary + 1)) proc.emitLine(line);
+  expect(steer).toMatchObject({ type: "prompt", streamingBehavior: "steer" });
+  wireIds.set("hcn-send:steer", proc.lastSendRequestId());
+  for (const line of lines.slice(steerReceipt, firstBoundary + 1)) replay(line);
   const firstEvents = await drainTurn(first);
   expect(await steerSend.settled).toEqual({ disposition: "started" });
   expect(firstEvents).toContainEqual({
@@ -400,11 +456,14 @@ test("Pi steering stays in the current turn, then a sequential turn closes witho
   expect(firstEvents.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
   const secondSend = session.send({ id: "second", text: "next prompt" });
   const next = JSON.parse(proc.stdinLines.at(-1) ?? "null");
-  expect(next).toMatchObject({ type: "prompt", id: "hcn-send:second" });
+  expect(next).toMatchObject({ type: "prompt" });
   expect(next).not.toHaveProperty("streamingBehavior");
+  // Every command carries its own request id.
+  expect(new Set([...wireIds.values(), next.id]).size).toBe(3);
+  wireIds.set("hcn-send:second", next.id);
+  for (const line of lines.slice(firstBoundary + 1)) replay(line);
   const second = (await turns.next()).value as SessionTurn;
   expect(second.inputId).toBe("second");
-  for (const line of lines.slice(firstBoundary + 1)) proc.emitLine(line);
   const secondEvents = await drainTurn(second);
   expect(await secondSend.settled).toEqual({ disposition: "started" });
   expect(secondEvents).toContainEqual({
@@ -426,26 +485,28 @@ test("Pi accepts a raced steer after agent_settled as a new turn tagged with tha
   const d = makeDeps(proc);
   const session = openSession(piCli, { sessionId: sid, questions: "none" }, d);
   const turns = session.turns[Symbol.asyncIterator]();
-  const receipt = (id: string) =>
+  // The native fake answers the request id the runner wrote.
+  const receipt = (wireId: string) =>
     JSON.stringify({
       type: "response",
       command: "prompt",
-      id: `hcn-send:${id}`,
+      id: wireId,
       success: true,
       data: { disposition: "started" },
     });
   const firstSend = session.send({ id: "first", text: "first" });
+  proc.emitLine(receipt(proc.lastSendRequestId()));
   const first = (await turns.next()).value as SessionTurn;
-  proc.emitLine(receipt("first"));
   expect(await firstSend.settled).toEqual({ disposition: "started" });
   const steerSend = session.send({ id: "steer", text: "raced correction" });
   expect(JSON.parse(proc.stdinLines.at(-1) ?? "null")).toMatchObject({
-    id: "hcn-send:steer",
+    id: expect.stringMatching(/^hcn-send:/),
     streamingBehavior: "steer",
   });
+  const steerWire = proc.lastSendRequestId();
   proc.emitLine(JSON.stringify({ type: "agent_settled" }));
   expect((await drainTurn(first)).at(-1)).toMatchObject({ kind: "done", cause: "clean" });
-  proc.emitLine(receipt("steer"));
+  proc.emitLine(receipt(steerWire));
   expect(await steerSend.settled).toEqual({ disposition: "started" });
   const raced = (await turns.next()).value as SessionTurn;
   expect(raced.inputId).toBe("steer");
@@ -474,10 +535,10 @@ describe("slow consumer", () => {
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
     session.send({ id: "s", text: "burst turn" });
+    proc.emitLine(initNaming(proc.lastSentUuid()));
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
 
-    proc.emitLine(init);
     for (let i = 0; i < 500; i++) proc.emitLine(assistant(`chunk ${i}`));
     proc.emitLine(result);
     await new Promise((r) => setTimeout(r, 10)); // consumer not pulling the whole time
@@ -507,9 +568,10 @@ describe("session lifecycle events (observability)", () => {
       },
     );
     session.send({ id: "s", text: "hello" });
+    // Issue #426: native uuid evidence publishes the input's turn.
+    proc.emitLine(initNaming(proc.lastSentUuid()));
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
-    proc.emitLine(init);
     proc.emitLine(result);
     await drainTurn(turn1);
     await session.close();
@@ -530,9 +592,10 @@ describe("F-24 session turn failures", () => {
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
     session.send({ id: "s", text: "hi" });
+    // Issue #426: native uuid evidence publishes the input's turn.
+    proc.emitLine(initNaming(proc.lastSentUuid()));
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
-    proc.emitLine(init);
     proc.emitStderr("You've hit your weekly limit · resets 2am");
     await new Promise<void>((r) => setTimeout(r, 0));
     proc.emitLine(result);
@@ -557,9 +620,10 @@ describe("F-24 session turn failures", () => {
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
     session.send({ id: "s", text: "hi" });
+    // Issue #426: native uuid evidence publishes the input's turn.
+    proc.emitLine(initNaming(proc.lastSentUuid()));
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
-    proc.emitLine(init);
     proc.emitLine(result);
     const events = await drainTurn(turn1);
     expect(events.find((e) => e.kind === "failure")).toBeUndefined();
@@ -577,9 +641,10 @@ describe("result is_error is not double-emitted", () => {
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
     session.send({ id: "s", text: "doomed" });
+    // Issue #426: native uuid evidence publishes the input's turn.
+    proc.emitLine(initNaming(proc.lastSentUuid()));
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
-    proc.emitLine(init);
     proc.emitLine(JSON.stringify({ type: "result", subtype: "error_max_turns", is_error: true }));
     const events = await drainTurn(turn1);
     expect(events.filter((e) => e.kind === "error")).toHaveLength(1);
@@ -598,6 +663,7 @@ describe("pi session unreachable", () => {
     const d = makeDeps(proc);
     const session = openSession(piCli, { sessionId: sid }, d);
     session.send({ id: "s", text: "hi" });
+    proc.emitLine(piStarted(proc));
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
     proc.emitLine(PI_UNREACHABLE_STOP_REASON);
@@ -614,6 +680,7 @@ describe("pi session unreachable", () => {
     const d = makeDeps(proc);
     const session = openSession(piCli, { sessionId: sid }, d);
     session.send({ id: "s", text: "hi" });
+    proc.emitLine(piStarted(proc));
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
     // The stopReason error is provisional, so it waits; then the process
@@ -641,6 +708,7 @@ describe("issue #341: a session turn open when the harness exits nonzero classif
     const d = makeDeps(proc);
     const session = openSession(piCli, { sessionId: sid }, d);
     session.send({ id: "s", text: "hi" });
+    proc.emitLine(piStarted(proc));
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
     proc.exit(null);
@@ -672,6 +740,7 @@ describe("issue #341: a session turn open when the harness exits nonzero classif
       const d = makeDeps(proc);
       const session = openSession(piCli, { sessionId: sid }, d);
       session.send({ id: "s", text: "hi" });
+      proc.emitLine(piStarted(proc));
       const turnsIter = session.turns[Symbol.asyncIterator]();
       const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
       proc.emitStderr(stderr);
@@ -706,6 +775,7 @@ describe("issue #341: a session turn open when the harness exits nonzero classif
     const d = makeDeps(proc);
     const session = openSession(piCli, { sessionId: sid }, d);
     session.send({ id: "s", text: "hi" });
+    proc.emitLine(piStarted(proc));
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
     proc.exit(1);
@@ -731,6 +801,7 @@ describe("issue #341: a session turn open when the harness exits nonzero classif
     const d = makeDeps(proc);
     const session = openSession(piCli, { sessionId: sid }, d);
     session.send({ id: "s", text: "hi" });
+    proc.emitLine(piStarted(proc));
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
     proc.emitLine(PI_UNREACHABLE_STOP_REASON);
@@ -754,10 +825,14 @@ describe("T01: a send's id travels to the turn it opens and to the loss report",
 
     session.send({ id: "in-1", text: "hi" });
     const turnsIter = session.turns[Symbol.asyncIterator]();
-    const turn1 = (await turnsIter.next()).value as { inputId?: string };
+    // Issue #426: a write is not native acceptance. No turn is published
+    // until the native init names the send's uuid.
+    const nextTurn = turnsIter.next();
+    expect(await settledYet(nextTurn)).toBe(false);
+    proc.emitLine(initNaming(proc.lastSentUuid()));
+    const turn1 = (await nextTurn).value as { inputId?: string };
     expect(turn1.inputId).toBe("in-1");
 
-    proc.emitLine(init);
     proc.emitLine(result);
     await drainTurn(turn1 as AsyncIterable<HarnessEvent>);
     await session.close();
@@ -769,11 +844,11 @@ describe("T01: a send's id travels to the turn it opens and to the loss report",
     const session = openSession(claudeCode, { sessionId: sid }, d);
 
     session.send({ id: "in-1", text: "first" });
+    proc.emitLine(initNaming(proc.lastSentUuid()));
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as { inputId?: string };
     expect(turn1.inputId).toBe("in-1");
 
-    proc.emitLine(init);
     const second = session.send({ id: "in-2", text: "second while busy" });
     expect(second.disposition).toBe("started");
     // handed to harness immediately
@@ -781,6 +856,8 @@ describe("T01: a send's id travels to the turn it opens and to the loss report",
     proc.emitLine(result);
     await drainTurn(turn1 as AsyncIterable<HarnessEvent>);
 
+    // Issue #426: the native record naming the queued input opens its turn.
+    proc.emitLine(initNaming(uuidAt(proc, 1)));
     const turn2 = (await turnsIter.next()).value as { inputId?: string };
     expect(turn2.inputId).toBe("in-2");
     proc.emitLine(result);
@@ -801,9 +878,10 @@ describe("T01: a send's id travels to the turn it opens and to the loss report",
     );
 
     session.send({ id: "in-1", text: "first" });
+    // Issue #426: native uuid evidence publishes the input's turn.
+    proc.emitLine(initNaming(proc.lastSentUuid()));
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
-    proc.emitLine(init);
     session.send({ id: "in-2", text: "pending and doomed" });
     proc.exit(1);
     await drainTurn(turn1);
@@ -856,15 +934,15 @@ test("a pi probe without a session id leaves the next turn and session clean", a
   await new Promise((resolve) => setTimeout(resolve, 0));
   session.send({ id: "a", text: "say hi" });
   const turns = session.turns[Symbol.asyncIterator]();
-  const turn = (await turns.next()).value as AsyncIterable<HarnessEvent>;
   proc.emitLine(
     JSON.stringify({
-      id: "hcn-send:a",
+      id: proc.lastSendRequestId(),
       type: "response",
       command: "prompt",
       success: true,
     }),
   );
+  const turn = (await turns.next()).value as AsyncIterable<HarnessEvent>;
   proc.emitLine(JSON.stringify({ type: "agent_settled" }));
   const events = await drainTurn(turn);
   expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
@@ -892,23 +970,27 @@ describe("issue #344: a pi prompt refused natively ends its turn with failed", (
     const session = openSession(piCli, { sessionId: sid }, d);
     const send = session.send({ id: "a", text: "say hi" });
     expect(send.disposition).toBe("started");
-    // pi opens the turn at write time; pi is prompt-wire (steer is a
-    // separate code path). The request id is on the written line.
+    // pi holds the turn from write time (published on run evidence or a
+    // refusal; issue #426). The request id is on the written line: the
+    // runner's own per-command id, never the caller's.
     const written = JSON.parse(proc.stdinLines[1] ?? "null") as Record<string, unknown>;
-    expect(written.id).toBe("hcn-send:a");
+    expect(written.id).toEqual(expect.stringMatching(/^hcn-send:/));
+    expect(written.id).not.toBe("hcn-send:a");
     const turnsIter = session.turns[Symbol.asyncIterator]();
-    const turn = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
+    const nextTurn = turnsIter.next();
 
     // pi answers the prompt with success: false and the No API key error.
     proc.emitLine(
       JSON.stringify({
         command: "prompt",
-        id: "hcn-send:a",
+        id: written.id,
         success: false,
         type: "response",
         error: NO_API_KEY,
       }),
     );
+    // The refusal is the turn's outcome: the turn exists and carries it.
+    const turn = (await nextTurn).value as AsyncIterable<HarnessEvent>;
     const settled = await send.settled;
     expect(settled).toMatchObject({ disposition: "rejected", reason: "native-rejected" });
     const events = await drainTurn(turn);
@@ -937,26 +1019,26 @@ describe("issue #344: a pi prompt refused natively ends its turn with failed", (
     const session = openSession(piCli, { sessionId: sid }, d);
     const opener = session.send({ id: "a", text: "first" });
     const turnsIter = session.turns[Symbol.asyncIterator]();
-    const turn = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
     proc.emitLine(
       JSON.stringify({
         command: "prompt",
-        id: "hcn-send:a",
+        id: proc.lastSendRequestId(),
         success: true,
         type: "response",
       }),
     );
+    const turn = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
     expect(await opener.settled).toEqual({ disposition: "started" });
     const events: HarnessEvent[] = [];
     const draining = (async () => {
       for await (const event of turn) events.push(event);
     })();
-    // Steer arrives mid-turn.
+    // Steer arrives mid-turn, reusing the opener's caller id.
     const steer = session.send({ id: "a", text: "correct" });
     proc.emitLine(
       JSON.stringify({
         command: "prompt",
-        id: "hcn-send:a",
+        id: proc.lastSendRequestId(),
         success: false,
         type: "response",
         error: NO_API_KEY,
@@ -985,22 +1067,22 @@ describe("issue #344: a pi prompt refused natively ends its turn with failed", (
     const session = openSession(piCli, { sessionId: sid }, d);
     session.send({ id: "first", text: "first" });
     const turnsIter = session.turns[Symbol.asyncIterator]();
-    const turn = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
     proc.emitLine(
       JSON.stringify({
         command: "prompt",
-        id: "hcn-send:first",
+        id: proc.lastSendRequestId(),
         success: true,
         type: "response",
       }),
     );
+    const turn = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
     await new Promise((r) => setTimeout(r, 0));
     // Steer arrives mid-turn.
     const steer = session.send({ id: "steer", text: "correct" });
     proc.emitLine(
       JSON.stringify({
         command: "prompt",
-        id: "hcn-send:steer",
+        id: proc.lastSendRequestId(),
         success: false,
         type: "response",
         error: NO_API_KEY,
@@ -1032,9 +1114,9 @@ test("#376: a process crash after a completed session turn does not rewrite the 
     },
   );
   session.send({ id: "s", text: "invented" });
+  proc.emitLine(initNaming(proc.lastSentUuid()));
   const turns = session.turns[Symbol.asyncIterator]();
   const turn = (await turns.next()).value as AsyncIterable<HarnessEvent>;
-  proc.emitLine(init);
   proc.emitLine(assistant("delivered"));
   proc.emitLine(result);
   const events = await drainTurn(turn);

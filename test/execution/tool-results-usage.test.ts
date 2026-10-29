@@ -32,16 +32,18 @@ test("Pi session results remain lossless for a late consumer and usage stays wit
   const turns = session.turns[Symbol.asyncIterator]();
   for (let n = 1; n <= 2; n++) {
     const receipt = session.send({ id: `send-${n}`, text: "fixture" });
-    const turn = (await turns.next()).value;
-    if (turn === undefined) throw new Error("no turn");
+    // The native receipt answers the request id the runner wrote; it is
+    // also the run evidence that publishes the turn (issue #426).
     proc.emitLine(
       JSON.stringify({
         type: "response",
         command: "prompt",
-        id: `hcn-send:send-${n}`,
+        id: proc.lastSendRequestId(),
         success: true,
       }),
     );
+    const turn = (await turns.next()).value;
+    if (turn === undefined) throw new Error("no turn");
     expect(await receipt.settled).toEqual({ disposition: "started" });
     for (let i = 0; i < 200; i++)
       proc.emitLine(

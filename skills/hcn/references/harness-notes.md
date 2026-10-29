@@ -1,8 +1,8 @@
 # Per-harness native behavior
 
 Read this before relying on behavior that differs by harness: model choice,
-provider selection, Claude write sandbox limits, native approvals and input
-requests, Cursor trust and effort, and Antigravity results. The flag table and support matrix are in
+provider selection, live-session controls, Claude write sandbox limits, native
+approvals and input requests, Cursor trust and effort, and Antigravity results. The flag table and support matrix are in
 [reference.md](reference.md).
 
 ## Claude models
@@ -67,6 +67,26 @@ Pi 1.0 requires a model when a provider is supplied: use
 `--provider <provider> --model <model>`, or a provider/model selector.
 A provider-only invocation remains a native failure.
 
+## Live-session controls
+
+Check the session packet's `controls` before choosing a delivery mode or
+interrupting. Claude `queue` selects native priority `later`; `steer` selects
+`next` and can merge into the current result. Omitted busy input can also merge.
+A merged input creates no additional hcn turn, and native background output has
+no caller id. Claude interruption is not advertised.
+
+Pi `queue` and `steer` use the prompt's native `streamingBehavior`, so the
+harness decides atomically whether to start or deliver into ongoing work.
+`interrupt` requests native abort and waits for an aborted settlement before
+reporting `interrupted`. Pi keeps its queued messages through abort. Send any
+replacement after the terminal interruption receipt; the same conversation
+continues. A `handled` input does not start a model run.
+
+Codex advertises `steer`: native `turn/start` while idle, `turn/steer` while
+busy under `expectedTurnId`. Other modes remain unsupported. Cancellation is
+best effort and does not undo actions or guarantee every tool process stops.
+See the [receipt protocol](reference.md#delivery-and-interruption).
+
 ## Native approvals and input requests
 
 When a turn reports that a native approval, input, or control request
@@ -96,13 +116,13 @@ the turn with failure class `trust-refused` (retryable - route the work
 elsewhere or to a trusted directory). Trust a directory by running
 `agent` there once outside hcn; `--autonomy` renders `--force`, which
 bypasses the gate per run without persisting trust. hcn never passes
-`--trust`. A locked macOS login keychain (exit 1, stderr `Your macOS
-login keychain is locked.`) fails the turn as `auth` with `authKind:
-credential-access` and the exit code in `nativeExitCode`: the owner must
-restore cursor credential access in the context the run executed in -
-never unlock a keychain or enter a password on the run's behalf, and an
-unlock from a different shell or SSH session is not guaranteed to reach
-that context. Effort on cursor resolves into the
+`--trust`. Cursor's captured locked-keychain failure printed `Your macOS
+login keychain is locked.` on stderr and exited 1. hcn reports it as `auth`
+with `authKind: credential-access`, retaining the diagnostic line and following
+stderr in the message and the exit code in `nativeExitCode`. The owner must
+restore cursor credential access in the context the run executed in. Never
+unlock a keychain or enter a password on the run's behalf. An unlock from
+another shell or SSH session may not reach that context. Effort on cursor resolves into the
 `--model` slug through per-family ladders (`--model gpt-5.2 --effort high`
 runs `gpt-5.2-high`); a bare family stem without `--effort` refuses, and
 only arg-tier `--effort` enforces. `--access read` selects native ask mode

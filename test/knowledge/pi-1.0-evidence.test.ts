@@ -147,18 +147,24 @@ test("a failed Pi turn remains a task failure and the same process recovers on t
   const turns = session.turns[Symbol.asyncIterator]();
   const lines = read("recovery.native.ndjson").trim().split("\n");
   let cursor = 0;
+  // Issue #426: the runner writes its own request id per command, so the
+  // replayed receipts answer the ids actually written, not the capture's.
+  const wireIds = new Map<string, string>();
   const replayThroughSettled = () => {
     while (cursor < lines.length) {
       const line = lines[cursor++];
       if (line === undefined) break;
-      proc.emitLine(line);
-      if (JSON.parse(line).type === "agent_settled") break;
+      const record = JSON.parse(line) as { id?: unknown; type?: unknown };
+      const wire = typeof record.id === "string" ? wireIds.get(record.id) : undefined;
+      proc.emitLine(wire === undefined ? line : JSON.stringify({ ...record, id: wire }));
+      if (record.type === "agent_settled") break;
     }
   };
   const failedSend = session.send({ id: "recovery-failed-turn", text: "fail deterministically" });
+  wireIds.set("hcn-send:recovery-failed-turn", proc.lastSendRequestId());
+  replayThroughSettled();
   const failedTurn = (await turns.next()).value as SessionTurn;
   expect(failedTurn.inputId).toBe("recovery-failed-turn");
-  replayThroughSettled();
   const failed: HarnessEvent[] = [];
   for await (const event of failedTurn) failed.push(event);
   expect(await failedSend.settled).toEqual({ disposition: "started" });
@@ -167,9 +173,10 @@ test("a failed Pi turn remains a task failure and the same process recovers on t
   ]);
   expect(failed.at(-1)).toMatchObject({ kind: "done", cause: "failed" });
   const recoveredSend = session.send({ id: "recovery-success-turn", text: "recover" });
+  wireIds.set("hcn-send:recovery-success-turn", proc.lastSendRequestId());
+  replayThroughSettled();
   const recoveredTurn = (await turns.next()).value as SessionTurn;
   expect(recoveredTurn.inputId).toBe("recovery-success-turn");
-  replayThroughSettled();
   const recovered: HarnessEvent[] = [];
   for await (const event of recoveredTurn) recovered.push(event);
   expect(await recoveredSend.settled).toEqual({ disposition: "started" });

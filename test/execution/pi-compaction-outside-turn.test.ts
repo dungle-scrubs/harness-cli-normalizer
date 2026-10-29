@@ -55,8 +55,10 @@ describe("pi compaction outside the turn markers (#239)", () => {
 
     session.send({ id: "s", text: "hi" });
     const turnsIter = session.turns[Symbol.asyncIterator]();
-    const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
+    // Issue #426: a pi turn is published on run evidence; the settlement is.
+    const nextTurn = turnsIter.next();
     proc.emitLine(JSON.stringify({ type: "agent_settled" }));
+    const turn1 = (await nextTurn).value as AsyncIterable<HarnessEvent>;
     const events = await drainTurn(turn1);
 
     const compactions = events.filter((e) => e.kind === "compaction");

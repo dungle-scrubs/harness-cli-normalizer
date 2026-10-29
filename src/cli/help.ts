@@ -236,14 +236,21 @@ Arguments:
 Options:
   --json                    Machine surface: NDJSON events on stdout, NDJSON
                             commands on stdin ({"op":"send","id":..,"text":..},
-                            "answer", "close"). Every send is answered with one
-                            disposition (started | rejected); Pi and Codex wait
-                            for their native command response before reporting
-                            acceptance. The turn a send opens carries its id.
-                            Pi and Codex steer a mid-turn send into the running
-                            turn, which keeps its opening send's id. A Pi prompt
-                            acceptance received after settlement opens a turn
-                            with that send's id.
+                            "answer", "interrupt", "close"). Send and answer
+                            accept optional "delivery":"queue"|"steer".
+                            The session event advertises controls.deliveryModes
+                            and controls.interrupt.supported. Unsupported modes
+                            reject unsupported-delivery without writing input.
+                            Every send/answer gets one disposition, in command
+                            order (started | rejected). Pi and Codex wait for
+                            their native command response. A send that opens a
+                            turn carries its id; merged input opens no extra
+                            turn, and native background output has no caller id.
+                            {"op":"interrupt","id":..} carries no text. A written
+                            request emits interruption state requested, then
+                            interrupted | not-active | rejected. Send replacement
+                            text after the terminal receipt. Cancellation is best
+                            effort; the conversation and native queues remain.
                             The stream opens with a session event and ends
                             with a closed event. Exit 0 clean, 1 otherwise,
                             2 refusal, 4 hcn internal crash (failure/closed pair,

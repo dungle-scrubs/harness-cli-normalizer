@@ -10,10 +10,9 @@ import { KILL_GRACE_MS } from "../../src/execution/supervisor.js";
 import { SessionInputRefusalError } from "../../src/interpretation/session-input.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import type { HarnessDescriptor } from "../../src/knowledge/descriptor.js";
-import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
+import { claudeInitNaming, FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
 
 const sid = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
-const init = JSON.stringify({ type: "system", subtype: "init", session_id: sid });
 const _result = JSON.stringify({ type: "result", subtype: "success" });
 const tick = () => new Promise<void>((r) => setTimeout(r, 0));
 
@@ -50,9 +49,10 @@ describe("M3.2 boundary-review regression pins", () => {
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
     session.send({ id: "s", text: "hi" });
+    // Native uuid evidence publishes the input's turn (issue #426).
+    proc.emitLine(claudeInitNaming(sid, proc));
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
-    proc.emitLine(init);
     proc.emitStderr("You've hit your weekly limit · resets 2am");
     await tick();
     proc.exit(1);
@@ -150,14 +150,21 @@ describe("M3.2 boundary-review regression pins", () => {
     );
     session.send({ id: "s", text: "hi" });
     const turns = session.turns[Symbol.asyncIterator]();
-    const turn = (await turns.next()).value as AsyncIterable<HarnessEvent>;
+    // Issue #426: the first assistant record names the input it answers, as
+    // the native first record of a turn does; that publishes the turn. The
+    // pull count below stays one chunk.
+    const nextTurn = turns.next();
     const content = Array.from({ length: 1_100 }, (_, index) => ({
       type: "tool_use",
       name: `tool-${index}`,
       input: {},
     }));
     proc.emitChunk(
-      `${JSON.stringify({ type: "assistant", message: { content: content.slice(0, 1_026) } })}\n`,
+      `${JSON.stringify({
+        type: "assistant",
+        user_message_uuids: [proc.lastSentUuid()],
+        message: { content: content.slice(0, 1_026) },
+      })}\n`,
     );
     proc.emitChunk(
       `${JSON.stringify({ type: "assistant", message: { content: content.slice(1_026) } })}\n`,
@@ -167,6 +174,7 @@ describe("M3.2 boundary-review regression pins", () => {
     expect(proc.stdout.pullCount).toBe(1);
     clock.advance(PIPE_GRACE_MS + 1);
 
+    const turn = (await nextTurn).value as AsyncIterable<HarnessEvent>;
     await session.close();
     const events = await drainTurn(turn);
     expect(events.filter((event) => event.kind === "tool")).toHaveLength(1_100);
@@ -191,6 +199,7 @@ describe("M3.2 boundary-review regression pins", () => {
       },
     );
     session.send({ id: "s", text: "hi" });
+    proc.emitLine(claudeInitNaming(sid, proc));
     const turns = session.turns[Symbol.asyncIterator]();
     const turn = (await turns.next()).value as AsyncIterable<HarnessEvent>;
     proc.failStdout(new Error("synthetic session read failure"));
@@ -213,12 +222,12 @@ describe("M3.2 boundary-review regression pins", () => {
     const d = makeDeps(proc, logged);
     const session = openSession(claudeCode, { sessionId: sid }, d);
     session.send({ id: "s", text: "first" });
+    proc.emitLine(claudeInitNaming(sid, proc));
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
     expect(
       session.send({ id: "s", text: "second - handed to harness while busy" }).disposition,
     ).toBe("started");
-    proc.emitLine(init);
     proc.exit(7); // dies with a pending send the harness had already received
     const events = await drainTurn(turn1);
     expect(events.find((e) => e.kind === "error")).toMatchObject({
@@ -232,9 +241,9 @@ describe("M3.2 boundary-review regression pins", () => {
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
     session.send({ id: "s", text: "doomed" });
+    proc.emitLine(claudeInitNaming(sid, proc));
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
-    proc.emitLine(init);
     proc.emitLine(
       JSON.stringify({ type: "result", subtype: "error_during_execution", is_error: true }),
     );
@@ -251,9 +260,9 @@ describe("M3.2 boundary-review regression pins", () => {
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
     session.send({ id: "s", text: "hi" });
+    proc.emitLine(claudeInitNaming(sid, proc));
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn1 = (await turnsIter.next()).value as AsyncIterable<HarnessEvent>;
-    proc.emitLine(init);
     proc.emitChunk(
       JSON.stringify({
         type: "assistant",
@@ -328,6 +337,7 @@ describe("M3.2 boundary-review regression pins", () => {
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
     session.send({ id: "s", text: "hi" });
+    proc.emitLine(claudeInitNaming(sid, proc));
     for await (const _turn of session.turns) {
       break; // consumer walks away from the whole session
     }
@@ -349,6 +359,7 @@ describe("issue #99: close() lets an open turn finish", () => {
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
     session.send({ id: "s", text: "hi" });
+    proc.emitLine(claudeInitNaming(sid, proc));
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn = (await turnsIter.next()).value;
     // Drain the turn concurrently, as a real consumer would.
@@ -396,6 +407,7 @@ describe("issue #99: close() lets an open turn finish", () => {
     const d = makeDeps(proc);
     const session = openSession(claudeCode, { sessionId: sid }, d);
     session.send({ id: "s", text: "hi" });
+    proc.emitLine(claudeInitNaming(sid, proc));
     for await (const _turn of session.turns) break;
     await tick();
     expect(proc.stdinEnded).toBe(true); // nobody is left to receive the turn

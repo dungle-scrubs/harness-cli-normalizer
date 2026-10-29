@@ -7,13 +7,18 @@
  */
 import type {
   HarnessDescriptor,
+  SessionDelivery,
   SessionInputContract,
   SessionInputKind,
 } from "../knowledge/descriptor.js";
 import { SESSION_INPUT_KINDS } from "../knowledge/descriptor.js";
 import { asRecord, readPath } from "./shape.js";
 
-export type SessionInputIssue = "missing-session-input-contract" | "unsupported-session-input-kind";
+export type SessionInputIssue =
+  | "missing-session-input-contract"
+  | "unsupported-session-input-kind"
+  | "unsupported-delivery"
+  | "unsupported-interrupt";
 
 export class SessionInputRefusalError extends Error {
   constructor(readonly issue: SessionInputIssue) {
@@ -31,10 +36,17 @@ const SEND_ID_PREFIX = `${SEND_ID}:`;
  * before the identity probe on a codex session. Its response carries
  * nothing hcn needs; the marker keeps it recognizable. */
 export const INITIALIZE_ID = "hcn-initialize";
+/** Issue #426: the marker prefix of a native interrupt command. The suffix
+ * is the runner's internal correlation token, never a caller id. */
+const INTERRUPT_ID_PREFIX = "hcn-interrupt:";
 
 export interface SessionInputEncodingOptions {
   readonly busy: boolean;
   readonly id: string;
+  readonly delivery?: SessionDelivery;
+  /** Claude: the native message uuid stamped on an explicitly delivered
+   * user frame, so turn records naming it correlate back to this input. */
+  readonly uuid?: string;
   /** Popeye prompt frames and codex requests carry the minted session id
    * (popeye session, codex thread). */
   readonly sessionId?: string;
@@ -69,17 +81,29 @@ export const encodeSessionInput = (
       return `${JSON.stringify({
         type: "user",
         message: { role: "user", content: [{ type: "text", text }] },
+        ...(options?.delivery === undefined
+          ? {}
+          : { priority: options.delivery === "queue" ? "later" : "next" }),
+        ...(options?.uuid === undefined ? {} : { uuid: options.uuid }),
       })}\n`;
     case "pi-rpc-prompt":
       return `${JSON.stringify({
         id: options === undefined ? SEND_ID : `${SEND_ID_PREFIX}${options.id}`,
         message: text,
-        ...(options?.busy === true ? { streamingBehavior: "steer" } : {}),
+        ...(options?.delivery === "queue"
+          ? { streamingBehavior: "followUp" }
+          : options?.delivery === "steer" || options?.busy === true
+            ? { streamingBehavior: "steer" }
+            : {}),
         type: "prompt",
       })}\n`;
     case "antigravity-stream-user":
+      if (options?.delivery !== undefined)
+        throw new SessionInputRefusalError("unsupported-delivery");
       return `${JSON.stringify({ event: "user", message: { content: text } })}\n`;
     case "popeye-rpc-prompt":
+      if (options?.delivery !== undefined)
+        throw new SessionInputRefusalError("unsupported-delivery");
       return `${JSON.stringify({
         _tag: "prompt",
         content: text,
@@ -87,6 +111,7 @@ export const encodeSessionInput = (
         ...(options?.sessionId === undefined ? {} : { sessionId: options.sessionId }),
       })}\n`;
     case "codex-jsonrpc": {
+      if (options?.delivery === "queue") throw new SessionInputRefusalError("unsupported-delivery");
       // One JSON-RPC request line per send. Idle: turn/start opens the
       // native turn. Busy: turn/steer injects into the RUNNING turn under
       // the expectedTurnId precondition (verified 0.159.2: accepted with
@@ -111,6 +136,29 @@ export const encodeSessionInput = (
       })}\n`;
     }
   }
+};
+
+/** Issue #426: the native command that requests cancellation of the active
+ * turn, correlated by the runner's internal token. Only pi rpc has one
+ * verified (`abort`); every other kind refuses. */
+export const encodeSessionInterrupt = (input: SessionInputContract, token: string): string => {
+  if (input.kind !== "pi-rpc-prompt") throw new SessionInputRefusalError("unsupported-interrupt");
+  return `${JSON.stringify({ id: `${INTERRUPT_ID_PREFIX}${token}`, type: "abort" })}\n`;
+};
+
+/** Issue #426: the native message uuids a claude record names as the
+ * inputs it answers (`user_message_uuids`, else `user_message_uuid`).
+ * Turn-level records carry them (system init/status, the first
+ * message_start and assistant frames, result); inner frames and background
+ * task output omit them, which reads as an empty list. */
+export const readInputUuids = (
+  h: HarnessDescriptor,
+  parsed: Record<string, unknown>,
+): readonly string[] => {
+  if (h.sessionMode?.input.kind !== "claude-sdk-user-message") return [];
+  const many = parsed.user_message_uuids;
+  if (Array.isArray(many)) return many.filter((u): u is string => typeof u === "string");
+  return typeof parsed.user_message_uuid === "string" ? [parsed.user_message_uuid] : [];
 };
 
 /** What one spawn must write to learn the session id, or null when the
@@ -170,13 +218,28 @@ export const encodeIdentityProbe = (
 export const hasNativeReceipts = (kind: SessionInputKind): boolean =>
   kind === "pi-rpc-prompt" || kind === "codex-jsonrpc";
 
+/** Issue #426: kinds whose turn records name the native message uuids of
+ * the inputs they answer (claude `user_message_uuids`). The runner stamps
+ * a uuid on every frame and opens a queued input's turn on a record naming
+ * it; a turn record naming none is output no input opened. */
+export const correlatesByInputUuid = (kind: SessionInputKind): boolean =>
+  kind === "claude-sdk-user-message";
+
+/** Issue #426: kinds where a written prompt can produce no run at all (pi
+ * `handled`: an extension consumed it). The runner publishes such a turn
+ * only on run evidence: a started receipt, run output, or a settlement. */
+export const publishesTurnOnRunEvidence = (kind: SessionInputKind): boolean =>
+  kind === "pi-rpc-prompt";
+
 /** What one parsed stdout record means to a session, as a closed kind. */
 export type SessionRecord =
   /** The identity probe answered with the session id. */
   | { readonly kind: "identity"; readonly sessionId: string }
   /** The identity probe answered without an id - surfaced, never silent. */
   | { readonly kind: "probe-failed"; readonly message: string }
-  /** A correlated rpc command was accepted by the harness. `nativeTurnId`
+  /** A correlated rpc command was accepted by the harness. `inputId` is the
+   * correlation id the runner wrote after the send marker (its per-command
+   * token), not necessarily a caller id. `nativeTurnId`
    * is present when the response names the turn it started or steered
    * into (codex turn/start {turn.id}, turn/steer {turnId}); the runner
    * tracks it as the steer precondition for the next mid-turn send. */
@@ -184,15 +247,39 @@ export type SessionRecord =
       readonly inputId: string;
       readonly kind: "command-accepted";
       readonly nativeTurnId?: string;
+      /** pi prompt receipts name what the harness did with the input:
+       * `started` a new run, `queued` joined the active run, `handled`
+       * consumed it with no run (an extension command). Absent on receipts
+       * that carry no disposition. */
+      readonly nativeDisposition?: NativeInputDisposition;
+    }
+  /** Issue #426: the native interrupt command was answered. Acceptance is
+   * not confirmation; the settlement record says whether a run aborted. */
+  | {
+      readonly kind: "interrupt-answered";
+      readonly token: string;
+      readonly accepted: boolean;
+      readonly message?: string;
     }
   /** An rpc command hcn wrote was refused by the harness. */
   | { readonly inputId?: string; readonly kind: "command-failed"; readonly message: string }
   /** Protocol bookkeeping with nothing to surface. */
   | { readonly kind: "ignored" }
-  /** The record that delimits a turn, with the harness's own error flag. */
-  | { readonly kind: "turn-end"; readonly isError: boolean }
+  /** The record that delimits a turn, with the harness's own error flag.
+   * `aborted` is present when the harness reports the run was cancelled
+   * (pi agent_settled.aborted true). */
+  | { readonly kind: "turn-end"; readonly isError: boolean; readonly aborted?: true }
   /** Anything else: content for the stream decoder. */
   | { readonly kind: "content" };
+
+export type NativeInputDisposition = "started" | "queued" | "handled";
+
+const nativeDispositionOf = (data: unknown): NativeInputDisposition | undefined => {
+  const disposition = asRecord(data)?.disposition;
+  return disposition === "started" || disposition === "queued" || disposition === "handled"
+    ? disposition
+    : undefined;
+};
 
 const matchesTurnEnd = (
   record: Record<string, unknown>,
@@ -283,12 +370,32 @@ export const decodeSessionRecord = (
         ? { kind: "identity", sessionId: announced }
         : { kind: "probe-failed", message: "identity probe response carried no sessionId" };
     }
+    if (
+      typeof parsed.id === "string" &&
+      parsed.id.startsWith(INTERRUPT_ID_PREFIX) &&
+      parsed.command === "abort"
+    ) {
+      const token = parsed.id.slice(INTERRUPT_ID_PREFIX.length);
+      return parsed.success === true
+        ? { kind: "interrupt-answered", token, accepted: true }
+        : {
+            kind: "interrupt-answered",
+            token,
+            accepted: false,
+            message: `rpc command failed: "abort" - ${JSON.stringify(parsed.error ?? "unknown error")}`,
+          };
+    }
     const inputId =
       typeof parsed.id === "string" && parsed.id.startsWith(SEND_ID_PREFIX)
         ? parsed.id.slice(SEND_ID_PREFIX.length)
         : undefined;
     if (parsed.command === "prompt" && parsed.success === true && inputId !== undefined) {
-      return { inputId, kind: "command-accepted" };
+      const nativeDisposition = nativeDispositionOf(parsed.data);
+      return {
+        inputId,
+        kind: "command-accepted",
+        ...(nativeDisposition === undefined ? {} : { nativeDisposition }),
+      };
     }
     // A failed command is a surfaced error, never a silent drop.
     if (parsed.success === false) {
@@ -355,7 +462,9 @@ export const decodeSessionRecord = (
       (mode.input.kind === "claude-sdk-user-message" && parsed.is_error === true) ||
       (mode.input.kind === "antigravity-stream-user" &&
         readPath(parsed, "result.status") !== "SUCCESS");
-    return { kind: "turn-end", isError };
+    return mode.input.kind === "pi-rpc-prompt" && parsed.aborted === true
+      ? { kind: "turn-end", isError, aborted: true }
+      : { kind: "turn-end", isError };
   }
   return { kind: "content" };
 };

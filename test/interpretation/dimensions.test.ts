@@ -64,6 +64,8 @@ describe("capabilitiesOf (claude)", () => {
       },
       // Map #288: derived from the agent turn-option spec, never degrades.
       namedAgents: true,
+      // Issue #426: the verified live-session controls, from the descriptor.
+      sessionControls: { deliveryModes: ["queue", "steer"], interrupt: { supported: false } },
     });
   });
 

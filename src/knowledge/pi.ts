@@ -83,6 +83,14 @@ export const piCli: HarnessDescriptor = deepFreeze({
     idFlag: "--session-id",
     resumeFlag: "--session-id",
     input: { kind: "pi-rpc-prompt" },
+    // Issue #426, verified 1.4.0: prompt streamingBehavior followUp queues
+    // and steer steers, both inside the active run. abort settles the run
+    // with agent_settled.aborted true, keeps the native queue, and the same
+    // process accepts the next prompt in the same session.
+    controls: {
+      delivery: ["queue", "steer"],
+      interrupt: { toolCancellation: "best-effort" },
+    },
     turnEnd: { type: "agent_settled" },
     identityProbe: { command: "get_state", responseIdField: "data.sessionId" },
   },

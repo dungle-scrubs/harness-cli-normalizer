@@ -181,10 +181,12 @@ $ printf '%s\n' '{"op":"send","id":"in-1","text":"name three primes, nothing els
 {"kind":"closed","exitCode":0,"cause":"clean"}
 ```
 
-With `--json`, you write commands to stdin, one JSON object per line (`send`, `answer`, `close`),
-and read events from stdout. Each `send` gets one `disposition` event, and each turn carries the id
-of the `send` that started it. Sessions work with Claude Code, Codex, pi, Antigravity CLI, and
-popeye. Without `--json`, `hcn session claude` opens an interactive prompt.
+With `--json`, you write commands to stdin, one JSON object per line (`send`, `answer`,
+`interrupt`, `close`), and read events from stdout. Each `send` gets one `disposition`; turns
+opened by a send carry its id. Check the session packet's `controls` before choosing `delivery`
+`queue` or `steer`, or interrupting and sending a replacement after confirmation. Sessions work
+with Claude Code, Codex, pi, Antigravity CLI, and popeye. Without `--json`, `hcn session claude`
+opens an interactive prompt.
 
 ### Read saved sessions
 
@@ -260,6 +262,10 @@ hcn check                      Compare those versions with the latest releases
 
 `<harness>` is one of `claude`, `codex`, `pi`, `muse`, `cursor` (binary `agent`), `antigravity`
 (binary `agy`), or `popeye`. `hcn <command> --help` lists every flag.
+
+Session `send` and `answer` commands accept `delivery: "queue"` or `"steer"` where supported.
+The [session controls reference](docs/reference.md#delivery-and-interruption-controls) covers
+per-harness support and the `interrupt` request and confirmation receipts.
 
 ### Exit codes
 

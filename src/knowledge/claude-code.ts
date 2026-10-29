@@ -95,6 +95,12 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     idFlag: "--session-id",
     resumeFlag: "--resume",
     input: { kind: "claude-sdk-user-message" },
+    // Issue #426, verified 2.1.312: priority "later" runs as a later native
+    // turn, priority "next" can join the current turn (one result names both
+    // input uuids). Interruption is not verified: a successful interrupt
+    // response alone did not show confirmed cancellation with the same
+    // process continuing.
+    controls: { delivery: ["queue", "steer"], interrupt: null },
     turnEnd: { type: "result" },
     identityProbe: null,
   },

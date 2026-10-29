@@ -17,19 +17,33 @@
  * runner owns only what is particular to sessions: turn delimiting, the
  * send correlation, and the close-versus-abandon distinction.
  */
+import { randomUUID } from "node:crypto";
 import { buildSessionArgv, buildTurnEnv } from "../interpretation/argv.js";
-import { type CapabilityResult, capabilitiesOf } from "../interpretation/capabilities.js";
+import {
+  type CapabilityResult,
+  capabilitiesOf,
+  type SessionControlsCapability,
+  sessionControlsOf,
+} from "../interpretation/capabilities.js";
 import { composeEscalatedPrompt, type QuestionMode } from "../interpretation/question.js";
 import {
+  correlatesByInputUuid,
   decodeSessionRecord,
   encodeIdentityProbe,
   encodeSessionInput,
+  encodeSessionInterrupt,
   hasNativeReceipts,
+  publishesTurnOnRunEvidence,
+  readInputUuids,
   resolveSessionInput,
   SessionInputRefusalError,
 } from "../interpretation/session-input.js";
 import type { SkillsSelection } from "../interpretation/skills-selection.js";
-import type { HarnessDescriptor, SessionInputContract } from "../knowledge/descriptor.js";
+import type {
+  HarnessDescriptor,
+  SessionDelivery,
+  SessionInputContract,
+} from "../knowledge/descriptor.js";
 import { AsyncChannel } from "./channel.js";
 import { decodeLine, decodeParsed, freshDecodeState, settleProvisionalError } from "./decode.js";
 import type { RunnerDeps, SpawnedProcess } from "./deps.js";
@@ -64,15 +78,18 @@ export interface SessionSendResult {
   readonly disposition: "started" | "rejected";
   /** Present when rejected. `write-failed` is a broken stdin pipe, which is
    * a different remedy from a session the caller already closed - the two
-   * must stay distinguishable. */
-  readonly reason?: "closed" | "native-rejected" | "write-failed";
+   * must stay distinguishable. `unsupported-delivery` is an explicit
+   * delivery mode this harness does not support: nothing was written and
+   * the session stays usable. */
+  readonly reason?: "closed" | "native-rejected" | "write-failed" | "unsupported-delivery";
   /** Resolves when a harness with command receipts accepts or rejects the input. */
   readonly settled?: Promise<SessionSendResult>;
 }
 
 /** One turn's event stream, tagged with the id of the send that opened it.
- * `inputId` is present for every turn a consumer send opened, which today is
- * every turn; a turn opened by anything else (none exists yet) omits it. */
+ * `inputId` is present for every turn a consumer send opened. A native turn
+ * no send opened (claude output whose records name no waiting send, such as
+ * background task output) omits it. */
 export interface SessionTurn extends AsyncIterable<HarnessEvent> {
   readonly inputId?: string;
   /** `${sessionId}:turn-${n}`, matching the runner's turn_start log. */
@@ -81,18 +98,42 @@ export interface SessionTurn extends AsyncIterable<HarnessEvent> {
 
 /** A send's payload: the consumer's correlation id travels with the text
  * from the moment it arrives to the turn it opens and, on death, to the
- * loss report. */
+ * loss report. Ids are the caller's and may repeat; the runner correlates
+ * each send by its own token. `delivery` requests an explicit native
+ * delivery mode; omitted, the harness's native busy-send behavior applies. */
 export interface SessionInput {
   readonly id: string;
   readonly text: string;
+  readonly delivery?: SessionDelivery;
 }
+
+/** The terminal outcome of an interrupt request (issue #426). `interrupted`
+ * is the harness's own report that the active run was cancelled; command
+ * acceptance alone is never read as one. `not-active` means the harness
+ * reported no run cancelled (it had already settled, or was idle). */
+export interface SessionInterruptReceipt {
+  readonly state: "interrupted" | "not-active" | "rejected";
+  readonly reason?: "unsupported" | "closed" | "write-failed" | "native-rejected";
+}
+
+/** `requested`: the native cancellation request was written, and `settled`
+ * resolves exactly once with the terminal receipt. `rejected`: nothing was
+ * written. */
+export type SessionInterruptResult =
+  | { readonly state: "requested"; readonly settled: Promise<SessionInterruptReceipt> }
+  | { readonly state: "rejected"; readonly reason: "unsupported" | "closed" | "write-failed" };
 
 export interface SessionHandle {
   /** One inner iterable per turn, each ending in a turn-scoped `done`.
    * Breaking out of THIS iterable closes the session; breaking out of a
    * single turn's iterable only stops reading that turn. */
   readonly turns: AsyncIterable<SessionTurn>;
+  /** The explicit controls this session's harness supports. */
+  readonly controls: SessionControlsCapability;
   send(input: SessionInput): SessionSendResult;
+  /** Request cancellation of the active turn while the process continues.
+   * Carries no replacement text: the caller sends that after the receipt. */
+  interrupt(request: { readonly id: string }): SessionInterruptResult;
   close(): Promise<void>;
 }
 
@@ -159,6 +200,38 @@ export class SessionSpawnError extends Error {
  * to settle buffered sends when the probe fails. */
 const buffersSendsBeforeIdentity = (input: SessionInputContract): boolean =>
   input.kind === "popeye-rpc-prompt" || input.kind === "codex-jsonrpc";
+
+/** Native run output: what shows a run is producing work, as opposed to an
+ * identity announcement, progress, or a failure observed locally. */
+const isRunOutput = (event: HarnessEvent): boolean =>
+  (event.kind === "message" && event.role === "assistant") ||
+  event.kind === "token" ||
+  event.kind === "tool" ||
+  event.kind === "tool-result";
+
+/** One send as the runner tracks it: a unique token per command, so a
+ * reused caller id never stands in for another command. */
+interface SentCommand {
+  /** The per-command correlation id written on the wire after the send
+   * marker. Unique within the process, so a reused caller id never stands
+   * in for another command and native answers may arrive in any order. */
+  readonly token: string;
+  readonly input: SessionInput;
+  /** claude: the native message uuid stamped on every frame; turn records
+   * naming it correlate the turn to this send. */
+  readonly uuid?: string;
+  settle?: (result: SessionSendResult) => void;
+}
+
+/** An interrupt request written to the harness and not yet settled. */
+interface PendingInterrupt {
+  /** A settlement reporting an aborted run arrived after the request. */
+  abortedSeen: boolean;
+  /** The harness accepted the command while a run was still live; the next
+   * settlement decides the receipt. */
+  awaitingSettlement: boolean;
+  readonly resolve: (receipt: SessionInterruptReceipt) => void;
+}
 
 export const openSession = (
   h: HarnessDescriptor,
@@ -234,17 +307,37 @@ export const openSession = (
   let turnCounter = 0;
   let activeTurn: AsyncChannel<HarnessEvent> | null = null;
   let activeTurnId = "";
-  // The id of the send that opened the active turn (the inputId the turn
-  // was tagged with). Used by the #344 command-failed arm to decide
-  // whether the harness refused the command that opened the turn, vs a
-  // later input (steer, codex request with no turn). Cleared at each turn
-  // end.
-  let activeTurnInputId: string | undefined;
+  // The send that opened the active turn (its id is the turn's inputId).
+  // Used by the #344 command-failed arm and the pi handled receipt to decide
+  // whether the harness answered the command that opened the turn, vs a
+  // later input (steer, codex request with no turn), by command identity
+  // rather than by the caller's reusable id. Cleared at each turn end.
+  let activeTurnOpener: SentCommand | undefined;
   let activeTurnOpenerAccepted = false;
+  // Issue #426: false while the active turn is provisional - an idle send
+  // written with no native evidence for it yet. A write is not native
+  // acceptance. A provisional turn is internal: no turn id, no turn_start,
+  // nothing on the turns iterable until native evidence publishes it. Pi:
+  // a started receipt, run output or a settlement; a handled receipt
+  // retires it with no public trace. Claude: a record naming a waiting
+  // send's uuid chooses the opener; run output or a result naming none is
+  // a native turn no send opened. On both, a stall or a death publishes it
+  // with its opener, which is owed the failure.
+  let activeTurnPublished = false;
   let activeNativeTurnId: string | null = null;
-  const pendingIds: string[] = [];
-  const pendingLengths: number[] = [];
-  const pendingNativeReceipts = new Map<string, (result: SessionSendResult) => void>();
+  // Sends written whose turn opens later (claude and the other protocols
+  // without receipts), oldest first. Text is never held here: it was written
+  // to the harness at send time.
+  const pendingTurns: SentCommand[] = [];
+  // Sends awaiting a native receipt, by the per-command token they carry.
+  const awaitingReceipt = new Map<string, SentCommand>();
+  let commandSeq = 0;
+  const uuidCorrelated = correlatesByInputUuid(sessionInput.kind);
+  const controls: SessionControlsCapability = sessionControlsOf(h) ?? {
+    deliveryModes: [],
+    interrupt: { supported: false },
+  };
+  const pendingInterrupts = new Map<string, PendingInterrupt>();
   // The id of the codex turn currently running NATIVELY (result.turn.id /
   // turn/steer's {turnId}), the steer precondition for the next mid-turn
   // send. Null while no native turn is open; cleared at each turn end.
@@ -260,7 +353,7 @@ export const openSession = (
   let closing = false;
   // Popeye mints the session via the create probe: sends before the
   // response carry no session id and refuse. Buffer them; identity flushes.
-  const popeyePending: Array<{ input: SessionInput }> = [];
+  const popeyePending: SentCommand[] = [];
   let finalized = false;
   let exitCode: number | null = null;
   let resultError = false;
@@ -277,7 +370,7 @@ export const openSession = (
   // reports as "stall", not "killed".
   let stalled = false;
   // A refused session open (#345) or a crash with no open turn (#347)
-  // has no turn to carry its failure. First wins; session_close carries it.
+  // has no turn to carry its failure. Keep it for the session-close reduction.
   let sessionFailure: FailureSummary | undefined;
 
   // The supervisor spans the session; each turn begins and ends on it. A
@@ -292,6 +385,9 @@ export const openSession = (
     tail: stderrTail,
     onStall: () => {
       stalled = true;
+      // A provisional turn is owed its stall: publish it first so the log
+      // line carries its turn id.
+      publishTurn();
       log({
         event: "stall",
         sessionId: opts.sessionId,
@@ -316,52 +412,92 @@ export const openSession = (
     },
   });
 
+  /** Register a send to be settled by the harness's receipt. */
+  const awaitReceipt = (command: SentCommand): Promise<SessionSendResult> =>
+    new Promise<SessionSendResult>((resolve) => {
+      command.settle = resolve;
+      awaitingReceipt.set(command.token, command);
+    });
+  /** The send a native answer names by its token, if one is outstanding. */
+  const takeReceipt = (token: string): SentCommand | undefined => {
+    const command = awaitingReceipt.get(token);
+    awaitingReceipt.delete(token);
+    return command;
+  };
+  const dropReceipt = (command: SentCommand): void => {
+    awaitingReceipt.delete(command.token);
+  };
+  /** A written send named by its token: awaiting a receipt, opening the
+   * active turn, or waiting for its turn (popeye answers refusals by id
+   * with no receipt protocol). */
+  const sentByToken = (token: string): SentCommand | undefined =>
+    takeReceipt(token) ??
+    (activeTurnOpener?.token === token
+      ? activeTurnOpener
+      : pendingTurns.find((command) => command.token === token));
+
+  const settleInterrupt = (token: string, receipt: SessionInterruptReceipt): void => {
+    const pending = pendingInterrupts.get(token);
+    if (pending === undefined) return;
+    pendingInterrupts.delete(token);
+    log({ event: "interrupt_settled", sessionId: opts.sessionId, ...receipt });
+    pending.resolve(receipt);
+  };
+  /** A run settled. An aborted settlement after a request is the harness's
+   * own confirmation; a request the harness accepted while the run was
+   * live settles on this outcome. */
+  const observeSettlement = (aborted: boolean): void => {
+    for (const [token, pending] of [...pendingInterrupts]) {
+      if (aborted) pending.abortedSeen = true;
+      if (pending.awaitingSettlement) {
+        settleInterrupt(token, { state: aborted ? "interrupted" : "not-active" });
+      }
+    }
+  };
+
   const writeUser = (
-    input: SessionInput,
+    command: SentCommand,
     busy: boolean,
   ): { readonly settled?: Promise<SessionSendResult>; readonly written: boolean } => {
-    let settleNative: ((result: SessionSendResult) => void) | undefined = pendingNativeReceipts.get(
-      input.id,
+    const { input } = command;
+    // Encoding refuses before anything is written or registered: a refused
+    // delivery mode is not a broken pipe and leaves the session usable.
+    const line = encodeSessionInput(
+      sessionInput,
+      composeEscalatedPrompt(input.text, questionMode, "session"),
+      {
+        busy,
+        id: command.token,
+        ...(input.delivery === undefined ? {} : { delivery: input.delivery }),
+        ...(command.uuid === undefined ? {} : { uuid: command.uuid }),
+        // Popeye prompt frames and codex requests carry the minted
+        // session/thread id; the create/thread-open response binds it
+        // before any send is written.
+        ...((sessionInput.kind === "popeye-rpc-prompt" || sessionInput.kind === "codex-jsonrpc") &&
+        state.lastSeenId !== null
+          ? { sessionId: state.lastSeenId }
+          : {}),
+        // Codex steer precondition: the tracked id of the running
+        // native turn. Unknown (receipt still in flight) renders as
+        // the empty string, which the harness itself rejects - the
+        // send reports rejected instead of being written blindly.
+        ...(sessionInput.kind === "codex-jsonrpc" && activeNativeTurnId !== null
+          ? { activeTurnId: activeNativeTurnId }
+          : {}),
+      },
     );
     // A send buffered before identity pre-registers its receipt; the flush
     // then writes with the registration already in place.
     const settled =
-      settleNative === undefined && hasNativeReceipts(sessionInput.kind)
-        ? new Promise<SessionSendResult>((resolve) => {
-            settleNative = resolve;
-            pendingNativeReceipts.set(input.id, resolve);
-          })
+      command.settle === undefined && hasNativeReceipts(sessionInput.kind)
+        ? awaitReceipt(command)
         : undefined;
     try {
-      stdin.write(
-        encodeSessionInput(
-          sessionInput,
-          composeEscalatedPrompt(input.text, questionMode, "session"),
-          {
-            busy,
-            id: input.id,
-            // Popeye prompt frames and codex requests carry the minted
-            // session/thread id; the create/thread-open response binds it
-            // before any send is written.
-            ...((sessionInput.kind === "popeye-rpc-prompt" ||
-              sessionInput.kind === "codex-jsonrpc") &&
-            state.lastSeenId !== null
-              ? { sessionId: state.lastSeenId }
-              : {}),
-            // Codex steer precondition: the tracked id of the running
-            // native turn. Unknown (receipt still in flight) renders as
-            // the empty string, which the harness itself rejects - the
-            // send reports rejected instead of being written blindly.
-            ...(sessionInput.kind === "codex-jsonrpc" && activeNativeTurnId !== null
-              ? { activeTurnId: activeNativeTurnId }
-              : {}),
-          },
-        ),
-      );
+      stdin.write(line);
       return { ...(settled === undefined ? {} : { settled }), written: true };
     } catch {
-      pendingNativeReceipts.delete(input.id);
-      settleNative?.({ disposition: "rejected", reason: "write-failed" });
+      dropReceipt(command);
+      command.settle?.({ disposition: "rejected", reason: "write-failed" });
       // A broken stdin pipe ends the session: there is no way to drive the
       // child any more. Surface it as its own event, stop accepting sends,
       // and END the child - marking it dead here instead would suppress the
@@ -379,20 +515,32 @@ export const openSession = (
     return summary;
   };
 
-  const startTurn = (inputId?: string): void => {
+  /** Open the turn a send (or, with no opener, native output) starts. A
+   * provisional turn is busy and supervised from now, but stays internal
+   * until publishTurn. */
+  const startTurn = (opener?: SentCommand, options?: { readonly provisional?: boolean }): void => {
     turnLimitSeen = false;
     turnFailures = [];
     turnDenialCount = 0;
     turnAsked = false;
     turnEscalationDetection = "none";
     activeTurn = new AsyncChannel<HarnessEvent>();
-    activeTurnId = `${opts.sessionId}:turn-${++turnCounter}`;
-    activeTurnInputId = inputId;
+    activeTurnOpener = opener;
     activeTurnOpenerAccepted = false;
+    activeTurnPublished = false;
+    sup.beginTurn();
+    if (options?.provisional !== true) publishTurn();
+  };
+
+  /** Put the active turn on the turns iterable, with its turn id. */
+  const publishTurn = (): void => {
+    if (activeTurn === null || activeTurnPublished) return;
+    activeTurnPublished = true;
+    activeTurnId = `${opts.sessionId}:turn-${++turnCounter}`;
     // Tag the turn with the id of the send that opened it, so the consumer
     // correlates an input to its turn by reading the tag, not by
     // shadowing the runner's delivery order.
-    (activeTurn as { inputId?: string; turnId?: string }).inputId = inputId;
+    (activeTurn as { inputId?: string; turnId?: string }).inputId = activeTurnOpener?.input.id;
     (activeTurn as { inputId?: string; turnId?: string }).turnId = activeTurnId;
     log({ event: "turn_start", sessionId: opts.sessionId, turnId: activeTurnId });
     for (const held of preTurnEvents.splice(0)) {
@@ -401,13 +549,45 @@ export const openSession = (
       activeTurn.push(held);
     }
     turnsChannel.push(activeTurn as SessionTurn);
-    sup.beginTurn();
+  };
+
+  /** Reset the per-turn state once the active turn is over, and release a
+   * close() waiting on it. */
+  const clearActiveTurn = (): void => {
+    activeTurn = null;
+    activeTurnOpener = undefined;
+    activeTurnOpenerAccepted = false;
+    activeTurnPublished = false;
+    activeNativeTurnId = null;
+    resultError = false;
+    if (turnSettled !== null) {
+      const release = turnSettled;
+      turnSettled = null;
+      release();
+    }
+  };
+
+  /** Issue #426: the harness reported the provisional turn's input consumed
+   * with no run (pi handled). It never becomes public: no turn, no done.
+   * Events held for it stay parked for the next turn. No settlement will
+   * follow, so an interrupt the harness already accepted against it settles
+   * not-active now. */
+  const retireProvisionalTurn = (): void => {
+    if (activeTurn === null || activeTurnPublished) return;
+    sup.disarm();
+    sup.close();
+    activeTurn.close();
+    clearActiveTurn();
+    observeSettlement(false);
   };
 
   const endTurn = (
     done: Omit<HarnessEvent & { kind: "done" }, "escalation" | "denialCount">,
   ): void => {
     if (activeTurn === null) return;
+    // A provisional turn that ends any other way (settlement, stall,
+    // death) had a run, or owes a failure: it is published first.
+    publishTurn();
     sup.disarm();
     // issue #44: the supervisor scans the last assistant message for the
     // hcn-question block; the question event lands in the turn stream
@@ -440,45 +620,116 @@ export const openSession = (
       turnId: activeTurnId,
       cause: fullDone.cause,
     });
-    activeTurn = null;
-    activeTurnInputId = undefined;
-    activeTurnOpenerAccepted = false;
-    activeNativeTurnId = null;
-    resultError = false;
-    if (turnSettled !== null) {
-      const release = turnSettled;
-      turnSettled = null;
-      release();
-    }
+    clearActiveTurn();
     if (dead || closing) return;
-    const nextId = pendingIds.shift();
-    if (nextId === undefined) return;
-    pendingLengths.shift();
+    // A uuid-correlated send (claude) waits for a record naming its uuid:
+    // it may have joined the turn that just ended, and background task
+    // output can run first. Its turn opens on that native evidence.
+    if (uuidCorrelated) return;
+    const next = pendingTurns.shift();
+    if (next === undefined) return;
     // The text was already written to the harness when the send arrived;
     // the id was held to correlate the next turn.
-    startTurn(nextId);
+    startTurn(next);
   };
 
-  const routeEvent = (event: HarnessEvent): Promise<void> => {
-    if (event.kind === "limit") {
-      state.limitSeen = true;
-      turnLimitSeen = true;
+  /** Issue #426: a provisional claude turn met native output that no record
+   * attributed to a waiting send - a native turn no send opened, such as
+   * background task output. The visible turn is untagged and streams now;
+   * the send it was held for waits, unconsumed, for the records naming it.
+   * It was written before every other waiting send, so it goes first. */
+  const publishUntagged = (): void => {
+    if (activeTurn === null || activeTurnPublished) return;
+    if (activeTurnOpener !== undefined) pendingTurns.unshift(activeTurnOpener);
+    activeTurnOpener = undefined;
+    publishTurn();
+  };
+
+  /** Issue #426: claude records name the input uuids they answer, and only
+   * those name a turn's opener. On a provisional turn the named send opens
+   * it: the send held for it, or another waiting send, in which case the
+   * held send waits on. On a live turn a named waiting send joined it (a
+   * merged input) and gets no turn of its own. Idle, the named send opens
+   * the turn. Every named waiting send is consumed once. Correlation is by
+   * command, never by caller id, and stays inside this process. */
+  const correlateInputUuids = (parsed: Record<string, unknown>): void => {
+    const named = readInputUuids(h, parsed);
+    if (named.length === 0) return;
+    const isNamed = (command: SentCommand | undefined): command is SentCommand =>
+      command?.uuid !== undefined && named.includes(command.uuid);
+    const consumeNamed = (): void => {
+      for (let index = pendingTurns.length - 1; index >= 0; index--) {
+        if (isNamed(pendingTurns[index])) pendingTurns.splice(index, 1);
+      }
+    };
+    if (activeTurn !== null && !activeTurnPublished) {
+      if (!isNamed(activeTurnOpener)) {
+        const chosen = pendingTurns.find(isNamed);
+        // Uuids this process never wrote say nothing about its sends.
+        if (chosen === undefined) return;
+        if (activeTurnOpener !== undefined) pendingTurns.unshift(activeTurnOpener);
+        activeTurnOpener = chosen;
+      }
+      consumeNamed();
+      publishTurn();
+      return;
     }
-    sup.noteEvent(event);
     if (activeTurn !== null) {
-      if (event.kind === "error" && event.denial !== undefined) turnDenialCount++;
-      // Awaited by the pumps: past the channel's high water mark this
-      // blocks the pump, so OS pipe backpressure reaches the child.
-      return activeTurn.push(event);
+      consumeNamed();
+      return;
     }
-    // Between-turn events wait for the next turn, bounded: past the cap
-    // droppable events go first, then oldest.
+    if (dead || closing) return;
+    const opener = pendingTurns.find(isNamed);
+    if (opener === undefined) return;
+    consumeNamed();
+    startTurn(opener);
+  };
+
+  /** Hold an event for the next published turn, bounded: past the cap
+   * droppable events go first, then oldest. */
+  const parkEvent = (event: HarnessEvent): Promise<void> => {
     preTurnEvents.push(event);
     if (preTurnEvents.length > PRETURN_MAX) {
       const droppableAt = preTurnEvents.findIndex((e) => DROPPABLE_KINDS.has(e.kind));
       preTurnEvents.splice(droppableAt === -1 ? 0 : droppableAt, 1);
     }
     return Promise.resolve();
+  };
+
+  const routeEvent = (event: HarnessEvent): Promise<void> => {
+    // Claude run output with no turn open belongs to a native turn no send
+    // opened: it gets an untagged turn of its own.
+    if (activeTurn === null && uuidCorrelated && !dead && !closing && isRunOutput(event)) {
+      startTurn();
+    }
+    if (event.kind === "limit") {
+      state.limitSeen = true;
+      turnLimitSeen = true;
+    }
+    sup.noteEvent(event);
+    // A provisional turn is published as its evidence arrives - streaming is
+    // never withheld. Only run output is evidence of a run; a failure or
+    // error observed locally is owed to the send. Everything else (identity,
+    // compaction, usage, progress, question) waits with the turn and flushes
+    // into the next published one: pi can compact outside its run markers,
+    // and an input it then reports handled ran nothing. On claude only a
+    // record naming the send (correlateInputUuids) attributes the run to it,
+    // so run output without one is published untagged.
+    if (activeTurn !== null && !activeTurnPublished) {
+      if (isRunOutput(event)) {
+        if (uuidCorrelated) publishUntagged();
+        else publishTurn();
+      } else if (event.kind === "failure" || event.kind === "error") publishTurn();
+      else return parkEvent(event);
+    }
+    if (activeTurn !== null) {
+      if (event.kind === "error" && event.denial !== undefined) turnDenialCount++;
+      // Awaited by the pumps: past the channel's high water mark this
+      // blocks the pump, so OS pipe backpressure reaches the child.
+      return activeTurn.push(event);
+    }
+    // Between-turn events wait for the next turn.
+    return parkEvent(event);
   };
 
   const pushFailure = (f: FailureSummary): Promise<void> => {
@@ -552,15 +803,24 @@ export const openSession = (
         // Re-check busyness at flush time: every pre-identity send
         // recorded idle, but an earlier flush entry may own the turn.
         const busy = activeTurn !== null;
-        const written = writeUser(pending.input, busy);
+        let written: ReturnType<typeof writeUser>;
+        try {
+          written = writeUser(pending, busy);
+        } catch (cause) {
+          if (!(cause instanceof SessionInputRefusalError)) throw cause;
+          // send() checked the delivery mode against the descriptor; an
+          // encoder refusal here still settles the send, never drops it.
+          dropReceipt(pending);
+          pending.settle?.({ disposition: "rejected", reason: "unsupported-delivery" });
+          continue;
+        }
         if (!written.written) continue;
         if (busy && sessionInput.kind !== "codex-jsonrpc") {
-          pendingIds.push(pending.input.id);
-          pendingLengths.push(pending.input.text.length);
+          pendingTurns.push(pending);
         } else if (!busy) {
           // Codex defers its turn open to the native receipt; pi/popeye
           // open at write time. Either way the id is now in flight.
-          if (sessionInput.kind !== "codex-jsonrpc") startTurn(pending.input.id);
+          if (sessionInput.kind !== "codex-jsonrpc") startTurn(pending);
         }
       }
     };
@@ -636,20 +896,60 @@ export const openSession = (
       // Interpretation says what the record means; this runner only routes
       // on the kind (ADR 0005: no harness field names here).
       const record = decodeSessionRecord(h, parsed);
+      correlateInputUuids(parsed);
       switch (record.kind) {
         case "command-accepted": {
           if (record.nativeTurnId !== undefined) activeNativeTurnId = record.nativeTurnId;
+          // An answer to a request this process never wrote settles nothing.
+          const command = takeReceipt(record.inputId);
+          if (command === undefined) return;
+          if (record.nativeDisposition === "handled") {
+            // Issue #426: pi consumed the input with no run, so no
+            // settlement will follow. The provisional turn this send held
+            // is retired unseen; anywhere else the receipt opens nothing.
+            const opened = activeTurn !== null && activeTurnOpener === command;
+            command.settle?.({ disposition: "started" });
+            if (opened && !activeTurnOpenerAccepted) {
+              if (activeTurnPublished) endTurn({ kind: "done", exitCode: null, cause: "clean" });
+              else retireProvisionalTurn();
+            }
+            return;
+          }
+          // Started, queued into a run, or a receipt with no disposition:
+          // the run this send opened is real.
+          if (command === activeTurnOpener) publishTurn();
           // A harness whose turn open is a protocol REQUEST (codex) only
           // starts the hcn turn once the receipt confirms it; a failed
           // open then leaves no stuck empty turn. Prompt-wire harnesses
           // (pi) start the turn at write time, so this is a no-op for
           // them - the turn already exists. Starting BEFORE the receipt
           // settles keeps the turn line ahead of the disposition line.
-          if (activeTurn === null) startTurn(record.inputId);
-          if (record.inputId === activeTurnInputId) activeTurnOpenerAccepted = true;
-          const settle = pendingNativeReceipts.get(record.inputId);
-          pendingNativeReceipts.delete(record.inputId);
-          settle?.({ disposition: "started" });
+          // A pi input the harness QUEUED joined a run; when its receipt
+          // lands after that run settled it opens no turn.
+          if (activeTurn === null && record.nativeDisposition !== "queued") startTurn(command);
+          if (command === activeTurnOpener) activeTurnOpenerAccepted = true;
+          command.settle?.({ disposition: "started" });
+          return;
+        }
+        case "interrupt-answered": {
+          const pending = pendingInterrupts.get(record.token);
+          if (pending === undefined) return;
+          if (!record.accepted) {
+            settleInterrupt(record.token, { state: "rejected", reason: "native-rejected" });
+            log({
+              event: "interrupt_rejected",
+              sessionId: opts.sessionId,
+              message: record.message,
+            });
+          } else if (pending.abortedSeen) {
+            settleInterrupt(record.token, { state: "interrupted" });
+          } else if (activeTurn === null) {
+            // Accepted with no aborted settlement and no run live: the run
+            // had already settled normally, or there was none.
+            settleInterrupt(record.token, { state: "not-active" });
+          } else {
+            pending.awaitingSettlement = true;
+          }
           return;
         }
         case "identity":
@@ -665,9 +965,8 @@ export const openSession = (
             // popeye keeps them so the first turn carries the refusal.
             if (sessionInput.kind === "codex-jsonrpc") {
               for (const pending of popeyePending.splice(0)) {
-                const settle = pendingNativeReceipts.get(pending.input.id);
-                pendingNativeReceipts.delete(pending.input.id);
-                settle?.({ disposition: "rejected", reason: "native-rejected" });
+                dropReceipt(pending);
+                pending.settle?.({ disposition: "rejected", reason: "native-rejected" });
               }
             }
             void close(false);
@@ -675,26 +974,26 @@ export const openSession = (
           return;
         }
         case "command-failed": {
-          if (record.inputId !== undefined) {
-            const settle = pendingNativeReceipts.get(record.inputId);
-            pendingNativeReceipts.delete(record.inputId);
-            const pendingIndex = pendingIds.indexOf(record.inputId);
-            if (pendingIndex >= 0) {
-              pendingIds.splice(pendingIndex, 1);
-              pendingLengths.splice(pendingIndex, 1);
-            }
-            settle?.({ disposition: "rejected", reason: "native-rejected" });
+          const command = record.inputId === undefined ? undefined : sentByToken(record.inputId);
+          if (command !== undefined) {
+            const pendingIndex = pendingTurns.indexOf(command);
+            if (pendingIndex >= 0) pendingTurns.splice(pendingIndex, 1);
             // Issue #344: the harness refused the command that opened the
             // turn before acknowledging it. End it so close() cannot hang;
             // a refused later input, even with a reused id, leaves it running.
-            if (
-              activeTurn !== null &&
-              activeTurnInputId === record.inputId &&
-              !activeTurnOpenerAccepted
-            ) {
+            const refusedOpener =
+              activeTurn !== null && command === activeTurnOpener && !activeTurnOpenerAccepted;
+            // A refusal is the turn's outcome: a provisional turn is
+            // published before its disposition settles.
+            if (refusedOpener) publishTurn();
+            command.settle?.({ disposition: "rejected", reason: "native-rejected" });
+            if (refusedOpener) {
               await routeEvent({ kind: "error", message: record.message });
               const failure = failureFromNativeRejection(h, record.message, deps.clock);
               await pushFailure(failure);
+              // The refused input ran nothing and no settlement will follow:
+              // an interrupt already accepted against it settles not-active.
+              observeSettlement(false);
               endTurn({ kind: "done", exitCode: null, cause: "clean" });
               return;
             }
@@ -705,6 +1004,15 @@ export const openSession = (
         case "ignored":
           return;
         case "turn-end": {
+          // Issue #426: a uuid-correlated native turn ended that no send
+          // opened (claude background task output): a result no record
+          // named a send for. It is surfaced as a turn with no input id,
+          // never folded into a caller's turn, and a send held for a
+          // provisional turn waits on.
+          if (uuidCorrelated) {
+            if (activeTurn === null && !dead && !closing) startTurn();
+            else publishUntagged();
+          }
           // The turn-end record still feeds identity dedupe (claude includes
           // session_id on result - a rotation announced there must not be
           // missed) and content decoding, which already surfaces a failed
@@ -727,6 +1035,7 @@ export const openSession = (
             exitCode: null,
             cause: turnLimitSeen ? "limit" : resultError ? "crash" : "clean",
           });
+          observeSettlement(record.aborted === true);
           return;
         }
         case "content": {
@@ -802,10 +1111,14 @@ export const openSession = (
             : "crash";
     const cause: ExitCause =
       sessionFailure !== undefined && baseCause === "clean" ? "failed" : baseCause;
-    for (const settle of pendingNativeReceipts.values()) {
-      settle({ disposition: "rejected", reason: "closed" });
+    for (const command of awaitingReceipt.values()) {
+      command.settle?.({ disposition: "rejected", reason: "closed" });
     }
-    pendingNativeReceipts.clear();
+    awaitingReceipt.clear();
+    // A refusal or death resolves every outstanding interrupt explicitly.
+    for (const token of [...pendingInterrupts.keys()]) {
+      settleInterrupt(token, { state: "rejected", reason: "closed" });
+    }
     if (popeyePending.length > 0) {
       const dropped = popeyePending.splice(0);
       // Popeye already reported started, so its buffered send needs a turn
@@ -813,7 +1126,7 @@ export const openSession = (
       if (sessionInput.kind === "popeye-rpc-prompt") {
         if (activeTurn === null) {
           const first = dropped[0];
-          if (first !== undefined) startTurn(first.input.id);
+          if (first !== undefined) startTurn(first);
         }
         const ids = dropped.map((pending) => pending.input.id);
         void routeEvent({
@@ -822,23 +1135,26 @@ export const openSession = (
         });
       }
     }
-    if (pendingIds.length > 0) {
-      const droppedIds = [...pendingIds];
-      const droppedLengths = [...pendingLengths];
+    if (pendingTurns.length > 0) {
+      const dropped = pendingTurns.splice(0);
+      const droppedIds = dropped.map((command) => command.input.id);
+      const droppedLengths = dropped.map((command) => command.input.text.length);
       void routeEvent({
         kind: "error",
-        message: `${pendingIds.length} pending send(s) died with the session: ${droppedIds.join(", ")}`,
+        message: `${dropped.length} pending send(s) died with the session: ${droppedIds.join(", ")}`,
       });
       log({
         event: "sends_dropped",
         sessionId: opts.sessionId,
-        count: pendingIds.length,
+        count: dropped.length,
         ids: droppedIds,
         lengths: droppedLengths,
       });
-      pendingIds.length = 0;
-      pendingLengths.length = 0;
     }
+    // Issue #425: the supervisor's credential-access observation settles
+    // before the tail fallback; reduction applies precedence. A stall keeps
+    // its authority.
+    const credential = stalled ? null : sup.credentialAccessFailure(exitCode);
     // A turn still open when the process died settles its provisional
     // terminal error here (pi stopReason error the turn never superseded).
     // Both the failure record and the events enqueue synchronously -
@@ -856,18 +1172,25 @@ export const openSession = (
         void routeEvent(event);
         void routeEvent({ kind: "failure", ...failure });
       }
+      if (credential !== null) void pushFailure(credential);
       // Issue #341: an open turn at a crash exit gets run mode's
       // stderr-tail verdict. Unlike run mode, done.cause stays crash for
       // every class.
       if (cause === "crash" && turnFailures.length === 0) {
         void pushFailure(failureFromStderrTail(h, exitCode, stderrTail.snapshot()));
       }
-    } else if (sessionFailure === undefined && (cause === "crash" || cause === "limit")) {
+    } else {
       // Between-turn walls are parked events, not stderr tail. Never reuse
       // turnFailures here: it still holds the last completed turn's verdict.
-      sessionFailure = reduceFailures(
-        preTurnEvents.filter((event) => event.kind === "failure").map(summaryOf),
-      );
+      const parked =
+        sessionFailure === undefined && (cause === "crash" || cause === "limit")
+          ? preTurnEvents.filter((event) => event.kind === "failure").map(summaryOf)
+          : [];
+      sessionFailure = reduceFailures([
+        ...(sessionFailure === undefined ? [] : [sessionFailure]),
+        ...parked,
+        ...(credential === null ? [] : [credential]),
+      ]);
       if (sessionFailure === undefined && cause === "crash") {
         sessionFailure = failureFromStderrTail(h, exitCode, stderrTail.snapshot());
       }
@@ -957,25 +1280,52 @@ export const openSession = (
         if (!closing && !dead) void close(false);
       }
     })(),
+    controls,
     send(input: SessionInput): SessionSendResult {
       if (dead || closing) throw new SessionClosedError();
+      // Issue #426: an explicit mode the descriptor does not list is refused
+      // before anything is written or registered; the session stays usable.
+      if (input.delivery !== undefined && !controls.deliveryModes.includes(input.delivery)) {
+        log({
+          event: "send",
+          sessionId: opts.sessionId,
+          turnId: activeTurnId,
+          inputId: input.id,
+          delivery: input.delivery,
+          disposition: "rejected",
+          reason: "unsupported-delivery",
+        });
+        return { disposition: "rejected", reason: "unsupported-delivery" };
+      }
       const wasBusy = activeTurn !== null;
+      const command: SentCommand = {
+        token: String(++commandSeq),
+        input,
+        // Claude: every frame carries a native uuid so the records answering
+        // it tell a merged input, a queued input's own turn and background
+        // output apart. It is private correlation metadata; omitted delivery
+        // still sets no priority, so native behavior is unchanged.
+        ...(uuidCorrelated ? { uuid: randomUUID() } : {}),
+      };
       // Popeye sends before the create response - and codex sends before
       // the thread-open response - wait for identity; the flush replays
       // them with the minted session/thread id bound.
       if (buffersSendsBeforeIdentity(sessionInput) && state.lastSeenId === null) {
-        popeyePending.push({ input });
+        popeyePending.push(command);
         if (sessionInput.kind === "codex-jsonrpc") {
           // The receipt registration exists from now, so the flushed
           // write settles THIS promise.
-          const settled = new Promise<SessionSendResult>((resolve) => {
-            pendingNativeReceipts.set(input.id, resolve);
-          });
-          return { disposition: "started", settled };
+          return { disposition: "started", settled: awaitReceipt(command) };
         }
         return { disposition: "started" };
       }
-      const written = writeUser(input, wasBusy);
+      let written: ReturnType<typeof writeUser>;
+      try {
+        written = writeUser(command, wasBusy);
+      } catch (cause) {
+        if (!(cause instanceof SessionInputRefusalError)) throw cause;
+        return { disposition: "rejected", reason: "unsupported-delivery" };
+      }
       if (!written.written) {
         log({
           event: "send",
@@ -988,29 +1338,82 @@ export const openSession = (
         return { disposition: "rejected", reason: "write-failed" };
       }
       if (wasBusy) {
-        // Codex and Pi steer into the running turn; queued inputs on the
-        // other protocols identify a later native turn.
+        // Codex and Pi deliver into the running turn (pi receipts say when
+        // a raced send started a run of its own); inputs on the other
+        // protocols identify a later native turn, or - claude explicit
+        // delivery - the turn whose records name their uuid.
         if (sessionInput.kind !== "codex-jsonrpc" && sessionInput.kind !== "pi-rpc-prompt") {
-          pendingIds.push(input.id);
-          pendingLengths.push(input.text.length);
+          pendingTurns.push(command);
         }
       } else if (sessionInput.kind !== "codex-jsonrpc") {
         // Codex opens its hcn turn when the native receipt confirms the
         // turn/start request (command-accepted below); writing the turn
         // open at send time would leave a stuck empty turn on a refusal.
-        startTurn(input.id);
+        // A pi prompt may run nothing (handled), so its turn is provisional
+        // until the harness shows a run. A claude send's turn is
+        // provisional until a record names its uuid: background output can
+        // run first.
+        startTurn(command, {
+          provisional: uuidCorrelated || publishesTurnOnRunEvidence(sessionInput.kind),
+        });
       }
       log({
         event: "send",
         sessionId: opts.sessionId,
         turnId: activeTurnId,
         inputId: input.id,
+        ...(input.delivery === undefined ? {} : { delivery: input.delivery }),
         disposition: "started",
       });
       return {
         disposition: "started",
         ...(written.settled === undefined ? {} : { settled: written.settled }),
       };
+    },
+    interrupt(request: { readonly id: string }): SessionInterruptResult {
+      const rejected = (
+        reason: "unsupported" | "closed" | "write-failed",
+      ): SessionInterruptResult => {
+        log({
+          event: "interrupt",
+          sessionId: opts.sessionId,
+          id: request.id,
+          state: "rejected",
+          reason,
+        });
+        return { state: "rejected", reason };
+      };
+      if (!controls.interrupt.supported) return rejected("unsupported");
+      if (dead || closing) return rejected("closed");
+      const token = String(++commandSeq);
+      let line: string;
+      try {
+        line = encodeSessionInterrupt(sessionInput, token);
+      } catch (cause) {
+        if (!(cause instanceof SessionInputRefusalError)) throw cause;
+        return rejected("unsupported");
+      }
+      try {
+        stdin.write(line);
+      } catch {
+        // The same broken-pipe path a send takes: nothing more can reach
+        // the child, so the session ends through the exit path.
+        void routeEvent({ kind: "error", message: "interrupt failed: session stdin is gone" });
+        closing = true;
+        sup.escalate();
+        return rejected("write-failed");
+      }
+      const settled = new Promise<SessionInterruptReceipt>((resolve) => {
+        pendingInterrupts.set(token, { abortedSeen: false, awaitingSettlement: false, resolve });
+      });
+      log({
+        event: "interrupt",
+        sessionId: opts.sessionId,
+        turnId: activeTurnId,
+        id: request.id,
+        state: "requested",
+      });
+      return { state: "requested", settled };
     },
     close,
   };
