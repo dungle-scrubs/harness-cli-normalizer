@@ -132,7 +132,9 @@ export interface TurnSupervisor {
   settle(): void;
   /** Classify one stderr line: a limit wall becomes a limit event plus a
    * failure, an auth wall a failure plus an error event, anything else
-   * goes to the tail. Returns the limit code when the line was a limit. */
+   * goes to the tail. The credential-access auth kind (issue #425) is the
+   * exception among auth walls: it stays in the tail for the nonzero-exit
+   * classification, because the exit code rides in its summary. */
   stderrLine(line: string): Promise<void>;
   /** A decoded event passed by: the last assistant message is where the
    * protocol says the hcn-question block lives (tracked in ask mode). */
@@ -209,7 +211,11 @@ export const superviseTurn = (
         return;
       }
       const auth = detectAuthFailureInLine(h, line);
-      if (auth !== null) {
+      // Existing auth walls fail the turn at once and drop the line. The
+      // credential-access kind (issue #425) is the exception: its exit code
+      // is part of the summary, so the line stays in the tail and
+      // classification waits for the nonzero exit (failureFromStderrTail).
+      if (auth !== null && auth !== "credential-access") {
         await io.fail(failureFromAuth(auth));
         await io.emit({ kind: "error", message: `auth wall: ${auth}` });
         return;

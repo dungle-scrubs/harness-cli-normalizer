@@ -206,6 +206,28 @@ export const failureFromAuth = (kind: AuthFailureKind): FailureSummary => ({
   authKind: kind,
 });
 
+/** Issue #425: cursor holds credentials it cannot read - the macOS login
+ * keychain is locked in the context the run executed in (an SSH login, a
+ * headless service account). Class `auth`, kind `credential-access`, the
+ * family's retryable convention: no verdict on the work ran, so routing
+ * the same work elsewhere is safe. The message keeps the captured native
+ * sentence (redacted, bounded) and the actual exit code as data, and the
+ * remedy asks the OWNER to restore credential access in that same context:
+ * hcn never unlocks keychains or enters passwords, and an unlock from a
+ * different shell or SSH session is not guaranteed to reach this one. The
+ * single owner of that text - the terminal-error classifier and the
+ * stderr-tail scan both route here. */
+export const failureFromCredentialAccess = (
+  nativeMessage: string,
+  nativeExitCode: number | null,
+): FailureSummary => ({
+  class: "auth",
+  retryable: retryableOf("auth"),
+  message: `Authentication failed (credential-access: ${redactBounded(nativeMessage, 512)}) - the owner must restore cursor credential access in the context this run executed in; hcn never unlocks keychains or enters passwords, and an unlock from a different shell or SSH session is not guaranteed to reach that context`,
+  authKind: "credential-access",
+  ...(nativeExitCode === null ? {} : { nativeExitCode }),
+});
+
 /** Whether a summary is a limit failure (rate-limit, usage-limit, quota):
  * the classes a limit wall decodes to. Consumers that classify outside the
  * limit-event path use this to record the wall the same way. */
@@ -236,6 +258,7 @@ export const failureFromTerminalError = (
   clock?: Pick<Clock, "now" | "utcOffsetMinutes">,
 ): FailureSummary => {
   const auth = detectAuthFailureInLine(h, message);
+  if (auth === "credential-access") return failureFromCredentialAccess(message, null);
   if (auth !== null) return failureFromAuth(auth);
   const limit = detectLimitInLine(h, message);
   if (limit !== null) return failureFromLimit(limit, message, resetsAtInLine(message, clock));
@@ -409,17 +432,25 @@ export const failureFromTrust = (detail?: string): FailureSummary => ({
   message: messageFor("trust-refused", detail),
 });
 
-/** The post-queue nonzero-exit tail scan (stream-turn.ts): transport first,
- * then unavailable, then the trust gate, then the native fallthrough, and
- * transport on an empty tail (a silent nonzero exit reads as environment,
- * not harness judgment). One owner so the precedence is unit-tested
- * directly; the supervisor per-line check usually fires first, so the
- * trust arm here is defense-in-depth. */
+/** The post-queue nonzero-exit tail scan (stream-turn.ts): a
+ * credential-access auth phrasing first (issue #425 - the supervisor
+ * retains it in the tail, so this is where it classifies, with the exit
+ * code in the summary), then transport, then unavailable, then the trust
+ * gate, then the native fallthrough, and transport on an empty tail (a
+ * silent nonzero exit reads as environment, not harness judgment). One
+ * owner so the precedence is unit-tested directly; the supervisor
+ * per-line check usually fires first for every wall but this one, so the
+ * trust arm here is defense-in-depth. Auth-first mirrors
+ * failureFromTerminalError and PRECEDENCE (auth outranks transport). */
 export const failureFromStderrTail = (
   h: HarnessDescriptor,
   exitCode: number | null,
   tail: readonly string[],
 ): FailureSummary => {
+  const credentialLine = tail.find(
+    (line) => detectAuthFailureInLine(h, line) === "credential-access",
+  );
+  if (credentialLine !== undefined) return failureFromCredentialAccess(credentialLine, exitCode);
   const transportLine = tail.find((line) => detectTransportInLine(line));
   const unavailableLine = tail.find((line) => detectUnavailableInLine(line));
   const trustLine = tail.find((line) => detectTrustRefusal(h, line));

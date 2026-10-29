@@ -96,7 +96,13 @@ the turn with failure class `trust-refused` (retryable - route the work
 elsewhere or to a trusted directory). Trust a directory by running
 `agent` there once outside hcn; `--autonomy` renders `--force`, which
 bypasses the gate per run without persisting trust. hcn never passes
-`--trust`. Effort on cursor resolves into the
+`--trust`. A locked macOS login keychain (exit 1, stderr `Your macOS
+login keychain is locked.`) fails the turn as `auth` with `authKind:
+credential-access` and the exit code in `nativeExitCode`: the owner must
+restore cursor credential access in the context the run executed in -
+never unlock a keychain or enter a password on the run's behalf, and an
+unlock from a different shell or SSH session is not guaranteed to reach
+that context. Effort on cursor resolves into the
 `--model` slug through per-family ladders (`--model gpt-5.2 --effort high`
 runs `gpt-5.2-high`); a bare family stem without `--effort` refuses, and
 only arg-tier `--effort` enforces. `--access read` selects native ask mode

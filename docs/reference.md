@@ -451,7 +451,7 @@ if (done.failure) {
 }
 ```
 
-`nativeExitCode` is the harness process's own exit code. It is set on a `native` failure and on the `transport` failure hcn reports for a nonzero exit with empty stderr. hcn masks secret-shaped tokens (`sk-` followed by 8 or more letters, digits, `_` or `-`; `token=`, `key=`, `secret=`, `password=` pairs become `[redacted]`) in the stderr text it puts in a failure message for a nonzero exit, of every class, and in run mode's stderr-tail `error` event, before the length bound. Decoded terminal errors and hcn's logs carry the harness text unchanged. Identifiers (session UUIDs, model ids, paths) are kept verbatim because they are what the log exists to correlate.
+`nativeExitCode` is the harness process's own exit code. It is set on a `native` failure, on the `transport` failure hcn reports for a nonzero exit with empty stderr, and on the `auth`/`credential-access` failure cursor's locked-keychain stderr produces (classified at the nonzero exit so the code is known). hcn masks secret-shaped tokens (`sk-` followed by 8 or more letters, digits, `_` or `-`; `token=`, `key=`, `secret=`, `password=` pairs become `[redacted]`) in the stderr text it puts in a failure message for a nonzero exit, of every class, and in run mode's stderr-tail `error` event, before the length bound. Decoded terminal errors and hcn's logs carry the harness text unchanged. Identifiers (session UUIDs, model ids, paths) are kept verbatim because they are what the log exists to correlate.
 
 A harness writes each record on one output line, and a whole reply (reasoning included) can ride on one line. hcn reads lines up to 16,777,216 characters on every stdout and stderr stream of a run or a session. A longer line is discarded and is never silent: it fails the run (or the session turn it lands in) with a `transport` failure whose message starts `output line overflow:` and names the stream and the line's size in UTF-8 bytes.
 
@@ -611,9 +611,10 @@ as hcn 0.9.8 emitted them for one send:
   fallback; a limit wall keeps cause `limit`. A session turn
   still open when the harness exits nonzero with no failure already
   recorded and exit cause `crash` falls
-  back to the same stderr-tail classification run mode uses (transport,
-  unavailable, then trust phrasings first; otherwise `native` with the
-  tail; `transport` on an empty tail), and the failure event lands inside
+  back to the same stderr-tail classification run mode uses (cursor's
+  locked-keychain auth phrasing first - it keeps the native sentence and
+  exit code; then transport, unavailable, and trust phrasings; otherwise
+  `native` with the tail; `transport` on an empty tail), and the failure event lands inside
   the dying turn before its `done`. The matching `done.cause` stays
   `crash`, and `closed.failure` carries the same summary. A limit wall
   on stderr still ends the turn as `limit`. A refused prompt (pi's

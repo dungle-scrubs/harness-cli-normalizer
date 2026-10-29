@@ -149,8 +149,15 @@ export type LimitCode =
 
 /** Auth walls are separate from usage limits because the remedy is entirely
  * different (re-auth vs wait), and a detached process misreading one as the
- * other sends the human to fix the wrong thing. */
-export type AuthFailureKind = "not-logged-in" | "expired" | "invalid-key";
+ * other sends the human to fix the wrong thing. `credential-access` (issue
+ * #425, cursor only): the harness holds credentials it cannot READ in its
+ * execution context - cursor stores auth in the macOS login keychain, which
+ * is locked in contexts like an SSH login. Unlike the other kinds it is
+ * classified at the harness's nonzero exit, not per-line, because the exit
+ * code is part of the summary; the native sentence rides in the message and
+ * the remedy names the owner acting in that same context (see
+ * failureFromCredentialAccess). */
+export type AuthFailureKind = "not-logged-in" | "expired" | "invalid-key" | "credential-access";
 
 /** Compaction states (ADR 0009). Closed, like `LimitCode`, so a consumer
  * branches with no default arm. A member exists only where a caller would do
