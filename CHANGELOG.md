@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.11](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.10...v0.9.11) (2026-10-30)
+
+
+### Added
+
+* expose native session controls and fix credential reporting ([#427](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/427)) ([ab7d61c](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/ab7d61cd61e85c909ac3ec67ee287eefb1b19f65))
+
 ## [0.9.10](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.9...v0.9.10) (2026-10-20)
 
 

@@ -1,6 +1,6 @@
 {
   "name": "@dungle-scrubs/harness-cli-normalizer",
-  "version": "0.9.10",
+  "version": "0.9.11",
   "description": "A unified interface across multiple coding agents.",
   "license": "MIT",
   "author": "Kevin Frilot",
