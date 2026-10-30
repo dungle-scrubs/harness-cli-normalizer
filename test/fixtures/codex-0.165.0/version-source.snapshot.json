@@ -1,0 +1,10 @@
+{
+  "version": "0.165.0",
+  "latest": "0.165.0",
+  "versionSource": {
+    "kind": "npm",
+    "package": "@openai/codex"
+  },
+  "install": "task-isolated npm --prefix at evidence/harness-refresh/native-tools (global install remains 0.162.1, untouched)",
+  "checkedAt": "2026-10-29"
+}

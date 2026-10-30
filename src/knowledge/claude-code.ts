@@ -1,8 +1,8 @@
 /**
  * The claude-code descriptor: facts about the `claude` CLI as data, verified
- * against claude 2.1.304 (test/fixtures/claude-2.1.304), with historical
- * context/decode evidence in test/fixtures/claude-2.1.288 and
- * claude-2.1.296, and the 00-chat-substrate spike evidence (A-001,
+ * against claude 2.1.312 (test/fixtures/claude-2.1.312), with historical
+ * context/decode evidence in test/fixtures/claude-2.1.288, claude-2.1.296 and
+ * claude-2.1.304, and the 00-chat-substrate spike evidence (A-001,
  * A-002, A-005). No process logic lives here.
  *
  * Discovery: claude 2.1.233 has no isolated instruction-file toggle.
@@ -29,7 +29,7 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
   name: "claude",
   transcript: CLAUDE_TRANSCRIPT,
   bin: "claude",
-  verifiedAgainst: "2.1.304",
+  verifiedAgainst: "2.1.312",
   versionSource: { kind: "npm", package: "@anthropic-ai/claude-code" },
   launch: {
     baseFlags: ["-p"],
@@ -191,6 +191,9 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
   // A failed compaction reports through the status record's
   // `compact_result`. Claude has been observed sending two `compacting`
   // records for one compaction, so a counting consumer counts ends.
+  // Re-probed on 2.1.312 (test/fixtures/claude-2.1.312): the same sequence,
+  // status=compacting, compact_result=success, compact_boundary, then the
+  // summary and the answer.
   compactionReporting: {
     source: "stream",
     states: ["started", "compacted", "failed"],
@@ -222,7 +225,7 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
   // re-emitted identity's observedOn from it.
   escalation: {
     supported: true,
-    observedOn: { harness: "claude", model: "sonnet", version: "2.1.304", date: "2026-10-20" },
+    observedOn: { harness: "claude", model: "sonnet", version: "2.1.312", date: "2026-10-29" },
   },
   turnOptions: {
     // CLAUDE_CODE_AUTO_COMPACT_WINDOW takes precedence over this flag.

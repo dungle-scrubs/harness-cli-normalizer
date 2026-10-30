@@ -1,0 +1,4 @@
+{"type":"thread.started","thread_id":"01a18727-6644-70e2-a47c-6066a807a18c"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"HERON-CODEX-420"}}
+{"type":"turn.completed","usage":{"input_tokens":96776,"cached_input_tokens":34048,"cache_write_input_tokens":0,"output_tokens":65,"reasoning_output_tokens":30}}

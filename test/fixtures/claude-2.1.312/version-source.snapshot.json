@@ -1,0 +1,10 @@
+{
+  "version": "2.1.312",
+  "latest": "2.1.312",
+  "versionSource": {
+    "kind": "npm",
+    "package": "@anthropic-ai/claude-code"
+  },
+  "install": "global (~/.local/bin/claude)",
+  "checkedAt": "2026-10-29"
+}
