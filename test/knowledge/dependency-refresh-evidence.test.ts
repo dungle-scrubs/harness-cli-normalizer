@@ -35,11 +35,11 @@ const textOf = (events: readonly HarnessEvent[]): string =>
     .join("\n")
     .trim();
 
-// Fresh and question captures across both verification generations. Rows
-// marked `current` are the anchors the descriptors point at (issue 416,
-// 2026-10-20); the earlier rows are history that must keep decoding, with
-// their own capture date. Assertions comparing a capture to its
-// descriptor's current anchor run only for current rows.
+// Fresh and question captures across all verification generations. Rows
+// marked `current` are the anchors the descriptors point at (issue 420,
+// 2026-10-29); the earlier rows are history that must keep decoding, with
+// their own capture date and their own literal version. Assertions comparing
+// a capture to its descriptor's current anchor run only for current rows.
 const freshQuestionCaptures: {
   harness: HarnessDescriptor;
   directory: string;
@@ -88,16 +88,31 @@ const freshQuestionCaptures: {
     directory: "claude-2.1.304",
     version: "2.1.304",
     date: "2026-10-20",
-    current: true,
+    current: false,
   },
   {
     harness: codexCli,
     directory: "codex-0.163.0",
     version: "0.163.0",
     date: "2026-10-20",
+    current: false,
+  },
+  { harness: piCli, directory: "pi-1.3.0", version: "1.3.0", date: "2026-10-20", current: false },
+  {
+    harness: claudeCode,
+    directory: "claude-2.1.312",
+    version: "2.1.312",
+    date: "2026-10-29",
     current: true,
   },
-  { harness: piCli, directory: "pi-1.3.0", version: "1.3.0", date: "2026-10-20", current: true },
+  {
+    harness: codexCli,
+    directory: "codex-0.165.0",
+    version: "0.165.0",
+    date: "2026-10-29",
+    current: true,
+  },
+  { harness: piCli, directory: "pi-1.4.0", version: "1.4.0", date: "2026-10-29", current: true },
 ];
 
 test.each(freshQuestionCaptures)(
@@ -122,7 +137,7 @@ test.each(freshQuestionCaptures)(
   },
 );
 
-// Completed-compaction and later-process recall captures across both
+// Completed-compaction and later-process recall captures across all
 // generations. `version` is the capture's own version-source reading, which
 // stays the capture's own after the descriptor anchors move on.
 test.each([
@@ -146,6 +161,13 @@ test.each([
     marker: "HERON-CLAUDE-1010",
   },
   { harness: piCli, directory: "pi-1.3.0", version: "1.3.0", marker: "HERON-PI-1010" },
+  {
+    harness: claudeCode,
+    directory: "claude-2.1.312",
+    version: "2.1.312",
+    marker: "HERON-CLAUDE-420",
+  },
+  { harness: piCli, directory: "pi-1.4.0", version: "1.4.0", marker: "HERON-PI-420" },
 ])(
   "$directory completed compaction and later-process recall decode",
   ({ harness, directory, version, marker }) => {
@@ -174,12 +196,11 @@ test("Antigravity 1.3.2 historical compaction and recall remain decodable", () =
   });
 });
 
-// Codex local store metadata, both generations: the 0.163.0 row pins its
-// version to the descriptor anchor; the 0.162.1 row is history with its own
-// literal version.
+// Codex local store metadata, the row-level generations: the 0.163.0 row and
+// the 0.162.1 row are history with their own literal versions.
 test.each([
   { directory: "codex-0.162.1", version: "0.162.1" },
-  { directory: "codex-0.163.0", version: codexCli.verifiedAgainst },
+  { directory: "codex-0.163.0", version: "0.163.0" },
 ])(
   "$directory local store metadata and later-process recall retain their evidence limits",
   ({ directory, version }) => {
@@ -197,12 +218,13 @@ test.each([
   },
 );
 
-// Pi RPC compaction, both generations; the 1.3.0 row also pins the
+// Pi RPC compaction, every generation; the 1.3.0 and 1.4.0 rows also pin the
 // installed-compactions snapshot.
 test.each([
-  { directory: "pi-1.1.0", installed: false },
-  { directory: "pi-1.3.0", installed: true },
-])("$directory RPC compaction still reports one completion", ({ directory, installed }) => {
+  { directory: "pi-1.1.0", installed: false, marker: "HERON-PI-1010" },
+  { directory: "pi-1.3.0", installed: true, marker: "HERON-PI-1010" },
+  { directory: "pi-1.4.0", installed: true, marker: "HERON-PI-420" },
+])("$directory RPC compaction still reports one completion", ({ directory, installed, marker }) => {
   const events = decoded(piCli, directory, "compaction-rpc.ndjson");
   expect(
     events.filter((event) => event.kind === "compaction" && event.state === "compacted"),
@@ -210,15 +232,16 @@ test.each([
   if (installed) {
     const installedCompactions = JSON.parse(read(directory, "installed-compactions.snapshot.json"));
     expect(installedCompactions).toHaveLength(1);
-    expect(installedCompactions[0].summary).toContain("HERON-PI-1010");
+    expect(installedCompactions[0].summary).toContain(marker);
   }
 });
 
-// Claude native accounting, both generations; the 2.1.304 row also pins the
-// source-unchanged hash snapshot.
+// Claude native accounting, every generation; the 2.1.304 and 2.1.312 rows
+// also pin the source-unchanged hash snapshot.
 test.each([
   { directory: "claude-2.1.296", totalTokens: 2778, hashes: false },
   { directory: "claude-2.1.304", totalTokens: 2565, hashes: true },
+  { directory: "claude-2.1.312", totalTokens: 3104, hashes: true },
 ])(
   "$directory native accounting preserves the used count and input limit",
   ({ directory, totalTokens, hashes }) => {
@@ -238,6 +261,10 @@ test.each([
     expect(resumed).toMatchObject({ status: "available", inputLimitTokens: 967000 });
     if (resumed.status !== "available") throw new Error("Missing resumed accounting");
     expect(resumed.totalTokens).toBeGreaterThan(totalTokens);
+    if (directory === "claude-2.1.312") {
+      // The resumed fork counts the recalled history the fresh probe lacks.
+      expect(resumed.totalTokens).toBe(18269);
+    }
     if (hashes) {
       const hashesSnapshot = JSON.parse(read(directory, "accounting-source-hashes.snapshot.json"));
       // The self-reported `unchanged` flag alone would let a changed `after`
@@ -320,6 +347,126 @@ test("claude-2.1.304 accounting proofs stage the exact prompt without assistant 
     expect(proof.frames).toContainEqual({ type: "result", subtype: "success", num_turns: 0 });
     expect(proof.records.terminalResult).toMatchObject({ subtype: "success", num_turns: 0 });
     const usageLine = JSON.parse(read("claude-2.1.304", `${label}.native.ndjson`));
+    expect(proof.records.usageControlResponse).toEqual(usageLine);
+    expect(contextInspectionOf(usageLine.response.response)).toEqual(proof.result);
+    for (const digest of Object.values(proof.recordDigests))
+      expect(digest).toMatch(/^[0-9a-f]{64}$/);
+  }
+  // The resume probe is a true fork of the seed session, not the same one,
+  // and it counts the recalled history the fresh probe does not have.
+  const resumedId = resume.proof.argv[resume.proof.argv.indexOf("--resume") + 1];
+  expect(resume.proof.records.terminalResult.session_id).not.toBe(resumedId);
+  expect(resume.proof.records.terminalResult.session_id).not.toBe(
+    fresh.proof.records.terminalResult.session_id,
+  );
+  expect(resume.proof.result.totalTokens).toBeGreaterThan(fresh.proof.result.totalTokens);
+});
+
+// The 0.165.0 compacted rows nest their content under `payload`, so the
+// 0.163.0 row-level extractor no longer describes them. The new schema gets
+// its own assertion; the earlier snapshots keep theirs.
+// The pi 1.4.0 threshold compaction numbers, in JSON and RPC mode. The
+// thresholds are lowered probe settings, so the counts are observations, not
+// capacity claims.
+test("pi-1.4.0 compaction carries the native before and after token counts", () => {
+  const compactionOf = (directory: string, file: string) =>
+    decoded(piCli, directory, file).filter(
+      (event) => event.kind === "compaction" && event.state === "compacted",
+    );
+  expect(compactionOf("pi-1.4.0", "compaction.ndjson")).toEqual([
+    {
+      kind: "compaction",
+      state: "compacted",
+      trigger: "auto",
+      tokensBefore: 77335,
+      tokensAfter: 19994,
+    },
+  ]);
+  expect(compactionOf("pi-1.4.0", "compaction-rpc.ndjson")).toEqual([
+    {
+      kind: "compaction",
+      state: "compacted",
+      trigger: "auto",
+      tokensBefore: 77411,
+      tokensAfter: 20135,
+    },
+  ]);
+});
+
+test("codex-0.165.0 local store metadata reads the payload-nested compaction schema", () => {
+  const metadata = JSON.parse(read("codex-0.165.0", "native-store-metadata.snapshot.json"));
+  expect(metadata).toMatchObject({
+    standing: "local-agent-observed-metadata",
+    completion: { payloadType: "item_completed", itemType: "ContextCompaction", atLeast: 2 },
+    installedReplacement: { recordType: "compacted", type: "array", nonempty: true },
+  });
+  expect(metadata.compactedRows).toHaveLength(2);
+  for (const row of metadata.compactedRows) {
+    expect(row).toMatchObject({
+      replacement_history_type: "array",
+      replacement_history_nonempty: true,
+      latest_token_usage_present: true,
+      has_window_links: true,
+    });
+    expect(row.replacement_history_items).toBeGreaterThan(0);
+  }
+  expect(metadata.compactedRows.map((row: { window_number: number }) => row.window_number)).toEqual(
+    [1, 2],
+  );
+  expect(metadata.limits).toContain(
+    "large rows were truncated; complete replacement contents and window links were not inspected",
+  );
+  expect(textOf(decoded(codexCli, "codex-0.165.0", "later-recall.ndjson"))).toBe("HERON-CODEX-420");
+});
+
+// The 2.1.312 probes staged the same synthetic prompt shape with this
+// generation's own sentinel, and appended the tool isolation once.
+const stagedAccountingPrompt420 =
+  "Do not execute this staged synthetic task. PENDING-ONLY-420." +
+  " Additional accounting data.".repeat(100);
+
+test("claude-2.1.312 accounting proofs stage the exact prompt without assistant execution", () => {
+  const proofOf = (label: string) =>
+    JSON.parse(read("claude-2.1.312", `${label}.proof.snapshot.json`));
+  const fresh = { label: "accounting-fresh", resumed: false, proof: proofOf("accounting-fresh") };
+  const resume = { label: "accounting-resume", resumed: true, proof: proofOf("accounting-resume") };
+  for (const { label, resumed, proof } of [fresh, resume]) {
+    expect(proof.stagedPrompt).toBe(stagedAccountingPrompt420);
+    const resumeIndex = proof.argv.indexOf("--resume");
+    expect(resumeIndex >= 0).toBe(resumed);
+    const argv = buildContextInspectionArgv(claudeCode, {
+      model: "claude-sonnet-5-5",
+      prompt: { explicit: true, text: proof.stagedPrompt },
+      discovery: { extensions: false, skills: false },
+      ...(resumed ? { resume: proof.argv[resumeIndex + 1] } : {}),
+    });
+    expect([...argv, ...probeToolIsolation, "--system-prompt", recallSystemPrompt]).toEqual(
+      proof.argv,
+    );
+    expect(argv).toContain("--no-session-persistence");
+    expect(argv.includes("--fork-session")).toBe(resumed);
+    // Exactly one replayed user frame in the whole recording, carrying the
+    // complete staged prompt; no assistant frame exists anywhere.
+    expect(proof.frames.filter((frame: { type: string }) => frame.type === "user")).toEqual([
+      { type: "user", subtype: null, isReplay: true },
+    ]);
+    expect(proof.records.replayedUserMessage).toMatchObject({
+      type: "user",
+      isReplay: true,
+      message: { role: "user", content: proof.stagedPrompt },
+    });
+    expect(proof.frames.some((frame: { type: string }) => frame.type === "assistant")).toBe(false);
+    // The terminal result reports a clean zero-turn finish, and the copied
+    // usage control response is exactly the committed accounting line.
+    expect(proof.frames).toContainEqual(
+      expect.objectContaining({ type: "result", subtype: "success", num_turns: 0 }),
+    );
+    expect(proof.records.terminalResult).toMatchObject({
+      type: "result",
+      subtype: "success",
+      num_turns: 0,
+    });
+    const usageLine = JSON.parse(read("claude-2.1.312", `${label}.native.ndjson`));
     expect(proof.records.usageControlResponse).toEqual(usageLine);
     expect(contextInspectionOf(usageLine.response.response)).toEqual(proof.result);
     for (const digest of Object.values(proof.recordDigests))

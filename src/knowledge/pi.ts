@@ -1,6 +1,7 @@
 /**
  * The pi descriptor: facts about the `pi` CLI as data, verified against
- * pi 1.3.0 (test/fixtures/pi-1.3.0; pi-1.1.0 kept as the prior anchor).
+ * pi 1.4.0 (test/fixtures/pi-1.4.0; pi-1.3.0 and pi-1.1.0 kept as the prior
+ * anchors).
  * Descriptor groundwork only (D-003). The load-bearing scars:
  * pi reads stdin even in -p mode (a backgrounded call without `< /dev/null`
  * hangs forever), it auto-discovers instruction files/skills/extensions
@@ -15,7 +16,7 @@ export const piCli: HarnessDescriptor = deepFreeze({
   name: "pi",
   transcript: PI_TRANSCRIPT,
   bin: "pi",
-  verifiedAgainst: "1.3.0",
+  verifiedAgainst: "1.4.0",
   versionSource: { kind: "npm", package: "@earendil-works/pi-coding-agent" },
   launch: {
     // -p --mode json: bare -p prints plain text; --mode json emits the
@@ -169,6 +170,13 @@ export const piCli: HarnessDescriptor = deepFreeze({
   // probe's reserveTokens rose to 480000 because 1.3.0 gives
   // openai-codex/gpt-6.1-sol a 500K context window, so the old 256000
   // reserve no longer crossed the trigger.
+  // 1.4.0 re-probe: reproduced (test/fixtures/pi-1.4.0/VERIFICATION.md) with
+  // zai/glm-5.3, in JSON and RPC mode. The probe's settings nested the
+  // compaction thresholds under a `compaction` object
+  // (compaction.reserveTokens 950000, compaction.keepRecentTokens 500) and
+  // added --approve. That nested shape is probe configuration observed on
+  // 1.4.0, not a proven behaviour change in 1.4.0; the top-level
+  // reserveTokens key did not fire on this machine.
   // Three forcing configurations: project .pi/settings.json with
   // reserveTokens 950k and 5M (plus keepRecentTokens 500 and --approve)
   // both fired threshold compaction inside one hcn-shaped resume turn
@@ -227,9 +235,9 @@ export const piCli: HarnessDescriptor = deepFreeze({
     supported: true,
     observedOn: {
       harness: "pi",
-      model: "openai-codex/gpt-6.1-sol",
-      version: "1.3.0",
-      date: "2026-10-20",
+      model: "zai/glm-5.3",
+      version: "1.4.0",
+      date: "2026-10-29",
     },
   },
   turnOptions: {
