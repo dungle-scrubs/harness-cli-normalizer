@@ -354,6 +354,56 @@ describe("issue #429: claude interruption over the wire", () => {
     expect(code).toBe(0);
   });
 
+  test("a late acknowledgement reports the turn it was written for, not the turn running when it lands", async () => {
+    const r = rig(claudeCode);
+    const success = (requestId: unknown) =>
+      JSON.stringify({
+        type: "control_response",
+        response: { subtype: "success", request_id: requestId, response: { still_queued: [] } },
+      });
+    await tick();
+    r.send({ op: "send", id: "A", text: "work" });
+    await tick();
+    const a = r.stdin().at(-1) as Record<string, unknown>;
+    r.proc.emitLine(init(a.uuid, ["interrupt_receipt_v1"]));
+    await tick();
+    r.send({ op: "interrupt", id: "I1" });
+    await tick();
+    const i1 = r.stdin().at(-1) as Record<string, unknown>;
+    // A completes naturally before I1's acknowledgement.
+    r.proc.emitLine(result(a.uuid, { subtype: "success", terminal_reason: "completed" }));
+    await tick();
+    r.send({ op: "send", id: "B", text: "next" });
+    await tick();
+    const b = r.stdin().at(-1) as Record<string, unknown>;
+    r.proc.emitLine(init(b.uuid, ["interrupt_receipt_v1"]));
+    r.proc.emitLine(success(i1.request_id));
+    await tick();
+    r.send({ op: "interrupt", id: "I2" });
+    await tick();
+    const i2 = r.stdin().at(-1) as Record<string, unknown>;
+    r.proc.emitLine(success(i2.request_id));
+    r.proc.emitLine(
+      result(b.uuid, {
+        subtype: "error_during_execution",
+        is_error: true,
+        terminal_reason: "aborted_streaming",
+      }),
+    );
+    await tick();
+    r.input.end();
+    expect(await r.done).toBe(0);
+    const receipts = r.events().filter((e) => e.kind === "interruption" && e.state !== "requested");
+    expect(receipts).toEqual(
+      expect.arrayContaining([
+        { kind: "interruption", id: "I1", state: "not-active" },
+        { kind: "interruption", id: "I2", state: "interrupted" },
+      ]),
+    );
+    expect(receipts).toHaveLength(2);
+    expect(r.sig.sent).toEqual([]);
+  });
+
   test("a process that does not advertise receipts refuses interrupt with nothing written", async () => {
     const r = rig(claudeCode);
     await tick();

@@ -488,14 +488,15 @@ Commands (stdin, one JSON object per line; blank lines ignored):
 ```
 
 `send` and `answer` also accept optional `delivery: "queue"` or `"steer"`.
-Read `controls.deliveryModes` and `controls.interrupt.supported` from the
-session packet before requesting controls. `hcn inspect <h> --capabilities`
-reports `sessionControls` as potential support; null means no persistent
-session. A session reports what its process supports: Claude interrupt starts
-`false` and follows the process's `system/init`, and each change re-announces
-`identity` with the same session id. Use the latest
-`identity.capabilities.sessionControls` after the session packet.
-Missing fields mean the build does not advertise these controls.
+Before requesting a control, read `deliveryModes` and `interrupt.supported`
+from the latest `identity.capabilities.sessionControls`; until the first
+`identity` arrives, use the session packet's `controls`. `hcn inspect <h>
+--capabilities` reports `sessionControls` as potential support; null means no
+persistent session. A session reports what its process supports: Claude
+interrupt starts `false` and stays unavailable until the process advertises
+`interrupt_receipt_v1` on its `system/init`, and each change re-announces
+`identity` with the same session id. Missing fields mean the build does not
+advertise these controls.
 
 | Rule | Detail |
 |---|---|
@@ -524,7 +525,10 @@ request emits `interruption` state `requested`. Wait for its terminal state:
 `interrupted` confirms a native aborted run; `not-active` means work settled
 normally or none was active; `rejected` carries `unsupported`, `closed`,
 `write-failed` or `native-rejected`. An immediate refusal has no `requested`
-phase. A native success response alone does not confirm interruption.
+phase. A native success response alone does not confirm interruption. The
+receipt describes the turn running when the request was written: a request
+written while idle, or whose turn settled normally before the acknowledgement, is
+`not-active` even if a later turn is running or aborted by then.
 
 After the terminal receipt, send the replacement instruction on the same
 session. Interrupting keeps the process and conversation. Native queued

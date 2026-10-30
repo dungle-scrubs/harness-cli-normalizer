@@ -27,7 +27,6 @@ import {
 } from "../interpretation/capabilities.js";
 import { composeEscalatedPrompt, type QuestionMode } from "../interpretation/question.js";
 import {
-  advertisesInterrupt,
   correlatesByInputUuid,
   decodeSessionRecord,
   encodeIdentityProbe,
@@ -37,6 +36,7 @@ import {
   publishesTurnOnRunEvidence,
   readInputUuids,
   readInterruptAdvertisement,
+  requiresInterruptAdvertisement,
   resolveSessionInput,
   SessionInputRefusalError,
 } from "../interpretation/session-input.js";
@@ -229,16 +229,27 @@ interface SentCommand {
   settle?: (result: SessionSendResult) => void;
 }
 
+/** The outcome a settled target run gives an accepted interrupt. */
+type TargetSettlement = SessionInterruptReceipt & { readonly state: "interrupted" | "not-active" };
+
+/** Where an interrupt stands. Until the harness answers it, the target's
+ * settlement may already have arrived (a natural completion can precede the
+ * acknowledgement) and is held for the answer; once accepted, only the
+ * target's own settlement decides the receipt. */
+type InterruptPhase =
+  | { readonly kind: "awaiting-receipt"; readonly settlement: TargetSettlement | null }
+  | { readonly kind: "awaiting-settlement" };
+
 /** An interrupt request written to the harness and not yet settled. */
 interface PendingInterrupt {
   /** The caller's request id, for the log lines that correlate the request
    * with its outcome. */
   readonly id: string;
-  /** A settlement reporting an aborted run arrived after the request. */
-  abortedSeen: boolean;
-  /** The harness accepted the command while a run was still live; the next
-   * settlement decides the receipt. */
-  awaitingSettlement: boolean;
+  /** The turn live when the request was written, or null when idle. Caller
+   * ids repeat and the published turn id is assigned late (a provisional
+   * turn has none yet), so the turn is held by its own channel. */
+  readonly target: AsyncChannel<HarnessEvent> | null;
+  phase: InterruptPhase;
   readonly resolve: (receipt: SessionInterruptReceipt) => void;
 }
 
@@ -351,7 +362,7 @@ export const openSession = (
   // says so (claude system/init), and each later init can change it.
   const controlsWith = (advertised: boolean): SessionControlsCapability =>
     advertised ? potentialControls : { ...potentialControls, interrupt: { supported: false } };
-  let controls = controlsWith(!advertisesInterrupt(sessionInput.kind));
+  let controls = controlsWith(!requiresInterruptAdvertisement(sessionInput.kind));
   // The last identity routed, stamped with the controls current then: a
   // later change re-announces it.
   let lastIdentity: (HarnessEvent & { kind: "identity" }) | null = null;
@@ -467,14 +478,18 @@ export const openSession = (
     });
     pending.resolve(receipt);
   };
-  /** A run settled. An aborted settlement after a request is the harness's
-   * own confirmation; a request the harness accepted while the run was
-   * live settles on this outcome. */
-  const observeSettlement = (aborted: boolean): void => {
+  /** The run of `turn` settled. It decides only the requests written while
+   * that turn was live: an accepted one settles now, an unanswered one holds
+   * the first outcome for its answer. Another turn's settlement never
+   * touches them. */
+  const observeSettlement = (turn: AsyncChannel<HarnessEvent> | null, aborted: boolean): void => {
+    if (turn === null) return;
+    const settlement: TargetSettlement = { state: aborted ? "interrupted" : "not-active" };
     for (const [token, pending] of [...pendingInterrupts]) {
-      if (aborted) pending.abortedSeen = true;
-      if (pending.awaitingSettlement) {
-        settleInterrupt(token, { state: aborted ? "interrupted" : "not-active" });
+      if (pending.target !== turn) continue;
+      if (pending.phase.kind === "awaiting-settlement") settleInterrupt(token, settlement);
+      else if (pending.phase.settlement === null) {
+        pending.phase = { kind: "awaiting-receipt", settlement };
       }
     }
   };
@@ -598,11 +613,12 @@ export const openSession = (
    * not-active now. */
   const retireProvisionalTurn = (): void => {
     if (activeTurn === null || activeTurnPublished) return;
+    const retired = activeTurn;
     sup.disarm();
     sup.close();
     activeTurn.close();
     clearActiveTurn();
-    observeSettlement(false);
+    observeSettlement(retired, false);
   };
 
   const endTurn = (
@@ -952,8 +968,11 @@ export const openSession = (
             const opened = activeTurn !== null && activeTurnOpener === command;
             command.settle?.({ disposition: "started" });
             if (opened && !activeTurnOpenerAccepted) {
-              if (activeTurnPublished) endTurn({ kind: "done", exitCode: null, cause: "clean" });
-              else retireProvisionalTurn();
+              if (activeTurnPublished) {
+                const ending = activeTurn;
+                endTurn({ kind: "done", exitCode: null, cause: "clean" });
+                observeSettlement(ending, false);
+              } else retireProvisionalTurn();
             }
             return;
           }
@@ -984,14 +1003,15 @@ export const openSession = (
               id: pending.id,
               token: record.token,
             });
-          } else if (pending.abortedSeen) {
-            settleInterrupt(record.token, { state: "interrupted" });
-          } else if (activeTurn === null) {
-            // Accepted with no aborted settlement and no run live: the run
-            // had already settled normally, or there was none.
+          } else if (pending.phase.kind === "awaiting-settlement") {
+            // A repeated acknowledgement: the request is already bound.
+          } else if (pending.target === null) {
+            // Written while idle: whatever runs now is not its target.
             settleInterrupt(record.token, { state: "not-active" });
+          } else if (pending.phase.settlement !== null) {
+            settleInterrupt(record.token, pending.phase.settlement);
           } else {
-            pending.awaitingSettlement = true;
+            pending.phase = { kind: "awaiting-settlement" };
           }
           return;
         }
@@ -1036,7 +1056,7 @@ export const openSession = (
               await pushFailure(failure);
               // The refused input ran nothing and no settlement will follow:
               // an interrupt already accepted against it settles not-active.
-              observeSettlement(false);
+              observeSettlement(activeTurn, false);
               endTurn({ kind: "done", exitCode: null, cause: "clean" });
               return;
             }
@@ -1077,12 +1097,13 @@ export const openSession = (
             await routeDecoded(event);
           }
           if (record.isError) resultError = true;
+          const ending = activeTurn;
           endTurn({
             kind: "done",
             exitCode: null,
             cause: turnLimitSeen ? "limit" : resultError ? "crash" : "clean",
           });
-          observeSettlement(record.aborted === true);
+          observeSettlement(ending, record.aborted === true);
           return;
         }
         case "content": {
@@ -1092,7 +1113,7 @@ export const openSession = (
           // A model attestation decoded on this record postdates the probe
           // identity: re-announce so the turn's identity carries it.
           await reannounceIdentity();
-          await reannounceControls();
+          if (advertised !== null) await reannounceControls();
           return;
         }
         default: {
@@ -1436,6 +1457,10 @@ export const openSession = (
       if (!controls.interrupt.supported) return rejected("unsupported");
       if (dead || closing) return rejected("closed");
       const token = String(++commandSeq);
+      // Bound before the write: the harness may answer for this turn after
+      // another one has opened.
+      const target = activeTurn;
+      const targetTurnId = target !== null && activeTurnPublished ? activeTurnId : undefined;
       let line: string;
       try {
         line = encodeSessionInterrupt(sessionInput, token);
@@ -1456,15 +1481,15 @@ export const openSession = (
       const settled = new Promise<SessionInterruptReceipt>((resolve) => {
         pendingInterrupts.set(token, {
           id: request.id,
-          abortedSeen: false,
-          awaitingSettlement: false,
+          target,
+          phase: { kind: "awaiting-receipt", settlement: null },
           resolve,
         });
       });
       log({
         event: "interrupt",
         sessionId: opts.sessionId,
-        turnId: activeTurnId,
+        ...(targetTurnId === undefined ? {} : { turnId: targetTurnId }),
         id: request.id,
         token,
         state: "requested",

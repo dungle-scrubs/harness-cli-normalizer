@@ -759,10 +759,15 @@ in the caller. After writing the native request, hcn emits:
 
 Exactly one terminal receipt follows `requested`: `interrupted` when the harness
 reports an aborted run, `not-active` when work settled normally or no run was
-active, or `rejected` with reason `closed` or `native-rejected`. An already closed session,
+active, or `rejected` with reason `closed` or `native-rejected`. The receipt
+describes the turn that was running when hcn wrote the request, never a later
+one: a request written while idle reports `not-active`, and a target turn that
+settled normally before its acknowledgement reports `not-active` even if another turn
+is running or aborted when the acknowledgement arrives. An already closed session,
 unsupported interruption or failed write is rejected immediately, with reason
 `closed`, `unsupported` or `write-failed`. A successful native command response alone is not confirmation
-of interruption. An interrupt carrying `text` is malformed; send the replacement
+of interruption. Interrupt rejection logs carry correlation metadata, without native error text.
+An interrupt carrying `text` is malformed; send the replacement
 as a new `send` after the terminal receipt.
 
 In a Claude session, the native success response is an acknowledgement; a result with

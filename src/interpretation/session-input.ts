@@ -159,12 +159,16 @@ export const encodeSessionInterrupt = (input: SessionInputContract, token: strin
   }
 };
 
+const isClaudeSessionInput = (
+  kind: SessionInputKind | undefined,
+): kind is "claude-sdk-user-message" => kind === "claude-sdk-user-message";
+
 /** Issue #429: kinds whose interrupt support is a fact about the running
  * process, not the descriptor alone. Claude advertises it per process
  * (`interrupt_receipt_v1` in system/init `capabilities`), so the runner
  * reports interrupt unsupported until a record says otherwise. */
-export const advertisesInterrupt = (kind: SessionInputKind): boolean =>
-  kind === "claude-sdk-user-message";
+export const requiresInterruptAdvertisement = (kind: SessionInputKind): boolean =>
+  isClaudeSessionInput(kind);
 
 /** Issue #429: what a record says about the process's interrupt support:
  * null when it says nothing (anything but a claude system/init record),
@@ -174,7 +178,8 @@ export const readInterruptAdvertisement = (
   h: HarnessDescriptor,
   parsed: Record<string, unknown>,
 ): boolean | null => {
-  if (h.sessionMode === null || !advertisesInterrupt(h.sessionMode.input.kind)) return null;
+  if (h.sessionMode === null || !requiresInterruptAdvertisement(h.sessionMode.input.kind))
+    return null;
   if (parsed.type !== "system" || parsed.subtype !== "init") return null;
   const capabilities = parsed.capabilities;
   return (
@@ -193,7 +198,7 @@ export const readInputUuids = (
   h: HarnessDescriptor,
   parsed: Record<string, unknown>,
 ): readonly string[] => {
-  if (h.sessionMode?.input.kind !== "claude-sdk-user-message") return [];
+  if (!isClaudeSessionInput(h.sessionMode?.input.kind)) return [];
   const many = parsed.user_message_uuids;
   if (Array.isArray(many)) return many.filter((u): u is string => typeof u === "string");
   return typeof parsed.user_message_uuid === "string" ? [parsed.user_message_uuid] : [];
@@ -261,7 +266,7 @@ export const hasNativeReceipts = (kind: SessionInputKind): boolean =>
  * a uuid on every frame and opens a queued input's turn on a record naming
  * it; a turn record naming none is output no input opened. */
 export const correlatesByInputUuid = (kind: SessionInputKind): boolean =>
-  kind === "claude-sdk-user-message";
+  isClaudeSessionInput(kind);
 
 /** Issue #426: kinds where a written prompt can produce no run at all (pi
  * `handled`: an extension consumed it). The runner publishes such a turn
@@ -297,7 +302,6 @@ export type SessionRecord =
       readonly kind: "interrupt-answered";
       readonly token: string;
       readonly accepted: boolean;
-      readonly message?: string;
     }
   /** An rpc command hcn wrote was refused by the harness. */
   | { readonly inputId?: string; readonly kind: "command-failed"; readonly message: string }
@@ -421,7 +425,6 @@ export const decodeSessionRecord = (
             kind: "interrupt-answered",
             token,
             accepted: false,
-            message: `rpc command failed: "abort" - ${JSON.stringify(parsed.error ?? "unknown error")}`,
           };
     }
     const inputId =
@@ -494,7 +497,7 @@ export const decodeSessionRecord = (
     }
     return { kind: "content" };
   }
-  if (mode.input.kind === "claude-sdk-user-message" && parsed.type === "control_response") {
+  if (isClaudeSessionInput(mode.input.kind) && parsed.type === "control_response") {
     // Issue #429: only an answer bearing the interrupt marker is one; the
     // receipt's still_queued list is the harness's queue, never read here.
     const response = asRecord(parsed.response);
@@ -507,7 +510,6 @@ export const decodeSessionRecord = (
             kind: "interrupt-answered",
             token,
             accepted: false,
-            message: `control request failed: "interrupt" - ${JSON.stringify(response?.error ?? "unknown error")}`,
           };
     }
     return { kind: "ignored" };
@@ -516,7 +518,7 @@ export const decodeSessionRecord = (
     // Issue #429: a claude result ended by an interrupt is the native
     // confirmation of cancellation, with no error of its own.
     if (
-      mode.input.kind === "claude-sdk-user-message" &&
+      isClaudeSessionInput(mode.input.kind) &&
       (parsed.terminal_reason === "aborted_streaming" || parsed.terminal_reason === "aborted_tools")
     ) {
       return { kind: "turn-end", isError: false, aborted: true };
@@ -524,7 +526,7 @@ export const decodeSessionRecord = (
     // claude's result record carries is_error; pi's agent_settled has no
     // error flag of its own.
     const isError =
-      (mode.input.kind === "claude-sdk-user-message" && parsed.is_error === true) ||
+      (isClaudeSessionInput(mode.input.kind) && parsed.is_error === true) ||
       (mode.input.kind === "antigravity-stream-user" &&
         readPath(parsed, "result.status") !== "SUCCESS");
     return mode.input.kind === "pi-rpc-prompt" && parsed.aborted === true

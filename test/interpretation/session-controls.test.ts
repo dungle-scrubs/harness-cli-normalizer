@@ -8,7 +8,6 @@ import { describe, expect, test } from "vitest";
 import { capabilitiesOf, sessionControlsOf } from "../../src/interpretation/capabilities.js";
 import { contentEventsOf } from "../../src/interpretation/content.js";
 import {
-  advertisesInterrupt,
   correlatesByInputUuid,
   decodeSessionRecord,
   encodeSessionInput,
@@ -16,6 +15,7 @@ import {
   publishesTurnOnRunEvidence,
   readInputUuids,
   readInterruptAdvertisement,
+  requiresInterruptAdvertisement,
   SessionInputRefusalError,
 } from "../../src/interpretation/session-input.js";
 import { antigravityCli } from "../../src/knowledge/antigravity.js";
@@ -191,7 +191,6 @@ describe("decoded control records", () => {
       kind: "interrupt-answered",
       token: "7",
       accepted: false,
-      message: 'rpc command failed: "abort" - "no"',
     });
     // An abort hcn did not write is protocol bookkeeping.
     expect(
@@ -267,7 +266,6 @@ describe("issue #429: claude interruption records", () => {
       kind: "interrupt-answered",
       token: "7",
       accepted: false,
-      message: 'control request failed: "interrupt" - "no turn"',
     });
   });
 
@@ -328,7 +326,7 @@ describe("issue #429: claude interruption records", () => {
   test("only claude gates its interrupt on the running process's advertisement", () => {
     expect(
       SESSION_HARNESSES.filter(
-        (h) => h.sessionMode !== null && advertisesInterrupt(h.sessionMode.input.kind),
+        (h) => h.sessionMode !== null && requiresInterruptAdvertisement(h.sessionMode.input.kind),
       ).map((h) => h.name),
     ).toEqual([claudeCode.name]);
   });

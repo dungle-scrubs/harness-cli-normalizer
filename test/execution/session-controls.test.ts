@@ -780,6 +780,224 @@ describe("issue #429: claude interruption is two-phase and settles on native obs
   );
 });
 
+/** Issue #429: one harness's interrupt wire, behind the shapes the binding
+ * tests share. Pi and claude settle receipts through the same runner path. */
+interface InterruptWire {
+  readonly name: string;
+  readonly descriptor: HarnessDescriptor;
+  /** Open a turn whose run has started natively; finish settles that run. */
+  readonly open: (
+    r: ReturnType<typeof rig>,
+    id: string,
+  ) => Promise<{ turn: SessionTurn; finish: (aborted: boolean) => void }>;
+  /** Write an interrupt; wire is the native request id it carries. */
+  readonly interrupt: (
+    r: ReturnType<typeof rig>,
+    id: string,
+  ) => { settled: Promise<unknown>; wire: unknown };
+  readonly accept: (wire: unknown) => string;
+}
+const requestedOrThrow = (r: ReturnType<typeof rig>, id: string) => {
+  const requested = r.session.interrupt({ id });
+  if (requested.state !== "requested") throw new Error(`expected requested: ${requested.state}`);
+  return requested;
+};
+const PI_WIRE: InterruptWire = {
+  name: "pi",
+  descriptor: piCli,
+  open: async (r, id) => {
+    const turn = await startPiTurn(r, id);
+    return { turn, finish: (aborted) => r.proc.emitLine(piSettled(aborted)) };
+  },
+  interrupt: (r, id) => {
+    const requested = requestedOrThrow(r, id);
+    return { settled: requested.settled, wire: lastStdin(r.proc).id };
+  },
+  accept: (wire) => piAbortResponse(wire),
+};
+const CLAUDE_WIRE: InterruptWire = {
+  name: "claude",
+  descriptor: claudeCode,
+  open: async (r, id) => {
+    const { turn, uuid } = await startClaudeTurn(r, id);
+    return {
+      turn,
+      finish: (aborted) =>
+        r.proc.emitLine(aborted ? claudeAborted([uuid]) : claudeCompleted([uuid])),
+    };
+  },
+  interrupt: (r, id) => {
+    const requested = requestedOrThrow(r, id);
+    return { settled: requested.settled, wire: lastStdin(r.proc).request_id };
+  },
+  accept: (wire) => claudeInterruptResponse(wire),
+};
+/** An idle session that supports interrupt. Claude advertises receipts on
+ * init, so a completed seed turn establishes support first. */
+const idleSession = async (wire: InterruptWire) => {
+  const r = rig(wire.descriptor);
+  if (wire === CLAUDE_WIRE) {
+    const seed = await wire.open(r, "seed");
+    seed.finish(false);
+    await drainTurn(seed.turn);
+  }
+  return r;
+};
+const outcome = (aborted: boolean) => (aborted ? "interrupted" : "not-active");
+
+describe.each([CLAUDE_WIRE, PI_WIRE])(
+  "issue #429: $name receipts bind to the turn live when the request was written",
+  (wire) => {
+    // The two traces reproduced through the built CLI (cross-turn repro).
+    test("trace 1: the target completed before a late acknowledgement; a later aborted turn confirms only its own request", async () => {
+      const r = await idleSession(wire);
+      const a = await wire.open(r, "A");
+      const i1 = wire.interrupt(r, "I1");
+      a.finish(false);
+      await drainTurn(a.turn);
+      const b = await wire.open(r, "B");
+      r.proc.emitLine(wire.accept(i1.wire));
+      const i2 = wire.interrupt(r, "I2");
+      r.proc.emitLine(wire.accept(i2.wire));
+      b.finish(true);
+      await drainTurn(b.turn);
+      expect(await i1.settled).toEqual({ state: "not-active" });
+      expect(await i2.settled).toEqual({ state: "interrupted" });
+      await r.session.close();
+    });
+
+    test("trace 2: an idle request acknowledged while a later turn runs is not-active", async () => {
+      const r = await idleSession(wire);
+      const i1 = wire.interrupt(r, "I1");
+      const b = await wire.open(r, "B");
+      r.proc.emitLine(wire.accept(i1.wire));
+      expect(await i1.settled).toEqual({ state: "not-active" });
+      const i2 = wire.interrupt(r, "I2");
+      r.proc.emitLine(wire.accept(i2.wire));
+      expect(await settledYet(i2.settled)).toBe(false);
+      b.finish(true);
+      await drainTurn(b.turn);
+      expect(await i2.settled).toEqual({ state: "interrupted" });
+      await r.session.close();
+    });
+
+    // Every acknowledgement position against the target's settlement, with a
+    // later turn settling either way: the receipt is always the target's.
+    const positions = ["target-live", "between", "later-live", "later-settled"] as const;
+    test.each(
+      positions.flatMap((position) =>
+        [true, false].flatMap((targetAborted) =>
+          [true, false].map((laterAborted) => ({ position, targetAborted, laterAborted })),
+        ),
+      ),
+    )(
+      "ack $position, target aborted=$targetAborted, later aborted=$laterAborted",
+      async ({ position, targetAborted, laterAborted }) => {
+        const r = await idleSession(wire);
+        const a = await wire.open(r, "A");
+        const i1 = wire.interrupt(r, "I1");
+        if (position === "target-live") {
+          r.proc.emitLine(wire.accept(i1.wire));
+          expect(await settledYet(i1.settled)).toBe(false);
+        }
+        a.finish(targetAborted);
+        await drainTurn(a.turn);
+        if (position === "between") r.proc.emitLine(wire.accept(i1.wire));
+        const b = await wire.open(r, "B");
+        if (position === "later-live") r.proc.emitLine(wire.accept(i1.wire));
+        b.finish(laterAborted);
+        await drainTurn(b.turn);
+        if (position === "later-settled") r.proc.emitLine(wire.accept(i1.wire));
+        expect(await i1.settled).toEqual({ state: outcome(targetAborted) });
+        await r.session.close();
+        expect(r.log.filter((e) => e.event === "interrupt_settled")).toHaveLength(1);
+      },
+    );
+
+    test.each([
+      { position: "later-live", laterAborted: true },
+      { position: "later-live", laterAborted: false },
+      { position: "later-settled", laterAborted: true },
+      { position: "later-settled", laterAborted: false },
+    ])(
+      "an idle request acknowledged $position (later aborted=$laterAborted) is not-active",
+      async ({ position, laterAborted }) => {
+        const r = await idleSession(wire);
+        const i1 = wire.interrupt(r, "I1");
+        const b = await wire.open(r, "B");
+        if (position === "later-live") r.proc.emitLine(wire.accept(i1.wire));
+        b.finish(laterAborted);
+        await drainTurn(b.turn);
+        if (position === "later-settled") r.proc.emitLine(wire.accept(i1.wire));
+        expect(await i1.settled).toEqual({ state: "not-active" });
+        await r.session.close();
+      },
+    );
+
+    test("a reused caller id on two turns keeps each request bound to its own turn", async () => {
+      const r = await idleSession(wire);
+      const a = await wire.open(r, "A");
+      const first = wire.interrupt(r, "same");
+      a.finish(false);
+      await drainTurn(a.turn);
+      const b = await wire.open(r, "B");
+      const second = wire.interrupt(r, "same");
+      b.finish(true);
+      await drainTurn(b.turn);
+      // Acknowledged out of order, after both turns settled.
+      r.proc.emitLine(wire.accept(second.wire));
+      r.proc.emitLine(wire.accept(first.wire));
+      expect(await first.settled).toEqual({ state: "not-active" });
+      expect(await second.settled).toEqual({ state: "interrupted" });
+      await r.session.close();
+      const requested = r.log.filter((e) => e.event === "interrupt" && e.state === "requested");
+      const settled = r.log.filter((e) => e.event === "interrupt_settled");
+      expect(settled.map((e) => [e.id, e.token, e.state])).toEqual([
+        ["same", requested[1]?.token, "interrupted"],
+        ["same", requested[0]?.token, "not-active"],
+      ]);
+    });
+
+    test("a duplicate acknowledgement neither retargets the request nor settles it twice", async () => {
+      const r = await idleSession(wire);
+      const a = await wire.open(r, "A");
+      const i1 = wire.interrupt(r, "I1");
+      r.proc.emitLine(wire.accept(i1.wire));
+      r.proc.emitLine(wire.accept(i1.wire));
+      a.finish(false);
+      await drainTurn(a.turn);
+      expect(await i1.settled).toEqual({ state: "not-active" });
+      const b = await wire.open(r, "B");
+      r.proc.emitLine(wire.accept(i1.wire));
+      b.finish(true);
+      await drainTurn(b.turn);
+      await r.session.close();
+      expect(r.log.filter((e) => e.event === "interrupt_settled")).toEqual([
+        expect.objectContaining({ id: "I1", state: "not-active" }),
+      ]);
+    });
+  },
+);
+
+describe("issue #429: pi turns that end with no run settlement", () => {
+  test("a request against a published turn that pi handles settles not-active on a late acknowledgement", async () => {
+    const r = rig(piCli);
+    const send = r.session.send({ id: "s1", text: "/cmd" });
+    r.proc.emitLine(piAssistant("EARLY-OUTPUT"));
+    const turn = (await r.turns.next()).value as SessionTurn;
+    const i1 = PI_WIRE.interrupt(r, "I1");
+    r.proc.emitLine(piReceipt(r.proc.lastSendRequestId(), "handled"));
+    expect(await send.settled).toEqual({ disposition: "started" });
+    await drainTurn(turn);
+    const b = await PI_WIRE.open(r, "B");
+    r.proc.emitLine(PI_WIRE.accept(i1.wire));
+    expect(await i1.settled).toEqual({ state: "not-active" });
+    b.finish(true);
+    await drainTurn(b.turn);
+    await r.session.close();
+  });
+});
+
 describe("issue #426: a pi turn is published on native run evidence only", () => {
   test("handled with no output publishes no turn, then a real prompt opens turn 1", async () => {
     const r = rig(piCli);
