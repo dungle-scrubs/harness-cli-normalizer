@@ -50,7 +50,11 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm build
       - run: pnpm test
+        env:
+          HCN_CURSOR_STAGE_TRACE_DIR: ${{ runner.temp }}/hcn-cursor-stage-traces
       - run: pnpm test:bun
+        env:
+          HCN_CURSOR_STAGE_TRACE_DIR: ${{ runner.temp }}/hcn-cursor-stage-traces
       - run: pnpm check:skill
       - run: pnpm check:package
 
@@ -62,6 +66,15 @@ jobs:
         run: |
           npm install --global npm@latest
           pnpm check:package
+
+      - name: Upload Cursor overflow stage traces
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cursor-overflow-stage-traces
+          path: ${{ runner.temp }}/hcn-cursor-stage-traces/*.jsonl
+          if-no-files-found: ignore
+          retention-days: 7
 
   release-please:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
