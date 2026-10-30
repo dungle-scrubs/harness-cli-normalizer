@@ -27,6 +27,7 @@ import {
 } from "../interpretation/capabilities.js";
 import { composeEscalatedPrompt, type QuestionMode } from "../interpretation/question.js";
 import {
+  advertisesInterrupt,
   correlatesByInputUuid,
   decodeSessionRecord,
   encodeIdentityProbe,
@@ -35,6 +36,7 @@ import {
   hasNativeReceipts,
   publishesTurnOnRunEvidence,
   readInputUuids,
+  readInterruptAdvertisement,
   resolveSessionInput,
   SessionInputRefusalError,
 } from "../interpretation/session-input.js";
@@ -128,7 +130,11 @@ export interface SessionHandle {
    * Breaking out of THIS iterable closes the session; breaking out of a
    * single turn's iterable only stops reading that turn. */
   readonly turns: AsyncIterable<SessionTurn>;
-  /** The explicit controls this session's harness supports. */
+  /** The explicit controls this session supports now. Issue #429: claude
+   * interrupt support is what the running process advertised on its latest
+   * system/init, so it reads unsupported until then and can change; every
+   * change is re-announced on the identity event's
+   * capabilities.sessionControls. */
   readonly controls: SessionControlsCapability;
   send(input: SessionInput): SessionSendResult;
   /** Request cancellation of the active turn while the process continues.
@@ -225,6 +231,9 @@ interface SentCommand {
 
 /** An interrupt request written to the harness and not yet settled. */
 interface PendingInterrupt {
+  /** The caller's request id, for the log lines that correlate the request
+   * with its outcome. */
+  readonly id: string;
   /** A settlement reporting an aborted run arrived after the request. */
   abortedSeen: boolean;
   /** The harness accepted the command while a run was still live; the next
@@ -333,10 +342,19 @@ export const openSession = (
   const awaitingReceipt = new Map<string, SentCommand>();
   let commandSeq = 0;
   const uuidCorrelated = correlatesByInputUuid(sessionInput.kind);
-  const controls: SessionControlsCapability = sessionControlsOf(h) ?? {
+  const potentialControls: SessionControlsCapability = sessionControlsOf(h) ?? {
     deliveryModes: [],
     interrupt: { supported: false },
   };
+  // Issue #429: the descriptor states what the harness can do; a kind whose
+  // process advertises its interrupt support offers it only once a record
+  // says so (claude system/init), and each later init can change it.
+  const controlsWith = (advertised: boolean): SessionControlsCapability =>
+    advertised ? potentialControls : { ...potentialControls, interrupt: { supported: false } };
+  let controls = controlsWith(!advertisesInterrupt(sessionInput.kind));
+  // The last identity routed, stamped with the controls current then: a
+  // later change re-announces it.
+  let lastIdentity: (HarnessEvent & { kind: "identity" }) | null = null;
   const pendingInterrupts = new Map<string, PendingInterrupt>();
   // The id of the codex turn currently running NATIVELY (result.turn.id /
   // turn/steer's {turnId}), the steer precondition for the next mid-turn
@@ -440,7 +458,13 @@ export const openSession = (
     const pending = pendingInterrupts.get(token);
     if (pending === undefined) return;
     pendingInterrupts.delete(token);
-    log({ event: "interrupt_settled", sessionId: opts.sessionId, ...receipt });
+    log({
+      event: "interrupt_settled",
+      sessionId: opts.sessionId,
+      id: pending.id,
+      token,
+      ...receipt,
+    });
     pending.resolve(receipt);
   };
   /** A run settled. An aborted settlement after a request is the harness's
@@ -696,7 +720,14 @@ export const openSession = (
     return Promise.resolve();
   };
 
-  const routeEvent = (event: HarnessEvent): Promise<void> => {
+  const routeEvent = (incoming: HarnessEvent): Promise<void> => {
+    // Every identity carries the session's current controls, not the
+    // descriptor's potential ones (issue #429).
+    const event: HarnessEvent =
+      incoming.kind === "identity"
+        ? { ...incoming, capabilities: { ...incoming.capabilities, sessionControls: controls } }
+        : incoming;
+    if (event.kind === "identity") lastIdentity = event;
     // Claude run output with no turn open belongs to a native turn no send
     // opened: it gets an untagged turn of its own.
     if (activeTurn === null && uuidCorrelated && !dead && !closing && isRunOutput(event)) {
@@ -776,6 +807,15 @@ export const openSession = (
       authority,
       capabilities: capabilitiesWithObserved(),
     });
+  };
+  /** Issue #429: an init changed the controls the last identity carried:
+   * re-announce it (same session id and model) so a caller reading the
+   * latest identity sees what the process supports now. */
+  const reannounceControls = (): Promise<void> => {
+    if (lastIdentity === null) return Promise.resolve();
+    const announced = lastIdentity.capabilities.sessionControls?.interrupt.supported;
+    if (announced === controls.interrupt.supported) return Promise.resolve();
+    return routeEvent(lastIdentity);
   };
   const capabilitiesWithObserved = (): CapabilityResult => {
     const caps = capabilitiesOf(h, opts.model ?? "", "headless-session");
@@ -897,6 +937,8 @@ export const openSession = (
       // on the kind (ADR 0005: no harness field names here).
       const record = decodeSessionRecord(h, parsed);
       correlateInputUuids(parsed);
+      const advertised = readInterruptAdvertisement(h, parsed);
+      if (advertised !== null) controls = controlsWith(advertised);
       switch (record.kind) {
         case "command-accepted": {
           if (record.nativeTurnId !== undefined) activeNativeTurnId = record.nativeTurnId;
@@ -939,7 +981,8 @@ export const openSession = (
             log({
               event: "interrupt_rejected",
               sessionId: opts.sessionId,
-              message: record.message,
+              id: pending.id,
+              token: record.token,
             });
           } else if (pending.abortedSeen) {
             settleInterrupt(record.token, { state: "interrupted" });
@@ -1017,8 +1060,12 @@ export const openSession = (
           // session_id on result - a rotation announced there must not be
           // missed) and content decoding, which already surfaces a failed
           // result as an error event; the flag here only classifies the
-          // done cause.
+          // done cause. A typed aborted settlement is cancellation in a
+          // session; leave the generic reader's one-shot verdict unchanged.
           for (const event of decodeParsed(h, parsed, state, opts.model ?? "")) {
+            if (record.aborted === true && event.kind === "error" && event.terminal === true) {
+              continue;
+            }
             await routeDecoded(event);
           }
           // The turn is over: a provisional terminal error (pi stopReason
@@ -1045,6 +1092,7 @@ export const openSession = (
           // A model attestation decoded on this record postdates the probe
           // identity: re-announce so the turn's identity carries it.
           await reannounceIdentity();
+          await reannounceControls();
           return;
         }
         default: {
@@ -1280,7 +1328,9 @@ export const openSession = (
         if (!closing && !dead) void close(false);
       }
     })(),
-    controls,
+    get controls() {
+      return controls;
+    },
     send(input: SessionInput): SessionSendResult {
       if (dead || closing) throw new SessionClosedError();
       // Issue #426: an explicit mode the descriptor does not list is refused
@@ -1404,13 +1454,19 @@ export const openSession = (
         return rejected("write-failed");
       }
       const settled = new Promise<SessionInterruptReceipt>((resolve) => {
-        pendingInterrupts.set(token, { abortedSeen: false, awaitingSettlement: false, resolve });
+        pendingInterrupts.set(token, {
+          id: request.id,
+          abortedSeen: false,
+          awaitingSettlement: false,
+          resolve,
+        });
       });
       log({
         event: "interrupt",
         sessionId: opts.sessionId,
         turnId: activeTurnId,
         id: request.id,
+        token,
         state: "requested",
       });
       return { state: "requested", settled };

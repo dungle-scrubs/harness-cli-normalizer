@@ -158,7 +158,9 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
     questions: qMode,
     origin: a.origin,
     // Issue #426: the explicit delivery modes and interrupt support this
-    // session accepts, read once before the first command.
+    // session accepts, read once before the first command. Issue #429: on
+    // claude this is the state before the process advertised anything; later
+    // changes ride the identity event's capabilities.sessionControls.
     controls: a.handle.controls,
   });
 

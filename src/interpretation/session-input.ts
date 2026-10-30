@@ -139,11 +139,49 @@ export const encodeSessionInput = (
 };
 
 /** Issue #426: the native command that requests cancellation of the active
- * turn, correlated by the runner's internal token. Only pi rpc has one
- * verified (`abort`); every other kind refuses. */
+ * turn, correlated by the runner's internal token. Pi rpc writes `abort`;
+ * claude (issue #429) writes an `interrupt` control request without
+ * `cancel_queued`, so queued inputs stay with the harness. Every other kind
+ * refuses. */
 export const encodeSessionInterrupt = (input: SessionInputContract, token: string): string => {
-  if (input.kind !== "pi-rpc-prompt") throw new SessionInputRefusalError("unsupported-interrupt");
-  return `${JSON.stringify({ id: `${INTERRUPT_ID_PREFIX}${token}`, type: "abort" })}\n`;
+  const id = `${INTERRUPT_ID_PREFIX}${token}`;
+  switch (input.kind) {
+    case "pi-rpc-prompt":
+      return `${JSON.stringify({ id, type: "abort" })}\n`;
+    case "claude-sdk-user-message":
+      return `${JSON.stringify({
+        type: "control_request",
+        request_id: id,
+        request: { subtype: "interrupt" },
+      })}\n`;
+    default:
+      throw new SessionInputRefusalError("unsupported-interrupt");
+  }
+};
+
+/** Issue #429: kinds whose interrupt support is a fact about the running
+ * process, not the descriptor alone. Claude advertises it per process
+ * (`interrupt_receipt_v1` in system/init `capabilities`), so the runner
+ * reports interrupt unsupported until a record says otherwise. */
+export const advertisesInterrupt = (kind: SessionInputKind): boolean =>
+  kind === "claude-sdk-user-message";
+
+/** Issue #429: what a record says about the process's interrupt support:
+ * null when it says nothing (anything but a claude system/init record),
+ * else whether its capability list names `interrupt_receipt_v1`. A missing
+ * or malformed list grants nothing. */
+export const readInterruptAdvertisement = (
+  h: HarnessDescriptor,
+  parsed: Record<string, unknown>,
+): boolean | null => {
+  if (h.sessionMode === null || !advertisesInterrupt(h.sessionMode.input.kind)) return null;
+  if (parsed.type !== "system" || parsed.subtype !== "init") return null;
+  const capabilities = parsed.capabilities;
+  return (
+    Array.isArray(capabilities) &&
+    capabilities.every((capability) => typeof capability === "string") &&
+    capabilities.includes("interrupt_receipt_v1")
+  );
 };
 
 /** Issue #426: the native message uuids a claude record names as the
@@ -267,7 +305,8 @@ export type SessionRecord =
   | { readonly kind: "ignored" }
   /** The record that delimits a turn, with the harness's own error flag.
    * `aborted` is present when the harness reports the run was cancelled
-   * (pi agent_settled.aborted true). */
+   * (pi agent_settled.aborted true, claude result terminal_reason
+   * aborted_streaming or aborted_tools). */
   | { readonly kind: "turn-end"; readonly isError: boolean; readonly aborted?: true }
   /** Anything else: content for the stream decoder. */
   | { readonly kind: "content" };
@@ -455,7 +494,33 @@ export const decodeSessionRecord = (
     }
     return { kind: "content" };
   }
+  if (mode.input.kind === "claude-sdk-user-message" && parsed.type === "control_response") {
+    // Issue #429: only an answer bearing the interrupt marker is one; the
+    // receipt's still_queued list is the harness's queue, never read here.
+    const response = asRecord(parsed.response);
+    const requestId = response?.request_id;
+    if (typeof requestId === "string" && requestId.startsWith(INTERRUPT_ID_PREFIX)) {
+      const token = requestId.slice(INTERRUPT_ID_PREFIX.length);
+      return response?.subtype === "success"
+        ? { kind: "interrupt-answered", token, accepted: true }
+        : {
+            kind: "interrupt-answered",
+            token,
+            accepted: false,
+            message: `control request failed: "interrupt" - ${JSON.stringify(response?.error ?? "unknown error")}`,
+          };
+    }
+    return { kind: "ignored" };
+  }
   if (matchesTurnEnd(parsed, mode.turnEnd)) {
+    // Issue #429: a claude result ended by an interrupt is the native
+    // confirmation of cancellation, with no error of its own.
+    if (
+      mode.input.kind === "claude-sdk-user-message" &&
+      (parsed.terminal_reason === "aborted_streaming" || parsed.terminal_reason === "aborted_tools")
+    ) {
+      return { kind: "turn-end", isError: false, aborted: true };
+    }
     // claude's result record carries is_error; pi's agent_settled has no
     // error flag of its own.
     const isError =

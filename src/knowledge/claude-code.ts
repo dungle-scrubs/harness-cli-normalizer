@@ -97,10 +97,16 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     input: { kind: "claude-sdk-user-message" },
     // Issue #426, verified 2.1.312: priority "later" runs as a later native
     // turn, priority "next" can join the current turn (one result names both
-    // input uuids). Interruption is not verified: a successful interrupt
-    // response alone did not show confirmed cancellation with the same
-    // process continuing.
-    controls: { delivery: ["queue", "steer"], interrupt: null },
+    // input uuids). Issue #429: interruption is the native `interrupt`
+    // control request. This is the curated potential support; a running
+    // process offers it only once its system/init advertises
+    // interrupt_receipt_v1 (Agent SDK reference, SDKControlInterruptResponse).
+    // A success response only acknowledges the request; a result with
+    // terminal_reason aborted_streaming or aborted_tools confirms it.
+    controls: {
+      delivery: ["queue", "steer"],
+      interrupt: { toolCancellation: "best-effort" },
+    },
     turnEnd: { type: "result" },
     identityProbe: null,
   },

@@ -490,7 +490,11 @@ Commands (stdin, one JSON object per line; blank lines ignored):
 `send` and `answer` also accept optional `delivery: "queue"` or `"steer"`.
 Read `controls.deliveryModes` and `controls.interrupt.supported` from the
 session packet before requesting controls. `hcn inspect <h> --capabilities`
-reports the same data as `sessionControls`; null means no persistent session.
+reports `sessionControls` as potential support; null means no persistent
+session. A session reports what its process supports: Claude interrupt starts
+`false` and follows the process's `system/init`, and each change re-announces
+`identity` with the same session id. Use the latest
+`identity.capabilities.sessionControls` after the session packet.
 Missing fields mean the build does not advertise these controls.
 
 | Rule | Detail |
