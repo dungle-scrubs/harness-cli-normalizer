@@ -4,6 +4,7 @@
  * rather than against bytes this repository wrote by hand.
  */
 import { createHash } from "node:crypto";
+import type { StageListener } from "./cursor-stage-trace.js";
 
 interface Statement {
   run(...values: unknown[]): unknown;
@@ -14,16 +15,22 @@ interface Database {
   close(): unknown;
 }
 
-async function open(path: string): Promise<Database> {
+async function open(path: string, onStage?: StageListener): Promise<Database> {
   const bun = "bun:sqlite";
   const node = "node:sqlite";
   if ("Bun" in globalThis) {
+    onStage?.("import", "start");
     const { Database } = (await import(bun)) as { Database: new (path: string) => Database };
+    onStage?.("import", "end");
+    onStage?.("open", "start");
     return new Database(path);
   }
+  onStage?.("import", "start");
   const { DatabaseSync } = (await import(node)) as {
     DatabaseSync: new (path: string) => Database;
   };
+  onStage?.("import", "end");
+  onStage?.("open", "start");
   return new DatabaseSync(path);
 }
 
@@ -53,10 +60,14 @@ export interface CursorStore {
   readonly encryptionKey?: string;
   /** Raw blobs stored under their SHA-256, such as hand-built earlier roots. */
   readonly extraBlobs?: readonly Uint8Array[];
+  /** Stage boundaries for the opt-in issue #388 trace; absent for ordinary use. */
+  readonly onStage?: StageListener;
 }
 
 /** Writes the store in WAL mode and checkpoints it, leaving an empty or absent WAL. */
 export async function writeCursorStore(path: string, store: CursorStore): Promise<string[]> {
+  const { onStage } = store;
+  onStage?.("preprocess", "start");
   const blobs = new Map<string, Uint8Array>();
   const ids = store.messages.map((message) => {
     const data = new TextEncoder().encode(JSON.stringify(message));
@@ -81,21 +92,36 @@ export async function writeCursorStore(path: string, store: CursorStore): Promis
     createdAt: 1789643942579,
     blobEncryptionKey: store.encryptionKey ?? "00".repeat(32),
   };
-  const db = await open(path);
+  onStage?.("preprocess", "end");
+  const db = await open(path, onStage);
   try {
+    onStage?.("open", "end");
+    onStage?.("journal-mode", "start");
     db.exec("PRAGMA journal_mode=WAL");
+    onStage?.("journal-mode", "end");
+    onStage?.("schema", "start");
     db.exec("CREATE TABLE blobs (id TEXT PRIMARY KEY, data BLOB)");
     db.exec("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT)");
+    onStage?.("schema", "end");
+    onStage?.("inserts", "start");
     const insert = db.prepare("INSERT INTO blobs (id, data) VALUES (?, ?)");
     for (const [id, data] of blobs) insert.run(id, data);
     db.prepare("INSERT INTO meta (key, value) VALUES (?, ?)").run(
       "0",
       Buffer.from(JSON.stringify(meta)).toString("hex"),
     );
+    onStage?.("inserts", "end");
     // Cursor closes with an empty WAL; some system SQLite builds keep the WAL at close.
+    onStage?.("checkpoint", "start");
     db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
+    onStage?.("checkpoint", "end");
   } finally {
-    db.close();
+    try {
+      onStage?.("close", "start");
+    } finally {
+      db.close();
+    }
+    onStage?.("close", "end");
   }
   return ids;
 }

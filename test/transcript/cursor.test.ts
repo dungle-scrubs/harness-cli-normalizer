@@ -10,6 +10,7 @@ import {
   normalizeCursor,
   parseCursorHistory,
 } from "../../src/interpretation/transcript/cursor.js";
+import { createStageTrace, type StageListener } from "./cursor-stage-trace.js";
 import { blobId, writeCursorStore, writeDatabase } from "./cursor-store.js";
 
 const agentId = "11111111-1111-4111-8111-111111111111";
@@ -53,10 +54,22 @@ afterEach(() => {
 async function store(
   messages: readonly unknown[],
   earlierRoots?: readonly (readonly number[])[],
+  onStage?: StageListener,
 ): Promise<{ bytes: Uint8Array; ids: string[]; path: string }> {
+  onStage?.("fixture-directory", "start");
   const path = join(directory(), "store.db");
-  const ids = await writeCursorStore(path, { agentId, messages, earlierRoots, encryptionKey: key });
-  return { bytes: readFileSync(path), ids, path };
+  onStage?.("fixture-directory", "end");
+  const ids = await writeCursorStore(path, {
+    agentId,
+    messages,
+    earlierRoots,
+    encryptionKey: key,
+    ...(onStage ? { onStage } : {}),
+  });
+  onStage?.("read-file", "start");
+  const bytes = readFileSync(path);
+  onStage?.("read-file", "end");
+  return { bytes, ids, path };
 }
 
 test("Cursor projects latest-root messages in order with exact originals and no encryption key", async () => {
@@ -93,14 +106,28 @@ test("Cursor projects latest-root messages in order with exact originals and no 
   expect(JSON.stringify(records[2]?.original)).toBe(JSON.stringify(assistant));
 });
 
+// Issue #388: HCN_CURSOR_STAGE_TRACE_DIR opts this test into a durable stage
+// trace, written outside the fixture directories that afterEach removes.
 test("Cursor reads overflow payloads and multi-level b-trees written by SQLite", async () => {
+  const trace = createStageTrace(process.env.HCN_CURSOR_STAGE_TRACE_DIR);
+  if (trace) console.error(`[hcn issue 388 stage trace] ${trace.path}`);
+  const mark = trace?.mark;
+  mark?.("test", "start");
+  mark?.("fixture", "start");
   const large = { role: "user", content: "☀".repeat(20000) };
   const many = Array.from({ length: 400 }, (_, index) => ({ role: "user", content: `m${index}` }));
-  const { bytes } = await store([large, ...many]);
-  const history = parseCursorHistory(frameCursorStore(bytes));
+  const { bytes } = await store([large, ...many], undefined, mark);
+  mark?.("fixture", "end");
+  mark?.("frame", "start");
+  const framed = frameCursorStore(bytes);
+  mark?.("frame", "end");
+  mark?.("parse", "start");
+  const history = parseCursorHistory(framed);
+  mark?.("parse", "end");
   expect(history.entries).toHaveLength(401);
   expect(history.entries[0]?.original.message).toEqual(large);
   expect(history.entries[400]?.original.message).toEqual({ role: "user", content: "m399" });
+  mark?.("test", "end");
 });
 
 test("Cursor refuses an earlier root the latest root does not extend", async () => {
