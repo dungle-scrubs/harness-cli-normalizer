@@ -1,0 +1,50 @@
+{
+  "standing": "local-agent-observed-metadata",
+  "route": "gpt-6-astra@codex-default",
+  "family": "gpt",
+  "privacy": "secret",
+  "source": "synthetic native rollout for the context probe session",
+  "completion": {
+    "recordType": "event_msg",
+    "payloadType": "item_completed",
+    "itemType": "ContextCompaction",
+    "lines": [
+      33,
+      57
+    ],
+    "atLeast": 2
+  },
+  "installedReplacement": {
+    "recordType": "compacted",
+    "type": "array",
+    "nonempty": true
+  },
+  "compactedRows": [
+    {
+      "line": 28,
+      "ordinal": 27,
+      "window_number": 1,
+      "replacement_history_type": "array",
+      "replacement_history_items": 8,
+      "replacement_history_nonempty": true,
+      "message_len": 0,
+      "latest_token_usage_present": true,
+      "has_window_links": true
+    },
+    {
+      "line": 52,
+      "ordinal": 51,
+      "window_number": 2,
+      "replacement_history_type": "array",
+      "replacement_history_items": 9,
+      "replacement_history_nonempty": true,
+      "message_len": 0,
+      "latest_token_usage_present": true,
+      "has_window_links": true
+    }
+  ],
+  "limits": [
+    "large rows were truncated; complete replacement contents and window links were not inspected",
+    "structural metadata only; no protected store content copied"
+  ]
+}

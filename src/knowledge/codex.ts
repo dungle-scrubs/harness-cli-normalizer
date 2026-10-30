@@ -1,8 +1,8 @@
 /**
  * The codex descriptor: facts about the `codex` CLI as data, verified
- * against codex-cli 0.163.0. Current native capability, question, and bounded
- * compaction evidence lives in test/fixtures/codex-0.163.0 (0.162.1 kept as
- * the prior anchor).
+ * against codex-cli 0.165.0. Current native capability, question, and bounded
+ * compaction evidence lives in test/fixtures/codex-0.165.0 (0.163.0 and
+ * 0.162.1 kept as the prior anchors).
  */
 import { deepFreeze, type HarnessDescriptor, type OptionRender, UUID_SHAPE } from "./descriptor.js";
 import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
@@ -20,7 +20,7 @@ export const codexCli: HarnessDescriptor = deepFreeze({
   name: "codex",
   transcript: CODEX_TRANSCRIPT,
   bin: "codex",
-  verifiedAgainst: "0.163.0",
+  verifiedAgainst: "0.165.0",
   versionSource: { kind: "npm", package: "@openai/codex" },
   launch: {
     // exec --json emits structured item events; without --json, identity
@@ -115,14 +115,14 @@ export const codexCli: HarnessDescriptor = deepFreeze({
   autonomy: { flag: "--yolo" },
   vocabulary: {
     modelFlag: "--model",
-    // Current native roster and effort probes: test/fixtures/codex-0.163.0
-    // (2026-10-20). That catalog omits gpt-5.5 from both its visible and
+    // Current native roster and effort probes: test/fixtures/codex-0.165.0
+    // (2026-10-29). That catalog omits gpt-5.5 from both its visible and
     // includeHidden lists (0.162.1 showed it hidden with a 2026-10-14
-    // retirement date), but its historical ladder - captured native on
-    // 0.160.0 - stays so older compatible codex installs keep working;
-    // native acceptance was not re-probed on 0.163.0. Native "ultra" and
-    // "none" remain outside hcn's closed effort vocabulary; the curated
-    // ladders stop at max.
+    // retirement date) and adds gpt-6.1-terra to the picker-visible roster,
+    // but its historical ladder - captured native on 0.160.0 - stays so older
+    // compatible codex installs keep working; native acceptance was not
+    // re-probed on 0.165.0. Native "ultra" and "none" remain outside hcn's
+    // closed effort vocabulary; the curated ladders stop at max.
     models: [
       "gpt-6.1-sol",
       "gpt-6-astra",
@@ -158,14 +158,22 @@ export const codexCli: HarnessDescriptor = deepFreeze({
   },
   contextInspection: null,
   // Codex core/session/turn.rs runs native automatic compaction; live
-  // compaction and later-process recall captured on 0.160.0.
+  // compaction and later-process recall captured on 0.160.0, and re-probed
+  // on 0.165.0 (test/fixtures/codex-0.165.0) at a lowered
+  // model_auto_compact_token_limit of 20000, a probe setting and not an
+  // HCN default. On 0.165.0 the rollout's `compacted` rows nest their
+  // content under `payload`; the row-level shape the 0.163.0 extractor read
+  // is gone. Both snapshots are kept, each with its own assertions.
   nativeContextManagement: { kind: "auto-compaction", modes: ["headless-turn"] },
   // Valid only in the `exec resume` context: `codex exec resume --last`
   // (re-verified on 0.154.0, 2026-09-17). No fork mechanism is probed on
   // codex, so none is rendered.
   // Codex compacts natively and reports nothing hcn can read: no record
   // on its stream marks the boundary. Null, so a caller knows silence
-  // here is absence of reporting, not absence of compaction.
+  // here is absence of reporting, not absence of compaction. Re-probed on
+  // 0.165.0: the compacting turn's stdout carried only thread.started,
+  // turn.started, item.completed and turn.completed, the same vocabulary as
+  // a non-compacting turn.
   compactionReporting: null,
   resumeLast: {
     flag: "--last",
@@ -203,8 +211,8 @@ export const codexCli: HarnessDescriptor = deepFreeze({
     observedOn: {
       harness: "codex",
       model: "gpt-6-astra",
-      version: "0.163.0",
-      date: "2026-10-20",
+      version: "0.165.0",
+      date: "2026-10-29",
     },
   },
   turnOptions: {
