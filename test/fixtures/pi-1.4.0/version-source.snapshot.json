@@ -1,0 +1,10 @@
+{
+  "version": "1.4.0",
+  "latest": "1.4.0",
+  "versionSource": {
+    "kind": "npm",
+    "package": "@earendil-works/pi-coding-agent"
+  },
+  "install": "managed (~/.pi/bin/pi)",
+  "checkedAt": "2026-10-29"
+}

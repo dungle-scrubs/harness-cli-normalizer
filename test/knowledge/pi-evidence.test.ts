@@ -9,7 +9,7 @@ const readHistorical = (file: string): string =>
   readFileSync(new URL(`../fixtures/pi-1.0.0/${file}`, import.meta.url), "utf8");
 
 const readCurrent = (file: string): string =>
-  readFileSync(new URL(`../fixtures/pi-1.3.0/${file}`, import.meta.url), "utf8");
+  readFileSync(new URL(`../fixtures/pi-1.4.0/${file}`, import.meta.url), "utf8");
 
 const decoded = (file: string): HarnessEvent[] => {
   const state = freshDecodeState(null);
