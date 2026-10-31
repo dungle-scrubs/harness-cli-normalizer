@@ -40,6 +40,35 @@ describe("F-07 terminal error record ends clean", () => {
     expect(done?.failure?.class).toBe("task");
   });
 
+  test.each(["aborted_streaming", "aborted_tools"])(
+    "one-shot Claude %s results retain their native task-failure verdict",
+    async (terminal_reason) => {
+      const proc = new FakeProcess();
+      const turn = streamTurn(claudeCode, { prompt: "hi" }, depsFor(proc));
+      proc.emitLine(
+        JSON.stringify({
+          type: "assistant",
+          message: { role: "assistant", content: [{ type: "text", text: "partial" }] },
+        }),
+      );
+      proc.emitLine(
+        JSON.stringify({
+          type: "result",
+          subtype: "error_during_execution",
+          is_error: true,
+          terminal_reason,
+        }),
+      );
+      proc.exit(0);
+      const events = await collect(turn);
+      expect(events.at(-1)).toMatchObject({
+        kind: "done",
+        cause: "failed",
+        failure: { class: "task" },
+      });
+    },
+  );
+
   test("replay pi-autherror.ndjson through streamTurn ends with task failure and cause failed", async () => {
     const raw = readFileSync(
       join(import.meta.dirname, "../fixtures/harnesses/pi-autherror.ndjson"),

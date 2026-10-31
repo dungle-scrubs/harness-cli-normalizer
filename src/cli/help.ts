@@ -239,7 +239,10 @@ Options:
                             "answer", "interrupt", "close"). Send and answer
                             accept optional "delivery":"queue"|"steer".
                             The session event advertises controls.deliveryModes
-                            and controls.interrupt.supported. Unsupported modes
+                            and controls.interrupt.supported. Claude interrupt
+                            support starts false and follows what the process
+                            advertises; read the latest identity event's
+                            capabilities.sessionControls. Unsupported modes
                             reject unsupported-delivery without writing input.
                             Every send/answer gets one disposition, in command
                             order (started | rejected). Pi and Codex wait for
