@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.12](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.11...v0.9.12) (2026-10-31)
+
+
+### Added
+
+* support session-preserving Claude interruption ([#434](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/434)) ([8448d9c](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/8448d9c9007b55b325b81fbcd6ce3f4dcb0f09af))
+
+
+### Changed
+
+* **deps:** update toolchain and native dependency ([#433](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/433)) ([a47daea](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/a47daea53d43e52892ee4b25fe49b902f9639dad))
+* refresh harness evidence and enforce capture integrity ([#432](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/432)) ([e5332e0](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/e5332e005d8dc874a45e1d17f122abfbb47354db))
+* retain Cursor overflow stage diagnostics ([#430](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/430)) ([28a3fe3](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/28a3fe39fd1b822743b000f863563c812362b166))
+
 ## [0.9.11](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.10...v0.9.11) (2026-10-30)
 
 
