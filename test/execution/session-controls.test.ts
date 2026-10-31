@@ -121,6 +121,51 @@ const claudeResult = (uuids?: string[], origin?: Record<string, unknown>) =>
     ...(origin === undefined ? {} : { origin }),
   });
 const BACKGROUND = { kind: "task-notification", producer: "session-task" };
+// Issue #429: the capability list a receipt-bearing claude advertises on
+// system/init (shape from the 2.1.296+ captures), and the interrupt records
+// as the Agent SDK reference documents them.
+const RECEIPT_CAPABILITIES = [
+  "interrupt_receipt_v1",
+  "interrupt_cancel_queued_v1",
+  "msg_lifecycle_v1",
+];
+/** An init with no capabilities field at all. */
+const ABSENT = Symbol("absent");
+const claudeInitWith = (uuids: string[] | undefined, capabilities: unknown) =>
+  capabilities === ABSENT
+    ? claudeInit(uuids)
+    : JSON.stringify({ ...JSON.parse(claudeInit(uuids)), capabilities });
+const claudeInterruptResponse = (requestId: unknown, stillQueued: string[] = []) =>
+  JSON.stringify({
+    type: "control_response",
+    response: {
+      subtype: "success",
+      request_id: requestId,
+      response: { still_queued: stillQueued },
+    },
+  });
+const claudeInterruptError = (requestId: unknown) =>
+  JSON.stringify({
+    type: "control_response",
+    response: { subtype: "error", request_id: requestId, error: "interrupt refused" },
+  });
+const claudeAborted = (uuids: string[], reason = "aborted_streaming") =>
+  JSON.stringify({
+    type: "result",
+    subtype: "error_during_execution",
+    is_error: true,
+    terminal_reason: reason,
+    errors: [],
+    session_id: sid,
+    user_message_uuid: uuids[0],
+    user_message_uuids: uuids,
+  });
+const claudeCompleted = (uuids: string[]) =>
+  JSON.stringify({
+    ...JSON.parse(claudeResult(uuids)),
+    is_error: false,
+    terminal_reason: "completed",
+  });
 const uuidOf = (proc: FakeProcess): string => String(lastStdin(proc).uuid);
 
 /** A pi send whose run has started natively: written, receipt answered,
@@ -461,6 +506,494 @@ describe("issue #426: pi interruption is two-phase and settles on native observa
       interrupt: { supported: false },
     });
     r.proc.exit(0);
+    await r.session.close();
+  });
+});
+
+/** Issue #429: a claude send whose turn the harness opened with an init
+ * record advertising interrupt receipts. */
+const startClaudeTurn = async (
+  r: ReturnType<typeof rig>,
+  id: string,
+  capabilities: unknown = RECEIPT_CAPABILITIES,
+) => {
+  r.session.send({ id, text: "work" });
+  const uuid = uuidOf(r.proc);
+  r.proc.emitLine(claudeInitWith([uuid], capabilities));
+  const turn = (await r.turns.next()).value as SessionTurn;
+  expect(turn.inputId).toBe(id);
+  return { turn, uuid };
+};
+const identitiesOf = (events: HarnessEvent[]) =>
+  events.flatMap((event) =>
+    event.kind === "identity" ? [event.capabilities.sessionControls?.interrupt.supported] : [],
+  );
+const SUPPORTED = {
+  deliveryModes: ["queue", "steer"],
+  interrupt: { supported: true, toolCancellation: "best-effort" },
+};
+const UNSUPPORTED = { deliveryModes: ["queue", "steer"], interrupt: { supported: false } };
+
+describe("issue #429: claude interrupt support is what the running process advertises", () => {
+  test("controls follow each init, and identity re-announces every change", async () => {
+    const r = rig(claudeCode);
+    expect(r.session.controls).toEqual(UNSUPPORTED);
+    const first = await startClaudeTurn(r, "a", ABSENT);
+    expect(r.session.controls).toEqual(UNSUPPORTED);
+    r.proc.emitLine(claudeCompleted([first.uuid]));
+    expect(identitiesOf(await drainTurn(first.turn))).toEqual([false]);
+    // Same session id and model: only the controls changed.
+    const second = await startClaudeTurn(r, "b");
+    expect(r.session.controls).toEqual(SUPPORTED);
+    r.proc.emitLine(claudeCompleted([second.uuid]));
+    const secondEvents = await drainTurn(second.turn);
+    expect(identitiesOf(secondEvents)).toEqual([true]);
+    expect(secondEvents.find((event) => event.kind === "identity")).toMatchObject({
+      sessionId: sid,
+      capabilities: { sessionControls: SUPPORTED },
+    });
+    // A later init without the capability withdraws it again.
+    const third = await startClaudeTurn(r, "c", ["msg_lifecycle_v1"]);
+    expect(r.session.controls).toEqual(UNSUPPORTED);
+    r.proc.emitLine(claudeCompleted([third.uuid]));
+    expect(identitiesOf(await drainTurn(third.turn))).toEqual([false]);
+    await r.session.close();
+  });
+
+  test("a first init that advertises support announces one identity carrying it", async () => {
+    const r = rig(claudeCode);
+    const { turn, uuid } = await startClaudeTurn(r, "a");
+    r.proc.emitLine(claudeCompleted([uuid]));
+    expect(identitiesOf(await drainTurn(turn))).toEqual([true]);
+    await r.session.close();
+  });
+
+  test.each([
+    ["absent", ABSENT],
+    ["without the receipt capability", ["interrupt_cancel_queued_v1"]],
+    ["malformed", "interrupt_receipt_v1"],
+    ["mixed-type", ["interrupt_receipt_v1", false]],
+  ])(
+    "an init whose capability list is %s keeps interrupt refused with nothing written",
+    async (_label, capabilities) => {
+      const r = rig(claudeCode);
+      await startClaudeTurn(r, "a", capabilities);
+      const before = r.proc.stdinLines.length;
+      expect(r.session.interrupt({ id: "stop" })).toEqual({
+        state: "rejected",
+        reason: "unsupported",
+      });
+      expect(r.proc.stdinLines).toHaveLength(before);
+      expect(r.session.controls).toEqual(UNSUPPORTED);
+      r.proc.exit(0);
+      await r.session.close();
+    },
+  );
+});
+
+describe("issue #429: claude interruption is two-phase and settles on native observation", () => {
+  test("acknowledged then aborted: interrupted, the turn ends clean, and the same process continues", async () => {
+    const r = rig(claudeCode);
+    const { turn, uuid } = await startClaudeTurn(r, "a1");
+    r.proc.emitLine(claudeAssistant("PARTIAL", [uuid]));
+    const requested = r.session.interrupt({ id: "stop-1" });
+    if (requested.state !== "requested") throw new Error("expected requested");
+    const request = lastStdin(r.proc);
+    expect(request).toEqual({
+      type: "control_request",
+      request_id: expect.stringMatching(/^hcn-interrupt:/),
+      request: { subtype: "interrupt" },
+    });
+    expect(String(request.request_id)).not.toContain("stop-1");
+    r.proc.emitLine(claudeInterruptResponse(request.request_id));
+    // An acknowledgement is not cancellation.
+    expect(await settledYet(requested.settled)).toBe(false);
+    r.proc.emitLine(claudeAborted([uuid]));
+    const events = await drainTurn(turn);
+    expect(await requested.settled).toEqual({ state: "interrupted" });
+    expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+    expect(events.at(-1)).not.toHaveProperty("failure");
+    expect(events.filter((event) => event.kind === "failure" || event.kind === "error")).toEqual(
+      [],
+    );
+    const next = await startClaudeTurn(r, "c1");
+    r.proc.emitLine(claudeAssistant("GAMMA-DONE", [next.uuid]));
+    r.proc.emitLine(claudeCompleted([next.uuid]));
+    expect(messagesOf(await drainTurn(next.turn))).toEqual(["GAMMA-DONE"]);
+    expect(r.spawner.calls).toHaveLength(1);
+    expect(r.sig.sent).toEqual([]);
+    await r.session.close();
+  });
+
+  test.each(["aborted_streaming", "aborted_tools"])(
+    "a %s result before the acknowledgement confirms on the acknowledgement",
+    async (reason) => {
+      const r = rig(claudeCode);
+      const { turn, uuid } = await startClaudeTurn(r, "a1");
+      const requested = r.session.interrupt({ id: "stop" });
+      if (requested.state !== "requested") throw new Error("expected requested");
+      const request = lastStdin(r.proc);
+      r.proc.emitLine(claudeAborted([uuid], reason));
+      expect((await drainTurn(turn)).at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+      expect(await settledYet(requested.settled)).toBe(false);
+      r.proc.emitLine(claudeInterruptResponse(request.request_id));
+      expect(await requested.settled).toEqual({ state: "interrupted" });
+      await r.session.close();
+    },
+  );
+
+  test("a natural completion is never cancellation, in either order", async () => {
+    const r = rig(claudeCode);
+    const first = await startClaudeTurn(r, "a1");
+    const late = r.session.interrupt({ id: "late" });
+    if (late.state !== "requested") throw new Error("expected requested");
+    const lateRequest = lastStdin(r.proc);
+    r.proc.emitLine(claudeCompleted([first.uuid]));
+    await drainTurn(first.turn);
+    r.proc.emitLine(claudeInterruptResponse(lateRequest.request_id));
+    expect(await late.settled).toEqual({ state: "not-active" });
+
+    const second = await startClaudeTurn(r, "a2");
+    const early = r.session.interrupt({ id: "early" });
+    if (early.state !== "requested") throw new Error("expected requested");
+    r.proc.emitLine(claudeInterruptResponse(lastStdin(r.proc).request_id));
+    expect(await settledYet(early.settled)).toBe(false);
+    r.proc.emitLine(claudeCompleted([second.uuid]));
+    await drainTurn(second.turn);
+    expect(await early.settled).toEqual({ state: "not-active" });
+    await r.session.close();
+  });
+
+  test("an idle interrupt is written and reports not-active", async () => {
+    const r = rig(claudeCode);
+    const { turn, uuid } = await startClaudeTurn(r, "a1");
+    r.proc.emitLine(claudeCompleted([uuid]));
+    await drainTurn(turn);
+    const requested = r.session.interrupt({ id: "idle" });
+    if (requested.state !== "requested") throw new Error("expected requested");
+    r.proc.emitLine(claudeInterruptResponse(lastStdin(r.proc).request_id));
+    expect(await requested.settled).toEqual({ state: "not-active" });
+    await r.session.close();
+  });
+
+  test("a native error response rejects the request and the session stays usable", async () => {
+    const r = rig(claudeCode);
+    const { turn, uuid } = await startClaudeTurn(r, "a1");
+    const requested = r.session.interrupt({ id: "refused" });
+    if (requested.state !== "requested") throw new Error("expected requested");
+    r.proc.emitLine(claudeInterruptError(lastStdin(r.proc).request_id));
+    expect(await requested.settled).toEqual({ state: "rejected", reason: "native-rejected" });
+    expect(r.proc.hasExited).toBe(false);
+    r.proc.emitLine(claudeCompleted([uuid]));
+    expect((await drainTurn(turn)).at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+    await r.session.close();
+  });
+
+  test("concurrent requests each settle exactly once, correlated in the log", async () => {
+    const r = rig(claudeCode);
+    const { turn, uuid } = await startClaudeTurn(r, "a1");
+    const first = r.session.interrupt({ id: "same" });
+    const firstWire = lastStdin(r.proc).request_id;
+    const second = r.session.interrupt({ id: "same" });
+    const secondWire = lastStdin(r.proc).request_id;
+    if (first.state !== "requested" || second.state !== "requested") throw new Error("requested");
+    expect(firstWire).not.toBe(secondWire);
+    r.proc.emitLine(claudeInterruptResponse(firstWire));
+    r.proc.emitLine(claudeAborted([uuid]));
+    await drainTurn(turn);
+    r.proc.emitLine(claudeInterruptError(secondWire));
+    // A repeated answer settles nothing twice.
+    r.proc.emitLine(claudeInterruptResponse(firstWire));
+    expect(await first.settled).toEqual({ state: "interrupted" });
+    expect(await second.settled).toEqual({ state: "rejected", reason: "native-rejected" });
+    await r.session.close();
+    const requestedLog = r.log.filter((e) => e.event === "interrupt" && e.state === "requested");
+    const settledLog = r.log.filter((e) => e.event === "interrupt_settled");
+    expect(requestedLog.map((e) => [e.id, e.token])).toEqual([
+      ["same", String(firstWire).slice("hcn-interrupt:".length)],
+      ["same", String(secondWire).slice("hcn-interrupt:".length)],
+    ]);
+    expect(settledLog.map((e) => [e.id, e.token, e.state])).toEqual([
+      ["same", requestedLog[0]?.token, "interrupted"],
+      ["same", requestedLog[1]?.token, "rejected"],
+    ]);
+    // Metadata only: no user text or native payload reaches the log.
+    const rejectedLog = r.log.filter((e) => e.event === "interrupt_rejected");
+    expect(rejectedLog).toHaveLength(1);
+    expect(JSON.stringify([...requestedLog, ...settledLog, ...rejectedLog])).not.toMatch(
+      /work|interrupt refused/,
+    );
+  });
+
+  test("close while a request is pending resolves it closed", async () => {
+    const r = rig(claudeCode);
+    const { turn, uuid } = await startClaudeTurn(r, "a1");
+    const requested = r.session.interrupt({ id: "pending" });
+    if (requested.state !== "requested") throw new Error("expected requested");
+    const closing = r.session.close();
+    r.proc.emitLine(claudeAborted([uuid]));
+    await drainTurn(turn);
+    await closing;
+    expect(await requested.settled).toEqual({ state: "rejected", reason: "closed" });
+    expect(r.session.interrupt({ id: "after" })).toEqual({ state: "rejected", reason: "closed" });
+  });
+
+  test("process death resolves a pending request explicitly", async () => {
+    const r = rig(claudeCode);
+    const { turn } = await startClaudeTurn(r, "a1");
+    const requested = r.session.interrupt({ id: "doomed" });
+    if (requested.state !== "requested") throw new Error("expected requested");
+    r.proc.exit(1);
+    await drainTurn(turn);
+    expect(await requested.settled).toEqual({ state: "rejected", reason: "closed" });
+  });
+
+  test.each([
+    ["empty", () => []],
+    ["naming the queued input", (queued: string) => [queued]],
+    ["naming only foreign inputs", () => ["0b6b1b0e-foreign"]],
+  ])(
+    "a queued input survives the interrupt whatever still_queued is %s",
+    async (_label, stillQueued: (queued: string) => string[]) => {
+      const r = rig(claudeCode);
+      const { turn, uuid } = await startClaudeTurn(r, "a1");
+      r.session.send({ id: "b1", text: "after", delivery: "queue" });
+      const queued = uuidOf(r.proc);
+      const before = r.proc.stdinLines.length;
+      const requested = r.session.interrupt({ id: "stop" });
+      if (requested.state !== "requested") throw new Error("expected requested");
+      r.proc.emitLine(claudeInterruptResponse(lastStdin(r.proc).request_id, stillQueued(queued)));
+      r.proc.emitLine(claudeAborted([uuid]));
+      await drainTurn(turn);
+      expect(await requested.settled).toEqual({ state: "interrupted" });
+      // The harness runs the queued input next; hcn wrote only the interrupt.
+      r.proc.emitLine(claudeInitWith([queued], RECEIPT_CAPABILITIES));
+      const next = (await r.turns.next()).value as SessionTurn;
+      expect(next.inputId).toBe("b1");
+      r.proc.emitLine(claudeAssistant("BRAVO-DONE", [queued]));
+      r.proc.emitLine(claudeCompleted([queued]));
+      expect(messagesOf(await drainTurn(next))).toEqual(["BRAVO-DONE"]);
+      expect(r.proc.stdinLines).toHaveLength(before + 1);
+      expect(turnStarts(r.log)).toHaveLength(2);
+      await r.session.close();
+    },
+  );
+});
+
+/** Issue #429: one harness's interrupt wire, behind the shapes the binding
+ * tests share. Pi and claude settle receipts through the same runner path. */
+interface InterruptWire {
+  readonly name: string;
+  readonly descriptor: HarnessDescriptor;
+  /** Open a turn whose run has started natively; finish settles that run. */
+  readonly open: (
+    r: ReturnType<typeof rig>,
+    id: string,
+  ) => Promise<{ turn: SessionTurn; finish: (aborted: boolean) => void }>;
+  /** Write an interrupt; wire is the native request id it carries. */
+  readonly interrupt: (
+    r: ReturnType<typeof rig>,
+    id: string,
+  ) => { settled: Promise<unknown>; wire: unknown };
+  readonly accept: (wire: unknown) => string;
+}
+const requestedOrThrow = (r: ReturnType<typeof rig>, id: string) => {
+  const requested = r.session.interrupt({ id });
+  if (requested.state !== "requested") throw new Error(`expected requested: ${requested.state}`);
+  return requested;
+};
+const PI_WIRE: InterruptWire = {
+  name: "pi",
+  descriptor: piCli,
+  open: async (r, id) => {
+    const turn = await startPiTurn(r, id);
+    return { turn, finish: (aborted) => r.proc.emitLine(piSettled(aborted)) };
+  },
+  interrupt: (r, id) => {
+    const requested = requestedOrThrow(r, id);
+    return { settled: requested.settled, wire: lastStdin(r.proc).id };
+  },
+  accept: (wire) => piAbortResponse(wire),
+};
+const CLAUDE_WIRE: InterruptWire = {
+  name: "claude",
+  descriptor: claudeCode,
+  open: async (r, id) => {
+    const { turn, uuid } = await startClaudeTurn(r, id);
+    return {
+      turn,
+      finish: (aborted) =>
+        r.proc.emitLine(aborted ? claudeAborted([uuid]) : claudeCompleted([uuid])),
+    };
+  },
+  interrupt: (r, id) => {
+    const requested = requestedOrThrow(r, id);
+    return { settled: requested.settled, wire: lastStdin(r.proc).request_id };
+  },
+  accept: (wire) => claudeInterruptResponse(wire),
+};
+/** An idle session that supports interrupt. Claude advertises receipts on
+ * init, so a completed seed turn establishes support first. */
+const idleSession = async (wire: InterruptWire) => {
+  const r = rig(wire.descriptor);
+  if (wire === CLAUDE_WIRE) {
+    const seed = await wire.open(r, "seed");
+    seed.finish(false);
+    await drainTurn(seed.turn);
+  }
+  return r;
+};
+const outcome = (aborted: boolean) => (aborted ? "interrupted" : "not-active");
+
+describe.each([CLAUDE_WIRE, PI_WIRE])(
+  "issue #429: $name receipts bind to the turn live when the request was written",
+  (wire) => {
+    // The two traces reproduced through the built CLI (cross-turn repro).
+    test("trace 1: the target completed before a late acknowledgement; a later aborted turn confirms only its own request", async () => {
+      const r = await idleSession(wire);
+      const a = await wire.open(r, "A");
+      const i1 = wire.interrupt(r, "I1");
+      a.finish(false);
+      await drainTurn(a.turn);
+      const b = await wire.open(r, "B");
+      r.proc.emitLine(wire.accept(i1.wire));
+      const i2 = wire.interrupt(r, "I2");
+      r.proc.emitLine(wire.accept(i2.wire));
+      b.finish(true);
+      await drainTurn(b.turn);
+      expect(await i1.settled).toEqual({ state: "not-active" });
+      expect(await i2.settled).toEqual({ state: "interrupted" });
+      await r.session.close();
+    });
+
+    test("trace 2: an idle request acknowledged while a later turn runs is not-active", async () => {
+      const r = await idleSession(wire);
+      const i1 = wire.interrupt(r, "I1");
+      const b = await wire.open(r, "B");
+      r.proc.emitLine(wire.accept(i1.wire));
+      expect(await i1.settled).toEqual({ state: "not-active" });
+      const i2 = wire.interrupt(r, "I2");
+      r.proc.emitLine(wire.accept(i2.wire));
+      expect(await settledYet(i2.settled)).toBe(false);
+      b.finish(true);
+      await drainTurn(b.turn);
+      expect(await i2.settled).toEqual({ state: "interrupted" });
+      await r.session.close();
+    });
+
+    // Every acknowledgement position against the target's settlement, with a
+    // later turn settling either way: the receipt is always the target's.
+    const positions = ["target-live", "between", "later-live", "later-settled"] as const;
+    test.each(
+      positions.flatMap((position) =>
+        [true, false].flatMap((targetAborted) =>
+          [true, false].map((laterAborted) => ({ position, targetAborted, laterAborted })),
+        ),
+      ),
+    )(
+      "ack $position, target aborted=$targetAborted, later aborted=$laterAborted",
+      async ({ position, targetAborted, laterAborted }) => {
+        const r = await idleSession(wire);
+        const a = await wire.open(r, "A");
+        const i1 = wire.interrupt(r, "I1");
+        if (position === "target-live") {
+          r.proc.emitLine(wire.accept(i1.wire));
+          expect(await settledYet(i1.settled)).toBe(false);
+        }
+        a.finish(targetAborted);
+        await drainTurn(a.turn);
+        if (position === "between") r.proc.emitLine(wire.accept(i1.wire));
+        const b = await wire.open(r, "B");
+        if (position === "later-live") r.proc.emitLine(wire.accept(i1.wire));
+        b.finish(laterAborted);
+        await drainTurn(b.turn);
+        if (position === "later-settled") r.proc.emitLine(wire.accept(i1.wire));
+        expect(await i1.settled).toEqual({ state: outcome(targetAborted) });
+        await r.session.close();
+        expect(r.log.filter((e) => e.event === "interrupt_settled")).toHaveLength(1);
+      },
+    );
+
+    test.each([
+      { position: "later-live", laterAborted: true },
+      { position: "later-live", laterAborted: false },
+      { position: "later-settled", laterAborted: true },
+      { position: "later-settled", laterAborted: false },
+    ])(
+      "an idle request acknowledged $position (later aborted=$laterAborted) is not-active",
+      async ({ position, laterAborted }) => {
+        const r = await idleSession(wire);
+        const i1 = wire.interrupt(r, "I1");
+        const b = await wire.open(r, "B");
+        if (position === "later-live") r.proc.emitLine(wire.accept(i1.wire));
+        b.finish(laterAborted);
+        await drainTurn(b.turn);
+        if (position === "later-settled") r.proc.emitLine(wire.accept(i1.wire));
+        expect(await i1.settled).toEqual({ state: "not-active" });
+        await r.session.close();
+      },
+    );
+
+    test("a reused caller id on two turns keeps each request bound to its own turn", async () => {
+      const r = await idleSession(wire);
+      const a = await wire.open(r, "A");
+      const first = wire.interrupt(r, "same");
+      a.finish(false);
+      await drainTurn(a.turn);
+      const b = await wire.open(r, "B");
+      const second = wire.interrupt(r, "same");
+      b.finish(true);
+      await drainTurn(b.turn);
+      // Acknowledged out of order, after both turns settled.
+      r.proc.emitLine(wire.accept(second.wire));
+      r.proc.emitLine(wire.accept(first.wire));
+      expect(await first.settled).toEqual({ state: "not-active" });
+      expect(await second.settled).toEqual({ state: "interrupted" });
+      await r.session.close();
+      const requested = r.log.filter((e) => e.event === "interrupt" && e.state === "requested");
+      const settled = r.log.filter((e) => e.event === "interrupt_settled");
+      expect(settled.map((e) => [e.id, e.token, e.state])).toEqual([
+        ["same", requested[1]?.token, "interrupted"],
+        ["same", requested[0]?.token, "not-active"],
+      ]);
+    });
+
+    test("a duplicate acknowledgement neither retargets the request nor settles it twice", async () => {
+      const r = await idleSession(wire);
+      const a = await wire.open(r, "A");
+      const i1 = wire.interrupt(r, "I1");
+      r.proc.emitLine(wire.accept(i1.wire));
+      r.proc.emitLine(wire.accept(i1.wire));
+      a.finish(false);
+      await drainTurn(a.turn);
+      expect(await i1.settled).toEqual({ state: "not-active" });
+      const b = await wire.open(r, "B");
+      r.proc.emitLine(wire.accept(i1.wire));
+      b.finish(true);
+      await drainTurn(b.turn);
+      await r.session.close();
+      expect(r.log.filter((e) => e.event === "interrupt_settled")).toEqual([
+        expect.objectContaining({ id: "I1", state: "not-active" }),
+      ]);
+    });
+  },
+);
+
+describe("issue #429: pi turns that end with no run settlement", () => {
+  test("a request against a published turn that pi handles settles not-active on a late acknowledgement", async () => {
+    const r = rig(piCli);
+    const send = r.session.send({ id: "s1", text: "/cmd" });
+    r.proc.emitLine(piAssistant("EARLY-OUTPUT"));
+    const turn = (await r.turns.next()).value as SessionTurn;
+    const i1 = PI_WIRE.interrupt(r, "I1");
+    r.proc.emitLine(piReceipt(r.proc.lastSendRequestId(), "handled"));
+    expect(await send.settled).toEqual({ disposition: "started" });
+    await drainTurn(turn);
+    const b = await PI_WIRE.open(r, "B");
+    r.proc.emitLine(PI_WIRE.accept(i1.wire));
+    expect(await i1.settled).toEqual({ state: "not-active" });
+    b.finish(true);
+    await drainTurn(b.turn);
     await r.session.close();
   });
 });

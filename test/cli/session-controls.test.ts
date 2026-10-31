@@ -270,6 +270,170 @@ describe("issue #426: pi interruption over the wire", () => {
   });
 });
 
+describe("issue #429: claude interruption over the wire", () => {
+  const init = (uuid: unknown, capabilities?: unknown) =>
+    JSON.stringify({
+      type: "system",
+      subtype: "init",
+      session_id: sid,
+      user_message_uuids: [uuid],
+      ...(capabilities === undefined ? {} : { capabilities }),
+    });
+  const result = (uuid: unknown, extra: Record<string, unknown>) =>
+    JSON.stringify({ type: "result", session_id: sid, user_message_uuids: [uuid], ...extra });
+  const supported = { supported: true, toolCancellation: "best-effort" };
+
+  test("the identity reports advertised support; requested then interrupted; the session continues", async () => {
+    const r = rig(claudeCode);
+    await tick();
+    r.send({ op: "send", id: "a1", text: "long work" });
+    await tick();
+    const first = r.stdin().at(-1) as Record<string, unknown>;
+    r.proc.emitLine(init(first.uuid, ["interrupt_receipt_v1"]));
+    await tick();
+    r.send({ op: "interrupt", id: "stop-1" });
+    await tick();
+    const request = r.stdin().at(-1) as Record<string, unknown>;
+    expect(request).toEqual({
+      type: "control_request",
+      request_id: expect.stringMatching(/^hcn-interrupt:/),
+      request: { subtype: "interrupt" },
+    });
+    r.proc.emitLine(
+      JSON.stringify({
+        type: "control_response",
+        response: {
+          subtype: "success",
+          request_id: request.request_id,
+          response: { still_queued: [] },
+        },
+      }),
+    );
+    await tick();
+    expect(r.events().filter((e) => e.kind === "interruption")).toEqual([
+      { kind: "interruption", id: "stop-1", state: "requested" },
+    ]);
+    r.proc.emitLine(
+      result(first.uuid, {
+        subtype: "error_during_execution",
+        is_error: true,
+        terminal_reason: "aborted_streaming",
+      }),
+    );
+    await tick();
+    r.send({ op: "send", id: "c1", text: "replacement" });
+    await tick();
+    const second = r.stdin().at(-1) as Record<string, unknown>;
+    r.proc.emitLine(init(second.uuid, ["interrupt_receipt_v1"]));
+    r.proc.emitLine(result(second.uuid, { subtype: "success", terminal_reason: "completed" }));
+    await tick();
+    r.input.end();
+    const code = await r.done;
+    const evs = r.events();
+    expect(evs[0]).toMatchObject({
+      kind: "session",
+      controls: { interrupt: { supported: false } },
+    });
+    expect(evs.filter((e) => e.kind === "identity")).toEqual([
+      expect.objectContaining({
+        capabilities: expect.objectContaining({
+          sessionControls: { deliveryModes: ["queue", "steer"], interrupt: supported },
+        }),
+      }),
+    ]);
+    const kinds = evs.filter((e) => e.kind === "interruption" || e.kind === "done");
+    expect(kinds.filter((e) => e.kind === "interruption")).toEqual([
+      { kind: "interruption", id: "stop-1", state: "requested" },
+      { kind: "interruption", id: "stop-1", state: "interrupted" },
+    ]);
+    expect(kinds.filter((e) => e.kind === "done").map((e) => e.cause)).toEqual(["clean", "clean"]);
+    expect(evs.filter((e) => e.kind === "failure")).toEqual([]);
+    expect(evs.filter((e) => e.kind === "turn").map((e) => e.id)).toEqual(["a1", "c1"]);
+    expect(evs.at(-1)).toMatchObject({ kind: "closed", cause: "clean", exitCode: 0 });
+    expect(r.sig.sent).toEqual([]);
+    expect(code).toBe(0);
+  });
+
+  test("a late acknowledgement reports the turn it was written for, not the turn running when it lands", async () => {
+    const r = rig(claudeCode);
+    const success = (requestId: unknown) =>
+      JSON.stringify({
+        type: "control_response",
+        response: { subtype: "success", request_id: requestId, response: { still_queued: [] } },
+      });
+    await tick();
+    r.send({ op: "send", id: "A", text: "work" });
+    await tick();
+    const a = r.stdin().at(-1) as Record<string, unknown>;
+    r.proc.emitLine(init(a.uuid, ["interrupt_receipt_v1"]));
+    await tick();
+    r.send({ op: "interrupt", id: "I1" });
+    await tick();
+    const i1 = r.stdin().at(-1) as Record<string, unknown>;
+    // A completes naturally before I1's acknowledgement.
+    r.proc.emitLine(result(a.uuid, { subtype: "success", terminal_reason: "completed" }));
+    await tick();
+    r.send({ op: "send", id: "B", text: "next" });
+    await tick();
+    const b = r.stdin().at(-1) as Record<string, unknown>;
+    r.proc.emitLine(init(b.uuid, ["interrupt_receipt_v1"]));
+    r.proc.emitLine(success(i1.request_id));
+    await tick();
+    r.send({ op: "interrupt", id: "I2" });
+    await tick();
+    const i2 = r.stdin().at(-1) as Record<string, unknown>;
+    r.proc.emitLine(success(i2.request_id));
+    r.proc.emitLine(
+      result(b.uuid, {
+        subtype: "error_during_execution",
+        is_error: true,
+        terminal_reason: "aborted_streaming",
+      }),
+    );
+    await tick();
+    r.input.end();
+    expect(await r.done).toBe(0);
+    const receipts = r.events().filter((e) => e.kind === "interruption" && e.state !== "requested");
+    expect(receipts).toEqual(
+      expect.arrayContaining([
+        { kind: "interruption", id: "I1", state: "not-active" },
+        { kind: "interruption", id: "I2", state: "interrupted" },
+      ]),
+    );
+    expect(receipts).toHaveLength(2);
+    expect(r.sig.sent).toEqual([]);
+  });
+
+  test("a process that does not advertise receipts refuses interrupt with nothing written", async () => {
+    const r = rig(claudeCode);
+    await tick();
+    r.send({ op: "send", id: "a1", text: "work" });
+    await tick();
+    const first = r.stdin().at(-1) as Record<string, unknown>;
+    r.proc.emitLine(init(first.uuid));
+    await tick();
+    const before = r.proc.stdinLines.length;
+    r.send({ op: "interrupt", id: "stop" });
+    await tick();
+    expect(r.proc.stdinLines).toHaveLength(before);
+    r.proc.emitLine(result(first.uuid, { subtype: "success" }));
+    await tick();
+    r.input.end();
+    await r.done;
+    const evs = r.events();
+    expect(evs.filter((e) => e.kind === "interruption")).toEqual([
+      { kind: "interruption", id: "stop", state: "rejected", reason: "unsupported" },
+    ]);
+    expect(evs.filter((e) => e.kind === "identity")).toEqual([
+      expect.objectContaining({
+        capabilities: expect.objectContaining({
+          sessionControls: { deliveryModes: ["queue", "steer"], interrupt: { supported: false } },
+        }),
+      }),
+    ]);
+  });
+});
+
 describe("issue #426: dispositions stay one per command, in command order", () => {
   test("a reused caller id gets distinct native ids; the second answer arriving first keeps command order and outcomes", async () => {
     const r = rig(piCli);

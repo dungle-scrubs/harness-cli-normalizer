@@ -355,8 +355,9 @@ are not duplicate results. Cursor completions also retain their native success/e
 payloads. Codex results retain the completed tool item, Muse its result text, and Antigravity its
 output or structured error. Popeye's current stream reports no tool results.
 
-A tool error does not establish a failed turn. `done.cause: clean` is the harness's successful
-terminal verdict, not a verdict on each tool or on a workflow's structured status. Inspect
+A tool error does not establish a failed turn. `done.cause: clean` reports a clean lifecycle
+outcome, including a session turn cancelled by a confirmed native interrupt. It does not judge
+individual tools or a workflow's structured status. Inspect
 `tool-result.isError` and the native result contract; hcn does not interpret extension-specific
 statuses or invent a turn failure. An absent error flag means unknown, not success.
 
@@ -599,7 +600,12 @@ as hcn 0.9.8 emitted them for one send:
 - `turn.id` is the id of the `send` that opened the turn. Native background
   output has no caller id.
 - `session.controls` advertises `deliveryModes` and `interrupt.supported`.
-  The same information is `sessionControls` in `hcn inspect --capabilities`.
+  `hcn inspect --capabilities` reports `sessionControls` as the harness's
+  potential support. A session reports what its process supports: Claude
+  interrupt support is `false` on the `session` line and becomes `true` only
+  when the process advertises it on its `system/init` record. Every change
+  re-announces the `identity` event with the same session id, so read the
+  latest `identity.capabilities.sessionControls` after the first line.
   If these fields are absent, the build does not advertise explicit controls.
 - `closed.cause` is one of `clean`, `limit`, `crash`, `stall`, `killed`,
   `failed`. `closed.failure` carries the reduced `FailureSummary` when the
@@ -730,7 +736,7 @@ for await (const line of rl) {
 
 | Harness | Queue | Steer | Interrupt |
 |---|---|---|---|
-| Claude | `priority: "later"`, a later native turn | `priority: "next"`, can join the current turn | Unsupported |
+| Claude | `priority: "later"`, a later native turn | `priority: "next"`, can join the current turn | Native `interrupt` control request, once the process advertises `interrupt_receipt_v1` |
 | Pi | Prompt with `streamingBehavior: "followUp"` | Prompt with `streamingBehavior: "steer"` | Native `abort` |
 | Codex | Unsupported | `turn/start` when idle, `turn/steer` while busy | Unsupported |
 | Antigravity, Popeye | Unsupported | Unsupported | Unsupported |
@@ -753,14 +759,27 @@ in the caller. After writing the native request, hcn emits:
 
 Exactly one terminal receipt follows `requested`: `interrupted` when the harness
 reports an aborted run, `not-active` when work settled normally or no run was
-active, or `rejected` with reason `closed` or `native-rejected`. An already closed session,
+active, or `rejected` with reason `closed` or `native-rejected`. The receipt
+describes the turn that was running when hcn wrote the request, never a later
+one: a request written while idle reports `not-active`, and a target turn that
+settled normally before its acknowledgement reports `not-active` even if another turn
+is running or aborted when the acknowledgement arrives. An already closed session,
 unsupported interruption or failed write is rejected immediately, with reason
 `closed`, `unsupported` or `write-failed`. A successful native command response alone is not confirmation
-of interruption. An interrupt carrying `text` is malformed; send the replacement
+of interruption. Interrupt rejection logs carry correlation metadata, without native error text.
+An interrupt carrying `text` is malformed; send the replacement
 as a new `send` after the terminal receipt.
 
-Interruption retains the process and conversation. Pi retains its native queued
-messages through abort. Cancellation is best effort: it cannot undo completed
+In a Claude session, the native success response is an acknowledgement; a result with
+`terminal_reason` `aborted_streaming` or `aborted_tools` confirms the
+interruption, and that turn ends with `done` cause `clean`. One-shot `run` keeps its
+existing native-error verdict. A Claude process
+whose `system/init` does not list `interrupt_receipt_v1`, or before its first
+`system/init`, rejects `interrupt` as `unsupported` without writing anything.
+
+Interruption retains the process and conversation. Pi and Claude retain their
+native queued messages through the interruption; hcn never cancels, resends or
+reorders them. Cancellation is best effort: it cannot undo completed
 actions or guarantee that every running tool or child process stops. hcn adds no
 queue clearing, message promotion or cancellation timeout.
 

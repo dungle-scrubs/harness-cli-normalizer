@@ -69,11 +69,18 @@ A provider-only invocation remains a native failure.
 
 ## Live-session controls
 
-Check the session packet's `controls` before choosing a delivery mode or
-interrupting. Claude `queue` selects native priority `later`; `steer` selects
+Before choosing a delivery mode or interrupting, check the latest
+`identity.capabilities.sessionControls`, or the session packet's `controls`
+until the first `identity` arrives. Claude `queue` selects native priority `later`; `steer` selects
 `next` and can merge into the current result. Omitted busy input can also merge.
 A merged input creates no additional hcn turn, and native background output has
-no caller id. Claude interruption is not advertised.
+no caller id. Claude `interrupt` writes the native interrupt control request
+once the process advertises `interrupt_receipt_v1`; until then, or when it
+does not, the request is rejected `unsupported` with nothing written. The
+native success response only acknowledges it: an `aborted_streaming` or
+`aborted_tools` result confirms `interrupted`, and that turn ends clean.
+The receipt belongs to the turn live when the request was written; a later
+turn's result never settles it. Claude keeps its queued messages; hcn never cancels or resends them.
 
 Pi `queue` and `steer` use the prompt's native `streamingBehavior`, so the
 harness decides atomically whether to start or deliver into ongoing work.
