@@ -166,7 +166,11 @@ describe("install lifecycle contract", () => {
     const builds = workspace.match(/^allowBuilds:\n((?: {2}\S.*\n)+)/m)?.[1];
     expect(builds).toBe("  koffi: true\n  lefthook: false\n");
     expect(workspace).toMatch(/^overrides:\n {2}"typed-rest-client@2\.3\.1>qs": 6\.16\.0$/m);
-    expect(workspace).toMatch(/^packageExtensions:\n {2}"@stryker-mutator\/core@10\.0\.0":$/m);
+    const strykerVersion = JSON.parse(
+      readFileSync(join(repo, "node_modules/@stryker-mutator/core/package.json"), "utf8"),
+    ).version;
+    const extensionKey = workspace.match(/^packageExtensions:\n( {2}"[^"\n]+":)$/m)?.[1];
+    expect(extensionKey).toBe(`  "@stryker-mutator/core@${strykerVersion}":`);
   });
 
   it("rejects workspace roots that could grant builds around the explicit deny", () => {
