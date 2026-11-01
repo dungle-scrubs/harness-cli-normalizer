@@ -129,6 +129,107 @@ describe("planTurn", () => {
   });
 });
 
+/**
+ * Issue #435: the toolMap is vocabulary, not a launch default. A resumed
+ * turn renders an explicit --tools grant with the same native names it
+ * renders on launch, so the merged map rides the resume path too - while
+ * the launch defaults (config model, effort, tools grant, profile flags)
+ * stay off the resume, as the launch-only rule says.
+ */
+describe("resume renders the merged toolMap (issue #435)", () => {
+  test("a Pi toolMap does not block a Codex resume with native approvals", async () => {
+    const sessionId = "0199a4c5-1111-2222-3333-444455556666";
+    const fingerprint = "a".repeat(64);
+    const outcome = await planTurn(
+      codexCli,
+      [
+        "--json",
+        "--prompt",
+        "hi",
+        "--resume",
+        sessionId,
+        "--cwd",
+        "/tmp",
+        "--native-approvals",
+        "--native-settings-fingerprint",
+        fingerprint,
+      ],
+      { command: "run" },
+      {
+        ...deps,
+        loadUserConfig: () => ({ config: { toolMap: { pi: { "web-search": "web_search" } } } }),
+        inspectNativeSettings: () => ({
+          v: 1,
+          status: "available",
+          continuation: "native-approvals",
+          harness: "codex",
+          source: "codex-rollout-v1",
+          cwd: "/tmp",
+          sessionId,
+          fingerprint,
+          model: "saved-model",
+          provider: "saved-provider",
+          effort: "high",
+          permissions: {
+            status: "recorded",
+            approvalPolicy: "on-request",
+            approvalsReviewer: "user",
+            filesystem: "read-only",
+            network: "restricted",
+          },
+        }),
+      },
+    );
+    expect(outcome.kind).toBe("plan");
+    if (outcome.kind !== "plan") return;
+    expect(outcome.plan.argv).toEqual(["codex", "app-server", "--listen", "stdio://"]);
+  });
+
+  const toolMapDeps: PlanDeps = {
+    ...deps,
+    loadUserConfig: () => ({
+      config: {
+        toolMap: { pi: { "web-search": "web_search", "web-fetch": "web_fetch" } },
+        model: "zai/glm-5.2",
+        effort: "high",
+        tools: ["read"],
+      },
+    }),
+    loadProjectConfig: () => ({
+      config: { toolMap: { pi: { "web-search": "project_web_search" } } },
+    }),
+  };
+
+  test.each([
+    { label: "a named resume", resume: ["--resume", "0199a4c5-1111-2222-3333-444455556666"] },
+    { label: "resume-last", resume: ["--resume-last"] },
+  ])("$label renders the merged toolMap for an explicit grant", async ({ resume }) => {
+    const outcome = await planTurn(
+      piCli,
+      ["--prompt", "hi", "--tools", "web-fetch,web-search", ...resume],
+      { command: "run" },
+      toolMapDeps,
+    );
+    expect(outcome.kind).toBe("plan");
+    if (outcome.kind !== "plan") return;
+    const argv = outcome.plan.argv;
+    const toolsAt = argv.indexOf("--tools");
+    expect(toolsAt).toBeGreaterThan(-1);
+    // The project tier overrides the user's web-search mapping; web-fetch
+    // keeps the user's, so one grant renders both tiers' entries.
+    expect(argv[toolsAt + 1]).toBe("web_fetch,project_web_search");
+    // The map is vocabulary: it carries no provenance of its own.
+    expect(outcome.plan.provenance).toEqual([]);
+    // No launch default rides the resume: the config model, effort and
+    // tools grant stay out, and the profile flags never render.
+    expect(argv).not.toContain("--model");
+    expect(argv).not.toContain("zai/glm-5.2");
+    expect(argv).not.toContain("--thinking");
+    expect(argv).not.toContain("high");
+    expect(argv[toolsAt + 1]).not.toContain("read");
+  });
+});
+
 test("tool-free isolation removes native and discovered tools and refuses resumed or widened runs", async () => {
   const outcome = await planTurn(
     claudeCode,
