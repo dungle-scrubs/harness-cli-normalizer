@@ -440,3 +440,86 @@ describe("cursor assistant records", () => {
     ]);
   });
 });
+
+describe("cursor message boundary at a background-task notification", () => {
+  // Cursor's end-of-turn flush carries every text segment since the last
+  // tool call, joined, even across a task_notification. Observed: tokens
+  // spelling a JSON verdict, a notification, tokens spelling one sentence,
+  // then one flush whose text was exactly the two joined.
+  const token = (text: string) => assistant(text, { timestamp_ms: 1 });
+  const notification = { type: "system", subtype: "task_notification", session_id: sid };
+  const run = (records: Record<string, unknown>[]) => {
+    let state = freshCursorReaderState();
+    const events = [];
+    for (const record of records) {
+      const step = contentEventsWithState("cursor", record, state);
+      events.push(...step.events);
+      state = step.state as typeof state;
+    }
+    return events;
+  };
+
+  test("text before a notification ends as its own message and the flush keeps only the rest", () => {
+    expect(
+      run([
+        token('{"a":'),
+        token("1}"),
+        notification,
+        token("Server stopped."),
+        assistant('{"a":1}Server stopped.'),
+      ]),
+    ).toEqual([
+      { kind: "token", text: '{"a":' },
+      { kind: "token", text: "1}" },
+      { kind: "message", role: "assistant", text: '{"a":1}' },
+      { kind: "progress", label: "task_notification" },
+      { kind: "token", text: "Server stopped." },
+      { kind: "message", role: "assistant", text: "Server stopped." },
+    ]);
+  });
+
+  test("two notifications split the flush into three messages", () => {
+    const messages = run([
+      token("A"),
+      notification,
+      token("B"),
+      { type: "system", subtype: "background_shell_timeout", session_id: sid },
+      token("C"),
+      assistant("ABC"),
+    ]).filter((e) => e.kind === "message");
+    expect(messages.map((e) => (e as { text: string }).text)).toEqual(["A", "B", "C"]);
+  });
+
+  test("a notification with no pending text adds no message", () => {
+    expect(run([notification, token("Done."), assistant("Done.")])).toEqual([
+      { kind: "progress", label: "task_notification" },
+      { kind: "token", text: "Done." },
+      { kind: "message", role: "assistant", text: "Done." },
+    ]);
+  });
+
+  test("a flush that repeats only the emitted text adds nothing", () => {
+    expect(
+      run([token("A"), notification, assistant("A")]).filter((e) => e.kind === "message"),
+    ).toEqual([{ kind: "message", role: "assistant", text: "A" }]);
+  });
+
+  test("a flush that does not start with the emitted text passes through unchanged", () => {
+    expect(
+      run([token("A"), notification, token("B"), assistant("XB")]).filter(
+        (e) => e.kind === "message",
+      ),
+    ).toEqual([
+      { kind: "message", role: "assistant", text: "A" },
+      { kind: "message", role: "assistant", text: "XB" },
+    ]);
+  });
+
+  test("without a notification, tokens and the flush are unchanged", () => {
+    expect(run([token("Hel"), token("lo"), assistant("Hello")])).toEqual([
+      { kind: "token", text: "Hel" },
+      { kind: "token", text: "lo" },
+      { kind: "message", role: "assistant", text: "Hello" },
+    ]);
+  });
+});

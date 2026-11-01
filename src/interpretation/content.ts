@@ -794,6 +794,11 @@ export interface CursorReaderState {
   readonly tombstones: readonly string[];
   readonly completed: readonly string[];
   readonly queryArgs: readonly { readonly toolCallId: string; readonly args: unknown }[];
+  /** Token text since the last message, tool call or notification. */
+  readonly pendingText: string;
+  /** Text already ended as a message at a notification, which Cursor's
+   * next full-text record repeats as its prefix. */
+  readonly emittedText: string;
 }
 
 export const freshCursorReaderState = (): CursorReaderState => ({
@@ -801,6 +806,8 @@ export const freshCursorReaderState = (): CursorReaderState => ({
   tombstones: [],
   completed: [],
   queryArgs: [],
+  pendingText: "",
+  emittedText: "",
 });
 
 /** Per-harness reader state: cursor state for cursor, null otherwise.
@@ -932,7 +939,15 @@ const cursorWithState = (
     // liveness lines surface as droppable progress; any other system
     // subtype is ignored like any unknown shape.
     if (r.subtype === "task_notification" || r.subtype === "background_shell_timeout") {
-      return { events: [{ kind: "progress", label: r.subtype }], state };
+      // A notification ends the assistant message in progress. Cursor's
+      // next full-text record would otherwise join the text before and
+      // after it into one message.
+      const progress: ContentEvent = { kind: "progress", label: r.subtype };
+      if (state.pendingText === "") return { events: [progress], state };
+      return {
+        events: [{ kind: "message", role: "assistant", text: state.pendingText }, progress],
+        state: { ...state, pendingText: "", emittedText: state.emittedText + state.pendingText },
+      };
     }
     return { events: [], state };
   }
@@ -957,6 +972,8 @@ const cursorWithState = (
       ],
       state: {
         ...state,
+        // Cursor settles the text before a tool call as its own segment.
+        pendingText: "",
         pending,
         tombstones: [...state.tombstones, ...evicted].slice(-CURSOR_STATE_BOUND),
       },
@@ -1039,9 +1056,21 @@ const cursorWithState = (
     // NOT the discriminator: plain-stream tool segments carry
     // timestamp_ms and would otherwise decode as tokens.
     if (typeof r.timestamp_ms === "number" && typeof r.model_call_id !== "string") {
-      return { events: [{ kind: "token", text }], state };
+      return {
+        events: [{ kind: "token", text }],
+        state: { ...state, pendingText: state.pendingText + text },
+      };
     }
-    return { events: [{ kind: "message", role: "assistant", text }], state };
+    // A full-text record repeats text a notification already ended as a
+    // message; keep only the rest. Text that does not start with it passes
+    // through unchanged.
+    const settled = { ...state, pendingText: "", emittedText: "" };
+    const rest =
+      state.emittedText !== "" && text.startsWith(state.emittedText)
+        ? text.slice(state.emittedText.length)
+        : text;
+    if (rest === "") return { events: [], state: settled };
+    return { events: [{ kind: "message", role: "assistant", text: rest }], state: settled };
   }
   return { events: [], state };
 };
