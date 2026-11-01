@@ -523,3 +523,57 @@ describe("cursor message boundary at a background-task notification", () => {
     ]);
   });
 });
+
+describe("cursor notification prefix is scoped to one segment", () => {
+  const token = (text: string) => assistant(text, { timestamp_ms: 1 });
+  const notification = { type: "system", subtype: "task_notification", session_id: sid };
+  const tool = {
+    type: "tool_call",
+    subtype: "started",
+    call_id: "tool-1",
+    tool_call: { readToolCall: { args: { path: "/tmp/ws/a.txt" } }, toolCallId: "tool-1" },
+    session_id: sid,
+  };
+  const messagesOf = (records: Record<string, unknown>[]) => {
+    let state = freshCursorReaderState();
+    const texts: string[] = [];
+    for (const record of records) {
+      const step = contentEventsWithState("cursor", record, state);
+      for (const e of step.events) if (e.kind === "message") texts.push(e.text);
+      state = step.state as typeof state;
+    }
+    return texts;
+  };
+
+  test("a tool call forgets the prefix, so a later segment that repeats it keeps its head", () => {
+    expect(
+      messagesOf([
+        token("I'll run the tests."),
+        notification,
+        tool,
+        assistant("I'll run the tests. They pass."),
+      ]),
+    ).toEqual(["I'll run the tests.", "I'll run the tests. They pass."]);
+  });
+
+  test("a notification after a tool call strips only that segment's text", () => {
+    expect(
+      messagesOf([
+        token("A"),
+        notification,
+        tool,
+        token("B"),
+        notification,
+        token("C"),
+        assistant("BC"),
+      ]),
+    ).toEqual(["A", "B", "C"]);
+  });
+
+  test("an empty full-text record settles the prefix", () => {
+    expect(messagesOf([token("A"), notification, assistant(""), assistant("A and more")])).toEqual([
+      "A",
+      "A and more",
+    ]);
+  });
+});

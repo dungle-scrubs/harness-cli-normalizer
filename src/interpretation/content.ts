@@ -786,7 +786,8 @@ const popeyeReader = (r: Record<string, unknown>): ContentEvent[] => {
  * completion, and query args by toolCallId for completions that arrive
  * with no preceding start. Owned by interpretation, threaded by execution
  * without inspection; reset per turn. Each collection is bounded
- * (drop-oldest) so a pathological turn cannot grow memory without bound.
+ * (drop-oldest) so a pathological turn cannot grow memory without bound;
+ * the two text fields hold only the current segment's assistant text.
  * Completions land in their own set precisely so settling normal calls
  * never pushes an evicted id out of the tombstones. */
 export interface CursorReaderState {
@@ -972,8 +973,10 @@ const cursorWithState = (
       ],
       state: {
         ...state,
-        // Cursor settles the text before a tool call as its own segment.
+        // A tool call ends the segment: Cursor settles the text before it as
+        // its own record, and the next flush repeats only later text.
         pendingText: "",
+        emittedText: "",
         pending,
         tombstones: [...state.tombstones, ...evicted].slice(-CURSOR_STATE_BOUND),
       },
@@ -1048,7 +1051,6 @@ const cursorWithState = (
   }
   if (r.type === "assistant") {
     const text = assistantText(r);
-    if (text === "") return { events: [], state };
     // Partial deltas carry timestamp_ms without model_call_id (probes 11,
     // 43); full-text segments carry model_call_id, with or without a
     // timestamp (probes 13/15), and so does the end-of-turn flush, which
@@ -1056,6 +1058,7 @@ const cursorWithState = (
     // NOT the discriminator: plain-stream tool segments carry
     // timestamp_ms and would otherwise decode as tokens.
     if (typeof r.timestamp_ms === "number" && typeof r.model_call_id !== "string") {
+      if (text === "") return { events: [], state };
       return {
         events: [{ kind: "token", text }],
         state: { ...state, pendingText: state.pendingText + text },
