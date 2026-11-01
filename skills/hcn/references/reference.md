@@ -64,8 +64,11 @@ requested harness cannot express refuses with the nearest control (codex
 `--sandbox`, muse category switches, cursor config-file allow/deny lists) -
 never a silent narrowing. Extension tools get a name through config:
 `"toolMap": {"pi": {"web-search": "web_search"}}` in either tier; the
-refusal hint names the key to add. `--access read` never re-enables tools
-switched off by `--no-tools`.
+refusal hint names the key to add. The tiers merge per canonical, project
+over user, and the merged map names the tools an explicit grant may use on
+a launch, on `--resume` and on `--resume-last`. A resumed turn still takes
+no launch defaults, so a config model, effort or tools grant stays off it.
+`--access read` never re-enables tools switched off by `--no-tools`.
 
 Project `tools` is grant AND floor: a `--tools` grant exceeding it
 refuses naming both sets; an empty floor refuses every grant. Named

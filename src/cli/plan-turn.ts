@@ -38,6 +38,7 @@ import {
 } from "../interpretation/resolve-options.js";
 import { recognizeNativeSpelling, supportedBy } from "../interpretation/support.js";
 import { renderToolSelection } from "../interpretation/tool-selection.js";
+import { mergeToolMaps } from "../interpretation/tool-vocabulary.js";
 import { resolveEffortSlug } from "../interpretation/vocabulary.js";
 import type { HarnessDescriptor, HarnessName } from "../knowledge/descriptor.js";
 import { NATIVE_SETTINGS_SOURCES } from "../knowledge/native-settings.js";
@@ -379,8 +380,8 @@ export const planTurn = async (
     throw err;
   }
 
-  // Defaults profile + config: LAUNCH-ONLY. Omitted settings follow native
-  // behavior on resume; the resolver never runs on resume paths.
+  // Defaults stay launch-only. Resume uses the merged tool vocabulary to
+  // render explicit grants while omitted settings follow native behavior.
   let effectiveTurnOpts = turnOpts;
   let provenance: readonly ProvenanceEntry[] = [];
   let unrenderable: readonly UnrenderableEntry[] = [];
@@ -397,6 +398,18 @@ export const planTurn = async (
       }
       if (err instanceof ArgvRefusalError) return refused(err);
       throw err;
+    }
+  } else if (
+    turnOpts.tools !== undefined ||
+    turnOpts.excludeTools !== undefined ||
+    turnOpts.access !== undefined
+  ) {
+    const mergedToolMap = mergeToolMaps({
+      user: tiers.user?.toolMap,
+      project: tiers.project?.toolMap,
+    });
+    if (Object.keys(mergedToolMap).length > 0) {
+      effectiveTurnOpts = { ...effectiveTurnOpts, toolMap: mergedToolMap };
     }
   }
 

@@ -785,6 +785,39 @@ describe("toolMap inspect integration", () => {
     }
   });
 
+  // Issue #435: the toolMap is vocabulary, so an explicit --tools on a
+  // resumed turn renders the mapped native name, exactly as on launch.
+  test.each([
+    { label: "a named resume", resume: ["--resume", "01a195b4-bb98-7582-80ab-2454aa2a8e56"] },
+    { label: "resume-last", resume: ["--resume-last"] },
+  ])("inspect pi --argv with $label renders the user toolMap", async ({ resume }) => {
+    const dir = mkdtempSync(join(cliFixtureTmpdir(), "hcn-toolmap-resume-"));
+    writeFileSync(
+      join(dir, "config.json"),
+      JSON.stringify({ version: 1, toolMap: { pi: { "web-search": "web_search" } } }),
+    );
+    const prev = process.env.HCN_CONFIG_DIR;
+    process.env.HCN_CONFIG_DIR = dir;
+    try {
+      const out = await captureDispatch([
+        "inspect",
+        "pi",
+        "--argv",
+        "--prompt",
+        "hi",
+        "--tools",
+        "web-search",
+        ...resume,
+      ]);
+      expect(out.exitCode).toBeUndefined();
+      const parsed = JSON.parse(out.stdout);
+      expect(parsed.join(" ")).toContain("--tools web_search");
+    } finally {
+      process.env.HCN_CONFIG_DIR = prev;
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("project config overrides user config for same key", async () => {
     const userDir = mkdtempSync(join(tmpdir(), "hcn-toolmap-u-"));
     const projDir = mkdtempSync(join(cliFixtureTmpdir(), "hcn-toolmap-p-"));
