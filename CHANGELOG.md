@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.13](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.12...v0.9.13) (2026-11-01)
+
+
+### Fixed
+
+* resolve configured tool names on resumed turns ([#436](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/436)) ([e1a7f89](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/e1a7f8982ba2088c7cf3fc9ce7d44750360049f3))
+
 ## [0.9.12](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.11...v0.9.12) (2026-10-31)
 
 
