@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.14](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.13...v0.9.14) (2026-11-01)
+
+
+### Fixed
+
+* end a Cursor assistant message at a background-task notification ([#438](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/438)) ([cc101bc](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/cc101bc711578def58848a911f6f69a2f0f744d0))
+
 ## [0.9.13](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.12...v0.9.13) (2026-11-01)
 
 
