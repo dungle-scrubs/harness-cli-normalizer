@@ -323,11 +323,54 @@ const renderTurnArgv = (
   ];
 };
 
-export const buildLaunchArgv = (h: HarnessDescriptor, opts: LaunchOptions): string[] => [
-  h.bin,
-  ...h.launch.baseFlags,
-  ...renderTurnArgv(h, opts, "launch"),
-];
+/** The argv an SDK-backed harness spawns (issue #440): the private worker
+ * marker, and nothing else - model, resume and the access restriction
+ * ride the worker's private open line, never argv. Every refusal the CLI
+ * grammar raises still fires first (unknown model, an option with no
+ * descriptor spec, a tool grant, a skills allowlist): the worker expresses
+ * only what the descriptor declares, so an option the backend cannot
+ * express must refuse exactly as it did before, never pass silently. The
+ * OS spawn adapter is the only code that rewrites the marker into the
+ * real node + worker entrypoint. */
+const sdkWorkerArgv = (
+  h: Exclude<HarnessDescriptor["sdk"], null | undefined>,
+  descriptor: HarnessDescriptor,
+  opts: TurnOptions,
+  phase: "launch" | "resume",
+): string[] => {
+  if (opts.model !== undefined) {
+    const validated = validateModel(descriptor, opts.model);
+    if (!validated.ok) {
+      throw new ArgvRefusalError({
+        issue: "unknown-model",
+        harness: descriptor.name,
+        supported: [
+          ...descriptor.vocabulary.models,
+          ...Object.keys(descriptor.vocabulary.aliases),
+          ...(descriptor.vocabulary.effortSlugs !== undefined
+            ? Object.keys(descriptor.vocabulary.effortSlugs)
+            : []),
+        ],
+        detail: opts.model,
+      });
+    }
+  }
+  renderTurnOptions(descriptor, opts, phase);
+  if (opts.tools !== undefined || opts.excludeTools !== undefined) {
+    renderToolSelection(descriptor, {
+      include: opts.tools,
+      exclude: opts.excludeTools,
+      toolMap: opts.toolMap,
+    });
+  }
+  if (opts.skills !== undefined) renderSkillsSelection(descriptor, opts.skills);
+  return [h.workerMarker];
+};
+
+export const buildLaunchArgv = (h: HarnessDescriptor, opts: LaunchOptions): string[] => {
+  if (h.sdk != null) return sdkWorkerArgv(h.sdk, h, opts, "launch");
+  return [h.bin, ...h.launch.baseFlags, ...renderTurnArgv(h, opts, "launch")];
+};
 
 /** Descriptor-derived spawn-env assignments for a turn (claude's memory
  * disable is an env var, not a flag). Pure data: merge OVER the caller's
@@ -373,6 +416,22 @@ const resumeArgv = (
 ): string[] => {
   refuseUnusableSessionId(h, opts.sessionId);
   assertAccessExclusivity(h, opts);
+  if (h.sdk != null) {
+    // Issue #440: the SDK store's conversations are agent-<uuid>. A bare
+    // UUID is a CLI-chat session id - a different, incompatible store -
+    // and must be refused explicitly rather than handed to Agent.resume,
+    // which would answer a foreign (missing) id. The CLI transcript
+    // reader still accepts bare UUIDs against the historical chats store.
+    if (!h.sdk.resumeIdShape.test(opts.sessionId)) {
+      throw new ArgvRefusalError({
+        issue: "invalid-option-value",
+        harness: h.name,
+        supported: [`an SDK conversation id matching ${String(h.sdk.resumeIdShape)}`],
+        detail: `${h.name} session ${opts.sessionId} is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them`,
+      });
+    }
+    return sdkWorkerArgv(h.sdk, h, opts, "resume");
+  }
   // A Pi settings fingerprint refuses passthrough, so Pi's own `--` is free:
   // a prompt such as `--no-extensions` stays the message and cannot become
   // a flag the fingerprint guard never saw (RFC 35).
@@ -445,6 +504,12 @@ const resumeLastArgv = (
 ): string[] => {
   const resumeLast = assertResumeLastRenderable(h);
   assertAccessExclusivity(h, opts);
+  if (h.sdk != null) {
+    // assertResumeLastRenderable above already refuses for a parse-only
+    // descriptor; this arm exists so an SDK backend that ever re-enables
+    // headless resume-last still never falls through to the CLI grammar.
+    return sdkWorkerArgv(h.sdk, h, opts, "resume");
+  }
   const tail = renderTurnArgv(h, opts, "resume", nativeSettingsArgs);
   if (h.resume.style === "positional") {
     return [
@@ -489,6 +554,20 @@ export const buildSpawnArgv = (h: HarnessDescriptor, opts: SpawnArgvOptions): st
       issue: "unsupported-passthrough",
       harness: h.name,
       supported: [],
+      hint: `remove the tokens after \`--\` and re-run on ${h.name}`,
+      detail: tail.join(" "),
+      bin: h.bin,
+    });
+  }
+  // Issue #440: an SDK-backed harness spawns the worker, which takes no
+  // native CLI flags - a passthrough tail would be silently dropped, so
+  // it refuses instead. Options the SDK cannot express refuse the same
+  // way (sdkWorkerArgv re-runs every descriptor refusal).
+  if (h.sdk != null && tail.length > 0) {
+    throw new ArgvRefusalError({
+      issue: "unsupported-passthrough",
+      harness: h.name,
+      supported: ["no passthrough tail: the cursor SDK worker takes no native CLI flags"],
       hint: `remove the tokens after \`--\` and re-run on ${h.name}`,
       detail: tail.join(" "),
       bin: h.bin,
@@ -645,8 +724,54 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
   }
   refuseUnusableSessionId(h, opts.sessionId);
   // Issue #457: the setting-source selection validates here too, so a
-  // refused value never reaches the session grammar.
+  // refused value never reaches the session grammar - including the SDK
+  // session grammar below, which cannot express it either.
   if (opts.settingSources !== undefined) validateSettingSources(h, opts.settingSources);
+  // Issue #440: an SDK-backed session spawns the worker too - the same
+  // backend drives hcn run and hcn session. No id or resume flag renders:
+  // the caller-side handle stays local, resume rides the open line, and
+  // the SDK mints the real agent id.
+  if (h.sdk != null) {
+    if (opts.isResume === true && !h.sdk.resumeIdShape.test(opts.sessionId)) {
+      throw new ArgvRefusalError({
+        issue: "invalid-option-value",
+        harness: h.name,
+        supported: [`an SDK conversation id matching ${String(h.sdk.resumeIdShape)}`],
+        detail: `${h.name} session ${opts.sessionId} is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them`,
+      });
+    }
+    if (opts.model !== undefined) {
+      const validated = validateModel(h, opts.model);
+      if (!validated.ok) {
+        throw new ArgvRefusalError({
+          issue: "unknown-model",
+          harness: h.name,
+          supported: [
+            ...h.vocabulary.models,
+            ...Object.keys(h.vocabulary.aliases),
+            ...(h.vocabulary.effortSlugs !== undefined
+              ? Object.keys(h.vocabulary.effortSlugs)
+              : []),
+          ],
+          detail: opts.model,
+        });
+      }
+    }
+    // Every other dimension a session can name still validates through
+    // the shared render (its refusals fire); the tokens are discarded.
+    renderTurnOptions(
+      h,
+      {
+        ...(opts.effort !== undefined ? { effort: opts.effort } : {}),
+        ...(opts.provider !== undefined ? { provider: opts.provider } : {}),
+        ...(opts.agent !== undefined ? { agent: opts.agent } : {}),
+        ...(opts.contextWindow !== undefined ? { contextWindow: opts.contextWindow } : {}),
+        ...(opts.model !== undefined ? { model: opts.model } : {}),
+      } as TurnOptions,
+      "resume",
+    );
+    return [h.sdk.workerMarker];
+  }
   // Refuse unsupported permissions before assembling the native invocation.
   const permissions = renderSessionPermissions(h, opts);
   const flag = opts.isResume ? h.sessionMode.resumeFlag : h.sessionMode.idFlag;

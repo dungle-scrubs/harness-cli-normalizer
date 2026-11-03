@@ -244,7 +244,11 @@ const killResume = async (h: HarnessDescriptor): Promise<Cell> => {
 
 // 7. error-propagation: a missing binary yields a transport failure and exit 127.
 const errorProp = async (h: HarnessDescriptor): Promise<Cell> => {
-  const broken = { ...h, bin: "definitely-not-real-xyz" };
+  const broken = {
+    ...h,
+    bin: "definitely-not-real-xyz",
+    ...(h.sdk == null ? {} : { sdk: { ...h.sdk, workerMarker: "definitely-not-real-xyz" } }),
+  };
   const events = await collect(streamTurn(broken, opts(h), smokeDeps()));
   const done = events.at(-1);
   const ok =

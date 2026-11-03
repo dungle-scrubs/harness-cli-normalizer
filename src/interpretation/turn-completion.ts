@@ -8,7 +8,11 @@ export const successfulTurnEnd = (harness: HarnessName, raw: unknown): boolean =
   if (r === null) return false;
   switch (harness) {
     case "claude":
+      return r.type === "result" && r.subtype === "success" && r.is_error !== true;
     case "cursor":
+      // The SDK worker envelope's terminal record (issue #440): a finished
+      // Run.wait status is the native success delimiter.
+      if (r.hcn === "turn-end") return r.status === "finished";
       return r.type === "result" && r.subtype === "success" && r.is_error !== true;
     case "pi":
       return r.type === "agent_settled" && r.aborted !== true;

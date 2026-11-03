@@ -14,6 +14,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
+import { runCliWithFakeSdk } from "./cursor-sdk-fixture.js";
 import { cliFixtureTmpdir } from "./fixture-tmpdir.js";
 import { ensureDist } from "./stub-dist.js";
 
@@ -34,24 +35,32 @@ const stubScript = (lines: readonly string[]): string =>
     "",
   ].join("\n");
 
+// Issue #440: cursor runs through the SDK worker, so the records ride the
+// worker's event envelopes (same native result payloads).
 const cursorRecords = (denials: number) => [
   JSON.stringify({
-    type: "tool_call",
-    subtype: "completed",
-    call_id: "ordinary-error",
-    tool_call: {
-      shellToolCall: { result: { error: { message: "command exited with status 3" } } },
+    hcn: "event",
+    event: {
+      type: "tool_call",
+      call_id: "ordinary-error",
+      name: "shell",
+      status: "completed",
+      result: { error: { message: "command exited with status 3" } },
     },
   }),
   ...Array.from({ length: denials }, () =>
     JSON.stringify({
-      type: "tool_call",
-      subtype: "completed",
-      call_id: "same-call",
-      tool_call: { shellToolCall: { result: { rejected: { reason: "needs approval" } } } },
+      hcn: "event",
+      event: {
+        type: "tool_call",
+        call_id: "same-call",
+        name: "shell",
+        status: "completed",
+        result: { rejected: { reason: "needs approval" } },
+      },
     }),
   ),
-  JSON.stringify({ type: "result", subtype: "error_during_execution", is_error: true }),
+  JSON.stringify({ hcn: "turn-end", status: "error", message: "error_during_execution" }),
 ];
 
 const antigravityRecords = (denials: number) => [
@@ -92,9 +101,42 @@ const antigravityRecords = (denials: number) => [
 ];
 
 const cases = [
-  { harness: "cursor", bin: "agent", records: cursorRecords },
+  // cursor moved off the stub-binary matrix when its headless surface
+  // became the SDK worker (#440): its runs go through the scripted fake
+  // SDK (the stub agent binary would never be spawned).
   { harness: "antigravity", bin: "agy", records: antigravityRecords },
 ] as const;
+
+/** One cursor run through the fake SDK worker. The fake replays RAW SDK
+ * stream observations (SDKMessage shapes, no worker envelope - the worker
+ * adds that), so the inner events ride `stream`. */
+const runCursorCli = (denials: number, mode: "json" | "human") => {
+  const rawEvents = cursorRecords(denials)
+    .map((line) => JSON.parse(line) as Record<string, unknown>)
+    // The terminal record (no `event` envelope) settles through the
+    // send's status/error fields, not the stream.
+    .filter((record) => record.event !== undefined)
+    .map((record) => ({ stream: record.event }));
+  const pending = runCliWithFakeSdk({
+    script: {
+      agentId: "agent-da354f73-06a8-4bb8-8c6f-e88da9f95eb1",
+      sends: [{ status: "error", error: { message: "error_during_execution" }, events: rawEvents }],
+    },
+    args: [
+      "run",
+      "cursor",
+      "probe prompt",
+      "--questions",
+      "none",
+      ...(mode === "json" ? ["--json"] : []),
+    ],
+  });
+  return pending.then((run) => {
+    const out = { stdout: run.stdout, stderr: run.stderr, status: run.status };
+    run.cleanup();
+    return out;
+  });
+};
 
 /** One built-CLI run against a synthetic native executable on PATH. */
 const runBuiltCli = (
@@ -197,3 +239,41 @@ for (const { harness, bin, records } of cases) {
     });
   });
 }
+
+describe("cursor: built-CLI denial counts (fake SDK worker, #440)", () => {
+  test("json: repeated denials count on done while the native task failure stays the verdict", async () => {
+    const absent = await runCursorCli(0, "json");
+    const positive = await runCursorCli(2, "json");
+    const absentEvents = eventsOf(absent.stdout);
+    expect(absentEvents.filter((e) => e.kind === "error" && e.denial !== undefined)).toEqual([]);
+    const absentDone = absentEvents.at(-1);
+    expect(absentDone).toMatchObject({
+      kind: "done",
+      exitCode: 0,
+      cause: "failed",
+      failure: { class: "task", retryable: false },
+    });
+    expect(absentDone).not.toHaveProperty("denialCount");
+    expect(absent.status).toBe(1);
+    const positiveEvents = eventsOf(positive.stdout);
+    expect(positiveEvents.filter((e) => e.kind === "error" && e.denial !== undefined)).toHaveLength(
+      2,
+    );
+    const positiveDone = positiveEvents.at(-1);
+    expect(positiveDone).toEqual({ ...absentDone, denialCount: 2 });
+    expect(positive.status).toBe(1);
+    expect(positiveEvents.filter((e) => e.kind === "failure")).toEqual(
+      absentEvents.filter((e) => e.kind === "failure"),
+    );
+  });
+
+  test("human: [denials: N] renders only when denials were observed", async () => {
+    const absent = await runCursorCli(0, "human");
+    expect(absent.status).toBe(1);
+    expect(absent.stdout).toContain(doneLineWithoutCount);
+    expect(absent.stdout).not.toContain("[denials:");
+    const positive = await runCursorCli(2, "human");
+    expect(positive.status).toBe(1);
+    expect(positive.stdout).toContain(doneLineWithCount);
+  });
+});

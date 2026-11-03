@@ -1,5 +1,7 @@
+import { execFileSync } from "node:child_process";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { installedCursorSdkVersion } from "../src/execution/cursor-sdk-runtime.js";
 import type { RunnerDeps, SpawnedProcess } from "../src/execution/deps.js";
 import { nodeRunnerDeps } from "../src/execution/node-deps.js";
 import type { HarnessDescriptor } from "../src/knowledge/descriptor.js";
@@ -11,6 +13,21 @@ export function smokeHarnesses(harnesses: HarnessDescriptor[]): HarnessDescripto
   const selected = harnesses.filter((harness) => harness.name === name);
   if (selected.length !== 1) throw new Error(`Unknown SMOKE_HARNESS: ${name}`);
   return selected;
+}
+
+export function smokeVersion(harness: HarnessDescriptor): string | null {
+  try {
+    if (harness.sdk?.kind === "cursor-sdk") {
+      return installedCursorSdkVersion();
+    }
+    const output = execFileSync(harness.bin, ["--version"], {
+      encoding: "utf8",
+      timeout: 10_000,
+    });
+    return output.match(/\d+\.\d+\.\d+(?:[.\-+][0-9A-Za-z.-]+)?/)?.[0] ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export const smokeCwd = resolve(process.env.SMOKE_CWD ?? process.cwd());

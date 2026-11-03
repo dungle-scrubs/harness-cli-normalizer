@@ -2,8 +2,6 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { expect, test } from "vitest";
-import { storePath } from "../../src/interpretation/store.js";
-import { cursorCli } from "../../src/knowledge/cursor.js";
 import { cliFixtureTmpdir } from "./fixture-tmpdir.js";
 
 const cli = resolve("dist/cli.js");
@@ -66,13 +64,9 @@ function fixture(harness: string, nativeRecords: unknown[]) {
   const home = join(root, "home");
   mkdirSync(bin);
   mkdirSync(home);
-  if (harness === "cursor")
-    mkdirSync(join(storePath(cursorCli, { home, cwd: root, sessionId }), sessionId), {
-      recursive: true,
-    });
   const argvPath = join(root, "argv.json");
   writeFileSync(
-    join(bin, harness === "cursor" ? "agent" : harness),
+    join(bin, harness),
     `#!${process.execPath}\nrequire("node:fs").writeFileSync(${JSON.stringify(argvPath)}, JSON.stringify(process.argv.slice(2)));\nprocess.stdout.write(${JSON.stringify(`${nativeRecords.map((r) => JSON.stringify(r)).join("\n")}\n`)});\n`,
     { mode: 0o755 },
   );
@@ -281,11 +275,11 @@ for (const runtime of [process.execPath, bun]) {
     const run = spawnSync(runtime, [cli, "run", "--help"], { encoding: "utf8", timeout: 20000 });
     expect(run.status).toBe(0);
     const help = run.stdout.replace(/\s+/g, " ");
-    expect(help).toContain("access have no default; no access preset is applied");
-    expect(help).toContain("Explicit access write emits --force on cursor");
+    expect(help).toContain("access have no default on most harnesses");
+    expect(help).toContain("Explicit access write runs cursor's SDK toolset unconfined");
     expect(help).toContain("antigravity refuses --access");
-    expect(help).toContain("Cursor read with autonomy also adds --force; precedence is unverified");
-    expect(help).toContain("Use --no-autonomy for the qualified read preset");
+    expect(help).toContain("Cursor keeps an explicit read toolset with --autonomy");
+    expect(help).not.toContain("precedence is unverified");
     expect(help).not.toContain("nothing on claude/pi/muse/cursor/antigravity");
   }, 30000);
 
@@ -441,69 +435,4 @@ for (const runtime of [process.execPath, bun]) {
       }
     }
   }, 80000);
-
-  for (const access of ["read", "write"]) {
-    test(`${runtime}: Cursor access ${access} renders on fresh, resumed and resume-last turns`, () => {
-      for (const resume of [[], ["--resume", sessionId], ["--resume-last"]]) {
-        const f = fixture("cursor", [
-          { type: "system", subtype: "init", session_id: sessionId },
-          { type: "assistant", message: { content: [{ type: "text", text: "OK" }] } },
-          { type: "result", subtype: "success", is_error: false },
-        ]);
-        try {
-          const run = spawnSync(
-            runtime,
-            [
-              cli,
-              "run",
-              "cursor",
-              "--json",
-              "--questions",
-              "none",
-              "--cwd",
-              f.root,
-              "--access",
-              access,
-              ...resume,
-              "--prompt",
-              "fixture",
-            ],
-            { cwd: f.root, env: f.env, encoding: "utf8", timeout: 20000 },
-          );
-          expect(run.error).toBeUndefined();
-          expect(run.status, run.stderr).toBe(0);
-          const argv = JSON.parse(readFileSync(f.argvPath, "utf8")) as string[];
-          if (resume[0] === "--resume") {
-            expect(argv.slice(argv.indexOf("--resume"), argv.indexOf("--resume") + 2)).toEqual([
-              "--resume",
-              sessionId,
-            ]);
-            expect(argv).not.toContain("--continue");
-          } else if (resume[0] === "--resume-last") {
-            expect(argv).toContain("--continue");
-            expect(argv).not.toContain("--resume");
-          } else {
-            expect(argv).not.toContain("--resume");
-            expect(argv).not.toContain("--continue");
-          }
-          if (access === "read") {
-            expect(argv.slice(argv.indexOf("--sandbox"), argv.indexOf("--sandbox") + 2)).toEqual([
-              "--sandbox",
-              "enabled",
-            ]);
-            expect(argv.slice(argv.indexOf("--mode"), argv.indexOf("--mode") + 2)).toEqual([
-              "--mode",
-              "ask",
-            ]);
-            expect(argv).not.toContain("--force");
-          } else {
-            expect(argv).not.toContain("--sandbox");
-            expect(argv.filter((a) => a === "--force")).toHaveLength(1);
-          }
-        } finally {
-          rmSync(f.root, { recursive: true, force: true });
-        }
-      }
-    }, 80000);
-  }
 }

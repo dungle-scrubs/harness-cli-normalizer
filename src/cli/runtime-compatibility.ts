@@ -1,7 +1,9 @@
+import { installedCursorSdkVersion } from "../execution/cursor-sdk-runtime.js";
 import { mergeEnvironment } from "../execution/environment.js";
 import { executablePath } from "../execution/executable.js";
 import { probeExtensionOption } from "../execution/extension-probe.js";
-import { nodeRunnerDeps } from "../execution/node-deps.js";
+import { nodeRunnerDeps, sdkWorkerArgvFor } from "../execution/node-deps.js";
+import { cursorSdkAccessRestriction } from "../interpretation/cursor-sdk.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { TURN_OPTION_KEYS } from "../knowledge/descriptor.js";
 import { installedVersion } from "./check.js";
@@ -25,6 +27,21 @@ export async function runtimeCompatibility(
     string,
     { readonly expressible: boolean; readonly providedBy: string; readonly detail: string }
   > | null;
+  /** Issue #440: present when the harness's headless surface is an SDK
+   * worker. The worker argv is the spawn adapter's rewrite of the
+   * descriptor's private marker, and `access` is the exact restriction
+   * mapping the worker's open line carries for each preset - inspect
+   * describes it instead of leaving the preset's CLI spelling (which no
+   * longer runs) as the only documented behavior. */
+  readonly sdk?: {
+    readonly kind: string;
+    readonly version: string | null;
+    readonly workerArgv: readonly string[];
+    readonly resumeIdShape: string;
+    readonly access: Readonly<
+      Record<"bare" | "read" | "write" | "autonomy", ReturnType<typeof cursorSdkAccessRestriction>>
+    >;
+  };
 }> {
   const { cwd = process.cwd(), env: environment } = options;
   const inheritedEnvironment = process.env;
@@ -34,7 +51,14 @@ export async function runtimeCompatibility(
   const path = executablePath(harness.bin, cwd, searchPath);
   const version =
     path === null ? null : await installedVersion(path, { cwd, env: effectiveEnvironment });
-  const supported = path !== null;
+  const sdkVersion = harness.sdk == null ? null : installedCursorSdkVersion();
+  const workerArgv = harness.sdk == null ? null : sdkWorkerArgvFor(harness.sdk.workerMarker);
+  const supported =
+    harness.sdk == null
+      ? path !== null
+      : sdkVersion !== null &&
+        workerArgv !== null &&
+        executablePath(workerArgv[0] ?? "", cwd, searchPath) !== null;
   // Map #300: run every declared probe under the SAME effective
   // environment the spawn would use (#301: extensions follow the config
   // dir env), answering the planning question for THIS machine. A missing
@@ -80,5 +104,21 @@ export async function runtimeCompatibility(
     },
     verifiedAgainst: harness.verifiedAgainst,
     extensionOptions: Object.keys(extensionOptions).length > 0 ? extensionOptions : null,
+    ...(harness.sdk != null
+      ? {
+          sdk: {
+            kind: harness.sdk.kind,
+            version: sdkVersion,
+            workerArgv: workerArgv ?? [harness.sdk.workerMarker],
+            resumeIdShape: String(harness.sdk.resumeIdShape),
+            access: {
+              bare: cursorSdkAccessRestriction({}),
+              read: cursorSdkAccessRestriction({ access: "read" }),
+              write: cursorSdkAccessRestriction({ access: "write" }),
+              autonomy: cursorSdkAccessRestriction({ autonomy: true }),
+            },
+          },
+        }
+      : {}),
   };
 }

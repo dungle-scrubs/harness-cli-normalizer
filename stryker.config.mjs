@@ -6,7 +6,10 @@ const mutatedFile = mutateFlagIndex === -1 ? undefined : process.argv[mutateFlag
 const lanes = {
   "src/execution/failure.ts": { floor: 75, name: "failure" },
   "src/interpretation/argv.ts": { floor: 84, name: "argv" },
-  "src/interpretation/content.ts": { floor: 81, name: "content" },
+  "src/interpretation/content.ts,src/interpretation/cursor-tool-outcome.ts": {
+    floor: 81,
+    name: "content",
+  },
   "src/interpretation/session-input.ts": { floor: 99, name: "session-input" },
 };
 const selectedLane = mutatedFile === undefined ? undefined : lanes[mutatedFile];
@@ -35,6 +38,11 @@ const config = {
   concurrency: 8,
   coverageAnalysis: "off",
   ignorePatterns: [
+    // Disposable CLI fixtures change while tests run; they are regenerated, not inputs.
+    ".test-tmp",
+    // The tracked .claude/skills symlink cannot be copied into the
+    // sandbox (ENOTSUP); tests never read it, so it stays out.
+    ".claude",
     ".e2e",
     ".lucid",
     ".native-artifacts",
@@ -51,6 +59,7 @@ const config = {
     "src/execution/failure.ts",
     "src/interpretation/argv.ts",
     "src/interpretation/content.ts",
+    "src/interpretation/cursor-tool-outcome.ts",
     "src/interpretation/session-input.ts",
   ],
   reporters: ["clear-text", "progress", "json"],

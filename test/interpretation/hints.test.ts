@@ -75,8 +75,8 @@ describe("hint table (confirmed instances)", () => {
     expect(hintFor("muse", "discovery.skills")).toContain("no unconditional skills-off switch");
     expect(hintFor("claude", "provider")).toContain("no separate provider selector");
     expect(hintFor("muse", "memory")).toContain("no CLI flag or config key");
-    expect(hintFor("cursor", "tools")).toContain("config-file allow and deny lists");
-    expect(hintFor("cursor", "excludeTools")).toContain("config-file allow and deny lists");
+    expect(hintFor("cursor", "tools")).toContain("--access read");
+    expect(hintFor("cursor", "excludeTools")).toContain("--access read");
     expect(hintFor("muse", "resumeLast")).toContain("hcn run muse --resume <id>");
     expect(hintFor("opencode", "tools")).toContain("opencode.json permissions");
     expect(hintFor("opencode", "resumeLast")).toContain("hcn run opencode --resume <id>");

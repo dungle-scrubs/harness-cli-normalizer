@@ -1661,6 +1661,89 @@ describe("issue #344: a pi prompt refused natively ends its turn with failed", (
   });
 });
 
+// Round-6 contract audit (panel A finding 1, spec X1, tests J1-r6): the
+// final classified failure owns the limit bookkeeping for every session
+// harness, not just Cursor. A pi refused opener whose prose is a known
+// usage-limit wall ends its turn done limit - not failed - and the
+// session-level limit cause is sticky: a later clean turn on the same
+// live handle and a native exit 0 still close the session limit. Issue
+// #344 above keeps the non-limit refusal expectations (done failed,
+// closed clean on exit 0).
+describe("a pi refused opener with usage-limit prose takes limit precedence", () => {
+  const USAGE_LIMIT_WALL = "You've hit your usage limit";
+
+  test("the refused opener's turn is done limit; a later clean turn still closes limit", async () => {
+    const proc = new FakeProcess();
+    const log: Record<string, unknown>[] = [];
+    const d = {
+      ...makeDeps(proc),
+      log: (event: Record<string, unknown>) => log.push(event),
+    };
+    const session = openSession(piCli, { sessionId: sid }, d);
+    const send = session.send({ id: "a", text: "say hi" });
+    const turnsIter = session.turns[Symbol.asyncIterator]();
+    const nextTurn1 = turnsIter.next();
+
+    // pi answers the opener with success: false and the shared matcher's
+    // known usage-limit prose.
+    proc.emitLine(
+      JSON.stringify({
+        command: "prompt",
+        id: proc.lastSendRequestId(),
+        success: false,
+        type: "response",
+        error: USAGE_LIMIT_WALL,
+      }),
+    );
+    const turn1 = (await nextTurn1).value as AsyncIterable<HarnessEvent>;
+    expect(await send.settled).toMatchObject({
+      disposition: "rejected",
+      reason: "native-rejected",
+    });
+    const events1 = await drainTurn(turn1);
+    const failures1 = events1.filter(
+      (e): e is Extract<HarnessEvent, { kind: "failure" }> => e.kind === "failure",
+    );
+    expect(failures1).toHaveLength(1);
+    expect(failures1[0]).toMatchObject({ class: "usage-limit", code: "usage-limit" });
+    const dones1 = events1.filter((e) => e.kind === "done");
+    expect(dones1).toHaveLength(1);
+    expect(dones1[0]).toMatchObject({
+      kind: "done",
+      cause: "limit",
+      failure: { class: "usage-limit" },
+    });
+
+    // Same live handle: a second prompt is accepted and its turn is clean.
+    const send2 = session.send({ id: "b", text: "again" });
+    const nextTurn2 = turnsIter.next();
+    proc.emitLine(piStarted(proc));
+    expect(await send2.settled).toEqual({ disposition: "started" });
+    proc.emitLine(
+      JSON.stringify({
+        type: "message_end",
+        message: { role: "assistant", content: [{ type: "text", text: "still here" }] },
+      }),
+    );
+    proc.emitLine(JSON.stringify({ type: "agent_settled" }));
+    const turn2 = (await nextTurn2).value as AsyncIterable<HarnessEvent>;
+    const events2 = await drainTurn(turn2);
+    expect(events2).toContainEqual({ kind: "message", role: "assistant", text: "still here" });
+    expect(events2.filter((e) => e.kind === "failure")).toEqual([]);
+    expect(events2.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+
+    // Native exit 0: the session-level limit cause survives the clean turn.
+    const closing = session.close();
+    proc.exit(0);
+    await closing;
+    expect(log.find((event) => event.event === "session_close")).toMatchObject({
+      exitCode: 0,
+      cause: "limit",
+    });
+    expect((await turnsIter.next()).done).toBe(true);
+  });
+});
+
 test("#376: a process crash after a completed session turn does not rewrite the turn verdict", async () => {
   const proc = new FakeProcess();
   const log: Record<string, unknown>[] = [];

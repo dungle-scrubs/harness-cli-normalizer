@@ -1,5 +1,6 @@
 import type { SpawnSyncReturns } from "node:child_process";
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const configUrl = new URL("../../stryker.config.mjs", import.meta.url).href;
@@ -28,7 +29,7 @@ describe("Stryker mutation lanes", () => {
   it.each([
     ["src/execution/failure.ts", "failure", 75],
     ["src/interpretation/argv.ts", "argv", 84],
-    ["src/interpretation/content.ts", "content", 81],
+    ["src/interpretation/content.ts,src/interpretation/cursor-tool-outcome.ts", "content", 81],
     ["src/interpretation/session-input.ts", "session-input", 99],
   ])("maps %s to the reviewed %s lane", (mutatedFile, lane, threshold) => {
     const result = loadConfig(["--mutate", mutatedFile]);
@@ -38,6 +39,15 @@ describe("Stryker mutation lanes", () => {
       reportFileName: `reports/mutation/${lane}.json`,
       threshold,
     });
+  });
+
+  it("the content command includes the extracted outcome parser", () => {
+    const { scripts } = JSON.parse(
+      readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
+    );
+    expect(scripts["test:mutation:content"]).toBe(
+      "stryker run --mutate src/interpretation/content.ts,src/interpretation/cursor-tool-outcome.ts",
+    );
   });
 
   it.each([

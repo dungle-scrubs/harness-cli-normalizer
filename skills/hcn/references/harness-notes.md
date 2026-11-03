@@ -3,8 +3,8 @@
 Read this before relying on behavior that differs by harness: model choice,
 provider selection, live-session controls, Claude write sandbox limits, the
 Claude configuration directory, native approvals and input requests, Cursor
-trust and effort, Antigravity results, and OpenCode's free tier and event
-stream. The flag table and support matrix are in
+SDK authentication, model and access behavior, Antigravity results, and
+OpenCode's free tier and event stream. The flag table and support matrix are in
 [reference.md](reference.md).
 
 ## Claude models
@@ -188,32 +188,74 @@ approval, read [native approvals](native-approvals.md).
 
 ## Cursor
 
-Cursor runs behind a workspace-trust gate: an untrusted directory fails
-the turn with failure class `trust-refused` (retryable - route the work
-elsewhere or to a trusted directory). Trust a directory by running
-`agent` there once outside hcn; `--autonomy` renders `--force`, which
-bypasses the gate per run without persisting trust. hcn never passes
-`--trust`. Cursor's captured locked-keychain failure printed `Your macOS
-login keychain is locked.` on stderr and exited 1. hcn reports it as `auth`
-with `authKind: credential-access`, retaining the diagnostic line and following
-stderr in the message and the exit code in `nativeExitCode`. The owner must
-restore cursor credential access in the context the run executed in. Never
-unlock a keychain or enter a password on the run's behalf. An unlock from
-another shell or SSH session may not reach that context. Effort on cursor resolves into the
-`--model` slug through per-family ladders (`--model gpt-5.2 --effort high`
-runs `gpt-5.2-high`); a bare family stem without `--effort` refuses, and
-only arg-tier `--effort` enforces. `--access read` selects native ask mode
-(`--mode ask --sandbox enabled`). `--access write` renders `--force`,
-which grants unconfined commands and bypasses workspace trust: use it only
-with the human's authorization for that access. Even native
-`--force --sandbox enabled` allowed writes outside the workspace in
-qualification. The normalized `--sandbox` option therefore still refuses.
-`--autonomy` independently adds `--force` even with `--access read`; precedence
-against ask mode is unverified. Use `--no-autonomy` for the qualified read preset,
-including when configuration enables autonomy.
-Denied tool calls arrive as `tool-result` with `isError: true` and
-non-terminal `error` events carrying
-a structured `denial` field (`tool`, `reason`) with exit 0.
+`hcn run cursor` and `hcn session cursor` execute the Cursor SDK (`@cursor/sdk`,
+installed with hcn) in one Node worker process hcn owns. hcn never spawns the
+native `agent` CLI headlessly. Historical native terminal operations and CLI version
+inspection remain separate.
+
+**Authentication is separate from the native CLI login.** The SDK needs
+`CURSOR_API_KEY`, or a user API key stored by the SDK's browser login
+(`Cursor.auth.login()`, stored at `~/.cursor/sdk/auth.json`, minted for 90 days
+by default). A login to the `agent` CLI or the Cursor IDE does not satisfy it,
+and hcn adds no `login` command - see Cursor's
+[SDK authentication](https://cursor.com/docs/sdk/typescript#authentication).
+SDK auth failures arrive as classified `auth` failures. User API keys bill to
+the user's plan with the same pricing and request pools as IDE runs. Never
+read, log, or paste a key or account identity.
+
+Models: hcn slugs keep working - `grok-4.7-high`, or `--model grok-4.7
+--effort high` - and the worker resolves them against the account's
+`Cursor.models.list()` catalog into a base id plus parameters (effort values,
+`fast`, context sizes), filling each other parameter with its default. A bare
+SDK base id (an exact catalog id) and a bare family stem both run at the
+catalog's defaults instead of refusing. Unknown ids pass through to the SDK
+and fail natively. Parameter spelling varies by model: grok-4.7 uses
+`reasoning_effort`, older models may use `effort` - never assume one spelling.
+
+Resume: SDK conversation ids are `agent-<uuid>` and survive process restarts;
+`--resume` reattaches through `Agent.resume`. A bare UUID names a CLI-chat
+session in a different, incompatible store and refuses explicitly.
+`--resume-last` refuses (the SDK backend has no most-recent-conversation
+path), and a native passthrough tail after `--` refuses (the worker takes no
+native CLI flags).
+
+Access: `--access read` selects the SDK read toolset (`read`, `grep`, `glob`,
+`ls`, `webFetch`, `webSearch`, with `task` and `mcp` disallowed so subagents
+and custom tools cannot grow it back). That is tool selection, not a sandbox:
+the web tools stay and `read` reads any path. `--access write`, and autonomy
+without an explicit read, run the native toolset unconfined with the sandbox
+explicitly off - use them only with the human's authorization for that access.
+A bare run or bare session sets no hcn restriction: the SDK's own defaults own
+the bare case - its standard toolset (shell, edit, write) runs without approval
+and its sandbox ships disabled in the pinned build - so writable tools are
+available and you must pass `--access read` explicitly when the work should
+stay read-only. An explicit read stays read even with `--autonomy`. There is
+no normalized Cursor `--sandbox` and no
+`--tools`/`--exclude-tools` selectors. `hcn inspect cursor --runtime --json --prompt "preview only"`
+prints the exact mapping in its `sdk` block.
+
+Sessions: `send`, `answer`, `interrupt`, and `close` work, with hcn's question
+escalation. A send while a run is active is rejected natively - the SDK allows
+one active run and hcn keeps no queue; there are no explicit queue or steer
+modes. `interrupt` maps to native `Run.cancel`: best effort, and it does not
+undo completed actions. During SDK startup it cancels deferred inputs, reports
+`interrupted`, and creates no turn. The session surface takes no access options, so a
+Cursor session runs at the SDK's native defaults (writable tools, sandbox
+off). The SDK can raise a native `request` (approval or
+input) that has no reply API; hcn reports it as an error event it cannot
+answer - handle it through native hooks or hcn's question protocol, never by
+adding `--autonomy` on your own.
+
+SDK 1.0.38 gives built-in tool rejections and execution errors the same error
+shape. Both arrive as `tool-result` with `isError: true` and the raw result,
+including its reason text. hcn does not infer `error.denial` or
+`done.denialCount` from that text. A clean turn can still contain tool errors.
+
+Historical native CLI facts - the workspace-trust gate (`trust-refused`
+failures, `--force` trust bypass), the locked-keychain line, and ask-mode
+flags - describe the `agent` CLI hcn no longer runs. They remain in the
+descriptor for the transcript reader and legacy stream decoding; a headless
+run never hits the trust gate or that keychain path.
 
 ## Antigravity
 

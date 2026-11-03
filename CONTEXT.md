@@ -46,8 +46,9 @@ native operation's result determine whether work can run.
 
 **Turn**: one prompt in, one result out. The unit hcn spawns and reports on.
 
-**Session**: one harness process held open across several turns. Claude, pi,
-Antigravity, popeye, and codex have one.
+**Session**: one harness process held open across several turns. Claude, codex, pi,
+Antigravity, popeye, and cursor have one. Cursor's is hcn's own Node worker running the
+Cursor SDK, not a native CLI process.
 
 **Turn option**: a per-call dimension hcn can express, keyed by a closed
 vocabulary. A harness that cannot express one reports divergence.
@@ -111,7 +112,8 @@ These translate and decide nothing:
   tool-specific outcomes and own cross-turn accounting
 - failure **classification** - reading a stream and naming what happened
 - the tool vocabulary, with `native:` passthrough for names hcn cannot vouch for
-- access presets rendered per harness (`--tools`, `--sandbox`, category switches)
+- access presets rendered per harness (`--tools`, `--sandbox`, category switches, and
+  the Cursor SDK toolset restrictions)
 - session store paths
 - forwarding a user-selected Claude configuration directory as native launch
   environment, with inherited and per-run choices taking precedence. hcn

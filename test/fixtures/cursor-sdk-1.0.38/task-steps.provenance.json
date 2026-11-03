@@ -1,0 +1,18 @@
+{
+  "harness": "cursor",
+  "backend": "cursor-sdk-worker (dist/execution/cursor-sdk-worker.js, @cursor/sdk 1.0.38)",
+  "capturedAt": "2026-11-02T12:50:43Z",
+  "driver": "owned Node SDK worker, one native Task probe; the complete worker output is task-steps.ndjson",
+  "prompt": "one Task-tool worker: sleep 10 then print BACKGROUND_DONE, verdict while still running, final message BACKGROUND_DONE",
+  "model": "grok-4.7-high",
+  "task-steps.ndjson": "promoted byte-identically (md5 a9440bfee2b243e6c028292e0aa56ecf); hand-scanned for operator agent configuration - none present; every byte as the worker emitted it",
+  "task-steps.stderr.txt": "13 configured values redacted with original-length markers (10 registered hook event names, ruleCount x2 spellings, skillCount) per the AGENTS.md fixture convention; every other line byte-identical",
+  "facts": {
+    "assistantMessages": 3,
+    "taskToolCall": "2 running + 1 completed stream records for one call_id (SDK repeats running); completion result is the SDK wrapper {status:'success', value:{...isBackground:false...}}",
+    "usage": "inputTokens 54026, outputTokens 2805, cacheReadTokens 39808, cacheWriteTokens 0, totalTokens 96639, reasoningTokens 2620",
+    "turnEnd": "finished"
+  },
+  "uncertainty": "the probe requested background execution and was NOT established as a background qualification: native result value.isBackground=false and no requested JSON verdict appeared. Named task-steps, not background: this capture proves foreground Task-tool step/message structure only.",
+  "noMoreLiveProbes": true
+}

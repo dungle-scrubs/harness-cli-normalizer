@@ -33,6 +33,7 @@ const SESSION_HARNESSES: readonly HarnessDescriptor[] = [
   codexCli,
   antigravityCli,
   popeyeCli,
+  cursorCli,
 ];
 
 describe("session controls are descriptor facts", () => {
@@ -71,11 +72,21 @@ describe("session controls are descriptor facts", () => {
         approvals: { supported: false },
         stopBackground: { supported: false },
       },
+      // Issue #440: the cursor SDK session - no explicit delivery modes
+      // (a busy send is rejected natively), native best-effort interrupt;
+      // the SDK's `request` message has no reply API, so there is no
+      // approvals channel, and the SDK has no background jobs to stop.
+      [cursorCli.name]: {
+        deliveryModes: [],
+        interrupt: { supported: true, toolCancellation: "best-effort" },
+        approvals: { supported: false },
+        stopBackground: { supported: false },
+      },
     });
   });
 
   test("harnesses with no session report no controls", () => {
-    for (const h of [cursorCli, museCode]) {
+    for (const h of [museCode]) {
       expect(h.sessionMode).toBeNull();
       expect(sessionControlsOf(h)).toBeNull();
       expect(capabilitiesOf(h, "", "headless-session").sessionControls).toBeNull();
@@ -393,12 +404,12 @@ describe("issue #429: claude interruption records", () => {
 });
 
 describe("protocol facts the runner branches on", () => {
-  test("only claude correlates turns by native input uuid; only pi publishes turns on run evidence", () => {
+  test("only claude correlates turns by native input uuid; pi and the cursor SDK publish turns on run evidence", () => {
     const kinds = (predicate: (kind: never) => boolean) =>
       SESSION_HARNESSES.filter(
         (h) => h.sessionMode !== null && predicate(h.sessionMode.input.kind as never),
       ).map((h) => h.name);
     expect(kinds(correlatesByInputUuid)).toEqual([claudeCode.name]);
-    expect(kinds(publishesTurnOnRunEvidence)).toEqual([piCli.name]);
+    expect(kinds(publishesTurnOnRunEvidence)).toEqual([piCli.name, cursorCli.name]);
   });
 });

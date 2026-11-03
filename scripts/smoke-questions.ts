@@ -18,7 +18,6 @@
  *   bun run smoke:questions              # all harnesses, matrix + file
  *   bun scripts/smoke-questions.ts       # same
  */
-import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import type { HarnessEvent } from "../src/execution/events.js";
 import { streamTurn } from "../src/execution/stream-turn.js";
@@ -29,7 +28,7 @@ import { cursorCli } from "../src/knowledge/cursor.js";
 import type { HarnessDescriptor } from "../src/knowledge/descriptor.js";
 import { museCode } from "../src/knowledge/muse.js";
 import { piCli } from "../src/knowledge/pi.js";
-import { smokeCwd, smokeDeps, smokeHarnesses } from "./smoke-options.js";
+import { smokeCwd, smokeDeps, smokeHarnesses, smokeVersion } from "./smoke-options.js";
 
 delete process.env.HERDR_ENV;
 
@@ -49,16 +48,6 @@ const modelFor = (h: HarnessDescriptor): string | undefined =>
     : h.name === "claude"
       ? "sonnet"
       : undefined);
-
-const installedVersion = (bin: string): string | null => {
-  try {
-    const out = execFileSync(bin, ["--version"], { encoding: "utf8", timeout: 10_000 });
-    const match = out.match(/\d+\.\d+\.\d+(?:[.\-+][0-9A-Za-z.-]+)?/);
-    return match ? match[0] : null;
-  } catch {
-    return null;
-  }
-};
 
 const genuineDecisionTask =
   "you must write a file named deploy-target.txt into the current directory containing the environment this project deploys to. Two requirements are mutually exclusive and nothing in this directory says which applies: (a) the file must name the staging environment, or (b) it must name the production environment. The choice changes the file's contents and is not recoverable later without redoing the work. Decide whether to ask.";
@@ -126,7 +115,7 @@ const probeAsk = async (h: HarnessDescriptor, version: string): Promise<Cell> =>
 const results: Record<string, Cell> = {};
 
 for (const h of HARNESSES) {
-  const version = await installedVersion(h.bin);
+  const version = smokeVersion(h);
   if (version === null) {
     results[h.name] = { status: "skip", detail: "not installed" };
     continue;
@@ -144,7 +133,7 @@ for (const h of HARNESSES) {
   const r = results[h.name];
   if (r === undefined) throw new Error(`Missing smoke result for ${h.name}`);
   const mark = r.status === "pass" ? "✓" : r.status === "skip" ? "–" : "✗";
-  const ver = (await installedVersion(h.bin)) ?? "?";
+  const ver = smokeVersion(h) ?? "?";
   console.log(`${h.name.padEnd(9)}${ver.padEnd(12)}${mark.padEnd(8)}${r.detail}`);
 }
 

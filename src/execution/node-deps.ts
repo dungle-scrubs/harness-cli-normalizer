@@ -10,12 +10,51 @@ import { type ChildProcess, spawn as nodeSpawn } from "node:child_process";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 import type { Readable } from "node:stream";
+import { fileURLToPath } from "node:url";
 import type { Clock, ProcessStart, RunnerDeps, SpawnedProcess, SpawnOptions } from "./deps.js";
 import { mergeEnvironment } from "./environment.js";
 import { inspectNativeSettings, type NativeSettingsInspector } from "./native-settings.js";
 import { readNativeProcessOwner, waitForChildExec } from "./process-identity.js";
 
 const children = new WeakMap<SpawnedProcess, ChildProcess>();
+
+/** The private SDK worker markers the OS adapter knows how to execute
+ * (issue #440). The pure argv builders render the marker; this adapter -
+ * and only this adapter - rewrites it to the real node executable plus
+ * the built worker entrypoint, so no harness binary name is ever hijacked
+ * by spelling. The worker runs under node even when hcn itself runs under
+ * Bun: hcn's engines already require node, and the SDK is node-first
+ * (node:sqlite store, platform helpers). A test asserts the cursor
+ * descriptor's marker stays registered here (drift tripwire). */
+const WORKER_ENTRYPOINTS: Readonly<Record<string, () => readonly string[]>> = {
+  "hcn-cursor-sdk-worker": () => {
+    const worker = new URL(
+      import.meta.url.endsWith(".ts")
+        ? "../../dist/execution/cursor-sdk-worker.js"
+        : "./cursor-sdk-worker.js",
+      import.meta.url,
+    );
+    return [nodeExecutable(), fileURLToPath(worker)];
+  },
+};
+
+/** The node binary to execute the worker under: this process when it is
+ * already node, else `node` from PATH (hcn requires node >= 24 wherever it
+ * runs, so the fallback only names the same runtime Bun users also have).
+ * The host runtime is read from `process.versions.bun`, never from the
+ * executable's spelling: a Bun installed under a path containing "node"
+ * must still launch the worker under node, and a renamed node binary
+ * stays node. */
+const nodeExecutable = (): string => {
+  return typeof process.versions.bun === "string" ? "node" : process.execPath;
+};
+
+/** The argv an SDK worker marker expands to, or null for a foreign token.
+ * Exported for inspection surfaces (`hcn inspect --runtime`). */
+export const sdkWorkerArgvFor = (marker: string): readonly string[] | null => {
+  const expand = Object.hasOwn(WORKER_ENTRYPOINTS, marker) ? WORKER_ENTRYPOINTS[marker] : undefined;
+  return expand === undefined ? null : expand();
+};
 
 const emptyStream = async function* (): AsyncIterable<Uint8Array> {};
 
@@ -94,8 +133,15 @@ export const disposableOutputStream = (
 };
 
 const realSpawn = (argv: readonly string[], opts: SpawnOptions): SpawnedProcess => {
-  const [bin, ...args] = argv;
-  if (bin === undefined) throw new Error("empty argv");
+  const [rawBin, ...rawArgs] = argv;
+  if (rawBin === undefined) throw new Error("empty argv");
+  const workerArgv = Object.hasOwn(WORKER_ENTRYPOINTS, rawBin)
+    ? (WORKER_ENTRYPOINTS[rawBin] as () => readonly string[])()
+    : null;
+  const [bin, args] =
+    workerArgv !== null
+      ? [workerArgv[0] as string, [...workerArgv.slice(1), ...rawArgs]]
+      : [rawBin, rawArgs];
   const env = mergeEnvironment(process.env, opts.env);
   // A shell keeps PWD in step with the directory it starts a child in; a
   // bare spawn inherits the parent's. opencode 1.19.5 reads PWD before

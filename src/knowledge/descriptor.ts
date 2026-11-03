@@ -120,6 +120,7 @@ export const SESSION_INPUT_KINDS = [
   "antigravity-stream-user",
   "popeye-rpc-prompt",
   "codex-jsonrpc",
+  "cursor-sdk",
 ] as const;
 export type SessionInputKind = (typeof SESSION_INPUT_KINDS)[number];
 
@@ -530,6 +531,22 @@ export const tokensFor = (
   }
 };
 
+/** The SDK-backed headless execution backend (issue #440). A descriptor
+ * with this block NEVER spawns its native CLI for a headless turn or
+ * session: the runner spawns one owned worker process that executes the
+ * vendor SDK, and the descriptor's launch/resume grammar remains a fact
+ * about the native interactive CLI only. `workerMarker` is the private
+ * executable name the pure argv builders render - the one the OS spawn
+ * adapter rewrites to the real node + worker entrypoint - so no harness
+ * binary name is ever hijacked by spelling. `resumeIdShape` is the
+ * conversation id shape the SDK's native store mints. Absent (or null)
+ * on every harness whose headless surface is the CLI itself. */
+export interface SdkBackend {
+  readonly kind: "cursor-sdk";
+  readonly workerMarker: string;
+  readonly resumeIdShape: RegExp;
+}
+
 export interface HarnessDescriptor {
   readonly transcript: TranscriptKnowledge | null;
   readonly name: HarnessName;
@@ -609,6 +626,10 @@ export interface HarnessDescriptor {
      * harness. */
     readonly onMissing: ResumeOnMissing;
   };
+  /** The SDK-backed headless execution backend (issue #440), or
+   * null/absent when every headless spawn is the native CLI grammar
+   * below. See SdkBackend for the contract. */
+  readonly sdk?: SdkBackend | null;
   /** Persistent headless session support: the complete flag list that follows
    * the binary to open one lucid-owned process serving many turns, or null
    * when the harness has no such mode. This is the entire argv prefix after
@@ -833,7 +854,10 @@ export interface HarnessDescriptor {
    * up in a process listing. `headlessMarkers` mark a process as headless
    * (not interactive presence). Known blind spot, inherent to argv matching:
    * an interactive session carrying no id in argv (`claude --continue`) is
-   * invisible here - presence corroborates, it never proves. */
+   * invisible here - presence corroborates, it never proves. An SDK backend
+   * spawns its worker under the node executable, so the native bin's markers
+   * never match the headless process; presence for such a harness sees the
+   * interactive CLI only. */
   readonly presence: {
     readonly headlessMarkers: readonly string[];
   };

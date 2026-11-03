@@ -51,12 +51,14 @@ import {
   SessionInputRefusalError,
 } from "../interpretation/session-input.js";
 import type { SkillsSelection } from "../interpretation/skills-selection.js";
+import { resolveEffortSlug } from "../interpretation/vocabulary.js";
 import type {
   HarnessDescriptor,
   SessionDelivery,
   SessionInputContract,
 } from "../knowledge/descriptor.js";
 import { AsyncChannel } from "./channel.js";
+import { failureFromCursorSdkRecord } from "./cursor-sdk-failure.js";
 import {
   decodeLine,
   decodeParsed,
@@ -97,11 +99,9 @@ import {
   type SettingsSequencer,
 } from "./session-settings-sequencer.js";
 import { PIPE_GRACE_MS, redactArgv } from "./stream-turn.js";
-import { StderrTail, superviseTurn } from "./supervisor.js";
+import { CLOSE_GRACE_MS, StderrTail, superviseTurn } from "./supervisor.js";
 
-/** Grace after stdin EOF before concluding the child will not exit on its
- * own and escalating signals. */
-export const CLOSE_GRACE_MS = 5_000;
+export { CLOSE_GRACE_MS } from "./supervisor.js";
 
 const PRETURN_MAX = 256;
 
@@ -146,9 +146,12 @@ export interface SessionInput {
 }
 
 /** The terminal outcome of an interrupt request (issue #426). `interrupted`
- * is the harness's own report that the active run was cancelled; command
- * acceptance alone is never read as one. `not-active` means the harness
- * reported no run cancelled (it had already settled, or was idle). */
+ * is the harness's own report that the active run was aborted, or that a
+ * deferred input was cancelled before any run started; command acceptance
+ * alone is never read as one. `not-active` means an accepted request
+ * cancelled no run (the target had settled or was idle), or the worker
+ * explicitly declined because it had no target. A refused request
+ * stays `rejected` even when the run's completion arrives first. */
 export interface SessionInterruptReceipt {
   readonly state: "interrupted" | "not-active" | "rejected";
   readonly reason?: "unsupported" | "closed" | "write-failed" | "native-rejected";
@@ -362,10 +365,25 @@ export const openSession = (
   deps: RunnerDeps,
 ): SessionHandle => {
   const log = deps.log ?? (() => {});
+  // RFC-05 / #440: on an effort-in-model harness, resolve the session's
+  // model+effort into the one slug that runs - the same resolution a
+  // one-shot turn's plan applies - so the spawn validation and the
+  // session input contract (the cursor-sdk open line carries the model)
+  // agree on a single selector. A resolver refusal propagates like any
+  // other argv refusal.
+  let sessionModel = opts.model;
+  if (
+    h.turnOptions.effort?.kind === "effort-in-model" &&
+    (opts.effort !== undefined || opts.model !== undefined)
+  ) {
+    sessionModel = resolveEffortSlug(h, opts.model, opts.effort);
+  }
   const argv = buildSessionArgv(h, {
     sessionId: opts.sessionId,
-    ...(opts.model !== undefined ? { model: opts.model } : {}),
-    ...(opts.effort !== undefined ? { effort: opts.effort } : {}),
+    ...(sessionModel !== undefined ? { model: sessionModel } : {}),
+    ...(opts.effort !== undefined && h.turnOptions.effort?.kind !== "effort-in-model"
+      ? { effort: opts.effort }
+      : {}),
     ...(opts.provider !== undefined ? { provider: opts.provider } : {}),
     ...(opts.agent !== undefined ? { agent: opts.agent } : {}),
     ...(opts.contextWindow !== undefined ? { contextWindow: opts.contextWindow } : {}),
@@ -961,21 +979,21 @@ export const openSession = (
   /** Issue #426: the harness reported the provisional turn's input consumed
    * with no run (pi handled). It never becomes public: no turn, no done.
    * Events held for it stay parked for the next turn. No settlement will
-   * follow, so an interrupt the harness already accepted against it settles
-   * not-active now.
+   * follow. Consumption settles an interrupt not-active; an explicit
+   * cancellation of the deferred input settles it interrupted.
    *
    * No turn outcome reaches the caller here, so the stdout overflows the
    * retired turn held do not settle either: they stay pending evidence and
    * settle with the next turn that ends, the way the events held for this
    * turn do. */
-  const retireProvisionalTurn = (): void => {
+  const retireProvisionalTurn = (aborted = false): void => {
     if (activeTurn === null || activeTurnPublished) return;
     const retired = activeTurn;
     sup.disarm();
     sup.close();
     activeTurn.close();
     clearActiveTurn();
-    observeSettlement(retired, false);
+    observeSettlement(retired, aborted);
   };
 
   const endTurn = (
@@ -1160,6 +1178,12 @@ export const openSession = (
   };
 
   const pushFailure = (f: FailureSummary): Promise<void> => {
+    // Record the final classification, including prose fallbacks, so
+    // turn and session outcomes agree with the failure.
+    if (isLimitFailure(f)) {
+      state.limitSeen = true;
+      turnLimitSeen = true;
+    }
     turnFailures.push(f);
     return routeEvent({ kind: "failure", ...f });
   };
@@ -1169,7 +1193,10 @@ export const openSession = (
    * streamTurn does. A content-path identity re-emit carrying a later
    * model attestation also re-announces the session identity (same
    * sessionId), so last-takes consumers read the observed model. */
-  const routeDecoded = async (event: HarnessEvent): Promise<void> => {
+  const routeDecoded = async (
+    event: HarnessEvent,
+    structuredFailure: FailureSummary | null = null,
+  ): Promise<void> => {
     if (event.kind === "failure") {
       await pushFailure(summaryOf(event));
       return;
@@ -1177,11 +1204,7 @@ export const openSession = (
     await routeEvent(event);
     if (event.kind === "limit") await pushFailure(failureFromLimit(event.code));
     if (event.kind === "error" && event.terminal === true) {
-      const failure = failureFromTerminalError(h, event.message, deps.clock);
-      if (isLimitFailure(failure)) {
-        state.limitSeen = true;
-        turnLimitSeen = true;
-      }
+      const failure = structuredFailure ?? failureFromTerminalError(h, event.message, deps.clock);
       await pushFailure(failure);
     }
   };
@@ -1324,7 +1347,8 @@ export const openSession = (
     const probe = encodeIdentityProbe(h, {
       sessionId: opts.sessionId,
       isResume: opts.isResume,
-      model: opts.model,
+      model: sessionModel,
+      effort: opts.effort,
       clientVersion: opts.clientVersion,
     });
     if (probe !== null) {
@@ -1349,6 +1373,10 @@ export const openSession = (
       // Interpretation says what the record means; this runner only routes
       // on the kind (ADR 0005: no harness field names here).
       const record = decodeSessionRecord(h, parsed);
+      const structuredFailure =
+        sessionInput.kind === "cursor-sdk"
+          ? failureFromCursorSdkRecord(h, parsed, deps.clock)
+          : null;
       correlateInputUuids(parsed);
       const advertised = readInterruptAdvertisement(h, parsed);
       if (advertised !== null) controls = controlsWith(advertised);
@@ -1401,7 +1429,9 @@ export const openSession = (
         case "interrupt-answered": {
           const pending = pendingInterrupts.get(record.token);
           if (pending === undefined) return;
-          if (!record.accepted) {
+          if (record.inactive === true) {
+            settleInterrupt(record.token, { state: "not-active" });
+          } else if (!record.accepted) {
             settleInterrupt(record.token, { state: "rejected", reason: "native-rejected" });
             log({
               event: "interrupt_rejected",
@@ -1436,6 +1466,28 @@ export const openSession = (
           return;
         case "probe-failed": {
           await routeEvent({ kind: "error", message: record.message });
+          // Issue #440: a cursor-sdk open failure means no agent exists and
+          // no receipt will ever answer a written send - settle the
+          // receipt-awaiting ones now and close, never hang. Pi's dead
+          // probe keeps its documented behavior (the error surfaces and
+          // the session lives on); the buffered kinds (codex, popeye)
+          // keep their own sweep below.
+          if (sessionInput.kind === "cursor-sdk") {
+            const failure =
+              structuredFailure ?? failureFromNativeRejection(h, record.message, deps.clock);
+            if (sessionFailure === undefined) sessionFailure = failure;
+            await pushFailure(failure);
+            for (const command of awaitingReceipt.values()) {
+              command.settle?.({ disposition: "rejected", reason: "native-rejected" });
+            }
+            awaitingReceipt.clear();
+            void close(false);
+            observeSettlement(activeTurn, false);
+            if (activeTurn !== null) {
+              endTurn({ kind: "done", exitCode: null, cause: turnLimitSeen ? "limit" : "clean" });
+            }
+            return;
+          }
           if (buffersSendsBeforeIdentity(sessionInput)) {
             const failure = failureFromNativeRejection(h, record.message, deps.clock);
             if (sessionFailure === undefined) sessionFailure = failure;
@@ -1452,7 +1504,19 @@ export const openSession = (
           }
           return;
         }
+        case "command-cancelled": {
+          const command = takeReceipt(record.inputId);
+          if (command === undefined) return;
+          const pendingIndex = pendingTurns.indexOf(command);
+          if (pendingIndex >= 0) pendingTurns.splice(pendingIndex, 1);
+          command.settle?.({ disposition: "rejected", reason: "native-rejected" });
+          if (command === activeTurnOpener && !activeTurnOpenerAccepted) {
+            retireProvisionalTurn(true);
+          }
+          return;
+        }
         case "command-failed": {
+          if (sessionInput.kind === "cursor-sdk" && closing && sessionFailure !== undefined) return;
           const command = record.inputId === undefined ? undefined : sentByToken(record.inputId);
           if (command !== undefined) {
             const pendingIndex = pendingTurns.indexOf(command);
@@ -1468,7 +1532,8 @@ export const openSession = (
             command.settle?.({ disposition: "rejected", reason: "native-rejected" });
             if (refusedOpener) {
               await routeEvent({ kind: "error", message: record.message });
-              const failure = failureFromNativeRejection(h, record.message, deps.clock);
+              const failure =
+                structuredFailure ?? failureFromNativeRejection(h, record.message, deps.clock);
               await pushFailure(failure);
               // The refused input ran nothing and no settlement will follow:
               // an interrupt already accepted against it settles not-active.
@@ -1478,7 +1543,7 @@ export const openSession = (
               // them: the caller never saw what the discarded lines
               // carried, and the turn failed anyway.
               await settleTurnOverflows(false);
-              endTurn({ kind: "done", exitCode: null, cause: "clean" });
+              endTurn({ kind: "done", exitCode: null, cause: turnLimitSeen ? "limit" : "clean" });
               // A refusal settles the send it names, so a gated wire is
               // free again: the next held send is written now.
               freeGate(command);
@@ -1588,7 +1653,7 @@ export const openSession = (
             if (record.aborted === true && event.kind === "error" && event.terminal === true) {
               continue;
             }
-            await routeDecoded(event);
+            await routeDecoded(event, structuredFailure);
           }
           // The turn is over: a provisional terminal error (pi stopReason
           // error) that no successful assistant message in this turn
@@ -1617,7 +1682,7 @@ export const openSession = (
         }
         case "content": {
           for (const event of decodeParsed(h, parsed, state, opts.model ?? "")) {
-            await routeDecoded(event);
+            await routeDecoded(event, structuredFailure);
           }
           // A model attestation decoded on this record postdates the probe
           // identity: re-announce so the turn's identity carries it.

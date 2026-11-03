@@ -3,11 +3,12 @@
  * --effort is present on a cursor launch or resume, or a model from any
  * tier is present without effort, the model resolves through
  * resolveEffortSlug and opts.model is replaced with the slug before
- * buildSpawnArgv. A bare stem with no effort refuses unknown-model with
- * its row; a full slug with no effort passes through with argv and
- * provenance unchanged. On launch the supplying provenance entry is
- * rewritten to the slug (tier untouched), or an arg-tier model entry is
- * appended when none exists; on resume provenance stays absent.
+ * buildSpawnArgv. On the SDK backend (issue #440) the resolved selector
+ * rides the worker's open line instead of a --model flag, and a bare
+ * stem passes through as the catalog base id. On launch the supplying
+ * provenance entry is rewritten to the slug (tier untouched), or an
+ * arg-tier model entry is appended when none exists; on resume
+ * provenance stays absent.
  */
 import { describe, expect, test } from "vitest";
 import { type PlanDeps, planTurn } from "../../src/cli/plan-turn.js";
@@ -35,9 +36,10 @@ describe("planTurn cursor effort resolve step", () => {
     );
     expect(outcome.kind).toBe("plan");
     if (outcome.kind !== "plan") return;
-    const modelAt = outcome.plan.argv.indexOf("--model");
-    expect(modelAt).toBeGreaterThanOrEqual(0);
-    expect(outcome.plan.argv[modelAt + 1]).toBe("gpt-5.2-high");
+    // Issue #440: the SDK backend renders no --model flag - the resolved
+    // slug rides the worker's open line via options.model.
+    expect(outcome.plan.argv).toEqual(["hcn-cursor-sdk-worker"]);
+    expect(outcome.plan.options.model).toBe("gpt-5.2-high");
     expect(outcome.plan.provenance).toContainEqual({
       key: "model",
       value: "gpt-5.2-high",
@@ -58,8 +60,7 @@ describe("planTurn cursor effort resolve step", () => {
     );
     expect(outcome.kind).toBe("plan");
     if (outcome.kind !== "plan") return;
-    const modelAt = outcome.plan.argv.indexOf("--model");
-    expect(outcome.plan.argv[modelAt + 1]).toBe("gpt-5.2-high");
+    expect(outcome.plan.options.model).toBe("gpt-5.2-high");
     expect(outcome.plan.provenance).toContainEqual({
       key: "model",
       value: "gpt-5.2-high",
@@ -74,7 +75,7 @@ describe("planTurn cursor effort resolve step", () => {
         "--prompt",
         "hi",
         "--resume",
-        "0199a4c5-1111-2222-3333-444455556666",
+        "agent-0199a4c5-1111-4222-8333-444455556666",
         "--model",
         "gpt-5.2",
         "--effort",
@@ -85,15 +86,21 @@ describe("planTurn cursor effort resolve step", () => {
     );
     expect(outcome.kind).toBe("plan");
     if (outcome.kind !== "plan") return;
-    const modelAt = outcome.plan.argv.indexOf("--model");
-    expect(outcome.plan.argv[modelAt + 1]).toBe("gpt-5.2-high");
+    expect(outcome.plan.options.model).toBe("gpt-5.2-high");
     expect(outcome.plan.provenance).toEqual([]);
   });
 
   test("resume: effort with no model refuses unknown-effort", async () => {
     const outcome = await planTurn(
       cursorCli,
-      ["--prompt", "hi", "--resume", "0199a4c5-1111-2222-3333-444455556666", "--effort", "high"],
+      [
+        "--prompt",
+        "hi",
+        "--resume",
+        "agent-0199a4c5-1111-4222-8333-444455556666",
+        "--effort",
+        "high",
+      ],
       { command: "run" },
       deps,
     );
@@ -109,13 +116,14 @@ describe("planTurn cursor effort resolve step", () => {
     );
     expect(outcome.kind).toBe("plan");
     if (outcome.kind !== "plan") return;
-    const modelAt = outcome.plan.argv.indexOf("--model");
-    expect(outcome.plan.argv[modelAt + 1]).toBe("claude-opus-4-8-thinking-low");
+    expect(outcome.plan.options.model).toBe("claude-opus-4-8-thinking-low");
   });
 
-  test("launch: a bare stem with no effort refuses unknown-model with the stem row", async () => {
-    // M2: without --effort the model must still run through the resolver
-    // so the refusal names the stem's 5 row slugs, not all 223.
+  test("launch: a bare stem with no effort runs as the catalog base id (issue #440)", async () => {
+    // M2 kept the resolver running without --effort so a bare stem
+    // refused with its row. The SDK backend runs the stem as the catalog
+    // base id at its native defaults, so the plan now passes it through
+    // and the worker resolves it against Cursor.models.list().
     const outcome = await planTurn(
       cursorCli,
       ["--prompt", "hi", "--model", "claude-opus-4-8"],
@@ -124,15 +132,10 @@ describe("planTurn cursor effort resolve step", () => {
       },
       deps,
     );
-    expect(outcome).toMatchObject({ kind: "refusal", refusal: { issue: "unknown-model" } });
-    if (outcome.kind !== "refusal") return;
-    expect(outcome.refusal.supported).toEqual([
-      "claude-opus-4-8-low",
-      "claude-opus-4-8-medium",
-      "claude-opus-4-8-high",
-      "claude-opus-4-8-xhigh",
-      "claude-opus-4-8-max",
-    ]);
+    expect(outcome.kind).toBe("plan");
+    if (outcome.kind !== "plan") return;
+    expect(outcome.plan.options.model).toBe("claude-opus-4-8");
+    expect(outcome.plan.provenance.some((p) => p.key === "model")).toBe(false);
   });
 
   test("launch: a full slug with no effort leaves argv and provenance unchanged", async () => {
@@ -147,9 +150,7 @@ describe("planTurn cursor effort resolve step", () => {
     );
     expect(outcome.kind).toBe("plan");
     if (outcome.kind !== "plan") return;
-    const modelAt = outcome.plan.argv.indexOf("--model");
-    expect(modelAt).toBeGreaterThanOrEqual(0);
-    expect(outcome.plan.argv[modelAt + 1]).toBe("claude-opus-4-8-high");
+    expect(outcome.plan.options.model).toBe("claude-opus-4-8-high");
     expect(outcome.plan.provenance.some((p) => p.key === "model")).toBe(false);
   });
 
@@ -193,7 +194,7 @@ describe("planTurn cursor effort resolve step", () => {
         "--prompt",
         "hi",
         "--resume",
-        "0199a4c5-1111-2222-3333-444455556666",
+        "agent-0199a4c5-1111-4222-8333-444455556666",
         "--sandbox",
         "read-only",
       ],
@@ -224,8 +225,10 @@ describe("planTurn cursor effort resolve step", () => {
         );
         expect(outcome.kind).toBe("plan");
         if (outcome.kind !== "plan") return;
-        expect(outcome.plan.argv).toContain(access === "read" ? "ask" : "--force");
-        if (access === "read") expect(outcome.plan.argv).not.toContain("--force");
+        // Issue #440: access renders onto the worker's open line as the
+        // SDK restriction (options.access), never as CLI flags.
+        expect(outcome.plan.options.access).toBe(access);
+        expect(outcome.plan.argv).toEqual(["hcn-cursor-sdk-worker"]);
         expect(outcome.plan.provenance).toContainEqual(
           expect.objectContaining({ key: "access", value: access }),
         );
@@ -236,7 +239,7 @@ describe("planTurn cursor effort resolve step", () => {
   test.each(["read", "write"] as const)(
     "explicit access %s renders on launch and resume",
     async (access) => {
-      for (const resume of [[], ["--resume", "0199a4c5-1111-2222-3333-444455556666"]]) {
+      for (const resume of [[], ["--resume", "agent-0199a4c5-1111-4222-8333-444455556666"]]) {
         const outcome = await planTurn(
           cursorCli,
           ["--prompt", "hi", "--access", access, ...resume],
@@ -245,7 +248,8 @@ describe("planTurn cursor effort resolve step", () => {
         );
         expect(outcome.kind).toBe("plan");
         if (outcome.kind !== "plan") return;
-        expect(outcome.plan.argv).toContain(access === "read" ? "ask" : "--force");
+        expect(outcome.plan.options.access).toBe(access);
+        expect(outcome.plan.argv).toEqual(["hcn-cursor-sdk-worker"]);
       }
     },
   );

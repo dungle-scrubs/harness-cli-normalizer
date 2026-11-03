@@ -51,7 +51,9 @@ test.each([
   [codexCli, { type: "turn.completed" }],
   [piCli, { type: "agent_settled" }],
   [museCode, { payload: { kind: "run_terminal", terminal: "completed", text: "done" } }],
-  [cursorCli, { type: "result", subtype: "success" }],
+  // Issue #440: the cursor backend is the SDK worker, whose terminal
+  //  record is the private turn-end wire shape.
+  [cursorCli, { hcn: "turn-end", status: "finished" }],
   [antigravityCli, { event: "result", result: { status: "SUCCESS", response: "done" } }],
   [popeyeCli, { kind: "done", cause: "clean" }],
 ] as const)(

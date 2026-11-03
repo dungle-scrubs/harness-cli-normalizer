@@ -340,9 +340,9 @@ case "$help_run" in
     ;;
 esac
 
-# Session claims: claude, pi, and Antigravity, plus questions, effort, and write-through sends.
+# Session roster, questions, effort, and write-through sends.
 require "hcn session --help" "$help_session" \
-  "claude | pi | antigravity" \
+  "claude | codex | pi | cursor | antigravity | popeye" \
   "--session-id" \
   "--questions <ask|assume|none>" \
   "--effort" \
@@ -428,10 +428,15 @@ case "$help_top" in
     ;;
 esac
 
-# New observations and Cursor access are conditional for older installed builds.
+# Retain the historical CLI mapping check for older installed builds.
 case "$help_run" in
   *"unconfined commands"*)
     require "Cursor access help" "$help_run" "--mode ask --sandbox enabled" "--force" "bypasses trust"
+    ;;
+esac
+# Each advertised observation is checked independently of Cursor's backend wording.
+case "$help_run" in
+  *"unconfined commands"*|*"done.denialCount"*|*"strict native sandbox"*)
     script_dir=$(cd "$(dirname "$0")" && pwd)
     node "$script_dir/check-observations.mjs" "$bin"
     case $? in

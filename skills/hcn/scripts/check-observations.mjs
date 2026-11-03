@@ -179,12 +179,31 @@ try {
       timeout: 20000,
     });
     assert.equal(inspected.status, 0, inspected.stderr);
-    const spec = JSON.parse(inspected.stdout).turnOptions.access;
-    assert.deepEqual(spec.renders.read.render, {
-      kind: "flag-list",
-      flags: ["--mode", "ask", "--sandbox", "enabled"],
-    });
-    assert.deepEqual(spec.renders.write.render, { kind: "flag-list", flags: ["--force"] });
+    const runtime = spawnSync(
+      bin,
+      ["inspect", "cursor", "--runtime", "--json", "--prompt", "fixture"],
+      { cwd: root, env, encoding: "utf8", timeout: 20000 },
+    );
+    assert.equal(runtime.status, 0, runtime.stderr);
+    const sdk = JSON.parse(runtime.stdout).sdk;
+    if (sdk) {
+      const read = {
+        tools: ["read", "grep", "glob", "ls", "webFetch", "webSearch"],
+        disallowedTools: ["task", "mcp"],
+      };
+      assert.deepEqual(sdk.access.read, read);
+      // A bare call is native: no hcn tool restriction rides the open line.
+      assert.deepEqual(sdk.access.bare, {});
+      assert.deepEqual(sdk.access.write, { sandbox: false });
+      assert.deepEqual(sdk.access.autonomy, { sandbox: false });
+    } else {
+      const spec = JSON.parse(inspected.stdout).turnOptions.access;
+      assert.deepEqual(spec.renders.read.render, {
+        kind: "flag-list",
+        flags: ["--mode", "ask", "--sandbox", "enabled"],
+      });
+      assert.deepEqual(spec.renders.write.render, { kind: "flag-list", flags: ["--force"] });
+    }
     const result = {
       content: [{ type: "text", text: "failed" }],
       details: { status: "aborted", agents: [{ error: "fixture" }] },
@@ -260,30 +279,32 @@ try {
       ],
     );
     assert.equal(resumed.at(-1).cause, "clean");
-    const capture = join(root, "argv.json");
-    stub("agent", [{ type: "result", subtype: "success", is_error: false }], capture);
-    for (const access of ["read", "write"]) {
-      run([
-        "run",
-        "cursor",
-        "--json",
-        "--questions",
-        "none",
-        "--access",
-        access,
-        "--prompt",
-        "fixture",
-      ]);
-      const argv = JSON.parse(readFileSync(capture, "utf8"));
-      if (access === "read") {
-        assert.deepEqual(argv.slice(argv.indexOf("--mode"), argv.indexOf("--mode") + 2), [
-          "--mode",
-          "ask",
+    if (!sdk) {
+      const capture = join(root, "argv.json");
+      stub("agent", [{ type: "result", subtype: "success", is_error: false }], capture);
+      for (const access of ["read", "write"]) {
+        run([
+          "run",
+          "cursor",
+          "--json",
+          "--questions",
+          "none",
+          "--access",
+          access,
+          "--prompt",
+          "fixture",
         ]);
-        assert.equal(argv.includes("--force"), false);
-      } else {
-        assert.equal(argv.includes("--force"), true);
-        assert.equal(argv.includes("--sandbox"), false);
+        const argv = JSON.parse(readFileSync(capture, "utf8"));
+        if (access === "read") {
+          assert.deepEqual(argv.slice(argv.indexOf("--mode"), argv.indexOf("--mode") + 2), [
+            "--mode",
+            "ask",
+          ]);
+          assert.equal(argv.includes("--force"), false);
+        } else {
+          assert.equal(argv.includes("--force"), true);
+          assert.equal(argv.includes("--sandbox"), false);
+        }
       }
     }
     console.log("ok: Cursor access and lossless result/usage observations match the skill");

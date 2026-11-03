@@ -1,8 +1,8 @@
 /**
- * RFC-05 Phase 3: cursor launches close stdin (descriptor stdin
- * close-required: a positional prompt plus open stdin emits `result` then
- * never exits, notes 07). The execution layer already closes stdin for
- * this policy; this pins cursor rides it.
+ * Issue #440: cursor launches spawn the SDK worker, whose stdin is a pipe
+ * carrying the open and prompt lines (any prompt size - argv limits no
+ * longer apply). The legacy reader-state discipline still holds through
+ * the worker runner: decoded records share the same content reader.
  */
 import { describe, expect, test } from "vitest";
 import type { HarnessEvent } from "../../src/execution/events.js";
@@ -11,7 +11,7 @@ import { cursorCli } from "../../src/knowledge/cursor.js";
 import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
 
 describe("streamTurn cursor spawn", () => {
-  test("stdin is closed, even for a large prompt", async () => {
+  test("stdin is a pipe carrying the open and prompt lines, any prompt size", async () => {
     const proc = new FakeProcess({ exitOnStdinEnd: false });
     const spawner = fakeSpawner([proc]);
     const pending = (async () => {
@@ -25,9 +25,14 @@ describe("streamTurn cursor spawn", () => {
       }
       return events;
     })();
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(spawner.calls[0]?.opts.stdin).toBe("pipe");
+    const open = JSON.parse(proc.stdinLines[0] as string) as Record<string, unknown>;
+    expect(open.hcn).toBe("open");
+    const prompt = JSON.parse(proc.stdinLines[1] as string) as { message?: string };
+    expect(prompt.message).toBe("x".repeat(20_000));
     proc.exit(0);
     await pending;
-    expect(spawner.calls[0]?.opts.stdin).toBe("close");
   });
 
   test("reader state resets per turn: turn 2 re-emits tool for turn 1's pending id", async () => {

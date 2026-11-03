@@ -410,7 +410,30 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   // from resuming an existing id.
   // Sessions take no --env, but the descriptor turn env still overlays the
   // child, so the guard checks through that same effective environment.
-  if (resumeId !== undefined) {
+  //
+  // Issue #440: an SDK-backed harness skips the CLI-store guard - its
+  // conversations live in the SDK's native store and Agent.resume answers
+  // a missing id natively. An id the caller names resumes when it is an
+  // SDK conversation id (agent-<uuid>); a bare UUID names a CLI-chat
+  // session and refuses with the incompatibility, never a silent fresh
+  // conversation.
+  if (resumeId !== undefined && h.sdk != null) {
+    const backend = h.sdk;
+    if (!backend.resumeIdShape.test(resumeId)) {
+      const { refuse: sdkRefuse } = await import("./refuse.js");
+      sdkRefuse(
+        {
+          message: `${h.name} session ${resumeId} is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them`,
+          issue: "invalid-option-value",
+          supported: [`an SDK conversation id matching ${String(backend.resumeIdShape)}`],
+        },
+        jsonMode,
+        "closed",
+      );
+      return;
+    }
+    isResume = true;
+  } else if (resumeId !== undefined) {
     const { effectiveGuardEnv, resumeStore: checkResumeStore } = await import("./resume-guard.js");
     // The guard reads the child's effective environment once (sessions take
     // no --env, but the descriptor turn env still overlays the child), and
