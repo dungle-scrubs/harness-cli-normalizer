@@ -111,7 +111,13 @@ export const inspect = async (harnessName: string, rawArgs: string[]): Promise<v
     return;
   }
   if (values.argv === true || values.runtime === true) {
-    if (values.runtime === true && (await inspectSessionRuntime(h, rawArgs))) return;
+    // issue #443: a session preview goes through the SESSION builder, so
+    // the previewed argv is the argv a session would spawn - the same
+    // owner the spawn uses. --runtime with --mode headless-session keeps
+    // its own format (the installed-harness report).
+    if (values.runtime === true || (values.argv === true && values.mode === "headless-session")) {
+      if (await inspectSessionRuntime(h, rawArgs)) return;
+    }
     const outcome = await planTurn(h, rawArgs, { command: "inspect" });
     if (outcome.kind === "refusal") {
       refuse(outcome.refusal, false);

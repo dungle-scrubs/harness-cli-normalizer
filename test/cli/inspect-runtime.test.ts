@@ -296,7 +296,10 @@ test.each(["selected", "missing", ""])(
   },
 );
 
-test("persistent inspection refuses a tool grant that session startup cannot apply", () => {
+test("persistent inspection renders a permission dimension the session startup can apply", () => {
+  // issue #443: the claude session carries the run permission dimensions,
+  // so the preview shows the access preset the session would spawn with -
+  // the preview never shows something the session cannot do.
   const result = spawnSync(
     "bun",
     [
@@ -313,8 +316,34 @@ test("persistent inspection refuses a tool grant that session startup cannot app
     ],
     { encoding: "utf8", timeout: 30_000, env: process.env },
   );
+  expect(result.status, result.stderr).toBe(0);
+  const facts = JSON.parse(result.stdout) as { argv: string[] };
+  expect(facts.argv).toContain("--tools");
+  expect(facts.argv).toContain("Read,Grep,Glob,WebFetch,WebSearch");
+  expect(facts.argv).toContain("--permission-mode");
+});
+
+test("persistent inspection refuses a permission dimension the session startup cannot apply", () => {
+  // codex's app-server session carries no permission dimension, so the
+  // preview refuses instead of showing an argv the session cannot spawn.
+  const result = spawnSync(
+    "bun",
+    [
+      resolve("src/cli/index.ts"),
+      "inspect",
+      "codex",
+      "--runtime",
+      "--mode",
+      "headless-session",
+      "--resume",
+      "11111111-1111-4111-8111-111111111111",
+      "--access",
+      "read",
+    ],
+    { encoding: "utf8", timeout: 30_000, env: process.env },
+  );
   expect(result.status).toBe(2);
-  expect(result.stderr).toContain("access");
+  expect(result.stderr).toContain("permission");
   expect(result.stdout).toBe("");
 });
 

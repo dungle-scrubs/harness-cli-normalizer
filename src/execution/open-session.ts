@@ -18,7 +18,11 @@
  * send correlation, and the close-versus-abandon distinction.
  */
 import { randomUUID } from "node:crypto";
-import { buildSessionArgv, buildTurnEnv } from "../interpretation/argv.js";
+import {
+  buildSessionArgv,
+  buildTurnEnv,
+  type SessionPermissionOptions,
+} from "../interpretation/argv.js";
 import {
   type CapabilityResult,
   capabilitiesOf,
@@ -143,7 +147,7 @@ export interface SessionHandle {
   close(): Promise<void>;
 }
 
-export interface OpenSessionOptions {
+export interface OpenSessionOptions extends SessionPermissionOptions {
   readonly sessionId: string;
   readonly model?: string;
   /** Working directory for the spawned harness. */
@@ -268,6 +272,12 @@ export const openSession = (
     ...(opts.contextWindow !== undefined ? { contextWindow: opts.contextWindow } : {}),
     ...(opts.isResume !== undefined ? { isResume: opts.isResume } : {}),
     ...(opts.skills !== undefined ? { skills: opts.skills } : {}),
+    ...(opts.tools !== undefined ? { tools: opts.tools } : {}),
+    ...(opts.excludeTools !== undefined ? { excludeTools: opts.excludeTools } : {}),
+    ...(opts.autonomy !== undefined ? { autonomy: opts.autonomy } : {}),
+    ...(opts.access !== undefined ? { access: opts.access } : {}),
+    ...(opts.toolMap !== undefined ? { toolMap: opts.toolMap } : {}),
+    ...(opts.discovery !== undefined ? { discovery: opts.discovery } : {}),
   });
   let sessionInput: SessionInputContract;
   try {

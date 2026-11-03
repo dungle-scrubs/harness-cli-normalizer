@@ -16,7 +16,7 @@ import { hintFor } from "./hints.js";
 import { renderArgvParts, renderInlineSettings } from "./inline-settings.js";
 import { assertIsolationCombination } from "./isolation.js";
 import { promptAfterSeparator, renderVerifiedNativeSettings } from "./native-settings-argv.js";
-import { ArgvRefusalError } from "./refusal.js";
+import { ArgvRefusalError, type RefusalOption } from "./refusal.js";
 import { assertAccessExclusivity } from "./resolve-options.js";
 import { assertUsableSessionId, SESSION_ID_MAX, SessionIdRefusalError } from "./session-id.js";
 import { renderSkillsSelection, type SkillsSelection } from "./skills-selection.js";
@@ -137,6 +137,21 @@ export function stdinPromptOf(h: HarnessDescriptor, opts: TurnOptions): string |
     : null;
 }
 
+/** Shared autonomy spelling and refusal for turn and session spawns. */
+const autonomyFlagOf = (h: HarnessDescriptor): string => {
+  if (h.autonomy === null) {
+    const by = supportedBy(defaultDescriptors(), "autonomy");
+    throw new ArgvRefusalError({
+      issue: "no-autonomy-mode",
+      harness: h.name,
+      supported: by.map((e) => `${e.harness} ${e.spelling}`),
+      supportedBy: by,
+      hint: "pi has no unattended-run flag; approximate with a per-tool allowlist (--tools read,bash) if you need unattended behavior on pi",
+    });
+  }
+  return h.autonomy.flag;
+};
+
 /** The shared tail of a headless turn: inline prompt, stream flags and
  * validated selections. Tool names travel in one joined argument; inline
  * prompt text precedes variadic tool grants. */
@@ -166,17 +181,7 @@ const turnTail = (
     tail.push(h.vocabulary.modelFlag, validated.id);
   }
   if (opts.autonomy === true) {
-    if (h.autonomy === null) {
-      const by = supportedBy(defaultDescriptors(), "autonomy");
-      throw new ArgvRefusalError({
-        issue: "no-autonomy-mode",
-        harness: h.name,
-        supported: by.map((e) => `${e.harness} ${e.spelling}`),
-        supportedBy: by,
-        hint: "pi has no unattended-run flag; approximate with a per-tool allowlist (--tools read,bash) if you need unattended behavior on pi",
-      });
-    }
-    tail.push(h.autonomy.flag);
+    tail.push(autonomyFlagOf(h));
   }
   if (opts.tools !== undefined || opts.excludeTools !== undefined) {
     const rendered = renderToolSelection(h, {
@@ -407,7 +412,20 @@ export const buildSpawnArgv = (h: HarnessDescriptor, opts: SpawnArgvOptions): st
   return placement === "after-argv" && tail.length > 0 ? [...base, ...tail] : base;
 };
 
-export interface SessionOptions {
+/** Explicit permissions for one native session process. Callers repeat
+ * them on resume; only the tools discovery facet is supported here. */
+export interface SessionPermissionOptions {
+  readonly tools?: readonly string[];
+  readonly excludeTools?: readonly string[];
+  readonly autonomy?: boolean;
+  readonly access?: AccessValue;
+  /** The merged toolMap (native plus tier), the one shape past option
+   * resolution - the same shape a turn carries. */
+  readonly toolMap?: ToolMap;
+  readonly discovery?: { readonly tools?: boolean };
+}
+
+export interface SessionOptions extends SessionPermissionOptions {
   readonly sessionId: string;
   readonly model?: string;
   /** Effort level, validated against the ladder that applies to the pick
@@ -438,6 +456,70 @@ export interface SessionOptions {
   readonly skills?: SkillsSelection;
 }
 
+/** Select the first explicit dimension for an unsupported-session refusal. */
+const SESSION_PERMISSION_DIMENSIONS: ReadonlyArray<{
+  readonly present: (opts: SessionPermissionOptions) => boolean;
+  readonly option: RefusalOption;
+}> = [
+  { present: (o) => o.tools !== undefined, option: "tools" },
+  { present: (o) => o.excludeTools !== undefined, option: "excludeTools" },
+  { present: (o) => o.discovery?.tools !== undefined, option: "discovery.tools" },
+  { present: (o) => o.autonomy !== undefined, option: "autonomy" },
+  { present: (o) => o.access !== undefined, option: "access" },
+];
+
+/** Derive refusal support from the same capability that gates rendering. */
+const sessionPermissionHarnesses = (): readonly string[] =>
+  Object.values(defaultDescriptors())
+    .filter((d): d is HarnessDescriptor => d !== undefined && d.sessionMode?.permissions === "run")
+    .map((d) => d.name);
+
+/** Reuse run renderers in resume phase, which adds no launch defaults. */
+const renderSessionPermissions = (
+  h: HarnessDescriptor,
+  opts: SessionPermissionOptions,
+): { readonly tokens: readonly string[]; readonly settings: readonly JsonSettingsFragment[] } => {
+  const dimension = SESSION_PERMISSION_DIMENSIONS.find((d) => d.present(opts));
+  if (dimension === undefined) return { tokens: [], settings: [] };
+  if (h.sessionMode?.permissions !== "run") {
+    const supported = sessionPermissionHarnesses();
+    throw new ArgvRefusalError({
+      issue: "unsupported-option",
+      harness: h.name,
+      option: dimension.option,
+      supported,
+      detail: "the session spawn carries no permission dimension",
+      hint:
+        supported.length > 0
+          ? `route this permission work to ${supported.join(" or ")}, or drop the option`
+          : "drop the option",
+    });
+  }
+  assertAccessExclusivity(h, opts);
+  const tokens: string[] = [];
+  if (opts.autonomy === true) tokens.push(autonomyFlagOf(h));
+  if (opts.tools !== undefined || opts.excludeTools !== undefined) {
+    const rendered = renderToolSelection(h, {
+      include: opts.tools,
+      exclude: opts.excludeTools,
+      toolMap: opts.toolMap,
+    });
+    tokens.push(...rendered.tokens);
+  }
+  const rendered = renderTurnOptions(
+    h,
+    {
+      prompt: "",
+      access: opts.access,
+      autonomy: opts.autonomy,
+      discovery: opts.discovery === undefined ? undefined : { tools: opts.discovery.tools },
+      toolMap: opts.toolMap,
+    },
+    "resume",
+  );
+  return { tokens: [...tokens, ...rendered.tokens], settings: rendered.settings };
+};
+
 export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): string[] => {
   if (!h.sessionMode) {
     const supported = Object.values(defaultDescriptors())
@@ -450,6 +532,8 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
     });
   }
   refuseUnusableSessionId(h, opts.sessionId);
+  // Refuse unsupported permissions before assembling the native invocation.
+  const permissions = renderSessionPermissions(h, opts);
   const flag = opts.isResume ? h.sessionMode.resumeFlag : h.sessionMode.idFlag;
   const argv = [h.bin, ...h.sessionMode.flags, ...(flag !== null ? [flag, opts.sessionId] : [])];
   const settings: JsonSettingsFragment[] = [];
@@ -510,6 +594,10 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
     argv.push(...rendered.tokens);
     settings.push(...rendered.settings);
   }
+  // issue #443: the rendered permission dimensions ride the session
+  // spawn, beside the other spawn properties.
+  argv.push(...permissions.tokens);
+  settings.push(...permissions.settings);
   // issue #332: the skills allowlist renders through the one owner a
   // launch argv uses (renderSkillsSelection), so a null-skills harness
   // refuses here - before spawn - with the same unsupported-option shape

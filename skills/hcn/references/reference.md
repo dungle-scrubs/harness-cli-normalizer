@@ -200,11 +200,10 @@ command. The version probe has bounded time and output.
 | skills allowlist | skillOverrides complement | -c skills.config disable-set | --skill (exact set) | - (refuses, hint) | - (refuses, hint) | - (refuses, hint) | - (refuses, hint) |
 
 Tools defaults: a bare pi run emits no tool list, preserving its native
-defaults and any extension or MCP tools. Any rendered pi list (an explicit
-grant or `--access read`) is a strict allowlist that drops the extension
-and MCP tools pi registered at run time; a pi delegation that needs
-`web_search`, `background_task`, or tool-proxy under a grant must name
-them through `toolMap` or `native:<name>`.
+defaults. A rendered pi list replaces built-in and extension declarations;
+name extension tools through `toolMap` or `native:<name>`. Pi 1.4.0 retains
+registered MCP tools, which a granted proxy such as `codemode` or `tool_search`
+can reach. See [native tool limits](harness-notes.md#session-tool-limits).
 Skills allowlist rendering:
 pi gets `-ns` plus one `--skill <path>` per pick (only those load); claude
 gets `--settings '{"skillOverrides":{"<name>":"off",...}}'` turning off
@@ -511,7 +510,30 @@ advertise these controls.
 | refusals | from hcn 0.9.6. A harness that refuses the command that opened a turn, before acknowledging it (pi `prompt` with `success:false`, a popeye prompt error), ends that turn with the classified failure and `done` cause `failed`; a refused later send, even one reusing the id, leaves the turn running. A refused session open (codex `thread/start` error, popeye `create` error) ends the session: codex rejects the waiting sends with `native-rejected`, popeye ends the first waiting send's turn with the failure, and `closed` reports cause `failed` (exit 1) with the failure. A refusal is classified like a terminal error, except that a generic one is `native`, not `task`. A codex app-server that never answers still waits on the caller |
 | ids | `session.sessionId` = caller-side handle; `identity.sessionId` (first turn) = harness-confirmed id (pi and codex: minted; codex mints the thread id at open, `--resume <id>` reopens it via `thread/resume`) |
 | exit codes | 0 `closed.cause` clean, 1 any other harness or session outcome, 2 refusal before the stream opens, 4 hcn internal crash (an `internal` failure and `closed` with cause `crash`; an hcn bug - report it, do not retry or reroute). A refusal still writes `failure` + `closed cause=failed` on stdout (prose to stderr); a spawn failure writes a `transport` failure + the same `closed`, exit 1. The exit code is set after the terminal line flushes. EPIPE on stdout: hcn closes the session (grace, then signal) and exits 1 |
-| flags | `--stall <s>` per-turn inactivity budget (0 disables, no default; expiry ends the turn `stall` and closes the session `stall`); `--provider` pi only, same validation as run; `--agent <name>` claude, antigravity, popeye, and pi (extension-verified at open), rendered at spawn exactly as run renders it; `--effort <v>` (>= 0.6.0) validated against the ladder for the picked `--model` exactly as on run - no default, the harness's own effort applies without it; `--skills <a,b>` (issue #332) the run allowlist at session spawn through the same resolution and render, holding across every turn, antigravity/popeye refusing exit 2 before spawn; `--model` renders per harness (codex sessions take `-c model=<id>` - app-server has no `--model` flag - and sessions render no sandbox flag, so codex's own sandbox default applies). Run-only permission flags (`--access`, `--tools`, `--exclude-tools`, `--no-tools`, `--write`/`--no-write`, `--shell`/`--no-shell`, `--sandbox`, `--autonomy`/`--no-autonomy`) refuse with exit 2 and a typed failure before spawn instead of being dropped silently (issues #386 and #392) |
+| flags | `--stall <s>` per-turn inactivity budget (0 disables, no default; expiry ends the turn `stall` and closes the session `stall`); `--provider` pi only, same validation as run; `--agent <name>` claude, antigravity, popeye, and pi (extension-verified at open), rendered at spawn exactly as run renders it; `--effort <v>` (>= 0.6.0) validated against the ladder for the picked `--model` exactly as on run - no default, the harness's own effort applies without it; `--skills <a,b>` (issue #332) the run allowlist at session spawn through the same resolution and render, holding across every turn, antigravity/popeye refusing exit 2 before spawn; `--model` renders per harness (codex sessions take `-c model=<id>` - app-server has no `--model` flag - and sessions render no sandbox flag, so codex's own sandbox default applies). Claude and Pi accept explicit `--tools`, `--exclude-tools`, `--no-tools`, `--autonomy`/`--no-autonomy`, and `--access read|write` at spawn through the run renderers. Pi refuses `--autonomy`; Claude refuses `--no-tools`, as on run. Other harnesses refuse these settings before spawn. `--write`/`--no-write`, `--shell`/`--no-shell`, `--sandbox`, and `--isolation` remain run-only. Refusals exit 2 with a typed failure instead of dropping the setting |
+
+Session permission controls apply to every turn in that process. Repeat the
+controls on `--resume`; hcn stores no permission policy across processes.
+Bare sessions keep native tool and autonomy defaults. Tool names use the
+canonical vocabulary and configured `toolMap`; session grants do not inherit
+run profile or configured tool grants. `--tools` and `--exclude-tools` refuse
+together, and `--access` refuses with either list.
+
+Preview the effective session spawn without a model call:
+
+```sh
+hcn inspect pi --argv --mode headless-session --tools read --no-autonomy
+hcn inspect claude --argv --mode headless-session --access read --resume <uuid>
+```
+
+A preview without an id uses a fixed placeholder UUID. `--session-id` previews
+a fresh spawn; `--resume` previews native resume. No store existence or recall
+is established by an argv preview. `--no-autonomy` adds no native flag and does
+not override a native permission mode saved in settings. Tool controls do not
+establish OS/network confinement. On Pi 1.4.0, a plain `--tools` list removes
+unselected built-in and extension declarations, but retains registered MCP
+tools. A selected proxy such as `codemode` or `tool_search` can reach them;
+see [native tool limits](harness-notes.md#session-tool-limits).
 
 ### Delivery and interruption
 

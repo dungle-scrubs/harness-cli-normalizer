@@ -1,6 +1,10 @@
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import type { DiscoveryOptions, TurnOptions } from "../interpretation/argv.js";
+import type {
+  DiscoveryOptions,
+  SessionPermissionOptions,
+  TurnOptions,
+} from "../interpretation/argv.js";
 import { parseEnvEntries } from "../interpretation/environment.js";
 import { isQuestionMode, QUESTION_MODES } from "../interpretation/question.js";
 import { ArgvRefusalError } from "../interpretation/refusal.js";
@@ -218,6 +222,21 @@ export const parseTurnOptions = (values: Record<string, unknown>): ParsedTurnOpt
 
   // prompt will be set by caller after resolvePrompt
   return opts as unknown as ParsedTurnOptions;
+};
+
+/** Parse run spellings, then select only the supported session permissions.
+ * The argv builder owns descriptor validation and combination refusals. */
+export const parseSessionPermissionOptions = (
+  values: Record<string, unknown>,
+): SessionPermissionOptions => {
+  const turn = parseTurnOptions(values);
+  const permissions: Record<string, unknown> = {};
+  if (turn.tools !== undefined) permissions.tools = turn.tools;
+  if (turn.excludeTools !== undefined) permissions.excludeTools = turn.excludeTools;
+  if (turn.autonomy !== undefined) permissions.autonomy = turn.autonomy;
+  if (turn.access !== undefined) permissions.access = turn.access;
+  if (turn.discovery?.tools !== undefined) permissions.discovery = { tools: turn.discovery.tools };
+  return permissions as SessionPermissionOptions;
 };
 
 /** `--resume` and `--session-id` are aliases for one session id; both at

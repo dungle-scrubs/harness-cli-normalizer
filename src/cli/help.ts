@@ -218,9 +218,10 @@ Defaults with no flags:
   acceptEdits plus strict sandbox settings on claude; no extra flags on
   pi, muse, or popeye; antigravity refuses --access. The profile's sandbox
   setting is separate from access. toolMap is config-only (no flag) - canonical -> native
-  mapping per harness. A bare pi run renders no --tools list: pi's list
-  is a strict allowlist and would drop extension and MCP tools; name
-  them through toolMap or native:<name> when you grant. Question mode defaults to ask (config keys
+  mapping per harness. A bare pi run renders no --tools list. A list
+  replaces built-in and extension declarations; registered MCP tools can
+  remain reachable through a granted proxy such as codemode or tool_search.
+  Name extension tools through toolMap or native:<name>. Question mode defaults to ask (config keys
   "questions"; prompt preamble, never a harness flag).
   Provenance prints to stderr on every run; see
   'hcn inspect <harness>' for the resolved argv of a bare run.
@@ -267,6 +268,18 @@ ${DENIAL_COUNT_HELP}
                             antigravity, popeye; pi with its subagent
                             extension verified at open; others refuse)
   --model <id>              Model for the session
+  --tools <a,b>             Canonical tool allowlist at session spawn (claude,
+                            pi); mutually exclusive with --exclude-tools
+  --exclude-tools <a,b>     Deny tools using the run renderer (claude, pi)
+  --no-tools                Disable tools (pi); claude refuses as on run
+  --autonomy / --no-autonomy
+                            Use run autonomy semantics at spawn (claude, pi).
+                            pi refuses --autonomy; --no-autonomy adds no flag
+  --access <read|write>     Run access preset at session spawn (claude, pi);
+                            mutually exclusive with tool lists. Native limits
+                            apply; these are not an OS/network sandbox
+                            guarantee. Repeat controls on --resume: hcn does
+                            not save them. Other harnesses refuse before spawn
   --skills <a,b>            Skill allowlist for the session, resolved against
                             $HCN_SKILLS_ROOT (or ~/.agents/skills) exactly like
                             hcn run --skills. pi loads only the picks (--skill

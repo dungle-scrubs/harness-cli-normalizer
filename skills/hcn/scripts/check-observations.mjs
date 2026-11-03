@@ -144,6 +144,34 @@ try {
       });
       console.log("ok: Claude write and selected skills share strict native settings");
     }
+    const sessionHelp = spawnSync(bin, ["session", "--help"], {
+      cwd: root,
+      env,
+      encoding: "utf8",
+      timeout: 20000,
+    });
+    assert.equal(sessionHelp.status, 0, sessionHelp.stderr);
+    if (sessionHelp.stdout.includes("--exclude-tools")) {
+      const preview = (harness, flags) => {
+        const result = spawnSync(
+          bin,
+          ["inspect", harness, "--argv", "--mode", "headless-session", ...flags],
+          { cwd: root, env, encoding: "utf8", timeout: 20000 },
+        );
+        assert.equal(result.error, undefined);
+        assert.equal(result.status, 0, result.stderr);
+        return JSON.parse(result.stdout);
+      };
+      const pi = preview("pi", ["--tools", "read", "--no-autonomy"]);
+      assert.deepEqual(pi.slice(0, 3), ["pi", "--mode", "rpc"]);
+      assert.equal(pi[pi.indexOf("--tools") + 1], "read");
+      const claude = preview("claude", ["--access", "read"]);
+      assert.equal(claude[claude.indexOf("--input-format") + 1], "stream-json");
+      assert.equal(claude[claude.indexOf("--tools") + 1], "Read,Grep,Glob,WebFetch,WebSearch");
+      assert.equal(claude[claude.indexOf("--permission-mode") + 1], "dontAsk");
+      assert.equal(claude[claude.indexOf("--disallowedTools") + 1], "mcp__*");
+      console.log("ok: Claude and Pi session permission previews match the skill");
+    }
     const inspected = spawnSync(bin, ["inspect", "cursor", "--json"], {
       cwd: root,
       env,

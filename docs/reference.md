@@ -217,13 +217,15 @@ divergence: profile "sandbox" not expressible on pi; harness default applies
 
 Precedence is `project > user`; a category-only harness (muse) refuses a `toolMap` key whose canonical is not in its categories, naming the key (e.g. `toolMap.muse.read`). A canonical name with no counterpart on the current harness refuses with `unsupported-option` and the hint `add toolMap.<harness>.<name> to ~/.config/hcn/config.json or pass native:<name>`. hcn cannot verify that a declared native name exists at run time; a wrong name reaches the harness as an unknown tool.
 
-On pi, `--tools` is a strict allowlist: any rendered list - an explicit
-grant or `--access read` - drops the extension and MCP tools pi registered
-at run time (`web_search`, `background_task`, tool-proxy). A bare pi run
-therefore renders no list (the profile's all-known marker emits nothing on
-a strict-allowlist harness; pi's dormant `grep`, `find`, `ls` stay off
-unless granted). A pi grant that needs an extension tool names it through
-`toolMap` or `native:<name>`.
+On pi, `--tools` replaces the declared tool selection. A rendered list drops
+unselected built-in and extension tools. Pi 1.4.0 retains registered MCP tools
+unless the native selection contains an `mcp__` entry. They are not declared
+by a plain built-in allowlist, but a granted tool such as `codemode` or
+`tool_search` can reach them. A tool allowlist is not an OS or network sandbox.
+A bare pi run renders no list, so its native defaults apply; dormant `grep`,
+`find`, and `ls` stay off unless granted. Name extension tools through `toolMap`
+or `native:<name>`. See Pi's [tool selection](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/cli.md#tools)
+and [MCP exposure](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/mcp.md#control-tool-exposure).
 
 ### Access presets
 
@@ -862,10 +864,49 @@ The native operation can still fail on changed flags, protocol, or session state
 No admission result proves session existence or
 recall. Pass the same working folder and options as the intended turn.
 
-For persistent resume use `--mode headless-session --resume <session-id>`.
-That preview needs no prompt and accepts model, effort, provider, and cwd.
-It refuses other process options that persistent startup cannot apply,
-including tool grants, environment overrides, and native passthrough.
+For persistent startup use `--argv --mode headless-session`, optionally with
+`--resume <session-id>` or `--session-id <session-id>`. With no id, the argv
+preview uses a fixed placeholder UUID. It needs no prompt and accepts model,
+effort, provider, cwd, and the session permission controls below. Environment
+overrides, native passthrough, and other unsupported process options refuse.
+`--runtime --mode headless-session --resume <session-id>` uses the same
+session argv renderer and retains its requirement for an explicit resume id.
+
+### Session permission controls
+
+Claude and Pi sessions accept explicit `--tools`, `--exclude-tools`,
+`--no-tools`, `--autonomy` / `--no-autonomy`, and `--access read|write`
+through the same native renderers as `hcn run`. A setting is a spawn property:
+it applies to every turn of that process. Repeat it when starting a new
+process with `--resume`; hcn does not store permission settings across processes.
+Bare sessions retain native tool and autonomy defaults.
+
+```sh
+hcn session claude --json --tools read,write,edit,shell --no-autonomy
+hcn session pi --json --tools read,write,edit,shell --no-autonomy
+hcn inspect pi --argv --mode headless-session --tools read --no-autonomy
+hcn inspect claude --argv --mode headless-session --access read --resume <uuid>
+```
+
+Claude uses the existing `--allowedTools` grant and `--disallowedTools`
+complement of the descriptor's known built-ins. New native tools outside that
+inventory can remain available: Claude 2.1.316 exposed `SendToProject` and
+`SendToProjectContext` during the session probe. This rendering does not promise
+a closed inventory on a newer native version. Pi uses `--tools`. Canonical names and configured
+`toolMap` entries work as on an explicit resumed run. Session permission
+settings do not inherit the run defaults profile or configured tool grants.
+These options control native tools and permissions, with the limits described
+above; they do not establish OS or network confinement. `--no-autonomy` adds no
+native flag, so it does not override a native permission mode saved in settings.
+
+Unsupported combinations refuse before spawn with exit 2 and, under `--json`,
+a `failure` / `closed` pair. Pi refuses `--autonomy` because it has no native
+switch. Claude refuses `--no-tools`, as on run, because its descriptor has no
+tools-discovery switch; use `--access read` for the closed read inventory.
+Other session harnesses refuse these permission options. `--tools` and
+`--exclude-tools` are mutually exclusive, as are `--access` and either tool
+list. `--write` / `--no-write`, `--shell` / `--no-shell`, `--sandbox`, and
+`--isolation` remain unavailable on sessions.
 
 ## Saved native transcripts
 
