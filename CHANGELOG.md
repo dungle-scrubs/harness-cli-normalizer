@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.15](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.14...v0.9.15) (2026-11-03)
+
+
+### Added
+
+* apply permission controls to Claude and Pi sessions ([#444](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/444)) ([6d206d7](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/6d206d784a85383f30d90e02a671d7965f7e9b0d))
+
 ## [0.9.14](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.13...v0.9.14) (2026-11-01)
 
 
