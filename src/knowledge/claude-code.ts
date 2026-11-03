@@ -109,6 +109,13 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     },
     turnEnd: { type: "result" },
     identityProbe: null,
+    // Issue #443: the claude session grammar carries the run permission
+    // dimensions: --allowedTools/--disallowedTools (the tool lists),
+    // --permission-mode/--tools (the access presets) and
+    // --dangerously-skip-permissions (an autonomy grant). The claude
+    // session has NO discovery.tools facet, so `--no-tools` still refuses
+    // here exactly as it refuses on a turn.
+    permissions: "run",
   },
   output: {
     // --output-format/--include-partial-messages only work with --print, so

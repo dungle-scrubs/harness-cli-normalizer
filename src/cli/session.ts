@@ -3,8 +3,12 @@ import { createInterface } from "node:readline/promises";
 import { probeExtensionOption } from "../execution/extension-probe.js";
 import type { FailureSummary } from "../execution/failure.js";
 import { nodeRunnerDeps } from "../execution/node-deps.js";
-import { CLOSE_GRACE_MS, openSession } from "../execution/open-session.js";
-import { buildTurnEnv } from "../interpretation/argv.js";
+import { CLOSE_GRACE_MS, type OpenSessionOptions, openSession } from "../execution/open-session.js";
+import {
+  buildSessionArgv,
+  buildTurnEnv,
+  type SessionPermissionOptions,
+} from "../interpretation/argv.js";
 import {
   composeAnswer,
   isQuestionMode,
@@ -14,34 +18,28 @@ import {
 import { ArgvRefusalError, type RefusalOption } from "../interpretation/refusal.js";
 import type { BehaviorTier } from "../interpretation/resolve-options.js";
 import type { SkillsSelection } from "../interpretation/skills-selection.js";
+import { mergeToolMaps } from "../interpretation/tool-vocabulary.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
-import { splitPassthrough } from "./args.js";
+import { parseSessionPermissionOptions, splitPassthrough } from "./args.js";
 import { markJsonCrashStream } from "./crash.js";
 import { gateExtensionOptions, writeExtensionProvenance } from "./extension-gate.js";
 import { createRenderState, renderEvent } from "./render.js";
 import { resolveHarness } from "./resolve-harness.js";
 import { listKnownSkills, resolveSkillNames } from "./skills-root.js";
 
-/** Issue #392 / #386: permission dimensions the common parser accepts but a
- * session never consumes. A polarity pair (write/no-write) is one
- * dimension and refuses under either spelling. Non-permission options
- * (--system-prompt, --max-steps, ...) stay out of this table. */
+/** Permission dimensions that no session renderer consumes. Refuse both
+ * polarities rather than silently dropping the caller's selection. */
 const RUN_ONLY_PERMISSION_OPTIONS: ReadonlyArray<{
   readonly valueKey: string;
   readonly flag: string;
   readonly option: RefusalOption;
 }> = [
-  { valueKey: "tools", flag: "--tools", option: "tools" },
-  { valueKey: "exclude-tools", flag: "--exclude-tools", option: "excludeTools" },
-  { valueKey: "no-tools", flag: "--no-tools", option: "discovery.tools" },
   { valueKey: "write", flag: "--write", option: "write" },
   { valueKey: "no-write", flag: "--no-write", option: "write" },
   { valueKey: "shell", flag: "--shell", option: "shell" },
   { valueKey: "no-shell", flag: "--no-shell", option: "shell" },
   { valueKey: "sandbox", flag: "--sandbox", option: "sandbox" },
-  { valueKey: "autonomy", flag: "--autonomy", option: "autonomy" },
-  { valueKey: "no-autonomy", flag: "--no-autonomy", option: "autonomy" },
 ];
 
 export const session = async (harnessName: string, rawArgs: string[]): Promise<void> => {
@@ -126,23 +124,6 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
           message:
             "hcn session cannot re-resolve the most recent session per turn: a session holds one stable identity across turns",
           supported: ["--resume <id> (or --session-id) to continue one stable session"],
-        }),
-      ),
-      jsonMode,
-      "closed",
-    );
-    return;
-  }
-  if (values.access !== undefined) {
-    const { refuse, refusalOf } = await import("./refuse.js");
-    refuse(
-      refusalOf(
-        new ArgvRefusalError({
-          harness: h.name,
-          message: "access presets are available only on hcn run, not hcn session",
-          issue: "invalid-option-value",
-          option: "access",
-          supported: ["hcn run --access read|write"],
         }),
       ),
       jsonMode,
@@ -317,6 +298,26 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   }
   process.stderr.write(`provenance: questions = ${questionMode} (${questionTier})\n`);
 
+  // Resolve names as on an explicit resumed run. Permission defaults and
+  // floors stay out of sessions; only toolMap comes from the config tiers.
+  let sessionPermissions: SessionPermissionOptions;
+  try {
+    const parsedPermissions = parseSessionPermissionOptions(values);
+    const mergedToolMap = mergeToolMaps({
+      user: userCfg?.toolMap,
+      project: projectCfg?.toolMap,
+    });
+    sessionPermissions =
+      Object.keys(parsedPermissions).length > 0 && Object.keys(mergedToolMap).length > 0
+        ? { ...parsedPermissions, toolMap: mergedToolMap }
+        : parsedPermissions;
+  } catch (err) {
+    if (!(err instanceof ArgvRefusalError)) throw err;
+    const { refusalOf, refuse } = await import("./refuse.js");
+    refuse(refusalOf(err), jsonMode, "closed");
+    return;
+  }
+
   // memory resolution (ratified 2026-08-26): arg > project > user > profile
   // default (false - sessions spawn memory-off like bare runs). Divergence
   // on a harness without a memory spec is reported, never refused (no
@@ -433,6 +434,30 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
       }
     : baseDeps;
 
+  const sessionOptions: OpenSessionOptions = {
+    sessionId,
+    model,
+    cwd,
+    questions: questionMode,
+    provider,
+    agent,
+    effort,
+    ...(contextWindow !== undefined ? { contextWindow } : {}),
+    isResume,
+    ...(memoryExpressible ? { memory } : {}),
+    ...(skills !== undefined ? { skills } : {}),
+    ...sessionPermissions,
+  };
+  // Validate before extension probes, which themselves spawn a native process.
+  try {
+    buildSessionArgv(h, sessionOptions);
+  } catch (err) {
+    if (!(err instanceof ArgvRefusalError)) throw err;
+    const { refusalOf, refuse } = await import("./refuse.js");
+    refuse(refusalOf(err), jsonMode, "closed");
+    return;
+  }
+
   let handle: ReturnType<typeof openSession>;
   // Map #300 (#302 decision 5): the session surface gates
   // extension-registered options at open, exactly as the run path does -
@@ -457,24 +482,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   }
   try {
     const { getVersion } = await import("./version.js");
-    handle = openSession(
-      h,
-      {
-        sessionId,
-        model,
-        cwd,
-        questions: questionMode,
-        provider,
-        agent,
-        effort,
-        ...(contextWindow !== undefined ? { contextWindow } : {}),
-        isResume,
-        clientVersion: getVersion(),
-        ...(memoryExpressible ? { memory } : {}),
-        ...(skills !== undefined ? { skills } : {}),
-      },
-      deps,
-    );
+    handle = openSession(h, { ...sessionOptions, clientVersion: getVersion() }, deps);
   } catch (err) {
     if (err instanceof ArgvRefusalError) {
       const { refusalOf, refuse } = await import("./refuse.js");

@@ -53,6 +53,13 @@ Planned work for hcn. Each item must pass the scope test in `AGENTS.md`.
   fix request, and a fresh-directory copy scheme is caller policy, not
   normalization.
 
+- **Session permissions (#443)** - built for Claude and Pi: explicit tool
+  selection, autonomy and access controls use the run renderers at session
+  spawn. Callers repeat controls on resume; hcn stores no cross-process
+  permission policy. Unsupported options refuse before spawn. Native tool
+  and permission limits apply, including Pi's MCP proxy reach. See
+  [session permission controls](docs/reference.md#session-permission-controls).
+
 ## Provider configurations
 
 - **OpenCode Go through Pi** - verify and document the subscription as a Pi

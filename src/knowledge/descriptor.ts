@@ -581,6 +581,10 @@ export interface HarnessDescriptor {
      * except codex, whose app-server takes the model as a config override
      * instead of `--model` - verified 0.159.2). */
     readonly modelRender?: OptionRender;
+    /** Run permission renderings are valid on session spawn. Individual
+     * unsupported dimensions still refuse. When absent, every explicit
+     * session permission refuses; bare sessions keep native defaults. */
+    readonly permissions?: "run";
   } | null;
   /** Streaming is a property of the INVOCATION, not the harness: each pin
    * names the flag set that unlocks a granularity, checked in order, first

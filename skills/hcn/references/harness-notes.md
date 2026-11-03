@@ -67,6 +67,26 @@ Pi 1.0 requires a model when a provider is supplied: use
 `--provider <provider> --model <model>`, or a provider/model selector.
 A provider-only invocation remains a native failure.
 
+## Session tool limits
+
+Claude and Pi session permission options use the run renderers at spawn. Repeat
+the explicit controls on resume. Claude grants the selected tools and denies
+the complement of its known built-ins. New native tools outside that inventory
+can remain available; Claude 2.1.316 exposed `SendToProject` and
+`SendToProjectContext` in the session probe. This is not a closed inventory
+guarantee on newer versions. It also does not deny every configured MCP tool;
+Claude's `--access read` preset explicitly denies `mcp__*` as well.
+
+Pi 1.4.0's plain `--tools` list replaces built-in and extension declarations,
+but does not remove registered MCP tools. They are undeclared unless selected,
+and a granted proxy such as `codemode` or `tool_search` can reach them. A
+canonical allowlist containing only ordinary built-ins grants neither proxy.
+An extension can change tools or run code with the process's permissions;
+these selections do not sandbox extension code, the OS, or the network.
+`--no-autonomy` adds no native flag, so native saved permission settings still
+apply. See Pi's [tools](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/cli.md#tools)
+and [MCP exposure](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/mcp.md#control-tool-exposure).
+
 ## Live-session controls
 
 Before choosing a delivery mode or interrupting, check the latest

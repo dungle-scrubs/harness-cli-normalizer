@@ -94,6 +94,12 @@ export const piCli: HarnessDescriptor = deepFreeze({
     },
     turnEnd: { type: "agent_settled" },
     identityProbe: { command: "get_state", responseIdField: "data.sessionId" },
+    // Issue #443: the pi session grammar carries the run permission
+    // dimensions: --tools/--exclude-tools (the tool lists), -nt (the
+    // tools discovery facet) and the read access preset (which rides the
+    // tool list). pi has NO unattended-run flag, so `--autonomy` still
+    // refuses here exactly as it refuses on a turn.
+    permissions: "run",
   },
   output: {
     // pi -p prints plain text; --mode json emits structured v3 records
@@ -314,9 +320,9 @@ export const piCli: HarnessDescriptor = deepFreeze({
       render: { kind: "flag-list", flags: [] },
     },
   },
-  // Pi 1.0 live probes confirm --tools replaces the whole active selection,
-  // including extension and MCP tools (test/fixtures/pi-1.0.0). Exclusion
-  // subtracts after selection; -nbt has no normalized spelling.
+  // --tools replaces built-in and extension declarations. In Pi 1.4.0,
+  // registered MCP tools can remain reachable through a selected proxy.
+  // Exclusion subtracts after selection; -nbt has no normalized spelling.
   skills: { loadFlag: "--skill", overridesVia: null },
   tools: {
     includeFlag: "--tools",

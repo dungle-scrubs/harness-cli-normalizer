@@ -9,6 +9,7 @@ import {
 } from "../../src/execution/open-session.js";
 import { composeEscalatedPrompt } from "../../src/interpretation/question.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
+import { codexCli } from "../../src/knowledge/codex.js";
 import { piCli } from "../../src/knowledge/pi.js";
 import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
 
@@ -1135,5 +1136,40 @@ test("#376: a process crash after a completed session turn does not rewrite the 
       retryable: false,
       message: expect.stringContaining("Error: extension failed after turn"),
     },
+  });
+});
+
+describe("openSession permission dimensions (issue #443, fake process)", () => {
+  test("the grant rides the one spawn argv, fresh and resumed alike", () => {
+    for (const isResume of [false, true]) {
+      const d = makeDeps(new FakeProcess());
+      openSession(claudeCode, { sessionId: sid, tools: ["read"], isResume }, d);
+      expect(d.spawner.calls).toHaveLength(1);
+      const argv = d.spawner.calls[0]?.argv ?? [];
+      expect(argv[argv.indexOf("--allowedTools") + 1]).toBe("Read");
+      // The permission flags ride the SPAWN, so a resumed session is
+      // re-spawned with the same narrowing.
+      expect(argv[argv.indexOf(isResume ? "--resume" : "--session-id") + 1]).toBe(sid);
+    }
+  });
+
+  test("a dimension the harness cannot express refuses before any spawn", () => {
+    let refused: unknown;
+    try {
+      openSession(piCli, { sessionId: sid, autonomy: true }, makeDeps(new FakeProcess()));
+    } catch (e) {
+      refused = e;
+    }
+    expect((refused as { issue?: string })?.issue).toBe("no-autonomy-mode");
+  });
+
+  test("a session grammar without the permission capability refuses before any spawn", () => {
+    let refused: unknown;
+    try {
+      openSession(codexCli, { sessionId: sid, tools: ["read"] }, makeDeps(new FakeProcess()));
+    } catch (e) {
+      refused = e;
+    }
+    expect((refused as { issue?: string })?.issue).toBe("unsupported-option");
   });
 });

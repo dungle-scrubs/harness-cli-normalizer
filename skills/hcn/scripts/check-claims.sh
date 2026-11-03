@@ -247,6 +247,15 @@ case "$help_run" in
     ;;
 esac
 
+# Session permission controls are additive on newer builds.
+case "$help_session" in
+  *"--exclude-tools"*)
+    require "session permission controls" "$help_session" \
+      "--tools" "--no-tools" "--no-autonomy" "--access <read|write>" \
+      "Repeat controls on --resume" "Other harnesses refuse before spawn"
+    ;;
+esac
+
 # Memory controls are conditional for installed pre-memory builds.
 case "$help_run" in
   *"--no-memory"*)
