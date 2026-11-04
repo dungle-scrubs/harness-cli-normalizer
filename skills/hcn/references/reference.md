@@ -602,13 +602,18 @@ unknown or malformed, exit 2 naming the key.
 
 `claudeConfigDir` is a user-only launch setting (issue #446): a
 non-empty absolute path, written resolved because hcn does no shell
-expansion. It supplies a fallback `CLAUDE_CONFIG_DIR` for Claude `run`
+expansion. Select the directory for your intended login; making the native
+default explicit can select a different Keychain entry and `.claude.json`. It supplies a fallback `CLAUDE_CONFIG_DIR` for Claude `run`
 and `session` spawns, fresh and resumed, so an existing login against
 that directory works from callers that strip the variable. A per-run
 `--env CLAUDE_CONFIG_DIR` entry (the empty delete included) and an
 inherited variable (an inherited empty value included) both outrank it;
 with no setting hcn adds no variable, and other harnesses never receive
-one. The project config refuses the key at load, whatever harness runs.
+one. The setting also applies to argv/runtime previews and `inspect --context`.
+Sessions refuse `--env`; choose their context through the inherited variable.
+`transcript` and `interactive` still use native `CLAUDE_CONFIG_DIR` instead of
+the launch setting. Older hcn callers sharing this config must be upgraded
+before adding the key. The project config refuses it at load, whatever harness runs.
 hcn does no auth preflight and reads no credentials; a spawn that applies
 the setting prints `provenance: claudeConfigDir = "<path>" (user-config)`
 on stderr. See [harness-notes.md](harness-notes.md#claude-configuration-directory)

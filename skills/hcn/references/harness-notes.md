@@ -31,12 +31,17 @@ To persist that choice for automated callers, set `claudeConfigDir` in
 expansion). hcn then supplies the variable as a fallback on `hcn run
 claude` and `hcn session claude`, fresh and resumed, and prints
 `provenance: claudeConfigDir = "<path>" (user-config)` on stderr when it
-applies. A per-run `--env CLAUDE_CONFIG_DIR` entry (the empty delete
+applies. The same setting reaches argv/runtime previews and `inspect --context`.
+A per-run `--env CLAUDE_CONFIG_DIR` entry (the empty delete
 included) and an inherited variable (an inherited empty value included)
 both outrank the setting; with no setting hcn adds no variable, other
 harnesses never receive one, and the project config cannot set the key.
-hcn does no auth preflight and never reads, refreshes or stores
-credentials; Claude owns everything under the directory.
+Sessions refuse `--env`; choose another session context through the inherited
+variable. `hcn transcript` and `hcn interactive` still use the native environment
+variable rather than this launch setting. Upgrade older hcn callers sharing this
+user config before adding the key, which those versions reject.
+hcn does no auth preflight and never reads, refreshes or stores credentials.
+Claude owns everything under the directory.
 
 ## Claude write access
 

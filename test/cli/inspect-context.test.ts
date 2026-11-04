@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { env } from "node:process";
 import { expect, test } from "vitest";
@@ -13,13 +13,14 @@ function fixture(
   totalTokens = 25000,
 ): {
   readonly dir: string;
-  readonly run: (args: readonly string[]) => ReturnType<typeof spawnSync>;
+  readonly run: (args: readonly string[], runtime?: string) => ReturnType<typeof spawnSync>;
 } {
   const dir = mkdtempSync(join(cliFixtureTmpdir(), "hcn-context-"));
   writeFileSync(
     join(dir, "claude"),
     `#!/usr/bin/env node
 const fs = require("node:fs");
+fs.writeFileSync("selected.json", JSON.stringify({ config: process.env.CLAUDE_CONFIG_DIR ?? null }));
 if (process.argv.includes("--version")) { console.log(${JSON.stringify(version)}); process.exit(0); }
 fs.writeFileSync("argv.json", JSON.stringify(process.argv.slice(2)));
 fs.writeFileSync("pid", String(process.pid));
@@ -44,11 +45,11 @@ require("node:readline").createInterface({ input: process.stdin }).on("line", li
   );
   return {
     dir,
-    run: (args) =>
+    run: (args, runtime) =>
       spawnSync(
-        "bun",
+        runtime ?? "bun",
         [
-          resolve("src/cli/index.ts"),
+          resolve(runtime === undefined ? "src/cli/index.ts" : "dist/cli.js"),
           "inspect",
           "claude",
           "--context",
@@ -68,11 +69,35 @@ require("node:readline").createInterface({ input: process.stdin }).on("line", li
           env: {
             HOME: dir,
             XDG_CONFIG_HOME: dir,
+            HCN_CONFIG_DIR: join(dir, "hcn-config"),
             PATH: `${dir}:${env.PATH ?? ""}`,
           },
         },
       ),
   };
+}
+
+for (const runtime of ["node", "bun"]) {
+  test(`${runtime}: context inspection reports its configured Claude login context`, () => {
+    const { dir, run } = fixture();
+    try {
+      mkdirSync(join(dir, "hcn-config"));
+      const selected = join(dir, "selected-claude");
+      writeFileSync(
+        join(dir, "hcn-config", "config.json"),
+        JSON.stringify({ version: 1, claudeConfigDir: selected }),
+      );
+      const result = run([], runtime);
+      expect(result.status, String(result.stderr)).toBe(0);
+      expect(JSON.parse(String(result.stdout)).accounting.status).toBe("available");
+      expect(JSON.parse(readFileSync(join(dir, "selected.json"), "utf8")).config).toBe(selected);
+      expect(String(result.stderr)).toContain(
+        `provenance: claudeConfigDir = ${JSON.stringify(selected)} (user-config)`,
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 }
 
 test("public accounting binds provenance, stages the composed prompt and forks resume", () => {

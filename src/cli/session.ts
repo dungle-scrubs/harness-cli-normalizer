@@ -26,6 +26,7 @@ import { parseSessionPermissionOptions, splitPassthrough } from "./args.js";
 import { markJsonCrashStream } from "./crash.js";
 import { gateExtensionOptions, writeExtensionProvenance } from "./extension-gate.js";
 import { resolveLaunchEnvironment } from "./launch-environment.js";
+import { writeProvenance } from "./provenance.js";
 import { createRenderState, renderEvent } from "./render.js";
 import { resolveHarness } from "./resolve-harness.js";
 import { listKnownSkills, resolveSkillNames } from "./skills-root.js";
@@ -151,6 +152,19 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
       );
       return;
     }
+  }
+  if (values.env !== undefined) {
+    const { refuse } = await import("./refuse.js");
+    refuse(
+      {
+        issue: "invalid-option-value",
+        message:
+          "--env is available only on hcn run; choose a session context through the inherited environment",
+      },
+      jsonMode,
+      "closed",
+    );
+    return;
   }
   if (values.isolation !== undefined) {
     const { refuse, refusalOf } = await import("./refuse.js");
@@ -306,11 +320,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   // --env, so the only higher-precedence source is the inherited variable,
   // which the helper honors - including a set-but-empty one.
   const launchEnv = resolveLaunchEnvironment(h, userCfg, process.env);
-  if (launchEnv.claudeConfigDir !== undefined) {
-    process.stderr.write(
-      `provenance: claudeConfigDir = ${JSON.stringify(launchEnv.claudeConfigDir)} (user-config)\n`,
-    );
-  }
+  writeProvenance(h.name, launchEnv.provenance, []);
 
   // Resolve names as on an explicit resumed run. Permission defaults and
   // floors stay out of sessions; only toolMap comes from the config tiers.
@@ -355,7 +365,8 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   // Unknown-id refusal reuses the run resume guard (src/cli/resume-guard.ts):
   // harnesses that create on unknown ids (onMissing === "create") are
   // refused before spawn with the same message shape hcn run uses.
-  // claude (onMissing === "error") refuses on its own; no store check.
+  // Claude also checks the store here to distinguish naming a new session
+  // from resuming an existing id.
   // Sessions take no --env, but the descriptor turn env still overlays the
   // child, so the guard checks through that same effective environment.
   if (resumeId !== undefined) {

@@ -430,12 +430,7 @@ export const planTurn = async (
   // resume guards, which read the child's effective environment; the
   // provenance entry makes the applied setting visible in diagnostics.
   const launchEnv = resolveLaunchEnvironment(h, tiers.user, process.env, extra.env);
-  if (launchEnv.claudeConfigDir !== undefined) {
-    provenance = [
-      ...provenance,
-      { key: "claudeConfigDir", value: launchEnv.claudeConfigDir, tier: "user-config" },
-    ];
-  }
+  provenance = [...provenance, ...launchEnv.provenance];
   const envOverrides: Record<string, string> | undefined =
     extra.env !== undefined || Object.keys(launchEnv.env).length > 0
       ? { ...launchEnv.env, ...(extra.env ?? {}) }
@@ -543,7 +538,7 @@ export const planTurn = async (
       const verified = await gateExtensionOptions(
         h,
         effectiveTurnOpts as unknown as Record<string, unknown>,
-        { cwd: extra.cwd, env: extra.env },
+        { cwd: extra.cwd, env: envOverrides },
         deps.probeExtensionOption,
       );
       writeExtensionProvenance(verified);

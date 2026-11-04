@@ -70,6 +70,11 @@ Planned work for hcn. Each item must pass the scope test in `AGENTS.md`.
   preflight, reads no credentials and changes no authentication state; a
   launch that applies the setting prints
   `provenance: claudeConfigDir = "<path>" (user-config)` on stderr.
+  Inspection previews and `inspect --context` follow the same selection.
+  Session resume guards follow the selected native store. Sessions refuse
+  unsupported `--env` entries rather than silently ignoring account choices.
+  Transcript and interactive commands continue to use the native environment
+  variable; older hcn callers sharing the user config need upgrading first.
 
 ## Provider configurations
 

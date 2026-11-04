@@ -17,6 +17,7 @@
  * carries, through the same mergeEnvironment delete-on-empty rule the
  * spawn adapter applies.
  */
+import type { ProvenanceEntry } from "../interpretation/resolve-options.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 
 export const CLAUDE_CONFIG_DIR = "CLAUDE_CONFIG_DIR";
@@ -24,13 +25,10 @@ export const CLAUDE_CONFIG_DIR = "CLAUDE_CONFIG_DIR";
 export interface LaunchEnvironment {
   /** Spawn-env entries the fallback contributes (empty when none apply). */
   readonly env: Readonly<Record<string, string>>;
-  /** The applied setting, for the provenance line; undefined when the
-   * fallback did not apply (no setting, another harness, or a higher
-   * precedence source already chose the variable). */
-  readonly claudeConfigDir: string | undefined;
+  readonly provenance: readonly ProvenanceEntry[];
 }
 
-const NONE: LaunchEnvironment = { env: {}, claudeConfigDir: undefined };
+const NONE: LaunchEnvironment = { env: {}, provenance: [] };
 
 /** Resolve the Claude launch fallback once, without mutating any input.
  * `userConfig` is the parsed user config tier (narrow shape so tests and
@@ -54,5 +52,8 @@ export const resolveLaunchEnvironment = (
   // precedence; applying the fallback underneath it would resurrect what
   // the caller explicitly deleted.
   if (callEnv[CLAUDE_CONFIG_DIR] !== undefined) return NONE;
-  return { env: { [CLAUDE_CONFIG_DIR]: setting }, claudeConfigDir: setting };
+  return {
+    env: { [CLAUDE_CONFIG_DIR]: setting },
+    provenance: [{ key: "claudeConfigDir", value: setting, tier: "user-config" }],
+  };
 };

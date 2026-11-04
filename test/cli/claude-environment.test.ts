@@ -29,6 +29,7 @@ import {
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { expect, test } from "vitest";
+import { transcriptStoreRoot } from "../../src/cli/store-root.js";
 import { cliFixtureTmpdir } from "./fixture-tmpdir.js";
 
 const cli = resolve("dist/cli.js");
@@ -44,7 +45,7 @@ const SESSION_ID = "22222222-2222-4222-8222-222222222222";
  * one-shot stream-json turn for run, a stdin-quiet process for session. */
 const CAPTURE = `require("node:fs").writeFileSync(
   process.env.HCN_TEST_ENV_CAPTURE,
-  JSON.stringify({ CLAUDE_CONFIG_DIR: process.env.CLAUDE_CONFIG_DIR === undefined ? null : process.env.CLAUDE_CONFIG_DIR }),
+  JSON.stringify({ CLAUDE_CONFIG_DIR: process.env.CLAUDE_CONFIG_DIR === undefined ? null : process.env.CLAUDE_CONFIG_DIR, resume: process.argv.includes("--resume") }),
 );`;
 
 const RUN_RECORDS = [
@@ -53,11 +54,11 @@ const RUN_RECORDS = [
   { type: "result", subtype: "success", is_error: false },
 ]
   .map((record) => JSON.stringify(record))
-  .join("\\n");
+  .join("\n");
 
 const FAKE_CLAUDE_RUN = `#!${process.execPath}
 ${CAPTURE}
-process.stdout.write(${JSON.stringify(`${RUN_RECORDS}\\n`)});
+process.stdout.write(${JSON.stringify(`${RUN_RECORDS}\n`)});
 `;
 
 const FAKE_CLAUDE_SESSION = `#!${process.execPath}
@@ -72,7 +73,7 @@ ${CAPTURE}
 
 interface DriveOptions {
   /** The user config JSON written under HCN_CONFIG_DIR. */
-  readonly config?: string;
+  readonly config?: string | ((root: string) => string);
   /** The project config JSON written at <root>/.hcn/config.json. */
   readonly projectConfig?: string;
   /** Extra inherited environment entries (e.g. CLAUDE_CONFIG_DIR). */
@@ -89,11 +90,12 @@ interface DriveResult {
   /** The captured synthetic CLAUDE_CONFIG_DIR: string, "" for present but
    * empty, null when the variable was absent. */
   readonly captured: string | null;
+  readonly resumed: boolean;
 }
 
 const drive = (
   runtime: string,
-  command: "run" | "session",
+  command: "run" | "session" | "inspect",
   harness: string,
   args: readonly string[],
   options: DriveOptions = {},
@@ -104,22 +106,37 @@ const drive = (
   const capture = join(root, "env.json");
   mkdirSync(bin);
   mkdirSync(configDir, { recursive: true });
-  writeFileSync(join(bin, "claude"), command === "run" ? FAKE_CLAUDE_RUN : FAKE_CLAUDE_SESSION, {
-    mode: 0o755,
-  });
+  writeFileSync(
+    join(bin, "claude"),
+    command === "session" ? FAKE_CLAUDE_SESSION : FAKE_CLAUDE_RUN,
+    {
+      mode: 0o755,
+    },
+  );
   writeFileSync(join(bin, "pi"), FAKE_PI, { mode: 0o755 });
-  if (options.config !== undefined) {
-    writeFileSync(join(configDir, "config.json"), options.config);
+  const config = typeof options.config === "function" ? options.config(root) : options.config;
+  if (config !== undefined) {
+    writeFileSync(join(configDir, "config.json"), config);
   }
   if (options.projectConfig !== undefined) {
     mkdirSync(join(root, ".hcn"));
     writeFileSync(join(root, ".hcn", "config.json"), options.projectConfig);
   }
   if (options.store === true) {
-    // Claude files a session at <home>/.claude/projects/<cwd slug>/<id>.jsonl;
-    // the session resume guard resolves the store the same way.
-    const slug = realpathSync(root).replace(/[/.]/g, "-");
-    const claudeStore = join(root, ".claude", "projects", slug);
+    const cwd = realpathSync(root);
+    const selected = config === undefined ? undefined : JSON.parse(config).claudeConfigDir;
+    const slug = cwd.replace(/[/.]/g, "-");
+    const claudeStore = join(
+      transcriptStoreRoot("claude", {
+        home: root,
+        cwd,
+        env: {
+          ...(selected === undefined ? {} : { CLAUDE_CONFIG_DIR: selected }),
+          ...options.inherited,
+        },
+      }),
+      slug,
+    );
     mkdirSync(claudeStore, { recursive: true });
     writeFileSync(join(claudeStore, `${SESSION_ID}.jsonl`), "{}\n");
   }
@@ -131,7 +148,7 @@ const drive = (
         command,
         harness,
         "--json",
-        ...(command === "run" ? ["--prompt", "fixture"] : []),
+        ...(command !== "session" ? ["--prompt", "fixture"] : []),
         ...args,
       ],
       {
@@ -155,18 +172,14 @@ const drive = (
     );
     expect(result.error).toBeUndefined();
     const spawned = existsSync(capture);
+    const observed = spawned ? JSON.parse(readFileSync(capture, "utf8")) : null;
     return {
       status: result.status,
       stdout: result.stdout ?? "",
       stderr: result.stderr ?? "",
       spawned,
-      captured: spawned
-        ? (
-            JSON.parse(readFileSync(capture, "utf8") as string) as {
-              CLAUDE_CONFIG_DIR: string | null;
-            }
-          ).CLAUDE_CONFIG_DIR
-        : null,
+      captured: observed?.CLAUDE_CONFIG_DIR ?? null,
+      resumed: observed?.resume ?? false,
     };
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -243,6 +256,7 @@ for (const runtime of runtimes) {
     );
     expect(result.status, result.stderr).toBe(0);
     expect(result.captured).toBe("/synthetic/per-call");
+    expect(result.stderr).not.toContain("provenance: claudeConfigDir");
   });
 
   test(`${runtime}: a per-run --env empty delete drops the variable despite the setting`, () => {
@@ -251,6 +265,7 @@ for (const runtime of runtimes) {
     });
     expect(result.status, result.stderr).toBe(0);
     expect(result.captured).toBeNull();
+    expect(result.stderr).not.toContain("provenance: claudeConfigDir");
   });
 
   test(`${runtime}: the setting leaves another harness untouched`, () => {
@@ -291,6 +306,17 @@ for (const runtime of runtimes) {
     expect(result.stderr).toContain("config error");
   });
 
+  for (const value of ["/synthetic/per-call", ""]) {
+    test(`${runtime}: a session refuses unsupported --env rather than discarding ${JSON.stringify(value)}`, () => {
+      const result = drive(runtime, "session", "claude", ["--env", `CLAUDE_CONFIG_DIR=${value}`], {
+        config: USER_CONFIG("/synthetic/claude-home"),
+      });
+      expect(result.status).toBe(2);
+      expect(result.spawned).toBe(false);
+      expect(result.stderr).toContain("--env is available only on hcn run");
+    });
+  }
+
   test(`${runtime}: a session adds no CLAUDE_CONFIG_DIR without the setting`, () => {
     const result = drive(runtime, "session", "claude", ["--session-id", SESSION_ID]);
     expect(result.status, result.stderr).toBe(0);
@@ -311,11 +337,38 @@ for (const runtime of runtimes) {
 
   test(`${runtime}: a configured claudeConfigDir rides a resumed session`, () => {
     const result = drive(runtime, "session", "claude", ["--resume", SESSION_ID], {
-      config: USER_CONFIG("/synthetic/claude-home"),
+      config: (root) => USER_CONFIG(join(root, "selected-claude")),
       store: true,
     });
     expect(result.status, result.stderr).toBe(0);
+    expect(result.captured).toMatch(/\/selected-claude$/);
+    expect(result.resumed).toBe(true);
+  });
+
+  test(`${runtime}: naming an existing configured session renders a resume`, () => {
+    const result = drive(runtime, "session", "claude", ["--session-id", SESSION_ID], {
+      config: (root) => USER_CONFIG(join(root, "selected-claude")),
+      store: true,
+    });
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.resumed).toBe(true);
+  });
+
+  test(`${runtime}: session runtime inspection uses and reports the configured context`, () => {
+    const result = drive(
+      runtime,
+      "inspect",
+      "claude",
+      ["--runtime", "--mode", "headless-session", "--resume", SESSION_ID],
+      {
+        config: USER_CONFIG("/synthetic/claude-home"),
+      },
+    );
+    expect(result.status, result.stderr).toBe(0);
     expect(result.captured).toBe("/synthetic/claude-home");
+    expect(result.stderr).toContain(
+      'provenance: claudeConfigDir = "/synthetic/claude-home" (user-config)',
+    );
   });
 
   test(`${runtime}: an inherited CLAUDE_CONFIG_DIR outranks the setting on a session`, () => {

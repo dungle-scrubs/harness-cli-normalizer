@@ -11,6 +11,7 @@ import { ArgvRefusalError } from "../interpretation/refusal.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { EXIT_FAILURE } from "./exit-codes.js";
 import { planTurn } from "./plan-turn.js";
+import { writeProvenance } from "./provenance.js";
 import { refusalOf, refuse } from "./refuse.js";
 import { runtimeCompatibility } from "./runtime-compatibility.js";
 
@@ -51,6 +52,11 @@ async function inspectContextRequest(
     refuse(refusalOf(error), outcome.plan.wantJson);
     return;
   }
+  writeProvenance(
+    harness.name,
+    outcome.plan.provenance.filter((entry) => entry.key === "claudeConfigDir"),
+    [],
+  );
   const runtime = await runtimeCompatibility(harness, options);
   let accounting: ContextInspection;
   if (harness.contextInspection?.kind !== "claude-control-v1") {

@@ -11,6 +11,8 @@ import {
   splitPassthrough,
 } from "./args.js";
 import { ConfigError, loadProjectConfig, loadUserConfig } from "./config.js";
+import { resolveLaunchEnvironment } from "./launch-environment.js";
+import { writeProvenance } from "./provenance.js";
 import { refusalOf, refuse } from "./refuse.js";
 import { runtimeCompatibility } from "./runtime-compatibility.js";
 
@@ -163,6 +165,8 @@ export async function inspectSessionRuntime(
       user: userConfig,
     });
     const turnEnv = buildTurnEnv(harness, { memory: resolved.memory }, "launch");
+    const launchEnv = resolveLaunchEnvironment(harness, userConfig, process.env);
+    writeProvenance(harness.name, launchEnv.provenance, []);
     process.stderr.write(`provenance: memory = ${resolved.memory} (${resolved.tier})\n`);
     if (Object.keys(turnEnv).length > 0) {
       process.stderr.write(
@@ -174,7 +178,7 @@ export async function inspectSessionRuntime(
     process.stderr.write(`argv: ${argv.join(" ")}\n`);
     if (wantRuntime) {
       process.stdout.write(
-        `${JSON.stringify({ v: 1, argvKind: "redacted-preview", argv, ...(await runtimeCompatibility(harness, { cwd })) })}\n`,
+        `${JSON.stringify({ v: 1, argvKind: "redacted-preview", argv, ...(await runtimeCompatibility(harness, { cwd, env: { ...launchEnv.env, ...turnEnv } })) })}\n`,
       );
       return true;
     }
