@@ -435,7 +435,7 @@ describe("issue #429: claude interruption over the wire", () => {
 });
 
 describe("issue #426: dispositions stay one per command, in command order", () => {
-  test("a reused caller id gets distinct native ids; the second answer arriving first keeps command order and outcomes", async () => {
+  test("a reused caller id gets distinct native ids; dispositions stay in command order and land on the right command", async () => {
     const r = rig(piCli);
     await tick();
     r.send({ op: "send", id: "a", text: "first" });
@@ -443,11 +443,20 @@ describe("issue #426: dispositions stay one per command, in command order", () =
     r.send({ op: "send", id: "dup", text: "steer two", delivery: "queue" });
     r.send({ op: "send", id: "z", text: "steer three" });
     await tick();
-    // All four were written before any receipt: the pump never blocked.
-    expect(r.stdin().filter((line) => line.type === "prompt")).toHaveLength(4);
-    const [aWire, dupOne, dupTwo, zWire] = r.proc.sendRequestIds;
-    expect(new Set([aWire, dupOne, dupTwo, zWire]).size).toBe(4);
-    // The SECOND dup is answered first, with a different outcome.
+    // Pi writes one send at a time: only the first reached the wire before
+    // any receipt; the rest wait in command order, each released by the
+    // previous receipt.
+    expect(r.stdin().filter((line) => line.type === "prompt")).toHaveLength(1);
+    const [aWire] = r.proc.sendRequestIds;
+    expect(aWire).not.toContain("dup");
+    r.proc.emitLine(piReceipt(aWire, "started"));
+    await tick();
+    const dupOne = r.proc.sendRequestIds.at(-1);
+    r.proc.emitLine(piReceipt(dupOne, "queued"));
+    await tick();
+    const dupTwo = r.proc.sendRequestIds.at(-1);
+    expect(new Set([aWire, dupOne, dupTwo]).size).toBe(3);
+    // The SECOND dup is refused: the outcome lands on the right command.
     r.proc.emitLine(
       JSON.stringify({
         id: dupTwo,
@@ -457,11 +466,9 @@ describe("issue #426: dispositions stay one per command, in command order", () =
         error: "queue full",
       }),
     );
-    r.proc.emitLine(piReceipt(zWire, "queued"));
     await tick();
-    expect(r.events().some((e) => e.kind === "disposition")).toBe(false);
-    r.proc.emitLine(piReceipt(aWire, "started"));
-    r.proc.emitLine(piReceipt(dupOne, "queued"));
+    const zWire = r.proc.sendRequestIds.at(-1);
+    r.proc.emitLine(piReceipt(zWire, "queued"));
     r.proc.emitLine(piSettled(false));
     await tick();
     r.input.end();

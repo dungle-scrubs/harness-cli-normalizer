@@ -211,6 +211,17 @@ export class SessionSpawnError extends Error {
 const buffersSendsBeforeIdentity = (input: SessionInputContract): boolean =>
   input.kind === "popeye-rpc-prompt" || input.kind === "codex-jsonrpc";
 
+/** True for harnesses whose sends are written one at a time, each only
+ * after the previous send's native receipt. pi answers rpc commands
+ * asynchronously: a send written while another's receipt is still
+ * outstanding can be handled first - pi starts the later steer's run and
+ * refuses the earlier unflagged prompt ("Agent is already processing") -
+ * so back-to-back writes race inside the harness. Holds keep the write
+ * order instead; when the input runs stays the harness's own decision
+ * (steer, followUp), so this gates the wire, not the queue (ADR 0007). */
+const gatesSendsOnReceipt = (input: SessionInputContract): boolean =>
+  input.kind === "pi-rpc-prompt";
+
 /** Native run output: what shows a run is producing work, as opposed to an
  * identity announcement, progress, or a failure observed locally. */
 const isRunOutput = (event: HarnessEvent): boolean =>
@@ -361,6 +372,14 @@ export const openSession = (
   const pendingTurns: SentCommand[] = [];
   // Sends awaiting a native receipt, by the per-command token they carry.
   const awaitingReceipt = new Map<string, SentCommand>();
+  // Receipt-gated sends (pi): arrived from the caller but not yet written,
+  // oldest first. They pre-register their receipt above, so a session that
+  // dies while they wait still settles them; nothing is dropped silently.
+  const heldSends: SentCommand[] = [];
+  // True from writing a gated send until its receipt is processed. While
+  // true - or while a hold exists - `send` parks the input in heldSends
+  // instead of writing it, keeping at most one gated send on the wire.
+  let gatedReceiptPending = false;
   let commandSeq = 0;
   const uuidCorrelated = correlatesByInputUuid(sessionInput.kind);
   const potentialControls: SessionControlsCapability = sessionControlsOf(h) ?? {
@@ -556,6 +575,47 @@ export const openSession = (
       sup.escalate();
       return { written: false };
     }
+  };
+
+  /** Write the next held send, if any. Runs once a gated send's receipt -
+   * an acceptance or a refusal - has settled: the wire is free again, and
+   * the holds leave in their arrival order. Busyness is re-read at write
+   * time, the way the pre-identity flush re-reads it, because the turn
+   * state can have changed while the send waited. */
+  const releaseHeldSend = (): void => {
+    if (dead || closing) return;
+    const next = heldSends.shift();
+    if (next === undefined) {
+      gatedReceiptPending = false;
+      return;
+    }
+    const busy = activeTurn !== null;
+    let written: ReturnType<typeof writeUser>;
+    try {
+      written = writeUser(next, busy);
+    } catch (cause) {
+      if (!(cause instanceof SessionInputRefusalError)) throw cause;
+      // The same settlement send() gives an encoder refusal; the wire is
+      // free, so the next hold still gets its turn.
+      dropReceipt(next);
+      next.settle?.({ disposition: "rejected", reason: "unsupported-delivery" });
+      releaseHeldSend();
+      return;
+    }
+    if (!written.written) return;
+    if (!busy) {
+      // The same provisional open an idle send() gets: a gated prompt can
+      // still run nothing (handled), so the turn publishes on run evidence.
+      startTurn(next, { provisional: true });
+    }
+    log({
+      event: "send",
+      sessionId: opts.sessionId,
+      turnId: activeTurnId,
+      inputId: next.input.id,
+      ...(next.input.delivery === undefined ? {} : { delivery: next.input.delivery }),
+      disposition: "started",
+    });
   };
 
   /** A decoded failure event minus its kind: what done.failure carries. */
@@ -984,6 +1044,8 @@ export const openSession = (
                 observeSettlement(ending, false);
               } else retireProvisionalTurn();
             }
+            // The receipt settled its send, so a gated wire is free again.
+            releaseHeldSend();
             return;
           }
           // Started, queued into a run, or a receipt with no disposition:
@@ -1000,6 +1062,8 @@ export const openSession = (
           if (activeTurn === null && record.nativeDisposition !== "queued") startTurn(command);
           if (command === activeTurnOpener) activeTurnOpenerAccepted = true;
           command.settle?.({ disposition: "started" });
+          // The receipt settled its send, so a gated wire is free again.
+          releaseHeldSend();
           return;
         }
         case "interrupt-answered": {
@@ -1068,10 +1132,16 @@ export const openSession = (
               // an interrupt already accepted against it settles not-active.
               observeSettlement(activeTurn, false);
               endTurn({ kind: "done", exitCode: null, cause: "clean" });
+              // A refusal settles the send it names, so a gated wire is
+              // free again: the next held send is written now.
+              releaseHeldSend();
               return;
             }
           }
           await routeEvent({ kind: "error", message: record.message });
+          // Only a failure that settled one of this process's sends frees a
+          // gated wire; an uncorrelated one answers nothing hcn wrote.
+          if (command !== undefined) releaseHeldSend();
           return;
         }
         case "ignored":
@@ -1194,6 +1264,11 @@ export const openSession = (
       command.settle?.({ disposition: "rejected", reason: "closed" });
     }
     awaitingReceipt.clear();
+    // Held sends died with the session too. Their receipts were
+    // pre-registered, so the sweep above already settled each rejected
+    // (closed); nothing may be written now.
+    heldSends.length = 0;
+    gatedReceiptPending = false;
     // A refusal or death resolves every outstanding interrupt explicitly.
     for (const token of [...pendingInterrupts.keys()]) {
       settleInterrupt(token, { state: "rejected", reason: "closed" });
@@ -1400,6 +1475,24 @@ export const openSession = (
         }
         return { disposition: "started" };
       }
+      // A gated kind holds the send while an earlier send's receipt is
+      // still outstanding (or earlier holds wait): pi would otherwise
+      // handle the two writes out of order. The receipt registration
+      // exists from now, so the eventual write settles this promise and a
+      // session that dies while it waits settles it too - a hold is never
+      // left hanging.
+      if (gatesSendsOnReceipt(sessionInput) && (gatedReceiptPending || heldSends.length > 0)) {
+        heldSends.push(command);
+        log({
+          event: "send",
+          sessionId: opts.sessionId,
+          turnId: activeTurnId,
+          inputId: input.id,
+          ...(input.delivery === undefined ? {} : { delivery: input.delivery }),
+          disposition: "held",
+        });
+        return { disposition: "started", settled: awaitReceipt(command) };
+      }
       let written: ReturnType<typeof writeUser>;
       try {
         written = writeUser(command, wasBusy);
@@ -1418,6 +1511,7 @@ export const openSession = (
         });
         return { disposition: "rejected", reason: "write-failed" };
       }
+      if (gatesSendsOnReceipt(sessionInput)) gatedReceiptPending = true;
       if (wasBusy) {
         // Codex and Pi deliver into the running turn (pi receipts say when
         // a raced send started a run of its own); inputs on the other

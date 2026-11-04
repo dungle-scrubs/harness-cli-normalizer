@@ -104,6 +104,8 @@ turn's result never settles it. Claude keeps its queued messages; hcn never canc
 
 Pi `queue` and `steer` use the prompt's native `streamingBehavior`, so the
 harness decides atomically whether to start or deliver into ongoing work.
+Pi sends are written one at a time, each only after the previous send's
+native response, so back-to-back sends cannot race inside the harness.
 `interrupt` requests native abort and waits for an aborted settlement before
 reporting `interrupted`. Pi keeps its queued messages through abort. Send any
 replacement after the terminal interruption receipt; the same conversation

@@ -39,6 +39,84 @@ const piStarted = (proc: FakeProcess) =>
     success: true,
     data: { disposition: "started" },
   });
+
+/** The fake pi behind the send-order race: rpc commands are handled
+ * asynchronously, so a burst of unanswered commands is handled last-first
+ * - the later steer starts its run first - and an unflagged prompt that
+ * lands while a run is active is refused ("Agent is already processing").
+ * A refusal answers at once; a run start takes a moment, so within a burst
+ * the refusal line reaches hcn before the acceptance, exactly as observed
+ * live. Commands that arrive one at a time on the wire - each after the
+ * previous receipt - are handled in order: the unflagged prompt starts
+ * the run and the steer joins it. */
+const racingPi = (proc: FakeProcess) => {
+  const handled = new Set<string>();
+  let runActive = false;
+  const unanswered = () =>
+    proc.stdinLines.flatMap((line) => {
+      try {
+        const frame = JSON.parse(line) as {
+          id?: unknown;
+          type?: unknown;
+          streamingBehavior?: unknown;
+        };
+        return frame.type === "prompt" && typeof frame.id === "string" && !handled.has(frame.id)
+          ? [{ id: frame.id, steer: frame.streamingBehavior === "steer" }]
+          : [];
+      } catch {
+        return [];
+      }
+    });
+  const receipt = (id: string, outcome: { disposition: string } | { error: string }): void => {
+    proc.emitLine(
+      JSON.stringify({
+        id,
+        type: "response",
+        command: "prompt",
+        success: "disposition" in outcome,
+        ...("disposition" in outcome
+          ? { data: { disposition: outcome.disposition } }
+          : { error: outcome.error }),
+      }),
+    );
+  };
+  return {
+    /** Handle every unanswered command now. */
+    step: (): void => {
+      // Async handlers: the LAST command of a burst is handled first.
+      const outcomes = [...unanswered()].reverse().map((frame) => {
+        handled.add(frame.id);
+        if (runActive && !frame.steer) {
+          return {
+            id: frame.id,
+            error:
+              "Agent is already processing. Specify streamingBehavior ('steer' or 'followUp') to queue the message.",
+          };
+        }
+        const disposition = runActive ? "queued" : "started";
+        runActive = true;
+        return { id: frame.id, disposition };
+      });
+      for (const o of outcomes) if ("error" in o) receipt(o.id, o);
+      for (const o of outcomes) if (!("error" in o)) receipt(o.id, o);
+    },
+    /** The active run answers and settles. */
+    settle: (text: string): void => {
+      proc.emitLine(
+        JSON.stringify({
+          type: "message_end",
+          message: {
+            role: "assistant",
+            content: [{ type: "text", text }],
+            stopReason: "stop",
+          },
+        }),
+      );
+      proc.emitLine(JSON.stringify({ type: "agent_settled" }));
+      runActive = false;
+    },
+  };
+};
 /** The native message uuid the runner stamped on the nth written frame. */
 const uuidAt = (proc: FakeProcess, index: number): string =>
   String((JSON.parse(proc.stdinLines[index] ?? "null") as { uuid?: unknown }).uuid);
@@ -528,6 +606,118 @@ test("Pi accepts a raced steer after agent_settled as a new turn tagged with tha
   await session.close();
   expect((await turns.next()).done).toBe(true);
   expect(d.spawner.calls).toHaveLength(1);
+});
+
+test("a steer sent right after a prompt waits for the prompt's receipt and joins its turn", async () => {
+  const proc = new FakeProcess();
+  const d = makeDeps(proc);
+  const session = openSession(piCli, { sessionId: sid, questions: "none" }, d);
+  const turns = session.turns[Symbol.asyncIterator]();
+  const pi = racingPi(proc);
+  // Back to back, no gap: without the write gate both writes reach pi in
+  // one burst and pi handles the steer first, refusing the prompt.
+  const promptSend = session.send({ id: "prompt", text: "list the files" });
+  const steerSend = session.send({ id: "steer-1", text: "also say STEERED", delivery: "steer" });
+  pi.step();
+  // Yielding the turn proves the prompt's receipt was routed; with the
+  // gate it also proves the held steer was released onto the wire, in the
+  // same synchronous block, before this line resumes.
+  const turn = (await turns.next()).value as SessionTurn;
+  pi.step();
+  pi.settle("DONE STEERED");
+  const sendFrames = proc.stdinLines
+    .map((line) => JSON.parse(line) as Record<string, unknown>)
+    .filter((frame) => frame.type === "prompt");
+  expect(sendFrames).toHaveLength(2);
+  expect(sendFrames[0] ?? {}).not.toHaveProperty("streamingBehavior");
+  // The steer is written after the prompt was accepted, while the prompt's
+  // run is live: it joins the turn instead of racing it.
+  expect(sendFrames[1] ?? {}).toMatchObject({ streamingBehavior: "steer" });
+  expect(await promptSend.settled).toEqual({ disposition: "started" });
+  expect(await steerSend.settled).toEqual({ disposition: "started" });
+  expect(turn.inputId).toBe("prompt");
+  const events = await drainTurn(turn);
+  expect(events).toContainEqual({ kind: "message", role: "assistant", text: "DONE STEERED" });
+  expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+  const closing = session.close();
+  expect(proc.stdinEnded).toBe(true);
+  await closing;
+  // One turn total: the steer joined it, it did not open its own.
+  expect((await turns.next()).done).toBe(true);
+  expect(d.spawner.calls).toHaveLength(1);
+});
+
+test("a rejected receipt releases the next held send, which opens the next turn", async () => {
+  const proc = new FakeProcess();
+  const d = makeDeps(proc);
+  const session = openSession(piCli, { sessionId: sid, questions: "none" }, d);
+  const turns = session.turns[Symbol.asyncIterator]();
+  const firstSend = session.send({ id: "p1", text: "first" });
+  const secondSend = session.send({ id: "p2", text: "second" });
+  // pi refuses the first command outright; the refusal must free the wire
+  // for the held second send.
+  const firstRequestId = proc.sendRequestIds[0];
+  if (firstRequestId === undefined) throw new Error("no first send request written");
+  proc.emitLine(
+    JSON.stringify({
+      id: firstRequestId,
+      type: "response",
+      command: "prompt",
+      success: false,
+      error: "no such model",
+    }),
+  );
+  const failed = (await turns.next()).value as SessionTurn;
+  expect((await drainTurn(failed)).at(-1)).toMatchObject({ kind: "done", cause: "failed" });
+  expect(await firstSend.settled).toEqual({ disposition: "rejected", reason: "native-rejected" });
+  // Released with no turn live, the second send is written unflagged - not
+  // as a steer into the turn the refusal just ended.
+  const secondFrame = JSON.parse(proc.stdinLines.at(-1) ?? "null") as Record<string, unknown>;
+  expect(secondFrame).toMatchObject({ type: "prompt" });
+  expect(secondFrame).not.toHaveProperty("streamingBehavior");
+  proc.emitLine(
+    JSON.stringify({
+      id: proc.lastSendRequestId(),
+      type: "response",
+      command: "prompt",
+      success: true,
+      data: { disposition: "started" },
+    }),
+  );
+  const second = (await turns.next()).value as SessionTurn;
+  expect(second.inputId).toBe("p2");
+  expect(await secondSend.settled).toEqual({ disposition: "started" });
+  proc.emitLine(
+    JSON.stringify({
+      type: "message_end",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "second answer" }],
+        stopReason: "stop",
+      },
+    }),
+  );
+  proc.emitLine(JSON.stringify({ type: "agent_settled" }));
+  expect((await drainTurn(second)).at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+  await session.close();
+  expect((await turns.next()).done).toBe(true);
+});
+
+test("a send held behind an unanswered one is settled rejected when the child dies", async () => {
+  const proc = new FakeProcess();
+  const d = makeDeps(proc);
+  const session = openSession(piCli, { sessionId: sid, questions: "none" }, d);
+  const turns = session.turns[Symbol.asyncIterator]();
+  const firstSend = session.send({ id: "p1", text: "first" });
+  const secondSend = session.send({ id: "s2", text: "second" });
+  // pi never answers the first command; the child dies instead. Both
+  // sends are owed a settlement, written or held.
+  proc.exit(1);
+  const turn = (await turns.next()).value as SessionTurn;
+  expect((await drainTurn(turn)).at(-1)).toMatchObject({ kind: "done", cause: "crash" });
+  expect(await firstSend.settled).toEqual({ disposition: "rejected", reason: "closed" });
+  expect(await secondSend.settled).toEqual({ disposition: "rejected", reason: "closed" });
+  expect((await turns.next()).done).toBe(true);
 });
 
 describe("slow consumer", () => {

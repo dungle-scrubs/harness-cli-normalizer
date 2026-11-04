@@ -649,7 +649,14 @@ stdin carries one command per line (blank lines are ignored):
   input can join the current turn; pi and codex steer it into the running
   turn - codex under its `expectedTurnId` precondition,
   so a send that arrives after the native turn ended reports `rejected`,
-  not silence. hcn keeps no queue of its own - ADR 0007. `rejected`: the
+  not silence. hcn keeps no queue of its own - ADR 0007 - except that pi
+  sends are written one at a time: each waits until pi answered the previous
+  send's command response, because pi handles rpc commands asynchronously and
+  back-to-back writes race (the later steer starts its run first and pi
+  refuses the earlier prompt with `Agent is already processing`). The hold
+  sequences the wire only; steer and followUp still decide when the input
+  runs, and a send still held when the session dies reports `rejected`
+  (`closed`). `rejected`: the
   text was not delivered and will not be. Rejected reasons: `closed`
   (session closing or harness dead), `no-open-question` (`answer` with no
   `awaiting-input` turn to answer), `native-rejected` (Pi or codex refused

@@ -263,21 +263,24 @@ describe("issue #426: explicit delivery mode mappings", () => {
 });
 
 describe("issue #426: every receipt-bearing send carries its own native request id", () => {
-  test("pi: a reused caller id gets distinct request ids; answers settle the right command out of order", async () => {
+  test("pi: a reused caller id gets distinct request ids; each answer settles the right command", async () => {
     const r = rig(piCli);
     const turn = await startPiTurn(r, "a");
     const first = r.session.send({ id: "dup", text: "one", delivery: "steer" });
     const firstWire = r.proc.lastSendRequestId();
+    // The second dup is held until the first is answered: one send on the
+    // wire at a time, so two sends' answers can no longer cross.
     const second = r.session.send({ id: "dup", text: "two", delivery: "queue" });
+    expect(r.proc.sendRequestIds.at(-1)).toBe(firstWire);
+    r.proc.emitLine(piReceipt(firstWire, "queued"));
+    expect(await first.settled).toEqual({ disposition: "started" });
     const secondWire = r.proc.lastSendRequestId();
     expect(firstWire).not.toBe(secondWire);
     // Caller ids never ride the wire.
-    expect(firstWire).not.toContain("dup");
-    // The SECOND command is answered first, with a different outcome.
+    expect(secondWire).not.toContain("dup");
+    // The SECOND command is refused: the outcome lands on the right command.
     r.proc.emitLine(piRefusal(secondWire, "queue full"));
     expect(await second.settled).toEqual({ disposition: "rejected", reason: "native-rejected" });
-    r.proc.emitLine(piReceipt(firstWire, "queued"));
-    expect(await first.settled).toEqual({ disposition: "started" });
     r.proc.emitLine(piSettled(false));
     expect((await drainTurn(turn)).at(-1)).toMatchObject({ kind: "done", cause: "clean" });
     await r.session.close();

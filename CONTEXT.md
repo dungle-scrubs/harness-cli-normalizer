@@ -139,7 +139,12 @@ These own state, a clock, or a policy that no harness has. Each is deliberate.
   Claude keeps its native auto-compaction default unless a flag or run config
   sets the window. These are hcn's opinions about how a bare run should behave.
 - **Send correlation.** In a session, hcn associates each send with the turn it
-  opens. The harness owns input queuing; hcn writes input through (ADR 0007).
+  opens. The harness owns input queuing; hcn writes input through (ADR 0007)
+  - except on pi, whose sends hcn writes one at a time, each only after pi
+  answered the previous send's rpc receipt, because pi handles commands
+  asynchronously and back-to-back writes race (the later steer starts first
+  and the earlier prompt is refused). The hold sequences the wire only; when
+  the input runs stays pi's own decision (steer, followUp).
 - **The resume-last pre-spawn warning.** On an id-less most-recent turn hcn
   emits one fixed warning plus a store-root diagnostic before any harness
   output, and warns when the per-cwd store directory is absent. No harness
