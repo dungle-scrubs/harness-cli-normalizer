@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.16](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.15...v0.9.16) (2026-11-04)
+
+
+### Fixed
+
+* preserve Claude login context and refuse ignored session env ([aa07e2e](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/aa07e2eacd7a7f89c7ad817c309946c6e7b4cb94))
+
 ## [0.9.15](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.14...v0.9.15) (2026-11-03)
 
 
