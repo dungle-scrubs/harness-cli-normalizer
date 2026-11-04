@@ -165,6 +165,40 @@ these settings are not hard per-request token or billing limits. A large
 prompt or tool result can exceed the configured window before compaction. Native arguments after
 `--` can also override it. See the [Codex config reference](https://developers.openai.com/codex/config-reference).
 
+The user config also accepts `claudeConfigDir` (issue #446), a launch
+setting rather than a turn option. Choose the directory for the login you
+intend to use. Even making the default path explicit can select a different
+macOS Keychain entry and `.claude.json`:
+
+```json
+{ "version": 1, "claudeConfigDir": "/home/you/.claude" }
+```
+
+The value must be a non-empty absolute path with no NUL bytes. hcn does
+no shell expansion, so `~/.claude` and `$HOME/.claude` refuse; write the
+resolved path. The setting supplies a fallback `CLAUDE_CONFIG_DIR` for
+Claude `run` and `session` launches and their argv/runtime previews,
+plus `inspect --context`, fresh and resumed (named resume and
+`--resume-last` alike), so a login performed against that
+directory reaches the CLI from automated callers whose environment
+strips the variable. Precedence: a per-run `--env CLAUDE_CONFIG_DIR`
+entry (the empty-value delete included) beats the inherited variable (an
+inherited empty value included), which beats this setting. With no
+setting hcn adds no variable and Claude's native behavior applies, and
+other harnesses never receive one. The key is user-level: a project
+config that sets it refuses at config load, exit 2, naming the key,
+whatever harness runs. hcn performs no auth preflight and never reads,
+refreshes or stores credentials; the directory is Claude's own context,
+which on macOS scopes the keychain entry Claude authenticates with, and
+moves Claude's `.claude.json`, settings, session history and plugins
+under it. A launch that applies the setting prints
+`provenance: claudeConfigDir = "<path>" (user-config)` on stderr.
+Sessions refuse `--env`; set the inherited variable to choose another
+session context. `hcn transcript` and `hcn interactive` use the native
+`CLAUDE_CONFIG_DIR` environment variable rather than this launch setting.
+Older hcn versions reject the new config key, so upgrade callers that share
+this user config before adding it.
+
 Project config (`.hcn/config.json` at the git root, code-reviewed with the
 repo) also carries tool floors and named toolsets:
 

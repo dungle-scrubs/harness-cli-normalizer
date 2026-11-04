@@ -113,6 +113,9 @@ These translate and decide nothing:
 - the tool vocabulary, with `native:` passthrough for names hcn cannot vouch for
 - access presets rendered per harness (`--tools`, `--sandbox`, category switches)
 - session store paths
+- forwarding a user-selected Claude configuration directory as native launch
+  environment, with inherited and per-run choices taking precedence. hcn
+  selects no account and changes no authentication storage
 - the saved-session listing: one row shape over six store layouts
 - divergence reporting
 

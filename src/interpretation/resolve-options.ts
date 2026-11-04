@@ -109,11 +109,15 @@ const EXPRESSIBLE: Readonly<Record<ProfileKey, (h: HarnessDescriptor) => boolean
 /** What one parsed config file carries: the turn options it may set, plus
  * the keys that are not turn options - named toolsets, the raw toolMap
  * (harness -> canonical -> native, merged into the one ToolMap shape
- * here), and the wall-clock timeout. */
+ * here), the wall-clock timeout, and the user-level Claude launch
+ * fallback (issue #446; user tier only - the loader refuses it in a
+ * project config, and the CLI launch-environment helper consumes it, so
+ * it never becomes a turn option). */
 export type ConfigTier = Readonly<Omit<Partial<TurnOptions>, "toolMap">> & {
   readonly toolMap?: ToolMapConfig;
   readonly toolsets?: Readonly<Record<string, readonly string[]>>;
   readonly timeout?: number;
+  readonly claudeConfigDir?: string;
 };
 
 export interface ConfigTiers {
@@ -467,6 +471,7 @@ export const resolveEffectiveOptions = (
   for (const [key, value] of Object.entries(config)) {
     if (key === "toolsets") continue; // expanded into args above, never a turn option
     if (key === "toolMap") continue; // per-canonical provenance already emitted
+    if (key === "claudeConfigDir") continue; // CLI-only launch setting, applied by the launch-environment helper
     if (key in DEFAULT_TURN_PROFILE) continue;
     if (effectiveArgs[key as keyof TurnOptions] !== undefined) {
       provenance.push({ key, value: effectiveArgs[key as keyof TurnOptions], tier: "arg" });

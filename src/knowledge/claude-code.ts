@@ -178,8 +178,10 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
   store: {
     // Verified against the A-001 fixture's memory_paths slug and real
     // ~/.claude/projects entries: '/', '.' -> '-'; '_' preserved.
-    template: "{home}/.claude/projects/{cwdSlug}/{sessionId}.jsonl",
+    template: "{root}/{cwdSlug}/{sessionId}.jsonl",
     cwdSlug: "dash-separators",
+    rootEnv: [{ name: "CLAUDE_CONFIG_DIR", suffix: "projects" }],
+    defaultRoot: "{home}/.claude/projects",
   },
   nativeContextManagement: {
     kind: "native-session-auto-compaction",

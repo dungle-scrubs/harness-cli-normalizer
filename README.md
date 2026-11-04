@@ -292,6 +292,10 @@ Keys: `effort`, `model`, `provider`, `sandbox`, `contextWindow`, `tools`, `exclu
 `autonomy`, `write`, `shell`, `memory`, `maxSteps`, `toolsets`, `timeout`, `questions`,
 `systemPrompt`, `appendSystemPrompt`, `toolMap`, and `access`.
 
+The user config also accepts `claudeConfigDir`, an absolute path for Claude's
+launch context. Inherited `CLAUDE_CONFIG_DIR` and per-run `--env` choices take
+precedence. See [configuration and account context](docs/reference.md#defaults-config-provenance).
+
 hcn's defaults are effort `medium`, autonomy off, memory off, and discovery on. Codex and
 Antigravity CLI also get sandbox `workspace-write`, and Codex and popeye get a 272,000-token context
 window. In a project config, `tools` also caps what `--tools` can grant, and a request for more

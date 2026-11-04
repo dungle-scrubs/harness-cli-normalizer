@@ -13,7 +13,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { join, relative } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { resolveOwner } from "../scripts/git-context.ts";
 import {
@@ -491,6 +491,8 @@ describe("explicit primary setup", () => {
     mkdirSync(join(f.main, "tools"));
     copyFileSync(node, local);
     chmodSync(local, 0o755);
+    // Shared-library Node builds resolve their runtime beside the original bin directory.
+    symlinkSync(join(dirname(node), "..", "lib"), join(f.main, "lib"), "dir");
     const before = sharedState(f);
     const result = spawnSync(local, ["scripts/install-hooks.ts"], {
       cwd: f.main,

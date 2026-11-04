@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
+import type { SpawnOptions } from "../execution/deps.js";
 import { probeExtensionOption } from "../execution/extension-probe.js";
 import type { FailureSummary } from "../execution/failure.js";
 import { nodeRunnerDeps } from "../execution/node-deps.js";
@@ -24,6 +25,8 @@ import { defaultDescriptors } from "../knowledge/overrides.js";
 import { parseSessionPermissionOptions, splitPassthrough } from "./args.js";
 import { markJsonCrashStream } from "./crash.js";
 import { gateExtensionOptions, writeExtensionProvenance } from "./extension-gate.js";
+import { resolveLaunchEnvironment } from "./launch-environment.js";
+import { writeProvenance } from "./provenance.js";
 import { createRenderState, renderEvent } from "./render.js";
 import { resolveHarness } from "./resolve-harness.js";
 import { listKnownSkills, resolveSkillNames } from "./skills-root.js";
@@ -149,6 +152,19 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
       );
       return;
     }
+  }
+  if (values.env !== undefined) {
+    const { refuse } = await import("./refuse.js");
+    refuse(
+      {
+        issue: "invalid-option-value",
+        message:
+          "--env is available only on hcn run; choose a session context through the inherited environment",
+      },
+      jsonMode,
+      "closed",
+    );
+    return;
   }
   if (values.isolation !== undefined) {
     const { refuse, refusalOf } = await import("./refuse.js");
@@ -298,6 +314,14 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   }
   process.stderr.write(`provenance: questions = ${questionMode} (${questionTier})\n`);
 
+  // Issue #446: the user-config claudeConfigDir setting resolves a
+  // CLAUDE_CONFIG_DIR fallback for a claude session spawn, once, after
+  // config load (a config error still refuses first). Sessions take no
+  // --env, so the only higher-precedence source is the inherited variable,
+  // which the helper honors - including a set-but-empty one.
+  const launchEnv = resolveLaunchEnvironment(h, userCfg, process.env);
+  writeProvenance(h.name, launchEnv.provenance, []);
+
   // Resolve names as on an explicit resumed run. Permission defaults and
   // floors stay out of sessions; only toolMap comes from the config tiers.
   let sessionPermissions: SessionPermissionOptions;
@@ -341,7 +365,8 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   // Unknown-id refusal reuses the run resume guard (src/cli/resume-guard.ts):
   // harnesses that create on unknown ids (onMissing === "create") are
   // refused before spawn with the same message shape hcn run uses.
-  // claude (onMissing === "error") refuses on its own; no store check.
+  // Claude also checks the store here to distinguish naming a new session
+  // from resuming an existing id.
   // Sessions take no --env, but the descriptor turn env still overlays the
   // child, so the guard checks through that same effective environment.
   if (resumeId !== undefined) {
@@ -351,7 +376,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
     // home comes from that same env.
     const guardEnv = effectiveGuardEnv(
       process.env,
-      {},
+      launchEnv.env,
       memoryExpressible ? buildTurnEnv(h, { memory }, "launch") : {},
     );
     const { path: storePath, exists } = checkResumeStore(h, {
@@ -406,6 +431,18 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
     if (seconds > 0) stallMs = seconds * 1000;
   }
   const baseDeps = stallMs === undefined ? nodeRunnerDeps() : nodeRunnerDeps({ stallMs });
+  // The fallback rides the session spawn (and every probe spawned through
+  // the same deps) UNDER any env the spawn already carries - the descriptor
+  // turn env and later additions keep winning - so the generic session API
+  // stays untouched for this CLI-only setting.
+  const sessionDeps =
+    Object.keys(launchEnv.env).length > 0
+      ? {
+          ...baseDeps,
+          spawn: (argv: readonly string[], opts: SpawnOptions) =>
+            baseDeps.spawn(argv, { ...opts, env: { ...launchEnv.env, ...opts.env } }),
+        }
+      : baseDeps;
   // Capture the runner's final exitCode/cause for the --json `closed` event.
   // A refused session open (#345) or a crash with no open turn (#347)
   // leaves a session failure for `closed` to carry.
@@ -417,7 +454,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   const droppedIds: string[] = [];
   const deps = wantJson
     ? {
-        ...baseDeps,
+        ...sessionDeps,
         log: (e: Record<string, unknown>) => {
           if (e.event === "session_close") {
             closeInfo.exitCode = (e.exitCode as number | null) ?? null;
@@ -429,10 +466,10 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
           if (e.event === "sends_dropped" && Array.isArray(e.ids)) {
             for (const id of e.ids as unknown[]) if (typeof id === "string") droppedIds.push(id);
           }
-          baseDeps.log?.(e);
+          sessionDeps.log?.(e);
         },
       }
-    : baseDeps;
+    : sessionDeps;
 
   const sessionOptions: OpenSessionOptions = {
     sessionId,

@@ -90,6 +90,41 @@ describe("round 2 keys (D11/D12)", () => {
   });
 });
 
+describe("claudeConfigDir config key (issue #446)", () => {
+  it("a non-empty absolute path parses in the user config", () => {
+    expect(parseUserConfig('{"version":1,"claudeConfigDir":"/Users/you/.claude"}')).toEqual({
+      claudeConfigDir: "/Users/you/.claude",
+    });
+  });
+
+  it("non-string, empty, NUL, relative and shell-shorthand values refuse", () => {
+    expect(() => parseUserConfig('{"version":1,"claudeConfigDir":5}')).toThrow(
+      /"claudeConfigDir" must be a non-empty absolute path/,
+    );
+    expect(() => parseUserConfig('{"version":1,"claudeConfigDir":""}')).toThrow(
+      /"claudeConfigDir" must be a non-empty absolute path/,
+    );
+    expect(() => parseUserConfig('{"version":1,"claudeConfigDir":"/a\\u0000b"}')).toThrow(
+      /"claudeConfigDir" must be a non-empty absolute path/,
+    );
+    expect(() => parseUserConfig('{"version":1,"claudeConfigDir":"relative/path"}')).toThrow(
+      /"claudeConfigDir" must be a non-empty absolute path/,
+    );
+    expect(() => parseUserConfig('{"version":1,"claudeConfigDir":"~/.claude"}')).toThrow(
+      /"claudeConfigDir" must be a non-empty absolute path/,
+    );
+    expect(() => parseUserConfig('{"version":1,"claudeConfigDir":"$HOME/.claude"}')).toThrow(
+      /"claudeConfigDir" must be a non-empty absolute path/,
+    );
+  });
+
+  it("rejects the key in the project config tier", () => {
+    expect(() =>
+      parseUserConfig('{"version":1,"claudeConfigDir":"/Users/you/.claude"}', "project"),
+    ).toThrow(/"claudeConfigDir" is a user-level setting/);
+  });
+});
+
 describe("toolMap config tier", () => {
   it("valid toolMap parses", () => {
     expect(

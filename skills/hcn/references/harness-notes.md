@@ -1,8 +1,9 @@
 # Per-harness native behavior
 
 Read this before relying on behavior that differs by harness: model choice,
-provider selection, live-session controls, Claude write sandbox limits, native
-approvals and input requests, Cursor trust and effort, and Antigravity results. The flag table and support matrix are in
+provider selection, live-session controls, Claude write sandbox limits, the
+Claude configuration directory, native approvals and input requests, Cursor
+trust and effort, and Antigravity results. The flag table and support matrix are in
 [reference.md](reference.md).
 
 ## Claude models
@@ -12,6 +13,35 @@ Before selecting a newer Claude model, check `hcn inspect claude --json`:
 alias's current target. An alias can move between generations; use a listed
 explicit ID to retain an older generation. Native CLI version and account
 access still determine whether the provider accepts that model.
+
+## Claude configuration directory
+
+Claude's configuration directory defaults to `~/.claude`. Setting
+`CLAUDE_CONFIG_DIR` selects the directory for settings, session history,
+plugins and project transcripts. It also moves `.claude.json` from the home
+directory into the selected directory and, on macOS, selects a Keychain
+entry scoped to that directory. Even making the default path explicit can
+select a different login context. See Claude's
+[credential management](https://code.claude.com/docs/en/authentication#credential-management)
+and [configuration directory](https://code.claude.com/docs/en/claude-directory)
+documentation. hcn preserves an inherited empty value as a caller choice.
+
+To persist that choice for automated callers, set `claudeConfigDir` in
+`~/.config/hcn/config.json` to a non-empty absolute path (no shell
+expansion). hcn then supplies the variable as a fallback on `hcn run
+claude` and `hcn session claude`, fresh and resumed, and prints
+`provenance: claudeConfigDir = "<path>" (user-config)` on stderr when it
+applies. The same setting reaches argv/runtime previews and `inspect --context`.
+A per-run `--env CLAUDE_CONFIG_DIR` entry (the empty delete
+included) and an inherited variable (an inherited empty value included)
+both outrank the setting; with no setting hcn adds no variable, other
+harnesses never receive one, and the project config cannot set the key.
+Sessions refuse `--env`; choose another session context through the inherited
+variable. `hcn transcript` and `hcn interactive` still use the native environment
+variable rather than this launch setting. Upgrade older hcn callers sharing this
+user config before adding the key, which those versions reject.
+hcn does no auth preflight and never reads, refreshes or stores credentials.
+Claude owns everything under the directory.
 
 ## Claude write access
 
