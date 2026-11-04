@@ -57,6 +57,7 @@ import {
   gateExtensionOptions,
   writeExtensionProvenance,
 } from "./extension-gate.js";
+import { resolveLaunchEnvironment } from "./launch-environment.js";
 import { writeProvenance } from "./provenance.js";
 import { type Refusal, refusalOf } from "./refuse.js";
 import { listKnownSkills, resolveSkillNames } from "./skills-root.js";
@@ -103,7 +104,10 @@ export interface TurnPlan {
   /** The argv the runner will spawn, built by the same owner it uses. */
   readonly argv: readonly string[];
   readonly redactedArgv: readonly string[];
-  /** Launch-only; empty on resume, where omitted options follow native behavior. */
+  /** Launch-only; empty on resume, where omitted options follow native
+   * behavior. The one exception is the claudeConfigDir launch-environment
+   * entry (issue #446): it rides resume paths too, because the setting
+   * selects a spawn environment rather than a turn option. */
   readonly provenance: readonly ProvenanceEntry[];
   readonly unrenderable: readonly UnrenderableEntry[];
   readonly behavior: ResolvedBehavior;
@@ -418,6 +422,25 @@ export const planTurn = async (
     tiers as ConfigTiers,
   );
 
+  // Issue #446: the user-config claudeConfigDir setting resolves a
+  // CLAUDE_CONFIG_DIR fallback for claude launches on every run path -
+  // fresh, named resume and resume-last alike - because it is a launch
+  // environment, not a turn option. Riding options.env hands it to the
+  // spawn overrides (under any per-call --env entry) and to the run
+  // resume guards, which read the child's effective environment; the
+  // provenance entry makes the applied setting visible in diagnostics.
+  const launchEnv = resolveLaunchEnvironment(h, tiers.user, process.env, extra.env);
+  if (launchEnv.claudeConfigDir !== undefined) {
+    provenance = [
+      ...provenance,
+      { key: "claudeConfigDir", value: launchEnv.claudeConfigDir, tier: "user-config" },
+    ];
+  }
+  const envOverrides: Record<string, string> | undefined =
+    extra.env !== undefined || Object.keys(launchEnv.env).length > 0
+      ? { ...launchEnv.env, ...(extra.env ?? {}) }
+      : undefined;
+
   // RFC-05: on an effort-in-model harness the resolved slug replaces
   // opts.model once, on launch and resume alike, before buildSpawnArgv -
   // so capabilities, provenance, and the decoder see the slug that runs.
@@ -468,7 +491,7 @@ export const planTurn = async (
       explicit: explicitPrompt,
     },
     ...(extra.cwd !== undefined ? { cwd: extra.cwd } : {}),
-    ...(extra.env !== undefined ? { env: extra.env } : {}),
+    ...(envOverrides !== undefined ? { env: envOverrides } : {}),
     ...(extra.resume !== undefined ? { resume: extra.resume } : {}),
     ...(extra.resumeLast === true ? { resumeLast: true as const } : {}),
     ...(values["native-settings-fingerprint"] !== undefined

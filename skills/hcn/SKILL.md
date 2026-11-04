@@ -189,7 +189,7 @@ between runs - session continuity belongs to the harness, reached through
 | Read | Before |
 |---|---|
 | [references/reference.md](references/reference.md) | Choosing flags, defaults, config, tool grants, skills, memory or context window; parsing the event schema, failure classes or the `hcn session --json` surface; using `--resume-last`; command-ledger diagnostics; runtime or context inspection. |
-| [references/harness-notes.md](references/harness-notes.md) | Relying on one harness's native behavior: Claude model aliases and write sandbox limits, Pi providers, native approval and input requests, Cursor trust and effort, Antigravity results. |
+| [references/harness-notes.md](references/harness-notes.md) | Relying on one harness's native behavior: Claude model aliases, write sandbox limits and configuration directory, Pi providers, native approval and input requests, Cursor trust and effort, Antigravity results. |
 | [references/transcripts.md](references/transcripts.md) | `hcn transcript ls` or `hcn transcript read`, choosing a native source, or consuming bookmarks. |
 | [references/interactive.md](references/interactive.md) | `hcn interactive` (native terminal resume, launch provenance), or inspecting and fingerprint-checking saved native settings. |
 | [references/native-approvals.md](references/native-approvals.md) | Permission-preserving headless continuation, or answering a live native approval. |

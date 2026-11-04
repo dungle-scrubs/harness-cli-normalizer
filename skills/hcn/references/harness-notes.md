@@ -1,8 +1,9 @@
 # Per-harness native behavior
 
 Read this before relying on behavior that differs by harness: model choice,
-provider selection, live-session controls, Claude write sandbox limits, native
-approvals and input requests, Cursor trust and effort, and Antigravity results. The flag table and support matrix are in
+provider selection, live-session controls, Claude write sandbox limits, the
+Claude configuration directory, native approvals and input requests, Cursor
+trust and effort, and Antigravity results. The flag table and support matrix are in
 [reference.md](reference.md).
 
 ## Claude models
@@ -12,6 +13,28 @@ Before selecting a newer Claude model, check `hcn inspect claude --json`:
 alias's current target. An alias can move between generations; use a listed
 explicit ID to retain an older generation. Native CLI version and account
 access still determine whether the provider accepts that model.
+
+## Claude configuration directory
+
+Claude reads its configuration directory from `CLAUDE_CONFIG_DIR` (default
+`~/.claude`). Its settings, `.claude.json`, session history, plugins and
+project transcripts live under that path, and on macOS the directory scopes
+the keychain entry Claude authenticates with. Pointing the variable anywhere
+else changes the login context: a fresh directory has no login, and a
+directory with an existing login brings that account. An inherited empty
+value still counts as a choice, for Claude and for hcn alike.
+
+To persist that choice for automated callers, set `claudeConfigDir` in
+`~/.config/hcn/config.json` to a non-empty absolute path (no shell
+expansion). hcn then supplies the variable as a fallback on `hcn run
+claude` and `hcn session claude`, fresh and resumed, and prints
+`provenance: claudeConfigDir = "<path>" (user-config)` on stderr when it
+applies. A per-run `--env CLAUDE_CONFIG_DIR` entry (the empty delete
+included) and an inherited variable (an inherited empty value included)
+both outrank the setting; with no setting hcn adds no variable, other
+harnesses never receive one, and the project config cannot set the key.
+hcn does no auth preflight and never reads, refreshes or stores
+credentials; Claude owns everything under the directory.
 
 ## Claude write access
 

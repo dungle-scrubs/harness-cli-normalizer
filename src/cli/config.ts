@@ -18,7 +18,7 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import type { TurnOptions } from "../interpretation/argv.js";
 import { isQuestionMode, QUESTION_MODES } from "../interpretation/question.js";
 import type { ConfigTier } from "../interpretation/resolve-options.js";
@@ -91,14 +91,24 @@ const KNOWN_KEYS = new Set([
   "appendSystemPrompt",
   "toolMap",
   "access",
+  // issue #446: user-level Claude launch fallback for CLAUDE_CONFIG_DIR.
+  // A launch environment setting, not a turn option - it never renders a
+  // flag and the launch-environment helper consumes it. User tier only.
+  "claudeConfigDir",
 ]);
 
 const LIST_KEYS = new Set(["tools", "excludeTools"]);
 const BOOL_KEYS = new Set(["autonomy", "write", "shell", "memory"]);
 
+/** Which file a config text belongs to. The one key whose legality
+ * depends on the tier (claudeConfigDir) is checked against this. */
+export type ConfigTierName = "user" | "project";
+
 /** Parse + validate config text. Throws ConfigError with the offending key
- * named on any violation - never warns and continues. */
-export const parseUserConfig = (text: string): ConfigTier => {
+ * named on any violation - never warns and continues. The tier names which
+ * file is being parsed: a key a project config must not set refuses there
+ * even when another harness runs, because config loads on every path. */
+export const parseUserConfig = (text: string, tier: ConfigTierName = "user"): ConfigTier => {
   let raw: unknown;
   try {
     raw = JSON.parse(text);
@@ -124,6 +134,31 @@ export const parseUserConfig = (text: string): ConfigTier => {
   for (const [key, value] of Object.entries(obj)) {
     if (!KNOWN_KEYS.has(key)) {
       throw new ConfigError(`unknown config key: ${JSON.stringify(key)}`);
+    }
+    if (key === "claudeConfigDir") {
+      // A project config is code-reviewed with the repo, but this key names
+      // a directory on one operator's machine that carries their Claude
+      // login and state - it is a user-level choice by ratification, so the
+      // project tier refuses it outright rather than ignoring it.
+      if (tier === "project") {
+        throw new ConfigError(
+          'config key "claudeConfigDir" is a user-level setting; the project config cannot set it',
+        );
+      }
+      // Shape mirrors Claude's own rule for CLAUDE_CONFIG_DIR in a settings
+      // file: an absolute path, written as the resolved value. hcn performs
+      // no shell expansion, so ~ and $HOME shorthands refuse here instead of
+      // reaching the harness as a literal relative path.
+      if (
+        typeof value !== "string" ||
+        value.length === 0 ||
+        value.includes("\0") ||
+        !isAbsolute(value)
+      ) {
+        throw new ConfigError('config key "claudeConfigDir" must be a non-empty absolute path');
+      }
+      (out as Record<string, unknown>)[key] = value;
+      continue;
     }
     if (key === "toolMap") {
       if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -270,10 +305,13 @@ export const loadProjectConfig = (
 ): { config: ConfigTier; path: string } | null => {
   const path = projectConfigPath(startDir);
   if (path === null) return null;
-  return loadConfigAt(path);
+  return loadConfigAt(path, "project");
 };
 
-const loadConfigAt = (path: string): { config: ConfigTier; path: string } | null => {
+const loadConfigAt = (
+  path: string,
+  tier: ConfigTierName = "user",
+): { config: ConfigTier; path: string } | null => {
   let text: string;
   try {
     text = readFileSync(path, "utf8");
@@ -282,5 +320,5 @@ const loadConfigAt = (path: string): { config: ConfigTier; path: string } | null
     if (code === "ENOENT") return null;
     throw new ConfigError(`cannot read config at ${path}: ${(e as Error).message}`);
   }
-  return { config: parseUserConfig(text), path };
+  return { config: parseUserConfig(text, tier), path };
 };

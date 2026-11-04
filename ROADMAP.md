@@ -60,6 +60,17 @@ Planned work for hcn. Each item must pass the scope test in `AGENTS.md`.
   and permission limits apply, including Pi's MCP proxy reach. See
   [session permission controls](docs/reference.md#session-permission-controls).
 
+- **Claude launch environment (#446)** - built: the user config key
+  `claudeConfigDir` (non-empty absolute path, no shell expansion) supplies a
+  fallback `CLAUDE_CONFIG_DIR` for Claude run and session launches, fresh
+  and resumed. A per-run `--env` entry (the empty delete included) and an
+  inherited variable (an inherited empty value included) both outrank it;
+  with no setting hcn adds no variable, other harnesses are unchanged, and
+  the project config refuses the key at load. hcn performs no auth
+  preflight, reads no credentials and changes no authentication state; a
+  launch that applies the setting prints
+  `provenance: claudeConfigDir = "<path>" (user-config)` on stderr.
+
 ## Provider configurations
 
 - **OpenCode Go through Pi** - verify and document the subscription as a Pi
