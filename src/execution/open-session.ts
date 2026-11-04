@@ -1444,13 +1444,21 @@ export const openSession = (
     if (drain === false) wireClosed = true;
     // The drain waits for the open turn: a held send rides inside that
     // wait, written as its receipt frees the gate while the closing turn
-    // is still open. The wait ends at the turn's end record, at death (the
-    // exited handler releases the waiter) or, once stdin ends below, the
-    // usual close grace.
-    if (drain && !dead && !wireSettled()) {
-      await new Promise<void>((resolve) => {
-        turnSettled = resolve;
-      });
+    // is still open. The wait is a re-checking loop, because a receipt can
+    // retire the turn and free a hold onto the wire in one synchronous
+    // step - the woken close then sees the hold's own turn and waits again
+    // (round-2 seat B finding 2). A turn that ends before its prompt's
+    // receipt ends the loop the same way: EOF proceeds and the still-held
+    // sends settle rejected (closed), so an unanswered pi cannot hang the
+    // close. Death ends the loop unconditionally (the exited handler
+    // releases the waiter); once stdin ends below, the usual close grace
+    // bounds the rest.
+    if (drain && !dead) {
+      while (!dead && !wireSettled()) {
+        await new Promise<void>((resolve) => {
+          turnSettled = resolve;
+        });
+      }
     }
     try {
       stdin.end();
