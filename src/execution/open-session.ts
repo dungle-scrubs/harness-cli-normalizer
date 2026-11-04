@@ -211,6 +211,17 @@ export class SessionSpawnError extends Error {
 const buffersSendsBeforeIdentity = (input: SessionInputContract): boolean =>
   input.kind === "popeye-rpc-prompt" || input.kind === "codex-jsonrpc";
 
+/** True for harnesses whose sends are written one at a time, each only
+ * after the previous send's native receipt. pi answers rpc commands
+ * asynchronously: a send written while another's receipt is still
+ * outstanding can be handled first - pi starts the later steer's run and
+ * refuses the earlier unflagged prompt ("Agent is already processing") -
+ * so back-to-back writes race inside the harness. Holds keep the write
+ * order instead; when the input runs stays the harness's own decision
+ * (steer, followUp), so this gates the wire, not the queue (ADR 0007). */
+const gatesSendsOnReceipt = (input: SessionInputContract): boolean =>
+  input.kind === "pi-rpc-prompt";
+
 /** Native run output: what shows a run is producing work, as opposed to an
  * identity announcement, progress, or a failure observed locally. */
 const isRunOutput = (event: HarnessEvent): boolean =>
@@ -361,6 +372,21 @@ export const openSession = (
   const pendingTurns: SentCommand[] = [];
   // Sends awaiting a native receipt, by the per-command token they carry.
   const awaitingReceipt = new Map<string, SentCommand>();
+  // Receipt-gated sends (pi): arrived from the caller but not yet written,
+  // oldest first. They pre-register their receipt above, so a session that
+  // dies while they wait still settles them; nothing is dropped silently.
+  const heldSends: SentCommand[] = [];
+  // The gated send currently on the wire, awaiting its receipt. Exactly one
+  // at a time: while set - or while a hold exists - `send` parks the input
+  // in heldSends instead of writing it. Only the receipt that settles THIS
+  // command frees the gate (freeGate), never an unrelated answer.
+  let gatedInFlight: SentCommand | undefined;
+  // False until the wire can carry no more writes: the stdin pipe broke,
+  // the session was abandoned, or close() has ended stdin. A draining
+  // close keeps it open until EOF so holds still reach the harness while
+  // the last turn finishes (issue #99's EOF-lets-the-turn-finish promise,
+  // extended to holds).
+  let wireClosed = false;
   let commandSeq = 0;
   const uuidCorrelated = correlatesByInputUuid(sessionInput.kind);
   const potentialControls: SessionControlsCapability = sessionControlsOf(h) ?? {
@@ -553,9 +579,67 @@ export const openSession = (
       // very signal that stops it. The exit path then finalizes as usual.
       void routeEvent({ kind: "error", message: "send failed: session stdin is gone" });
       closing = true;
+      wireClosed = true;
       sup.escalate();
       return { written: false };
     }
+  };
+
+  /** Write the next held send, if any. Runs once the gated wire is free:
+   * the holds leave in their arrival order, and busyness is re-read at
+   * write time, the way the pre-identity flush re-reads it, because the
+   * turn state can have changed while the send waited. */
+  const writeNextHold = (): void => {
+    if (dead || wireClosed) return;
+    const next = heldSends.shift();
+    if (next === undefined) return;
+    gatedInFlight = next;
+    const busy = activeTurn !== null;
+    let written: ReturnType<typeof writeUser>;
+    try {
+      written = writeUser(next, busy);
+    } catch (cause) {
+      if (!(cause instanceof SessionInputRefusalError)) throw cause;
+      // The same settlement send() gives an encoder refusal, logged the
+      // same way; the wire is free, so the next hold still gets its turn.
+      dropReceipt(next);
+      gatedInFlight = undefined;
+      log({
+        event: "send",
+        sessionId: opts.sessionId,
+        inputId: next.input.id,
+        disposition: "rejected",
+        reason: "unsupported-delivery",
+      });
+      next.settle?.({ disposition: "rejected", reason: "unsupported-delivery" });
+      writeNextHold();
+      return;
+    }
+    if (!written.written) return;
+    if (!busy) {
+      // The same provisional open an idle send() gets: a gated prompt can
+      // still run nothing (handled), so the turn publishes on run evidence.
+      startTurn(next, { provisional: true });
+    }
+    log({
+      event: "send",
+      sessionId: opts.sessionId,
+      turnId: activeTurnId,
+      inputId: next.input.id,
+      ...(next.input.delivery === undefined ? {} : { delivery: next.input.delivery }),
+      disposition: "started",
+    });
+  };
+
+  /** The receipt that settled `command` frees the gated wire, and the next
+   * held send, if any, is written now. Identity-checked: an answer that
+   * settles anything but the in-flight gated send - an old waiting input,
+   * a duplicated answer - frees nothing, so it cannot reopen the race the
+   * gate exists to close. */
+  const freeGate = (command: SentCommand): void => {
+    if (command !== gatedInFlight) return;
+    gatedInFlight = undefined;
+    writeNextHold();
   };
 
   /** A decoded failure event minus its kind: what done.failure carries. */
@@ -984,6 +1068,8 @@ export const openSession = (
                 observeSettlement(ending, false);
               } else retireProvisionalTurn();
             }
+            // The receipt settled its send, so a gated wire is free again.
+            freeGate(command);
             return;
           }
           // Started, queued into a run, or a receipt with no disposition:
@@ -1000,6 +1086,8 @@ export const openSession = (
           if (activeTurn === null && record.nativeDisposition !== "queued") startTurn(command);
           if (command === activeTurnOpener) activeTurnOpenerAccepted = true;
           command.settle?.({ disposition: "started" });
+          // The receipt settled its send, so a gated wire is free again.
+          freeGate(command);
           return;
         }
         case "interrupt-answered": {
@@ -1068,10 +1156,16 @@ export const openSession = (
               // an interrupt already accepted against it settles not-active.
               observeSettlement(activeTurn, false);
               endTurn({ kind: "done", exitCode: null, cause: "clean" });
+              // A refusal settles the send it names, so a gated wire is
+              // free again: the next held send is written now.
+              freeGate(command);
               return;
             }
           }
           await routeEvent({ kind: "error", message: record.message });
+          // Only a failure that settles a send this process wrote can free
+          // the gated wire; freeGate itself ignores every other answer.
+          if (command !== undefined) freeGate(command);
           return;
         }
         case "ignored":
@@ -1194,6 +1288,11 @@ export const openSession = (
       command.settle?.({ disposition: "rejected", reason: "closed" });
     }
     awaitingReceipt.clear();
+    // Held sends died with the session too. Their receipts were
+    // pre-registered, so the sweep above already settled each rejected
+    // (closed); nothing may be written now.
+    heldSends.length = 0;
+    gatedInFlight = undefined;
     // A refusal or death resolves every outstanding interrupt explicitly.
     for (const token of [...pendingInterrupts.keys()]) {
       settleInterrupt(token, { state: "rejected", reason: "closed" });
@@ -1322,21 +1421,36 @@ export const openSession = (
   });
 
   // Two intents share this path and must not be conflated. A CLOSE is the
-  // consumer asking politely: an open turn gets to finish first, because
-  // the consumer is still there to receive it. ABANDONMENT is the consumer
-  // walking away from the turns iterable: nobody is left to receive a turn,
-  // so stdin ends at once and the child is reaped, not drained.
+  // consumer asking politely: an open turn gets to finish first, and every
+  // accepted send still reaches the harness, because the consumer is still
+  // there to receive it. ABANDONMENT is the consumer walking away from the
+  // turns iterable: nobody is left to receive a turn, so stdin ends at
+  // once and the child is reaped, not drained.
   const close = async (drain = true): Promise<void> => {
     if (closing) return shutdown;
     closing = true;
-    // Let an open turn reach its end record before stdin goes away. The
-    // wait is bounded twice over: the stall watchdog ends a silent turn,
-    // and the grace below still escalates a child that never exits.
-    if (drain && activeTurn !== null && !dead) {
+    if (drain === false) wireClosed = true;
+    // The drain waits for the open turn; a held send rides inside that
+    // wait, written as its receipt frees the gate while the closing turn
+    // is still open. The wait is a re-checking loop, because a receipt can
+    // retire the turn and free a hold onto the wire in one synchronous
+    // step: the woken close then sees the hold's own turn and waits again.
+    // A turn that ends before its prompt's receipt ends the loop the same
+    // way - EOF proceeds and the still-held sends settle rejected (closed)
+    // - so a harness that never answers cannot hang the close. Death ends
+    // the loop unconditionally (the exited handler releases the waiter);
+    // once stdin ends below, the usual close grace bounds the rest.
+    while (drain && !dead && activeTurn !== null) {
       await new Promise<void>((resolve) => {
         turnSettled = resolve;
       });
     }
+    // The wire is closed the moment stdin ends: a receipt the harness still
+    // owes can arrive after EOF, and it must settle its send without
+    // pushing a hold into the ended pipe (a real adapter reports such a
+    // write as delivered, opening a phantom turn for input the harness
+    // never saw).
+    wireClosed = true;
     try {
       stdin.end();
     } catch {
@@ -1400,6 +1514,27 @@ export const openSession = (
         }
         return { disposition: "started" };
       }
+      // A gated kind holds the send while an earlier send's receipt is
+      // still outstanding (or earlier holds wait): pi would otherwise
+      // handle the two writes out of order. The receipt registration
+      // exists from now, so the eventual write settles this promise and a
+      // session that dies while it waits settles it too - a hold is never
+      // left hanging.
+      if (
+        gatesSendsOnReceipt(sessionInput) &&
+        (gatedInFlight !== undefined || heldSends.length > 0)
+      ) {
+        heldSends.push(command);
+        log({
+          event: "send",
+          sessionId: opts.sessionId,
+          turnId: activeTurnId,
+          inputId: input.id,
+          ...(input.delivery === undefined ? {} : { delivery: input.delivery }),
+          disposition: "held",
+        });
+        return { disposition: "started", settled: awaitReceipt(command) };
+      }
       let written: ReturnType<typeof writeUser>;
       try {
         written = writeUser(command, wasBusy);
@@ -1418,6 +1553,7 @@ export const openSession = (
         });
         return { disposition: "rejected", reason: "write-failed" };
       }
+      if (gatesSendsOnReceipt(sessionInput)) gatedInFlight = command;
       if (wasBusy) {
         // Codex and Pi deliver into the running turn (pi receipts say when
         // a raced send started a run of its own); inputs on the other
@@ -1485,6 +1621,7 @@ export const openSession = (
         // the child, so the session ends through the exit path.
         void routeEvent({ kind: "error", message: "interrupt failed: session stdin is gone" });
         closing = true;
+        wireClosed = true;
         sup.escalate();
         return rejected("write-failed");
       }

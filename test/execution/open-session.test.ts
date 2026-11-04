@@ -39,6 +39,84 @@ const piStarted = (proc: FakeProcess) =>
     success: true,
     data: { disposition: "started" },
   });
+
+/** The fake pi behind the send-order race: rpc commands are handled
+ * asynchronously, so a burst of unanswered commands is handled last-first
+ * - the later steer starts its run first - and an unflagged prompt that
+ * lands while a run is active is refused ("Agent is already processing").
+ * A refusal answers at once; a run start takes a moment, so within a burst
+ * the refusal line reaches hcn before the acceptance, exactly as observed
+ * live. Commands that arrive one at a time on the wire - each after the
+ * previous receipt - are handled in order: the unflagged prompt starts
+ * the run and the steer joins it. */
+const racingPi = (proc: FakeProcess) => {
+  const handled = new Set<string>();
+  let runActive = false;
+  const unanswered = () =>
+    proc.stdinLines.flatMap((line) => {
+      try {
+        const frame = JSON.parse(line) as {
+          id?: unknown;
+          type?: unknown;
+          streamingBehavior?: unknown;
+        };
+        return frame.type === "prompt" && typeof frame.id === "string" && !handled.has(frame.id)
+          ? [{ id: frame.id, steer: frame.streamingBehavior === "steer" }]
+          : [];
+      } catch {
+        return [];
+      }
+    });
+  const receipt = (id: string, outcome: { disposition: string } | { error: string }): void => {
+    proc.emitLine(
+      JSON.stringify({
+        id,
+        type: "response",
+        command: "prompt",
+        success: "disposition" in outcome,
+        ...("disposition" in outcome
+          ? { data: { disposition: outcome.disposition } }
+          : { error: outcome.error }),
+      }),
+    );
+  };
+  return {
+    /** Handle every unanswered command now. */
+    step: (): void => {
+      // Async handlers: the LAST command of a burst is handled first.
+      const outcomes = [...unanswered()].reverse().map((frame) => {
+        handled.add(frame.id);
+        if (runActive && !frame.steer) {
+          return {
+            id: frame.id,
+            error:
+              "Agent is already processing. Specify streamingBehavior ('steer' or 'followUp') to queue the message.",
+          };
+        }
+        const disposition = runActive ? "queued" : "started";
+        runActive = true;
+        return { id: frame.id, disposition };
+      });
+      for (const o of outcomes) if ("error" in o) receipt(o.id, o);
+      for (const o of outcomes) if (!("error" in o)) receipt(o.id, o);
+    },
+    /** The active run answers and settles. */
+    settle: (text: string): void => {
+      proc.emitLine(
+        JSON.stringify({
+          type: "message_end",
+          message: {
+            role: "assistant",
+            content: [{ type: "text", text }],
+            stopReason: "stop",
+          },
+        }),
+      );
+      proc.emitLine(JSON.stringify({ type: "agent_settled" }));
+      runActive = false;
+    },
+  };
+};
 /** The native message uuid the runner stamped on the nth written frame. */
 const uuidAt = (proc: FakeProcess, index: number): string =>
   String((JSON.parse(proc.stdinLines[index] ?? "null") as { uuid?: unknown }).uuid);
@@ -528,6 +606,486 @@ test("Pi accepts a raced steer after agent_settled as a new turn tagged with tha
   await session.close();
   expect((await turns.next()).done).toBe(true);
   expect(d.spawner.calls).toHaveLength(1);
+});
+
+test("a steer sent right after a prompt waits for the prompt's receipt and joins its turn", async () => {
+  const proc = new FakeProcess();
+  const d = makeDeps(proc);
+  const session = openSession(piCli, { sessionId: sid, questions: "none" }, d);
+  const turns = session.turns[Symbol.asyncIterator]();
+  const pi = racingPi(proc);
+  // Back to back, no gap: without the write gate both writes reach pi in
+  // one burst and pi handles the steer first, refusing the prompt.
+  const promptSend = session.send({ id: "prompt", text: "list the files" });
+  const steerSend = session.send({ id: "steer-1", text: "also say STEERED", delivery: "steer" });
+  pi.step();
+  // Yielding the turn proves the prompt's receipt was routed; with the
+  // gate it also proves the held steer was released onto the wire, in the
+  // same synchronous block, before this line resumes.
+  const turn = (await turns.next()).value as SessionTurn;
+  pi.step();
+  pi.settle("DONE STEERED");
+  const sendFrames = proc.stdinLines
+    .map((line) => JSON.parse(line) as Record<string, unknown>)
+    .filter((frame) => frame.type === "prompt");
+  expect(sendFrames).toHaveLength(2);
+  expect(sendFrames[0] ?? {}).not.toHaveProperty("streamingBehavior");
+  // The steer is written after the prompt was accepted, while the prompt's
+  // run is live: it joins the turn instead of racing it.
+  expect(sendFrames[1] ?? {}).toMatchObject({ streamingBehavior: "steer" });
+  expect(await promptSend.settled).toEqual({ disposition: "started" });
+  expect(await steerSend.settled).toEqual({ disposition: "started" });
+  expect(turn.inputId).toBe("prompt");
+  const events = await drainTurn(turn);
+  expect(events).toContainEqual({ kind: "message", role: "assistant", text: "DONE STEERED" });
+  expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+  const closing = session.close();
+  expect(proc.stdinEnded).toBe(true);
+  await closing;
+  // One turn total: the steer joined it, it did not open its own.
+  expect((await turns.next()).done).toBe(true);
+  expect(d.spawner.calls).toHaveLength(1);
+});
+
+test("a rejected receipt releases the next held send, which opens the next turn", async () => {
+  const proc = new FakeProcess();
+  const d = makeDeps(proc);
+  const session = openSession(piCli, { sessionId: sid, questions: "none" }, d);
+  const turns = session.turns[Symbol.asyncIterator]();
+  const firstSend = session.send({ id: "p1", text: "first" });
+  const secondSend = session.send({ id: "p2", text: "second" });
+  // pi refuses the first command outright; the refusal must free the wire
+  // for the held second send.
+  const firstRequestId = proc.sendRequestIds[0];
+  if (firstRequestId === undefined) throw new Error("no first send request written");
+  proc.emitLine(
+    JSON.stringify({
+      id: firstRequestId,
+      type: "response",
+      command: "prompt",
+      success: false,
+      error: "no such model",
+    }),
+  );
+  const failed = (await turns.next()).value as SessionTurn;
+  expect((await drainTurn(failed)).at(-1)).toMatchObject({ kind: "done", cause: "failed" });
+  expect(await firstSend.settled).toEqual({ disposition: "rejected", reason: "native-rejected" });
+  // Released with no turn live, the second send is written unflagged - not
+  // as a steer into the turn the refusal just ended.
+  const secondFrame = JSON.parse(proc.stdinLines.at(-1) ?? "null") as Record<string, unknown>;
+  expect(secondFrame).toMatchObject({ type: "prompt" });
+  expect(secondFrame).not.toHaveProperty("streamingBehavior");
+  proc.emitLine(
+    JSON.stringify({
+      id: proc.lastSendRequestId(),
+      type: "response",
+      command: "prompt",
+      success: true,
+      data: { disposition: "started" },
+    }),
+  );
+  const second = (await turns.next()).value as SessionTurn;
+  expect(second.inputId).toBe("p2");
+  expect(await secondSend.settled).toEqual({ disposition: "started" });
+  proc.emitLine(
+    JSON.stringify({
+      type: "message_end",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "second answer" }],
+        stopReason: "stop",
+      },
+    }),
+  );
+  proc.emitLine(JSON.stringify({ type: "agent_settled" }));
+  expect((await drainTurn(second)).at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+  await session.close();
+  expect((await turns.next()).done).toBe(true);
+});
+
+test("a send held behind an unanswered one is settled rejected when the child dies", async () => {
+  const proc = new FakeProcess();
+  const d = makeDeps(proc);
+  const session = openSession(piCli, { sessionId: sid, questions: "none" }, d);
+  const turns = session.turns[Symbol.asyncIterator]();
+  const firstSend = session.send({ id: "p1", text: "first" });
+  const secondSend = session.send({ id: "s2", text: "second" });
+  // pi never answers the first command; the child dies instead. Both
+  // sends are owed a settlement, written or held.
+  proc.exit(1);
+  const turn = (await turns.next()).value as SessionTurn;
+  expect((await drainTurn(turn)).at(-1)).toMatchObject({ kind: "done", cause: "crash" });
+  expect(await firstSend.settled).toEqual({ disposition: "rejected", reason: "closed" });
+  expect(await secondSend.settled).toEqual({ disposition: "rejected", reason: "closed" });
+  expect((await turns.next()).done).toBe(true);
+});
+
+test("a draining close still writes held sends: EOF after two sends delivers both", async () => {
+  const proc = new FakeProcess();
+  const d = makeDeps(proc);
+  const session = openSession(piCli, { sessionId: sid, questions: "none" }, d);
+  const turns = session.turns[Symbol.asyncIterator]();
+  const receipt = (wireId: string, disposition: string) =>
+    JSON.stringify({
+      id: wireId,
+      type: "response",
+      command: "prompt",
+      success: true,
+      data: { disposition },
+    });
+  const promptSend = session.send({ id: "p1", text: "first" });
+  const queuedSend = session.send({ id: "q1", text: "second", delivery: "queue" });
+  // Only the prompt is on the wire; q1 waits for its receipt.
+  expect(proc.sendRequestIds).toHaveLength(1);
+  // The piped-usage close: stdin EOF while the turn is open. The drain
+  // must carry q1 to pi, not settle it against an accepted-but-unsent
+  // promise (the EOF-lets-the-turn-finish promise, issue #99).
+  const closing = session.close();
+  const promptWire = proc.sendRequestIds[0];
+  if (promptWire === undefined) throw new Error("no prompt request written");
+  proc.emitLine(receipt(promptWire, "started"));
+  // Yielding the turn proves the receipt was routed and, with it, q1 was
+  // released onto the wire before stdin ended.
+  const turn = (await turns.next()).value as SessionTurn;
+  expect(turn.inputId).toBe("p1");
+  expect(proc.sendRequestIds).toHaveLength(2);
+  expect(proc.stdinEnded).toBe(false);
+  const queuedWire = proc.sendRequestIds.at(-1);
+  if (queuedWire === undefined) throw new Error("no queued request written");
+  proc.emitLine(receipt(queuedWire, "queued"));
+  proc.emitLine(
+    JSON.stringify({
+      type: "message_end",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "both ran" }],
+        stopReason: "stop",
+      },
+    }),
+  );
+  proc.emitLine(JSON.stringify({ type: "agent_settled" }));
+  const events = await drainTurn(turn);
+  expect(events).toContainEqual({ kind: "message", role: "assistant", text: "both ran" });
+  expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+  await closing;
+  expect(proc.stdinEnded).toBe(true);
+  expect(await promptSend.settled).toEqual({ disposition: "started" });
+  expect(await queuedSend.settled).toEqual({ disposition: "started" });
+  expect((await turns.next()).done).toBe(true);
+  expect(d.spawner.calls).toHaveLength(1);
+});
+
+test("an abandoned close rejects its held sends instead of writing them", async () => {
+  const proc = new FakeProcess();
+  const d = makeDeps(proc);
+  const session = openSession(piCli, { sessionId: sid, questions: "none" }, d);
+  const firstSend = session.send({ id: "p1", text: "first" });
+  const secondSend = session.send({ id: "s2", text: "second" });
+  // Run output publishes the provisional turn with no receipt, so the
+  // gate still holds s2 when the consumer walks away.
+  proc.emitLine(
+    JSON.stringify({
+      type: "message_end",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "running" }],
+        stopReason: "stop",
+      },
+    }),
+  );
+  // The consumer walks away from the turns iterable: nobody is left to
+  // receive, so the hold must not be written - it settles rejected.
+  const breaking = (async () => {
+    for await (const _turn of session.turns) break;
+  })();
+  await breaking;
+  // The break itself ran the abandoning close; this call joins it.
+  await session.close();
+  expect(proc.sendRequestIds).toHaveLength(1);
+  expect(await firstSend.settled).toEqual({ disposition: "rejected", reason: "closed" });
+  expect(await secondSend.settled).toEqual({ disposition: "rejected", reason: "closed" });
+});
+
+test("a turn ending before its prompt's receipt lets the close proceed; holds settle closed, nothing hangs", async () => {
+  const proc = new FakeProcess();
+  const d = makeDeps(proc);
+  const session = openSession(piCli, { sessionId: sid, questions: "none" }, d);
+  const turns = session.turns[Symbol.asyncIterator]();
+  const promptSend = session.send({ id: "p1", text: "first" });
+  const queuedSend = session.send({ id: "q1", text: "second", delivery: "queue" });
+  // pi settles the run without ever answering the prompt: the drain must
+  // not wait for a receipt that will not come.
+  proc.emitLine(
+    JSON.stringify({
+      type: "message_end",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "ran" }],
+        stopReason: "stop",
+      },
+    }),
+  );
+  proc.emitLine(JSON.stringify({ type: "agent_settled" }));
+  const closing = session.close();
+  const turn = (await turns.next()).value as SessionTurn;
+  expect((await drainTurn(turn)).at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+  await closing;
+  expect(proc.stdinEnded).toBe(true);
+  // pi settled the run without answering the prompt, so the finalize sweep
+  // settles the written send closed too; that verdict is incidental to
+  // what this test pins - the close proceeds and nothing hangs.
+  expect(await promptSend.settled).toEqual({ disposition: "rejected", reason: "closed" });
+  expect(await queuedSend.settled).toEqual({ disposition: "rejected", reason: "closed" });
+  expect(proc.sendRequestIds).toHaveLength(1);
+});
+
+test("a handled receipt frees a held prompt into its own turn before EOF", async () => {
+  const proc = new FakeProcess();
+  const d = makeDeps(proc);
+  const session = openSession(piCli, { sessionId: sid, questions: "none" }, d);
+  const turns = session.turns[Symbol.asyncIterator]();
+  const handledSend = session.send({ id: "c1", text: "/ext-cmd" });
+  const promptSend = session.send({ id: "q2", text: "real prompt" });
+  const closing = session.close();
+  // The extension command is answered handled (no run); the prompt waits
+  // on the gate behind it. The retire-and-free step must not let the woken
+  // close EOF past the freed hold: the close re-checks, sees the hold's
+  // own turn, and waits for it.
+  const handledWire = proc.sendRequestIds[0];
+  if (handledWire === undefined) throw new Error("no handled request written");
+  proc.emitLine(
+    JSON.stringify({
+      id: handledWire,
+      type: "response",
+      command: "prompt",
+      success: true,
+      data: { disposition: "handled" },
+    }),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  // The freed hold was written and opened its own turn; the close waits
+  // for it instead of ending stdin at once.
+  expect(proc.sendRequestIds).toHaveLength(2);
+  expect(proc.stdinEnded).toBe(false);
+  const promptWire = proc.sendRequestIds.at(-1);
+  if (promptWire === undefined) throw new Error("no prompt request written");
+  proc.emitLine(
+    JSON.stringify({
+      id: promptWire,
+      type: "response",
+      command: "prompt",
+      success: true,
+      data: { disposition: "started" },
+    }),
+  );
+  const turn = (await turns.next()).value as SessionTurn;
+  expect(turn.inputId).toBe("q2");
+  proc.emitLine(
+    JSON.stringify({
+      type: "message_end",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "ran" }],
+        stopReason: "stop",
+      },
+    }),
+  );
+  proc.emitLine(JSON.stringify({ type: "agent_settled" }));
+  expect((await drainTurn(turn)).at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+  await closing;
+  expect(proc.stdinEnded).toBe(true);
+  expect(await handledSend.settled).toEqual({ disposition: "started" });
+  expect(await promptSend.settled).toEqual({ disposition: "started" });
+});
+
+test("a duplicated answer for an earlier command does not release a hold", async () => {
+  const proc = new FakeProcess();
+  const d = makeDeps(proc);
+  const session = openSession(piCli, { sessionId: sid, questions: "none" }, d);
+  const turns = session.turns[Symbol.asyncIterator]();
+  const first = session.send({ id: "p1", text: "first" });
+  session.send({ id: "p2", text: "second", delivery: "steer" });
+  session.send({ id: "p3", text: "third", delivery: "steer" });
+  const firstWire = proc.sendRequestIds[0];
+  if (firstWire === undefined) throw new Error("no first request written");
+  proc.emitLine(
+    JSON.stringify({
+      id: firstWire,
+      type: "response",
+      command: "prompt",
+      success: true,
+      data: { disposition: "started" },
+    }),
+  );
+  const turn = (await turns.next()).value as SessionTurn;
+  expect(await first.settled).toEqual({ disposition: "started" });
+  // p2 was released onto the wire; p3 waits on the gate behind it.
+  expect(proc.sendRequestIds).toHaveLength(2);
+  // A duplicated answer for p1 - pi answering twice, the second a failure -
+  // reaches freeGate through the active-turn-opener fallback. It must not
+  // free the gate p2 holds: p3 stays held.
+  proc.emitLine(
+    JSON.stringify({
+      id: firstWire,
+      type: "response",
+      command: "prompt",
+      success: false,
+      error: "duplicated answer",
+    }),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(proc.sendRequestIds).toHaveLength(2);
+  proc.emitLine(JSON.stringify({ type: "agent_settled" }));
+  expect((await drainTurn(turn)).at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+  await session.close();
+});
+
+test("a refused opener during a drain close still gives the released hold its turn", async () => {
+  const proc = new FakeProcess();
+  const d = makeDeps(proc);
+  const session = openSession(piCli, { sessionId: sid, questions: "none" }, d);
+  const turns = session.turns[Symbol.asyncIterator]();
+  const firstSend = session.send({ id: "p1", text: "first" });
+  const secondSend = session.send({ id: "p2", text: "second" });
+  const closing = session.close();
+  const firstWire = proc.sendRequestIds[0];
+  if (firstWire === undefined) throw new Error("no first request written");
+  proc.emitLine(
+    JSON.stringify({
+      id: firstWire,
+      type: "response",
+      command: "prompt",
+      success: false,
+      error: "no such model",
+    }),
+  );
+  const failed = (await turns.next()).value as SessionTurn;
+  expect((await drainTurn(failed)).at(-1)).toMatchObject({ kind: "done", cause: "failed" });
+  expect(await firstSend.settled).toEqual({ disposition: "rejected", reason: "native-rejected" });
+  // The refusal freed the gate: p2 was written and opened its own turn, and
+  // the close waits for that turn instead of ending stdin past the write.
+  expect(proc.sendRequestIds).toHaveLength(2);
+  expect(proc.stdinEnded).toBe(false);
+  const secondWire = proc.sendRequestIds.at(-1);
+  if (secondWire === undefined) throw new Error("no second request written");
+  proc.emitLine(
+    JSON.stringify({
+      id: secondWire,
+      type: "response",
+      command: "prompt",
+      success: true,
+      data: { disposition: "started" },
+    }),
+  );
+  const second = (await turns.next()).value as SessionTurn;
+  expect(second.inputId).toBe("p2");
+  proc.emitLine(
+    JSON.stringify({
+      type: "message_end",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "second answer" }],
+        stopReason: "stop",
+      },
+    }),
+  );
+  proc.emitLine(JSON.stringify({ type: "agent_settled" }));
+  expect((await drainTurn(second)).at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+  await closing;
+  expect(proc.stdinEnded).toBe(true);
+  expect(await secondSend.settled).toEqual({ disposition: "started" });
+});
+
+test("a late receipt after an abandoned close settles the hold without writing it", async () => {
+  const proc = new FakeProcess({ exitOnStdinEnd: false });
+  const d = makeDeps(proc);
+  const session = openSession(piCli, { sessionId: sid, questions: "none" }, d);
+  const firstSend = session.send({ id: "p1", text: "first" });
+  const heldSend = session.send({ id: "p2", text: "second" });
+  proc.emitLine(
+    JSON.stringify({
+      type: "message_end",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "running" }],
+        stopReason: "stop",
+      },
+    }),
+  );
+  const breaking = (async () => {
+    for await (const _turn of session.turns) break;
+  })();
+  await breaking;
+  // The abandonment ends stdin without waiting (exitOnStdinEnd false, so
+  // the child lingers); the close promise itself only resolves at exit.
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(proc.stdinEnded).toBe(true);
+  // pi answers the abandoned prompt before it exits: the late receipt
+  // honors the written send but must not push the hold into ended stdin.
+  const firstWire = proc.sendRequestIds[0];
+  if (firstWire === undefined) throw new Error("no first request written");
+  proc.emitLine(
+    JSON.stringify({
+      id: firstWire,
+      type: "response",
+      command: "prompt",
+      success: true,
+      data: { disposition: "started" },
+    }),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(proc.sendRequestIds).toHaveLength(1);
+  expect(await firstSend.settled).toEqual({ disposition: "started" });
+  proc.exit(0);
+  await session.close();
+  expect(await heldSend.settled).toEqual({ disposition: "rejected", reason: "closed" });
+});
+
+test("a late refusal after a draining close settles the hold without writing it", async () => {
+  const proc = new FakeProcess({ exitOnStdinEnd: false });
+  const d = makeDeps(proc);
+  const session = openSession(piCli, { sessionId: sid, questions: "none" }, d);
+  const turns = session.turns[Symbol.asyncIterator]();
+  const firstSend = session.send({ id: "p1", text: "first" });
+  const heldSend = session.send({ id: "p2", text: "second" });
+  // The run settles before the prompt's receipt; the drain ends stdin.
+  proc.emitLine(
+    JSON.stringify({
+      type: "message_end",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "ran" }],
+        stopReason: "stop",
+      },
+    }),
+  );
+  proc.emitLine(JSON.stringify({ type: "agent_settled" }));
+  const turn = (await turns.next()).value as SessionTurn;
+  expect((await drainTurn(turn)).at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+  const closing = session.close();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(proc.stdinEnded).toBe(true);
+  // pi answers the prompt after EOF, with a refusal. It must settle its own
+  // send and free nothing into the ended pipe: no second write, no phantom
+  // turn, and the hold settles closed at the exit.
+  const firstWire = proc.sendRequestIds[0];
+  if (firstWire === undefined) throw new Error("no first request written");
+  proc.emitLine(
+    JSON.stringify({
+      id: firstWire,
+      type: "response",
+      command: "prompt",
+      success: false,
+      error: "late refusal",
+    }),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(proc.sendRequestIds).toHaveLength(1);
+  expect(await firstSend.settled).toEqual({ disposition: "rejected", reason: "native-rejected" });
+  proc.exit(0);
+  await closing;
+  expect(await heldSend.settled).toEqual({ disposition: "rejected", reason: "closed" });
+  expect((await turns.next()).done).toBe(true);
 });
 
 describe("slow consumer", () => {
