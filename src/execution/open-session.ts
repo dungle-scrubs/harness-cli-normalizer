@@ -584,15 +584,15 @@ export const openSession = (
     }
   };
 
-  /** Whether a draining close() can end its wait: the open turn finished,
-   * and either no hold waits or the wire already freed - a hold waits only
-   * while the turn that would carry it is still open, so a pi that settles
-   * a run without answering its prompt cannot hang the close. */
-  const wireSettled = (): boolean =>
-    activeTurn === null && (heldSends.length === 0 || gatedInFlight === undefined);
+  /** Whether a draining close() can end its wait: the open turn finished.
+   * Holds ride inside that wait - they can only be written while pi is
+   * answering, which it does while the closing turn is open - so a turn
+   * that ends before its prompt's receipt cannot hang the close: EOF
+   * proceeds and the still-held sends settle rejected (closed). */
+  const wireSettled = (): boolean => activeTurn === null;
   /** Wake a draining close() when its wait condition holds. Called from
-   * every place the wire's state can reach it: a turn end, a gate release,
-   * the empty queue. Death wakes the waiter unconditionally. */
+   * every place the wire's state can reach it: a turn end. Death wakes the
+   * waiter unconditionally. */
   const wakeCloseIfSettled = (): void => {
     if (turnSettled !== null && wireSettled()) {
       const release = turnSettled;
@@ -608,10 +608,7 @@ export const openSession = (
   const writeNextHold = (): void => {
     if (dead || wireClosed) return;
     const next = heldSends.shift();
-    if (next === undefined) {
-      wakeCloseIfSettled();
-      return;
-    }
+    if (next === undefined) return;
     gatedInFlight = next;
     const busy = activeTurn !== null;
     let written: ReturnType<typeof writeUser>;
@@ -1445,11 +1442,11 @@ export const openSession = (
     if (closing) return shutdown;
     closing = true;
     if (drain === false) wireClosed = true;
-    // The drain waits for the open turn and, while that turn is open, for
-    // the gated wire: a held send was accepted, so EOF must not cut it while
-    // pi can still take it. The wait ends at the turn's end record, at death
-    // (the exited handler releases the waiter) or, once stdin ends below,
-    // the usual close grace.
+    // The drain waits for the open turn: a held send rides inside that
+    // wait, written as its receipt frees the gate while the closing turn
+    // is still open. The wait ends at the turn's end record, at death (the
+    // exited handler releases the waiter) or, once stdin ends below, the
+    // usual close grace.
     if (drain && !dead && !wireSettled()) {
       await new Promise<void>((resolve) => {
         turnSettled = resolve;

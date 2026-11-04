@@ -806,6 +806,36 @@ test("an abandoned close rejects its held sends instead of writing them", async 
   expect(await secondSend.settled).toEqual({ disposition: "rejected", reason: "closed" });
 });
 
+test("a turn ending before its prompt's receipt lets the close proceed; holds settle closed, nothing hangs", async () => {
+  const proc = new FakeProcess();
+  const d = makeDeps(proc);
+  const session = openSession(piCli, { sessionId: sid, questions: "none" }, d);
+  const turns = session.turns[Symbol.asyncIterator]();
+  const promptSend = session.send({ id: "p1", text: "first" });
+  const queuedSend = session.send({ id: "q1", text: "second", delivery: "queue" });
+  // pi settles the run without ever answering the prompt: the drain must
+  // not wait for a receipt that will not come.
+  proc.emitLine(
+    JSON.stringify({
+      type: "message_end",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "ran" }],
+        stopReason: "stop",
+      },
+    }),
+  );
+  proc.emitLine(JSON.stringify({ type: "agent_settled" }));
+  const closing = session.close();
+  const turn = (await turns.next()).value as SessionTurn;
+  expect((await drainTurn(turn)).at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+  await closing;
+  expect(proc.stdinEnded).toBe(true);
+  expect(await promptSend.settled).toEqual({ disposition: "rejected", reason: "closed" });
+  expect(await queuedSend.settled).toEqual({ disposition: "rejected", reason: "closed" });
+  expect(proc.sendRequestIds).toHaveLength(1);
+});
+
 describe("slow consumer", () => {
   test("a consumer that stops pulling loses nothing - events buffer until drained", async () => {
     const proc = new FakeProcess();
