@@ -2,9 +2,8 @@
  * Issue #446: the user-config `claudeConfigDir` launch setting.
  *
  * Automated callers ran `hcn run claude` without CLAUDE_CONFIG_DIR and hit
- * auth failures even though an interactive login existed, because a login
- * performed against the default directory never reached the spawned CLI in
- * an environment that stripped the variable. The ratified fix is a
+ * auth failures even though an interactive login worked with the default
+ * directory explicitly selected. The ratified fix is a
  * persistent user-level fallback: `claudeConfigDir` in the hcn user config
  * selects a CLAUDE_CONFIG_DIR for Claude run and session launches only.
  *

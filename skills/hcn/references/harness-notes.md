@@ -16,13 +16,15 @@ access still determine whether the provider accepts that model.
 
 ## Claude configuration directory
 
-Claude reads its configuration directory from `CLAUDE_CONFIG_DIR` (default
-`~/.claude`). Its settings, `.claude.json`, session history, plugins and
-project transcripts live under that path, and on macOS the directory scopes
-the keychain entry Claude authenticates with. Pointing the variable anywhere
-else changes the login context: a fresh directory has no login, and a
-directory with an existing login brings that account. An inherited empty
-value still counts as a choice, for Claude and for hcn alike.
+Claude's configuration directory defaults to `~/.claude`. Setting
+`CLAUDE_CONFIG_DIR` selects the directory for settings, session history,
+plugins and project transcripts. It also moves `.claude.json` from the home
+directory into the selected directory and, on macOS, selects a Keychain
+entry scoped to that directory. Even making the default path explicit can
+select a different login context. See Claude's
+[credential management](https://code.claude.com/docs/en/authentication#credential-management)
+and [configuration directory](https://code.claude.com/docs/en/claude-directory)
+documentation. hcn preserves an inherited empty value as a caller choice.
 
 To persist that choice for automated callers, set `claudeConfigDir` in
 `~/.config/hcn/config.json` to a non-empty absolute path (no shell
