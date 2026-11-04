@@ -831,6 +831,9 @@ test("a turn ending before its prompt's receipt lets the close proceed; holds se
   expect((await drainTurn(turn)).at(-1)).toMatchObject({ kind: "done", cause: "clean" });
   await closing;
   expect(proc.stdinEnded).toBe(true);
+  // pi settled the run without answering the prompt, so the finalize sweep
+  // settles the written send closed too; that verdict is incidental to
+  // what this test pins - the close proceeds and nothing hangs.
   expect(await promptSend.settled).toEqual({ disposition: "rejected", reason: "closed" });
   expect(await queuedSend.settled).toEqual({ disposition: "rejected", reason: "closed" });
   expect(proc.sendRequestIds).toHaveLength(1);
@@ -845,8 +848,9 @@ test("a handled receipt frees a held prompt into its own turn before EOF", async
   const promptSend = session.send({ id: "q2", text: "real prompt" });
   const closing = session.close();
   // The extension command is answered handled (no run); the prompt waits
-  // on the gate behind it. Round-2 seat B finding 2: the retire-and-free
-  // step must not let the woken close EOF past the freed hold.
+  // on the gate behind it. The retire-and-free step must not let the woken
+  // close EOF past the freed hold: the close re-checks, sees the hold's
+  // own turn, and waits for it.
   const handledWire = proc.sendRequestIds[0];
   if (handledWire === undefined) throw new Error("no handled request written");
   proc.emitLine(
@@ -1035,6 +1039,53 @@ test("a late receipt after an abandoned close settles the hold without writing i
   proc.exit(0);
   await session.close();
   expect(await heldSend.settled).toEqual({ disposition: "rejected", reason: "closed" });
+});
+
+test("a late refusal after a draining close settles the hold without writing it", async () => {
+  const proc = new FakeProcess({ exitOnStdinEnd: false });
+  const d = makeDeps(proc);
+  const session = openSession(piCli, { sessionId: sid, questions: "none" }, d);
+  const turns = session.turns[Symbol.asyncIterator]();
+  const firstSend = session.send({ id: "p1", text: "first" });
+  const heldSend = session.send({ id: "p2", text: "second" });
+  // The run settles before the prompt's receipt; the drain ends stdin.
+  proc.emitLine(
+    JSON.stringify({
+      type: "message_end",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "ran" }],
+        stopReason: "stop",
+      },
+    }),
+  );
+  proc.emitLine(JSON.stringify({ type: "agent_settled" }));
+  const turn = (await turns.next()).value as SessionTurn;
+  expect((await drainTurn(turn)).at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+  const closing = session.close();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(proc.stdinEnded).toBe(true);
+  // pi answers the prompt after EOF, with a refusal. It must settle its own
+  // send and free nothing into the ended pipe: no second write, no phantom
+  // turn, and the hold settles closed at the exit.
+  const firstWire = proc.sendRequestIds[0];
+  if (firstWire === undefined) throw new Error("no first request written");
+  proc.emitLine(
+    JSON.stringify({
+      id: firstWire,
+      type: "response",
+      command: "prompt",
+      success: false,
+      error: "late refusal",
+    }),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(proc.sendRequestIds).toHaveLength(1);
+  expect(await firstSend.settled).toEqual({ disposition: "rejected", reason: "native-rejected" });
+  proc.exit(0);
+  await closing;
+  expect(await heldSend.settled).toEqual({ disposition: "rejected", reason: "closed" });
+  expect((await turns.next()).done).toBe(true);
 });
 
 describe("slow consumer", () => {

@@ -381,10 +381,11 @@ export const openSession = (
   // in heldSends instead of writing it. Only the receipt that settles THIS
   // command frees the gate (freeGate), never an unrelated answer.
   let gatedInFlight: SentCommand | undefined;
-  // False until the wire can carry no more writes: the stdin pipe broke, or
-  // the session was abandoned. A draining close keeps the wire open, so
-  // holds still reach the harness while the last turn finishes (issue #99's
-  // EOF-lets-the-turn-finish promise, extended to holds).
+  // False until the wire can carry no more writes: the stdin pipe broke,
+  // the session was abandoned, or close() has ended stdin. A draining
+  // close keeps it open until EOF so holds still reach the harness while
+  // the last turn finishes (issue #99's EOF-lets-the-turn-finish promise,
+  // extended to holds).
   let wireClosed = false;
   let commandSeq = 0;
   const uuidCorrelated = correlatesByInputUuid(sessionInput.kind);
@@ -584,23 +585,6 @@ export const openSession = (
     }
   };
 
-  /** Whether a draining close() can end its wait: the open turn finished.
-   * Holds ride inside that wait - they can only be written while pi is
-   * answering, which it does while the closing turn is open - so a turn
-   * that ends before its prompt's receipt cannot hang the close: EOF
-   * proceeds and the still-held sends settle rejected (closed). */
-  const wireSettled = (): boolean => activeTurn === null;
-  /** Wake a draining close() when its wait condition holds. Called from
-   * every place the wire's state can reach it: a turn end. Death wakes the
-   * waiter unconditionally. */
-  const wakeCloseIfSettled = (): void => {
-    if (turnSettled !== null && wireSettled()) {
-      const release = turnSettled;
-      turnSettled = null;
-      release();
-    }
-  };
-
   /** Write the next held send, if any. Runs once the gated wire is free:
    * the holds leave in their arrival order, and busyness is re-read at
    * write time, the way the pre-identity flush re-reads it, because the
@@ -701,7 +685,7 @@ export const openSession = (
   };
 
   /** Reset the per-turn state once the active turn is over, and release a
-   * draining close() if nothing is left on the wire. */
+   * close() waiting on it. */
   const clearActiveTurn = (): void => {
     activeTurn = null;
     activeTurnOpener = undefined;
@@ -709,7 +693,11 @@ export const openSession = (
     activeTurnPublished = false;
     activeNativeTurnId = null;
     resultError = false;
-    wakeCloseIfSettled();
+    if (turnSettled !== null) {
+      const release = turnSettled;
+      turnSettled = null;
+      release();
+    }
   };
 
   /** Issue #426: the harness reported the provisional turn's input consumed
@@ -1442,24 +1430,27 @@ export const openSession = (
     if (closing) return shutdown;
     closing = true;
     if (drain === false) wireClosed = true;
-    // The drain waits for the open turn: a held send rides inside that
+    // The drain waits for the open turn; a held send rides inside that
     // wait, written as its receipt frees the gate while the closing turn
     // is still open. The wait is a re-checking loop, because a receipt can
     // retire the turn and free a hold onto the wire in one synchronous
-    // step - the woken close then sees the hold's own turn and waits again
-    // (round-2 seat B finding 2). A turn that ends before its prompt's
-    // receipt ends the loop the same way: EOF proceeds and the still-held
-    // sends settle rejected (closed), so an unanswered pi cannot hang the
-    // close. Death ends the loop unconditionally (the exited handler
-    // releases the waiter); once stdin ends below, the usual close grace
-    // bounds the rest.
-    if (drain && !dead) {
-      while (!dead && !wireSettled()) {
-        await new Promise<void>((resolve) => {
-          turnSettled = resolve;
-        });
-      }
+    // step: the woken close then sees the hold's own turn and waits again.
+    // A turn that ends before its prompt's receipt ends the loop the same
+    // way - EOF proceeds and the still-held sends settle rejected (closed)
+    // - so a harness that never answers cannot hang the close. Death ends
+    // the loop unconditionally (the exited handler releases the waiter);
+    // once stdin ends below, the usual close grace bounds the rest.
+    while (drain && !dead && activeTurn !== null) {
+      await new Promise<void>((resolve) => {
+        turnSettled = resolve;
+      });
     }
+    // The wire is closed the moment stdin ends: a receipt the harness still
+    // owes can arrive after EOF, and it must settle its send without
+    // pushing a hold into the ended pipe (a real adapter reports such a
+    // write as delivered, opening a phantom turn for input the harness
+    // never saw).
+    wireClosed = true;
     try {
       stdin.end();
     } catch {
