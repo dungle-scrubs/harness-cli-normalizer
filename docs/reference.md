@@ -655,8 +655,10 @@ stdin carries one command per line (blank lines are ignored):
   back-to-back writes race (the later steer starts its run first and pi
   refuses the earlier prompt with `Agent is already processing`). The hold
   sequences the wire only; steer and followUp still decide when the input
-  runs, and a send still held when the session dies reports `rejected`
-  (`closed`). `rejected`: the
+  runs. A closing drain writes held sends out while the turn it waits on is
+  still open, so stdin EOF after several sends delivers them all; a hold
+  reports `rejected` (`closed`) when the session ends before the wire freed
+  it. `rejected`: the
   text was not delivered and will not be. Rejected reasons: `closed`
   (session closing or harness dead), `no-open-question` (`answer` with no
   `awaiting-input` turn to answer), `native-rejected` (Pi or codex refused

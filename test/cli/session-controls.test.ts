@@ -483,6 +483,57 @@ describe("issue #426: dispositions stay one per command, in command order", () =
     expect(r.events().filter((e) => e.kind === "turn")).toHaveLength(1);
   });
 
+  test("codex answers crossing keeps dispositions in command order and outcomes on the right command", async () => {
+    const r = rig(codexCli);
+    r.proc.emitLine(JSON.stringify({ id: "hcn-initialize", jsonrpc: "2.0", result: {} }));
+    r.proc.emitLine(
+      JSON.stringify({ id: "hcn-identity", jsonrpc: "2.0", result: { thread: { id: "thr-1" } } }),
+    );
+    await tick();
+    r.send({ op: "send", id: "a", text: "first" });
+    r.send({ op: "send", id: "dup", text: "second" });
+    await tick();
+    // Codex is not write-gated: both requests are on the wire, and its
+    // JSON-RPC responses may cross. This is the ordering the pi test above
+    // can no longer reach, kept alive here.
+    expect(r.stdin().filter((line) => line.method === "turn/start")).toHaveLength(2);
+    const [aWire, dupWire] = r.proc.sendRequestIds;
+    expect(new Set([aWire, dupWire]).size).toBe(2);
+    // The SECOND command is answered first, with a refusal.
+    r.proc.emitLine(
+      JSON.stringify({
+        id: dupWire,
+        jsonrpc: "2.0",
+        error: { code: -32600, message: "Turn already active" },
+      }),
+    );
+    await tick();
+    // Nothing leaves until the earlier command's disposition can precede it.
+    expect(r.events().some((e) => e.kind === "disposition")).toBe(false);
+    r.proc.emitLine(
+      JSON.stringify({
+        id: aWire,
+        jsonrpc: "2.0",
+        result: { turn: { id: "turn-1", items: [], status: "inProgress" } },
+      }),
+    );
+    r.proc.emitLine(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        method: "turn/completed",
+        params: { turn: { id: "turn-1", items: [], status: "completed" } },
+      }),
+    );
+    await tick();
+    r.input.end();
+    await r.done;
+    expect(r.events().filter((e) => e.kind === "disposition")).toEqual([
+      { kind: "disposition", id: "a", disposition: "started" },
+      { kind: "disposition", id: "dup", disposition: "rejected", reason: "native-rejected" },
+    ]);
+    expect(r.events().filter((e) => e.kind === "turn")).toHaveLength(1);
+  });
+
   test("a handled command answers started with zero turn or done events, then a real input works", async () => {
     const r = rig(piCli);
     await tick();

@@ -720,6 +720,92 @@ test("a send held behind an unanswered one is settled rejected when the child di
   expect((await turns.next()).done).toBe(true);
 });
 
+test("a draining close still writes held sends: EOF after two sends delivers both", async () => {
+  const proc = new FakeProcess();
+  const d = makeDeps(proc);
+  const session = openSession(piCli, { sessionId: sid, questions: "none" }, d);
+  const turns = session.turns[Symbol.asyncIterator]();
+  const receipt = (wireId: string, disposition: string) =>
+    JSON.stringify({
+      id: wireId,
+      type: "response",
+      command: "prompt",
+      success: true,
+      data: { disposition },
+    });
+  const promptSend = session.send({ id: "p1", text: "first" });
+  const queuedSend = session.send({ id: "q1", text: "second", delivery: "queue" });
+  // Only the prompt is on the wire; q1 waits for its receipt.
+  expect(proc.sendRequestIds).toHaveLength(1);
+  // The piped-usage close: stdin EOF while the turn is open. The drain
+  // must carry q1 to pi, not settle it against an accepted-but-unsent
+  // promise (the EOF-lets-the-turn-finish promise, issue #99).
+  const closing = session.close();
+  const promptWire = proc.sendRequestIds[0];
+  if (promptWire === undefined) throw new Error("no prompt request written");
+  proc.emitLine(receipt(promptWire, "started"));
+  // Yielding the turn proves the receipt was routed and, with it, q1 was
+  // released onto the wire before stdin ended.
+  const turn = (await turns.next()).value as SessionTurn;
+  expect(turn.inputId).toBe("p1");
+  expect(proc.sendRequestIds).toHaveLength(2);
+  expect(proc.stdinEnded).toBe(false);
+  const queuedWire = proc.sendRequestIds.at(-1);
+  if (queuedWire === undefined) throw new Error("no queued request written");
+  proc.emitLine(receipt(queuedWire, "queued"));
+  proc.emitLine(
+    JSON.stringify({
+      type: "message_end",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "both ran" }],
+        stopReason: "stop",
+      },
+    }),
+  );
+  proc.emitLine(JSON.stringify({ type: "agent_settled" }));
+  const events = await drainTurn(turn);
+  expect(events).toContainEqual({ kind: "message", role: "assistant", text: "both ran" });
+  expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+  await closing;
+  expect(proc.stdinEnded).toBe(true);
+  expect(await promptSend.settled).toEqual({ disposition: "started" });
+  expect(await queuedSend.settled).toEqual({ disposition: "started" });
+  expect((await turns.next()).done).toBe(true);
+  expect(d.spawner.calls).toHaveLength(1);
+});
+
+test("an abandoned close rejects its held sends instead of writing them", async () => {
+  const proc = new FakeProcess();
+  const d = makeDeps(proc);
+  const session = openSession(piCli, { sessionId: sid, questions: "none" }, d);
+  const firstSend = session.send({ id: "p1", text: "first" });
+  const secondSend = session.send({ id: "s2", text: "second" });
+  // Run output publishes the provisional turn with no receipt, so the
+  // gate still holds s2 when the consumer walks away.
+  proc.emitLine(
+    JSON.stringify({
+      type: "message_end",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "running" }],
+        stopReason: "stop",
+      },
+    }),
+  );
+  // The consumer walks away from the turns iterable: nobody is left to
+  // receive, so the hold must not be written - it settles rejected.
+  const breaking = (async () => {
+    for await (const _turn of session.turns) break;
+  })();
+  await breaking;
+  // The break itself ran the abandoning close; this call joins it.
+  await session.close();
+  expect(proc.sendRequestIds).toHaveLength(1);
+  expect(await firstSend.settled).toEqual({ disposition: "rejected", reason: "closed" });
+  expect(await secondSend.settled).toEqual({ disposition: "rejected", reason: "closed" });
+});
+
 describe("slow consumer", () => {
   test("a consumer that stops pulling loses nothing - events buffer until drained", async () => {
     const proc = new FakeProcess();
