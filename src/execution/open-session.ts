@@ -29,6 +29,7 @@ import {
   type SessionControlsCapability,
   sessionControlsOf,
 } from "../interpretation/capabilities.js";
+import { overflowIsEcho } from "../interpretation/overflow.js";
 import { composeEscalatedPrompt, type QuestionMode } from "../interpretation/question.js";
 import {
   correlatesByInputUuid,
@@ -1421,9 +1422,10 @@ export const openSession = (
       }
     };
     const handleOverflow = async (overflow: LineOverflow): Promise<void> => {
-      if (activeTurn === null) {
+      if (activeTurn === null && !overflowIsEcho(h, overflow.head)) {
         // No turn to hold the evidence for: the overflow stays a parked
-        // failure, the way it was before the evidence rule.
+        // failure, the way it was before the evidence rule. An echo record
+        // lost nothing wherever it lands, so it warns between turns too.
         await pushFailure(failureFromLineOverflow("stdout", overflow));
         return;
       }

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { DROPPABLE_KINDS, type HarnessEvent } from "../../src/execution/events.js";
+import { RUN_LINE_MAX } from "../../src/execution/lines.js";
 import { openSession } from "../../src/execution/open-session.js";
 import { piCli } from "../../src/knowledge/pi.js";
 import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
@@ -72,6 +73,36 @@ describe("pi compaction outside the turn markers (#239)", () => {
         tokensAfter: 39452,
       },
     ]);
+    await session.close();
+  });
+
+  test("a pi echo record that overflows between turns warns and fails no turn (#461)", async () => {
+    const proc = new FakeProcess();
+    const d = makeDeps(proc);
+    const session = openSession(piCli, { sessionId: sid }, d);
+
+    // agent_end only repeats messages hcn already read, so losing it to the
+    // line bound costs nothing, even with no turn open to hold it.
+    proc.emitChunk(`{"type":"agent_end","messages":"${"x".repeat(RUN_LINE_MAX)}"}\n`);
+    // Let the stdout pump read the line while no turn is open.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    session.send({ id: "s", text: "hi" });
+    const turnsIter = session.turns[Symbol.asyncIterator]();
+    const nextTurn = turnsIter.next();
+    proc.emitLine(JSON.stringify({ type: "agent_settled" }));
+    const events = await drainTurn((await nextTurn).value as AsyncIterable<HarnessEvent>);
+
+    expect(events.filter((e) => e.kind === "failure")).toEqual([]);
+    expect(events.filter((e) => e.kind === "warning")).toEqual([
+      {
+        kind: "warning",
+        message: expect.stringMatching(
+          /^output line overflow: stdout line of .*; it repeats records already read$/,
+        ),
+      },
+    ]);
+    expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
     await session.close();
   });
 
