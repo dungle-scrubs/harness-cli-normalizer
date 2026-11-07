@@ -71,14 +71,20 @@ import {
   reduceFailures,
 } from "./failure.js";
 import { LineBuffer, RUN_LINE_MAX } from "./lines.js";
-import { PIPE_GRACE_MS, redactArgv } from "./stream-turn.js";
-import { StderrTail, superviseTurn } from "./supervisor.js";
 import {
   createSessionApprovalTracker,
   type SessionApprovalAnswer,
   type SessionApprovalDecisionRequest,
   type SessionApprovalTracker,
 } from "./session-approval-tracker.js";
+import {
+  createSettingsSequencer,
+  type SessionSettingsReceipt,
+  type SessionSettingsRequest,
+  type SettingsSequencer,
+} from "./session-settings-sequencer.js";
+import { PIPE_GRACE_MS, redactArgv } from "./stream-turn.js";
+import { StderrTail, superviseTurn } from "./supervisor.js";
 
 /** Grace after stdin EOF before concluding the child will not exit on its
  * own and escalating signals. */
@@ -112,11 +118,15 @@ export interface SessionTurn extends AsyncIterable<HarnessEvent> {
  * from the moment it arrives to the turn it opens and, on death, to the
  * loss report. Ids are the caller's and may repeat; the runner correlates
  * each send by its own token. `delivery` requests an explicit native
- * delivery mode; omitted, the harness's native busy-send behavior applies. */
+ * delivery mode; omitted, the harness's native busy-send behavior applies.
+ * `verbatim` (issue #456) writes the text exactly as given, with no
+ * question preamble in any questions mode - how a host types a slash
+ * command. */
 export interface SessionInput {
   readonly id: string;
   readonly text: string;
   readonly delivery?: SessionDelivery;
+  readonly verbatim?: boolean;
 }
 
 /** The terminal outcome of an interrupt request (issue #426). `interrupted`
@@ -128,13 +138,12 @@ export interface SessionInterruptReceipt {
   readonly reason?: "unsupported" | "closed" | "write-failed" | "native-rejected";
 }
 
-// Issue #454/#455: the approval-decision request and answer types live
-// with the tracker that owns the ledger, and are re-exported here: one
-// type each for the session handle, the CLI's stdin ops and the tracker.
-export type {
-  SessionApprovalAnswer,
-  SessionApprovalDecisionRequest,
-} from "./session-approval-tracker.js";
+/** Issue #454/#455: one host decision on a forwarded native permission
+ * request - the shape the session handle, the tracker and the CLI's
+ * stdin op share (one type, not three). `sent` means the native reply
+ * was written; a rejected decision names why and nothing was written.
+ * A decision is consumed before its write and never retried. The
+ * answer outcome type lives with the tracker. */
 
 /** `requested`: the native cancellation request was written, and `settled`
  * resolves exactly once with the terminal receipt. `rejected`: nothing was
@@ -161,6 +170,10 @@ export interface SessionHandle {
   /** Issue #454/#455: answer one forwarded permission request. Exactly one
    * answer right per request: answered once, cleared never again. */
   answerApproval(decision: SessionApprovalDecisionRequest): SessionApprovalAnswer;
+  /** Issue #456: change the model and/or effort of this session. Takes
+   * effect from the next model request; a busy turn is not interrupted.
+   * Resolves with exactly one receipt. */
+  settings(request: SessionSettingsRequest): Promise<SessionSettingsReceipt>;
   close(): Promise<void>;
 }
 
@@ -208,6 +221,19 @@ export interface OpenSessionOptions extends SessionPermissionOptions {
    * answers its own permission gates the way a bare session does. */
   readonly nativeApprovals?: boolean;
 }
+
+// The approval-decision and settings-op request shapes, and the receipt
+// they settle with, live with their owners (the tracker and the
+// sequencer) and are re-exported here: one type each for the session
+// handle, the CLI's stdin ops and their modules.
+export type {
+  SessionApprovalAnswer,
+  SessionApprovalDecisionRequest,
+} from "./session-approval-tracker.js";
+export type {
+  SessionSettingsReceipt,
+  SessionSettingsRequest,
+} from "./session-settings-sequencer.js";
 
 export class SessionClosedError extends Error {
   constructor() {
@@ -469,6 +495,32 @@ export const openSession = (
     },
     turnId: () => activeTurnId,
   });
+  // Issue #456: the settings sequencer (extracted, review round 1 F12).
+  // One op on the wire at a time; pi reads its model catalog before a
+  // model write and its effective state after the writes. settingsModel
+  // tracks the last applied model so a later op's effort ladder follows
+  // the model the session actually runs, not the spawn one (F14).
+  let settingsModel = opts.model;
+  const settings: SettingsSequencer = createSettingsSequencer(h, sessionInput, {
+    sessionId: opts.sessionId,
+    log,
+    isClosed: () => dead || closing,
+    write: (line) => {
+      stdin.write(line);
+    },
+    onWriteFailed: () => {
+      void routeEvent({ kind: "error", message: "settings write failed: session stdin is gone" });
+      closing = true;
+      wireClosed = true;
+      sup.escalate();
+    },
+    ...(opts.provider !== undefined ? { sessionProvider: opts.provider } : {}),
+    currentModel: () => settingsModel,
+    onModelResolved: (model) => {
+      settingsModel = model;
+    },
+    nextToken: () => String(++commandSeq),
+  });
   // The id of the codex turn currently running NATIVELY (result.turn.id /
   // turn/steer's {turnId}), the steer precondition for the next mid-turn
   // send. Null while no native turn is open; cleared at each turn end.
@@ -603,30 +655,32 @@ export const openSession = (
     const { input } = command;
     // Encoding refuses before anything is written or registered: a refused
     // delivery mode is not a broken pipe and leaves the session usable.
-    const line = encodeSessionInput(
-      sessionInput,
-      composeEscalatedPrompt(input.text, questionMode, "session"),
-      {
-        busy,
-        id: command.token,
-        ...(input.delivery === undefined ? {} : { delivery: input.delivery }),
-        ...(command.uuid === undefined ? {} : { uuid: command.uuid }),
-        // Popeye prompt frames and codex requests carry the minted
-        // session/thread id; the create/thread-open response binds it
-        // before any send is written.
-        ...((sessionInput.kind === "popeye-rpc-prompt" || sessionInput.kind === "codex-jsonrpc") &&
-        state.lastSeenId !== null
-          ? { sessionId: state.lastSeenId }
-          : {}),
-        // Codex steer precondition: the tracked id of the running
-        // native turn. Unknown (receipt still in flight) renders as
-        // the empty string, which the harness itself rejects - the
-        // send reports rejected instead of being written blindly.
-        ...(sessionInput.kind === "codex-jsonrpc" && activeNativeTurnId !== null
-          ? { activeTurnId: activeNativeTurnId }
-          : {}),
-      },
-    );
+    // Verbatim sends (issue #456) skip the question preamble in every
+    // questions mode - a slash command must reach the harness as typed.
+    const text =
+      input.verbatim === true
+        ? input.text
+        : composeEscalatedPrompt(input.text, questionMode, "session");
+    const line = encodeSessionInput(sessionInput, text, {
+      busy,
+      id: command.token,
+      ...(input.delivery === undefined ? {} : { delivery: input.delivery }),
+      ...(command.uuid === undefined ? {} : { uuid: command.uuid }),
+      // Popeye prompt frames and codex requests carry the minted
+      // session/thread id; the create/thread-open response binds it
+      // before any send is written.
+      ...((sessionInput.kind === "popeye-rpc-prompt" || sessionInput.kind === "codex-jsonrpc") &&
+      state.lastSeenId !== null
+        ? { sessionId: state.lastSeenId }
+        : {}),
+      // Codex steer precondition: the tracked id of the running
+      // native turn. Unknown (receipt still in flight) renders as
+      // the empty string, which the harness itself rejects - the
+      // send reports rejected instead of being written blindly.
+      ...(sessionInput.kind === "codex-jsonrpc" && activeNativeTurnId !== null
+        ? { activeTurnId: activeNativeTurnId }
+        : {}),
+    });
     // A send buffered before identity pre-registers its receipt; the flush
     // then writes with the registration already in place.
     const settled =
@@ -1279,6 +1333,15 @@ export const openSession = (
           await approvals.cancel(record.requestId);
           return;
         }
+        case "settings-answered": {
+          // Synchronous: the op's settlement (and any queued op it drains
+          // into) completes before this call returns, so the pump reads
+          // the next line only after it - a queued
+          // op's dispatch validation reads the model this settlement
+          // applied (review round 2, G8; round 3, H4).
+          settings.onAnswered(record);
+          return;
+        }
         case "ignored":
           return;
         case "turn-end": {
@@ -1379,6 +1442,10 @@ export const openSession = (
     if (pumpError !== null) {
       void routeEvent({ kind: "error", message: `session pump failed: ${String(pumpError)}` });
     }
+    // Issue #456: every settings op still awaiting a native answer dies
+    // with the process; each is owed its one receipt, queued ones too -
+    // they never reached the wire, but the receipt must still arrive.
+    settings.closeAll();
     // Issue #454: every request still waiting dies with the process. The
     // cleared events land before the dying turn's done; with no turn open
     // they park with the other pre-turn events.
@@ -1512,15 +1579,17 @@ export const openSession = (
 
   // Issue #456 (review round 1, F3): a stdin write can fail
   // asynchronously - the child closes its stdin but keeps running, so no
-  // synchronous throw ever fires. The adapter's inputError promise is the
-  // real signal: clear waiting approvals channel-failed and end the
-  // session the way the broken send pipe does (the exit path then
-  // finalizes as usual).
+  // synchronous throw ever fires and an in-flight settings op would wait
+  // forever. The adapter's inputError promise is the real signal: settle
+  // every in-flight and queued settings op write-failed, clear waiting
+  // approvals channel-failed, and end the session the way the broken
+  // send pipe does (the exit path then finalizes as usual).
   void proc.inputError?.then(() => {
     if (dead || closing) return;
     void routeEvent({ kind: "error", message: "session stdin failed: the input pipe broke" });
     closing = true;
     wireClosed = true;
+    settings.writeFailedAll();
     approvals.clearChannel();
     sup.escalate();
   });
@@ -1570,7 +1639,16 @@ export const openSession = (
     // - so a harness that never answers cannot hang the close. Death ends
     // the loop unconditionally (the exited handler releases the waiter);
     // once stdin ends below, the usual close grace bounds the rest.
+    // Issue #454: a turn blocked on a permission request the host never
+    // answered can settle only through that answer, and once close() runs
+    // no decision can arrive (the command stream has ended). Waiting would
+    // hang forever with the stall clock paused, so the drain gives up on
+    // it: stdin ends, the harness dies, and the exit path clears the
+    // request (process-ended) and ends the turn with the exit cause.
+    const blockedOnApproval = (): boolean =>
+      activeTurn !== null && approvals.isWaitingOn(activeTurn);
     while (drain && !dead && activeTurn !== null) {
+      if (blockedOnApproval()) break;
       await new Promise<void>((resolve) => {
         turnSettled = resolve;
       });
@@ -1775,6 +1853,9 @@ export const openSession = (
     },
     answerApproval(decision: SessionApprovalDecisionRequest): SessionApprovalAnswer {
       return approvals.answer(decision);
+    },
+    settings(request: SessionSettingsRequest): Promise<SessionSettingsReceipt> {
+      return settings.submit(request);
     },
     close,
   };

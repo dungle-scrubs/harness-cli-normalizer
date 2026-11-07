@@ -17,6 +17,7 @@ import {
   type SessionSendResult,
 } from "../execution/open-session.js";
 import type { SessionApprovalDecisionRequest } from "../execution/session-approval-tracker.js";
+import type { SessionSettingsRequest } from "../execution/session-settings-sequencer.js";
 import { composeAnswer, type QuestionMode } from "../interpretation/question.js";
 import { SESSION_DELIVERIES, type SessionDelivery } from "../knowledge/descriptor.js";
 
@@ -54,9 +55,11 @@ type ParsedCommand =
       readonly id: string;
       readonly text: string;
       readonly delivery?: SessionDelivery;
+      readonly verbatim?: boolean;
     }
   | { readonly op: "interrupt"; readonly id: string }
   | (SessionApprovalDecisionRequest & { readonly op: "approval" })
+  | (SessionSettingsRequest & { readonly op: "settings" })
   | { readonly op: "close" }
   | { readonly malformed: string };
 
@@ -90,11 +93,20 @@ const parseCommand = (line: string): ParsedCommand => {
     if ("delivery" in rec && !isSessionDelivery(rec.delivery)) {
       return { malformed: `delivery must be one of ${SESSION_DELIVERIES.join(", ")}` };
     }
+    // Issue #456: verbatim is a send-only boolean - how a host types a
+    // slash command with no question preamble around it. `answer` carries
+    // no verbatim at all: `false` is as malformed as `true`, because the
+    // op has no such field to withhold (review round 1, F7).
+    if ("verbatim" in rec && typeof rec.verbatim !== "boolean")
+      return { malformed: "verbatim must be a boolean" };
+    if (rec.op === "answer" && "verbatim" in rec)
+      return { malformed: "answer carries no verbatim; compose the reply yourself" };
     return {
       op: rec.op,
       id: rec.id,
       text: rec.text,
       ...(isSessionDelivery(rec.delivery) ? { delivery: rec.delivery } : {}),
+      ...(rec.verbatim === true ? { verbatim: true } : {}),
     };
   }
   if (rec.op === "interrupt") {
@@ -139,6 +151,24 @@ const parseCommand = (line: string): ParsedCommand => {
       ...(rec.answers === undefined
         ? {}
         : { answers: rec.answers as Record<string, string | readonly string[]> }),
+    };
+  }
+  // Issue #456: change the model and/or effort of the session. At least
+  // one of the two, each a non-empty string; anything else is a malformed
+  // command, not a rejected receipt (there is nothing to reject).
+  if (rec.op === "settings") {
+    if (typeof rec.id !== "string" || rec.id === "") return { malformed: "missing or empty id" };
+    if (rec.model !== undefined && (typeof rec.model !== "string" || rec.model === ""))
+      return { malformed: "model must be a non-empty string" };
+    if (rec.effort !== undefined && (typeof rec.effort !== "string" || rec.effort === ""))
+      return { malformed: "effort must be a non-empty string" };
+    if (rec.model === undefined && rec.effort === undefined)
+      return { malformed: "settings needs model, effort, or both" };
+    return {
+      op: "settings",
+      id: rec.id,
+      ...(rec.model === undefined ? {} : { model: rec.model }),
+      ...(rec.effort === undefined ? {} : { effort: rec.effort }),
     };
   }
   return { malformed: `unknown op ${JSON.stringify(rec.op)}` };
@@ -246,7 +276,17 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
   // own receipt and for every earlier disposition.
   let dispositionChain: Promise<void> = Promise.resolve();
   let dispositionsInFlight = 0;
+  // Receipts still owed (interrupt settlements, settings ops). Each is
+  // removed the moment it settles, so the set holds only outstanding
+  // work - never the whole session's history (review round 1, F13; the
+  // interrupt receipts were the pre-existing half of that leak).
   const receipts = new Set<Promise<void>>();
+  const trackReceipt = (receipt: Promise<void>): void => {
+    receipts.add(receipt);
+    void receipt.then(() => {
+      receipts.delete(receipt);
+    });
+  };
   const dispositionOf = (id: string, sent: Disposition) => ({
     kind: "disposition",
     id,
@@ -312,7 +352,7 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
             ...(settled.reason !== undefined ? { reason: settled.reason } : {}),
           }),
         );
-        receipts.add(receipt);
+        trackReceipt(receipt);
         continue;
       }
       if (cmd.op === "approval") {
@@ -330,6 +370,34 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
         });
         continue;
       }
+      if (cmd.op === "settings") {
+        // Issue #456: exactly one receipt per well-formed op, emitted as it
+        // settles; the command stream keeps flowing while the harness
+        // answers, so an interrupt behind a settings op is not blocked.
+        // A readback the op could not confirm (review round 3, H2) carries
+        // its diagnostic here on the control output immediately - never
+        // parked for a turn that may never come. The diagnostic is
+        // scheduled WITH its receipt (both joins the write chain before
+        // either is awaited): a later op that settles inside this
+        // receipt's drain cannot slip its own writes between them
+        // (review round 4, J3).
+        const receipt = a.handle.settings(cmd);
+        trackReceipt(
+          receipt.then(async (settled) => {
+            const receiptWrite = emit({ kind: "settings", id: cmd.id, ...settled });
+            const diagnosticWrite =
+              settled.unconfirmed !== undefined && settled.unconfirmed.length > 0
+                ? emit({
+                    kind: "error",
+                    message: `settings op ${JSON.stringify(cmd.id)}: state readback failed; unconfirmed: ${settled.unconfirmed.join(", ")}`,
+                  })
+                : undefined;
+            await receiptWrite;
+            await diagnosticWrite;
+          }),
+        );
+        continue;
+      }
       let text = cmd.text;
       if (cmd.op === "answer") {
         if (!awaitingAnswer) {
@@ -344,6 +412,7 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
           id: cmd.id,
           text,
           ...(cmd.delivery === undefined ? {} : { delivery: cmd.delivery }),
+          ...(cmd.verbatim === undefined ? {} : { verbatim: cmd.verbatim }),
         });
       } catch (err) {
         // A session the caller already closed, or one already dead: a

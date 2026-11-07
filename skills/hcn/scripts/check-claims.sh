@@ -278,6 +278,21 @@ case "$help_session" in
     ;;
 esac
 
+# Mid-session settings and verbatim sends are additive (issue #456).
+case "$help_session" in
+  *"\"op\":\"settings\""*)
+    require "hcn session --help (settings op)" "$help_session" \
+      "settings" "verbatim" "no question preamble" "validated as the spawn flags" \
+      "one settings event per op"
+    ;;
+  *)
+    if [ "${CHECK_CLAIMS_REQUIRE_SESSION_CONTROLS:-0}" = 1 ]; then
+      printf 'MISS: session settings op and verbatim required for this verification\n'
+      misses=$((misses + 1))
+    fi
+    ;;
+esac
+
 # Memory controls are conditional for installed pre-memory builds.
 case "$help_run" in
   *"--no-memory"*)

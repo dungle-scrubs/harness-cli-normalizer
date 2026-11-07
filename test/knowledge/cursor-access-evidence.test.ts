@@ -4,6 +4,7 @@ import {
   type ContentEvent,
   contentEventsWithState,
   freshCursorReaderState,
+  isCursorReaderState,
 } from "../../src/interpretation/content.js";
 import { cursorCli } from "../../src/knowledge/cursor.js";
 
@@ -29,7 +30,7 @@ for (const [file, name] of [
     for (const row of rows) {
       const next = contentEventsWithState("cursor", row, state);
       events.push(...next.events);
-      if (next.state) state = next.state;
+      if (next.state && isCursorReaderState(next.state)) state = next.state;
     }
     const results = events.filter((e) => e.kind === "tool-result");
     for (const native of rows.filter((r) => r.type === "tool_call" && r.subtype === "completed")) {

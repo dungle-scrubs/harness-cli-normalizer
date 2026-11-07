@@ -413,7 +413,7 @@ correctness from this count. A failed command or blocked network request can app
 
 `usage` is a lossless observation with `scope` and optional `inputTokens`, `outputTokens`,
 `cacheReadTokens`, `cacheWriteTokens`, `reasoningTokens`, `totalTokens`, `costUsd`,
-`inputIncludesCache`, `callId`, and `model`. Only finite nonnegative reported counts and costs
+`inputIncludesCache`, `callId`, `model`, and `models`. Only finite nonnegative reported counts and costs
 are emitted. Missing counts and prices are not zero, and totals are never synthesized.
 `reasoningTokens` is already included in output. When `inputIncludesCache` is true (Codex), cache
 counts are subsets of input; false marks separate counts; absent means that relationship is
@@ -421,8 +421,8 @@ unknown. `costUsd` is the harness's estimate, not authoritative billing or subsc
 
 | Harness | Usage observations | Accounting rule |
 |---|---|---|
-| Pi | `message` per completed assistant response, `tool` for reported nested model usage, `compaction` for reported summarization usage | Sum completed operations of the scopes needed; streaming/turn/agent echoes are not emitted. Failed attempts retain reported usage. |
-| Claude | `turn` for main-loop tokens; `session` for cumulative cost and each reported per-model breakdown (`model`) | Keep the latest session values per metric/model (or overall); do not add snapshots or combine per-model totals with main-loop totals. Session cost includes subagents and restored spend. |
+| Pi | `message` per completed assistant response (carrying the message's `model`), `tool` for reported nested model usage, `compaction` for reported summarization usage | Sum completed operations of the scopes needed; streaming/turn/agent echoes are not emitted. Failed attempts retain reported usage. |
+| Claude | `turn` for main-loop tokens, carrying the distinct models the turn's main-loop assistant messages attested (`models`, first-seen order) whenever at least one was - exactly one also singles it out (`model`); subagent records and `<synthetic>` placeholders attest nothing; `session` for cumulative cost and each reported per-model breakdown (`model`) | Keep the latest session values per metric/model (or overall); do not add snapshots or combine per-model totals with main-loop totals. Session cost includes subagents and restored spend. |
 | Codex exec | `session` | Cumulative thread totals, including earlier turns on resume; cached input is included in input. Read the latest snapshot, not a sum or a derived turn delta. |
 | Codex app-server | `session` snapshots from `tokenUsage.total` | Read the latest snapshot, not a sum; it can include earlier turns. hcn does not turn the latest-request `last` field into a turn total. |
 | Cursor | `turn` | Native terminal usage. |
@@ -675,13 +675,15 @@ stdin carries one command per line (blank lines are ignored):
 ```jsonl
 {"op":"send","id":"in-1","text":"explain a monad in one sentence"}
 {"op":"answer","id":"in-2","text":"prod"}
+{"op":"settings","id":"set-1","model":"haiku","effort":"low"}
 {"v":1,"op":"approval","id":"d-1","requestId":"<offered>","choiceId":"allow"}
 {"op":"close"}
 ```
 
 The `approval` command answers a forwarded native permission request
-([below](#session-native-approvals)); every other command is a turn input
-or a lifecycle control.
+([below](#session-native-approvals)); the `settings` command changes the
+session's model and/or effort ([below](#mid-session-model-and-effort));
+every other command is a turn input or a lifecycle control.
 
 - Every well-formed `send`/`answer` gets exactly one `disposition` event,
   in command order. `started`: the harness accepted the text. Pi and codex
@@ -715,7 +717,21 @@ or a lifecycle control.
   (`The user answered the question: "<q>" with: <text>. Continue accordingly.`)
   around the text, so the consumer never re-derives it. A plain `send` after
   a question opens a turn with no preamble: `answer` to answer, `send` to
-  change the subject.
+  change the subject. `send` also accepts `"verbatim": true`, which writes
+  the text exactly as given, with no question preamble in any `--questions`
+  mode - how a host types the harness's own slash command. What a slash
+  command reaches differs by harness: on a Claude session the verbatim text
+  runs Claude's slash commands (`/model haiku`, `/compact`), but a typed
+  `/model` follows Claude's own precedence - after a `settings` model
+  change it can be acknowledged yet leave the model unchanged, or switch
+  it (observed native behavior, delivered verbatim), so prefer the
+  `settings` op when a specific model matters. On a Pi
+  session the RPC prompt channel runs extension commands and skill/prompt
+  template expansion (`/skill:x args`) only - interactive built-ins such as
+  `/model` or `/compact` are typed into the model as ordinary text, never
+  executed; change Pi's model through the `settings` op instead. `answer`
+  refuses `verbatim` in any spelling (malformed); a non-boolean `verbatim`
+  is malformed.
 - End of stdin means `close`. A malformed line (not JSON, unknown `op`,
   missing or empty `id`, non-string `text`, invalid `delivery`, a malformed
   `approval` decision - missing `v`/`id`/`requestId`/`choiceId`, a non-string
@@ -921,6 +937,88 @@ entirely.
 Claude resolves deny rules, hooks and the managed policy before it asks the
 host; hcn adds no rule of its own. The pending map is per process: nothing
 persists across processes, and the caller owns durable choice records.
+
+### Mid-session model and effort
+
+Claude and Pi sessions accept `{"op":"settings","id":..,"model":..,"effort":..}`
+(at least one of `model`, `effort`) on stdin. Values validate exactly as
+the spawn flags do - the same model resolution and the effort ladder of
+the resulting model (the op's own model, else the model the session runs
+when the op takes the wire: the last one a settings op applied, else the
+spawn model; an op queued behind another validates at its own dispatch).
+Invalid values reject without a native write.
+
+Native rendering: Claude writes a `set_model` control request (when
+`model` is given), then `apply_flag_settings {settings:{effortLevel}}`
+(when `effort` is given). Pi first reads the session's own catalog
+(`get_available_models`) and resolves the model selector with a port of
+pi 1.4.0's own `--model` resolver (`resolveCliModel`) over that catalog,
+so a settings op selects from the session's available models the way
+the spawn flags select from all registered ones (the available catalog
+holds only providers with configured auth, so a selector that exists
+only on an unauthenticated provider resolves by fuzzy match, not to
+that provider's id):
+
+- The session's `--provider` constrains the catalog to that provider
+  (absent or unknown: `invalid-model`), and ids, provider names and
+  display names compare case-insensitively.
+- Reference precedence first: an id that equals the whole selector, and
+  `provider/rest` splitting where the prefix names a catalog provider.
+  The two combine the way pi combines them - a selector that is a
+  literal gateway id (`openrouter`'s `moonshotai/kimi-k2.6`) resolves as
+  that id, but when the same selector also splits (`moonshotai` naming
+  the Moonshot provider whose catalog carries `kimi-k2.6`), the named
+  provider wins, because over the available catalog every provider is
+  usable. A selector ambiguous across providers (the same bare id on
+  two providers, no split to name one) rejects `invalid-model`.
+- Then fuzzy matching: a selector contained in an id or a display name
+  resolves, preferring alias ids over dated ones (`claude-sonnet-4-5`
+  over `claude-sonnet-4-5-20250929`) and then the greatest id; a best
+  match whose id spans providers rejects `invalid-model`.
+- A trailing `:level` (a pi thinking level) splits off the way pi's
+  `--model` does: the model half resolves as above and the level applies
+  as the op's effort when the op named none (an explicit `effort` wins,
+  as pi's `--thinking` beats the suffix). An invalid suffix stays part
+  of the id and rejects.
+- No match at all rejects `invalid-model`; pi's fallback to a custom
+  model id is not part of this surface.
+
+Pi then writes `set_model` and `set_thinking_level`, and finally reads
+`get_state` so the receipt reports what the session actually runs. Each
+well-formed op gets exactly one `settings` event:
+
+```jsonl
+{"kind":"settings","id":"set-1","state":"applied","model":"claude-haiku-5-5","effort":"low"}
+```
+
+`applied` follows every native response succeeding. What `model` and
+`effort` report differs by harness, because the harnesses differ: on Pi
+both fields come from the final `get_state` readback - the effective
+model as `provider/id` and the effective thinking level (pi clamps
+silently, so a `max` a non-reasoning model cannot run reports what it
+runs). On Claude there is no native readback: `model` is the id
+Claude's `set_model` response confirmed (else the requested id) and
+`effort` is the requested word. `rejected` carries a reason:
+`invalid-model`, `invalid-effort`, `unsupported` (the harness has no
+native path - every session harness besides Claude and Pi),
+`native-rejected` (any native failure), `closed`, `write-failed` - and a
+partial application reports the part that applied in `model`/`effort`
+on every terminal receipt, those reasons included (a model confirmed
+before the pipe broke or the process died still reports the model). A
+failed or partial Pi state readback after successful writes still
+settles `applied` - with only the values the readback confirmed in
+`model`/`effort` and an `unconfirmed` list (`["model"]`, `["effort"]`
+or both) naming the fields it wrote but could not read back, never the
+requested value - and the
+diagnostic leaves immediately as an `error` event on the control
+output directly after its own receipt, never held for the next turn. The change
+takes effect from the next model request; a busy turn is not
+interrupted. The effective model is observable in `usage`
+events (see [Events](#events)): Claude's turn-scoped event carries the
+distinct models the turn's main-loop assistant messages attested
+(`models`) whenever at least one was, and singles one out (`model`) only
+when exactly one was, and each of Pi's message-scoped events carries its
+own message's model.
 
 ## Inspection
 

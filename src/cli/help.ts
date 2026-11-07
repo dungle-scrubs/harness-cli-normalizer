@@ -237,10 +237,24 @@ Arguments:
 Options:
   --json                    Machine surface: NDJSON events on stdout, NDJSON
                             commands on stdin ({"op":"send","id":..,"text":..},
-                            "answer", "interrupt", "approval", "close"). Send
-                            and answer accept optional
-                            "delivery":"queue"|"steer". The session event
-                            advertises controls.deliveryModes,
+                            "answer", "interrupt", "settings", "approval",
+                            "close"). Send and answer
+                            accept optional "delivery":"queue"|"steer"; send
+                            also accepts "verbatim":true, which writes the
+                            text with no question preamble - how a host
+                            types a slash command on Claude (/model haiku,
+                            /compact; a typed /model follows Claude's own
+                            precedence, so prefer the settings op for a
+                            certain model). On pi, interactive built-ins
+                            never run through a session send - change pi's
+                            model and effort with the settings op.
+                            {"op":"settings","id":..,"model":..,"effort":..}
+                            (claude, pi; at least one field) changes the
+                            session's model and/or effort from the next
+                            model request, validated as the spawn flags;
+                            one settings event per op (applied with the
+                            confirmed model, or rejected with a reason).
+                            The session event advertises controls.deliveryModes,
                             controls.interrupt.supported and
                             controls.approvals.supported. Claude interrupt
                             support starts false and follows what the process

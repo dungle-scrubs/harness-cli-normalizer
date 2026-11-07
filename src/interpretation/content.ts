@@ -791,6 +791,7 @@ const popeyeReader = (r: Record<string, unknown>): ContentEvent[] => {
  * Completions land in their own set precisely so settling normal calls
  * never pushes an evicted id out of the tombstones. */
 export interface CursorReaderState {
+  readonly reader: "cursor";
   readonly pending: readonly string[];
   readonly tombstones: readonly string[];
   readonly completed: readonly string[];
@@ -803,6 +804,7 @@ export interface CursorReaderState {
 }
 
 export const freshCursorReaderState = (): CursorReaderState => ({
+  reader: "cursor",
   pending: [],
   tombstones: [],
   completed: [],
@@ -811,12 +813,40 @@ export const freshCursorReaderState = (): CursorReaderState => ({
   emittedText: "",
 });
 
-/** Per-harness reader state: cursor state for cursor, null otherwise.
- * Execution holds it without inspection (ADR 0005). */
-export type ReaderState = CursorReaderState | null;
+/** Claude reader state (issue #456, review round 1 F10): the distinct
+ * MAIN-LOOP models the turn's assistant records attested, so the
+ * turn-scoped usage event can carry them - the result record that
+ * carries the turn's usage names no model of its own. Each distinct
+ * model is kept in first-seen order; the result that ends the turn
+ * clears the list. A turn that attested several (a mid-turn settings
+ * change) keeps the truthful list and singles out no `model`
+ * (review rounds 3 H1, 4 J1/J2).
+ */
+export interface ClaudeReaderState {
+  readonly reader: "claude";
+  readonly turnModels: readonly string[];
+}
+
+export const freshClaudeReaderState = (): ClaudeReaderState => ({
+  reader: "claude",
+  turnModels: [],
+});
+
+/** Narrowing guards for the two stateful readers; execution holds the
+ * state without inspection (ADR 0005). */
+export const isClaudeReaderState = (state: ReaderState): state is ClaudeReaderState =>
+  state !== null && state.reader === "claude";
+
+export const isCursorReaderState = (state: ReaderState): state is CursorReaderState =>
+  state !== null && state.reader === "cursor";
+
+/** Per-harness reader state: cursor state for cursor, the turn-model
+ * tracker for claude, null otherwise. Execution holds it without
+ * inspection (ADR 0005). */
+export type ReaderState = CursorReaderState | ClaudeReaderState | null;
 
 const STATE_FACTORIES: Record<HarnessName, () => ReaderState> = {
-  claude: () => null,
+  claude: freshClaudeReaderState,
   codex: () => null,
   pi: () => null,
   muse: () => null,
@@ -1087,12 +1117,42 @@ const stateless =
   (read: (r: Record<string, unknown>) => ContentEvent[]): StatefulReader =>
   (r, state) => ({ events: read(r), state });
 
+/** The claude reader with its turn-model tracking: MAIN-LOOP assistant
+ * records collect the distinct models they attest, the result record
+ * forgets them (the turn is over). A subagent record
+ * (`parent_tool_use_id` set) and Claude's `<synthetic>` placeholder are
+ * not main-loop output - the result's turn usage covers the main loop
+ * only - so neither may enter the list (review round 4, J1). */
+const claudeWithState = (
+  r: Record<string, unknown>,
+  state: ClaudeReaderState,
+): { readonly events: ContentEvent[]; readonly state: ClaudeReaderState } => {
+  const events = claude(r);
+  const mainLoop =
+    r.type === "assistant" && (r.parent_tool_use_id === null || r.parent_tool_use_id === undefined);
+  if (mainLoop) {
+    const model = at(r, "message.model");
+    if (
+      typeof model === "string" &&
+      model !== "" &&
+      model !== "<synthetic>" &&
+      !state.turnModels.includes(model)
+    )
+      return { events, state: { reader: "claude", turnModels: [...state.turnModels, model] } };
+  } else if (r.type === "result" && state.turnModels.length > 0) {
+    return { events, state: { reader: "claude", turnModels: [] } };
+  }
+  return { events, state };
+};
+
 const STATEFUL_READERS: Record<HarnessName, StatefulReader> = {
-  claude: stateless(claude),
+  claude: (r, state) =>
+    claudeWithState(r, isClaudeReaderState(state) ? state : freshClaudeReaderState()),
   codex: stateless(codex),
   pi: stateless(pi),
   muse: stateless(muse),
-  cursor: (r, state) => cursorWithState(r, state ?? freshCursorReaderState()),
+  cursor: (r, state) =>
+    cursorWithState(r, isCursorReaderState(state) ? state : freshCursorReaderState()),
   antigravity: stateless(antigravity),
   popeye: stateless(popeyeReader),
 };
@@ -1108,7 +1168,16 @@ export const contentEventsWithState = (
   const record = asRecord(raw);
   if (record === null) return { events: [], state };
   const decoded = STATEFUL_READERS[harness](record, state);
-  return { events: [...decoded.events, ...usageEventsOf(harness, record)], state: decoded.state };
+  // The turn-scoped usage of a result record needs the models attested
+  // BEFORE this record: pass the prior state's turn models, not the
+  // reader's new ones (which the result just cleared). `usageEventsOf`
+  // reports the list and singles out `model` only when exactly one was
+  // attested (review rounds 3 H1, 4 J1/J2).
+  const priorTurnModels = isClaudeReaderState(state) ? state.turnModels : undefined;
+  return {
+    events: [...decoded.events, ...usageEventsOf(harness, record, priorTurnModels)],
+    state: decoded.state,
+  };
 };
 
 export const contentEventsOf = (harness: HarnessName, raw: unknown): ContentEvent[] =>

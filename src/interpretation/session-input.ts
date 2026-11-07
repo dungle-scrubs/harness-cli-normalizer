@@ -16,6 +16,15 @@ import {
   decodeClaudePermissionRequest,
   type SessionApprovalProposal,
 } from "./session-approvals.js";
+import {
+  claudeSettingsAnswerOf,
+  type PiModelEntry,
+  type PiStateAnswer,
+  parseSettingsId,
+  piCatalogOf,
+  piSettingsAnswerOf,
+  piStateOf,
+} from "./session-settings.js";
 import { asRecord, readPath } from "./shape.js";
 
 export type SessionInputIssue =
@@ -323,6 +332,21 @@ export type SessionRecord =
   /** Issue #454: claude cancelled a permission request itself (an
    * interrupt while it waited); the request loses its answer right. */
   | { readonly kind: "approval-cancelled"; readonly requestId: string }
+  /** Issue #456: the harness answered a settings command hcn wrote
+   * (`set_model` / `apply_flag_settings` on claude; `set_model` /
+   * `set_thinking_level` / `get_available_models` / `get_state` on pi).
+   * `model` is the native confirmation where the harness returns one,
+   * `models` is pi's catalog answer, `state` pi's effective-state
+   * readback; else absent. */
+  | {
+      readonly kind: "settings-answered";
+      readonly token: string;
+      readonly part: "model" | "effort" | "catalog" | "state";
+      readonly ok: boolean;
+      readonly model?: string;
+      readonly models?: readonly PiModelEntry[];
+      readonly state?: PiStateAnswer;
+    }
   /** The record that delimits a turn, with the harness's own error flag.
    * `aborted` is present when the harness reports the run was cancelled
    * (pi agent_settled.aborted true, claude result terminal_reason
@@ -443,6 +467,41 @@ export const decodeSessionRecord = (
             accepted: false,
           };
     }
+    // Issue #456: the answer to a settings rpc command hcn wrote. The
+    // command must be the one the id's part names - a thinking response
+    // to a model id settles nothing.
+    if (typeof parsed.id === "string") {
+      const named = parseSettingsId(parsed.id);
+      if (named !== null) {
+        const answer = piSettingsAnswerOf(parsed, named.part);
+        if (answer === null) return { kind: "ignored" };
+        if (named.part === "catalog") {
+          return {
+            kind: "settings-answered",
+            token: named.token,
+            part: named.part,
+            ok: answer.ok,
+            models: piCatalogOf(parsed),
+          };
+        }
+        if (named.part === "state") {
+          return {
+            kind: "settings-answered",
+            token: named.token,
+            part: named.part,
+            ok: answer.ok,
+            state: piStateOf(parsed),
+          };
+        }
+        return {
+          kind: "settings-answered",
+          token: named.token,
+          part: named.part,
+          ok: answer.ok,
+          ...(answer.model !== undefined ? { model: answer.model } : {}),
+        };
+      }
+    }
     const inputId =
       typeof parsed.id === "string" && parsed.id.startsWith(SEND_ID_PREFIX)
         ? parsed.id.slice(SEND_ID_PREFIX.length)
@@ -542,6 +601,22 @@ export const decodeSessionRecord = (
             token,
             accepted: false,
           };
+    }
+    // Issue #456: the answer to a settings control request hcn wrote.
+    if (typeof requestId === "string") {
+      const named = parseSettingsId(requestId);
+      if (named !== null) {
+        const answer = claudeSettingsAnswerOf(parsed);
+        return answer === null
+          ? { kind: "ignored" }
+          : {
+              kind: "settings-answered",
+              token: named.token,
+              part: named.part,
+              ok: answer.ok,
+              ...(answer.model !== undefined ? { model: answer.model } : {}),
+            };
+      }
     }
     // Any other control response answers something hcn never wrote;
     // the still_queued list inside an interrupt receipt is the harness's

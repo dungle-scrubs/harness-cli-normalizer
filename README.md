@@ -182,12 +182,16 @@ $ printf '%s\n' '{"op":"send","id":"in-1","text":"name three primes, nothing els
 ```
 
 With `--json`, you write commands to stdin, one JSON object per line (`send`, `answer`,
-`interrupt`, `approval`, `close`), and read events from stdout. Each `send` gets one `disposition`; turns
+`interrupt`, `settings`, `approval`, `close`), and read events from stdout. Each `send` gets one `disposition`; turns
 opened by a send carry its id. Check the session packet's `controls` before choosing `delivery`
 `queue` or `steer`, or interrupting and sending a replacement after confirmation. On a Claude
 session, `--native-approvals` forwards each permission request, AskUserQuestion and plan approval
 to you as `approval-request` events; see
-[the reference](docs/reference.md#session-native-approvals). Sessions work
+[the reference](docs/reference.md#session-native-approvals). On Claude and pi sessions, the
+`settings` op changes model and effort mid-session, and `send` takes `"verbatim": true` to type
+the harness's own slash command untouched (Claude slash commands; on pi only extension commands
+such as `/skill:x` run); see
+[the reference](docs/reference.md#mid-session-model-and-effort). Sessions work
 with Claude Code, Codex, pi, Antigravity CLI, and popeye. Without `--json`, `hcn session claude`
 opens an interactive prompt.
 

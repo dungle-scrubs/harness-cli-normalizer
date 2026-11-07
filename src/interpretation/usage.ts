@@ -19,6 +19,12 @@ export interface UsageEvent {
   readonly inputIncludesCache?: boolean;
   readonly callId?: string;
   readonly model?: string;
+  /** The distinct models the harness attested for the counted work, in
+   * first-seen order (issue #456, review round 4, J2). Claude's
+   * turn-scoped event carries the turn's main-loop models whenever at
+   * least one was attested; `model` above singles one out only when the
+   * list holds exactly one. */
+  readonly models?: readonly string[];
 }
 
 type Counts = Omit<UsageEvent, "kind" | "scope" | "inputIncludesCache" | "callId" | "model">;
@@ -59,12 +65,22 @@ const CODEX_SESSION_FIELDS: Fields = {
   totalTokens: "totalTokens",
 };
 
+/** The optional identity fields one usage observation can carry:
+ * whether input already includes cache counts, the tool call a `tool`
+ * scope belongs to, and the model the harness attested for the
+ * counted work. */
+interface UsageEventFields {
+  readonly inputIncludesCache?: boolean;
+  readonly callId?: unknown;
+  readonly model?: unknown;
+  readonly models?: readonly string[];
+}
+
 function usageEvent(
   value: unknown,
   fields: Fields,
   scope: UsageEvent["scope"],
-  inputIncludesCache?: boolean,
-  callId?: unknown,
+  options: UsageEventFields = {},
 ): UsageEvent[] {
   const record = asRecord(value);
   if (record === null) return [];
@@ -81,25 +97,52 @@ function usageEvent(
       kind: "usage",
       scope,
       ...counts,
-      ...(inputIncludesCache === undefined ? {} : { inputIncludesCache }),
-      ...(typeof callId === "string" ? { callId } : {}),
+      ...(options.inputIncludesCache === undefined
+        ? {}
+        : { inputIncludesCache: options.inputIncludesCache }),
+      ...(typeof options.callId === "string" ? { callId: options.callId } : {}),
+      ...(typeof options.model === "string" && options.model !== ""
+        ? { model: options.model }
+        : {}),
+      ...(options.models !== undefined && options.models.length > 0
+        ? { models: options.models }
+        : {}),
     },
   ];
 }
 
-export function usageEventsOf(harness: HarnessName, r: Record<string, unknown>): UsageEvent[] {
+/** `turnModels`: the distinct models the harness attested for this
+ * turn's assistant messages, when the caller tracked them (issue #456,
+ * review round 1 F10 - a Claude result record carries no model of its
+ * own; round 3 H1 and round 4 J2 - the turn-scoped event carries the
+ * list whenever at least one was attested and singles out `model` only
+ * when exactly one was). Pi's assistant messages attest the model on
+ * the same record, so its message-scoped events read it directly. */
+export function usageEventsOf(
+  harness: HarnessName,
+  r: Record<string, unknown>,
+  turnModels?: readonly string[],
+): UsageEvent[] {
   switch (harness) {
     case "pi": {
       if (r.type === "compaction_end")
-        return usageEvent(readPath(r, "result.usage"), PI_FIELDS, "compaction", false);
+        return usageEvent(readPath(r, "result.usage"), PI_FIELDS, "compaction", {
+          inputIncludesCache: false,
+        });
       if (r.type !== "message_end") return [];
       const message = asRecord(r.message);
       if (message?.role === "assistant")
-        return usageEvent(message.usage, PI_FIELDS, "message", false);
+        return usageEvent(message.usage, PI_FIELDS, "message", {
+          inputIncludesCache: false,
+          model: message.model,
+        });
       // Read the echoed tool message's optional usage once, not again
       // from its execution-end result.
       if (message?.role === "toolResult")
-        return usageEvent(message.usage, PI_FIELDS, "tool", false, message.toolCallId);
+        return usageEvent(message.usage, PI_FIELDS, "tool", {
+          inputIncludesCache: false,
+          callId: message.toolCallId,
+        });
       return [];
     }
     case "claude":
@@ -107,7 +150,11 @@ export function usageEventsOf(harness: HarnessName, r: Record<string, unknown>):
       // Result tokens cover this turn, but total_cost_usd includes restored
       // session spend and subagents. Keep the scopes separate.
       return [
-        ...usageEvent(r.usage, SNAKE_FIELDS, "turn", false),
+        ...usageEvent(r.usage, SNAKE_FIELDS, "turn", {
+          inputIncludesCache: false,
+          ...(turnModels !== undefined && turnModels.length === 1 ? { model: turnModels[0] } : {}),
+          ...(turnModels !== undefined && turnModels.length > 0 ? { models: turnModels } : {}),
+        }),
         ...usageEvent(r, { costUsd: "total_cost_usd" }, "session"),
         ...Object.entries(asRecord(r.modelUsage) ?? {}).flatMap(([model, usage]) =>
           usageEvent(
@@ -120,23 +167,23 @@ export function usageEventsOf(harness: HarnessName, r: Record<string, unknown>):
               costUsd: "costUSD",
             },
             "session",
-            false,
+            { inputIncludesCache: false },
           ).map((event) => ({ ...event, model })),
         ),
       ];
     case "codex":
       // Codex exec emits ThreadTokenUsage.total at turn completion, including restored turns.
-      if (r.type === "turn.completed") return usageEvent(r.usage, CODEX_FIELDS, "session", true);
+      if (r.type === "turn.completed")
+        return usageEvent(r.usage, CODEX_FIELDS, "session", { inputIncludesCache: true });
       if (r.method === "thread/tokenUsage/updated")
-        return usageEvent(
-          readPath(r, "params.tokenUsage.total"),
-          CODEX_SESSION_FIELDS,
-          "session",
-          true,
-        );
+        return usageEvent(readPath(r, "params.tokenUsage.total"), CODEX_SESSION_FIELDS, "session", {
+          inputIncludesCache: true,
+        });
       return [];
     case "cursor":
-      return r.type === "result" ? usageEvent(r.usage, CURSOR_FIELDS, "turn", false) : [];
+      return r.type === "result"
+        ? usageEvent(r.usage, CURSOR_FIELDS, "turn", { inputIncludesCache: false })
+        : [];
     case "antigravity":
       return r.event === "result"
         ? usageEvent(

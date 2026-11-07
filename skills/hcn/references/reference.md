@@ -258,7 +258,7 @@ https://github.com/dungle-scrubs/harness-cli-normalizer/blob/main/docs/observer.
 {"kind":"progress","label":..}
 {"kind":"tool","name":..,"input":?,"callId":?}
 {"kind":"tool-result","name":?,"callId":?,"result":?,"isError":?}
-{"kind":"usage","scope":..,"inputTokens":?,"outputTokens":?,"cacheReadTokens":?,"cacheWriteTokens":?,"reasoningTokens":?,"totalTokens":?,"costUsd":?,"inputIncludesCache":?,"callId":?,"model":?}
+{"kind":"usage","scope":..,"inputTokens":?,"outputTokens":?,"cacheReadTokens":?,"cacheWriteTokens":?,"reasoningTokens":?,"totalTokens":?,"costUsd":?,"inputIncludesCache":?,"callId":?,"model":?,"models":?}
 {"kind":"compaction","state":..,"trigger":?,"tokensBefore":?,"tokensAfter":?,"durationMs":?,"detail":?}
 {"kind":"limit","code":..,"message":..}
 {"kind":"warning","message":..}       # advisory, not a failure
@@ -436,8 +436,13 @@ failed tools; inspect `isError` and the tool's native result contract rather
 than treating `done.cause: clean` as workflow success.
 
 `usage.scope` is `message`, `tool`, `compaction`, `turn`, or `session`.
-Pi reports completed assistant messages, nested-tool usage and compaction
-separately. Claude turn tokens cover the main loop; its session cost and
+Pi reports completed assistant messages (each carrying the message's
+`model`), nested-tool usage and compaction
+separately. Claude turn tokens cover the main loop and carry the
+distinct models the turn's main-loop assistant messages attested
+(`models`, first-seen order) whenever at least one was; exactly one
+also singles it out (`model`). Subagent records and `<synthetic>`
+placeholders attest nothing. Claude's session cost and
 per-model (`model`) counts include subagents and restored spend. Codex exec
 and app-server both report cumulative session snapshots, including earlier
 turns on resume; keep the latest snapshot rather than summing or deriving deltas.
@@ -486,13 +491,22 @@ Commands (stdin, one JSON object per line; blank lines ignored):
 {"op":"send","id":..,"text":..}
 {"op":"answer","id":..,"text":..}
 {"op":"interrupt","id":..}
+{"op":"settings","id":..,"model":..,"effort":..}
 {"v":1,"op":"approval","id":..,"requestId":..,"choiceId":..}
 {"op":"close"}
 ```
 
-`send` and `answer` also accept optional `delivery: "queue"` or `"steer"`.
+`send` and `answer` also accept optional `delivery: "queue"` or `"steer"`;
+`send` accepts `"verbatim": true`, which writes the text with no question
+preamble in any questions mode - how a host types the harness's own slash
+command. What a slash command reaches differs by harness: Claude runs its
+slash commands (`/model haiku`, `/compact`); a Pi RPC session runs only
+extension commands and skill/prompt template expansion (`/skill:x args`)
+- interactive built-ins such as `/model` or `/compact` are typed into the
+model as ordinary text, never executed (change Pi's model through the
+`settings` op instead). `answer` refuses `verbatim` in any spelling; a
+non-boolean value is malformed.
 
-`send` and `answer` also accept optional `delivery: "queue"` or `"steer"`.
 Before requesting a control, read `deliveryModes`, `interrupt.supported`
 and `approvals.supported` from the session packet's `controls` (or the
 latest `identity.capabilities.sessionControls` once an identity arrived).
@@ -616,6 +630,56 @@ stdin pipe breaking each emit
 and can no longer be answered. While any request waits, `--stall` pauses
 for that turn. Surface the request to your user; the choice is theirs, and
 a `suggestion-N` grant (or a deny) is exactly what its label says.
+
+### Mid-session model and effort
+
+Claude and Pi sessions accept
+`{"op":"settings","id":..,"model":..,"effort":..}` (at least one field),
+validated exactly as the spawn `--model`/`--effort` flags (the effort
+ladder of the model the session runs when the op takes the wire). Pi
+first reads the session's own model catalog and resolves the selector
+with a port of pi 1.4.0's own `--model` resolver over that catalog, so
+a settings op selects from the session's available models the way the
+spawn flags select from all registered ones (the catalog holds only
+providers with configured auth): the
+session's `--provider` constrains the catalog; an id equal to the whole
+selector and `provider/rest` splitting resolve first (a literal gateway
+id resolves as itself, but when the selector also names a catalog
+provider - `moonshotai/kimi-k2.6` with Moonshot's own `kimi-k2.6`
+available - the named provider wins); then fuzzy matching against ids
+and display names, preferring alias ids over dated ones and then the
+greatest id; a trailing `:level` splits off and applies as the op's
+effort when it named none. No match, or an ambiguous one (the same id
+on two providers with nothing naming one), rejects `invalid-model`.
+Claude writes `set_model` then `apply_flag_settings`; pi writes
+`set_model` then `set_thinking_level`, then reads `get_state`.
+Each op gets exactly one `settings` event: `applied`, or `rejected` with
+`invalid-model`, `invalid-effort`,
+`unsupported` (any session harness besides claude and pi),
+`native-rejected`, `closed`, or `write-failed` - and a partial
+application reports the part that applied on every terminal receipt,
+those reasons included.
+What `applied` reports differs by harness:
+Pi's fields come from the `get_state` readback - the effective model as
+`provider/id` and the effective thinking level (pi clamps silently); on
+Claude `model` is the id the native response confirmed (else the
+request) and `effort` is the requested word. A failed or partial pi
+readback
+after successful writes settles `applied` with only the values the
+readback confirmed, an `unconfirmed` list naming the fields it wrote
+but could not read back (never the requested value), and an `error`
+event on the control output right
+after the receipt - never held for a later turn. It takes effect from the
+next model request; a busy turn is not interrupted, and the effective
+model is observable in `usage` events (claude's turn-scoped one -
+its `models` list and, when only one ran, `model` - and each of pi's
+message-scoped ones). Change models with this op. On Claude a
+verbatim send can type the harness's own slash commands, but a typed
+`/model` follows Claude's own precedence: after a settings model change
+it can be acknowledged yet leave the model unchanged, or switch it -
+observed native behavior, delivered verbatim - so prefer the op when
+you want a specific model. On pi, interactive built-ins never execute
+through a session send: use this op.
 
 ## Native memory controls
 

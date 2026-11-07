@@ -14,6 +14,7 @@ import type { ContentEvent } from "../../src/interpretation/content.js";
 import {
   contentEventsWithState,
   freshCursorReaderState,
+  isCursorReaderState,
 } from "../../src/interpretation/content.js";
 import { detectTrustRefusal } from "../../src/interpretation/limits.js";
 import { resolveEffortSlug } from "../../src/interpretation/vocabulary.js";
@@ -34,7 +35,7 @@ const decoded = (file: string): ContentEvent[] => {
       state,
     );
     events.push(...out.events);
-    if (out.state !== null) state = out.state;
+    if (out.state !== null && isCursorReaderState(out.state)) state = out.state;
   }
   return events;
 };
