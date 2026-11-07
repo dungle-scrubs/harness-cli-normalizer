@@ -747,6 +747,20 @@ export interface HarnessDescriptor {
         readonly headless: false;
       }
     | null;
+  /** Which settings scopes the child loads, where the harness has a flag
+   * for it (claude's `--setting-sources`; verified 2.1.319 that a
+   * user-level permissions.allow applies only under a selection that
+   * includes `user`). Null when the harness has no such flag, and a call
+   * passing one refuses. `defaults` is the selection hcn renders when the
+   * caller picks none - the curated session default (claude: `project`,
+   * which isolates the child from user-level hooks, D-025); a one-shot
+   * launch with no explicit selection renders nothing, exactly as before
+   * this fact existed. Issue #457. */
+  readonly settingSources: {
+    readonly flag: string;
+    readonly values: readonly string[];
+    readonly defaults: readonly string[];
+  } | null;
   /** Whether backgrounded headless calls must have stdin closed (pi hangs
    * without `< /dev/null`). */
   readonly stdin: StdinPolicy;

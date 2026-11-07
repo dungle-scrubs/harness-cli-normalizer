@@ -37,6 +37,7 @@ Usage: `hcn run <harness> [prompt] [options]`. Each flag sets one turn option.
 | `--sandbox <value>` | `sandbox` | Codex; Antigravity accepts normalized `workspace-write` and renders its boolean `--sandbox` flag |
 | `--context-window <tokens>` | `contextWindow` | Codex, integer 1-272000 (launch default 272000); Popeye 1-10000000; Claude 100000-1000000 as native `--autocompact` (auto-compact window, no launch default). Session spawns accept explicit flags only |
 | `--provider <value>` | `provider` | pi only |
+| `--setting-sources <list>` | `settingSources` | Claude only: comma list of `user`, `project`, `local` - non-empty, no repeats - selecting which settings scopes the child loads (rendered as Claude's `--setting-sources`). A bare run renders nothing (Claude's own default applies); a session keeps the curated default `project`, and an explicit selection replaces it. Other harnesses refuse before spawn; `--no-extensions` (whose Claude spelling pins the same native flag to `project`) refuses together with it. No config key |
 | `--agent <name>` | `agent` | Select a named agent the harness defines natively - hcn selects among them, never defines them. claude, antigravity, and popeye (native `--agent`); pi is **extension-registered** (ADR 0010): its subagent extension provides the flag, hcn verifies with a runtime probe before spawn (`extension-option-unavailable` refusal names the extension when it is absent; one provenance line on a verified pass), and `inspect pi --runtime` answers for the machine; codex, muse, and cursor refuse before spawn. An unknown name is the harness's own native error (antigravity and pi tolerate one and continue with a warning; claude and popeye reject with a typed error); no harness exposes a stable machine roster, so hcn does not validate the name beyond the selector rule. Rendered on session spawn and on resume as well (probed: claude `--resume`, antigravity `--conversation`) |
 | `--tools <a,b>` | `tools` | Canonical names (read, write, edit, shell, grep, glob, list, web-fetch, web-search, subagent, skill); `native:<name>` passes a harness-native or extension tool through. Per-tool allowlist; claude, pi and popeye (pi and popeye strict `--tools`, claude via an `--allowedTools` grant + `--disallowedTools` deny-complement). A bare name matching a configured toolset expands to it |
 | `--exclude-tools <a,b>` | `excludeTools` | Canonical names (same vocabulary, `native:<name>` passthrough); complement over known tool names; claude, pi and popeye; mutually exclusive with `--tools` |
@@ -771,7 +772,10 @@ every turn (resume included); antigravity and popeye cannot enforce it and
 refuse with exit 2 rather than open with the full set, and unknown names
 refuse with exit 2 before spawn. The other
 session flags (`--model`, `--session-id`, `--cwd`, `--questions`, `--context-window`,
-`--memory` / `--no-memory`) behave as in the REPL.
+`--memory` / `--no-memory`, `--setting-sources`) behave as in the REPL.
+`--setting-sources <list>` (Claude only) selects which settings scopes the
+session child loads, replacing the curated default `project` (see
+[Turn flags](#turn-flags)); other harnesses refuse it with exit 2.
 
 One send, then close (stdin EOF after the send lets the turn finish, then
 closes the session):

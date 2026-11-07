@@ -46,6 +46,9 @@ const BESIDE_PI_FINGERPRINT = {
   systemPrompt: false,
   appendSystemPrompt: false,
   access: false,
+  // Issue #457 competes with the verified-settings read; claude is the
+  // only harness with the flag and this lane is pi-only, so it refuses.
+  settingSources: false,
 } as const satisfies Record<keyof TurnOptions, boolean>;
 
 export const hasOptionsBesidePiFingerprint = (

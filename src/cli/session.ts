@@ -22,7 +22,11 @@ import type { SkillsSelection } from "../interpretation/skills-selection.js";
 import { mergeToolMaps } from "../interpretation/tool-vocabulary.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
-import { parseSessionPermissionOptions, splitPassthrough } from "./args.js";
+import {
+  parseSessionPermissionOptions,
+  parseSettingSourcesValue,
+  splitPassthrough,
+} from "./args.js";
 import { markJsonCrashStream } from "./crash.js";
 import { gateExtensionOptions, writeExtensionProvenance } from "./extension-gate.js";
 import { resolveLaunchEnvironment } from "./launch-environment.js";
@@ -294,6 +298,10 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   const provider = values.provider as string | undefined;
   const agent = values.agent as string | undefined;
   const effort = values.effort as string | undefined;
+  // Issue #457: claude's setting-source selection, validated by the one
+  // owner (buildSessionArgv) so the refusal shape matches the run lane;
+  // split through the one shared parser.
+  const settingSources = parseSettingSourcesValue(values["setting-sources"]);
   const contextWindow =
     values["context-window"] !== undefined ? Number(values["context-window"]) : undefined;
 
@@ -522,10 +530,9 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
     ...(memoryExpressible ? { memory } : {}),
     ...(skills !== undefined ? { skills } : {}),
     ...(values["native-approvals"] === true ? { nativeApprovals: true } : {}),
+    ...(settingSources === undefined ? {} : { settingSources }),
     ...sessionPermissions,
   };
-  // Narrowed for the options type: the flag is boolean on the wire but
-  // only true reaches the runner.
   // Validate before extension probes, which themselves spawn a native process.
   try {
     buildSessionArgv(h, sessionOptions);

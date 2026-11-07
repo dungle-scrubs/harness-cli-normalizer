@@ -117,6 +117,10 @@ export interface TurnOptions {
    * past option resolution (RFC-02 change 8). */
   readonly toolMap?: ToolMap;
   readonly access?: AccessValue;
+  /** Issue #457: which settings scopes the child loads (claude's
+   * --setting-sources), as a validated selection of the descriptor's
+   * values. Rendered by the descriptor's `settingSources` fact. */
+  readonly settingSources?: readonly string[];
 }
 
 export interface ResumeOptions extends TurnOptions {
@@ -155,6 +159,102 @@ const autonomyFlagOf = (h: HarnessDescriptor): string => {
 /** The shared tail of a headless turn: inline prompt, stream flags and
  * validated selections. Tool names travel in one joined argument; inline
  * prompt text precedes variadic tool grants. */
+/** Issue #457: validate a caller's setting-source selection against the
+ * descriptor's fact - non-empty, known values, no repeats - and refuse on
+ * a harness with no such flag. One owner, so the run and session paths
+ * cannot drift. */
+export const validateSettingSources = (
+  h: HarnessDescriptor,
+  raw: readonly string[],
+): readonly string[] => {
+  const fact = h.settingSources;
+  if (fact === null || fact === undefined) {
+    const supported = Object.values(defaultDescriptors())
+      .filter((d): d is HarnessDescriptor => d.settingSources != null)
+      .map((d) => d.name);
+    throw new ArgvRefusalError({
+      issue: "unsupported-option",
+      harness: h.name,
+      option: "settingSources",
+      supported,
+      detail: "this harness has no setting-sources flag",
+    });
+  }
+  if (raw.length === 0) {
+    throw new ArgvRefusalError({
+      issue: "invalid-option-value",
+      harness: h.name,
+      option: "settingSources",
+      supported: [...fact.values],
+      detail: "a non-empty comma list",
+    });
+  }
+  const seen = new Set<string>();
+  for (const value of raw) {
+    if (!fact.values.includes(value)) {
+      throw new ArgvRefusalError({
+        issue: "invalid-option-value",
+        harness: h.name,
+        option: "settingSources",
+        supported: [...fact.values],
+        detail: value,
+      });
+    }
+    if (seen.has(value)) {
+      throw new ArgvRefusalError({
+        issue: "invalid-option-value",
+        harness: h.name,
+        option: "settingSources",
+        supported: [...fact.values],
+        detail: `repeated value ${JSON.stringify(value)}`,
+      });
+    }
+    seen.add(value);
+  }
+  return raw;
+};
+
+/** The argv tokens a setting-source selection renders: the descriptor's
+ * flag plus the joined selection, or nothing on a harness without the
+ * fact. An omitted explicit selection renders the descriptor's defaults
+ * (claude's curated session default, `project`). */
+const settingSourcesTokens = (
+  h: HarnessDescriptor,
+  explicit?: readonly string[],
+): readonly string[] => {
+  const fact = h.settingSources;
+  if (fact === null || fact === undefined) return [];
+  return [fact.flag, (explicit ?? fact.defaults).join(",")];
+};
+
+/** Issue #457: an explicit selection and the extensions-off facet select
+ * the same native flag's value differently on claude (the facet's only
+ * spelling is --setting-sources project), so the pair refuses rather
+ * than emitting the flag twice with two meanings. */
+const assertSettingSourcesCombination = (
+  h: HarnessDescriptor,
+  opts: { readonly settingSources?: readonly string[]; readonly discovery?: DiscoveryOptions },
+): void => {
+  if (opts.settingSources === undefined) return;
+  validateSettingSources(h, opts.settingSources);
+  if (opts.discovery?.extensions !== false) return;
+  const discoverySpec = h.turnOptions.discovery;
+  const facetRender =
+    discoverySpec?.kind === "discovery" ? discoverySpec.facets.extensions?.render : undefined;
+  const facetFlags = facetRender?.kind === "flag-list" ? facetRender.flags : [];
+  if (facetFlags.includes(h.settingSources?.flag ?? "")) {
+    throw new ArgvRefusalError({
+      issue: "mutually-exclusive-options",
+      harness: h.name,
+      option: "settingSources",
+      supported: [
+        "--setting-sources selects the scopes; --no-extensions pins them to project - pick one",
+      ],
+      detail: "--setting-sources with --no-extensions",
+    });
+  }
+};
+
 const turnTail = (
   h: HarnessDescriptor,
   opts: TurnOptions,
@@ -193,6 +293,9 @@ const turnTail = (
   }
   const skillParts = opts.skills === undefined ? undefined : renderSkillsSelection(h, opts.skills);
   tail.push(...(skillParts?.tokens ?? []));
+  // Issue #457: an explicit selection renders on launch and resume alike;
+  // no selection renders nothing, exactly as before the flag existed.
+  if (opts.settingSources !== undefined) tail.push(...settingSourcesTokens(h, opts.settingSources));
   tail.push(...renderInlineSettings([...settings, ...(skillParts?.settings ?? [])]));
   return tail;
 };
@@ -374,6 +477,7 @@ const resumeLastArgv = (
  * spawn agree by construction (RFC-02 change 10). */
 export const buildSpawnArgv = (h: HarnessDescriptor, opts: SpawnArgvOptions): string[] => {
   assertIsolationCombination(h, opts);
+  assertSettingSourcesCombination(h, opts);
   const placement = h.launch.passthrough ?? "after-argv";
   const tail = opts.passthrough ?? [];
   // A harness that declares prompt-joins passthrough takes a variadic
@@ -458,6 +562,10 @@ export interface SessionOptions extends SessionPermissionOptions {
    * session host answers its requests. Refused on a harness whose
    * descriptor declares no channel. */
   readonly nativeApprovals?: boolean;
+  /** Issue #457: which settings scopes the session child loads (claude's
+   * --setting-sources), validated against the descriptor's fact. The
+   * descriptor's defaults render when omitted. */
+  readonly settingSources?: readonly string[];
 }
 
 /** Select the first explicit dimension for an unsupported-session refusal. */
@@ -536,10 +644,21 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
     });
   }
   refuseUnusableSessionId(h, opts.sessionId);
+  // Issue #457: the setting-source selection validates here too, so a
+  // refused value never reaches the session grammar.
+  if (opts.settingSources !== undefined) validateSettingSources(h, opts.settingSources);
   // Refuse unsupported permissions before assembling the native invocation.
   const permissions = renderSessionPermissions(h, opts);
   const flag = opts.isResume ? h.sessionMode.resumeFlag : h.sessionMode.idFlag;
-  const argv = [h.bin, ...h.sessionMode.flags, ...(flag !== null ? [flag, opts.sessionId] : [])];
+  const argv = [
+    h.bin,
+    ...h.sessionMode.flags,
+    // Issue #457: the setting-source selection rides the session spawn in
+    // place of the descriptor's default (claude: project), so the default
+    // argv is unchanged and an explicit selection replaces it wholesale.
+    ...settingSourcesTokens(h, opts.settingSources),
+    ...(flag !== null ? [flag, opts.sessionId] : []),
+  ];
   const settings: JsonSettingsFragment[] = [];
   if (opts.model !== undefined) {
     const validated = validateModel(h, opts.model);

@@ -184,6 +184,8 @@ export const codexCli: HarnessDescriptor = deepFreeze({
   // codex exec appends piped stdin as a <stdin> block and can block on an
   // open stdin - close it (verified 0.147.0: "Reading additional input
   // from stdin...").
+  // No setting-source selection flag (issue #457 is claude-only).
+  settingSources: null,
   stdin: "close-required",
   presence: {
     headlessMarkers: ["exec"],

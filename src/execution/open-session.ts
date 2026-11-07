@@ -220,6 +220,9 @@ export interface OpenSessionOptions extends SessionPermissionOptions {
    * event. Without it nothing changes: no channel is armed and the child
    * answers its own permission gates the way a bare session does. */
   readonly nativeApprovals?: boolean;
+  /** Issue #457: which settings scopes the session child loads (claude's
+   * --setting-sources). The descriptor's default renders when omitted. */
+  readonly settingSources?: readonly string[];
 }
 
 // The approval-decision and settings-op request shapes, and the receipt
@@ -339,6 +342,7 @@ export const openSession = (
     ...(opts.toolMap !== undefined ? { toolMap: opts.toolMap } : {}),
     ...(opts.discovery !== undefined ? { discovery: opts.discovery } : {}),
     ...(opts.nativeApprovals === true ? { nativeApprovals: true } : {}),
+    ...(opts.settingSources !== undefined ? { settingSources: opts.settingSources } : {}),
   });
   let sessionInput: SessionInputContract;
   try {

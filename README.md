@@ -76,6 +76,8 @@ provenance: questions = ask (default)
 
 To use another harness, replace `claude` with `codex`, `pi`, `muse`, `cursor`, `antigravity`, or
 `popeye` and keep the other flags. hcn checks `--model` and `--effort` against the harness first.
+On claude, `--setting-sources <list>` (`user`, `project`, `local`) picks which settings scopes the
+child loads; runs pass nothing by default and sessions pin `project`.
 For example, `--model haiku` on codex exits 2 and lists the codex models. The stderr lines show where
 each setting came from (`provenance:`), what the harness cannot express (`divergence:`), and the
 command hcn ran (`spawn:`). The prompt is longer than what you typed because hcn adds a preamble

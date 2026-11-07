@@ -219,10 +219,23 @@ export const parseTurnOptions = (values: Record<string, unknown>): ParsedTurnOpt
   if (hasDiscovery) (opts as Record<string, unknown>).discovery = discovery as DiscoveryOptions;
 
   if (values.access !== undefined) opts.access = String(values.access);
+  if (values["setting-sources"] !== undefined) {
+    // Names as typed; interpretation validates the selection against the
+    // descriptor's fact, the single owner of the refusal.
+    opts.settingSources = parseSettingSourcesValue(values["setting-sources"]);
+  }
 
   // prompt will be set by caller after resolvePrompt
   return opts as unknown as ParsedTurnOptions;
 };
+
+/** Issue #457: the one owner of the `--setting-sources <comma list>`
+ * split - names as typed, entries trimmed, undefined when the flag is
+ * absent. Interpretation validates the selection against the
+ * descriptor's fact; every CLI surface (run, session, inspect) splits
+ * through here so they cannot drift (review round 1, F12). */
+export const parseSettingSourcesValue = (value: unknown): readonly string[] | undefined =>
+  typeof value === "string" ? value.split(",").map((entry) => entry.trim()) : undefined;
 
 /** Parse run spellings, then select only the supported session permissions.
  * The argv builder owns descriptor validation and combination refusals. */
@@ -351,6 +364,7 @@ const KNOWN_FLAGS = new Set([
   "--no-instruction-files",
   "--no-extensions",
   "--no-skills",
+  "--setting-sources",
   "--cwd",
   "--env",
   "--resume",
@@ -395,6 +409,7 @@ const FLAGS_WITH_VALUE = new Set([
   "--mode",
   "--stall",
   "--questions",
+  "--setting-sources",
 ]);
 
 export const detectPositionalPromptInjection = (argv: string[]): string | null => {
@@ -540,6 +555,7 @@ export const parseCommonFlags = (
       "no-instruction-files": { type: "boolean" as const },
       "no-extensions": { type: "boolean" as const },
       "no-skills": { type: "boolean" as const },
+      "setting-sources": { type: "string" as const },
       cwd: { type: "string" as const },
       env: { type: "string" as const, multiple: true },
       resume: { type: "string" as const },

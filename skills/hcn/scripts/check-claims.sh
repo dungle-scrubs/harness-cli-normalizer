@@ -293,6 +293,22 @@ case "$help_session" in
     ;;
 esac
 
+# The setting-sources selection is additive (issue #457).
+case "$help_run" in
+  *"--setting-sources"*)
+    require "hcn run --help (setting sources)" "$help_run" \
+      "Claude only" "user, project, local" "no repeats" "No config key"
+    require "hcn session --help (setting sources)" "$help_session" \
+      "replacing the" "default project"
+    ;;
+  *)
+    if [ "${CHECK_CLAIMS_REQUIRE_SESSION_CONTROLS:-0}" = 1 ]; then
+      printf 'MISS: --setting-sources required for this verification\n'
+      misses=$((misses + 1))
+    fi
+    ;;
+esac
+
 # Memory controls are conditional for installed pre-memory builds.
 case "$help_run" in
   *"--no-memory"*)

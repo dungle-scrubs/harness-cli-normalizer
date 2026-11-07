@@ -126,6 +126,8 @@ export const popeyeCli: HarnessDescriptor = deepFreeze({
   },
   // --resume-last is refused at config (flat dir, no workspace binding).
   resumeLast: null,
+  // No setting-source selection flag (issue #457 is claude-only).
+  settingSources: null,
   stdin: "inherit",
   presence: { headlessMarkers: ["-p", "--headless"] },
   capabilities: {

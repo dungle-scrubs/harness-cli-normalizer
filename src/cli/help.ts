@@ -166,6 +166,14 @@ Options:
   --no-tools                Disable tools discovery facet
   --no-instruction-files    Disable instructionFiles discovery facet
   --no-extensions           Disable extensions discovery facet
+  --setting-sources <list>  Claude only: comma list of user, project, local
+                            (non-empty, no repeats) selecting which settings
+                            scopes the child loads, rendered as Claude's
+                            --setting-sources. A bare run passes nothing
+                            (Claude's own default applies). Other harnesses
+                            refuse it; --no-extensions (which pins the same
+                            flag to project) refuses together with it.
+                            No config key
   --skills <a,b>            Skill allowlist (names resolved against $HCN_SKILLS_ROOT
                             or ~/.agents/skills; pi loads, claude and codex narrow)
   --no-skills               Disable skills discovery facet
@@ -340,6 +348,13 @@ ${DENIAL_COUNT_HELP}
                             Which preamble to inject: ask = worker may
                             ask (DEFAULT, pickable menu), assume = never
                             ask, none = inject nothing
+  --setting-sources <list>  Claude only: comma list of user, project, local
+                            (non-empty, no repeats) selecting which settings
+                            scopes the session child loads, replacing the
+                            default project. A host standing in for an
+                            interactive Claude usually wants user,project,local
+                            so the user's own permissions and plugins apply.
+                            Other harnesses refuse it (exit 2)
   --memory                  Use native memory settings for the session spawn;
                             remove hcn's memory-off override
   --no-memory               Disable persistent memory (DEFAULT; claude
@@ -437,6 +452,7 @@ Options:
   --max-steps <n>
   --isolation <tool-free> (fresh claude turn only)
   --no-tools, --no-instruction-files, --no-extensions, --no-skills
+  --setting-sources <list>  (claude; session previews and headless-turn)
   --questions <ask|assume|none>
                             Accepted; renders nothing in argv (the mode
                             rides the run prompt, not a harness flag)

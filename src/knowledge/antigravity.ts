@@ -131,6 +131,8 @@ export const antigravityCli: HarnessDescriptor = deepFreeze({
   },
   // One-shot prompts travel in argv. Closing stdin keeps a missing-login
   // OAuth flow from waiting for an authorization code in an unattended run.
+  // No setting-source selection flag (issue #457 is claude-only).
+  settingSources: null,
   stdin: "close-required",
   presence: { headlessMarkers: ["--print", "-p"] },
   capabilities: {
