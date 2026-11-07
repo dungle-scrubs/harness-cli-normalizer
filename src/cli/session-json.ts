@@ -16,6 +16,7 @@ import {
   type SessionHandle,
   type SessionSendResult,
 } from "../execution/open-session.js";
+import type { SessionApprovalDecisionRequest } from "../execution/session-approval-tracker.js";
 import { composeAnswer, type QuestionMode } from "../interpretation/question.js";
 import { SESSION_DELIVERIES, type SessionDelivery } from "../knowledge/descriptor.js";
 
@@ -55,6 +56,7 @@ type ParsedCommand =
       readonly delivery?: SessionDelivery;
     }
   | { readonly op: "interrupt"; readonly id: string }
+  | (SessionApprovalDecisionRequest & { readonly op: "approval" })
   | { readonly op: "close" }
   | { readonly malformed: string };
 
@@ -100,6 +102,44 @@ const parseCommand = (line: string): ParsedCommand => {
     // The caller keeps replacement text and sends it after the receipt.
     if ("text" in rec) return { malformed: "interrupt carries no text; send it after the receipt" };
     return { op: "interrupt", id: rec.id };
+  }
+  // Issue #454/#455: one decision on a forwarded permission request.
+  // Structural failures are malformed like any other command; semantic
+  // ones (unknown request, unknown choice) are answered by the runner
+  // with a rejected approval-disposition.
+  if (rec.op === "approval") {
+    if (rec.v !== 1) return { malformed: "approval requires v:1" };
+    if (typeof rec.id !== "string" || rec.id === "") return { malformed: "missing or empty id" };
+    if (typeof rec.requestId !== "string" || rec.requestId === "")
+      return { malformed: "missing or empty requestId" };
+    if (typeof rec.choiceId !== "string" || rec.choiceId === "")
+      return { malformed: "missing or empty choiceId" };
+    if (rec.message !== undefined && typeof rec.message !== "string")
+      return { malformed: "message must be a string" };
+    if (rec.answers !== undefined) {
+      const answers = rec.answers as unknown;
+      if (typeof answers !== "object" || answers === null || Array.isArray(answers))
+        return { malformed: "answers must be an object keyed by question text" };
+      for (const value of Object.values(answers as Record<string, unknown>)) {
+        const valid =
+          (typeof value === "string" && value !== "") ||
+          (Array.isArray(value) &&
+            value.length > 0 &&
+            value.every((label) => typeof label === "string" && label !== ""));
+        if (!valid)
+          return { malformed: "answers values must be a label or a non-empty array of labels" };
+      }
+    }
+    return {
+      op: "approval",
+      id: rec.id,
+      requestId: rec.requestId,
+      choiceId: rec.choiceId,
+      ...(rec.message === undefined ? {} : { message: rec.message }),
+      ...(rec.answers === undefined
+        ? {}
+        : { answers: rec.answers as Record<string, string | readonly string[]> }),
+    };
   }
   return { malformed: `unknown op ${JSON.stringify(rec.op)}` };
 };
@@ -273,6 +313,21 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
           }),
         );
         receipts.add(receipt);
+        continue;
+      }
+      if (cmd.op === "approval") {
+        // Issue #454/#455: exactly one disposition per decision, emitted
+        // directly like the other command receipts - the request events it
+        // answers ride inside the turn stream instead.
+        const answered = a.handle.answerApproval(cmd);
+        await emit({
+          kind: "approval-disposition",
+          v: 1,
+          id: cmd.id,
+          requestId: cmd.requestId,
+          status: answered.status,
+          ...(answered.status === "rejected" ? { reason: answered.reason } : {}),
+        });
         continue;
       }
       let text = cmd.text;

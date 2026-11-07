@@ -79,6 +79,17 @@ export class FakeProcess implements SpawnedProcess {
   hasExited = false;
   /** Set by the spawner from opts.stdin - only "pipe" opens a writable. */
   stdinPiped = true;
+  /** The asynchronous input-pipe failure signal the node/bun adapter
+   * exposes (`inputError`). Resolves when failStdin() is called - a
+   * write that fails AFTER being handed to the pipe, the way EPIPE
+   * behaves on a real child whose stdin closed without exiting. */
+  private readonly stdinFailures: Array<() => void> = [];
+  readonly inputError: Promise<void> = new Promise<void>((resolve) => {
+    this.stdinFailures.push(resolve);
+  });
+  failStdin(): void {
+    for (const resolve of this.stdinFailures.splice(0)) resolve();
+  }
   private readonly exitOnStdinEnd: boolean;
   private readonly stdinPipe = {
     write: (data: string): void => {

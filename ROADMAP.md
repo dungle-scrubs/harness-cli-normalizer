@@ -60,6 +60,15 @@ Planned work for hcn. Each item must pass the scope test in `AGENTS.md`.
   and permission limits apply, including Pi's MCP proxy reach. See
   [session permission controls](docs/reference.md#session-permission-controls).
 
+- **Session host controls (#454, #455, #456, #457)** - built: Claude
+  sessions can forward native permission requests, AskUserQuestion and
+  plan approvals to the session host (`--native-approvals`, ADR 0013);
+  Claude and Pi sessions change model and effort mid-session (the `settings`
+  op plus `verbatim` sends for slash commands); `--setting-sources`
+  chooses which settings scopes a Claude run or session loads. See
+  [session native approvals](docs/reference.md#session-native-approvals)
+  and [machine session](docs/reference.md#machine-session).
+
 - **Claude launch environment (#446)** - built: the user config key
   `claudeConfigDir` (non-empty absolute path, no shell expansion) supplies a
   fallback `CLAUDE_CONFIG_DIR` for Claude run and session launches, fresh

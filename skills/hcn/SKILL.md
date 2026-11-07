@@ -157,12 +157,13 @@ supervised" is `--autonomy --questions ask`; fully unattended is
 permission request.
 
 In a live session (`hcn session <harness>`, harnesses listed by
-`hcn session --help`), one process serves the whole conversation and a
-worker's ask does not exit it. The turn ends `awaiting-input` and the
-answer goes in as the next message (`{"op":"answer"}` on the `--json`
-machine surface): no exit, no resume. The process waits with no idle
-budget of hcn's own; the caller owns any timeout. Take the live channel
-when you have it; the run/resume protocol is the cross-harness baseline.
+`hcn session --help`), one process serves the whole conversation; a
+worker's ask ends the turn `awaiting-input`, answered by the next message
+(`{"op":"answer"}` on the `--json` machine surface). On a Claude session,
+`--native-approvals` also forwards permission requests, questions and
+plan approvals to you as `approval-request` events
+([reference.md](references/reference.md#session-native-approvals)). Take
+the live channel when you have it; the run/resume protocol is the baseline.
 
 ## When a flag refuses
 

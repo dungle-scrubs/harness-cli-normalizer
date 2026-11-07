@@ -74,6 +74,10 @@ export interface SessionControlsCapability {
   readonly interrupt:
     | { readonly supported: true; readonly toolCancellation: "best-effort" }
     | { readonly supported: false };
+  /** Issue #454: whether the harness can forward native permission requests
+   * to the session host. Potential support is a descriptor fact; a live
+   * session advertises it only when it was opened with `--native-approvals`. */
+  readonly approvals: { readonly supported: boolean };
 }
 
 export const sessionControlsOf = (h: HarnessDescriptor): SessionControlsCapability | null => {
@@ -85,6 +89,7 @@ export const sessionControlsOf = (h: HarnessDescriptor): SessionControlsCapabili
       controls.interrupt === null
         ? { supported: false }
         : { supported: true, toolCancellation: controls.interrupt.toolCancellation },
+    approvals: { supported: controls.approvals != null },
   };
 };
 

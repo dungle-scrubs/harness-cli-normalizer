@@ -486,25 +486,28 @@ Commands (stdin, one JSON object per line; blank lines ignored):
 {"op":"send","id":..,"text":..}
 {"op":"answer","id":..,"text":..}
 {"op":"interrupt","id":..}
+{"v":1,"op":"approval","id":..,"requestId":..,"choiceId":..}
 {"op":"close"}
 ```
 
 `send` and `answer` also accept optional `delivery: "queue"` or `"steer"`.
-Before requesting a control, read `deliveryModes` and `interrupt.supported`
-from the latest `identity.capabilities.sessionControls`; until the first
-`identity` arrives, use the session packet's `controls`. `hcn inspect <h>
---capabilities` reports `sessionControls` as potential support; null means no
-persistent session. A session reports what its process supports: Claude
-interrupt starts `false` and stays unavailable until the process advertises
-`interrupt_receipt_v1` on its `system/init`, and each change re-announces
-`identity` with the same session id. Missing fields mean the build does not
-advertise these controls.
+
+`send` and `answer` also accept optional `delivery: "queue"` or `"steer"`.
+Before requesting a control, read `deliveryModes`, `interrupt.supported`
+and `approvals.supported` from the session packet's `controls` (or the
+latest `identity.capabilities.sessionControls` once an identity arrived).
+`hcn inspect <h> --capabilities` reports `sessionControls` as potential
+support; null means no persistent session. A session reports what its
+process supports: Claude interrupt starts `false` and stays unavailable
+until the process advertises `interrupt_receipt_v1` on its `system/init`,
+and each change re-announces `identity` with the same session id. Missing
+fields mean the build does not advertise these controls.
 
 | Rule | Detail |
 |---|---|
 | disposition | every well-formed send/answer gets exactly one, in command order: `started` (accepted by the harness), or `rejected` with reason `closed` \| `no-open-question` \| `native-rejected` \| `unsupported-delivery` \| `write-failed`. Pi and codex wait for their native command response before reporting the disposition; without explicit delivery, a busy Pi send uses native `steer` and joins the current turn; a busy codex send uses `turn/steer` under codex's `expectedTurnId` precondition and also joins the RUNNING turn, so a send arriving after the native turn ended reports `rejected`/`native-rejected` (codex's out-of-band `codex queue` CLI is not reachable from the session protocol, so no queue disposition exists). Other harnesses report after their input write and keep their native busy-input behavior. hcn has no send queue (pi sends are written one at a time, each only after pi answered the previous send's native response, so back-to-back sends cannot race inside pi; a closing drain writes held sends out while its turn is still open, and a hold reports `rejected`/`closed` when the session ends before the wire freed it); a send that opens a turn carries the input id |
 | answer | hcn composes the preamble (`The user answered the question: "<q>" with: <text>. Continue accordingly.`); a plain `send` after a question adds none |
-| malformed | not JSON / unknown op / bad id / non-string text / invalid delivery / interrupt carrying text -> `error` event, no disposition, session continues |
+| malformed | not JSON / unknown op / bad id / non-string text / invalid delivery / interrupt carrying text / a structurally bad approval decision -> `error` event, no disposition, session continues |
 | close | `close` op or stdin EOF; turn-scoped `done` never ends the process |
 | harness exit | a turn still open when the harness exits nonzero with no failure yet gets run mode's stderr-tail classification: a transport, unavailable or trust phrasing, else `native` with the tail, else `transport` on empty stderr. The detail is bounded with secret-shaped tokens masked. The `failure` lands in that turn before its `done` (cause stays `crash`), and `closed.failure` carries it. From hcn 0.9.6 a nonzero exit with no open turn also puts a failure on `closed.failure`: one hcn already read from stderr (an auth or limit wall; a limit keeps cause `limit`) first, else the same stderr-tail classification. A codex crash before the session opens creates no turn for its rejected sends |
 | refusals | from hcn 0.9.6. A harness that refuses the command that opened a turn, before acknowledging it (pi `prompt` with `success:false`, a popeye prompt error), ends that turn with the classified failure and `done` cause `failed`; a refused later send, even one reusing the id, leaves the turn running. A refused session open (codex `thread/start` error, popeye `create` error) ends the session: codex rejects the waiting sends with `native-rejected`, popeye ends the first waiting send's turn with the failure, and `closed` reports cause `failed` (exit 1) with the failure. A refusal is classified like a terminal error, except that a generic one is `native`, not `task`. A codex app-server that never answers still waits on the caller |
@@ -561,6 +564,58 @@ messages remain queued; the caller owns queue policy. Tool cancellation is
 best effort and cannot undo completed actions or guarantee child processes
 stop. The command stream stays readable while receipts are pending, and send
 and answer dispositions remain in command order even when ids are reused.
+
+### Session native approvals
+
+`hcn session claude --json --native-approvals` (Claude only, `--json` only;
+refuses exit 2 otherwise, and other session harnesses refuse the flag)
+forwards each native permission request to the session host: the spawn adds
+`--permission-prompt-tool stdio`, and each permission-gated tool call,
+AskUserQuestion and ExitPlanMode plan approval arrives as one
+`approval-request` event inside the current turn. Claude resolves deny
+rules, hooks and managed policy BEFORE asking, so a denied tool never
+reaches you; hcn adds no rule and stores nothing across processes.
+
+```json
+{"kind":"approval-request","v":1,"requestId":..,"sessionId":..,"turnId":..,"category":"tool|question|plan","tool":"Write","details":"..","input":{..},"choices":[{"id":"allow","label":"Allow","scope":"once"},{"id":"suggestion-1","label":"..","scope":"session"},{"id":"deny","label":"Deny","scope":"deny"}]}
+```
+
+- `tool` offers `allow`, one `suggestion-N` per session-destination native
+  suggestion whose type widens the session (setMode, addDirectories, or
+  addRules with `behavior: "allow"`; never removeRules, replaceRules or
+  removeDirectories, never one that would write the user's settings
+  files), then `deny`. A suggestion choice carries the
+  native suggestion object unchanged as `update`, so you can show exactly
+  what it grants; addRules labels render each rule as `Tool` or
+  `Tool(ruleContent)`. `question` offers `answer`/`decline` and carries
+  normalized `questions` (`question`, `header`, `multiSelect`, `options`).
+  `plan` offers `approve`/`deny` and carries the plan text. At most 32
+  requests wait at once; a request beyond the cap is denied natively with
+  a message and surfaces as an `error` event.
+
+Answer on stdin:
+
+```json
+{"v":1,"op":"approval","id":"<your decision id>","requestId":"<offered>","choiceId":"<offered id>","message":"optional, deny-scope only","answers":{"<question text>":"label"|["label",".."]}}
+```
+
+`answers` is required for `answer` (free text allowed; arrays join with
+", ") and refused elsewhere; `message` is refused on allow-scope choices
+(its own reason, `invalid-message`).
+Each decision gets exactly one `approval-disposition`
+`{v:1,id,requestId,status:"sent"|"rejected",reason?}` with reasons
+`unknown-request` (never offered or cleared), `already-answered`,
+`unknown-choice`, `invalid-answers`, `invalid-message`, `closed`,
+`write-failed`. A decision is
+consumed before its write and never retried; a malformed decision line is
+an `error` event. A request the harness cancels
+(`control_cancel_request`, e.g. after your own interrupt), one still waiting
+at turn end, one still waiting at process exit, and one stranded by the
+stdin pipe breaking each emit
+`approval-cleared` `{v:1,requestId,reason:"native-resolved"|"turn-ended"|"process-ended"|"channel-failed"}`
+and can no longer be answered. While any request waits, `--stall` pauses
+for that turn. Surface the request to your user; the choice is theirs, and
+a `suggestion-N` grant (or a deny) is exactly what its label says.
 
 ## Native memory controls
 

@@ -14,59 +14,12 @@
  * These are synthetic processes: they prove the argv and the lifecycle,
  * never that the native harness enforces the permission it was given.
  */
-import { execFileSync, spawnSync } from "node:child_process";
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  realpathSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { mkdirSync, realpathSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { expect, test } from "vitest";
-import { cliFixtureTmpdir } from "./fixture-tmpdir.js";
-
-const cli = resolve("dist/cli.js");
-const runtimes = ["node", "bun"].map((name) =>
-  execFileSync("which", [name], { encoding: "utf8" }).trim(),
-);
+import { runCliFixture, runtimes } from "./session-fixture.js";
 
 const SESSION_ID = "11111111-1111-4111-8111-111111111111";
-
-/** A fake native peer: it records the argv it was spawned with and then
- * behaves like a session harness - claude stays quiet until its stdin
- * closes, pi answers the identity probe with the session id hcn named. */
-const FAKE_CLAUDE = `#!${process.execPath}
-const fs = require("node:fs");
-fs.writeFileSync(process.env.HCN_TEST_ARGV_CAPTURE, JSON.stringify(process.argv));
-process.stdin.resume();
-process.stdin.on("end", () => process.exit(0));
-`;
-
-const FAKE_PI = `#!${process.execPath}
-const fs = require("node:fs");
-fs.writeFileSync(process.env.HCN_TEST_ARGV_CAPTURE, JSON.stringify(process.argv));
-const at = process.argv.indexOf("--session-id");
-const id = at >= 0 ? process.argv[at + 1] : "hcn-preview";
-let answered = false;
-process.stdin.on("data", (chunk) => {
-  if (answered) return;
-  if (!String(chunk).includes("get_state")) return;
-  answered = true;
-  process.stdout.write(
-    JSON.stringify({
-      type: "response",
-      id: "hcn-identity",
-      command: "get_state",
-      success: true,
-      data: { sessionId: id },
-    }) + "\\n",
-  );
-});
-process.stdin.on("end", () => process.exit(0));
-`;
 
 interface SessionRun {
   readonly status: number | null;
@@ -84,65 +37,29 @@ const runSession = (
   flags: readonly string[],
   options: { readonly store?: boolean; readonly config?: string } = {},
 ): SessionRun => {
-  const root = mkdtempSync(join(cliFixtureTmpdir(), "hcn-session-permission-"));
-  const bin = join(root, "bin");
-  const capture = join(root, "argv.json");
-  const configDir = join(root, "config");
-  mkdirSync(bin);
-  mkdirSync(configDir, { recursive: true });
-  for (const name of ["claude", "codex", "antigravity", "popeye"]) {
-    writeFileSync(join(bin, name), FAKE_CLAUDE, { mode: 0o755 });
-  }
-  writeFileSync(join(bin, "pi"), FAKE_PI, { mode: 0o755 });
-  if (options.config !== undefined) {
-    writeFileSync(join(configDir, "config.json"), options.config);
-  }
-  if (options.store === true) {
-    // The native store fixture, resolved the way this repository resolves
-    // it: claude files a session at <home>/.claude/projects/<cwd slug>/
-    // <id>.jsonl, pi files one flat under PI_CODING_AGENT_SESSION_DIR.
-    const slug = realpathSync(root).replace(/[/.]/g, "-");
-    const claudeStore = join(root, ".claude", "projects", slug);
-    mkdirSync(claudeStore, { recursive: true });
-    writeFileSync(join(claudeStore, `${SESSION_ID}.jsonl`), "{}\n");
-    const piStore = join(root, "pi-sessions");
-    mkdirSync(piStore, { recursive: true });
-    writeFileSync(join(piStore, `${SESSION_ID}.jsonl`), "{}\n");
-  }
-  try {
-    const result = spawnSync(runtime, [cli, "session", harness, "--json", ...flags], {
-      cwd: root,
-      env: {
-        HOME: root,
-        PATH: `${bin}:${dirname(runtime)}:/usr/bin:/bin`,
-        XDG_CONFIG_HOME: root,
-        XDG_DATA_HOME: root,
-        XDG_STATE_HOME: root,
-        HCN_CONFIG_DIR: configDir,
-        HCN_STATE_DIR: join(root, "state"),
-        PI_CODING_AGENT_SESSION_DIR: join(root, "pi-sessions"),
-        HCN_TEST_ARGV_CAPTURE: capture,
-      },
-      input: "",
-      encoding: "utf8",
-      timeout: 20000,
-    });
-    expect(result.error).toBeUndefined();
-    const spawned = existsSync(capture);
-    return {
-      status: result.status,
-      stderr: result.stderr,
-      spawned,
-      argv: spawned ? (JSON.parse(readFileSync(capture, "utf8")) as string[]) : null,
-      events: result.stdout
-        .trim()
-        .split("\n")
-        .filter(Boolean)
-        .map((line) => JSON.parse(line) as Record<string, unknown>),
-    };
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+  const configDir = "config";
+  return runCliFixture(runtime, ["session", harness, "--json", ...flags], {
+    binaries: ["claude", "codex", "antigravity", "popeye", "pi"],
+    env: { HCN_CONFIG_DIR: configDir },
+    setup: (root) => {
+      mkdirSync(join(root, configDir), { recursive: true });
+      if (options.config !== undefined) {
+        writeFileSync(join(root, configDir, "config.json"), options.config);
+      }
+      if (options.store === true) {
+        // The native store fixture, resolved the way this repository resolves
+        // it: claude files a session at <home>/.claude/projects/<cwd slug>/
+        // <id>.jsonl, pi files one flat under PI_CODING_AGENT_SESSION_DIR.
+        const slug = realpathSync(root).replace(/[/.]/g, "-");
+        const claudeStore = join(root, ".claude", "projects", slug);
+        mkdirSync(claudeStore, { recursive: true });
+        writeFileSync(join(claudeStore, `${SESSION_ID}.jsonl`), "{}\n");
+        const piStore = join(root, "pi-sessions");
+        mkdirSync(piStore, { recursive: true });
+        writeFileSync(join(piStore, `${SESSION_ID}.jsonl`), "{}\n");
+      }
+    },
+  });
 };
 
 /** The value that follows a flag in a captured argv. */

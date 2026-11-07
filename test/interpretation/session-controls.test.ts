@@ -43,14 +43,28 @@ describe("session controls are descriptor facts", () => {
       [claudeCode.name]: {
         deliveryModes: ["queue", "steer"],
         interrupt: { supported: true, toolCancellation: "best-effort" },
+        approvals: { supported: true },
       },
       [piCli.name]: {
         deliveryModes: ["queue", "steer"],
         interrupt: { supported: true, toolCancellation: "best-effort" },
+        approvals: { supported: false },
       },
-      [codexCli.name]: { deliveryModes: ["steer"], interrupt: { supported: false } },
-      [antigravityCli.name]: { deliveryModes: [], interrupt: { supported: false } },
-      [popeyeCli.name]: { deliveryModes: [], interrupt: { supported: false } },
+      [codexCli.name]: {
+        deliveryModes: ["steer"],
+        interrupt: { supported: false },
+        approvals: { supported: false },
+      },
+      [antigravityCli.name]: {
+        deliveryModes: [],
+        interrupt: { supported: false },
+        approvals: { supported: false },
+      },
+      [popeyeCli.name]: {
+        deliveryModes: [],
+        interrupt: { supported: false },
+        approvals: { supported: false },
+      },
     });
   });
 

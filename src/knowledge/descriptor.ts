@@ -136,6 +136,17 @@ export type ApprovalObserver = (typeof APPROVAL_OBSERVERS)[number];
 export const SESSION_DELIVERIES = deepFreeze(["queue", "steer"] as const);
 export type SessionDelivery = (typeof SESSION_DELIVERIES)[number];
 
+/** Issue #454: the native permission channel a persistent session can
+ * forward to its host. Claude's `--permission-prompt-tool stdio` makes the
+ * child ask about each permission-gated tool call with a `can_use_tool`
+ * control request and wait for the host's `control_response` (verified
+ * 2.1.319). */
+export interface SessionApprovalChannel {
+  readonly kind: "claude-can-use-tool";
+  /** What hcn adds to the session argv to arm the channel. */
+  readonly spawnFlags: readonly string[];
+}
+
 /** The live-session controls a harness supports natively, as verified data.
  * The runner refuses anything not listed here before writing native input. */
 export interface SessionControls {
@@ -146,6 +157,11 @@ export interface SessionControls {
    * neither undoes completed actions nor guarantees that a running tool
    * and its children stop. */
   readonly interrupt: { readonly toolCancellation: "best-effort" } | null;
+  /** Issue #454: native permission requests the session forwards to its
+   * host, or null when the harness has no such channel. Potential support
+   * is a descriptor fact; a live session advertises it only when it was
+   * opened with `--native-approvals`. */
+  readonly approvals?: SessionApprovalChannel | null;
 }
 
 export interface SessionInputContract {

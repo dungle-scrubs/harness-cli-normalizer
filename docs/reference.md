@@ -635,7 +635,10 @@ as hcn 0.9.8 emitted them for one send:
 - `session.origin` is `fresh` for a new conversation or `resumed` when `--resume` (or its `--session-id` alias) continued a conversation that already exists in the harness store. A refused unknown-id resume emits no `session` event at all.
 - `turn.id` is the id of the `send` that opened the turn. Native background
   output has no caller id.
-- `session.controls` advertises `deliveryModes` and `interrupt.supported`.
+- `session.controls` advertises `deliveryModes`, `interrupt.supported` and
+  `approvals.supported` (the
+  [approvals channel](#session-native-approvals), armed by
+  `--native-approvals`).
   `hcn inspect --capabilities` reports `sessionControls` as the harness's
   potential support. A session reports what its process supports: Claude
   interrupt support is `false` on the `session` line and becomes `true` only
@@ -672,8 +675,13 @@ stdin carries one command per line (blank lines are ignored):
 ```jsonl
 {"op":"send","id":"in-1","text":"explain a monad in one sentence"}
 {"op":"answer","id":"in-2","text":"prod"}
+{"v":1,"op":"approval","id":"d-1","requestId":"<offered>","choiceId":"allow"}
 {"op":"close"}
 ```
+
+The `approval` command answers a forwarded native permission request
+([below](#session-native-approvals)); every other command is a turn input
+or a lifecycle control.
 
 - Every well-formed `send`/`answer` gets exactly one `disposition` event,
   in command order. `started`: the harness accepted the text. Pi and codex
@@ -709,7 +717,10 @@ stdin carries one command per line (blank lines are ignored):
   a question opens a turn with no preamble: `answer` to answer, `send` to
   change the subject.
 - End of stdin means `close`. A malformed line (not JSON, unknown `op`,
-  missing or empty `id`, non-string `text`, invalid `delivery`) produces an `error` event, no
+  missing or empty `id`, non-string `text`, invalid `delivery`, a malformed
+  `approval` decision - missing `v`/`id`/`requestId`/`choiceId`, a non-string
+  `message`, `answers` values that are not a label or a non-empty label
+  array) produces an `error` event, no
 disposition, and the session continues.
 
 Exit codes: 0 when `closed.cause` is `clean`; 1 otherwise; 2 for a refusal
@@ -827,6 +838,89 @@ native queued messages through the interruption; hcn never cancels, resends or
 reorders them. Cancellation is best effort: it cannot undo completed
 actions or guarantee that every running tool or child process stops. hcn adds no
 queue clearing, message promotion or cancellation timeout.
+
+### Session native approvals
+
+`hcn session claude --json --native-approvals` arms Claude's native
+permission channel: the spawn adds `--permission-prompt-tool stdio`, and each
+permission-gated tool call arrives as a `can_use_tool` control request that
+hcn forwards to the session host instead of answering itself. Without the
+flag nothing changes. The flag refuses (exit 2) without `--json` and on every
+other session harness; `session.controls.approvals.supported` and
+`hcn inspect <h> --capabilities`'s `sessionControls.approvals` report the
+live and the potential support.
+
+Each request becomes one `approval-request` event inside the current turn:
+
+```jsonl
+{"kind":"approval-request","v":1,"requestId":"<native id>","sessionId":"..","turnId":"..","category":"tool","tool":"Write","details":"<native description, or the display name>","input":{...native tool input, unchanged...},"choices":[{"id":"allow","label":"Allow","scope":"once"},{"id":"suggestion-1","label":"Allow, and accept edits for this session","scope":"session","update":{...native suggestion, unchanged...}},{"id":"deny","label":"Deny","scope":"deny"}]}
+```
+
+- `category` is `tool` for an ordinary permission-gated tool call, `question`
+  for AskUserQuestion, `plan` for ExitPlanMode. `input` is the native tool
+  input unchanged; `details` is plain text.
+- `tool` offers `allow`, one `suggestion-N` per native suggestion whose
+  destination is `session` and whose type widens what the session allows
+  (`setMode`, `addDirectories`, or `addRules` with `behavior: "allow"`;
+  `removeRules`, `replaceRules` and `removeDirectories` are never a
+  choice, whatever behavior they carry), then `deny`. A suggestion
+  choice carries the native
+  suggestion object unchanged as `update`, so a host can show exactly
+  what it grants; its label names what it grants: setMode names the mode,
+  addRules names the rules it adds - each rule as `Tool` or
+  `Tool(ruleContent)`, joined with `", "` (for example `Allow, and always
+  allow Bash(git status) for this session`). Suggestions with other
+  destinations are not offered: hcn never writes the user's settings
+  files. At most 32 requests wait at once (the same cap the Codex run
+  lane enforces): a request beyond the cap is denied natively with a
+  message and surfaces as an `error` event.
+- `question` carries the normalized `questions`
+  (`question`, `header`, `multiSelect`, `options` of `label`/`description`)
+  and the choices `answer` and `decline`.
+- `plan` carries the plan text and the choices `approve` and `deny`.
+
+The host answers on stdin, one line per decision:
+
+```jsonl
+{"v":1,"op":"approval","id":"<decision id>","requestId":"<offered>","choiceId":"<offered choice id>","message":"optional, deny-scope choices only","answers":{"<question text>":"label" | ["label",".."]}}
+```
+
+- `allow`, `approve` and `answer` reply `behavior: "allow"` with
+  `updatedInput` = the native input (`answer` amends it with `answers`; an
+  array joins with `", "`; free text matching no label is allowed - it is
+  Claude's "Other"). A `suggestion-N` reply additionally carries
+  `updatedPermissions` with that suggestion. `deny` and `decline` reply
+  `behavior: "deny"` with `message` (defaults: `The user denied this action.`
+  / `The user declined to answer.`); the message reaches the model as the
+  tool result.
+- `answers` is required for `answer` and refused elsewhere; `message` is
+  refused on allow-scope choices (its own reason, `invalid-message`, so the
+  host reads which field to fix).
+
+Each decision gets exactly one `approval-disposition` event
+`{v:1, id, requestId, status}` - `sent`, or `rejected` with a reason:
+`unknown-request` (never offered, or cleared), `already-answered`,
+`unknown-choice`, `invalid-answers`, `invalid-message`, `closed`,
+`write-failed`. A decision is
+consumed before its write and never retried; a structurally malformed
+decision line is an `error` event like other malformed commands. A request
+the harness cancels (`control_cancel_request`, for example after an
+interrupt), one still waiting when its turn ends, one still waiting when
+the process exits, and one stranded by the stdin pipe breaking each emit
+`approval-cleared`
+`{v:1, requestId, reason}` with reason `native-resolved`, `turn-ended`,
+`process-ended` or `channel-failed`, and lose their answer right
+(`unknown-request`). An answered request id is remembered (bounded: past
+4096 ids the oldest is forgotten and reads `unknown-request`), so
+re-answers keep rejecting `already-answered`; a cleared request is
+forgotten at once. While any
+request waits, the session's `--stall` clock pauses for that turn - a human
+is deciding, so quiet is not inactivity. `--stall 0` still disables it
+entirely.
+
+Claude resolves deny rules, hooks and the managed policy before it asks the
+host; hcn adds no rule of its own. The pending map is per process: nothing
+persists across processes, and the caller owns durable choice records.
 
 ## Inspection
 
@@ -1012,6 +1106,10 @@ acceptance. Run `hcn interactive --help` for the command contract.
 ## Native approvals during one response
 
 `hcn run codex --json --native-approvals --resume ID --cwd ABSOLUTE --native-settings-fingerprint HASH --prompt TEXT` resumes one response through Codex app-server. Obtain `HASH` from passive native settings inspection below. HCN verifies the saved source again, restores its supported settings, and compares the effective settings before sending the prompt. This is an opt-in alternative to ordinary `exec resume`.
+
+(Claude sessions have their own approvals lane -
+[Session native approvals](#session-native-approvals) - which forwards the
+requests instead of gating a one-shot response.)
 
 The current lane preserves recorded read-only filesystem, restricted network, user reviewer, and `on-request` or `never` approval policy. Unsupported settings refuse before a prompt. Fresh sessions, native passthrough, explicit `--memory` or `--no-memory`, and competing model, effort, provider or permission options are refused. Memory overrides remain available on ordinary resume; this lane accepts only its verified native settings. Use `--prompt-file PATH` for a file-backed prompt; stdin is reserved for decisions, so `--prompt-file -` is refused.
 

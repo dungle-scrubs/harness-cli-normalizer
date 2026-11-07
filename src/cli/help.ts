@@ -237,10 +237,12 @@ Arguments:
 Options:
   --json                    Machine surface: NDJSON events on stdout, NDJSON
                             commands on stdin ({"op":"send","id":..,"text":..},
-                            "answer", "interrupt", "close"). Send and answer
-                            accept optional "delivery":"queue"|"steer".
-                            The session event advertises controls.deliveryModes
-                            and controls.interrupt.supported. Claude interrupt
+                            "answer", "interrupt", "approval", "close"). Send
+                            and answer accept optional
+                            "delivery":"queue"|"steer". The session event
+                            advertises controls.deliveryModes,
+                            controls.interrupt.supported and
+                            controls.approvals.supported. Claude interrupt
                             support starts false and follows what the process
                             advertises; read the latest identity event's
                             capabilities.sessionControls. Unsupported modes
@@ -262,7 +264,21 @@ Options:
 ${DENIAL_COUNT_HELP}
   --stall <seconds>         Per-turn inactivity budget; the turn ends and the
                             session closes reporting a stall. 0 disables
-                            (default: no limit)
+                            (default: no limit). While a native approval
+                            request waits (--native-approvals), the clock
+                            pauses: a human is deciding
+  --native-approvals        Claude only, with --json: forward each native
+                            permission request (tool calls, AskUserQuestion,
+                            plan approvals) to the session host as
+                            approval-request events; answer with stdin
+                            {"v":1,"op":"approval","id",..,"requestId",
+                            ..,"choiceId",..}. One approval-disposition per
+                            decision; cancelled, turn-ended and process-ended
+                            requests emit approval-cleared and lose their
+                            answer right. Claude resolves deny rules, hooks
+                            and managed policy before asking; hcn adds no
+                            rule. Without the flag nothing changes; without
+                            --json or on another harness it refuses (exit 2)
   --provider <value>        Provider (pi only)
   --agent <name>            Named agent for the session spawn (claude,
                             antigravity, popeye; pi with its subagent

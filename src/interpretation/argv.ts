@@ -454,6 +454,10 @@ export interface SessionOptions extends SessionPermissionOptions {
    * every turn - and on resume too, where the resumed process is re-spawned
    * with the same narrowing. */
   readonly skills?: SkillsSelection;
+  /** Issue #454: arm the harness's native permission channel so the
+   * session host answers its requests. Refused on a harness whose
+   * descriptor declares no channel. */
+  readonly nativeApprovals?: boolean;
 }
 
 /** Select the first explicit dimension for an unsupported-session refusal. */
@@ -607,6 +611,26 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
     const parts = renderSkillsSelection(h, opts.skills);
     argv.push(...parts.tokens);
     settings.push(...parts.settings);
+  }
+  // Issue #454: the native permission channel rides the session spawn; a
+  // harness with no declared channel cannot open one, so the flag refuses
+  // here - the same pre-spawn boundary every other session dimension
+  // refuses at.
+  if (opts.nativeApprovals === true) {
+    const channel = h.sessionMode.controls.approvals;
+    if (channel === null || channel === undefined) {
+      const supported = Object.values(defaultDescriptors())
+        .filter((d): d is HarnessDescriptor => d.sessionMode?.controls.approvals != null)
+        .map((d) => d.name);
+      throw new ArgvRefusalError({
+        issue: "unsupported-option",
+        harness: h.name,
+        option: "nativeApprovals",
+        supported,
+        detail: "this harness declares no session permission channel",
+      });
+    }
+    argv.push(...channel.spawnFlags);
   }
   argv.push(...renderInlineSettings(settings));
   return argv;

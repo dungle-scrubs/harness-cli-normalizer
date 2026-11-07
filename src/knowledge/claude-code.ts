@@ -106,6 +106,21 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     controls: {
       delivery: ["queue", "steer"],
       interrupt: { toolCancellation: "best-effort" },
+      // Issue #454/#455, verified 2.1.319 with --permission-prompt-tool
+      // stdio: each permission-gated tool call (including AskUserQuestion
+      // and ExitPlanMode, which carry requires_user_interaction instead of
+      // description/permission_suggestions) arrives as a can_use_tool
+      // control request and the child waits for the host's control_response.
+      // An allow reply carries updatedInput (AskUserQuestion answers ride
+      // inside it); a deny reply's message reaches the model as the tool
+      // result; an interrupt while a request waits makes the child send
+      // control_cancel_request for it. Claude resolves deny rules, hooks
+      // and managed policy BEFORE it asks; the channel adds no rule of
+      // its own. Session-only: the one-shot run lane has no host answering.
+      approvals: {
+        kind: "claude-can-use-tool",
+        spawnFlags: ["--permission-prompt-tool", "stdio"],
+      },
     },
     turnEnd: { type: "result" },
     identityProbe: null,

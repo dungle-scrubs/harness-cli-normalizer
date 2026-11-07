@@ -73,6 +73,12 @@ import {
 import { LineBuffer, RUN_LINE_MAX } from "./lines.js";
 import { PIPE_GRACE_MS, redactArgv } from "./stream-turn.js";
 import { StderrTail, superviseTurn } from "./supervisor.js";
+import {
+  createSessionApprovalTracker,
+  type SessionApprovalAnswer,
+  type SessionApprovalDecisionRequest,
+  type SessionApprovalTracker,
+} from "./session-approval-tracker.js";
 
 /** Grace after stdin EOF before concluding the child will not exit on its
  * own and escalating signals. */
@@ -122,6 +128,14 @@ export interface SessionInterruptReceipt {
   readonly reason?: "unsupported" | "closed" | "write-failed" | "native-rejected";
 }
 
+// Issue #454/#455: the approval-decision request and answer types live
+// with the tracker that owns the ledger, and are re-exported here: one
+// type each for the session handle, the CLI's stdin ops and the tracker.
+export type {
+  SessionApprovalAnswer,
+  SessionApprovalDecisionRequest,
+} from "./session-approval-tracker.js";
+
 /** `requested`: the native cancellation request was written, and `settled`
  * resolves exactly once with the terminal receipt. `rejected`: nothing was
  * written. */
@@ -144,6 +158,9 @@ export interface SessionHandle {
   /** Request cancellation of the active turn while the process continues.
    * Carries no replacement text: the caller sends that after the receipt. */
   interrupt(request: { readonly id: string }): SessionInterruptResult;
+  /** Issue #454/#455: answer one forwarded permission request. Exactly one
+   * answer right per request: answered once, cleared never again. */
+  answerApproval(decision: SessionApprovalDecisionRequest): SessionApprovalAnswer;
   close(): Promise<void>;
 }
 
@@ -184,6 +201,12 @@ export interface OpenSessionOptions extends SessionPermissionOptions {
    * it through the same owner a one-shot launch uses; a harness that
    * cannot enforce an allowlist refuses here, before any spawn. */
   readonly skills?: SkillsSelection;
+  /** Issue #454/#455: arm the harness's native permission channel
+   * (`--permission-prompt-tool stdio` on claude) so each permission-gated
+   * tool call is forwarded to the session host as an approval-request
+   * event. Without it nothing changes: no channel is armed and the child
+   * answers its own permission gates the way a bare session does. */
+  readonly nativeApprovals?: boolean;
 }
 
 export class SessionClosedError extends Error {
@@ -289,6 +312,7 @@ export const openSession = (
     ...(opts.access !== undefined ? { access: opts.access } : {}),
     ...(opts.toolMap !== undefined ? { toolMap: opts.toolMap } : {}),
     ...(opts.discovery !== undefined ? { discovery: opts.discovery } : {}),
+    ...(opts.nativeApprovals === true ? { nativeApprovals: true } : {}),
   });
   let sessionInput: SessionInputContract;
   try {
@@ -389,20 +413,62 @@ export const openSession = (
   let wireClosed = false;
   let commandSeq = 0;
   const uuidCorrelated = correlatesByInputUuid(sessionInput.kind);
+  // Issue #454/#455: whether this session forwards native permission
+  // requests to its host - a spawn property (--native-approvals on a
+  // harness whose descriptor declares the channel), unlike interrupt
+  // support which the running claude process advertises per init.
+  const approvalsArmed = opts.nativeApprovals === true && h.sessionMode?.controls.approvals != null;
   const potentialControls: SessionControlsCapability = sessionControlsOf(h) ?? {
     deliveryModes: [],
     interrupt: { supported: false },
+    approvals: { supported: false },
   };
   // Issue #429: the descriptor states what the harness can do; a kind whose
   // process advertises its interrupt support offers it only once a record
   // says so (claude system/init), and each later init can change it.
   const controlsWith = (advertised: boolean): SessionControlsCapability =>
-    advertised ? potentialControls : { ...potentialControls, interrupt: { supported: false } };
+    advertised
+      ? { ...potentialControls, approvals: { supported: approvalsArmed } }
+      : {
+          ...potentialControls,
+          interrupt: { supported: false },
+          approvals: { supported: approvalsArmed },
+        };
   let controls = controlsWith(!requiresInterruptAdvertisement(sessionInput.kind));
   // The last identity routed, stamped with the controls current then: a
   // later change re-announces it.
   let lastIdentity: (HarnessEvent & { kind: "identity" }) | null = null;
   const pendingInterrupts = new Map<string, PendingInterrupt>();
+  // Issue #454/#455: the approval ledger (extracted, review round 1 F12).
+  // Waiting requests keep their full proposal; an answered id becomes a
+  // bounded tombstone (already-answered); a cleared request is deleted
+  // (unknown-request). The pending set is capped like the Codex lane's.
+  // Nothing persists across processes - the caller owns durable choice
+  // records.
+  const approvals: SessionApprovalTracker = createSessionApprovalTracker({
+    sessionId: opts.sessionId,
+    announcedSessionId: () => state.lastSeenId ?? opts.sessionId,
+    log,
+    routeEvent: (event) => routeEvent(event),
+    pauseInactivity: () => sup.pauseInactivity(),
+    resumeInactivity: () => sup.resumeInactivity(),
+    isClosed: () => dead || closing,
+    write: (line) => {
+      stdin.write(line);
+    },
+    onWriteFailed: () => {
+      // The same broken-pipe path a send takes: nothing more can reach
+      // the child, so the session ends through the exit path.
+      void routeEvent({
+        kind: "error",
+        message: "approval decision failed: session stdin is gone",
+      });
+      closing = true;
+      wireClosed = true;
+      sup.escalate();
+    },
+    turnId: () => activeTurnId,
+  });
   // The id of the codex turn currently running NATIVELY (result.turn.id /
   // turn/steer's {turnId}), the steer precondition for the next mid-turn
   // send. Null while no native turn is open; cleared at each turn end.
@@ -722,6 +788,13 @@ export const openSession = (
     // A provisional turn that ends any other way (settlement, stall,
     // death) had a run, or owes a failure: it is published first.
     publishTurn();
+    // Issue #454: a request that was still waiting when its turn ended
+    // loses its answer right; the cleared event lands inside that turn,
+    // ahead of its done. An answered one already stopped waiting. (No
+    // stall resync here: the supervisor is disarmed immediately below,
+    // so resuming would only arm a timer nothing uses - review round 1,
+    // F14.)
+    approvals.clearTurn(activeTurn as object);
     sup.disarm();
     // issue #44: the supervisor scans the last assistant message for the
     // hcn-question block; the question event lands in the turn stream
@@ -1168,6 +1241,44 @@ export const openSession = (
           if (command !== undefined) freeGate(command);
           return;
         }
+        case "approval-request": {
+          // Issue #454/#455: the child asked the host about a tool use.
+          // Without --native-approvals no channel was armed and the child
+          // raises none; an unexpected one is dropped, never half-forwarded.
+          if (!approvalsArmed) return;
+          // A request the tracker already knows (waiting, or answered) is
+          // a replay: it gets none of a first sighting's side effects - in
+          // particular it must not open a new turn after its own ended.
+          if (!approvals.isKnown(record.requestId)) {
+            // The event rides inside the current turn: a provisional turn
+            // publishes like any other run output would, and with no turn
+            // open the request opens one of its own (untagged).
+            if (activeTurn !== null && !activeTurnPublished) publishUntagged();
+            else if (activeTurn === null && !dead && !closing) startTurn();
+          }
+          // Awaited: past the turn channel's high-water mark this blocks
+          // the stdout pump, so a flooding child meets its consumer's
+          // pace instead of buffering unbounded request events.
+          await approvals.offer(record.requestId, record.proposal, activeTurn);
+          // A request arriving while a closing drain waits on this turn
+          // can never be answered (the command stream has ended), so the
+          // wait is now unbounded: wake the drain, whose re-check breaks
+          // out and ends stdin instead.
+          if (closing && turnSettled !== null) {
+            const release = turnSettled;
+            turnSettled = null;
+            release();
+          }
+          return;
+        }
+        case "approval-cancelled": {
+          // Issue #454: the child cancelled its own request (an interrupt
+          // while it waited). The answer right is gone either way. The
+          // cleared event's delivery is awaited for the same backpressure
+          // as the request itself.
+          await approvals.cancel(record.requestId);
+          return;
+        }
         case "ignored":
           return;
         case "turn-end": {
@@ -1268,6 +1379,10 @@ export const openSession = (
     if (pumpError !== null) {
       void routeEvent({ kind: "error", message: `session pump failed: ${String(pumpError)}` });
     }
+    // Issue #454: every request still waiting dies with the process. The
+    // cleared events land before the dying turn's done; with no turn open
+    // they park with the other pre-turn events.
+    approvals.clearAll();
     // Issue #345: a refused identity probe lands here with popeyePending
     // already drained by the probe-failed arm and sessionFailure set.
     // For a clean exit, that becomes "failed" - the harness did not crash,
@@ -1394,6 +1509,21 @@ export const openSession = (
     });
     shutdownComplete();
   };
+
+  // Issue #456 (review round 1, F3): a stdin write can fail
+  // asynchronously - the child closes its stdin but keeps running, so no
+  // synchronous throw ever fires. The adapter's inputError promise is the
+  // real signal: clear waiting approvals channel-failed and end the
+  // session the way the broken send pipe does (the exit path then
+  // finalizes as usual).
+  void proc.inputError?.then(() => {
+    if (dead || closing) return;
+    void routeEvent({ kind: "error", message: "session stdin failed: the input pipe broke" });
+    closing = true;
+    wireClosed = true;
+    approvals.clearChannel();
+    sup.escalate();
+  });
 
   void proc.exited.then((code) => {
     dead = true;
@@ -1642,6 +1772,9 @@ export const openSession = (
         state: "requested",
       });
       return { state: "requested", settled };
+    },
+    answerApproval(decision: SessionApprovalDecisionRequest): SessionApprovalAnswer {
+      return approvals.answer(decision);
     },
     close,
   };
