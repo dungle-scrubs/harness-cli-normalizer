@@ -304,6 +304,12 @@ export const failureFromTransport = (detail?: string): FailureSummary => ({
 
 const grouped = (n: number): string => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
+/** The shared text of a line overflow: the stream, the line's size and
+ * the bound it exceeded. One formatter, so the failure and the warning
+ * that replaces it never drift apart. */
+const lineOverflowText = (stream: "stdout" | "stderr", overflow: LineOverflow): string =>
+  `output line overflow: ${stream} line of ${grouped(overflow.bytes)} bytes exceeds the ${grouped(overflow.limit)}-character line limit and was discarded`;
+
 /** A harness output line longer than hcn's line bound. hcn discarded it, so
  * whatever it carried - often the whole reply - never reached the caller.
  * Transport family: hcn could not carry the harness's output, which is no
@@ -311,10 +317,16 @@ const grouped = (n: number): string => String(n).replace(/\B(?=(\d{3})+(?!\d))/g
 export const failureFromLineOverflow = (
   stream: "stdout" | "stderr",
   overflow: LineOverflow,
-): FailureSummary =>
-  failureFromTransport(
-    `output line overflow: ${stream} line of ${grouped(overflow.bytes)} bytes exceeds the ${grouped(overflow.limit)}-character line limit and was discarded`,
-  );
+): FailureSummary => failureFromTransport(lineOverflowText(stream, overflow));
+
+/** The same overflow text plus the reason it did not fail the turn: the
+ * discarded line repeated records hcn had already read, or the turn
+ * completed after it. */
+export const lineOverflowWarning = (
+  stream: "stdout" | "stderr",
+  overflow: LineOverflow,
+  reason: string,
+): string => `${lineOverflowText(stream, overflow)}; ${reason}`;
 
 /** Short detail shared by the blocked-approval error event and failure.
  * Issue #189: a sandbox escalation (the command asked to run outside the

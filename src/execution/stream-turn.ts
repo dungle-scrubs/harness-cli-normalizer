@@ -30,7 +30,13 @@ import { ArgvRefusalError } from "../interpretation/refusal.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { matcherOverridesOf } from "../knowledge/overrides.js";
 import { AsyncChannel } from "./channel.js";
-import { decodeLine, freshDecodeState, settleProvisionalError } from "./decode.js";
+import {
+  decodeLine,
+  freshDecodeState,
+  noteStdoutOverflow,
+  settleOverflows,
+  settleProvisionalError,
+} from "./decode.js";
 import type { RunnerDeps, SpawnedProcess } from "./deps.js";
 import {
   DROPPABLE_KINDS,
@@ -58,7 +64,7 @@ import {
   reduceFailures,
   SECRETISH,
 } from "./failure.js";
-import { LineBuffer, RUN_LINE_MAX } from "./lines.js";
+import { LineBuffer, type LineOverflow, RUN_LINE_MAX } from "./lines.js";
 import { type MuseApprovalObserver, watchMuseApprovals } from "./muse-approvals.js";
 import { streamNativeApprovalTurn } from "./native-approval-turn.js";
 import { StderrTail, superviseTurn } from "./supervisor.js";
@@ -524,15 +530,12 @@ export async function* streamTurn(
   }
 
   const pumpStdout = async (): Promise<void> => {
-    // An over-long line is reported when it ends; the pump turns each report
-    // into a failure after the lines of the same chunk.
-    const overflows: FailureSummary[] = [];
-    const lines = new LineBuffer(RUN_LINE_MAX, (overflow) =>
-      overflows.push(failureFromLineOverflow("stdout", overflow)),
-    );
-    const reportOverflows = async (): Promise<void> => {
-      for (const failure of overflows.splice(0)) await handleEvent({ kind: "failure", ...failure });
-    };
+    // An over-long line is reported when it ends. The report is judged
+    // where it happened: an echo record (one that only repeats what hcn
+    // already read) warns at once, and any other overflow is held as
+    // pending evidence until a later assistant message supersedes it or
+    // the turn settles.
+    const lines = new LineBuffer(RUN_LINE_MAX);
     let identitySeen = false;
     const droppableBuffer: HarnessEvent[] = [];
     const BUFFER_CAP = 256;
@@ -593,24 +596,38 @@ export async function* streamTurn(
       await queue.push(event);
       if (event.kind === "identity") startApprovalWatch(event.sessionId);
     };
+    const handleOverflow = async (overflow: LineOverflow): Promise<void> => {
+      const event = noteStdoutOverflow(h, state, overflow);
+      if (event !== null) await handleEvent(event);
+    };
     for await (const chunk of proc.stdout) {
       if (cancelled) break;
       // Any output chunk rearms the inactivity budget, but not the wall-clock deadline
       sup.rearm();
-      for (const line of lines.push(chunk)) {
-        for (const event of decodeLine(h, line, state, opts.model ?? "", granularity)) {
-          await handleEvent(event);
+      // The items arrive in stream order: a discarded line is judged
+      // before the lines that came after it, so an assistant message
+      // supersedes only the overflows that preceded it.
+      for (const item of lines.pushItems(chunk)) {
+        if (item.kind === "line") {
+          for (const event of decodeLine(h, item.text, state, opts.model ?? "", granularity)) {
+            await handleEvent(event);
+          }
+        } else {
+          await handleOverflow(item.overflow);
         }
       }
-      await reportOverflows();
     }
-    const rest = lines.flush();
-    if (rest !== null && !cancelled) {
-      for (const event of decodeLine(h, rest, state, opts.model ?? "", granularity)) {
-        await handleEvent(event);
+    if (!cancelled) {
+      for (const item of lines.flushItems()) {
+        if (item.kind === "line") {
+          for (const event of decodeLine(h, item.text, state, opts.model ?? "", granularity)) {
+            await handleEvent(event);
+          }
+        } else {
+          await handleOverflow(item.overflow);
+        }
       }
     }
-    if (!cancelled) await reportOverflows();
     // Flush at exit if no identity ever arrived
     if (!identitySeen && droppableBuffer.length > 0) {
       await flushDroppable();
@@ -619,8 +636,13 @@ export async function* streamTurn(
     // supersede a provisional terminal error (pi stopReason error): what
     // remains stashed is the turn's verdict now - the silent-empty-turn
     // shape. A superseded claim settles to nothing; its evidence already
-    // streamed non-terminal.
+    // streamed non-terminal. The same holds for the stdout overflows: a
+    // recovered turn warns about them, a turn that never delivered a
+    // message fails on them.
     if (!cancelled) {
+      for (const event of settleOverflows(state, state.nativeTerminalSeen === true)) {
+        await handleEvent(event);
+      }
       for (const event of settleProvisionalError(state)) await handleEvent(event);
     }
   };

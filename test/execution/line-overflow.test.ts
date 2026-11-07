@@ -1,8 +1,12 @@
 /**
  * An output line over hcn's line bound is discarded, and the discard is
- * never silent: LineBuffer reports it once with its size, and every run and
- * session pump turns that report into a transport failure. Invented data
- * only; fake processes, never a real harness.
+ * never silent: LineBuffer reports it once with its size and the line's
+ * own start, and the run and session pumps judge that report where it
+ * happened. An overflow that repeated records hcn had already read (pi's
+ * `turn_end` and `agent_end`) warns and never fails; any other overflow
+ * is held until the turn's end, where a turn that recovered from it warns
+ * and a turn that did not fails on it. Invented data only; fake processes,
+ * never a real harness.
  */
 import { describe, expect, test } from "vitest";
 import type { HarnessEvent } from "../../src/execution/events.js";
@@ -10,6 +14,7 @@ import { LineBuffer, type LineOverflow, RUN_LINE_MAX } from "../../src/execution
 import { openSession } from "../../src/execution/open-session.js";
 import { streamTurn } from "../../src/execution/stream-turn.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
+import { piCli } from "../../src/knowledge/pi.js";
 import { claudeInitNaming, FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
 
 const sid = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
@@ -20,6 +25,7 @@ const assistant = (text: string) =>
     message: { role: "assistant", content: [{ type: "text", text }] },
   });
 const result = JSON.stringify({ type: "result", subtype: "success" });
+const failedResult = JSON.stringify({ type: "result", subtype: "error", is_error: true });
 const OVER = RUN_LINE_MAX + 1;
 
 const collect = async (events: AsyncIterable<HarnessEvent>): Promise<HarnessEvent[]> => {
@@ -31,6 +37,13 @@ const collect = async (events: AsyncIterable<HarnessEvent>): Promise<HarnessEven
 const overflowMessage = (stream: string, bytes: string) =>
   `Transport failure (output line overflow: ${stream} line of ${bytes} bytes exceeds the 16,777,216-character line limit and was discarded) - retry or route to another provider`;
 
+const overflowWarning = (stream: string, bytes: string, reason: string) =>
+  `output line overflow: ${stream} line of ${bytes} bytes exceeds the 16,777,216-character line limit and was discarded; ${reason}`;
+
+/** The same digit grouping the failure text uses, without an ICU
+ * dependency. */
+const grouped = (n: number): string => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
 describe("LineBuffer overflow report", () => {
   test("reports one over-long line at its newline with its characters and UTF-8 bytes", () => {
     const reports: LineOverflow[] = [];
@@ -41,7 +54,7 @@ describe("LineBuffer overflow report", () => {
     expect(lines.push("éé")).toEqual([]);
     expect(reports).toEqual([]);
     expect(lines.push("€\u{1f600}\nnext\n")).toEqual(["next"]);
-    expect(reports).toEqual([{ characters: 11, bytes: 17, limit: 8 }]);
+    expect(reports).toEqual([{ characters: 11, bytes: 17, limit: 8, head: "abcdeféé€\u{1f600}" }]);
   });
 
   test("reports an unterminated over-long final line at flush, and a lone surrogate as 3 bytes", () => {
@@ -49,17 +62,34 @@ describe("LineBuffer overflow report", () => {
     const lines = new LineBuffer(2, (o) => reports.push(o));
     expect(lines.push("ok\n\ud800xyz")).toEqual(["ok"]);
     expect(lines.flush()).toBeNull();
-    expect(reports).toEqual([{ characters: 4, bytes: 6, limit: 2 }]);
+    expect(reports).toEqual([{ characters: 4, bytes: 6, limit: 2, head: "\ud800xyz" }]);
   });
 
   test("keeps counting UTF-8 bytes of text that arrives after the line overflowed", () => {
     const reports: LineOverflow[] = [];
     const lines = new LineBuffer(2, (o) => reports.push(o));
     expect(lines.push("abc")).toEqual([]);
-    expect(lines.push("\u00e9\u20ac")).toEqual([]);
+    expect(lines.push("é€")).toEqual([]);
     expect(lines.push("\u{1f600}\n")).toEqual([]);
     // 3 + 2 + 2 characters; 3 + (2 + 3) + 4 bytes.
-    expect(reports).toEqual([{ characters: 7, bytes: 12, limit: 2 }]);
+    expect(reports).toEqual([{ characters: 7, bytes: 12, limit: 2, head: "abc" }]);
+  });
+
+  test("the head carries the line's own start, bounded at 256 characters", () => {
+    const reports: LineOverflow[] = [];
+    const lines = new LineBuffer(10, (o) => reports.push(o));
+    const start = "z".repeat(300);
+    expect(lines.push(`${start}\n`)).toEqual([]);
+    expect(reports).toHaveLength(1);
+    expect(reports[0]?.head).toHaveLength(256);
+    expect(reports[0]?.head).toBe(start.slice(0, 256));
+  });
+
+  test("the head of a line that overflowed in one chunk is the line's start", () => {
+    const reports: LineOverflow[] = [];
+    const lines = new LineBuffer(4, (o) => reports.push(o));
+    expect(lines.push("abcdefghij\n")).toEqual([]);
+    expect(reports[0]?.head).toBe("abcdefghij");
   });
 
   test.each([
@@ -88,7 +118,12 @@ describe("LineBuffer overflow report", () => {
     const lines = new LineBuffer(0, (o) => reports.push(o));
     lines.push(`${text}\n`);
     expect(reports).toEqual([
-      { characters: text.length, bytes: new TextEncoder().encode(text).length, limit: 0 },
+      {
+        characters: text.length,
+        bytes: new TextEncoder().encode(text).length,
+        limit: 0,
+        head: text,
+      },
     ]);
   });
 
@@ -99,7 +134,7 @@ describe("LineBuffer overflow report", () => {
     // Tear the second character across two chunks.
     expect(lines.push(bytes.subarray(0, 3))).toEqual([]);
     expect(lines.push(bytes.subarray(3))).toEqual([]);
-    expect(reports).toEqual([{ characters: 4, bytes: 8, limit: 3 }]);
+    expect(reports).toEqual([{ characters: 4, bytes: 8, limit: 3, head: "éééé" }]);
   });
 
   test("an incomplete UTF-8 sequence at stream close decodes as U+FFFD on the final line", () => {
@@ -118,18 +153,18 @@ describe("LineBuffer overflow report", () => {
   });
 });
 
-describe("streamTurn: an over-long line fails the run", () => {
-  const run = () => {
+describe("streamTurn: an over-long line is judged where it happened", () => {
+  const run = (harness = claudeCode) => {
     const proc = new FakeProcess();
     const turn = streamTurn(
-      claudeCode,
+      harness,
       { prompt: "invented prompt" },
       { spawn: fakeSpawner([proc]).spawn, clock: new FakeClock(), signal: fakeSignal().signal },
     );
     return { proc, turn };
   };
 
-  test("stdout: the next lines still decode, and done carries the overflow", async () => {
+  test("stdout: an overflow the turn recovered from warns, and done stays clean", async () => {
     const { proc, turn } = run();
     proc.emitLine(init);
     proc.emitChunk(`${"x".repeat(OVER)}\n`);
@@ -137,16 +172,95 @@ describe("streamTurn: an over-long line fails the run", () => {
     proc.emitLine(result);
     proc.exit(0);
     const events = await collect(turn);
+    expect(events.filter((e) => e.kind === "failure")).toEqual([]);
+    expect(events.filter((e) => e.kind === "warning")).toEqual([
+      {
+        kind: "warning",
+        message: overflowWarning("stdout", "16,777,217", "the turn completed after it"),
+      },
+    ]);
+    expect(events.find((e) => e.kind === "message")).toMatchObject({ text: "invented answer" });
+    expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+  });
+
+  test("stdout: an overflow with no later assistant message fails the run", async () => {
+    const { proc, turn } = run();
+    proc.emitLine(init);
+    proc.emitChunk(`${"x".repeat(OVER)}\n`);
+    proc.emitLine(result);
+    proc.exit(0);
+    const events = await collect(turn);
     const message = overflowMessage("stdout", "16,777,217");
     expect(events.filter((e) => e.kind === "failure")).toEqual([
       { kind: "failure", class: "transport", retryable: true, message },
     ]);
-    expect(events.find((e) => e.kind === "message")).toMatchObject({ text: "invented answer" });
     expect(events.at(-1)).toMatchObject({
       kind: "done",
       cause: "failed",
       failure: { class: "transport", message },
     });
+  });
+
+  test("stdout: an overflow the turn did not recover from fails the run", async () => {
+    const { proc, turn } = run();
+    proc.emitLine(init);
+    proc.emitChunk(`${"x".repeat(OVER)}\n`);
+    proc.emitLine(assistant("invented answer"));
+    // The stream ended without a successful turn end: nothing says the
+    // turn completed, so the recovered overflow is still a failure.
+    proc.exit(0);
+    const events = await collect(turn);
+    const message = overflowMessage("stdout", "16,777,217");
+    expect(events.filter((e) => e.kind === "failure")).toEqual([
+      { kind: "failure", class: "transport", retryable: true, message },
+    ]);
+    expect(events.at(-1)).toMatchObject({
+      kind: "done",
+      cause: "failed",
+      failure: { class: "transport", message },
+    });
+  });
+
+  test("stdout: an overflow followed by a failed turn end fails the run", async () => {
+    const { proc, turn } = run();
+    proc.emitLine(init);
+    proc.emitChunk(`${"x".repeat(OVER)}\n`);
+    proc.emitLine(assistant("invented answer"));
+    proc.emitLine(failedResult);
+    proc.exit(0);
+    const events = await collect(turn);
+    // The overflow is a failure of its own; the turn's own error outranks
+    // it in the reduction, so the done carries the task failure.
+    expect(events.filter((e) => e.kind === "failure")).toContainEqual({
+      kind: "failure",
+      class: "transport",
+      retryable: true,
+      message: overflowMessage("stdout", "16,777,217"),
+    });
+    expect(events.at(-1)).toMatchObject({
+      kind: "done",
+      cause: "failed",
+      failure: { class: "task" },
+    });
+  });
+
+  test("stdout: a pi echo record warns even with no later message", async () => {
+    const { proc, turn } = run(piCli);
+    // pi repeats the assistant message on agent_end; hcn read it from
+    // message_end, so losing the echo costs the caller nothing.
+    const echo = JSON.stringify({ type: "agent_end", messages: ["x".repeat(OVER)] });
+    proc.emitChunk(`${echo}\n`);
+    proc.exit(0);
+    const events = await collect(turn);
+    const bytes = new TextEncoder().encode(echo).length;
+    expect(events.filter((e) => e.kind === "failure")).toEqual([]);
+    expect(events.filter((e) => e.kind === "warning")).toEqual([
+      {
+        kind: "warning",
+        message: overflowWarning("stdout", grouped(bytes), "it repeats records already read"),
+      },
+    ]);
+    expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
   });
 
   test("stdout: an unterminated over-long final line is reported at stream close", async () => {
@@ -194,11 +308,11 @@ describe("streamTurn: an over-long line fails the run", () => {
   });
 });
 
-describe("openSession: an over-long line fails the turn it lands in", () => {
-  const openTurn = async () => {
+describe("openSession: an over-long line is judged where it happened", () => {
+  const openTurn = async (harness = claudeCode) => {
     const proc = new FakeProcess();
     const session = openSession(
-      claudeCode,
+      harness,
       { sessionId: sid },
       { spawn: fakeSpawner([proc]).spawn, clock: new FakeClock(), signal: fakeSignal().signal },
     );
@@ -210,18 +324,35 @@ describe("openSession: an over-long line fails the turn it lands in", () => {
     return { proc, session, turn };
   };
 
-  test("stdout", async () => {
+  test("stdout: an overflow the turn recovered from warns, and the turn stays clean", async () => {
     const { proc, session, turn } = await openTurn();
     proc.emitLine(init);
     proc.emitChunk(`${"x".repeat(OVER)}\n`);
     proc.emitLine(assistant("invented answer"));
     proc.emitLine(result);
     const events = await collect(turn);
+    expect(events.filter((e) => e.kind === "failure")).toEqual([]);
+    expect(events.filter((e) => e.kind === "warning")).toEqual([
+      {
+        kind: "warning",
+        message: overflowWarning("stdout", "16,777,217", "the turn completed after it"),
+      },
+    ]);
+    expect(events.find((e) => e.kind === "message")).toMatchObject({ text: "invented answer" });
+    expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+    await session.close();
+  });
+
+  test("stdout: an overflow with no later assistant message fails the turn", async () => {
+    const { proc, session, turn } = await openTurn();
+    proc.emitLine(init);
+    proc.emitChunk(`${"x".repeat(OVER)}\n`);
+    proc.emitLine(result);
+    const events = await collect(turn);
     const message = overflowMessage("stdout", "16,777,217");
     expect(events.filter((e) => e.kind === "failure")).toEqual([
       { kind: "failure", class: "transport", retryable: true, message },
     ]);
-    expect(events.find((e) => e.kind === "message")).toMatchObject({ text: "invented answer" });
     expect(events.at(-1)).toMatchObject({
       kind: "done",
       cause: "failed",

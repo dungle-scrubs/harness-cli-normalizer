@@ -143,6 +143,8 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     ],
     floor: "none",
     flagAliases: { "--print": "-p" },
+    // No echo records: every over-long line is judged on its own.
+    echoRecords: null,
   },
   identity: {
     authority: "caller-assigned",
