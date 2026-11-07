@@ -27,7 +27,10 @@ export interface UsageEvent {
   readonly models?: readonly string[];
 }
 
-type Counts = Omit<UsageEvent, "kind" | "scope" | "inputIncludesCache" | "callId" | "model">;
+type Counts = Omit<
+  UsageEvent,
+  "kind" | "scope" | "inputIncludesCache" | "callId" | "model" | "models"
+>;
 type Fields = Readonly<Partial<Record<keyof Counts, string>>>;
 const PI_FIELDS: Fields = {
   inputTokens: "input",
