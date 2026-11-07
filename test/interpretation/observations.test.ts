@@ -498,6 +498,38 @@ describe("native token usage observations", () => {
     expect(usage).toMatchObject({ model: "claude-sonnet-5-5", models: ["claude-sonnet-5-5"] });
   });
 
+  test("an explicit null parent is main loop, and a subagent record just before the result keeps the turn's models (#459)", () => {
+    const record = (model: string, parent: string | null): Record<string, unknown> => ({
+      type: "assistant",
+      parent_tool_use_id: parent,
+      message: { role: "assistant", model, content: [{ type: "text", text: "hi" }] },
+    });
+    const result = {
+      type: "result",
+      subtype: "success",
+      usage: { input_tokens: 1, output_tokens: 2 },
+    };
+    const asClaude = (state: ReturnType<typeof contentEventsWithState>["state"]) =>
+      isClaudeReaderState(state) ? state : freshClaudeReaderState();
+    // Claude's stream writes `parent_tool_use_id: null` on main-loop
+    // records; null is the main loop, not an unknown parent.
+    let state = asClaude(
+      contentEventsWithState("claude", record("claude-sonnet-5-5", null), freshClaudeReaderState())
+        .state,
+    );
+    expect(state.turnModels).toEqual(["claude-sonnet-5-5"]);
+    // A subagent record as the last one before the result neither adds its
+    // model nor clears the main loop's.
+    state = asClaude(
+      contentEventsWithState("claude", record("claude-haiku-5-5", "toolu_01"), state).state,
+    );
+    expect(state.turnModels).toEqual(["claude-sonnet-5-5"]);
+    const usage = contentEventsWithState("claude", result, state).events.find(
+      (e) => e.kind === "usage" && e.scope === "turn",
+    );
+    expect(usage).toMatchObject({ model: "claude-sonnet-5-5", models: ["claude-sonnet-5-5"] });
+  });
+
   test("Codex caches overlap input; exec and app-server session totals are not invented turn deltas", () => {
     expect(
       usageEventsOf("codex", {
