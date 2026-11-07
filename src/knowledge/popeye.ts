@@ -83,6 +83,8 @@ export const popeyeCli: HarnessDescriptor = deepFreeze({
     pins: [{ flags: ["--mode", "hcn"], granularity: "token" }],
     floor: "none",
     flagAliases: {},
+    // No echo records: every over-long line is judged on its own.
+    echoRecords: null,
   },
   identity: {
     authority: "harness-minted",

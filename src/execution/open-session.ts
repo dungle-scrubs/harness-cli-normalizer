@@ -51,7 +51,14 @@ import type {
   SessionInputContract,
 } from "../knowledge/descriptor.js";
 import { AsyncChannel } from "./channel.js";
-import { decodeLine, decodeParsed, freshDecodeState, settleProvisionalError } from "./decode.js";
+import {
+  decodeLine,
+  decodeParsed,
+  freshDecodeState,
+  noteStdoutOverflow,
+  settleOverflows,
+  settleProvisionalError,
+} from "./decode.js";
 import type { RunnerDeps, SpawnedProcess } from "./deps.js";
 import {
   DROPPABLE_KINDS,
@@ -70,7 +77,7 @@ import {
   isLimitFailure,
   reduceFailures,
 } from "./failure.js";
-import { LineBuffer, RUN_LINE_MAX } from "./lines.js";
+import { LineBuffer, type LineOverflow, RUN_LINE_MAX } from "./lines.js";
 import {
   createSessionApprovalTracker,
   type SessionApprovalAnswer,
@@ -1138,12 +1145,14 @@ export const openSession = (
   };
 
   const pumpStdout = async (): Promise<void> => {
-    // An over-long line is reported when it ends; the pump turns each report
-    // into a failure after the lines of the same chunk.
-    const overflows: FailureSummary[] = [];
-    const lines = new LineBuffer(RUN_LINE_MAX, (overflow) =>
-      overflows.push(failureFromLineOverflow("stdout", overflow)),
-    );
+    // An over-long line is reported when it ends. The report is judged
+    // where it happened: an echo record (one that only repeats what hcn
+    // already read) warns at once, and any other overflow is held as
+    // pending evidence until a later assistant message supersedes it or
+    // the turn ends. Outside a turn there is nothing to hold the evidence
+    // for and no turn to settle it against, so it keeps today's
+    // behaviour: a parked failure.
+    const lines = new LineBuffer(RUN_LINE_MAX);
     // issue #44: a harness that is identity-silent at startup gets the
     // probe its descriptor declares; interpretation encodes it (ADR 0005).
     // Codex's probe is two JSON-RPC lines: initialize (required first,
@@ -1372,9 +1381,16 @@ export const openSession = (
           }
           // The turn is over: a provisional terminal error (pi stopReason
           // error) that no successful assistant message in this turn
-          // superseded settles into the turn's verdict now. The events are
-          // routed before endTurn so the failure lands inside the closing
-          // turn, never in the next one.
+          // superseded settles into the turn's verdict now, and so do the
+          // stdout overflows. The events are routed before endTurn so the
+          // failure lands inside the closing turn, never in the next one.
+          // A turn that ended successfully warns about the overflows it
+          // recovered from; one that ended in an error or a cancellation
+          // fails on them.
+          const succeeded = !record.isError && record.aborted !== true;
+          for (const event of settleOverflows(state, succeeded)) {
+            await routeDecoded(event);
+          }
           for (const event of settleProvisionalError(state)) {
             await routeDecoded(event);
           }
@@ -1404,14 +1420,30 @@ export const openSession = (
         }
       }
     };
+    const handleOverflow = async (overflow: LineOverflow): Promise<void> => {
+      if (activeTurn === null) {
+        // No turn to hold the evidence for: the overflow stays a parked
+        // failure, the way it was before the evidence rule.
+        await pushFailure(failureFromLineOverflow("stdout", overflow));
+        return;
+      }
+      const event = noteStdoutOverflow(h, state, overflow);
+      if (event !== null) await routeEvent(event);
+    };
     for await (const chunk of proc.stdout) {
       sup.rearm();
-      for (const line of lines.push(chunk)) await handleLine(line);
-      for (const failure of overflows.splice(0)) await pushFailure(failure);
+      // The items arrive in stream order: a discarded line is judged
+      // before the lines that came after it, so an assistant message
+      // supersedes only the overflows that preceded it.
+      for (const item of lines.pushItems(chunk)) {
+        if (item.kind === "line") await handleLine(item.text);
+        else await handleOverflow(item.overflow);
+      }
     }
-    const rest = lines.flush();
-    if (rest !== null) await handleLine(rest);
-    for (const failure of overflows.splice(0)) await pushFailure(failure);
+    for (const item of lines.flushItems()) {
+      if (item.kind === "line") await handleLine(item.text);
+      else await handleOverflow(item.overflow);
+    }
   };
 
   const pumpStderr = async (): Promise<void> => {
@@ -1520,12 +1552,19 @@ export const openSession = (
     // its authority.
     const credential = stalled ? null : sup.credentialAccessFailure(exitCode);
     // A turn still open when the process died settles its provisional
-    // terminal error here (pi stopReason error the turn never superseded).
-    // Both the failure record and the events enqueue synchronously -
-    // routeDecoded defers its failure half past a microtask boundary, which
-    // would land it after endTurn's done - so finalize records the failure
-    // directly, before endTurn reduces the turn's verdict.
+    // terminal error here (pi stopReason error the turn never superseded),
+    // and so do the stdout overflows it held: the turn did not complete,
+    // so they fail. Both the failure record and the events enqueue
+    // synchronously - routeDecoded defers its failure half past a
+    // microtask boundary, which would land it after endTurn's done - so
+    // finalize records the failure directly, before endTurn reduces the
+    // turn's verdict.
+    const overflowEvents = settleOverflows(state, false);
     if (activeTurn !== null) {
+      for (const event of overflowEvents) {
+        if (event.kind === "failure") turnFailures.push(summaryOf(event));
+        void routeEvent(event);
+      }
       for (const event of settleProvisionalError(state)) {
         const failure = failureFromTerminalError(h, event.message, deps.clock);
         if (isLimitFailure(failure)) {
@@ -1553,6 +1592,7 @@ export const openSession = (
       sessionFailure = reduceFailures([
         ...(sessionFailure === undefined ? [] : [sessionFailure]),
         ...parked,
+        ...overflowEvents.filter((event) => event.kind === "failure").map(summaryOf),
         ...(credential === null ? [] : [credential]),
       ]);
       if (sessionFailure === undefined && cause === "crash") {

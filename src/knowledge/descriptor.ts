@@ -615,6 +615,15 @@ export interface HarnessDescriptor {
     }>;
     readonly floor: StreamingGranularity;
     readonly flagAliases: Readonly<Record<string, string>>;
+    /** The record types that only REPEAT content hcn reads from an
+     * earlier record, so losing one loses nothing (pi: `turn_end` and
+     * `agent_end` repeat the messages `message_end` already carried).
+     * `field` is the record's type field and `values` the record types
+     * that are echoes; a discarded line whose head starts with such a
+     * record lost nothing, so it warns instead of failing the turn.
+     * Null when the harness has no echo records - then every over-long
+     * line is judged on its own. */
+    readonly echoRecords: { readonly field: string; readonly values: readonly string[] } | null;
   };
   /** Where native identity appears in the stream, and who mints it. Every
    * key/value pair in `announce.match` must match the raw event; claude:

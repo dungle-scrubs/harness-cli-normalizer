@@ -12,6 +12,7 @@ import {
 } from "../interpretation/content.js";
 import { decodeIdentity } from "../interpretation/identity.js";
 import { detectLimitInLine } from "../interpretation/limits.js";
+import { overflowIsEcho } from "../interpretation/overflow.js";
 import { successfulTurnEnd } from "../interpretation/turn-completion.js";
 import type {
   HarnessDescriptor,
@@ -19,7 +20,13 @@ import type {
   StreamingGranularity,
 } from "../knowledge/descriptor.js";
 import type { HarnessEvent } from "./events.js";
-import { failureFromBudget, failureFromLimit } from "./failure.js";
+import {
+  failureFromBudget,
+  failureFromLimit,
+  failureFromLineOverflow,
+  lineOverflowWarning,
+} from "./failure.js";
+import type { LineOverflow } from "./lines.js";
 
 export interface DecodeState {
   /** Independent evidence: a later failure can revoke successful-turn
@@ -61,6 +68,15 @@ export interface DecodeState {
    * 0005). Threaded across the lines of one turn; reset per turn by
    * constructing fresh state beside every freshDecodeState call. */
   readerState: ReaderState;
+  /** Stdout line overflows held as pending evidence: hcn discarded the
+   * line and nothing has said yet whether it mattered. A later assistant
+   * message supersedes them (the turn recovered and the discarded line
+   * carried nothing the caller lost); whatever is left when the turn
+   * settles is the turn's verdict. */
+  pendingOverflows: LineOverflow[];
+  /** Overflows a later assistant message superseded: the turn recovered,
+   * so they warn when the turn succeeded and fail when it did not. */
+  supersededOverflows: LineOverflow[];
 }
 
 export const freshDecodeState = (
@@ -76,6 +92,8 @@ export const freshDecodeState = (
   emittedModel: null,
   provisionalError: null,
   readerState: harness === undefined ? null : freshReaderState(harness),
+  pendingOverflows: [],
+  supersededOverflows: [],
 });
 
 export const decodeLine = (
@@ -242,6 +260,14 @@ export const decodeParsed = (
       // must not poison the verdict (its evidence already streamed).
       state.provisionalError = null;
       state.messageDelivered = true;
+      // It supersedes the stdout overflows held so far as well: the
+      // discarded lines came before this message, and the turn recovered,
+      // so they carried nothing the caller needs. An overflow that
+      // arrives after this message is judged on its own.
+      if (state.pendingOverflows.length > 0) {
+        state.supersededOverflows.push(...state.pendingOverflows);
+        state.pendingOverflows = [];
+      }
       events.push(content);
     } else {
       events.push(content);
@@ -266,4 +292,61 @@ export const settleProvisionalError = (
   if (message === null) return [];
   state.provisionalError = null;
   return [{ kind: "error", message, terminal: true }];
+};
+
+/** Note a discarded stdout line.
+ *
+ * An ECHO record - one whose type only repeats content hcn already read
+ * from an earlier record (pi's `turn_end` and `agent_end` repeat the
+ * assistant message `message_end` carried) - loses nothing when it is
+ * discarded, so it warns at once and never fails the turn. The warning
+ * carries the same overflow text as the failure, plus the reason.
+ *
+ * Any other overflow is held as pending evidence: the verdict waits for
+ * the turn's end, because a later assistant message may supersede it
+ * (the turn recovered) and the overflow then did not cost the caller
+ * anything. Returns the warning event for an echo overflow, or null when
+ * the overflow is held. */
+export const noteStdoutOverflow = (
+  h: HarnessDescriptor,
+  state: DecodeState,
+  overflow: LineOverflow,
+): HarnessEvent | null => {
+  if (overflowIsEcho(h, overflow.head)) {
+    return {
+      kind: "warning",
+      message: lineOverflowWarning("stdout", overflow, "it repeats records already read"),
+    };
+  }
+  state.pendingOverflows.push(overflow);
+  return null;
+};
+
+/** Settle the stdout overflows where the harness can no longer supersede
+ * them: the end of a one-shot stream, or the end of a session turn.
+ *
+ * What is still pending is the turn's verdict: hcn discarded the line and
+ * nothing recovered, so the caller never saw what it carried - the
+ * transport failure of `failureFromLineOverflow`. What a later assistant
+ * message superseded is evidence that the turn recovered: a warning when
+ * the turn succeeded, the same failure when it did not. Clearing on
+ * settle keeps the next turn starting from no inherited overflow. */
+export const settleOverflows = (state: DecodeState, succeeded: boolean): HarnessEvent[] => {
+  const events: HarnessEvent[] = [];
+  for (const overflow of state.pendingOverflows) {
+    events.push({ kind: "failure", ...failureFromLineOverflow("stdout", overflow) });
+  }
+  for (const overflow of state.supersededOverflows) {
+    events.push(
+      succeeded
+        ? {
+            kind: "warning",
+            message: lineOverflowWarning("stdout", overflow, "the turn completed after it"),
+          }
+        : { kind: "failure", ...failureFromLineOverflow("stdout", overflow) },
+    );
+  }
+  state.pendingOverflows = [];
+  state.supersededOverflows = [];
+  return events;
 };

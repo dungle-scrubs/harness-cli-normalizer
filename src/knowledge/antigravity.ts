@@ -51,6 +51,8 @@ export const antigravityCli: HarnessDescriptor = deepFreeze({
     pins: [{ flags: ["--output-format", "stream-json"], granularity: "token" }],
     floor: "none",
     flagAliases: {},
+    // No echo records: every over-long line is judged on its own.
+    echoRecords: null,
   },
   identity: {
     authority: "harness-minted",

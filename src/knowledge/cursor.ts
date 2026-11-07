@@ -87,6 +87,8 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
     // (probe 09).
     floor: "none",
     flagAliases: {},
+    // No echo records: every over-long line is judged on its own.
+    echoRecords: null,
   },
   identity: {
     authority: "harness-minted",

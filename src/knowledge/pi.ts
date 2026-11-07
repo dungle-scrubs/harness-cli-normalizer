@@ -108,6 +108,10 @@ export const piCli: HarnessDescriptor = deepFreeze({
     pins: [{ flags: ["--mode", "json"], granularity: "token" }],
     floor: "none",
     flagAliases: {},
+    // pi repeats the assistant message on `turn_end` and `agent_end`;
+    // hcn reads it from `message_end`, so discarding either echo loses
+    // nothing.
+    echoRecords: { field: "type", values: ["turn_end", "agent_end"] },
   },
   identity: {
     authority: "caller-assigned",

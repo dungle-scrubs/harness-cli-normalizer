@@ -6,7 +6,9 @@
  * incrementally (never re-split from the start) and bounded: a payload
  * must not become parseable - or resident - by luck of where the pipe
  * split it, so an over-long line flips to discard until its newline, and
- * the owner hears of it once, with its size, through `onOverflow`.
+ * the owner hears of it once, with its size and the line's own start,
+ * through `onOverflow` (or through `pushItems`, which keeps the reports
+ * in stream order among the lines).
  */
 
 export const LINE_MAX = 65_536;
@@ -27,12 +29,28 @@ export const RUN_LINE_MAX = 16 * 1024 * 1024;
 /** One over-long line, reported once when it ends (at its newline or at
  * stream close). `characters` counts the decoded line (UTF-16 code units,
  * the unit `limit` is in); `bytes` is its UTF-8 size, exact for byte
- * chunks (a surrogate pair torn across two string chunks counts 6). */
+ * chunks (a surrogate pair torn across two string chunks counts 6).
+ * `head` is the line's own start - the first characters of the line, up
+ * to `LINE_HEAD_MAX` - kept so the caller can tell WHAT was discarded
+ * without keeping the whole line resident. */
 export interface LineOverflow {
   readonly characters: number;
   readonly bytes: number;
   readonly limit: number;
+  readonly head: string;
 }
+
+/** How much of a discarded line's start a report carries. Bounded: the
+ * report must not grow with the line it describes. */
+export const LINE_HEAD_MAX = 256;
+
+/** One item a buffer produced: a complete line, or the report of an
+ * over-long line that was discarded. The two arrive in stream order, so a
+ * caller can act on the report between the lines around it - which is
+ * what decides whether a discarded line still matters. */
+export type LineItem =
+  | { readonly kind: "line"; readonly text: string }
+  | { readonly kind: "overflow"; readonly overflow: LineOverflow };
 
 export class LineBuffer {
   constructor(
@@ -46,23 +64,38 @@ export class LineBuffer {
   private discarding = false;
   private discardedCharacters = 0;
   private discardedBytes = 0;
+  private head = "";
 
-  push(chunk: string | Uint8Array): string[] {
+  /** Feed a chunk and return everything it produced, in stream order. */
+  pushItems(chunk: string | Uint8Array): LineItem[] {
     const text = typeof chunk === "string" ? chunk : this.decoder.decode(chunk, { stream: true });
     return this.ingest(text);
   }
 
-  private ingest(text: string): string[] {
+  /** Feed a chunk and return its complete lines. The reports of
+   * over-long lines go to the `onOverflow` callback. */
+  push(chunk: string | Uint8Array): string[] {
     const lines: string[] = [];
+    for (const item of this.pushItems(chunk)) {
+      if (item.kind === "line") lines.push(item.text);
+      else this.onOverflow?.(item.overflow);
+    }
+    return lines;
+  }
+
+  private ingest(text: string): LineItem[] {
+    const items: LineItem[] = [];
     let start = 0;
     while (true) {
       // Search only new bytes. Searching the accumulated rope on each pipe
       // chunk repeatedly flattens large echoed prompts.
       const at = text.indexOf("\n", start);
       this.append(text.slice(start, at === -1 ? text.length : at));
-      if (at === -1) return lines;
-      if (!this.discarding && !isBlank(this.pending)) lines.push(this.pending);
-      this.endLine();
+      if (at === -1) return items;
+      if (!this.discarding && !isBlank(this.pending))
+        items.push({ kind: "line", text: this.pending });
+      const overflow = this.endLine();
+      if (overflow !== null) items.push({ kind: "overflow", overflow });
       start = at + 1;
     }
   }
@@ -74,34 +107,62 @@ export class LineBuffer {
     } else if (this.pending.length + text.length > this.limit) {
       this.discardedCharacters = this.pending.length + text.length;
       this.discardedBytes = utf8Length(this.pending) + utf8Length(text);
+      this.head = headOf(this.pending, text);
       this.pending = "";
       this.discarding = true;
     } else this.pending += text;
   }
 
-  private endLine(): void {
-    if (this.discarding) {
-      this.onOverflow?.({
-        characters: this.discardedCharacters,
-        bytes: this.discardedBytes,
-        limit: this.limit,
-      });
-    }
+  private endLine(): LineOverflow | null {
+    const overflow = this.discarding
+      ? {
+          characters: this.discardedCharacters,
+          bytes: this.discardedBytes,
+          limit: this.limit,
+          head: this.head,
+        }
+      : null;
     this.pending = "";
     this.discarding = false;
     this.discardedCharacters = 0;
     this.discardedBytes = 0;
+    this.head = "";
+    return overflow;
+  }
+
+  /** Everything the stream close produced: the final partial line, if
+   * any, and the report of an over-long final line. The two are
+   * exclusive - a line that overflowed leaves no partial line behind. */
+  flushItems(): LineItem[] {
+    const items: LineItem[] = [];
+    const tail = this.decoder.decode();
+    if (tail !== "") this.append(tail);
+    const rest = this.discarding || isBlank(this.pending) ? null : this.pending;
+    const overflow = this.endLine();
+    if (overflow !== null) items.push({ kind: "overflow", overflow });
+    if (rest !== null) items.push({ kind: "line", text: rest });
+    return items;
   }
 
   /** The final partial line at stream close, if any. */
   flush(): string | null {
-    const tail = this.decoder.decode();
-    if (tail !== "") this.append(tail);
-    const rest = this.discarding || isBlank(this.pending) ? null : this.pending;
-    this.endLine();
+    let rest: string | null = null;
+    for (const item of this.flushItems()) {
+      if (item.kind === "line") rest = item.text;
+      else this.onOverflow?.(item.overflow);
+    }
     return rest;
   }
 }
+
+/** The start of a line that overflowed: the characters already seen when
+ * the bound was crossed, up to `LINE_HEAD_MAX`. The line's own beginning
+ * is what tells an echo record from real content, so the head is the
+ * line's first characters - never a slice of its middle. */
+const headOf = (pending: string, text: string): string => {
+  const take = Math.min(LINE_HEAD_MAX, pending.length);
+  return pending.slice(0, take) + text.slice(0, LINE_HEAD_MAX - take);
+};
 
 /** UTF-8 length of a JS string without allocating its encoding. A lone
  * surrogate counts 3, as TextEncoder writes U+FFFD for it. */

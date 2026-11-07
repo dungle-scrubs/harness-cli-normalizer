@@ -62,6 +62,8 @@ export const museCode: HarnessDescriptor = deepFreeze({
     pins: [{ flags: ["--json"], granularity: "token" }],
     floor: "none",
     flagAliases: {},
+    // No echo records: every over-long line is judged on its own.
+    echoRecords: null,
   },
   identity: {
     authority: "caller-assigned",
