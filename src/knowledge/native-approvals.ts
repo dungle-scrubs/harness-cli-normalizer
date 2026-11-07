@@ -28,7 +28,16 @@ export const NATIVE_APPROVAL_REQUEST_IDS = deepFreeze({
   start: "hcn-turn",
 } as const);
 
-export type ApprovalCategory = "command" | "file-change" | "permissions";
+export type ApprovalCategory =
+  | "command"
+  | "file-change"
+  | "permissions"
+  /** Issue #454/#455: the Claude session lane's categories. `tool` is an
+   * ordinary permission-gated tool call, `question` is AskUserQuestion,
+   * `plan` is ExitPlanMode. */
+  | "tool"
+  | "question"
+  | "plan";
 
 export interface ApprovalChoice {
   readonly id: string;
@@ -36,15 +45,38 @@ export interface ApprovalChoice {
   readonly scope: "once" | "turn" | "session" | "persistent" | "deny" | "cancel";
 }
 
+/** Issue #455: one AskUserQuestion question, normalized from the native
+ * tool input. `question` keys the answers map a decision carries. */
+export interface ApprovalQuestionOption {
+  readonly label: string;
+  readonly description?: string;
+}
+
+export interface ApprovalQuestion {
+  readonly question: string;
+  readonly header?: string;
+  readonly multiSelect?: boolean;
+  readonly options: readonly ApprovalQuestionOption[];
+}
+
 export type NativeApprovalEvent =
   | {
       readonly category: ApprovalCategory;
       readonly choices: readonly ApprovalChoice[];
       readonly details: string;
+      /** The native tool input, unchanged. Present on the Claude session
+       * lane (issue #454); the Codex lane offers `details` alone. */
+      readonly input?: unknown;
       readonly kind: "approval-request";
+      /** Issue #455: the normalized questions of an AskUserQuestion. */
+      readonly questions?: readonly ApprovalQuestion[];
       readonly requestId: string;
       /** The exact resumable thread ID, not Codex's root-group sessionId. */
       readonly sessionId: string;
+      /** Issue #455: the plan text of an ExitPlanMode request. */
+      readonly plan?: string;
+      /** Issue #454: the native tool name on the Claude session lane. */
+      readonly tool?: string;
       readonly turnId: string;
       readonly v: 1;
     }

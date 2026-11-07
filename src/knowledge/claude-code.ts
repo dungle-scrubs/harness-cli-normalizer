@@ -65,8 +65,7 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
   },
   sessionMode: {
     // A-001: one process, many turns; `result` delimits turns; mid-turn sends
-    // queue. --setting-sources project isolates the child from user-level
-    // hooks (D-025). Token deltas require this exact output flag set.
+    // queue. Token deltas require this exact output flag set.
     // sessionMode.flags is the complete flag list after the binary, so -p
     // lives here rather than being inherited from launch.baseFlags.
     // claude has two session-id flags with opposite unknown-id behaviour:
@@ -82,6 +81,9 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     // `session-id-establish.ndjson` creates with `--session-id`, and
     // `resume-restores.ndjson` restores the same id with `--resume` and
     // recalls codeword "pomegranate".
+    // The setting-sources default (project) renders from the descriptor's
+    // `settingSources` fact (issue #457), so an explicit --setting-sources
+    // replaces it in one place.
     flags: [
       "-p",
       ...STREAM_INPUT_FLAGS,
@@ -89,8 +91,6 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
       "stream-json",
       "--include-partial-messages",
       "--verbose",
-      "--setting-sources",
-      "project",
     ],
     idFlag: "--session-id",
     resumeFlag: "--resume",
@@ -106,6 +106,21 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     controls: {
       delivery: ["queue", "steer"],
       interrupt: { toolCancellation: "best-effort" },
+      // Issue #454/#455, verified 2.1.319 with --permission-prompt-tool
+      // stdio: each permission-gated tool call (including AskUserQuestion
+      // and ExitPlanMode, which carry requires_user_interaction instead of
+      // description/permission_suggestions) arrives as a can_use_tool
+      // control request and the child waits for the host's control_response.
+      // An allow reply carries updatedInput (AskUserQuestion answers ride
+      // inside it); a deny reply's message reaches the model as the tool
+      // result; an interrupt while a request waits makes the child send
+      // control_cancel_request for it. Claude resolves deny rules, hooks
+      // and managed policy BEFORE it asks; the channel adds no rule of
+      // its own. Session-only: the one-shot run lane has no host answering.
+      approvals: {
+        kind: "claude-can-use-tool",
+        spawnFlags: ["--permission-prompt-tool", "stdio"],
+      },
     },
     turnEnd: { type: "result" },
     identityProbe: null,
@@ -213,6 +228,17 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     headless: true,
     warning:
       "hcn: --resume-last forks the most-recent claude session in {cwd} under a new fork id; the most recent session may be a killed, failed, or unrelated run's session; claude starts a fresh session with exit 0 when no session is resumable in {cwd}",
+  },
+  // Issue #457, verified 2.1.319: --setting-sources selects which settings
+  // scopes the child loads. The session default stays `project` (D-025:
+  // isolates the child from user-level hooks); a caller can widen it to
+  // user,project,local - a user-level permissions.allow then applies. A
+  // one-shot launch with no selection renders nothing, as it always has
+  // (claude's own native default applies).
+  settingSources: {
+    flag: "--setting-sources",
+    values: ["user", "project", "local"],
+    defaults: ["project"],
   },
   stdin: "inherit",
   presence: {

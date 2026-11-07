@@ -21,6 +21,7 @@ typed transport failure, never permission to start an empty task.
 | `--sandbox <mode>` | codex, antigravity | codex: read-only, workspace-write, danger-full-access; antigravity: normalized workspace-write renders its boolean `--sandbox`; profile: workspace-write; cursor refuses any value |
 | `--context-window <tokens>` | codex, popeye (1-10000000), claude (100000-1000000); run and session | integer 1-272000 on codex (launch default 272000); popeye 1-10000000; claude renders native `--autocompact` (builds whose run help lists it) - an auto-compact window; hcn adds no request-token or cost enforcement - with NO launch default (the profile window does not transfer; claude's native default applies unless a flag or config sets it); native env `CLAUDE_CODE_AUTO_COMPACT_WINDOW` overrides the flag; Claude also provides `DISABLE_AUTO_COMPACT` and `DISABLE_COMPACT` (interaction with the flag untested); native percentage controls can trigger compaction earlier; config key `contextWindow` on run launches only (resume and session spawns use explicit flags) |
 | `--provider <id>` | pi | pi routes providers; Pi 1.0 requires an accompanying model, or use a provider/model selector; provider-only failures stay native; others refuse with hint |
+| `--setting-sources <list>` | claude; `hcn run` and `hcn session` | comma list of `user`, `project`, `local` (non-empty, no repeats) selecting which settings scopes the child loads, rendered as Claude's `--setting-sources`; a bare run passes nothing (Claude's own default applies), sessions keep the default `project` and an explicit list replaces it - a host standing in for an interactive Claude usually wants `user,project,local` so the user's own permissions and plugins apply; other harnesses refuse exit 2; refuses together with `--no-extensions` (its Claude spelling pins the same flag to project); no config key |
 | `--agent <name>` | claude, antigravity, popeye (codex, muse, cursor refuse exit 2); pi extension-registered (ADR 0010) | select a named agent the harness defines natively - hcn selects, never defines; the name passes through beyond the selector rule, so an unknown name is the harness's own native error (antigravity tolerates one and runs with its default; popeye and claude strictly reject with a typed error and the roster of valid agents); popeye reads from ./.popeye/agents and ~/.popeye/agents (POPEYE_AGENTS_DIR overrides); no stable machine roster exists across harnesses, so `hcn inspect <harness>` `namedAgents` (and `--capabilities`) is the planning surface ; pi's roster fact is machine-conditional: `hcn inspect pi --runtime` runs the declared probe and answers expressible-here / not-here (ADR 0010) |
 | `--tools <a,b>` | claude, pi, popeye (muse via category switches; codex, cursor, antigravity refuse) | claude renders an `--allowedTools` grant plus a `--disallowedTools` deny complement; pi and popeye render a strict `--tools` allowlist; canonical names only (`read write edit shell grep glob list web-fetch web-search subagent skill`); `native:<name>` passes through; a configured toolset name expands; `toolMap` config maps canonical -> extension names; cursor allow/deny lives in config files, named in the refusal hint |
 | `--exclude-tools <a,b>` | claude, pi, popeye (muse via category switches; codex, cursor, antigravity refuse) | canonical names; complement over the harness's known names; mutually exclusive with --tools |
@@ -258,7 +259,7 @@ https://github.com/dungle-scrubs/harness-cli-normalizer/blob/main/docs/observer.
 {"kind":"progress","label":..}
 {"kind":"tool","name":..,"input":?,"callId":?}
 {"kind":"tool-result","name":?,"callId":?,"result":?,"isError":?}
-{"kind":"usage","scope":..,"inputTokens":?,"outputTokens":?,"cacheReadTokens":?,"cacheWriteTokens":?,"reasoningTokens":?,"totalTokens":?,"costUsd":?,"inputIncludesCache":?,"callId":?,"model":?}
+{"kind":"usage","scope":..,"inputTokens":?,"outputTokens":?,"cacheReadTokens":?,"cacheWriteTokens":?,"reasoningTokens":?,"totalTokens":?,"costUsd":?,"inputIncludesCache":?,"callId":?,"model":?,"models":?}
 {"kind":"compaction","state":..,"trigger":?,"tokensBefore":?,"tokensAfter":?,"durationMs":?,"detail":?}
 {"kind":"limit","code":..,"message":..}
 {"kind":"warning","message":..}       # advisory, not a failure
@@ -436,8 +437,13 @@ failed tools; inspect `isError` and the tool's native result contract rather
 than treating `done.cause: clean` as workflow success.
 
 `usage.scope` is `message`, `tool`, `compaction`, `turn`, or `session`.
-Pi reports completed assistant messages, nested-tool usage and compaction
-separately. Claude turn tokens cover the main loop; its session cost and
+Pi reports completed assistant messages (each carrying the message's
+`model`), nested-tool usage and compaction
+separately. Claude turn tokens cover the main loop and carry the
+distinct models the turn's main-loop assistant messages attested
+(`models`, first-seen order) whenever at least one was; exactly one
+also singles it out (`model`). Subagent records and `<synthetic>`
+placeholders attest nothing. Claude's session cost and
 per-model (`model`) counts include subagents and restored spend. Codex exec
 and app-server both report cumulative session snapshots, including earlier
 turns on resume; keep the latest snapshot rather than summing or deriving deltas.
@@ -486,25 +492,37 @@ Commands (stdin, one JSON object per line; blank lines ignored):
 {"op":"send","id":..,"text":..}
 {"op":"answer","id":..,"text":..}
 {"op":"interrupt","id":..}
+{"op":"settings","id":..,"model":..,"effort":..}
+{"v":1,"op":"approval","id":..,"requestId":..,"choiceId":..}
 {"op":"close"}
 ```
 
-`send` and `answer` also accept optional `delivery: "queue"` or `"steer"`.
-Before requesting a control, read `deliveryModes` and `interrupt.supported`
-from the latest `identity.capabilities.sessionControls`; until the first
-`identity` arrives, use the session packet's `controls`. `hcn inspect <h>
---capabilities` reports `sessionControls` as potential support; null means no
-persistent session. A session reports what its process supports: Claude
-interrupt starts `false` and stays unavailable until the process advertises
-`interrupt_receipt_v1` on its `system/init`, and each change re-announces
-`identity` with the same session id. Missing fields mean the build does not
-advertise these controls.
+`send` and `answer` also accept optional `delivery: "queue"` or `"steer"`;
+`send` accepts `"verbatim": true`, which writes the text with no question
+preamble in any questions mode - how a host types the harness's own slash
+command. What a slash command reaches differs by harness: Claude runs its
+slash commands (`/model haiku`, `/compact`); a Pi RPC session runs only
+extension commands and skill/prompt template expansion (`/skill:x args`)
+- interactive built-ins such as `/model` or `/compact` are typed into the
+model as ordinary text, never executed (change Pi's model through the
+`settings` op instead). `answer` refuses `verbatim` in any spelling; a
+non-boolean value is malformed.
+
+Before requesting a control, read `deliveryModes`, `interrupt.supported`
+and `approvals.supported` from the session packet's `controls` (or the
+latest `identity.capabilities.sessionControls` once an identity arrived).
+`hcn inspect <h> --capabilities` reports `sessionControls` as potential
+support; null means no persistent session. A session reports what its
+process supports: Claude interrupt starts `false` and stays unavailable
+until the process advertises `interrupt_receipt_v1` on its `system/init`,
+and each change re-announces `identity` with the same session id. Missing
+fields mean the build does not advertise these controls.
 
 | Rule | Detail |
 |---|---|
 | disposition | every well-formed send/answer gets exactly one, in command order: `started` (accepted by the harness), or `rejected` with reason `closed` \| `no-open-question` \| `native-rejected` \| `unsupported-delivery` \| `write-failed`. Pi and codex wait for their native command response before reporting the disposition; without explicit delivery, a busy Pi send uses native `steer` and joins the current turn; a busy codex send uses `turn/steer` under codex's `expectedTurnId` precondition and also joins the RUNNING turn, so a send arriving after the native turn ended reports `rejected`/`native-rejected` (codex's out-of-band `codex queue` CLI is not reachable from the session protocol, so no queue disposition exists). Other harnesses report after their input write and keep their native busy-input behavior. hcn has no send queue (pi sends are written one at a time, each only after pi answered the previous send's native response, so back-to-back sends cannot race inside pi; a closing drain writes held sends out while its turn is still open, and a hold reports `rejected`/`closed` when the session ends before the wire freed it); a send that opens a turn carries the input id |
 | answer | hcn composes the preamble (`The user answered the question: "<q>" with: <text>. Continue accordingly.`); a plain `send` after a question adds none |
-| malformed | not JSON / unknown op / bad id / non-string text / invalid delivery / interrupt carrying text -> `error` event, no disposition, session continues |
+| malformed | not JSON / unknown op / bad id / non-string text / invalid delivery / interrupt carrying text / a structurally bad approval decision -> `error` event, no disposition, session continues |
 | close | `close` op or stdin EOF; turn-scoped `done` never ends the process |
 | harness exit | a turn still open when the harness exits nonzero with no failure yet gets run mode's stderr-tail classification: a transport, unavailable or trust phrasing, else `native` with the tail, else `transport` on empty stderr. The detail is bounded with secret-shaped tokens masked. The `failure` lands in that turn before its `done` (cause stays `crash`), and `closed.failure` carries it. From hcn 0.9.6 a nonzero exit with no open turn also puts a failure on `closed.failure`: one hcn already read from stderr (an auth or limit wall; a limit keeps cause `limit`) first, else the same stderr-tail classification. A codex crash before the session opens creates no turn for its rejected sends |
 | refusals | from hcn 0.9.6. A harness that refuses the command that opened a turn, before acknowledging it (pi `prompt` with `success:false`, a popeye prompt error), ends that turn with the classified failure and `done` cause `failed`; a refused later send, even one reusing the id, leaves the turn running. A refused session open (codex `thread/start` error, popeye `create` error) ends the session: codex rejects the waiting sends with `native-rejected`, popeye ends the first waiting send's turn with the failure, and `closed` reports cause `failed` (exit 1) with the failure. A refusal is classified like a terminal error, except that a generic one is `native`, not `task`. A codex app-server that never answers still waits on the caller |
@@ -561,6 +579,108 @@ messages remain queued; the caller owns queue policy. Tool cancellation is
 best effort and cannot undo completed actions or guarantee child processes
 stop. The command stream stays readable while receipts are pending, and send
 and answer dispositions remain in command order even when ids are reused.
+
+### Session native approvals
+
+`hcn session claude --json --native-approvals` (Claude only, `--json` only;
+refuses exit 2 otherwise, and other session harnesses refuse the flag)
+forwards each native permission request to the session host: the spawn adds
+`--permission-prompt-tool stdio`, and each permission-gated tool call,
+AskUserQuestion and ExitPlanMode plan approval arrives as one
+`approval-request` event inside the current turn. Claude resolves deny
+rules, hooks and managed policy BEFORE asking, so a denied tool never
+reaches you; hcn adds no rule and stores nothing across processes.
+
+```json
+{"kind":"approval-request","v":1,"requestId":..,"sessionId":..,"turnId":..,"category":"tool|question|plan","tool":"Write","details":"..","input":{..},"choices":[{"id":"allow","label":"Allow","scope":"once"},{"id":"suggestion-1","label":"..","scope":"session"},{"id":"deny","label":"Deny","scope":"deny"}]}
+```
+
+- `tool` offers `allow`, one `suggestion-N` per session-destination native
+  suggestion whose type widens the session (setMode, addDirectories, or
+  addRules with `behavior: "allow"`; never removeRules, replaceRules or
+  removeDirectories, never one that would write the user's settings
+  files), then `deny`. A suggestion choice carries the
+  native suggestion object unchanged as `update`, so you can show exactly
+  what it grants; addRules labels render each rule as `Tool` or
+  `Tool(ruleContent)`. `question` offers `answer`/`decline` and carries
+  normalized `questions` (`question`, `header`, `multiSelect`, `options`).
+  `plan` offers `approve`/`deny` and carries the plan text. At most 32
+  requests wait at once; a request beyond the cap is denied natively with
+  a message and surfaces as an `error` event.
+
+Answer on stdin:
+
+```json
+{"v":1,"op":"approval","id":"<your decision id>","requestId":"<offered>","choiceId":"<offered id>","message":"optional, deny-scope only","answers":{"<question text>":"label"|["label",".."]}}
+```
+
+`answers` is required for `answer` (free text allowed; arrays join with
+", ") and refused elsewhere; `message` is refused on allow-scope choices
+(its own reason, `invalid-message`).
+Each decision gets exactly one `approval-disposition`
+`{v:1,id,requestId,status:"sent"|"rejected",reason?}` with reasons
+`unknown-request` (never offered or cleared), `already-answered`,
+`unknown-choice`, `invalid-answers`, `invalid-message`, `closed`,
+`write-failed`. A decision is
+consumed before its write and never retried; a malformed decision line is
+an `error` event. A request the harness cancels
+(`control_cancel_request`, e.g. after your own interrupt), one still waiting
+at turn end, one still waiting at process exit, and one stranded by the
+stdin pipe breaking each emit
+`approval-cleared` `{v:1,requestId,reason:"native-resolved"|"turn-ended"|"process-ended"|"channel-failed"}`
+and can no longer be answered. While any request waits, `--stall` pauses
+for that turn. Surface the request to your user; the choice is theirs, and
+a `suggestion-N` grant (or a deny) is exactly what its label says.
+
+### Mid-session model and effort
+
+Claude and Pi sessions accept
+`{"op":"settings","id":..,"model":..,"effort":..}` (at least one field),
+validated exactly as the spawn `--model`/`--effort` flags (the effort
+ladder of the model the session runs when the op takes the wire). Pi
+first reads the session's own model catalog and resolves the selector
+with a port of pi 1.4.0's own `--model` resolver over that catalog, so
+a settings op selects from the session's available models the way the
+spawn flags select from all registered ones (the catalog holds only
+providers with configured auth): the
+session's `--provider` constrains the catalog; an id equal to the whole
+selector and `provider/rest` splitting resolve first (a literal gateway
+id resolves as itself, but when the selector also names a catalog
+provider - `moonshotai/kimi-k2.6` with Moonshot's own `kimi-k2.6`
+available - the named provider wins); then fuzzy matching against ids
+and display names, preferring alias ids over dated ones and then the
+greatest id; a trailing `:level` splits off and applies as the op's
+effort when it named none. No match, or an ambiguous one (the same id
+on two providers with nothing naming one), rejects `invalid-model`.
+Claude writes `set_model` then `apply_flag_settings`; pi writes
+`set_model` then `set_thinking_level`, then reads `get_state`.
+Each op gets exactly one `settings` event: `applied`, or `rejected` with
+`invalid-model`, `invalid-effort`,
+`unsupported` (any session harness besides claude and pi),
+`native-rejected`, `closed`, or `write-failed` - and a partial
+application reports the part that applied on every terminal receipt,
+those reasons included.
+What `applied` reports differs by harness:
+Pi's fields come from the `get_state` readback - the effective model as
+`provider/id` and the effective thinking level (pi clamps silently); on
+Claude `model` is the id the native response confirmed (else the
+request) and `effort` is the requested word. A failed or partial pi
+readback
+after successful writes settles `applied` with only the values the
+readback confirmed, an `unconfirmed` list naming the fields it wrote
+but could not read back (never the requested value), and an `error`
+event on the control output right
+after the receipt - never held for a later turn. It takes effect from the
+next model request; a busy turn is not interrupted, and the effective
+model is observable in `usage` events (claude's turn-scoped one -
+its `models` list and, when only one ran, `model` - and each of pi's
+message-scoped ones). Change models with this op. On Claude a
+verbatim send can type the harness's own slash commands, but a typed
+`/model` follows Claude's own precedence: after a settings model change
+it can be acknowledged yet leave the model unchanged, or switch it -
+observed native behavior, delivered verbatim - so prefer the op when
+you want a specific model. On pi, interactive built-ins never execute
+through a session send: use this op.
 
 ## Native memory controls
 

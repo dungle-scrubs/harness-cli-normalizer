@@ -337,7 +337,11 @@ describe("issue #429: claude interruption over the wire", () => {
     expect(evs.filter((e) => e.kind === "identity")).toEqual([
       expect.objectContaining({
         capabilities: expect.objectContaining({
-          sessionControls: { deliveryModes: ["queue", "steer"], interrupt: supported },
+          sessionControls: {
+            deliveryModes: ["queue", "steer"],
+            interrupt: supported,
+            approvals: { supported: false },
+          },
         }),
       }),
     ]);
@@ -427,7 +431,11 @@ describe("issue #429: claude interruption over the wire", () => {
     expect(evs.filter((e) => e.kind === "identity")).toEqual([
       expect.objectContaining({
         capabilities: expect.objectContaining({
-          sessionControls: { deliveryModes: ["queue", "steer"], interrupt: { supported: false } },
+          sessionControls: {
+            deliveryModes: ["queue", "steer"],
+            interrupt: { supported: false },
+            approvals: { supported: false },
+          },
         }),
       }),
     ]);

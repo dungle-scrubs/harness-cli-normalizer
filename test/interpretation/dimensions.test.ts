@@ -70,6 +70,7 @@ describe("capabilitiesOf (claude)", () => {
       sessionControls: {
         deliveryModes: ["queue", "steer"],
         interrupt: { supported: true, toolCancellation: "best-effort" },
+        approvals: { supported: true },
       },
     });
   });

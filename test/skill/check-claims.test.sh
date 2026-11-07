@@ -61,6 +61,64 @@ else
   echo "skip: no working hcn selected, working-binary tests not run"
 fi
 
+# CHECK_CLAIMS_REQUIRE_SESSION_CONTROLS=1 must fail a build WITHOUT the
+# session host control surface (session --native-approvals, the settings
+# op, verbatim, --setting-sources). The stub replays the working binary's
+# own help with the surface markers stripped, which is exactly what an
+# immediately older build's help looked like - and against which the
+# conditional checks passed vacuously (review round 1, F11).
+if [ -n "$working_hcn" ]; then
+  mkdir "$fixture_dir/pre-controls"
+  # Every help the script reads; the lanes it gates behind their own
+  # markers (transcript, observations, interactive) are skipped by
+  # stripping those markers too, so only the session-control surface
+  # differs from the working build.
+  for cmd in "" "run" "session" "inspect" "interactive" "transcript"; do
+    # shellcheck disable=SC2086 # cmd is deliberately empty for the top level
+    "$working_hcn" $cmd --help 2>&1 \
+      | sed -e '/--native-approvals/d' -e '/--setting-sources/d' -e '/"op":"settings"/d' \
+        -e '/transcript read/d' -e '/unconfined commands/d' \
+      >"$fixture_dir/pre-controls/help${cmd:-top}.txt"
+  done
+  {
+    printf '#!/usr/bin/env bash\n'
+    printf 'fixture_dir=%q\n' "$fixture_dir"
+    cat <<'EOF'
+case "${1:-}" in
+  run|session|inspect|interactive|transcript) cat "$fixture_dir/pre-controls/help$1.txt" ;;
+  *) cat "$fixture_dir/pre-controls/helptop.txt" ;;
+esac
+exit 0
+EOF
+  } > "$fixture_dir/pre-controls/hcn"
+  chmod +x "$fixture_dir/pre-controls/hcn"
+  # Without the opt-in the older build still passes: the checks stayed
+  # conditional on purpose for installed older binaries.
+  env -u CHECK_CLAIMS_REQUIRE_SESSION_CONTROLS HCN_BIN="$fixture_dir/pre-controls/hcn" \
+    /bin/bash "$script" >/dev/null 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ]; then
+    echo "ok: pre-controls build passes without the opt-in"
+  else
+    echo "FAIL: pre-controls build gave exit $rc without the opt-in, want 0"
+    fails=$((fails + 1))
+  fi
+  # With the opt-in the missing surface is a miss.
+  out=$(CHECK_CLAIMS_REQUIRE_SESSION_CONTROLS=1 HCN_BIN="$fixture_dir/pre-controls/hcn" \
+    /bin/bash "$script" 2>&1)
+  rc=$?
+  case "$out" in
+    *"MISS: session --native-approvals required"*"MISS: session settings op and verbatim required"*"MISS: --setting-sources required"*) required_lines=1 ;;
+    *) required_lines=0 ;;
+  esac
+  if [ "$rc" -eq 1 ] && [ "$required_lines" -eq 1 ]; then
+    echo "ok: CHECK_CLAIMS_REQUIRE_SESSION_CONTROLS=1 fails a build without the surface"
+  else
+    echo "FAIL: required session controls gave exit $rc (lines found: $required_lines), output: $out"
+    fails=$((fails + 1))
+  fi
+fi
+
 # Alias targets must be selectable explicit IDs in the reported vocabulary.
 if [ -n "$working_hcn" ]; then
   case "$("$working_hcn" inspect claude --json)" in

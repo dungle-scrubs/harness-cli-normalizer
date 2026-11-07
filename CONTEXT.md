@@ -130,7 +130,14 @@ These own state, a clock, or a policy that no harness has. Each is deliberate.
   Codex permission requests itself: it offers the choices, tracks decision ids,
   refuses a conflicting re-answer, and expires the answer right once the request
   clears. The largest supervising part, and the only one with its own state
-  machine.
+  machine. On a Claude session (issues #454/#455, 2026-11-07, maintainer ask
+  recorded as ADR 0013) the same responder is widened the other way: it arms
+  Claude's `--permission-prompt-tool stdio`, forwards each `can_use_tool`
+  request to the session host as an `approval-request` event, writes the
+  host's decision back as the native reply, clears the request when the
+  harness cancels it or its turn or process ends, and pauses the stall clock
+  while a request waits. Forwarding decides nothing - the host's choice is
+  the decision - and nothing persists across processes.
 - **Killing on stall or deadline.** hcn ends the child process and synthesizes
   the failure. `--timeout` is a wall clock hcn enforces; no harness has one.
 - **The stall clock.** `stall` appears in no descriptor. hcn invented the idea

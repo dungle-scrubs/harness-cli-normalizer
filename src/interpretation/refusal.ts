@@ -43,6 +43,8 @@ export type RefusalOption =
   | "questions"
   | "timeout"
   | "nativeSettingsFingerprint"
+  | "nativeApprovals"
+  | "settingSources"
   | "resumeLast"
   | `discovery.${string}`;
 

@@ -22,6 +22,10 @@
 # MISS, so a maintainer or CI run cannot pass without exercising it.
 # CHECK_CLAIMS_EXTRA adds one expectation to the top-level help check.
 # The test file uses it to prove a bad expectation fails with exit 1.
+# CHECK_CLAIMS_REQUIRE_SESSION_CONTROLS=1 turns a missing session host
+# control surface (session --native-approvals, the settings op, verbatim,
+# --setting-sources) into a MISS the way REQUIRE_SNAPSHOT does for the
+# snapshot lane, so pnpm check:skill cannot pass on a build without them.
 
 # A POSIX sh that is not bash stops here, before any bash-only syntax.
 if [ -z "${BASH_VERSION:-}" ]; then
@@ -253,6 +257,55 @@ case "$help_session" in
     require "session permission controls" "$help_session" \
       "--tools" "--no-tools" "--no-autonomy" "--access <read|write>" \
       "Repeat controls on --resume" "Other harnesses refuse before spawn"
+    ;;
+esac
+
+# Session approvals forwarding is additive (issue #454/#455); a
+# maintainer/CI run (CHECK_CLAIMS_REQUIRE_SESSION_CONTROLS=1) treats a
+# build without the surface as a miss, so the skill cannot pass against
+# an hcn that lacks it.
+case "$help_session" in
+  *"--native-approvals"*)
+    require "hcn session --help (native approvals)" "$help_session" \
+      "Claude only, with --json" "approval-request" "approval-disposition" \
+      "approval-cleared" "hcn adds no" "refuses (exit 2)" "controls.approvals.supported"
+    ;;
+  *)
+    if [ "${CHECK_CLAIMS_REQUIRE_SESSION_CONTROLS:-0}" = 1 ]; then
+      printf 'MISS: session --native-approvals required for this verification\n'
+      misses=$((misses + 1))
+    fi
+    ;;
+esac
+
+# Mid-session settings and verbatim sends are additive (issue #456).
+case "$help_session" in
+  *"\"op\":\"settings\""*)
+    require "hcn session --help (settings op)" "$help_session" \
+      "settings" "verbatim" "no question preamble" "validated as the spawn flags" \
+      "one settings event per op"
+    ;;
+  *)
+    if [ "${CHECK_CLAIMS_REQUIRE_SESSION_CONTROLS:-0}" = 1 ]; then
+      printf 'MISS: session settings op and verbatim required for this verification\n'
+      misses=$((misses + 1))
+    fi
+    ;;
+esac
+
+# The setting-sources selection is additive (issue #457).
+case "$help_run" in
+  *"--setting-sources"*)
+    require "hcn run --help (setting sources)" "$help_run" \
+      "Claude only" "user, project, local" "no repeats" "No config key"
+    require "hcn session --help (setting sources)" "$help_session" \
+      "replacing the" "default project"
+    ;;
+  *)
+    if [ "${CHECK_CLAIMS_REQUIRE_SESSION_CONTROLS:-0}" = 1 ]; then
+      printf 'MISS: --setting-sources required for this verification\n'
+      misses=$((misses + 1))
+    fi
     ;;
 esac
 

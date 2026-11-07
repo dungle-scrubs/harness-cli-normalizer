@@ -152,6 +152,8 @@ export const museCode: HarnessDescriptor = deepFreeze({
     flag: "--last",
     headless: false,
   },
+  // No setting-source selection flag (issue #457 is claude-only).
+  settingSources: null,
   stdin: "inherit",
   presence: {
     headlessMarkers: ["exec"],

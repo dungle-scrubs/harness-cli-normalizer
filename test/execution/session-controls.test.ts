@@ -507,6 +507,7 @@ describe("issue #426: pi interruption is two-phase and settles on native observa
     expect(r.session.controls).toEqual({
       deliveryModes: ["queue", "steer"],
       interrupt: { supported: false },
+      approvals: { supported: false },
     });
     r.proc.exit(0);
     await r.session.close();
@@ -534,8 +535,13 @@ const identitiesOf = (events: HarnessEvent[]) =>
 const SUPPORTED = {
   deliveryModes: ["queue", "steer"],
   interrupt: { supported: true, toolCancellation: "best-effort" },
+  approvals: { supported: false },
 };
-const UNSUPPORTED = { deliveryModes: ["queue", "steer"], interrupt: { supported: false } };
+const UNSUPPORTED = {
+  deliveryModes: ["queue", "steer"],
+  interrupt: { supported: false },
+  approvals: { supported: false },
+};
 
 describe("issue #429: claude interrupt support is what the running process advertises", () => {
   test("controls follow each init, and identity re-announces every change", async () => {

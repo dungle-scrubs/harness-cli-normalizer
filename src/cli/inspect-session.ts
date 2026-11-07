@@ -7,6 +7,7 @@ import {
   memoryFlagOf,
   parseCommonFlags,
   parseSessionPermissionOptions,
+  parseSettingSourcesValue,
   resumeIdOf,
   splitPassthrough,
 } from "./args.js";
@@ -46,6 +47,8 @@ const SESSION_PREVIEW_OPTIONS = new Set([
   "autonomy",
   "no-autonomy",
   "access",
+  // issue #457: the setting-source selection a claude session accepts.
+  "setting-sources",
 ]);
 
 /** Session startup has no prompt and uses no launch-only defaults. */
@@ -142,6 +145,7 @@ export async function inspectSessionRuntime(
     // uses. The toolMap the config tiers carry is merged (project over
     // user) exactly as the run path merges it.
     const permissions = parseSessionPermissionOptions(values);
+    const settingSources = parseSettingSourcesValue(values["setting-sources"]);
     const userConfig = loadUserConfig()?.config;
     const projectConfig = loadProjectConfig()?.config;
     const mergedToolMap = mergeToolMaps({
@@ -157,6 +161,7 @@ export async function inspectSessionRuntime(
       provider: typeof values.provider === "string" ? values.provider : undefined,
       contextWindow:
         typeof values["context-window"] === "string" ? Number(values["context-window"]) : undefined,
+      ...(settingSources === undefined ? {} : { settingSources }),
       ...permissions,
       ...(toolMap === undefined ? {} : { toolMap }),
     });

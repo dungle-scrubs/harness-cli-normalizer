@@ -9,7 +9,15 @@ import {
   contentEventsOf,
   contentEventsWithState,
   freshCursorReaderState,
+  isCursorReaderState,
 } from "../../src/interpretation/content.js";
+
+const cursorState = (
+  state: ReturnType<typeof contentEventsWithState>["state"],
+): ReturnType<typeof freshCursorReaderState> => {
+  if (!isCursorReaderState(state)) throw new Error("expected cursor reader state");
+  return state;
+};
 
 const sid = "11111111-2222-4333-8444-555555555555";
 
@@ -223,7 +231,7 @@ describe("cursor interaction queries", () => {
     const askFirst = contentEventsWithState("cursor", askQuery, freshCursorReaderState());
     expect(askFirst.events).toEqual([]);
     if (askFirst.state === null) throw new Error("expected cursor reader state");
-    expect(askFirst.state.queryArgs).toEqual([
+    expect(cursorState(askFirst.state).queryArgs).toEqual([
       { toolCallId: "tool-7", args: { title: "Which file?" } },
     ]);
   });
@@ -332,7 +340,7 @@ describe("cursor reader state", () => {
     for (let i = 0; i < 129; i++) {
       const out = contentEventsWithState("cursor", started(`c${i}`), state);
       if (out.state === null) throw new Error("expected cursor reader state");
-      state = out.state;
+      state = cursorState(out.state);
     }
     for (let i = 1; i < 129; i++) {
       const out = contentEventsWithState("cursor", okCompleted(`c${i}`), state);
@@ -346,7 +354,7 @@ describe("cursor reader state", () => {
           isError: false,
         },
       ]);
-      state = out.state;
+      state = cursorState(out.state);
     }
     const late = contentEventsWithState("cursor", okCompleted("c0"), state);
     expect(late.events).toEqual([
@@ -375,7 +383,7 @@ describe("cursor reader state", () => {
         state,
       );
       if (out.state === null) throw new Error("expected cursor reader state");
-      state = out.state;
+      state = cursorState(out.state);
     }
     expect(state.pending).toHaveLength(128);
     expect(state.pending).not.toContain("tool-0");

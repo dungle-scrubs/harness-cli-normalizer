@@ -12,6 +12,19 @@ import type {
   SessionInputKind,
 } from "../knowledge/descriptor.js";
 import { SESSION_INPUT_KINDS } from "../knowledge/descriptor.js";
+import {
+  decodeClaudePermissionRequest,
+  type SessionApprovalProposal,
+} from "./session-approvals.js";
+import {
+  claudeSettingsAnswerOf,
+  type PiModelEntry,
+  type PiStateAnswer,
+  parseSettingsId,
+  piCatalogOf,
+  piSettingsAnswerOf,
+  piStateOf,
+} from "./session-settings.js";
 import { asRecord, readPath } from "./shape.js";
 
 export type SessionInputIssue =
@@ -307,6 +320,33 @@ export type SessionRecord =
   | { readonly inputId?: string; readonly kind: "command-failed"; readonly message: string }
   /** Protocol bookkeeping with nothing to surface. */
   | { readonly kind: "ignored" }
+  /** Issue #454/#455: claude asked the host about a tool use
+   * (`can_use_tool` under --permission-prompt-tool stdio). The proposal
+   * is fully normalized; the runner forwards it as an approval-request
+   * event when the session was opened with --native-approvals. */
+  | {
+      readonly kind: "approval-request";
+      readonly requestId: string;
+      readonly proposal: SessionApprovalProposal;
+    }
+  /** Issue #454: claude cancelled a permission request itself (an
+   * interrupt while it waited); the request loses its answer right. */
+  | { readonly kind: "approval-cancelled"; readonly requestId: string }
+  /** Issue #456: the harness answered a settings command hcn wrote
+   * (`set_model` / `apply_flag_settings` on claude; `set_model` /
+   * `set_thinking_level` / `get_available_models` / `get_state` on pi).
+   * `model` is the native confirmation where the harness returns one,
+   * `models` is pi's catalog answer, `state` pi's effective-state
+   * readback; else absent. */
+  | {
+      readonly kind: "settings-answered";
+      readonly token: string;
+      readonly part: "model" | "effort" | "catalog" | "state";
+      readonly ok: boolean;
+      readonly model?: string;
+      readonly models?: readonly PiModelEntry[];
+      readonly state?: PiStateAnswer;
+    }
   /** The record that delimits a turn, with the harness's own error flag.
    * `aborted` is present when the harness reports the run was cancelled
    * (pi agent_settled.aborted true, claude result terminal_reason
@@ -427,6 +467,41 @@ export const decodeSessionRecord = (
             accepted: false,
           };
     }
+    // Issue #456: the answer to a settings rpc command hcn wrote. The
+    // command must be the one the id's part names - a thinking response
+    // to a model id settles nothing.
+    if (typeof parsed.id === "string") {
+      const named = parseSettingsId(parsed.id);
+      if (named !== null) {
+        const answer = piSettingsAnswerOf(parsed, named.part);
+        if (answer === null) return { kind: "ignored" };
+        if (named.part === "catalog") {
+          return {
+            kind: "settings-answered",
+            token: named.token,
+            part: named.part,
+            ok: answer.ok,
+            models: piCatalogOf(parsed),
+          };
+        }
+        if (named.part === "state") {
+          return {
+            kind: "settings-answered",
+            token: named.token,
+            part: named.part,
+            ok: answer.ok,
+            state: piStateOf(parsed),
+          };
+        }
+        return {
+          kind: "settings-answered",
+          token: named.token,
+          part: named.part,
+          ok: answer.ok,
+          ...(answer.model !== undefined ? { model: answer.model } : {}),
+        };
+      }
+    }
     const inputId =
       typeof parsed.id === "string" && parsed.id.startsWith(SEND_ID_PREFIX)
         ? parsed.id.slice(SEND_ID_PREFIX.length)
@@ -497,9 +572,24 @@ export const decodeSessionRecord = (
     }
     return { kind: "content" };
   }
+  if (isClaudeSessionInput(mode.input.kind) && parsed.type === "control_request") {
+    // Issue #454/#455: a permission-gated tool use the child asks the host
+    // about (`can_use_tool`). Other control requests the child might send
+    // (dialogs, hook callbacks) are not part of this channel and stay
+    // ignored - they never reach a consumer unshaped.
+    const decoded = decodeClaudePermissionRequest(parsed);
+    return decoded === null
+      ? { kind: "ignored" }
+      : { kind: "approval-request", requestId: decoded.requestId, proposal: decoded.proposal };
+  }
+  if (isClaudeSessionInput(mode.input.kind) && parsed.type === "control_cancel_request") {
+    // Issue #454: the child cancelled its own request (an interrupt while
+    // it waited); it can no longer be answered.
+    return typeof parsed.request_id === "string" && parsed.request_id !== ""
+      ? { kind: "approval-cancelled", requestId: parsed.request_id }
+      : { kind: "ignored" };
+  }
   if (isClaudeSessionInput(mode.input.kind) && parsed.type === "control_response") {
-    // Issue #429: only an answer bearing the interrupt marker is one; the
-    // receipt's still_queued list is the harness's queue, never read here.
     const response = asRecord(parsed.response);
     const requestId = response?.request_id;
     if (typeof requestId === "string" && requestId.startsWith(INTERRUPT_ID_PREFIX)) {
@@ -512,6 +602,25 @@ export const decodeSessionRecord = (
             accepted: false,
           };
     }
+    // Issue #456: the answer to a settings control request hcn wrote.
+    if (typeof requestId === "string") {
+      const named = parseSettingsId(requestId);
+      if (named !== null) {
+        const answer = claudeSettingsAnswerOf(parsed);
+        return answer === null
+          ? { kind: "ignored" }
+          : {
+              kind: "settings-answered",
+              token: named.token,
+              part: named.part,
+              ok: answer.ok,
+              ...(answer.model !== undefined ? { model: answer.model } : {}),
+            };
+      }
+    }
+    // Any other control response answers something hcn never wrote;
+    // the still_queued list inside an interrupt receipt is the harness's
+    // queue, never read here.
     return { kind: "ignored" };
   }
   if (matchesTurnEnd(parsed, mode.turnEnd)) {

@@ -213,6 +213,8 @@ export const piCli: HarnessDescriptor = deepFreeze({
     warning:
       "hcn: --resume-last resumes the most-recent pi session in {cwd}; the most recent session may be a killed, failed, or unrelated run's session; pi starts a fresh session with exit 0 when no session is resumable in {cwd}; a run from inside a live pi session in the same directory re-enters that session",
   },
+  // No setting-source selection flag (issue #457 is claude-only).
+  settingSources: null,
   stdin: "close-required",
   presence: {
     headlessMarkers: ["-p", "--print"],

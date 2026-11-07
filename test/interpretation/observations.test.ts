@@ -4,7 +4,9 @@ import { DROPPABLE_KINDS } from "../../src/execution/events.js";
 import {
   contentEventsOf,
   contentEventsWithState,
+  freshClaudeReaderState,
   freshCursorReaderState,
+  isClaudeReaderState,
 } from "../../src/interpretation/content.js";
 import { usageEventsOf } from "../../src/interpretation/usage.js";
 import type { HarnessName } from "../../src/knowledge/descriptor.js";
@@ -337,6 +339,163 @@ describe("native token usage observations", () => {
     expect(
       usageEventsOf("claude", { type: "assistant", message: { usage: { output_tokens: 1 } } }),
     ).toEqual([]);
+  });
+
+  test("the models of a turn's assistant messages ride the turn-scoped usage (review F10; round 4 J2)", () => {
+    // Claude: the result record carries no model; the tracked ones ride.
+    // Exactly one attested model singles out `model` and carries
+    // `models`; several carry only the list; none carry neither.
+    const claudeUsage = { input_tokens: 1, output_tokens: 2 };
+    expect(
+      usageEventsOf("claude", { type: "result", usage: claudeUsage }, ["claude-opus-5"]),
+    ).toEqual([
+      {
+        kind: "usage",
+        scope: "turn",
+        inputTokens: 1,
+        outputTokens: 2,
+        inputIncludesCache: false,
+        model: "claude-opus-5",
+        models: ["claude-opus-5"],
+      },
+    ]);
+    expect(
+      usageEventsOf("claude", { type: "result", usage: claudeUsage }, [
+        "claude-opus-5",
+        "claude-haiku-5-5",
+      ]),
+    ).toEqual([
+      {
+        kind: "usage",
+        scope: "turn",
+        inputTokens: 1,
+        outputTokens: 2,
+        inputIncludesCache: false,
+        models: ["claude-opus-5", "claude-haiku-5-5"],
+      },
+    ]);
+    expect(usageEventsOf("claude", { type: "result", usage: claudeUsage })).toEqual([
+      {
+        kind: "usage",
+        scope: "turn",
+        inputTokens: 1,
+        outputTokens: 2,
+        inputIncludesCache: false,
+      },
+    ]);
+    // Pi: the assistant message attests the model on the same record.
+    expect(
+      usageEventsOf("pi", {
+        type: "message_end",
+        message: { role: "assistant", model: "glm-5.2", usage: { input: 100 } },
+      }),
+    ).toEqual([
+      {
+        kind: "usage",
+        scope: "message",
+        inputTokens: 100,
+        inputIncludesCache: false,
+        model: "glm-5.2",
+      },
+    ]);
+    expect(
+      usageEventsOf("pi", {
+        type: "message_end",
+        message: { role: "toolResult", toolCallId: "t1", model: "glm-5.2", usage: { input: 100 } },
+      }),
+    ).toEqual([
+      { kind: "usage", scope: "tool", callId: "t1", inputTokens: 100, inputIncludesCache: false },
+    ]);
+  });
+
+  test("the claude reader tracks the turn's model from assistant records to the result (review F10)", () => {
+    const assistant = (model: string): Record<string, unknown> => ({
+      type: "assistant",
+      message: {
+        role: "assistant",
+        model,
+        content: [{ type: "text", text: "hi" }],
+      },
+    });
+    const result = {
+      type: "result",
+      subtype: "success",
+      usage: { input_tokens: 1, output_tokens: 2 },
+      total_cost_usd: 0,
+    };
+    // Assistant record sets the attested model; the result's turn usage
+    // carries it and clears the tracker for the next turn.
+    const first = contentEventsWithState(
+      "claude",
+      assistant("claude-opus-5"),
+      freshClaudeReaderState(),
+    );
+    expect(
+      contentEventsWithState("claude", result, first.state).events.find((e) => e.kind === "usage"),
+    ).toMatchObject({ scope: "turn", model: "claude-opus-5" });
+    const cleared = contentEventsWithState("claude", result, first.state).state;
+    // A result with no assistant attestation before it carries no model.
+    expect(
+      contentEventsWithState("claude", result, cleared).events.find((e) => e.kind === "usage"),
+    ).not.toMatchObject({ model: "claude-opus-5" });
+    // Review round 3, H1: a turn whose assistant records attest two models
+    // (a mid-turn settings change) attributes its aggregate to neither -
+    // the turn-scoped usage carries no single model. Repeating a model is
+    // not a second one. Round 4, J2: the list rides along in first-seen
+    // order whenever at least one model was attested.
+    const asClaude = (state: ReturnType<typeof contentEventsWithState>["state"]) =>
+      isClaudeReaderState(state) ? state : freshClaudeReaderState();
+    let mixed = freshClaudeReaderState();
+    mixed = asClaude(contentEventsWithState("claude", assistant("claude-opus-5"), mixed).state);
+    mixed = asClaude(contentEventsWithState("claude", assistant("claude-opus-5"), mixed).state);
+    mixed = asClaude(contentEventsWithState("claude", assistant("claude-haiku-5-5"), mixed).state);
+    const mixedOut = contentEventsWithState("claude", result, mixed);
+    const mixedUsage = mixedOut.events.find((e) => e.kind === "usage" && e.scope === "turn");
+    expect(mixedUsage).not.toMatchObject({ model: expect.anything() });
+    expect(mixedUsage).toMatchObject({ models: ["claude-opus-5", "claude-haiku-5-5"] });
+    // And the next single-model turn attributes cleanly again.
+    const next = contentEventsWithState("claude", assistant("claude-opus-5"), mixedOut.state);
+    expect(
+      contentEventsWithState("claude", result, next.state).events.find(
+        (e) => e.kind === "usage" && e.scope === "turn",
+      ),
+    ).toMatchObject({ model: "claude-opus-5", models: ["claude-opus-5"] });
+  });
+
+  test("subagent and synthetic records never enter the turn's models (review round 4, J1)", () => {
+    const mainLoop = (model: string): Record<string, unknown> => ({
+      type: "assistant",
+      message: {
+        role: "assistant",
+        model,
+        content: [{ type: "text", text: "hi" }],
+      },
+    });
+    // A subagent record names its parent tool call (Agent SDK stream
+    // shape); a <synthetic> placeholder is not model output either. The
+    // result's turn usage covers the MAIN LOOP only, so neither may
+    // suppress its single-model attribution.
+    const subagent = (model: string): Record<string, unknown> => ({
+      ...mainLoop(model),
+      parent_tool_use_id: "toolu_01",
+    });
+    const synthetic = mainLoop("<synthetic>");
+    const result = {
+      type: "result",
+      subtype: "success",
+      usage: { input_tokens: 1, output_tokens: 2 },
+    };
+    const asClaude = (state: ReturnType<typeof contentEventsWithState>["state"]) =>
+      isClaudeReaderState(state) ? state : freshClaudeReaderState();
+    let state = freshClaudeReaderState();
+    state = asClaude(contentEventsWithState("claude", mainLoop("claude-sonnet-5-5"), state).state);
+    state = asClaude(contentEventsWithState("claude", subagent("claude-haiku-5-5"), state).state);
+    state = asClaude(contentEventsWithState("claude", synthetic, state).state);
+    state = asClaude(contentEventsWithState("claude", mainLoop("claude-sonnet-5-5"), state).state);
+    const usage = contentEventsWithState("claude", result, state).events.find(
+      (e) => e.kind === "usage" && e.scope === "turn",
+    );
+    expect(usage).toMatchObject({ model: "claude-sonnet-5-5", models: ["claude-sonnet-5-5"] });
   });
 
   test("Codex caches overlap input; exec and app-server session totals are not invented turn deltas", () => {

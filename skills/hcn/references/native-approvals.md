@@ -1,5 +1,11 @@
 # Native approvals for one resumed response
 
+Two lanes share the `--native-approvals` flag: the Codex one-shot lane
+below, and the Claude session lane in
+[reference.md's session approvals](reference.md#session-native-approvals),
+which forwards requests to the session host instead of gating a single
+response.
+
 Check `hcn run --help` for `--native-approvals`. An older binary refuses the
 flag; keep the input held rather than falling back to ordinary exec.
 

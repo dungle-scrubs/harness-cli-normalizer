@@ -50,6 +50,8 @@ const DESCRIPTOR_KEYS = [
   // Issue #179 adds the optional approval-observer top-level key (only
   // muse carries it).
   "approvalObserver",
+  // Issue #457 adds the setting-source selection (claude only).
+  "settingSources",
 ] as const satisfies readonly (keyof HarnessDescriptor)[];
 
 type Missing = Exclude<keyof HarnessDescriptor, (typeof DESCRIPTOR_KEYS)[number]>;

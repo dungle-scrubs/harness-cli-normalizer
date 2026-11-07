@@ -166,6 +166,14 @@ Options:
   --no-tools                Disable tools discovery facet
   --no-instruction-files    Disable instructionFiles discovery facet
   --no-extensions           Disable extensions discovery facet
+  --setting-sources <list>  Claude only: comma list of user, project, local
+                            (non-empty, no repeats) selecting which settings
+                            scopes the child loads, rendered as Claude's
+                            --setting-sources. A bare run passes nothing
+                            (Claude's own default applies). Other harnesses
+                            refuse it; --no-extensions (which pins the same
+                            flag to project) refuses together with it.
+                            No config key
   --skills <a,b>            Skill allowlist (names resolved against $HCN_SKILLS_ROOT
                             or ~/.agents/skills; pi loads, claude and codex narrow)
   --no-skills               Disable skills discovery facet
@@ -237,10 +245,26 @@ Arguments:
 Options:
   --json                    Machine surface: NDJSON events on stdout, NDJSON
                             commands on stdin ({"op":"send","id":..,"text":..},
-                            "answer", "interrupt", "close"). Send and answer
-                            accept optional "delivery":"queue"|"steer".
-                            The session event advertises controls.deliveryModes
-                            and controls.interrupt.supported. Claude interrupt
+                            "answer", "interrupt", "settings", "approval",
+                            "close"). Send and answer
+                            accept optional "delivery":"queue"|"steer"; send
+                            also accepts "verbatim":true, which writes the
+                            text with no question preamble - how a host
+                            types a slash command on Claude (/model haiku,
+                            /compact; a typed /model follows Claude's own
+                            precedence, so prefer the settings op for a
+                            certain model). On pi, interactive built-ins
+                            never run through a session send - change pi's
+                            model and effort with the settings op.
+                            {"op":"settings","id":..,"model":..,"effort":..}
+                            (claude, pi; at least one field) changes the
+                            session's model and/or effort from the next
+                            model request, validated as the spawn flags;
+                            one settings event per op (applied with the
+                            confirmed model, or rejected with a reason).
+                            The session event advertises controls.deliveryModes,
+                            controls.interrupt.supported and
+                            controls.approvals.supported. Claude interrupt
                             support starts false and follows what the process
                             advertises; read the latest identity event's
                             capabilities.sessionControls. Unsupported modes
@@ -262,7 +286,21 @@ Options:
 ${DENIAL_COUNT_HELP}
   --stall <seconds>         Per-turn inactivity budget; the turn ends and the
                             session closes reporting a stall. 0 disables
-                            (default: no limit)
+                            (default: no limit). While a native approval
+                            request waits (--native-approvals), the clock
+                            pauses: a human is deciding
+  --native-approvals        Claude only, with --json: forward each native
+                            permission request (tool calls, AskUserQuestion,
+                            plan approvals) to the session host as
+                            approval-request events; answer with stdin
+                            {"v":1,"op":"approval","id",..,"requestId",
+                            ..,"choiceId",..}. One approval-disposition per
+                            decision; cancelled, turn-ended and process-ended
+                            requests emit approval-cleared and lose their
+                            answer right. Claude resolves deny rules, hooks
+                            and managed policy before asking; hcn adds no
+                            rule. Without the flag nothing changes; without
+                            --json or on another harness it refuses (exit 2)
   --provider <value>        Provider (pi only)
   --agent <name>            Named agent for the session spawn (claude,
                             antigravity, popeye; pi with its subagent
@@ -310,6 +348,13 @@ ${DENIAL_COUNT_HELP}
                             Which preamble to inject: ask = worker may
                             ask (DEFAULT, pickable menu), assume = never
                             ask, none = inject nothing
+  --setting-sources <list>  Claude only: comma list of user, project, local
+                            (non-empty, no repeats) selecting which settings
+                            scopes the session child loads, replacing the
+                            default project. A host standing in for an
+                            interactive Claude usually wants user,project,local
+                            so the user's own permissions and plugins apply.
+                            Other harnesses refuse it (exit 2)
   --memory                  Use native memory settings for the session spawn;
                             remove hcn's memory-off override
   --no-memory               Disable persistent memory (DEFAULT; claude
@@ -407,6 +452,7 @@ Options:
   --max-steps <n>
   --isolation <tool-free> (fresh claude turn only)
   --no-tools, --no-instruction-files, --no-extensions, --no-skills
+  --setting-sources <list>  (claude; session previews and headless-turn)
   --questions <ask|assume|none>
                             Accepted; renders nothing in argv (the mode
                             rides the run prompt, not a harness flag)

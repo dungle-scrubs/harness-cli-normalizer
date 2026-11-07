@@ -22,7 +22,11 @@ import type { SkillsSelection } from "../interpretation/skills-selection.js";
 import { mergeToolMaps } from "../interpretation/tool-vocabulary.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { defaultDescriptors } from "../knowledge/overrides.js";
-import { parseSessionPermissionOptions, splitPassthrough } from "./args.js";
+import {
+  parseSessionPermissionOptions,
+  parseSettingSourcesValue,
+  splitPassthrough,
+} from "./args.js";
 import { markJsonCrashStream } from "./crash.js";
 import { gateExtensionOptions, writeExtensionProvenance } from "./extension-gate.js";
 import { resolveLaunchEnvironment } from "./launch-environment.js";
@@ -97,7 +101,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   const { memoryFlagOf, parseCommonFlags, resumeIdOf } = await import("./args.js");
   let parsed: ReturnType<typeof parseCommonFlags>;
   try {
-    parsed = parseCommonFlags(rawArgs);
+    parsed = parseCommonFlags(rawArgs, { nativeApprovals: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     process.stderr.write(`unknown flag: ${message}\n`);
@@ -114,6 +118,44 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   }
 
   const values = parsed.values as Record<string, unknown>;
+  // Issues #454/#455: --native-approvals arms the session's native
+  // permission channel. It is a --json-machine control (the decisions ride
+  // stdin NDJSON) and exists only on a harness whose descriptor declares
+  // the channel, so both misspells of the intent refuse before spawn.
+  if (values["native-approvals"] === true) {
+    const { refusalOf, refuse } = await import("./refuse.js");
+    if (!jsonMode) {
+      refuse(
+        {
+          issue: "invalid-option-value",
+          message: "--native-approvals needs --json: decisions arrive as stdin NDJSON",
+          supported: ["hcn session <harness> --json --native-approvals"],
+        },
+        jsonMode,
+        "closed",
+      );
+      return;
+    }
+    if (h.sessionMode.controls.approvals == null) {
+      const supported = Object.values(defaultDescriptors())
+        .filter((d): d is HarnessDescriptor => d.sessionMode?.controls.approvals != null)
+        .map((d) => d.name);
+      refuse(
+        refusalOf(
+          new ArgvRefusalError({
+            issue: "unsupported-option",
+            harness: h.name,
+            option: "nativeApprovals",
+            supported,
+            detail: "this harness declares no session permission channel",
+          }),
+        ),
+        jsonMode,
+        "closed",
+      );
+      return;
+    }
+  }
   // RFC-06: a session holds one stable identity across turns;
   // most-recent resolution per turn defeats it.
   if (values["resume-last"] === true) {
@@ -256,6 +298,10 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   const provider = values.provider as string | undefined;
   const agent = values.agent as string | undefined;
   const effort = values.effort as string | undefined;
+  // Issue #457: claude's setting-source selection, validated by the one
+  // owner (buildSessionArgv) so the refusal shape matches the run lane;
+  // split through the one shared parser.
+  const settingSources = parseSettingSourcesValue(values["setting-sources"]);
   const contextWindow =
     values["context-window"] !== undefined ? Number(values["context-window"]) : undefined;
 
@@ -483,6 +529,8 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
     isResume,
     ...(memoryExpressible ? { memory } : {}),
     ...(skills !== undefined ? { skills } : {}),
+    ...(values["native-approvals"] === true ? { nativeApprovals: true } : {}),
+    ...(settingSources === undefined ? {} : { settingSources }),
     ...sessionPermissions,
   };
   // Validate before extension probes, which themselves spawn a native process.

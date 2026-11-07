@@ -136,6 +136,17 @@ export type ApprovalObserver = (typeof APPROVAL_OBSERVERS)[number];
 export const SESSION_DELIVERIES = deepFreeze(["queue", "steer"] as const);
 export type SessionDelivery = (typeof SESSION_DELIVERIES)[number];
 
+/** Issue #454: the native permission channel a persistent session can
+ * forward to its host. Claude's `--permission-prompt-tool stdio` makes the
+ * child ask about each permission-gated tool call with a `can_use_tool`
+ * control request and wait for the host's `control_response` (verified
+ * 2.1.319). */
+export interface SessionApprovalChannel {
+  readonly kind: "claude-can-use-tool";
+  /** What hcn adds to the session argv to arm the channel. */
+  readonly spawnFlags: readonly string[];
+}
+
 /** The live-session controls a harness supports natively, as verified data.
  * The runner refuses anything not listed here before writing native input. */
 export interface SessionControls {
@@ -146,6 +157,11 @@ export interface SessionControls {
    * neither undoes completed actions nor guarantees that a running tool
    * and its children stop. */
   readonly interrupt: { readonly toolCancellation: "best-effort" } | null;
+  /** Issue #454: native permission requests the session forwards to its
+   * host, or null when the harness has no such channel. Potential support
+   * is a descriptor fact; a live session advertises it only when it was
+   * opened with `--native-approvals`. */
+  readonly approvals?: SessionApprovalChannel | null;
 }
 
 export interface SessionInputContract {
@@ -731,6 +747,20 @@ export interface HarnessDescriptor {
         readonly headless: false;
       }
     | null;
+  /** Which settings scopes the child loads, where the harness has a flag
+   * for it (claude's `--setting-sources`; verified 2.1.319 that a
+   * user-level permissions.allow applies only under a selection that
+   * includes `user`). Null when the harness has no such flag, and a call
+   * passing one refuses. `defaults` is the selection hcn renders when the
+   * caller picks none - the curated session default (claude: `project`,
+   * which isolates the child from user-level hooks, D-025); a one-shot
+   * launch with no explicit selection renders nothing, exactly as before
+   * this fact existed. Issue #457. */
+  readonly settingSources: {
+    readonly flag: string;
+    readonly values: readonly string[];
+    readonly defaults: readonly string[];
+  } | null;
   /** Whether backgrounded headless calls must have stdin closed (pi hangs
    * without `< /dev/null`). */
   readonly stdin: StdinPolicy;

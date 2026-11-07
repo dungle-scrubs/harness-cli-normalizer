@@ -76,6 +76,8 @@ provenance: questions = ask (default)
 
 To use another harness, replace `claude` with `codex`, `pi`, `muse`, `cursor`, `antigravity`, or
 `popeye` and keep the other flags. hcn checks `--model` and `--effort` against the harness first.
+On claude, `--setting-sources <list>` (`user`, `project`, `local`) picks which settings scopes the
+child loads; runs pass nothing by default and sessions pin `project`.
 For example, `--model haiku` on codex exits 2 and lists the codex models. The stderr lines show where
 each setting came from (`provenance:`), what the harness cannot express (`divergence:`), and the
 command hcn ran (`spawn:`). The prompt is longer than what you typed because hcn adds a preamble
@@ -182,9 +184,16 @@ $ printf '%s\n' '{"op":"send","id":"in-1","text":"name three primes, nothing els
 ```
 
 With `--json`, you write commands to stdin, one JSON object per line (`send`, `answer`,
-`interrupt`, `close`), and read events from stdout. Each `send` gets one `disposition`; turns
+`interrupt`, `settings`, `approval`, `close`), and read events from stdout. Each `send` gets one `disposition`; turns
 opened by a send carry its id. Check the session packet's `controls` before choosing `delivery`
-`queue` or `steer`, or interrupting and sending a replacement after confirmation. Sessions work
+`queue` or `steer`, or interrupting and sending a replacement after confirmation. On a Claude
+session, `--native-approvals` forwards each permission request, AskUserQuestion and plan approval
+to you as `approval-request` events; see
+[the reference](docs/reference.md#session-native-approvals). On Claude and pi sessions, the
+`settings` op changes model and effort mid-session, and `send` takes `"verbatim": true` to type
+the harness's own slash command untouched (Claude slash commands; on pi only extension commands
+such as `/skill:x` run); see
+[the reference](docs/reference.md#mid-session-model-and-effort). Sessions work
 with Claude Code, Codex, pi, Antigravity CLI, and popeye. Without `--json`, `hcn session claude`
 opens an interactive prompt.
 
@@ -341,7 +350,8 @@ program and the harness, so if you use only one CLI, you may prefer to call that
 - Sessions work with Claude Code, Codex, pi, Antigravity CLI, and popeye. Muse and Cursor CLI run
   single turns only.
 - `hcn interactive` supports Codex only.
-- `--native-approvals` supports Codex only. Saved-settings inspection supports Codex and pi.
+- `--native-approvals` supports Codex one-shot responses and Claude sessions.
+  Saved-settings inspection supports Codex and pi.
 - The weekly version check in CI covers the harnesses published to npm. Muse, Cursor CLI, and
   Antigravity CLI are checked locally with their own version commands.
 

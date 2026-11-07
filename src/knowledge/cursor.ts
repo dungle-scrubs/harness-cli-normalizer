@@ -671,6 +671,8 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
   },
   // A positional prompt plus open stdin emits `result` then never exits,
   // so stdin is closed at spawn (notes 07).
+  // No setting-source selection flag (issue #457 is claude-only).
+  settingSources: null,
   stdin: "close-required",
   presence: {
     headlessMarkers: ["-p"],
