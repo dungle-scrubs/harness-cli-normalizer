@@ -142,13 +142,14 @@ replacement after the terminal interruption receipt; the same conversation
 continues. A `handled` input does not start a model run. Pi has no native
 background jobs and no native stop; `stop-background` rejects `unsupported`.
 
-Claude's background jobs (a `run_in_background` Bash call, a background
-Agent) surface as `background` events, and a subagent's own tool,
-tool-result and message events carry `parentCallId`. Inline Agent calls
-also emit task records: `backgrounded` on the job's first event is `false`
-for an inline (foreground) agent and `true` for a background agent. hcn
-forwards boolean `is_backgrounded` values and omits the field otherwise;
-retain it by job id. The call's `run_in_background` input is unreliable
+Claude's task records (a `run_in_background` Bash call, an Agent call,
+inline or background) surface as `background` events, and a subagent's own
+tool, tool-result and message events carry `parentCallId`. `backgrounded`
+tells the agent forms apart: `false` is an inline (foreground) agent,
+`true` a background job. hcn forwards boolean `is_backgrounded` values
+and remembers them per job id, so every later event for the job carries
+the flag too; it is absent only when no record for the job ever carried
+one. The call's `run_in_background` input is unreliable
 because Claude may background a call that omits it. A job's end can
 arrive after `result`, between turns. When no published turn owns it,
 it stands alone on the wire as a bare `background` line and opens no turn,

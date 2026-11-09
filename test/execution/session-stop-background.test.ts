@@ -238,7 +238,15 @@ describe("background events on a live claude session", () => {
     const stopped = await r.turns.next();
     expect(stopped).toEqual({
       done: false,
-      value: { kind: "background", id: "bcrfa3pxt", job: "shell", state: "stopped" },
+      value: {
+        kind: "background",
+        id: "bcrfa3pxt",
+        job: "shell",
+        state: "stopped",
+        // Carried per job: the start's is_backgrounded rides every later
+        // event for this shell, including its bare between-turn end.
+        backgrounded: true,
+      },
     });
     r.proc.emitLine(JSON.stringify(shellNotificationKilled));
     const notified = await r.turns.next();
@@ -301,6 +309,7 @@ describe("background events on a live claude session", () => {
       id: "bcrfa3pxt",
       job: "shell",
       state: "stopped",
+      backgrounded: true,
     });
     expect((await r.turns.next()).value).toMatchObject({
       kind: "background",

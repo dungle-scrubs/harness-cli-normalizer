@@ -1,23 +1,16 @@
 import { randomUUID } from "node:crypto";
-import { clearLine, cursorTo } from "node:readline";
-import { createInterface } from "node:readline/promises";
 import type { SpawnOptions } from "../execution/deps.js";
 import { probeExtensionOption } from "../execution/extension-probe.js";
 import type { FailureSummary } from "../execution/failure.js";
 import { nodeRunnerDeps } from "../execution/node-deps.js";
-import type { OpenSessionOptions, SessionTurn } from "../execution/open-session.js";
-import { CLOSE_GRACE_MS, isSessionTurn, openSession } from "../execution/open-session.js";
+import type { OpenSessionOptions } from "../execution/open-session.js";
+import { openSession } from "../execution/open-session.js";
 import {
   buildSessionArgv,
   buildTurnEnv,
   type SessionPermissionOptions,
 } from "../interpretation/argv.js";
-import {
-  composeAnswer,
-  isQuestionMode,
-  QUESTION_MODES,
-  type QuestionMode,
-} from "../interpretation/question.js";
+import { isQuestionMode, QUESTION_MODES, type QuestionMode } from "../interpretation/question.js";
 import { ArgvRefusalError, type RefusalOption } from "../interpretation/refusal.js";
 import type { BehaviorTier } from "../interpretation/resolve-options.js";
 import type { SkillsSelection } from "../interpretation/skills-selection.js";
@@ -31,9 +24,9 @@ import {
 } from "./args.js";
 import { markJsonCrashStream } from "./crash.js";
 import { gateExtensionOptions, writeExtensionProvenance } from "./extension-gate.js";
+import { runInteractiveSession } from "./interactive-session.js";
 import { resolveLaunchEnvironment } from "./launch-environment.js";
 import { writeProvenance } from "./provenance.js";
-import { createRenderState, renderEvent } from "./render.js";
 import { resolveHarness } from "./resolve-harness.js";
 import { listKnownSkills, resolveSkillNames } from "./skills-root.js";
 
@@ -611,169 +604,12 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
     return;
   }
 
-  process.stdout.write(
-    `interactive ${h.name} session ${sessionId}\n(empty line or "exit" to quit)\n`,
-  );
-
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-
-  // One line source for BOTH the you-prompt and the answer menu. A
-  // readline interface buffers at most one pending line per question()
-  // call site; the answer line typically arrives while the interface sits
-  // BETWEEN calls (the turn is still streaming), and those bytes were
-  // dropped (verified live: menu rendered, buffered "2" never delivered).
-  // An explicit async-iterator pull never drops: the iterator parks on the
-  // stream until the next line exists, whenever the caller asks for it.
-  const lines = rl[Symbol.asyncIterator]();
-  let awaitingLine = false;
-  const nextLine = async (prompt: string): Promise<string | null> => {
-    rl.setPrompt(prompt);
-    awaitingLine = true;
-    rl.prompt();
-    try {
-      const res = await lines.next();
-      return res.done ? null : (res.value as string);
-    } finally {
-      awaitingLine = false;
-    }
-  };
-  const startIdleOutput = (): void => {
-    if (process.stdout.isTTY) {
-      cursorTo(process.stdout, 0);
-      clearLine(process.stdout, 0);
-    } else {
-      process.stdout.write("\n");
-    }
-  };
-  const redrawPrompt = (): void => {
-    if (awaitingLine) {
-      process.stdout.write("\n");
-      rl.prompt(true);
-    }
-  };
-
-  // Handle SIGINT to close session cleanly
-  let closing = false;
-  let sendCount = 0;
-  const doClose = async () => {
-    if (closing) return;
-    closing = true;
-    try {
-      // race with CLOSE_GRACE_MS ? openSession's close does escalation internally, but we add outer guard
-      const timeout = setTimeout(() => {
-        process.stderr.write(`close timed out after ${CLOSE_GRACE_MS}ms\n`);
-      }, CLOSE_GRACE_MS + 1000);
-      await handle.close();
-      clearTimeout(timeout);
-    } catch (err) {
-      process.stderr.write(`close failed: ${err instanceof Error ? err.message : String(err)}\n`);
-    }
-    rl.close();
-  };
-  process.on("SIGINT", doClose);
-  process.on("SIGTERM", doClose);
-
-  const turns = handle.turns[Symbol.asyncIterator]();
-  // Keep one pull pending while waiting for input so between-turn events
-  // and turns no send opened render immediately. Pause only at a send's
-  // turn, which the interaction below drains in full.
-  const prefetchTurn = (): Promise<SessionTurn | undefined> => {
-    const next = (async () => {
-      for (;;) {
-        const item = await turns.next();
-        if (item.done) return undefined;
-        if (isSessionTurn(item.value)) {
-          if (item.value.inputId !== undefined) return item.value;
-          startIdleOutput();
-          const state = createRenderState();
-          for await (const event of item.value) renderEvent(event, state, h);
-        } else {
-          startIdleOutput();
-          renderEvent(item.value, createRenderState(), h);
-        }
-        redrawPrompt();
-      }
-    })();
-    // Preserve errors for the awaiting interaction without an unhandled
-    // rejection while readline is still waiting for the user's input.
-    void next.catch(() => {});
-    return next;
-  };
-  let nextTurn = prefetchTurn();
+  // The interactive REPL (shared with scripts/demo.ts --chat): one
+  // consumer renders every turn and bare event, and after a send the
+  // prompt returns with the next turn that ends, whichever turn that is.
   try {
-    while (true) {
-      let line: string | null;
-      try {
-        line = await nextLine("you › ");
-      } catch {
-        // stdin closed (Ctrl-D)
-        break;
-      }
-      if (line === null) break;
-      const trimmed = line.trim();
-      if (trimmed === "" || trimmed === "exit") break;
-
-      handle.send({ id: `you-${++sendCount}`, text: line });
-
-      const turn = await nextTurn;
-      if (turn === undefined) break;
-      const state = createRenderState();
-      // issue #44: a turn that ends awaiting-input renders its question as
-      // a pickable menu; the choice (or a custom answer) is the next send,
-      // delivered on the SAME live session - no exit, no resume.
-      let asked:
-        | (import("../execution/events.js").HarnessEvent & {
-            kind: "question";
-          })
-        | null = null;
-      for await (const event of turn) {
-        renderEvent(event, state, h);
-        if (event.kind === "question") asked = event;
-      }
-      nextTurn = prefetchTurn();
-      if (asked !== null) {
-        const q = asked;
-        process.stdout.write(`\nanswer › pick a number, or type your own answer:\n`);
-        for (let i = 0; i < q.options.length; i++) {
-          const opt = q.options[i] as string;
-          const mark = opt === q.recommended ? " (recommended)" : "";
-          process.stdout.write(`  ${i + 1}. ${opt}${mark}\n`);
-        }
-        let answer: string | null = null;
-        while (answer === null) {
-          const a = ((await nextLine("> ")) ?? "").trim();
-          if (a === "") continue;
-          const n = Number(a);
-          if (Number.isInteger(n) && n >= 1 && n <= q.options.length) {
-            answer = q.options[n - 1] as string;
-          } else {
-            answer = a;
-          }
-        }
-        handle.send({ id: `you-${++sendCount}`, text: composeAnswer(q.question, answer) });
-        // Drain the answer turn BEFORE prompting again - the pump's
-        // backpressure stalls the harness until the turn iterable is
-        // consumed (verified live: menu answered, you-prompt rendered, no
-        // answer turn ever ran).
-        const answerTurn = await nextTurn;
-        if (answerTurn === undefined) break;
-        const answerState = createRenderState();
-        for await (const event of answerTurn) {
-          renderEvent(event, answerState, h);
-        }
-        nextTurn = prefetchTurn();
-      }
-    }
-  } catch (err) {
-    process.stderr.write(`session error: ${err instanceof Error ? err.message : String(err)}\n`);
-    process.exitCode = 1;
+    await runInteractiveSession(h, sessionId, handle);
   } finally {
     markJsonCrashStream(false);
-    process.off("SIGINT", doClose);
-    process.off("SIGTERM", doClose);
-    try {
-      await doClose();
-    } catch {}
-    rl.close();
   }
 };

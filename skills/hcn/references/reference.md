@@ -313,9 +313,11 @@ a context-occupancy percentage on a live signal. `detail` is the harness's own
 reason or error text, so branch on `state` and never on it. `compaction` is
 never droppable: `DROPPABLE_KINDS` is `token` and `progress` only.
 
-`background` reports one event per native task record of a job the harness
-itself started - a Claude `run_in_background` shell or a background Agent,
-on `hcn run --json` and `hcn session --json` alike. A job's end is two
+`background` reports the harness's own task records - one event per native
+task line, a job the harness itself started, inline (foreground) Agent
+calls included, on `hcn run --json` and `hcn session --json` alike;
+`backgrounded` tells an inline agent (`false`) from a background one
+(`true`). A job's end is two
 events (`task_updated` then `task_notification`); the one carrying
 `outputFile`/`summary` is the last. `job` (`shell` | `agent`) and `state`
 (`running` | `completed` | `failed` | `stopped`) are closed unions; every
@@ -328,12 +330,13 @@ it; hcn does not). A job's end can arrive between turns, after Claude's
 acknowledgment, the event stands alone as a bare `background` line and
 opens no turn. The preceding turn's events and `done` arrive first, even
 when stdout is backpressured. `background` is not droppable.
-Today only Claude reports background jobs on a channel hcn reads. Claude
-reports task records for inline Agent calls too. `backgrounded` on the
-job's first event distinguishes an inline (foreground) agent (`false`)
-from a background agent (`true`). It forwards the native `is_backgrounded`
-only when that field is a boolean. Later records without it omit
-`backgrounded`, so retain it by job id. The Agent input's
+Today only Claude reports task records on a channel hcn reads, and it
+reports them for inline Agent calls too. `backgrounded` tells them
+apart: `false` is an inline (foreground) agent, `true` a background job.
+It forwards the native `is_backgrounded` when the record carries a
+boolean and remembers it per job id, so every later event for the job
+carries it too; it is absent only when no record for the job ever carried
+one. The Agent input's
 `run_in_background` is unreliable: Claude may background a call that
 omits it. The agent's own steps carry `parentCallId` either way.
 

@@ -66,12 +66,22 @@ export const renderEvent = (
       break;
     }
     case "background": {
-      // An observation of a job the harness itself reported. The label is
-      // the harness's own text (a description while running, a summary at
-      // the end), kept verbatim.
+      // An observation of a job the harness itself reported, including
+      // inline (foreground) Agent calls; `backgrounded` tells the two
+      // agent forms apart, so say which one ran. The label is the
+      // harness's own text (a description while running, a summary at the
+      // end), kept verbatim.
+      const what =
+        event.job === "agent"
+          ? event.backgrounded === false
+            ? "inline agent"
+            : event.backgrounded === true
+              ? "background agent"
+              : "agent"
+          : event.job;
       const label = event.description ?? event.detail ?? event.summary ?? "";
       process.stdout.write(
-        dim(`\n  ◍ background ${event.job} ${event.state}${label === "" ? "" : ` ${label}`}`),
+        dim(`\n  ◍ background ${what} ${event.state}${label === "" ? "" : ` ${label}`}`),
       );
       break;
     }

@@ -13,8 +13,11 @@ import {
  * 2026-11-09 capture of claude 2.1.319 in
  * ~/dev/dotfiles/.scratch/herdr-harness-controls/evidence/claude-background-events-2026-11-09.ndjson
  * (a `run_in_background` Bash loop, task bcrfa3pxt, and a background
- * Agent, task a34310bd3dc4bd051). Synthetic records appear only where
- * the spec decides a skip no captured line exercised, and say so.
+ * Agent, task a34310bd3dc4bd051) - except that every machine-local path
+ * (each `output_file`, one prompt) is replaced by a neutral placeholder:
+ * the captured values named the operator's own scratch directories.
+ * Synthetic records appear only where the spec decides a skip no captured
+ * line exercised, and say so.
  */
 
 const shellStarted = {
@@ -87,8 +90,7 @@ const agentNotification = {
   run_id: "0mw8uoebg-321de148",
   tool_use_id: "toolu_012jE8yMKUqo4bjJcHR7ZVkL",
   status: "completed",
-  output_file:
-    "/private/tmp/claude-501/-private-tmp-claude-501--Users-kevin-dev-dotfiles-978d1578-5554-4735-80a1-2bfadd959edd-scratchpad-bgprobe/c81a836f-e08d-4fe1-ae5c-b6988292d264/tasks/a34310bd3dc4bd051.output",
+  output_file: "/tmp/hcn-capture/tasks/a34310bd3dc4bd051.output",
   summary: "`ls / | wc -l` printed **17**, so the root directory has 17 entries.",
   usage: { total_tokens: 30933, tool_uses: 1, duration_ms: 3723 },
   uuid: "1681ea64-4e86-452b-9cda-0c9d36553648",
@@ -102,8 +104,7 @@ const shellNotification = {
   run_id: "0mw8uobqx-def2eb6d",
   tool_use_id: "toolu_01HcjBC6KasyhZZTJUa1XN4p",
   status: "completed",
-  output_file:
-    "/private/tmp/claude-501/-private-tmp-claude-501--Users-kevin-dev-dotfiles-978d1578-5554-4735-80a1-2bfadd959edd-scratchpad-bgprobe/c81a836f-e08d-4fe1-ae5c-b6988292d264/tasks/bcrfa3pxt.output",
+  output_file: "/tmp/hcn-capture/tasks/bcrfa3pxt.output",
   summary: 'Background command "Run background tick loop" completed (exit code 0)',
   uuid: "ce29c49d-a96f-453c-ab5e-85ad009ac556",
   session_id: "c81a836f-e08d-4fe1-ae5c-b6988292d264",
@@ -266,6 +267,7 @@ describe("claude background jobs: the mapping rows", () => {
         id: "a34310bd3dc4bd051",
         job: "agent",
         state: "running",
+        backgrounded: true,
         detail: "Running Count entries in root directory",
         toolUses: 1,
         totalTokens: 27921,
@@ -278,10 +280,16 @@ describe("claude background jobs: the mapping rows", () => {
 
   test("task_updated with a status patch reports the state and nothing else", () => {
     expect(decodeAll([agentStarted, agentUpdatedCompleted]).slice(1)).toEqual([
-      { kind: "background", id: "a34310bd3dc4bd051", job: "agent", state: "completed" },
+      {
+        kind: "background",
+        id: "a34310bd3dc4bd051",
+        job: "agent",
+        state: "completed",
+        backgrounded: true,
+      },
     ]);
     expect(decodeAll([shellStarted, shellUpdatedCompleted]).slice(1)).toEqual([
-      { kind: "background", id: "bcrfa3pxt", job: "shell", state: "completed" },
+      { kind: "background", id: "bcrfa3pxt", job: "shell", state: "completed", backgrounded: true },
     ]);
   });
 
@@ -292,6 +300,7 @@ describe("claude background jobs: the mapping rows", () => {
         id: "a34310bd3dc4bd051",
         job: "agent",
         state: "completed",
+        backgrounded: true,
         outputFile: agentNotification.output_file,
         summary: agentNotification.summary,
         callId: "toolu_012jE8yMKUqo4bjJcHR7ZVkL",
@@ -303,6 +312,7 @@ describe("claude background jobs: the mapping rows", () => {
         id: "bcrfa3pxt",
         job: "shell",
         state: "completed",
+        backgrounded: true,
         outputFile: shellNotification.output_file,
         summary: shellNotification.summary,
         callId: "toolu_01HcjBC6KasyhZZTJUa1XN4p",
@@ -340,6 +350,7 @@ describe("claude background jobs: the mapping rows", () => {
         id: "a34310bd3dc4bd051",
         job: "agent",
         state: "running",
+        backgrounded: true,
         detail: "Running Count entries in root directory",
         toolUses: 1,
         totalTokens: 27921,
@@ -347,12 +358,19 @@ describe("claude background jobs: the mapping rows", () => {
         callId: "toolu_012jE8yMKUqo4bjJcHR7ZVkL",
         agent: "general-purpose",
       },
-      { kind: "background", id: "a34310bd3dc4bd051", job: "agent", state: "completed" },
       {
         kind: "background",
         id: "a34310bd3dc4bd051",
         job: "agent",
         state: "completed",
+        backgrounded: true,
+      },
+      {
+        kind: "background",
+        id: "a34310bd3dc4bd051",
+        job: "agent",
+        state: "completed",
+        backgrounded: true,
         outputFile: agentNotification.output_file,
         summary: agentNotification.summary,
         callId: "toolu_012jE8yMKUqo4bjJcHR7ZVkL",
@@ -371,7 +389,13 @@ describe("claude background jobs: the mapping rows", () => {
             { ...shellUpdatedCompleted, patch: { status, end_time: 1794203909753 } },
           ]),
         ).at(-1),
-      ).toEqual({ kind: "background", id: "bcrfa3pxt", job: "shell", state: "stopped" });
+      ).toEqual({
+        kind: "background",
+        id: "bcrfa3pxt",
+        job: "shell",
+        state: "stopped",
+        backgrounded: true,
+      });
     }
     expect(
       backgroundOf(decodeAll([shellStarted, { ...shellNotification, status: "failed" }])).at(-1),
@@ -387,7 +411,13 @@ describe("claude background jobs: the mapping rows", () => {
       backgroundOf(
         decodeAll([shellStarted, { ...shellUpdatedCompleted, patch: { status: "running" } }]),
       ).at(-1),
-    ).toEqual({ kind: "background", id: "bcrfa3pxt", job: "shell", state: "running" });
+    ).toEqual({
+      kind: "background",
+      id: "bcrfa3pxt",
+      job: "shell",
+      state: "running",
+      backgrounded: true,
+    });
   });
 
   test("task_started forwards backgrounded false from the explicit inline capture", () => {
@@ -435,7 +465,7 @@ describe("claude background jobs: the mapping rows", () => {
       spawn_depth: 1,
       task_type: "local_agent",
       prompt:
-        "Read the file note.txt and report its full contents back verbatim. Look first at /private/tmp/claude-501/-Users-kevin-dev-dotfiles/978d1578-5554-4735-80a1-2bfadd959edd/scratchpad/inline-probe.IMmI/note.txt. If it is not there, search that directory tree for a file named note.txt. Do not modify, create, or delete any file. Your final reply should contain only the file's contents, or a clear statement that no note.txt was found.",
+        "Read the file note.txt and report its full contents back verbatim. Look first at /tmp/hcn-capture/inline-probe/note.txt. If it is not there, search that directory tree for a file named note.txt. Do not modify, create, or delete any file. Your final reply should contain only the file's contents, or a clear statement that no note.txt was found.",
       uuid: "68d62d8b-7d1d-415e-a019-9b1a436cd42a",
       session_id: "f6b4c60b-5023-4a37-b6c8-3da39e699b9a",
     };
@@ -462,13 +492,70 @@ describe("claude background jobs: the mapping rows", () => {
     }
   });
 
-  test("later task records forward their own boolean without carrying a previous flag", () => {
+  test("later task records forward their own boolean, or the one remembered for the job", () => {
     for (const record of [agentProgress, agentUpdatedCompleted, agentNotification]) {
-      const later = decodeAll([agentStarted, { ...record, is_backgrounded: false }]).slice(1);
-      expect(later).toHaveLength(1);
-      expect(later[0]).toHaveProperty("backgrounded", false);
-      expect(decodeAll([agentStarted, record])[1]).not.toHaveProperty("backgrounded");
+      const own = decodeAll([agentStarted, { ...record, is_backgrounded: false }]).slice(1);
+      expect(own).toHaveLength(1);
+      expect(own[0]).toHaveProperty("backgrounded", false);
     }
+    // A later record with no boolean of its own carries the flag the
+    // job's task_started left in the registry (true for both captures).
+    for (const record of [agentProgress, agentUpdatedCompleted, agentNotification]) {
+      const remembered = decodeAll([agentStarted, record]).slice(1);
+      expect(remembered).toHaveLength(1);
+      expect(remembered[0]).toHaveProperty("backgrounded", true);
+    }
+  });
+
+  test("an inline job's remembered false is carried on every later event for that job", () => {
+    // The explicit inline capture's task_started, then synthetic later
+    // records for the same id: every event tells the inline agent apart.
+    const inlineStarted = {
+      type: "system",
+      subtype: "task_started",
+      task_id: "a1d655a05edd41743",
+      tool_use_id: "toolu_016VFgZWiCk7BLrb9wQDaza3",
+      description: "Read note",
+      subagent_type: "general-purpose",
+      is_backgrounded: false,
+      task_type: "local_agent",
+    };
+    const events = backgroundOf(
+      decodeAll([
+        inlineStarted,
+        {
+          type: "system",
+          subtype: "task_progress",
+          task_id: "a1d655a05edd41743",
+          description: "Running Read note",
+        },
+        {
+          type: "system",
+          subtype: "task_updated",
+          task_id: "a1d655a05edd41743",
+          patch: { status: "completed" },
+        },
+        {
+          type: "system",
+          subtype: "task_notification",
+          task_id: "a1d655a05edd41743",
+          status: "completed",
+        },
+      ]),
+    );
+    expect(events.map((event) => event.backgrounded)).toEqual([false, false, false, false]);
+  });
+
+  test("a job whose records never carried a boolean stays without backgrounded", () => {
+    const started = { ...shellStarted };
+    delete (started as { is_backgrounded?: unknown }).is_backgrounded;
+    const events = decodeAll([
+      started,
+      { type: "system", subtype: "task_progress", task_id: "bcrfa3pxt" },
+      { ...shellNotification },
+    ]);
+    expect(events).toHaveLength(3);
+    for (const event of events) expect(event).not.toHaveProperty("backgrounded");
   });
 
   test("a task_type on a later line still names the job", () => {
@@ -559,19 +646,27 @@ describe("claude background jobs: the skips", () => {
     ]);
   });
 
-  test("remembering an unchanged job preserves reader state, while a changed job replaces it", () => {
-    const first = contentEventsWithState("claude", shellStarted, freshReaderState("claude"));
-    const repeated = contentEventsWithState("claude", shellStarted, first.state);
-    expect(repeated.state).toBe(first.state);
-    const renamed = contentEventsWithState(
-      "claude",
-      { ...shellStarted, task_type: "local_agent" },
-      repeated.state,
-    );
-    const notified = contentEventsWithState("claude", shellNotification, renamed.state);
-    expect(notified.events).toEqual([
-      expect.objectContaining({ kind: "background", id: shellStarted.task_id, job: "agent" }),
+  test("a repeated start changes nothing the next line needs, while a renamed job replaces it", () => {
+    // Behavioural, not reader internals: after the registry has seen the
+    // same (id, job) twice, a later line that carries no task_type still
+    // reads the job - and a job renamed by a later task_type line answers
+    // the terminal notification with the new job.
+    expect(
+      backgroundOf(decodeAll([shellStarted, shellStarted, shellNotification])).map((event) => [
+        event.job,
+        event.state,
+      ]),
+    ).toEqual([
+      ["shell", "running"],
+      ["shell", "running"],
+      ["shell", "completed"],
     ]);
+    const notified = decodeAll([
+      shellStarted,
+      { ...shellStarted, task_type: "local_agent" },
+      shellNotification,
+    ]);
+    expect(backgroundOf(notified).map((event) => event.job)).toEqual(["shell", "agent", "agent"]);
   });
 
   test("a job is kept through its terminal task_updated and dropped at its task_notification", () => {
