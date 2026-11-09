@@ -375,16 +375,20 @@ and applies no idle budget of its own, so the caller owns any timeout.
 
 ## Events
 
-- The normalized event surface is `HarnessEvent` in `src/execution/events.ts`: `identity`, `token`, `message`, `progress`, `tool`, `tool-result`, `usage`, `compaction`, `limit`, `warning`, `error`, `failure`, `question`, `done` (with `done.failure`; `done.cause` includes `awaiting-input`). Event kinds and failure classes are additive across releases; a consumer ignores a kind or class it does not recognize and still waits for `done`. Additive optional fields (such as `resumeLast: true` on `identity`) never break that rule: branch on presence, never on prose.
+- The normalized event surface is `HarnessEvent` in `src/execution/events.ts`: `identity`, `token`, `message`, `progress`, `tool`, `tool-result`, `usage`, `compaction`, `background`, `limit`, `warning`, `error`, `failure`, `question`, `done` (with `done.failure`; `done.cause` includes `awaiting-input`). Event kinds and failure classes are additive across releases; a consumer ignores a kind or class it does not recognize and still waits for `done`. Additive optional fields (such as `resumeLast: true` on `identity`, or `parentCallId` on a subagent `tool`/`tool-result`/`message`) never break that rule: branch on presence, never on prose.
 - For named resumes on create-on-missing harnesses, a checkable missing id is refused before spawn. A confirmed existing id produces no unknown-id diagnostic. When existence cannot be checked, an early `{kind: "warning", message: string}` advisory asks the caller to verify the id; it establishes no failure and does not change the turn verdict.
 - After a nonzero one-shot process exit, optional `done.completion` preserves turn evidence separately from process failure: `native-terminal` records a successful native delimiter; `message-delivered` records assistant text without confirming turn completion. Neither judges work correctness. Keep delivered output even when `cause`/`failure` reports a process crash. Conflicting turn-failure evidence leaves `message-delivered` when assistant text was observed. `done.exitCode` remains the actual native status, matching `failure.nativeExitCode` for a native failure, while hcn's CLI failure status remains 1. Native diagnostics prefer the first bounded, redacted stderr Error headline over trailing stack frames. Persistent sessions retain their separate completed-turn and later `closed` events.
-- `DROPPABLE_KINDS` (`token`, `progress`) marks events safe to drop when you only need the full messages. `failure` is never droppable, and neither is `compaction`.
+- `DROPPABLE_KINDS` (`token`, `progress`) marks events safe to drop when you only need the full messages. `failure` is never droppable, and neither is `compaction` nor `background`.
 - `compaction` reports that the harness compacted its own context (ADR 0009). It carries `state`, a closed union of `started`, `compacted`, `noop`, `failed` and `aborted`, so a consumer branches with no default arm. `trigger` (`auto`, `manual`, `overflow`), `tokensBefore`, `tokensAfter` and `durationMs` are present only where the harness itself reported them; hcn derives none of them, and no harness pushes a context-occupancy percentage on a live signal. `detail` carries the harness's own reason or error text, so branch on `state` and never on it. Which harnesses report is `capabilities.compactionReporting` on the `identity` event; the roster is below. **Count `compacted`, not `started`:** hcn reports each record the harness sends, and claude has been observed sending two `compacting` status records for one compaction, so a start can repeat. A compaction can also arrive **between** turns - pi checks its threshold before a new prompt, so the event may reach a session caller on the next turn rather than the one that triggered it. Muse compacts **before** the turn and blocking, so its event arrives once the observer's first view page is read, after the turn has already started.
 
 ### Tool results and usage
 
 `tool` carries `name`, optional `input`, and optional native `callId`. `tool-result` carries
-optional `name`, `callId`, native `result`, and `isError`. Missing native fields stay absent:
+optional `name`, `callId`, native `result`, and `isError`. On a Claude subagent line (one whose
+native record carries a non-null `parent_tool_use_id`), the `tool`, `tool-result` and `message`
+events hcn emits from it also carry `parentCallId` - the Agent tool call whose subagent produced
+them - so a consumer can route a subagent's own steps (background or inline) to the conversation
+pane. Missing native fields stay absent:
 Claude result blocks commonly identify only their call, so match them to `tool.callId` for the
 name. Results retain structured values, including Pi extension `details`, rather than flattening
 or truncating them. Pi's execution-end record is emitted once; partial updates and message echoes
@@ -467,6 +471,38 @@ the line would print on every codex and cursor run, including every run where
 nothing compacted.
 
 - **Compaction pauses the stream.** A harness goes quiet while it compacts: measured 25 to 47 s on claude, 24 to 33 s on codex, 25 to 39 s on cursor, 4.5 to 18 s on antigravity, 7 to 10 s on pi and about 7 s on muse (`docs/research/2026-09-22-compaction-signals/`). Set `--stall` above those, or a healthy run is killed mid-compaction. `--stall` is opt-in and unset by default.
+
+### Background jobs
+
+`background` is one observation per state change of a job the harness itself reported - a
+Claude `run_in_background` shell or a background Agent, read from the `task_*` system records
+on `hcn run --json` and `hcn session --json` alike, at the moment the native line arrives:
+
+```ts
+{ kind: "background", id: string, job: "shell" | "agent",
+  state: "running" | "completed" | "failed" | "stopped",
+  description?: string, callId?: string, agent?: string, detail?: string, toolUses?: number,
+  totalTokens?: number, durationMs?: number, outputFile?: string, summary?: string }
+```
+
+- `job` and `state` are closed unions; branch on them, never on prose. Every optional field is
+  the harness's own report, present only when the native line carried it; hcn derives none.
+  `id` is the harness's own job id (claude's `task_id`) - the value a `stop-background` op names.
+  `callId` is the tool call that started the job; `outputFile` is where its output is written
+  (a shell's full output, an agent's transcript) - tailing it is the caller's job, not hcn's.
+- Claude's mapping: `task_started` reports `running` with `description`/`callId`/`agent`;
+  `task_progress` reports `running` with `detail` and its `usage` counts;
+  `task_updated` with a status patch and `task_notification` report the end state, the
+  notification adding `outputFile` and `summary`. `background_tasks_changed` and `task_summary`
+  emit nothing; a `task_type` other than `local_bash`/`local_agent`, a record without a
+  `task_id`, and an end record for a job whose type was never seen all emit nothing too.
+- A job's end can arrive BETWEEN turns (Claude's background tasks finish after `result`): like
+  a between-turn `compaction`, the event is emitted on its own - it opens no turn - and a
+  session delivers it with the stream, buffered for the next turn like other between-turn
+  events. `background` is never droppable.
+- Stopping one is a session op, `stop-background` (below); the other harnesses report no
+  background jobs on any channel hcn reads today (pi's own `bg_bash`/`subagent` extensions are
+  caller-side machinery whose data hcn does not interpret).
 
 ## Failures
 
@@ -644,17 +680,20 @@ as hcn 0.9.8 emitted them for one send:
 - `session.origin` is `fresh` for a new conversation or `resumed` when `--resume` (or its `--session-id` alias) continued a conversation that already exists in the harness store. A refused unknown-id resume emits no `session` event at all.
 - `turn.id` is the id of the `send` that opened the turn. Native background
   output has no caller id.
-- `session.controls` advertises `deliveryModes`, `interrupt.supported` and
+- `session.controls` advertises `deliveryModes`, `interrupt.supported`,
   `approvals.supported` (the
   [approvals channel](#session-native-approvals), armed by
-  `--native-approvals`).
+  `--native-approvals`) and `stopBackground.supported` (the
+  [stop-background op](#delivery-and-interruption-controls)).
   `hcn inspect --capabilities` reports `sessionControls` as the harness's
   potential support. A session reports what its process supports: Claude
   interrupt support is `false` on the `session` line and becomes `true` only
-  when the process advertises it on its `system/init` record. Every change
-  re-announces the `identity` event with the same session id, so read the
-  latest `identity.capabilities.sessionControls` after the first line.
-  If these fields are absent, the build does not advertise explicit controls.
+  when the process advertises it on its `system/init` record; `stopBackground`
+  is a descriptor fact, `true` on Claude with no process advertisement
+  needed. Every change re-announces the `identity` event with the same
+  session id, so read the latest `identity.capabilities.sessionControls`
+  after the first line. If these fields are absent, the build does not
+  advertise explicit controls.
 - `closed.cause` is one of `clean`, `limit`, `crash`, `stall`, `killed`,
   `failed`. `closed.failure` carries the reduced `FailureSummary` when the
   cause is not clean and a failure was seen. `awaiting-input` ends a turn,
@@ -685,6 +724,7 @@ stdin carries one command per line (blank lines are ignored):
 {"op":"send","id":"in-1","text":"explain a monad in one sentence"}
 {"op":"answer","id":"in-2","text":"prod"}
 {"op":"settings","id":"set-1","model":"haiku","effort":"low"}
+{"op":"stop-background","id":"stop-1","job":"<background event id>"}
 {"v":1,"op":"approval","id":"d-1","requestId":"<offered>","choiceId":"allow"}
 {"op":"close"}
 ```
@@ -692,7 +732,9 @@ stdin carries one command per line (blank lines are ignored):
 The `approval` command answers a forwarded native permission request
 ([below](#session-native-approvals)); the `settings` command changes the
 session's model and/or effort ([below](#mid-session-model-and-effort));
-every other command is a turn input or a lifecycle control.
+the `stop-background` command stops one background job
+([above](#delivery-and-interruption-controls)); every other command is a
+turn input or a lifecycle control.
 
 - Every well-formed `send`/`answer` gets exactly one `disposition` event,
   in command order. `started`: the harness accepted the text. Pi and codex
@@ -742,11 +784,11 @@ every other command is a turn input or a lifecycle control.
   refuses `verbatim` in any spelling (malformed); a non-boolean `verbatim`
   is malformed.
 - End of stdin means `close`. A malformed line (not JSON, unknown `op`,
-  missing or empty `id`, non-string `text`, invalid `delivery`, a malformed
-  `approval` decision - missing `v`/`id`/`requestId`/`choiceId`, a non-string
-  `message`, `answers` values that are not a label or a non-empty label
-  array) produces an `error` event, no
-disposition, and the session continues.
+  missing or empty `id`, non-string `text`, invalid `delivery`, a missing or
+  empty `job` on `stop-background`, a malformed `approval` decision - missing
+  `v`/`id`/`requestId`/`choiceId`, a non-string `message`, `answers` values
+  that are not a label or a non-empty label array) produces an `error` event,
+  no disposition, and the session continues.
 
 Exit codes: 0 when `closed.cause` is `clean`; 1 otherwise; 2 for a refusal
 before the stream opens (invalid flag, no-session-mode harness, unknown
@@ -866,6 +908,27 @@ native queued messages through the interruption; hcn never cancels, resends or
 reorders them. Cancellation is best effort: it cannot undo completed
 actions or guarantee that every running tool or child process stops. hcn adds no
 queue clearing, message promotion or cancellation timeout.
+
+To stop one background job (the `background` events above), send
+`{"op":"stop-background","id":"stop-1","job":"<background event id>"}`.
+The job id is the `id` those events carry (claude's own `task_id`). hcn emits:
+
+```jsonl
+{"kind":"background-stop","id":"stop-1","state":"requested"}
+{"kind":"background-stop","id":"stop-1","state":"sent"}
+```
+
+Exactly one terminal receipt follows `requested`: `sent` when the harness
+accepted the stop request, or `rejected` with reason `native-rejected` (the
+harness refused it), `closed` (the session was already closing) or
+`unsupported` (every harness besides Claude - nothing is written natively
+and the session stays usable). An immediate refusal has no `requested`
+phase. The receipt says only that the request went through: it never claims
+the job ended. The job's own end arrives independently on the turn stream
+as a `background` event (claude reports a stopped job with `stopped`), so
+watch the stream - not the receipt - for the outcome. A malformed command
+(a missing or empty `id` or `job`) is an `error` event like any other
+malformed command, and the session continues.
 
 ### Session native approvals
 

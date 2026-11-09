@@ -37,6 +37,7 @@ import {
   encodeIdentityProbe,
   encodeSessionInput,
   encodeSessionInterrupt,
+  encodeSessionStopBackground,
   hasNativeReceipts,
   publishesTurnOnRunEvidence,
   readInputUuids,
@@ -160,6 +161,18 @@ export type SessionInterruptResult =
   | { readonly state: "requested"; readonly settled: Promise<SessionInterruptReceipt> }
   | { readonly state: "rejected"; readonly reason: "unsupported" | "closed" | "write-failed" };
 
+/** The receipt a stop-background request settles with. `sent` says the
+ * harness accepted the stop REQUEST - never that the job ended: the job's
+ * own end arrives on the stream as a `background` event. */
+export interface SessionStopBackgroundReceipt {
+  readonly state: "sent" | "rejected";
+  readonly reason?: "unsupported" | "closed" | "write-failed" | "native-rejected";
+}
+
+export type SessionStopBackgroundResult =
+  | { readonly state: "requested"; readonly settled: Promise<SessionStopBackgroundReceipt> }
+  | { readonly state: "rejected"; readonly reason: "unsupported" | "closed" | "write-failed" };
+
 export interface SessionHandle {
   /** One inner iterable per turn, each ending in a turn-scoped `done`.
    * Breaking out of THIS iterable closes the session; breaking out of a
@@ -175,6 +188,13 @@ export interface SessionHandle {
   /** Request cancellation of the active turn while the process continues.
    * Carries no replacement text: the caller sends that after the receipt. */
   interrupt(request: { readonly id: string }): SessionInterruptResult;
+  /** Stop one background job by the id its `background` events carry,
+   * while the process continues. The receipt never claims the job ended:
+   * the job's own end arrives as a `background` event. */
+  stopBackground(request: {
+    readonly id: string;
+    readonly job: string;
+  }): SessionStopBackgroundResult;
   /** Issue #454/#455: answer one forwarded permission request. Exactly one
    * answer right per request: answered once, cleared never again. */
   answerApproval(decision: SessionApprovalDecisionRequest): SessionApprovalAnswer;
@@ -460,6 +480,7 @@ export const openSession = (
     deliveryModes: [],
     interrupt: { supported: false },
     approvals: { supported: false },
+    stopBackground: { supported: false },
   };
   // Issue #429: the descriptor states what the harness can do; a kind whose
   // process advertises its interrupt support offers it only once a record
@@ -477,6 +498,14 @@ export const openSession = (
   // later change re-announces it.
   let lastIdentity: (HarnessEvent & { kind: "identity" }) | null = null;
   const pendingInterrupts = new Map<string, PendingInterrupt>();
+  // Stop-background requests written and not yet answered, by their wire
+  // token. Unlike an interrupt there is no target turn to observe: the
+  // control_response alone settles the receipt, and the job's own end
+  // arrives independently as a `background` event.
+  const pendingStopBackgrounds = new Map<
+    string,
+    { readonly id: string; readonly resolve: (receipt: SessionStopBackgroundReceipt) => void }
+  >();
   // Issue #454/#455: the approval ledger (extracted, review round 1 F12).
   // Waiting requests keep their full proposal; an answered id becomes a
   // bounded tombstone (already-answered); a cleared request is deleted
@@ -637,6 +666,19 @@ export const openSession = (
     pendingInterrupts.delete(token);
     log({
       event: "interrupt_settled",
+      sessionId: opts.sessionId,
+      id: pending.id,
+      token,
+      ...receipt,
+    });
+    pending.resolve(receipt);
+  };
+  const settleStopBackground = (token: string, receipt: SessionStopBackgroundReceipt): void => {
+    const pending = pendingStopBackgrounds.get(token);
+    if (pending === undefined) return;
+    pendingStopBackgrounds.delete(token);
+    log({
+      event: "stop_background_settled",
       sessionId: opts.sessionId,
       id: pending.id,
       token,
@@ -1254,6 +1296,16 @@ export const openSession = (
           }
           return;
         }
+        case "stop-background-answered": {
+          // The control_response is the whole receipt: accepted says the
+          // stop request was sent, an error says the harness refused it.
+          // The job's own end arrives separately as a `background` event.
+          settleStopBackground(
+            record.token,
+            record.ok ? { state: "sent" } : { state: "rejected", reason: "native-rejected" },
+          );
+          return;
+        }
         case "identity":
           await announceIdentity(record.sessionId);
           return;
@@ -1516,6 +1568,10 @@ export const openSession = (
     // A refusal or death resolves every outstanding interrupt explicitly.
     for (const token of [...pendingInterrupts.keys()]) {
       settleInterrupt(token, { state: "rejected", reason: "closed" });
+    }
+    // Every stop-background request still awaiting its answer too.
+    for (const token of [...pendingStopBackgrounds.keys()]) {
+      settleStopBackground(token, { state: "rejected", reason: "closed" });
     }
     if (popeyePending.length > 0) {
       const dropped = popeyePending.splice(0);
@@ -1892,6 +1948,63 @@ export const openSession = (
         sessionId: opts.sessionId,
         ...(targetTurnId === undefined ? {} : { turnId: targetTurnId }),
         id: request.id,
+        token,
+        state: "requested",
+      });
+      return { state: "requested", settled };
+    },
+    stopBackground(request: {
+      readonly id: string;
+      readonly job: string;
+    }): SessionStopBackgroundResult {
+      const rejected = (
+        reason: "unsupported" | "closed" | "write-failed",
+      ): SessionStopBackgroundResult => {
+        log({
+          event: "stop_background",
+          sessionId: opts.sessionId,
+          id: request.id,
+          job: request.job,
+          state: "rejected",
+          reason,
+        });
+        return { state: "rejected", reason };
+      };
+      // A descriptor fact, not a process advertisement: a harness without
+      // the native stop is refused here, nothing is written, and the
+      // session stays usable.
+      if (!controls.stopBackground.supported) return rejected("unsupported");
+      if (dead || closing) return rejected("closed");
+      const token = String(++commandSeq);
+      let line: string;
+      try {
+        line = encodeSessionStopBackground(sessionInput, token, request.job);
+      } catch (cause) {
+        if (!(cause instanceof SessionInputRefusalError)) throw cause;
+        return rejected("unsupported");
+      }
+      try {
+        stdin.write(line);
+      } catch {
+        // The same broken-pipe path a send takes: nothing more can reach
+        // the child, so the session ends through the exit path.
+        void routeEvent({
+          kind: "error",
+          message: "stop-background failed: session stdin is gone",
+        });
+        closing = true;
+        wireClosed = true;
+        sup.escalate();
+        return rejected("write-failed");
+      }
+      const settled = new Promise<SessionStopBackgroundReceipt>((resolve) => {
+        pendingStopBackgrounds.set(token, { id: request.id, resolve });
+      });
+      log({
+        event: "stop_background",
+        sessionId: opts.sessionId,
+        id: request.id,
+        job: request.job,
         token,
         state: "requested",
       });

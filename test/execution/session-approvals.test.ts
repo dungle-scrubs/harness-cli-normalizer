@@ -136,6 +136,7 @@ describe("issue #454: arming the channel", () => {
       deliveryModes: ["queue", "steer"],
       interrupt: { supported: false },
       approvals: { supported: true },
+      stopBackground: { supported: true },
     });
     r.proc.exit(0);
     await r.session.close();

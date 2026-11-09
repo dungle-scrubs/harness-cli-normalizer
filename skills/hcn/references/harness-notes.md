@@ -139,7 +139,15 @@ native response, so back-to-back sends cannot race inside the harness.
 `interrupt` requests native abort and waits for an aborted settlement before
 reporting `interrupted`. Pi keeps its queued messages through abort. Send any
 replacement after the terminal interruption receipt; the same conversation
-continues. A `handled` input does not start a model run.
+continues. A `handled` input does not start a model run. Pi has no native
+background jobs and no native stop; `stop-background` rejects `unsupported`.
+
+Claude's background jobs (a `run_in_background` Bash call, a background
+Agent) surface as `background` events, and a subagent's own tool,
+tool-result and message events carry `parentCallId`. Stopping one is
+`stop-background`, which writes claude's native `stop_task` control request:
+the `background-stop` receipt says the request was accepted, and the job's
+end arrives on the stream as its own `background` event.
 
 Codex advertises `steer`: native `turn/start` while idle, `turn/steer` while
 busy under `expectedTurnId`. Other modes remain unsupported. Cancellation is

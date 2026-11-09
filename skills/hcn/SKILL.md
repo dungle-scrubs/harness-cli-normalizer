@@ -107,7 +107,7 @@ and `result` using the native contract. Missing error flags mean unknown.
 Also inspect `error.denial` and optional positive `done.denialCount`:
 [denial observations](references/reference.md#denial-observations) can coexist
 with a clean turn. Neither missing counts nor clean exits prove work success.
-`warning` is advisory and does not change the turn verdict.
+`warning` is advisory and changes no verdict. `background` reports the harness's own background jobs; a Claude subagent's events carry `parentCallId`.
 Branch on `failure.class` and `done.cause` using the rules above. Ignore
 unrecognized kinds/classes and still wait for `done`.
 

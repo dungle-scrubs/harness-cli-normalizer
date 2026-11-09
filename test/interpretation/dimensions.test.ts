@@ -71,6 +71,7 @@ describe("capabilitiesOf (claude)", () => {
         deliveryModes: ["queue", "steer"],
         interrupt: { supported: true, toolCancellation: "best-effort" },
         approvals: { supported: true },
+        stopBackground: { supported: true },
       },
     });
   });

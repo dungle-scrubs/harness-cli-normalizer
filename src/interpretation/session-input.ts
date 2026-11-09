@@ -31,7 +31,8 @@ export type SessionInputIssue =
   | "missing-session-input-contract"
   | "unsupported-session-input-kind"
   | "unsupported-delivery"
-  | "unsupported-interrupt";
+  | "unsupported-interrupt"
+  | "unsupported-stop-background";
 
 export class SessionInputRefusalError extends Error {
   constructor(readonly issue: SessionInputIssue) {
@@ -52,6 +53,8 @@ export const INITIALIZE_ID = "hcn-initialize";
 /** Issue #426: the marker prefix of a native interrupt command. The suffix
  * is the runner's internal correlation token, never a caller id. */
 const INTERRUPT_ID_PREFIX = "hcn-interrupt:";
+/** The marker prefix of a native stop-background request, same discipline. */
+const STOP_BACKGROUND_ID_PREFIX = "hcn-stop-background:";
 
 export interface SessionInputEncodingOptions {
   readonly busy: boolean;
@@ -169,6 +172,30 @@ export const encodeSessionInterrupt = (input: SessionInputContract, token: strin
       })}\n`;
     default:
       throw new SessionInputRefusalError("unsupported-interrupt");
+  }
+};
+
+/** The native command that stops one background job, correlated by the
+ * runner's internal token and naming the job by the id its `background`
+ * events carry (claude's `task_id`). Claude writes the `stop_task` control
+ * request (verified 2.1.319); every other kind refuses. The answer says
+ * only whether the request was accepted - the job's own end arrives on
+ * the stream as a `background` event, never claimed by the receipt. */
+export const encodeSessionStopBackground = (
+  input: SessionInputContract,
+  token: string,
+  job: string,
+): string => {
+  const id = `${STOP_BACKGROUND_ID_PREFIX}${token}`;
+  switch (input.kind) {
+    case "claude-sdk-user-message":
+      return `${JSON.stringify({
+        type: "control_request",
+        request_id: id,
+        request: { subtype: "stop_task", task_id: job },
+      })}\n`;
+    default:
+      throw new SessionInputRefusalError("unsupported-stop-background");
   }
 };
 
@@ -316,6 +343,10 @@ export type SessionRecord =
       readonly token: string;
       readonly accepted: boolean;
     }
+  /** The native stop-background request was answered. `ok` says only that
+   * the harness accepted the stop request; the job's own end arrives as a
+   * `background` event. */
+  | { readonly kind: "stop-background-answered"; readonly token: string; readonly ok: boolean }
   /** An rpc command hcn wrote was refused by the harness. */
   | { readonly inputId?: string; readonly kind: "command-failed"; readonly message: string }
   /** Protocol bookkeeping with nothing to surface. */
@@ -601,6 +632,14 @@ export const decodeSessionRecord = (
             token,
             accepted: false,
           };
+    }
+    if (typeof requestId === "string" && requestId.startsWith(STOP_BACKGROUND_ID_PREFIX)) {
+      const token = requestId.slice(STOP_BACKGROUND_ID_PREFIX.length);
+      return {
+        kind: "stop-background-answered",
+        token,
+        ok: response?.subtype === "success",
+      };
     }
     // Issue #456: the answer to a settings control request hcn wrote.
     if (typeof requestId === "string") {

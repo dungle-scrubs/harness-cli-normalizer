@@ -28,6 +28,7 @@ const HARNESS_EVENT_KINDS = [
   "tool-result",
   "usage",
   "compaction",
+  "background",
   "question",
   "limit",
   "warning",

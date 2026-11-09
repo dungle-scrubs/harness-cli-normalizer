@@ -78,6 +78,10 @@ export interface SessionControlsCapability {
    * to the session host. Potential support is a descriptor fact; a live
    * session advertises it only when it was opened with `--native-approvals`. */
   readonly approvals: { readonly supported: boolean };
+  /** Stopping one background job while the same process continues. A
+   * descriptor fact (claude's native `stop_task` control request), not
+   * gated on a process advertisement. */
+  readonly stopBackground: { readonly supported: boolean };
 }
 
 export const sessionControlsOf = (h: HarnessDescriptor): SessionControlsCapability | null => {
@@ -90,6 +94,7 @@ export const sessionControlsOf = (h: HarnessDescriptor): SessionControlsCapabili
         ? { supported: false }
         : { supported: true, toolCancellation: controls.interrupt.toolCancellation },
     approvals: { supported: controls.approvals != null },
+    stopBackground: { supported: controls.stopBackground != null },
   };
 };
 

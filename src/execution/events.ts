@@ -16,7 +16,12 @@
  */
 
 import type { CapabilityResult } from "../interpretation/capabilities.js";
-import type { ToolDenial, ToolEvent, ToolResultEvent } from "../interpretation/content.js";
+import type {
+  BackgroundEvent,
+  ToolDenial,
+  ToolEvent,
+  ToolResultEvent,
+} from "../interpretation/content.js";
 import type { QuestionMode } from "../interpretation/question.js";
 import type { UsageEvent } from "../interpretation/usage.js";
 import type { CompactionState, CompactionTrigger, LimitCode } from "../knowledge/descriptor.js";
@@ -50,6 +55,7 @@ export type HarnessEvent =
   | ToolEvent
   | ToolResultEvent
   | UsageEvent
+  | BackgroundEvent
   | {
       readonly kind: "identity";
       readonly sessionId: string;
@@ -63,7 +69,15 @@ export type HarnessEvent =
       readonly resumeLast?: true;
     }
   | { readonly kind: "token"; readonly text: string }
-  | { readonly kind: "message"; readonly role: string; readonly text: string }
+  | {
+      readonly kind: "message";
+      readonly role: string;
+      readonly text: string;
+      /** Claude subagent lines: the Agent tool call whose subagent
+       * produced this message. Present only when the native line carried
+       * a non-null `parent_tool_use_id`. */
+      readonly parentCallId?: string;
+    }
   | { readonly kind: "progress"; readonly label: string }
   /** ADR 0009: the harness compacted its own context. Lossless and ordered -
    * a dropped compaction event is a boundary the caller cannot rebuild from

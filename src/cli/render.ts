@@ -65,6 +65,16 @@ export const renderEvent = (
       process.stdout.write(dim(`\n  ⇄ compaction ${event.state}${counts}`));
       break;
     }
+    case "background": {
+      // An observation of a job the harness itself reported. The label is
+      // the harness's own text (a description while running, a summary at
+      // the end), kept verbatim.
+      const label = event.description ?? event.detail ?? event.summary ?? "";
+      process.stdout.write(
+        dim(`\n  ◍ background ${event.job} ${event.state}${label === "" ? "" : ` ${label}`}`),
+      );
+      break;
+    }
     case "limit":
       process.stdout.write(yellow(`\n  ⚠ limit: ${event.code} ${event.message}`));
       break;

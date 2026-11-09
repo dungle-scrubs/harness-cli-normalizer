@@ -58,6 +58,7 @@ type ParsedCommand =
       readonly verbatim?: boolean;
     }
   | { readonly op: "interrupt"; readonly id: string }
+  | { readonly op: "stop-background"; readonly id: string; readonly job: string }
   | (SessionApprovalDecisionRequest & { readonly op: "approval" })
   | (SessionSettingsRequest & { readonly op: "settings" })
   | { readonly op: "close" }
@@ -114,6 +115,13 @@ const parseCommand = (line: string): ParsedCommand => {
     // The caller keeps replacement text and sends it after the receipt.
     if ("text" in rec) return { malformed: "interrupt carries no text; send it after the receipt" };
     return { op: "interrupt", id: rec.id };
+  }
+  // Stop one background job, named by the id its `background` events
+  // carry. A missing id or job is malformed like any other command.
+  if (rec.op === "stop-background") {
+    if (typeof rec.id !== "string" || rec.id === "") return { malformed: "missing or empty id" };
+    if (typeof rec.job !== "string" || rec.job === "") return { malformed: "missing or empty job" };
+    return { op: "stop-background", id: rec.id, job: rec.job };
   }
   // Issue #454/#455: one decision on a forwarded permission request.
   // Structural failures are malformed like any other command; semantic
@@ -348,6 +356,33 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
           emit({
             kind: "interruption",
             id,
+            state: settled.state,
+            ...(settled.reason !== undefined ? { reason: settled.reason } : {}),
+          }),
+        );
+        trackReceipt(receipt);
+        continue;
+      }
+      if (cmd.op === "stop-background") {
+        // Same two-phase shape as an interrupt: requested on the wire, then
+        // exactly one terminal receipt. `sent` names only acceptance of
+        // the stop request - the job's own end arrives as a `background`
+        // event on the turn stream.
+        const requested = a.handle.stopBackground({ id: cmd.id, job: cmd.job });
+        if (requested.state === "rejected") {
+          await emit({
+            kind: "background-stop",
+            id: cmd.id,
+            state: "rejected",
+            reason: requested.reason,
+          });
+          continue;
+        }
+        await emit({ kind: "background-stop", id: cmd.id, state: "requested" });
+        const receipt = requested.settled.then((settled) =>
+          emit({
+            kind: "background-stop",
+            id: cmd.id,
             state: settled.state,
             ...(settled.reason !== undefined ? { reason: settled.reason } : {}),
           }),

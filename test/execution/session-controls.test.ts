@@ -508,6 +508,7 @@ describe("issue #426: pi interruption is two-phase and settles on native observa
       deliveryModes: ["queue", "steer"],
       interrupt: { supported: false },
       approvals: { supported: false },
+      stopBackground: { supported: true },
     });
     r.proc.exit(0);
     await r.session.close();
@@ -536,11 +537,13 @@ const SUPPORTED = {
   deliveryModes: ["queue", "steer"],
   interrupt: { supported: true, toolCancellation: "best-effort" },
   approvals: { supported: false },
+  stopBackground: { supported: true },
 };
 const UNSUPPORTED = {
   deliveryModes: ["queue", "steer"],
   interrupt: { supported: false },
   approvals: { supported: false },
+  stopBackground: { supported: true },
 };
 
 describe("issue #429: claude interrupt support is what the running process advertises", () => {
