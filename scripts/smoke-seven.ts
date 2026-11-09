@@ -15,7 +15,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import type { HarnessEvent } from "../src/execution/events.js";
-import { openSession } from "../src/execution/open-session.js";
+import { isSessionTurn, openSession } from "../src/execution/open-session.js";
 import { streamTurn, type TurnRunOptions } from "../src/execution/stream-turn.js";
 import { antigravityCli } from "../src/knowledge/antigravity.js";
 import { claudeCode } from "../src/knowledge/claude-code.js";
@@ -159,7 +159,7 @@ const sessionContinuity = async (h: HarnessDescriptor): Promise<Cell> => {
   try {
     const turns = (async function* () {
       for await (const item of session.turns) {
-        if (!("kind" in item)) yield item;
+        if (isSessionTurn(item)) yield item;
       }
     })();
     session.send({ id: "s", text: "Remember the codeword: kestrel. Reply with only: OK" });

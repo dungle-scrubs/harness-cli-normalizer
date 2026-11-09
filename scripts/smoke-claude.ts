@@ -12,7 +12,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import type { HarnessEvent } from "../src/execution/events.js";
 import { nodeRunnerDeps } from "../src/execution/node-deps.js";
-import { openSession } from "../src/execution/open-session.js";
+import { isSessionTurn, openSession } from "../src/execution/open-session.js";
 import { streamTurn } from "../src/execution/stream-turn.js";
 import { claudeCode } from "../src/knowledge/claude-code.js";
 
@@ -87,7 +87,7 @@ try {
   const session = openSession(claudeCode, { sessionId }, deps());
   const turnsIter = (async function* () {
     for await (const item of session.turns) {
-      if (!("kind" in item)) yield item;
+      if (isSessionTurn(item)) yield item;
     }
   })();
 

@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import type { HarnessEvent } from "../../src/execution/events.js";
 import {
   CLOSE_GRACE_MS,
+  isSessionTurn,
   openSession,
   SessionSpawnError,
 } from "../../src/execution/open-session.js";
@@ -362,7 +363,7 @@ describe("issue #99: close() lets an open turn finish", () => {
     proc.emitLine(claudeInitNaming(sid, proc));
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn = (await turnsIter.next()).value;
-    if (turn === undefined || "kind" in turn) throw new Error("expected turn");
+    if (turn === undefined || !isSessionTurn(turn)) throw new Error("expected turn");
     // Drain the turn concurrently, as a real consumer would.
     const events: HarnessEvent[] = [];
     const drained = (async () => {

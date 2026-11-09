@@ -11,7 +11,7 @@
  */
 import { describe, expect, test } from "vitest";
 import type { HarnessEvent } from "../../src/execution/events.js";
-import { openSession, type SessionTurn } from "../../src/execution/open-session.js";
+import { isSessionTurn, openSession, type SessionTurn } from "../../src/execution/open-session.js";
 import { antigravityCli } from "../../src/knowledge/antigravity.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
@@ -1269,7 +1269,7 @@ describe("issue #426: claude turns correlate by native uuid on every send", () =
       const collected = (async () => {
         const turns: { id: string | undefined; messages: string[] }[] = [];
         for await (const turn of r.session.turns) {
-          if ("kind" in turn) throw new Error("unexpected bare event");
+          if (!isSessionTurn(turn)) throw new Error("unexpected bare event");
           const events = await drainTurn(turn);
           turns.push({
             id: turn.inputId,

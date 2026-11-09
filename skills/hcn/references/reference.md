@@ -261,7 +261,7 @@ https://github.com/dungle-scrubs/harness-cli-normalizer/blob/main/docs/observer.
 {"kind":"tool-result","name":?,"callId":?,"result":?,"isError":?,"parentCallId":?}
 {"kind":"usage","scope":..,"inputTokens":?,"outputTokens":?,"cacheReadTokens":?,"cacheWriteTokens":?,"reasoningTokens":?,"totalTokens":?,"costUsd":?,"inputIncludesCache":?,"callId":?,"model":?,"models":?}
 {"kind":"compaction","state":..,"trigger":?,"tokensBefore":?,"tokensAfter":?,"durationMs":?,"detail":?}
-{"kind":"background","id":..,"job":"shell|agent","state":"running|completed|failed|stopped","description":?,"callId":?,"agent":?,"detail":?,"toolUses":?,"totalTokens":?,"durationMs":?,"outputFile":?,"summary":?}
+{"kind":"background","id":..,"job":"shell|agent","state":"running|completed|failed|stopped","backgrounded":?,"description":?,"callId":?,"agent":?,"detail":?,"toolUses":?,"totalTokens":?,"durationMs":?,"outputFile":?,"summary":?}
 {"kind":"limit","code":..,"message":..}
 {"kind":"warning","message":..}       # advisory, not a failure
 {"kind":"error","message":..,"denial":?}  # {tool, reason, callId?, inputSummary?}; non-terminal observation
@@ -329,13 +329,13 @@ acknowledgment, the event stands alone as a bare `background` line and
 opens no turn. The preceding turn's events and `done` arrive first, even
 when stdout is backpressured. `background` is not droppable.
 Today only Claude reports background jobs on a channel hcn reads. Claude
-reports task records for inline Agent calls too. Neither `is_backgrounded`
-nor the Agent input's `run_in_background` reliably distinguishes inline
-and background calls. In the 2026-11-09 native capture, the input omits
-`run_in_background`, but its tool result says "Async agent launched".
-Observe the `tool-result` instead: a background Agent call answers at once
-with launch text; an inline call answers only with its final report.
-The agent's own steps carry `parentCallId` either way.
+reports task records for inline Agent calls too. `backgrounded` on the
+job's first event distinguishes an inline (foreground) agent (`false`)
+from a background agent (`true`). It forwards the native `is_backgrounded`
+only when that field is a boolean. Later records without it omit
+`backgrounded`, so retain it by job id. The Agent input's
+`run_in_background` is unreliable: Claude may background a call that
+omits it. The agent's own steps carry `parentCallId` either way.
 
 A Claude subagent's own steps (background or inline) are ordinary
 tool/tool-result/message events carrying `parentCallId` - the Agent tool

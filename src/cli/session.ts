@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
+import { clearLine, cursorTo } from "node:readline";
 import { createInterface } from "node:readline/promises";
 import type { SpawnOptions } from "../execution/deps.js";
 import { probeExtensionOption } from "../execution/extension-probe.js";
 import type { FailureSummary } from "../execution/failure.js";
 import { nodeRunnerDeps } from "../execution/node-deps.js";
 import type { OpenSessionOptions, SessionTurn } from "../execution/open-session.js";
-import { CLOSE_GRACE_MS, openSession } from "../execution/open-session.js";
+import { CLOSE_GRACE_MS, isSessionTurn, openSession } from "../execution/open-session.js";
 import {
   buildSessionArgv,
   buildTurnEnv,
@@ -624,10 +625,31 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   // An explicit async-iterator pull never drops: the iterator parks on the
   // stream until the next line exists, whenever the caller asks for it.
   const lines = rl[Symbol.asyncIterator]();
+  let awaitingLine = false;
   const nextLine = async (prompt: string): Promise<string | null> => {
-    process.stdout.write(prompt);
-    const res = await lines.next();
-    return res.done ? null : (res.value as string);
+    rl.setPrompt(prompt);
+    awaitingLine = true;
+    rl.prompt();
+    try {
+      const res = await lines.next();
+      return res.done ? null : (res.value as string);
+    } finally {
+      awaitingLine = false;
+    }
+  };
+  const startIdleOutput = (): void => {
+    if (process.stdout.isTTY) {
+      cursorTo(process.stdout, 0);
+      clearLine(process.stdout, 0);
+    } else {
+      process.stdout.write("\n");
+    }
+  };
+  const redrawPrompt = (): void => {
+    if (awaitingLine) {
+      process.stdout.write("\n");
+      rl.prompt(true);
+    }
   };
 
   // Handle SIGINT to close session cleanly
@@ -652,16 +674,24 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   process.on("SIGTERM", doClose);
 
   const turns = handle.turns[Symbol.asyncIterator]();
-  // Keep one pull pending while waiting for input so between-turn job
-  // observations render even if the user sends nothing else. Pause at a
-  // turn until the interaction below has drained it in full.
+  // Keep one pull pending while waiting for input so between-turn events
+  // and turns no send opened render immediately. Pause only at a send's
+  // turn, which the interaction below drains in full.
   const prefetchTurn = (): Promise<SessionTurn | undefined> => {
     const next = (async () => {
       for (;;) {
         const item = await turns.next();
         if (item.done) return undefined;
-        if (!("kind" in item.value)) return item.value;
-        renderEvent(item.value, createRenderState(), h);
+        if (isSessionTurn(item.value)) {
+          if (item.value.inputId !== undefined) return item.value;
+          startIdleOutput();
+          const state = createRenderState();
+          for await (const event of item.value) renderEvent(event, state, h);
+        } else {
+          startIdleOutput();
+          renderEvent(item.value, createRenderState(), h);
+        }
+        redrawPrompt();
       }
     })();
     // Preserve errors for the awaiting interaction without an unhandled

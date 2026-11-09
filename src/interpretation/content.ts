@@ -46,8 +46,8 @@ interface KnownJob {
   readonly job: BackgroundJob;
 }
 
-/** One observation of a background job the harness itself reported - a
- * run_in_background shell or a background Agent. Every field is the
+/** One observation of a job the harness itself reported, including
+ * inline Agent calls. Every field is the
  * harness's own report; hcn derives none. Lossless and ordered: it is
  * not droppable, and when no published turn owns it, it is emitted as a
  * bare session sequence item that opens no turn. */
@@ -57,6 +57,8 @@ export interface BackgroundEvent {
   readonly id: string;
   readonly job: BackgroundJob;
   readonly state: BackgroundState;
+  /** Claude's `is_backgrounded`, only when the record carries a boolean. */
+  readonly backgrounded?: boolean;
   readonly description?: string;
   /** The tool call that started the job (claude `tool_use_id`). */
   readonly callId?: string;
@@ -203,6 +205,11 @@ const claudeCompaction = (r: Record<string, unknown>): ContentEvent[] | null => 
   return null;
 };
 
+const isMainLoopLine = (record: Record<string, unknown>): boolean =>
+  record.parent_tool_use_id === null ||
+  record.parent_tool_use_id === undefined ||
+  record.parent_tool_use_id === "";
+
 const claude = (r: Record<string, unknown>): ContentEvent[] => {
   const events: ContentEvent[] = [];
   // A subagent line names the Agent tool call that started it
@@ -211,7 +218,7 @@ const claude = (r: Record<string, unknown>): ContentEvent[] => {
   // the subagent's own steps to the conversation pane (2026-11-09
   // evidence: background and inline subagents alike).
   const parentCallId =
-    typeof r.parent_tool_use_id === "string" && r.parent_tool_use_id !== ""
+    !isMainLoopLine(r) && typeof r.parent_tool_use_id === "string"
       ? { parentCallId: r.parent_tool_use_id }
       : {};
   if (r.type === "assistant") {
@@ -1191,7 +1198,10 @@ const rememberJob = (
   jobs: readonly KnownJob[],
   id: string,
   job: BackgroundJob,
-): readonly KnownJob[] => [...jobs.filter((known) => known.id !== id), { id, job }];
+): readonly KnownJob[] =>
+  jobs.some((known) => known.id === id && known.job === job)
+    ? jobs
+    : [...jobs.filter((known) => known.id !== id), { id, job }];
 
 /** The terminal task_notification: no later record needs the entry. */
 const dropJob = (jobs: readonly KnownJob[], id: string): readonly KnownJob[] =>
@@ -1233,9 +1243,7 @@ const claudeWithState = (
   const background = claudeBackground(r, state);
   if (background !== null) return background;
   const events = claude(r);
-  const mainLoop =
-    r.type === "assistant" && (r.parent_tool_use_id === null || r.parent_tool_use_id === undefined);
-  if (mainLoop) {
+  if (r.type === "assistant" && isMainLoopLine(r)) {
     const model = at(r, "message.model");
     if (
       typeof model === "string" &&
@@ -1283,13 +1291,10 @@ const claudeBackground = (
   }
   if (r.subtype === "background_tasks_changed" || r.subtype === "task_summary")
     return { events: [], state };
-  // Task records do not distinguish inline and background Agent calls.
-  // Neither is_backgrounded nor the tool input's run_in_background is a
-  // reliable discriminator. In the 2026-11-09 foreground-agent capture,
-  // line 24 omits run_in_background but line 28 reports an async launch.
-  // Observe the tool result instead: a background call answers at once
-  // with launch text; an inline call answers only with its final report.
-  // hcn reports every tracked task without classifying execution mode.
+  // Task records cover inline and background Agent calls. The first
+  // event's backgrounded flag forwards is_backgrounded and distinguishes
+  // them. The tool input's run_in_background is unreliable: Claude may
+  // background a call that omits it (2026-11-09 native captures).
   // A line without a task_id names no job. An unrecognized task_type is
   // not hcn's to guess at either: it emits nothing and records nothing.
   const id = typeof r.task_id === "string" && r.task_id !== "" ? r.task_id : null;
@@ -1308,6 +1313,12 @@ const claudeBackground = (
   const textOf = (value: unknown, key: string): { readonly [k: string]: string } =>
     typeof value === "string" && value !== "" ? { [key]: value } : {};
   const usage = asRecord(r.usage);
+  const observation = {
+    kind: "background",
+    id,
+    job,
+    ...(typeof r.is_backgrounded === "boolean" ? { backgrounded: r.is_backgrounded } : {}),
+  } as const;
   const events: ContentEvent[] = [];
   // A line carrying task_type (re)names the job. Keep it through terminal
   // updates until the terminal notification supplies outputFile/summary.
@@ -1316,9 +1327,7 @@ const claudeBackground = (
   switch (r.subtype) {
     case "task_started":
       events.push({
-        kind: "background",
-        id,
-        job,
+        ...observation,
         state: "running",
         ...textOf(r.description, "description"),
         ...callIdOf(r.tool_use_id),
@@ -1327,9 +1336,7 @@ const claudeBackground = (
       break;
     case "task_progress":
       events.push({
-        kind: "background",
-        id,
-        job,
+        ...observation,
         state: "running",
         ...textOf(r.description, "detail"),
         ...(numberOr(usage?.tool_uses) !== undefined
@@ -1351,16 +1358,14 @@ const claudeBackground = (
       const patch = asRecord(r.patch);
       const stateOfPatch = patch === null ? undefined : stateOfTaskStatus(patch.status);
       if (stateOfPatch === undefined) return { events: [], state };
-      events.push({ kind: "background", id, job, state: stateOfPatch });
+      events.push({ ...observation, state: stateOfPatch });
       break;
     }
     case "task_notification": {
       const stateOfStatus = stateOfTaskStatus(r.status);
       if (stateOfStatus === undefined) return { events: [], state };
       events.push({
-        kind: "background",
-        id,
-        job,
+        ...observation,
         state: stateOfStatus,
         ...textOf(r.output_file, "outputFile"),
         ...textOf(r.summary, "summary"),

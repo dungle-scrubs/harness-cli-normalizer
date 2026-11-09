@@ -8,7 +8,7 @@
  */
 import { describe, expect, test } from "vitest";
 import type { HarnessEvent } from "../../src/execution/events.js";
-import { openSession, type SessionTurn } from "../../src/execution/open-session.js";
+import { isSessionTurn, openSession, type SessionTurn } from "../../src/execution/open-session.js";
 import { PIPE_GRACE_MS } from "../../src/execution/stream-turn.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { piCli } from "../../src/knowledge/pi.js";
@@ -269,7 +269,7 @@ describe("background events on a live claude session", () => {
     for (;;) {
       const item = await r.turns.next();
       if (item.done) break;
-      if (!("kind" in item.value)) throw new Error("unexpected turn");
+      if (isSessionTurn(item.value)) throw new Error("unexpected turn");
       seen.push(item.value);
     }
     await closing;
@@ -337,7 +337,7 @@ describe("background events on a live claude session", () => {
     for (;;) {
       const item = await r.turns.next();
       if (item.done) break;
-      if (!("kind" in item.value)) throw new Error("unexpected turn");
+      if (isSessionTurn(item.value)) throw new Error("unexpected turn");
       seen.push(item.value);
     }
     expect(seen).toHaveLength(1_100);

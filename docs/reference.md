@@ -483,7 +483,8 @@ is the last:
 ```ts
 { kind: "background", id: string, job: "shell" | "agent",
   state: "running" | "completed" | "failed" | "stopped",
-  description?: string, callId?: string, agent?: string, detail?: string, toolUses?: number,
+  backgrounded?: boolean, description?: string, callId?: string, agent?: string,
+  detail?: string, toolUses?: number,
   totalTokens?: number, durationMs?: number, outputFile?: string, summary?: string }
 ```
 
@@ -498,12 +499,12 @@ is the last:
   notification adding `outputFile` and `summary`. `background_tasks_changed` and `task_summary`
   emit nothing; a `task_type` other than `local_bash`/`local_agent`, a record without a
   `task_id`, and an end record for a job whose type was never seen all emit nothing too.
-- Claude reports task records for inline Agent calls too. Neither `is_backgrounded` nor
-  the Agent input's `run_in_background` reliably distinguishes inline and background calls.
-  In the 2026-11-09 native capture, the input omits `run_in_background`, but its tool result
-  says "Async agent launched". Observe the `tool-result` instead: a background Agent call
-  answers at once with launch text; an inline call answers only with its final report.
-  The agent's own steps carry `parentCallId` either way.
+- Claude reports task records for inline Agent calls too. `backgrounded` on the job's
+  first event distinguishes an inline (foreground) agent (`false`) from a background
+  agent (`true`). It forwards the native `is_backgrounded` only when that field is a
+  boolean; later records without it omit `backgrounded`, so consumers retain it by job id.
+  The Agent input's `run_in_background` is unreliable: Claude may background a call that
+  omits it. The agent's own steps carry `parentCallId` either way.
 - A job's end can arrive between turns, after Claude's `result`. When no published turn owns
   the event, including while a send awaits acknowledgment, it stands alone as a bare
   `background` line on the session `--json` wire and opens no turn. The preceding turn's

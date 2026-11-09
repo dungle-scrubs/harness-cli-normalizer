@@ -18,7 +18,7 @@ import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { createRenderState, renderEvent } from "../src/cli/render.js";
 import { nodeRunnerDeps } from "../src/execution/node-deps.js";
-import { openSession } from "../src/execution/open-session.js";
+import { isSessionTurn, openSession } from "../src/execution/open-session.js";
 import { streamTurn } from "../src/execution/stream-turn.js";
 import { antigravityCli } from "../src/knowledge/antigravity.js";
 import { claudeCode } from "../src/knowledge/claude-code.js";
@@ -72,7 +72,7 @@ const chat = async (h: HarnessDescriptor): Promise<void> => {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   const turns = (async function* () {
     for await (const item of session.turns) {
-      if ("kind" in item) renderEvent(item, createRenderState());
+      if (!isSessionTurn(item)) renderEvent(item, createRenderState());
       else yield item;
     }
   })();

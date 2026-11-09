@@ -238,6 +238,7 @@ describe("claude background jobs: the mapping rows", () => {
         job: "shell",
         state: "running",
         description: "Run background tick loop",
+        backgrounded: true,
         callId: "toolu_01HcjBC6KasyhZZTJUa1XN4p",
       },
     ]);
@@ -251,6 +252,7 @@ describe("claude background jobs: the mapping rows", () => {
         job: "agent",
         state: "running",
         description: "Count files",
+        backgrounded: true,
         callId: "toolu_012jE8yMKUqo4bjJcHR7ZVkL",
         agent: "general-purpose",
       },
@@ -329,6 +331,7 @@ describe("claude background jobs: the mapping rows", () => {
         job: "agent",
         state: "running",
         description: "Count files",
+        backgrounded: true,
         callId: "toolu_012jE8yMKUqo4bjJcHR7ZVkL",
         agent: "general-purpose",
       },
@@ -387,35 +390,85 @@ describe("claude background jobs: the mapping rows", () => {
     ).toEqual({ kind: "background", id: "bcrfa3pxt", job: "shell", state: "running" });
   });
 
-  test("task records emit without classifying the Agent call's execution mode", () => {
-    // The 2026-11-09 foreground-agent capture's input omits
-    // run_in_background, but its tool result reports an async launch.
-    // The task record alone does not establish inline/background mode.
-    const capturedAgentStarted = {
+  test("task_started forwards backgrounded false from the explicit inline capture", () => {
+    // Whole task_started record from claude-inline-agent-native-explicit-2026-11-09.ndjson.
+    const captured = {
       type: "system",
       subtype: "task_started",
-      task_id: "a5fa5c99e746ed563",
-      run_id: "0mw90bp2q-2b03be98",
-      tool_use_id: "toolu_01DsuF4cfn5iSuiAQumzRpPJ",
-      description: "Read note.txt contents",
+      task_id: "a1d655a05edd41743",
+      run_id: "0mw9359p9-f950a6a1",
+      tool_use_id: "toolu_016VFgZWiCk7BLrb9wQDaza3",
+      description: "Read note",
+      subagent_type: "general-purpose",
+      is_backgrounded: false,
+      spawn_depth: 1,
+      task_type: "local_agent",
+      prompt: "Read note.txt and report its contents.",
+      uuid: "639e926c-fe1c-49b8-b9be-32515ce453b3",
+      session_id: "a71aabd0-db58-41d9-92c8-5cab510ecd77",
+    };
+    expect(decodeAll([captured])).toEqual([
+      {
+        kind: "background",
+        id: captured.task_id,
+        job: "agent",
+        state: "running",
+        backgrounded: false,
+        description: captured.description,
+        callId: captured.tool_use_id,
+        agent: captured.subagent_type,
+      },
+    ]);
+  });
+
+  test("task_started forwards backgrounded true from the omitted-mode capture", () => {
+    // Whole task_started record from claude-inline-agent-native-2026-11-09.ndjson.
+    const captured = {
+      type: "system",
+      subtype: "task_started",
+      task_id: "a309af50885b79194",
+      run_id: "0mw934nqy-2f89a3af",
+      tool_use_id: "toolu_01RNH3WANJxtbvdmQ7wERa84",
+      description: "Read note.txt and report contents",
       subagent_type: "general-purpose",
       is_backgrounded: true,
       spawn_depth: 1,
       task_type: "local_agent",
-      prompt: "Use the Bash tool to run `cat note.txt` in the current working directory.",
-      session_id: "f01bef5e-4762-4185-b847-a42daf12e00d",
+      prompt:
+        "Read the file note.txt and report its full contents back verbatim. Look first at /private/tmp/claude-501/-Users-kevin-dev-dotfiles/978d1578-5554-4735-80a1-2bfadd959edd/scratchpad/inline-probe.IMmI/note.txt. If it is not there, search that directory tree for a file named note.txt. Do not modify, create, or delete any file. Your final reply should contain only the file's contents, or a clear statement that no note.txt was found.",
+      uuid: "68d62d8b-7d1d-415e-a019-9b1a436cd42a",
+      session_id: "f6b4c60b-5023-4a37-b6c8-3da39e699b9a",
     };
-    expect(decodeAll([capturedAgentStarted])).toEqual([
+    expect(decodeAll([captured])).toEqual([
       {
         kind: "background",
-        id: "a5fa5c99e746ed563",
+        id: captured.task_id,
         job: "agent",
         state: "running",
-        description: "Read note.txt contents",
-        callId: "toolu_01DsuF4cfn5iSuiAQumzRpPJ",
-        agent: "general-purpose",
+        backgrounded: true,
+        description: captured.description,
+        callId: captured.tool_use_id,
+        agent: captured.subagent_type,
       },
     ]);
+  });
+
+  test("backgrounded is omitted unless the native record carries a boolean", () => {
+    const { is_backgrounded: _dropped, ...withoutFlag } = shellStarted;
+    for (const record of [withoutFlag, { ...shellStarted, is_backgrounded: "true" }]) {
+      const events = decodeAll([record]);
+      expect(events).toHaveLength(1);
+      expect(events[0]).not.toHaveProperty("backgrounded");
+    }
+  });
+
+  test("later task records forward their own boolean without carrying a previous flag", () => {
+    for (const record of [agentProgress, agentUpdatedCompleted, agentNotification]) {
+      const later = decodeAll([agentStarted, { ...record, is_backgrounded: false }]).slice(1);
+      expect(later).toHaveLength(1);
+      expect(later[0]).toHaveProperty("backgrounded", false);
+      expect(decodeAll([agentStarted, record])[1]).not.toHaveProperty("backgrounded");
+    }
   });
 
   test("a task_type on a later line still names the job", () => {
@@ -486,6 +539,41 @@ describe("claude background jobs: the skips", () => {
     ]);
   });
 
+  test("a notification retires only its own job, preserving another job's later records", () => {
+    expect(
+      backgroundOf(
+        decodeAll([
+          shellStarted,
+          agentStarted,
+          shellNotification,
+          agentProgress,
+          agentUpdatedCompleted,
+        ]),
+      ).map((event) => [event.id, event.job, event.state]),
+    ).toEqual([
+      ["bcrfa3pxt", "shell", "running"],
+      ["a34310bd3dc4bd051", "agent", "running"],
+      ["bcrfa3pxt", "shell", "completed"],
+      ["a34310bd3dc4bd051", "agent", "running"],
+      ["a34310bd3dc4bd051", "agent", "completed"],
+    ]);
+  });
+
+  test("remembering an unchanged job preserves reader state, while a changed job replaces it", () => {
+    const first = contentEventsWithState("claude", shellStarted, freshReaderState("claude"));
+    const repeated = contentEventsWithState("claude", shellStarted, first.state);
+    expect(repeated.state).toBe(first.state);
+    const renamed = contentEventsWithState(
+      "claude",
+      { ...shellStarted, task_type: "local_agent" },
+      repeated.state,
+    );
+    const notified = contentEventsWithState("claude", shellNotification, renamed.state);
+    expect(notified.events).toEqual([
+      expect.objectContaining({ kind: "background", id: shellStarted.task_id, job: "agent" }),
+    ]);
+  });
+
   test("a job is kept through its terminal task_updated and dropped at its task_notification", () => {
     // The update keeps the entry: the notification that follows, with
     // no task_type of its own, still finds the job.
@@ -505,40 +593,21 @@ describe("claude background jobs: the skips", () => {
     ).toHaveLength(2);
   });
 
-  test("65 concurrent jobs keep a terminal update's job until its notification", () => {
-    const records: unknown[] = [shellStarted];
-    for (let index = 0; index < 64; index += 1) {
-      records.push({ ...agentStarted, task_id: `concurrent-agent-${index}` });
-    }
-    records.push(shellUpdatedCompleted, shellNotification);
-    expect(
-      backgroundOf(decodeAll(records))
-        .filter((event) => event.id === shellStarted.task_id)
-        .slice(1),
-    ).toEqual([
-      { kind: "background", id: "bcrfa3pxt", job: "shell", state: "completed" },
-      {
-        kind: "background",
-        id: "bcrfa3pxt",
-        job: "shell",
-        state: "completed",
-        callId: shellNotification.tool_use_id,
-        outputFile: shellNotification.output_file,
-        summary: shellNotification.summary,
-      },
-    ]);
-  });
-
-  test("a long-running shell spanning more than 64 newer jobs still reports its end", () => {
+  test("a long-running shell keeps its job through newer jobs and terminal updates", () => {
     // Jobs awaiting notifications remain registered even after terminal
     // updates, so newer jobs cannot displace this shell's job type.
     const records: unknown[] = [shellStarted];
-    for (let index = 0; index < 65; index += 1) {
+    for (let index = 0; index < 100; index += 1) {
       const id = `newer-agent-${index}`;
-      records.push(
-        { ...agentStarted, task_id: id, description: `newer ${index}` },
-        { type: "system", subtype: "task_updated", task_id: id, patch: { status: "completed" } },
-      );
+      records.push({ ...agentStarted, task_id: id, description: `newer ${index}` });
+      if (index % 2 === 0) {
+        records.push({
+          type: "system",
+          subtype: "task_updated",
+          task_id: id,
+          patch: { status: "completed" },
+        });
+      }
     }
     records.push(shellUpdatedCompleted, shellNotification);
     expect(
@@ -594,6 +663,33 @@ describe("claude subagent lines carry parentCallId", () => {
     expect(events).toEqual([{ kind: "message", role: "assistant", text: "started" }]);
   });
 
+  test.each([null, undefined, ""])(
+    "a main-loop parent %j attests its model on turn usage",
+    (parent) => {
+      const assistant = contentEventsWithState(
+        "claude",
+        { ...mainLoopAnswer, parent_tool_use_id: parent },
+        freshReaderState("claude"),
+      );
+      const result = contentEventsWithState(
+        "claude",
+        { type: "result", usage: { input_tokens: 4, output_tokens: 376 } },
+        assistant.state,
+      );
+      expect(result.events.filter((event) => event.kind === "usage")).toEqual([
+        {
+          kind: "usage",
+          scope: "turn",
+          inputTokens: 4,
+          outputTokens: 376,
+          inputIncludesCache: false,
+          model: "claude-sonnet-5-5",
+          models: ["claude-sonnet-5-5"],
+        },
+      ]);
+    },
+  );
+
   test("a subagent line does not enter the turn's main-loop model attestations", () => {
     // Asserted on the emission, not the reader's internals: a claude
     // result's turn usage reports the models the MAIN LOOP attested and
@@ -648,6 +744,7 @@ describe("run-mode decoding reaches the background event statelessly", () => {
         job: "shell",
         state: "running",
         description: "Run background tick loop",
+        backgrounded: true,
         callId: "toolu_01HcjBC6KasyhZZTJUa1XN4p",
       },
     ]);

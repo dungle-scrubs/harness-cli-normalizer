@@ -123,6 +123,9 @@ export interface SessionTurn extends AsyncIterable<HarnessEvent> {
   readonly turnId?: string;
 }
 
+export const isSessionTurn = (item: SessionTurn | HarnessEvent): item is SessionTurn =>
+  !("kind" in item);
+
 /** A send's payload: the consumer's correlation id travels with the text
  * from the moment it arrives to the turn it opens and, on death, to the
  * loss report. Ids are the caller's and may repeat; the runner correlates

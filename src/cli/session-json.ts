@@ -18,7 +18,7 @@ import type {
   SessionStopBackgroundReceipt,
   SessionStopBackgroundResult,
 } from "../execution/open-session.js";
-import { SessionClosedError } from "../execution/open-session.js";
+import { isSessionTurn, SessionClosedError } from "../execution/open-session.js";
 import type { SessionApprovalDecisionRequest } from "../execution/session-approval-tracker.js";
 import type { SessionSettingsRequest } from "../execution/session-settings-sequencer.js";
 import { composeAnswer, type QuestionMode } from "../interpretation/question.js";
@@ -253,7 +253,7 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
 
   const stdoutPump = (async () => {
     for await (const turn of a.handle.turns) {
-      if ("kind" in turn) {
+      if (!isSessionTurn(turn)) {
         await emit(turn);
         continue;
       }
