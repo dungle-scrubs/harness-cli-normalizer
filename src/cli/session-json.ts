@@ -9,13 +9,16 @@
  * rather than shadowing the runner's delivery order.
  */
 import { createInterface } from "node:readline/promises";
-import type { HarnessEvent } from "../execution/events.js";
 import type { FailureSummary } from "../execution/failure.js";
-import {
-  SessionClosedError,
-  type SessionHandle,
-  type SessionSendResult,
+import type {
+  SessionHandle,
+  SessionInterruptReceipt,
+  SessionInterruptResult,
+  SessionSendResult,
+  SessionStopBackgroundReceipt,
+  SessionStopBackgroundResult,
 } from "../execution/open-session.js";
+import { SessionClosedError } from "../execution/open-session.js";
 import type { SessionApprovalDecisionRequest } from "../execution/session-approval-tracker.js";
 import type { SessionSettingsRequest } from "../execution/session-settings-sequencer.js";
 import { composeAnswer, type QuestionMode } from "../interpretation/question.js";
@@ -250,13 +253,17 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
 
   const stdoutPump = (async () => {
     for await (const turn of a.handle.turns) {
+      if ("kind" in turn) {
+        await emit(turn);
+        continue;
+      }
       awaitingAnswer = false;
       await emit({
         kind: "turn",
         turnId: turn.turnId,
         ...(turn.inputId !== undefined ? { id: turn.inputId } : {}),
       });
-      for await (const ev of turn as AsyncIterable<HarnessEvent>) {
+      for await (const ev of turn) {
         // Update the answer state BEFORE the event reaches the consumer. A
         // consumer answers the moment it reads `done`, so setting this after
         // the emit leaves a window where a valid answer is refused.
@@ -269,15 +276,6 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
         await emit(ev);
       }
     }
-  })();
-
-  // Events no turn owns (today only `background`, a job's life between
-  // turns) ride their own pump through the same serialized writer, so on
-  // the wire a between-turn background event is a bare `background` line
-  // - never parked inside a later turn. It ends with the session, after
-  // delivering what the channel holds (review round 1, C1).
-  const outOfTurnPump = (async () => {
-    for await (const ev of a.handle.outOfTurn) await emit(ev);
   })();
 
   const rl = createInterface({ input: a.input ?? process.stdin });
@@ -319,14 +317,16 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
   const twoPhaseReceipt = (
     kind: "interruption" | "background-stop",
     id: string,
-    requested:
-      | {
-          readonly state: "requested";
-          readonly settled: Promise<{ readonly state: string; readonly reason?: string }>;
-        }
-      | { readonly state: "rejected"; readonly reason: string },
+    requested: SessionInterruptResult | SessionStopBackgroundResult,
   ): Promise<void> => {
-    const line = (state: { readonly state: string; readonly reason?: string }) => ({
+    const line = (state: {
+      readonly state:
+        | SessionInterruptResult["state"]
+        | SessionStopBackgroundResult["state"]
+        | SessionInterruptReceipt["state"]
+        | SessionStopBackgroundReceipt["state"];
+      readonly reason?: SessionInterruptReceipt["reason"] | SessionStopBackgroundReceipt["reason"];
+    }) => ({
       kind,
       id,
       state: state.state,
@@ -474,13 +474,11 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
 
   // Whichever ends first drives the close: a close/EOF from stdin, or the
   // session dying (the turns iterable ends). close() is idempotent; closing
-  // the readline unblocks the stdin pump if the session died first. The
-  // out-of-turn pump ends with the turns iterable (both channels close at
-  // finalize), so it joins the same waits.
-  await Promise.race([stdinDone, stdoutPump, outOfTurnPump]);
+  // the readline unblocks the stdin pump if the session died first.
+  await Promise.race([stdinDone, stdoutPump]);
   await a.handle.close();
   rl.close();
-  await Promise.allSettled([stdinDone, stdoutPump, outOfTurnPump]);
+  await Promise.allSettled([stdinDone, stdoutPump]);
   // The closed session settled every outstanding receipt; each disposition
   // and interruption receipt leaves before the terminal line.
   await dispositionChain;

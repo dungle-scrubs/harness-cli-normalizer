@@ -157,7 +157,11 @@ const sessionContinuity = async (h: HarnessDescriptor): Promise<Cell> => {
   // session on expiry, and await cleanup on every success or error path.
   const deadline = setTimeout(() => void session.close(), 180_000);
   try {
-    const turns = session.turns[Symbol.asyncIterator]();
+    const turns = (async function* () {
+      for await (const item of session.turns) {
+        if (!("kind" in item)) yield item;
+      }
+    })();
     session.send({ id: "s", text: "Remember the codeword: kestrel. Reply with only: OK" });
     await collect((await turns.next()).value as AsyncIterable<HarnessEvent>);
     session.send({ id: "s", text: "Reply with only the codeword." });

@@ -4,7 +4,8 @@ import type { SpawnOptions } from "../execution/deps.js";
 import { probeExtensionOption } from "../execution/extension-probe.js";
 import type { FailureSummary } from "../execution/failure.js";
 import { nodeRunnerDeps } from "../execution/node-deps.js";
-import { CLOSE_GRACE_MS, type OpenSessionOptions, openSession } from "../execution/open-session.js";
+import type { OpenSessionOptions, SessionTurn } from "../execution/open-session.js";
+import { CLOSE_GRACE_MS, openSession } from "../execution/open-session.js";
 import {
   buildSessionArgv,
   buildTurnEnv,
@@ -651,6 +652,24 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   process.on("SIGTERM", doClose);
 
   const turns = handle.turns[Symbol.asyncIterator]();
+  // Keep one pull pending while waiting for input so between-turn job
+  // observations render even if the user sends nothing else. Pause at a
+  // turn until the interaction below has drained it in full.
+  const prefetchTurn = (): Promise<SessionTurn | undefined> => {
+    const next = (async () => {
+      for (;;) {
+        const item = await turns.next();
+        if (item.done) return undefined;
+        if (!("kind" in item.value)) return item.value;
+        renderEvent(item.value, createRenderState(), h);
+      }
+    })();
+    // Preserve errors for the awaiting interaction without an unhandled
+    // rejection while readline is still waiting for the user's input.
+    void next.catch(() => {});
+    return next;
+  };
+  let nextTurn = prefetchTurn();
   try {
     while (true) {
       let line: string | null;
@@ -666,9 +685,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
 
       handle.send({ id: `you-${++sendCount}`, text: line });
 
-      const turn = (await turns.next()).value as
-        | AsyncIterable<import("../execution/events.js").HarnessEvent>
-        | undefined;
+      const turn = await nextTurn;
       if (turn === undefined) break;
       const state = createRenderState();
       // issue #44: a turn that ends awaiting-input renders its question as
@@ -683,6 +700,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
         renderEvent(event, state, h);
         if (event.kind === "question") asked = event;
       }
+      nextTurn = prefetchTurn();
       if (asked !== null) {
         const q = asked;
         process.stdout.write(`\nanswer › pick a number, or type your own answer:\n`);
@@ -707,14 +725,13 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
         // backpressure stalls the harness until the turn iterable is
         // consumed (verified live: menu answered, you-prompt rendered, no
         // answer turn ever ran).
-        const answerTurn = (await turns.next()).value as
-          | AsyncIterable<import("../execution/events.js").HarnessEvent>
-          | undefined;
+        const answerTurn = await nextTurn;
         if (answerTurn === undefined) break;
         const answerState = createRenderState();
         for await (const event of answerTurn) {
           renderEvent(event, answerState, h);
         }
+        nextTurn = prefetchTurn();
       }
     }
   } catch (err) {

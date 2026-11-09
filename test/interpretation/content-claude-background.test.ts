@@ -387,16 +387,11 @@ describe("claude background jobs: the mapping rows", () => {
     ).toEqual({ kind: "background", id: "bcrfa3pxt", job: "shell", state: "running" });
   });
 
-  test("a FOREGROUND Agent call's task records emit too: the field is not a discriminator", () => {
-    // Live check 2026-11-09 (fix round 1, item 5): an inline Agent call
-    // (no run_in_background) still gets task records, and the captured
-    // task_started - quoted below from
-    // claude-foreground-agent-task-records-2026-11-09.ndjson - carries
-    // `is_backgrounded: true`, shape-identical to a background agent's.
-    // Neither 2026-11-09 capture holds an `is_backgrounded: false`, so
-    // the field gates nothing: every tracked task reports, and the
-    // mapping is the spec's unchanged one.
-    const inlineAgentStarted = {
+  test("task records emit without classifying the Agent call's execution mode", () => {
+    // The 2026-11-09 foreground-agent capture's input omits
+    // run_in_background, but its tool result reports an async launch.
+    // The task record alone does not establish inline/background mode.
+    const capturedAgentStarted = {
       type: "system",
       subtype: "task_started",
       task_id: "a5fa5c99e746ed563",
@@ -410,7 +405,7 @@ describe("claude background jobs: the mapping rows", () => {
       prompt: "Use the Bash tool to run `cat note.txt` in the current working directory.",
       session_id: "f01bef5e-4762-4185-b847-a42daf12e00d",
     };
-    expect(decodeAll([inlineAgentStarted])).toEqual([
+    expect(decodeAll([capturedAgentStarted])).toEqual([
       {
         kind: "background",
         id: "a5fa5c99e746ed563",
@@ -492,8 +487,8 @@ describe("claude background jobs: the skips", () => {
   });
 
   test("a job is kept through its terminal task_updated and dropped at its task_notification", () => {
-    // The updated marks the entry ended but keeps it: the notification
-    // that follows (no task_type of its own) still finds the job.
+    // The update keeps the entry: the notification that follows, with
+    // no task_type of its own, still finds the job.
     expect(
       backgroundOf(decodeAll([shellStarted, shellUpdatedCompleted, shellNotification])).map(
         (e) => e.state,
@@ -510,13 +505,33 @@ describe("claude background jobs: the skips", () => {
     ).toHaveLength(2);
   });
 
+  test("65 concurrent jobs keep a terminal update's job until its notification", () => {
+    const records: unknown[] = [shellStarted];
+    for (let index = 0; index < 64; index += 1) {
+      records.push({ ...agentStarted, task_id: `concurrent-agent-${index}` });
+    }
+    records.push(shellUpdatedCompleted, shellNotification);
+    expect(
+      backgroundOf(decodeAll(records))
+        .filter((event) => event.id === shellStarted.task_id)
+        .slice(1),
+    ).toEqual([
+      { kind: "background", id: "bcrfa3pxt", job: "shell", state: "completed" },
+      {
+        kind: "background",
+        id: "bcrfa3pxt",
+        job: "shell",
+        state: "completed",
+        callId: shellNotification.tool_use_id,
+        outputFile: shellNotification.output_file,
+        summary: shellNotification.summary,
+      },
+    ]);
+  });
+
   test("a long-running shell spanning more than 64 newer jobs still reports its end", () => {
-    // 65 newer agent jobs (synthetic ids on the captured started shape),
-    // each reaching its terminal task_updated but not its notification:
-    // all 65 stay in the registry as ended entries, past the 64 bound.
-    // The bound evicts ended entries first and never the running shell,
-    // so the shell's own end - whose lines carry no task_type - still
-    // decodes (review round 1).
+    // Jobs awaiting notifications remain registered even after terminal
+    // updates, so newer jobs cannot displace this shell's job type.
     const records: unknown[] = [shellStarted];
     for (let index = 0; index < 65; index += 1) {
       const id = `newer-agent-${index}`;
@@ -535,6 +550,19 @@ describe("claude background jobs: the skips", () => {
 });
 
 describe("claude subagent lines carry parentCallId", () => {
+  test("a non-null empty parent_tool_use_id adds no parentCallId", () => {
+    const records = [subagentBashCall, subagentBashResult, subagentAnswer];
+    const events = decodeAll(records.map((record) => ({ ...record, parent_tool_use_id: "" })));
+    expect(events).toEqual(
+      decodeAll(records).map((event) => {
+        if (!("parentCallId" in event)) throw new Error("expected parentCallId");
+        const { parentCallId: _parentCallId, ...mainLoopEvent } = event;
+        return mainLoopEvent;
+      }),
+    );
+    for (const event of events) expect(event).not.toHaveProperty("parentCallId");
+  });
+
   test("the subagent's tool call, tool result and message all carry it", () => {
     const events = decodeAll([subagentBashCall, subagentBashResult, subagentAnswer]);
     expect(events).toEqual([

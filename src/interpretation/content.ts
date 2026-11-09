@@ -39,22 +39,18 @@ export interface ToolResultEvent {
 export type BackgroundJob = "shell" | "agent";
 export type BackgroundState = "running" | "completed" | "failed" | "stopped";
 
-/** One entry of the claude reader's job registry: the job a later record
- * for the same id reads when its own line carries no `task_type`, plus
- * where the job stands. `ended` is set by a terminal `task_updated` - the
- * terminal `task_notification` that follows is the last record needing
- * the entry, and drops it. */
+/** A job whose terminal notification has not arrived. Later records for
+ * the same id read its job when their own line carries no `task_type`. */
 interface KnownJob {
   readonly id: string;
   readonly job: BackgroundJob;
-  readonly ended: boolean;
 }
 
 /** One observation of a background job the harness itself reported - a
  * run_in_background shell or a background Agent. Every field is the
  * harness's own report; hcn derives none. Lossless and ordered: it is
- * not droppable, and between turns it is emitted on its own, like a
- * between-turn `compaction`. */
+ * not droppable, and when no published turn owns it, it is emitted as a
+ * bare session sequence item that opens no turn. */
 export interface BackgroundEvent {
   readonly kind: "background";
   /** The harness's own job id (claude `task_id`). */
@@ -895,11 +891,8 @@ export interface ClaudeReaderState {
   /** Background jobs by their native id: the job a later task_progress /
    * task_updated / task_notification names when its own line carries no
    * task_type. Each entry lives until its terminal task_notification
-   * (kept through the preceding terminal task_updated), and the
-   * collection is bounded with ended-first eviction, so a running job
-   * is never forgotten (review round 1). It spans the session (decode
-   * state is built once per session), so a job's end after a turn
-   * boundary still finds its job. */
+   * (kept through the preceding terminal task_updated). It spans the
+   * session, so a job's end after a turn boundary still finds its job. */
   readonly backgroundJobs: readonly KnownJob[];
 }
 
@@ -1194,34 +1187,11 @@ const stateless =
   (read: (r: Record<string, unknown>) => ContentEvent[]): StatefulReader =>
   (r, state) => ({ events: read(r), state });
 
-/** Bound for the claude reader's job registry. Past it ENDED entries go
- * first (oldest first) - never a running one: a long-running shell
- * spanning more newer jobs than the bound still reports its end (review
- * round 1). A registry of nothing but live jobs runs past the bound
- * rather than forget one. */
-const BACKGROUND_JOBS_BOUND = 64;
-
-const trimJobs = (jobs: readonly KnownJob[]): readonly KnownJob[] => {
-  let out = [...jobs];
-  while (out.length > BACKGROUND_JOBS_BOUND) {
-    const endedAt = out.findIndex((known) => known.ended);
-    if (endedAt === -1) return out;
-    out = out.filter((_, index) => index !== endedAt);
-  }
-  return out;
-};
-
 const rememberJob = (
   jobs: readonly KnownJob[],
   id: string,
   job: BackgroundJob,
-): readonly KnownJob[] =>
-  trimJobs([...jobs.filter((known) => known.id !== id), { id, job, ended: false }]);
-
-/** A terminal task_updated: the entry stays for the task_notification
- * that follows, now marked evictable first. */
-const markJobEnded = (jobs: readonly KnownJob[], id: string): readonly KnownJob[] =>
-  trimJobs(jobs.map((known) => (known.id === id ? { ...known, ended: true } : known)));
+): readonly KnownJob[] => [...jobs.filter((known) => known.id !== id), { id, job }];
 
 /** The terminal task_notification: no later record needs the entry. */
 const dropJob = (jobs: readonly KnownJob[], id: string): readonly KnownJob[] =>
@@ -1313,17 +1283,13 @@ const claudeBackground = (
   }
   if (r.subtype === "background_tasks_changed" || r.subtype === "task_summary")
     return { events: [], state };
-  // Live check 2026-11-09: claude reports task records for FOREGROUND
-  // Agent calls too, shape-identical to background ones - the captured
-  // task_started of a run_in_background:false Agent call carries
-  // `is_backgrounded: true` (evidence
-  // claude-foreground-agent-task-records-2026-11-09.ndjson; zero
-  // `is_backgrounded: false` in either 2026-11-09 capture). The field is
-  // therefore not a foreground/background discriminator and gates
-  // nothing here: hcn reports every tracked task and decides nothing;
-  // a consumer that wants to tell an inline agent's records from a
-  // background one reads `run_in_background` off the Agent tool call's
-  // own `tool` event, same stream.
+  // Task records do not distinguish inline and background Agent calls.
+  // Neither is_backgrounded nor the tool input's run_in_background is a
+  // reliable discriminator. In the 2026-11-09 foreground-agent capture,
+  // line 24 omits run_in_background but line 28 reports an async launch.
+  // Observe the tool result instead: a background call answers at once
+  // with launch text; an inline call answers only with its final report.
+  // hcn reports every tracked task without classifying execution mode.
   // A line without a task_id names no job. An unrecognized task_type is
   // not hcn's to guess at either: it emits nothing and records nothing.
   const id = typeof r.task_id === "string" && r.task_id !== "" ? r.task_id : null;
@@ -1343,10 +1309,8 @@ const claudeBackground = (
     typeof value === "string" && value !== "" ? { [key]: value } : {};
   const usage = asRecord(r.usage);
   const events: ContentEvent[] = [];
-  // The registry moves with what the record said: a line carrying
-  // task_type (re)names the job; the end records then move it (a terminal
-  // task_updated marks the entry ended but keeps it for the notification
-  // that follows, a terminal task_notification drops it).
+  // A line carrying task_type (re)names the job. Keep it through terminal
+  // updates until the terminal notification supplies outputFile/summary.
   let jobs =
     r.task_type === undefined ? state.backgroundJobs : rememberJob(state.backgroundJobs, id, job);
   switch (r.subtype) {
@@ -1388,7 +1352,6 @@ const claudeBackground = (
       const stateOfPatch = patch === null ? undefined : stateOfTaskStatus(patch.status);
       if (stateOfPatch === undefined) return { events: [], state };
       events.push({ kind: "background", id, job, state: stateOfPatch });
-      if (stateOfPatch !== "running") jobs = markJobEnded(jobs, id);
       break;
     }
     case "task_notification": {

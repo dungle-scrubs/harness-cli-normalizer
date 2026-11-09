@@ -362,6 +362,7 @@ describe("issue #99: close() lets an open turn finish", () => {
     proc.emitLine(claudeInitNaming(sid, proc));
     const turnsIter = session.turns[Symbol.asyncIterator]();
     const turn = (await turnsIter.next()).value;
+    if (turn === undefined || "kind" in turn) throw new Error("expected turn");
     // Drain the turn concurrently, as a real consumer would.
     const events: HarnessEvent[] = [];
     const drained = (async () => {

@@ -498,16 +498,16 @@ is the last:
   notification adding `outputFile` and `summary`. `background_tasks_changed` and `task_summary`
   emit nothing; a `task_type` other than `local_bash`/`local_agent`, a record without a
   `task_id`, and an end record for a job whose type was never seen all emit nothing too.
-- Claude reports task records for an INLINE Agent call (`run_in_background` false or
-  absent) too, shape-identical to a background one - the task records themselves do not
-  say which it was (live check 2026-11-09: `is_backgrounded` reads `true` on a foreground
-  Agent's records too). A consumer that needs the distinction reads `run_in_background`
-  off the Agent call's own `tool` event, on the same stream; the agent's own steps carry
-  `parentCallId` either way.
-- A job's end can arrive BETWEEN turns (Claude's background tasks finish after `result`). Like a
-  between-turn `compaction` it opens no turn - but unlike one it waits for none: a session emits
-  each such event on its own the moment it arrives, so on the `--json` wire it is a bare
-  `background` line between turns, never parked inside a later turn and never dropped at close.
+- Claude reports task records for inline Agent calls too. Neither `is_backgrounded` nor
+  the Agent input's `run_in_background` reliably distinguishes inline and background calls.
+  In the 2026-11-09 native capture, the input omits `run_in_background`, but its tool result
+  says "Async agent launched". Observe the `tool-result` instead: a background Agent call
+  answers at once with launch text; an inline call answers only with its final report.
+  The agent's own steps carry `parentCallId` either way.
+- A job's end can arrive between turns, after Claude's `result`. When no published turn owns
+  the event, including while a send awaits acknowledgment, it stands alone as a bare
+  `background` line on the session `--json` wire and opens no turn. The preceding turn's
+  events and `done` arrive first, including when stdout is backpressured.
   `background` is never droppable.
 - Stopping one is a session op, `stop-background` (below); the other harnesses report no
   background jobs on any channel hcn reads today (pi's own `bg_bash`/`subagent` extensions are

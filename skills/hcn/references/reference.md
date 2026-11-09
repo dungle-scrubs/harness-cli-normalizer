@@ -323,18 +323,19 @@ optional field is the harness's own report, present only when the native
 line carried it. `id` is the harness's job id (claude's `task_id`) - the value
 a `stop-background` op names; `callId` is the tool call that started the job;
 `outputFile` is where the output is written (tail it yourself if you need
-it; hcn does not). A job's end can arrive BETWEEN turns (claude's background
-tasks finish after `result`): the event stands alone - it opens no turn and
-waits for none. On the session wire it is a bare `background` line the
-moment it arrives, never parked inside a later turn and never dropped at
-close. `background` is not droppable.
+it; hcn does not). A job's end can arrive between turns, after Claude's
+`result`. When no published turn owns it, including while a send awaits
+acknowledgment, the event stands alone as a bare `background` line and
+opens no turn. The preceding turn's events and `done` arrive first, even
+when stdout is backpressured. `background` is not droppable.
 Today only Claude reports background jobs on a channel hcn reads. Claude
-reports task records for an INLINE Agent call too, shape-identical to a
-background one (`is_backgrounded` reads `true` on a foreground Agent's
-records - live check 2026-11-09): the task records do not say which it
-was, so read `run_in_background` off the Agent call's own `tool` event
-when the distinction matters; the agent's own steps carry `parentCallId`
-either way.
+reports task records for inline Agent calls too. Neither `is_backgrounded`
+nor the Agent input's `run_in_background` reliably distinguishes inline
+and background calls. In the 2026-11-09 native capture, the input omits
+`run_in_background`, but its tool result says "Async agent launched".
+Observe the `tool-result` instead: a background Agent call answers at once
+with launch text; an inline call answers only with its final report.
+The agent's own steps carry `parentCallId` either way.
 
 A Claude subagent's own steps (background or inline) are ordinary
 tool/tool-result/message events carrying `parentCallId` - the Agent tool

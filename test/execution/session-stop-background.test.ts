@@ -9,6 +9,7 @@
 import { describe, expect, test } from "vitest";
 import type { HarnessEvent } from "../../src/execution/events.js";
 import { openSession, type SessionTurn } from "../../src/execution/open-session.js";
+import { PIPE_GRACE_MS } from "../../src/execution/stream-turn.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { piCli } from "../../src/knowledge/pi.js";
 import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
@@ -215,7 +216,7 @@ describe("stop-background on a harness without the native stop", () => {
 });
 
 describe("background events on a live claude session", () => {
-  test("a job's end between turns arrives on outOfTurn at once, with no further send", async () => {
+  test("a job's end between turns arrives as a bare sequence item, with no further send", async () => {
     const r = rig();
     const first = await startClaudeTurn(r, "a1");
     r.proc.emitLine(JSON.stringify(shellStarted));
@@ -229,19 +230,18 @@ describe("background events on a live claude session", () => {
 
     // The job ends after the result, with no turn open. Like a between-turn
     // compaction it opens no turn - but unlike one it does not wait for the
-    // next turn either: each end record reaches the out-of-turn channel as
+    // next turn either: each end record reaches the session sequence as
     // it arrives, with no send, and the notification (which carries no
     // task_type) still finds its job through the registry entry the
     // preceding task_updated kept.
-    const outOfTurn = r.session.outOfTurn[Symbol.asyncIterator]();
     r.proc.emitLine(JSON.stringify(shellStopped));
-    const stopped = await outOfTurn.next();
+    const stopped = await r.turns.next();
     expect(stopped).toEqual({
       done: false,
       value: { kind: "background", id: "bcrfa3pxt", job: "shell", state: "stopped" },
     });
     r.proc.emitLine(JSON.stringify(shellNotificationKilled));
-    const notified = await outOfTurn.next();
+    const notified = await r.turns.next();
     expect(notified.value).toMatchObject({
       kind: "background",
       id: "bcrfa3pxt",
@@ -260,13 +260,18 @@ describe("background events on a live claude session", () => {
     r.proc.emitLine(claudeCompleted(first.uuid));
     await drainTurn(first.turn);
     // The job ends after the result and the session closes with no further
-    // send: the end still reaches the out-of-turn consumer before the
+    // send: the end still reaches the sequence consumer before the
     // channel ends with the session.
     r.proc.emitLine(JSON.stringify(shellStopped));
     r.proc.emitLine(JSON.stringify(shellNotificationKilled));
     const closing = r.session.close();
     const seen: HarnessEvent[] = [];
-    for await (const event of r.session.outOfTurn) seen.push(event);
+    for (;;) {
+      const item = await r.turns.next();
+      if (item.done) break;
+      if (!("kind" in item.value)) throw new Error("unexpected turn");
+      seen.push(item.value);
+    }
     await closing;
     expect(seen).toHaveLength(2);
     expect(
@@ -276,6 +281,73 @@ describe("background events on a live claude session", () => {
       ["stopped", "/tmp/tasks/bcrfa3pxt.output"],
     ]);
     expect(r.log.filter((e) => e.event === "turn_start")).toHaveLength(1);
+  });
+
+  test("a completion after send but before acknowledgment is bare before the turn", async () => {
+    const r = rig();
+    const first = await startClaudeTurn(r, "a1");
+    r.proc.emitLine(JSON.stringify(shellStarted));
+    r.proc.emitLine(claudeCompleted(first.uuid));
+    await drainTurn(first.turn);
+
+    r.session.send({ id: "a2", text: "next" });
+    const uuid = r.proc.lastSentUuid();
+    r.proc.emitLine(JSON.stringify(shellStopped));
+    r.proc.emitLine(JSON.stringify(shellNotificationKilled));
+    // Both events are readable before any native acknowledgment publishes
+    // a2. A provisional turn must neither park nor claim them.
+    expect((await r.turns.next()).value).toEqual({
+      kind: "background",
+      id: "bcrfa3pxt",
+      job: "shell",
+      state: "stopped",
+    });
+    expect((await r.turns.next()).value).toMatchObject({
+      kind: "background",
+      outputFile: shellNotificationKilled.output_file,
+      summary: shellNotificationKilled.summary,
+    });
+    expect(r.log.filter((entry) => entry.event === "turn_start")).toHaveLength(1);
+
+    r.proc.emitLine(claudeInitWith([uuid]));
+    const turn = (await r.turns.next()).value as SessionTurn;
+    expect(turn.inputId).toBe("a2");
+    r.proc.emitLine(claudeCompleted(uuid));
+    expect((await drainTurn(turn)).some((event) => event.kind === "background")).toBe(false);
+    await r.session.close();
+  });
+
+  test("pipe grace releases more than 1024 unread bare events and a pending receipt", async () => {
+    const r = rig();
+    const requested = r.session.stopBackground({ id: "pending", job: "bcrfa3pxt" });
+    if (requested.state !== "requested") throw new Error("expected requested");
+    // The first chunk saturates the session sequence. Keep another chunk
+    // queued to prove releasing the producer also joins the stdout pump.
+    const record = `${JSON.stringify(shellStarted)}\n`;
+    r.proc.emitChunk(record.repeat(1_026));
+    r.proc.emitChunk(record.repeat(74));
+    r.proc.exitWithoutClosing(0);
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    expect(r.proc.stdout.pullCount).toBe(1);
+    r.clock.advance(PIPE_GRACE_MS + 1);
+
+    await r.session.close();
+    expect(await requested.settled).toEqual({ state: "rejected", reason: "closed" });
+    const seen: HarnessEvent[] = [];
+    for (;;) {
+      const item = await r.turns.next();
+      if (item.done) break;
+      if (!("kind" in item.value)) throw new Error("unexpected turn");
+      seen.push(item.value);
+    }
+    expect(seen).toHaveLength(1_100);
+    expect(seen.every((event) => event.kind === "background" && event.state === "running")).toBe(
+      true,
+    );
+    expect(r.log.filter((entry) => entry.event === "turn_start")).toHaveLength(0);
+    expect(r.proc.outputDisposed).toBe(true);
+    expect(r.proc.stdout.activeReaderCount).toBe(0);
+    expect(r.proc.stderr.activeReaderCount).toBe(0);
   });
 
   test("the stop's own job end arrives as background stopped events after the receipt", async () => {

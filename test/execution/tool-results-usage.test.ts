@@ -43,7 +43,7 @@ test("Pi session results remain lossless for a late consumer and usage stays wit
       }),
     );
     const turn = (await turns.next()).value;
-    if (turn === undefined) throw new Error("no turn");
+    if (turn === undefined || "kind" in turn) throw new Error("no turn");
     expect(await receipt.settled).toEqual({ disposition: "started" });
     for (let i = 0; i < 200; i++)
       proc.emitLine(

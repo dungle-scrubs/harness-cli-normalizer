@@ -1269,6 +1269,7 @@ describe("issue #426: claude turns correlate by native uuid on every send", () =
       const collected = (async () => {
         const turns: { id: string | undefined; messages: string[] }[] = [];
         for await (const turn of r.session.turns) {
+          if ("kind" in turn) throw new Error("unexpected bare event");
           const events = await drainTurn(turn);
           turns.push({
             id: turn.inputId,

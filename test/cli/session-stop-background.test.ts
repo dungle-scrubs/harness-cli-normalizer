@@ -22,7 +22,13 @@ import {
 const sid = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
 const tick = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
-const rig = (descriptor: typeof claudeCode | typeof piCli) => {
+const rig = (
+  descriptor: typeof claudeCode | typeof piCli,
+  output?: {
+    readonly write: (line: string) => boolean;
+    readonly onDrain: (resolve: () => void) => void;
+  },
+) => {
   const proc = new FakeProcess();
   const spawner = fakeSpawner([proc]);
   const closeInfo: { exitCode: number | null; cause: string } = { exitCode: null, cause: "clean" };
@@ -54,9 +60,9 @@ const rig = (descriptor: typeof claudeCode | typeof piCli) => {
     input,
     write: (line) => {
       out.push(line);
-      return true;
+      return output?.write(line) ?? true;
     },
-    onDrain: (fn) => fn(),
+    onDrain: output?.onDrain ?? ((fn) => fn()),
   });
   const send = (obj: unknown) => input.write(`${JSON.stringify(obj)}\n`);
   const events = () =>
@@ -228,6 +234,66 @@ describe("stop-background on the session --json wire", () => {
       { kind: "background-stop", id: "stop-1", state: "rejected", reason: "closed" },
     ]);
     expect(r.events().at(-1)).toMatchObject({ kind: "closed" });
+  });
+
+  test("late stdout drain preserves turn events and done before bare completion in the same chunk", async () => {
+    let releaseDrain: (() => void) | undefined;
+    let blocked = false;
+    const r = rig(claudeCode, {
+      write: (line) => {
+        if (!blocked && (JSON.parse(line) as { kind: string }).kind === "identity") {
+          blocked = true;
+          return false;
+        }
+        return true;
+      },
+      onDrain: (resolve) => {
+        releaseDrain = resolve;
+      },
+    });
+    await tick();
+    r.send({ op: "send", id: "a1", text: "start a background loop" });
+    await tick();
+    const uuid = r.proc.lastSentUuid();
+    r.proc.emitLine(claudeInitNaming(sid, r.proc));
+    await tick();
+    expect(releaseDrain).toBeDefined();
+    // Native output keeps arriving while the JSON writer is blocked on
+    // identity. Result and the following task records share one chunk.
+    r.proc.emitChunk(
+      `${[
+        JSON.stringify(shellStarted),
+        JSON.stringify({
+          type: "result",
+          subtype: "success",
+          user_message_uuids: [uuid],
+          usage: { input_tokens: 3, output_tokens: 4 },
+        }),
+        JSON.stringify({ ...shellStopped, patch: { status: "completed" } }),
+        JSON.stringify({ ...shellNotificationKilled, status: "completed" }),
+      ].join("\n")}\n`,
+    );
+    await tick();
+    expect(r.events().filter((event) => event.kind === "background")).toEqual([]);
+    if (releaseDrain === undefined) throw new Error("expected blocked writer");
+    releaseDrain();
+    await tick();
+    r.input.end();
+    expect(await r.done).toBe(0);
+    const events = r.events();
+    expect(
+      events
+        .filter((event) => ["background", "usage", "done"].includes(String(event.kind)))
+        .map((event) => [event.kind, event.state ?? event.scope ?? event.cause]),
+    ).toEqual([
+      ["background", "running"],
+      ["usage", "turn"],
+      ["done", "clean"],
+      ["background", "completed"],
+      ["background", "completed"],
+    ]);
+    expect(events.filter((event) => event.kind === "turn")).toHaveLength(1);
+    expect(events.at(-1)).toMatchObject({ kind: "closed" });
   });
 
   test("claude: a job's end between turns reaches the wire as bare background lines, with no further send", async () => {

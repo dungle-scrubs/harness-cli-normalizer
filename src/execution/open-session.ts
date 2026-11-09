@@ -174,18 +174,11 @@ export type SessionStopBackgroundResult =
   | { readonly state: "rejected"; readonly reason: "unsupported" | "closed" | "write-failed" };
 
 export interface SessionHandle {
-  /** One inner iterable per turn, each ending in a turn-scoped `done`.
-   * Breaking out of THIS iterable closes the session; breaking out of a
-   * single turn's iterable only stops reading that turn. */
-  readonly turns: AsyncIterable<SessionTurn>;
-  /** Events no turn owns, delivered the moment they arrive: today only
-   * `background`, a job's life between turns (claude's background tasks
-   * finish after `result`). A bounded channel with the same backpressure
-   * as a turn's iterable; it ends when the session ends, after delivering
-   * what it holds, so a job's end never waits for a turn that never opens
-   * and is never dropped on close. Breaking out of it only stops reading
-   * it - `turns` alone owns the session's lifetime. */
-  readonly outOfTurn: AsyncIterable<HarnessEvent>;
+  /** Ordered turns and events no published turn owns. Drain each turn
+   * through its turn-scoped `done` before reading the next item. Bare
+   * events open no turn. Breaking out of THIS iterable closes the session;
+   * breaking out of a single turn only stops reading that turn. */
+  readonly turns: AsyncIterable<SessionTurn | HarnessEvent>;
   /** The explicit controls this session supports now. Issue #429: claude
    * interrupt support is what the running process advertised on its latest
    * system/init, so it reads unsupported until then and can change; every
@@ -430,12 +423,7 @@ export const openSession = (
     ...(envKeys !== undefined ? { envKeys } : {}),
   });
 
-  const turnsChannel = new AsyncChannel<SessionTurn>();
-  // Events no turn owns (today only `background`): their own bounded
-  // channel, closed with the session after delivering what it holds. The
-  // stdout pump awaits its pushes like a turn's, so pipe backpressure
-  // reaches the child here too (review round 1, C1).
-  const outOfTurnChannel = new AsyncChannel<HarnessEvent>();
+  const turnsChannel = new AsyncChannel<SessionTurn | HarnessEvent>();
   const state = freshDecodeState(opts.sessionId, h.name);
   const questionMode: QuestionMode = opts.questions ?? "ask";
   const sessionInputMode = h.sessionMode;
@@ -1108,6 +1096,11 @@ export const openSession = (
       turnLimitSeen = true;
     }
     sup.noteEvent(event);
+    // A background observation belongs only to a published turn. An idle
+    // send's provisional turn cannot claim it or park it for later.
+    if (event.kind === "background" && !activeTurnPublished) {
+      return turnsChannel.push(event);
+    }
     // A provisional turn is published as its evidence arrives - streaming is
     // never withheld. Only run output is evidence of a run; a failure or
     // error observed locally is owed to the send. Everything else (identity,
@@ -1129,11 +1122,6 @@ export const openSession = (
       // blocks the pump, so OS pipe backpressure reaches the child.
       return activeTurn.push(event);
     }
-    // A background event no turn owns reaches the caller at once on the
-    // session's out-of-turn channel: a job's end can arrive after the last
-    // turn and must not wait for - or die with - a turn that never opens.
-    // It never opens a turn of its own (background is not run output).
-    if (event.kind === "background") return outOfTurnChannel.push(event);
     // Between-turn events wait for the next turn.
     return parkEvent(event);
   };
@@ -1751,10 +1739,6 @@ export const openSession = (
       });
     }
     turnsChannel.close();
-    // Ends the out-of-turn iterable after delivering what it holds: the
-    // events routed above are already in the channel, and push-after-close
-    // is the channel's own no-op.
-    outOfTurnChannel.close();
     log({
       event: "session_close",
       sessionId: opts.sessionId,
@@ -1800,6 +1784,7 @@ export const openSession = (
     const pipeGrace = deps.clock.setTimeout(() => {
       pipesOpenAtExit = true;
       activeTurn?.releaseBackpressure();
+      turnsChannel.releaseBackpressure();
       proc.disposeOutput();
       void pumping.then(() => finalize());
     }, PIPE_GRACE_MS);
@@ -1870,9 +1855,6 @@ export const openSession = (
       } finally {
         if (!closing && !dead) void close(false);
       }
-    })(),
-    outOfTurn: (async function* () {
-      for await (const event of outOfTurnChannel) yield event;
     })(),
     get controls() {
       return controls;

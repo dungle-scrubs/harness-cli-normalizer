@@ -145,8 +145,9 @@ background jobs and no native stop; `stop-background` rejects `unsupported`.
 Claude's background jobs (a `run_in_background` Bash call, a background
 Agent) surface as `background` events, and a subagent's own tool,
 tool-result and message events carry `parentCallId`. A job's end can
-arrive after `result`, between turns: it stands alone on the wire as a
-bare `background` line, never parked into a later turn. Stopping one is
+arrive after `result`, between turns. When no published turn owns it,
+it stands alone on the wire as a bare `background` line and opens no turn,
+including while a send awaits acknowledgment. Stopping one is
 `stop-background`, which writes claude's native `stop_task` control request:
 the `background-stop` receipt says the request was accepted, and the job's
 end arrives on the stream as its own `background` event.
