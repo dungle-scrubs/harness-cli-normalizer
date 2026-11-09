@@ -104,11 +104,12 @@ export const runInteractiveSession = async (
     return asked;
   };
 
-  // The reply wait: resolved by the first turn that ends after the send
-  // was written - the turn Claude merged the send into included - with the
-  // question that turn ended asking (or null); undefined once the stream
-  // closed. The waiter is created and the send written in one synchronous
-  // block, so no earlier turn end can satisfy it.
+  // The reply wait: released by the next turn that ends after the send
+  // was written - a turn that opened before the send and ends after it
+  // releases it too, which is what a send Claude merges into a running
+  // turn needs - with the question that turn ended asking (or null);
+  // undefined once the stream closed. Arming the waiter and writing the
+  // send are one synchronous block, so no turn end can land between them.
   let replyWaiter: ((asked: QuestionEvent | null | undefined) => void) | null = null;
   const pendingReply = (): ((asked: QuestionEvent | null | undefined) => void) | null =>
     replyWaiter;
@@ -210,10 +211,10 @@ export const runInteractiveSession = async (
           if (asked !== null) presentQuestion(asked);
         }
       }
-      // Answer every presented question, oldest first: the answer (or a
-      // custom reply) is sent on the same live session, and its reply is
-      // waited out before anything else renders a prompt - the channel's
-      // backpressure stalls the harness until the turn iterable drains.
+      // Answer every presented question: the answer (or a custom reply) is
+      // sent on the same live session, and its reply is waited out before
+      // anything else renders a prompt. A question that reply itself asks
+      // is presented next; the ones queued mid-answer follow, oldest first.
       while (questionOnScreen() !== null) {
         const q = questionOnScreen();
         if (q === null) break;

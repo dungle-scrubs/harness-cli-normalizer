@@ -30,7 +30,7 @@ test("a backgrounded agent renders as a background agent", () => {
       backgrounded: true,
       description: "Count files",
     }),
-  ).toBe(dim("\n  ◍ background background agent running Count files"));
+  ).toBe(dim("\n  ◍ background agent running Count files"));
 });
 
 test("an inline agent renders as an inline agent", () => {
@@ -43,12 +43,12 @@ test("an inline agent renders as an inline agent", () => {
       backgrounded: false,
       summary: "17 entries",
     }),
-  ).toBe(dim("\n  ◍ background inline agent completed 17 entries"));
+  ).toBe(dim("\n  ◍ inline agent completed 17 entries"));
 });
 
 test("an agent whose flag never arrived renders without a guess", () => {
   expect(rendered({ kind: "background", id: "a3", job: "agent", state: "running" })).toBe(
-    dim("\n  ◍ background agent running"),
+    dim("\n  ◍ agent running"),
   );
 });
 

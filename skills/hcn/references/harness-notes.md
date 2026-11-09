@@ -146,10 +146,10 @@ Claude's task records (a `run_in_background` Bash call, an Agent call,
 inline or background) surface as `background` events, and a subagent's own
 tool, tool-result and message events carry `parentCallId`. `backgrounded`
 tells the agent forms apart: `false` is an inline (foreground) agent,
-`true` a background job. hcn forwards boolean `is_backgrounded` values
-and remembers them per job id, so every later event for the job carries
-the flag too; it is absent only when no record for the job ever carried
-one. The call's `run_in_background` input is unreliable
+`true` a background job. hcn forwards a boolean `is_backgrounded` only on
+the event whose own record carried it (`task_started` today); later
+events for the job carry no flag - remember it by job id if you need it
+on every event. The call's `run_in_background` input is unreliable
 because Claude may background a call that omits it. A job's end can
 arrive after `result`, between turns. When no published turn owns it,
 it stands alone on the wire as a bare `background` line and opens no turn,

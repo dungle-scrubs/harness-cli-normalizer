@@ -317,7 +317,7 @@ never droppable: `DROPPABLE_KINDS` is `token` and `progress` only.
 task line, a job the harness itself started, inline (foreground) Agent
 calls included, on `hcn run --json` and `hcn session --json` alike;
 `backgrounded` tells an inline agent (`false`) from a background one
-(`true`). A job's end is two
+(`true`) on the event whose native line carried it. A job's end is two
 events (`task_updated` then `task_notification`); the one carrying
 `outputFile`/`summary` is the last. `job` (`shell` | `agent`) and `state`
 (`running` | `completed` | `failed` | `stopped`) are closed unions; every
@@ -333,12 +333,12 @@ when stdout is backpressured. `background` is not droppable.
 Today only Claude reports task records on a channel hcn reads, and it
 reports them for inline Agent calls too. `backgrounded` tells them
 apart: `false` is an inline (foreground) agent, `true` a background job.
-It forwards the native `is_backgrounded` when the record carries a
-boolean and remembers it per job id, so every later event for the job
-carries it too; it is absent only when no record for the job ever carried
-one. The Agent input's
-`run_in_background` is unreliable: Claude may background a call that
-omits it. The agent's own steps carry `parentCallId` either way.
+It forwards the native `is_backgrounded` and derives nothing more: the
+flag is present only when the native line carried it (`task_started`
+today), and later records for the job carry no boolean, so their events
+omit it - remember it by job id if you need it on every event. The
+Agent input's `run_in_background` is unreliable: Claude may background a
+call that omits it. The agent's own steps carry `parentCallId` either way.
 
 A Claude subagent's own steps (background or inline) are ordinary
 tool/tool-result/message events carrying `parentCallId` - the Agent tool

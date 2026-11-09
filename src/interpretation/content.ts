@@ -39,13 +39,12 @@ export interface ToolResultEvent {
 export type BackgroundJob = "shell" | "agent";
 export type BackgroundState = "running" | "completed" | "failed" | "stopped";
 
-/** A job whose terminal notification has not arrived. Later records for
- * the same id read its job - and its `backgrounded` flag - when their own
- * line carries neither. */
+/** A job whose terminal notification has not arrived. Later records
+ * for the same id read its job when their own line carries no
+ * task_type. */
 interface KnownJob {
   readonly id: string;
   readonly job: BackgroundJob;
-  readonly backgrounded?: boolean;
 }
 
 /** One observation of a job the harness itself reported, including
@@ -60,9 +59,9 @@ export interface BackgroundEvent {
   readonly job: BackgroundJob;
   readonly state: BackgroundState;
   /** Claude's `is_backgrounded`: false = an inline (foreground) Agent,
-   * true = a background job. Forwarded when the record carries the
-   * boolean and remembered per job id, so every later event for the job
-   * carries it too; absent only when no record for the job ever did. */
+   * true = a background job. Present only when the event's own native
+   * record carried the boolean (claude puts it on `task_started` today);
+   * later records for the job carry none, and hcn derives nothing. */
   readonly backgrounded?: boolean;
   readonly description?: string;
   /** The tool call that started the job (claude `tool_use_id`). */
@@ -1203,14 +1202,10 @@ const rememberJob = (
   jobs: readonly KnownJob[],
   id: string,
   job: BackgroundJob,
-  backgrounded?: boolean,
 ): readonly KnownJob[] => {
   const known = jobs.find((entry) => entry.id === id);
-  if (known?.job === job && known.backgrounded === backgrounded) return jobs;
-  return [
-    ...jobs.filter((entry) => entry.id !== id),
-    { id, job, ...(backgrounded === undefined ? {} : { backgrounded }) },
-  ];
+  if (known?.job === job) return jobs;
+  return [...jobs.filter((entry) => entry.id !== id), { id, job }];
 };
 
 /** The terminal task_notification: no later record needs the entry. */
@@ -1302,7 +1297,8 @@ const claudeBackground = (
   if (r.subtype === "background_tasks_changed" || r.subtype === "task_summary")
     return { events: [], state };
   // Task records cover inline and background Agent calls; backgrounded
-  // forwards is_backgrounded and tells them apart. The tool input's
+  // forwards is_backgrounded and tells them apart, only on the record
+  // that carries the boolean (task_started today). The tool input's
   // run_in_background is unreliable: Claude may background a call that
   // omits it (2026-11-09 native captures).
   // A line without a task_id names no job. An unrecognized task_type is
@@ -1321,10 +1317,9 @@ const claudeBackground = (
     job = known?.job;
     if (job === undefined) return { events: [], state };
   }
-  // The line's own boolean, else the one last remembered for this job:
-  // every later event for the job carries it, as it carries the job.
-  const backgrounded =
-    typeof r.is_backgrounded === "boolean" ? r.is_backgrounded : known?.backgrounded;
+  // The line's own boolean only: no later record for the job carries
+  // the flag, and nothing is remembered for it.
+  const backgrounded = typeof r.is_backgrounded === "boolean" ? r.is_backgrounded : undefined;
   const textOf = (value: unknown, key: string): { readonly [k: string]: string } =>
     typeof value === "string" && value !== "" ? { [key]: value } : {};
   const usage = asRecord(r.usage);
@@ -1335,13 +1330,11 @@ const claudeBackground = (
     ...(backgrounded === undefined ? {} : { backgrounded }),
   } as const;
   const events: ContentEvent[] = [];
-  // A line carrying task_type (re)names the job, and a line carrying a
-  // boolean re-states the flag; either refreshes the entry, which lives
-  // until the terminal notification supplies outputFile/summary.
+  // A line carrying task_type (re)names the job, and that alone
+  // refreshes the entry, which lives until the terminal notification
+  // supplies outputFile/summary.
   let jobs =
-    r.task_type === undefined && backgrounded === undefined
-      ? state.backgroundJobs
-      : rememberJob(state.backgroundJobs, id, job, backgrounded);
+    r.task_type === undefined ? state.backgroundJobs : rememberJob(state.backgroundJobs, id, job);
   switch (r.subtype) {
     case "task_started":
       events.push({

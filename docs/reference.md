@@ -477,7 +477,8 @@ nothing compacted.
 `background` reports the harness's own task records - one event per native `task_*` line,
 inline (foreground) Agent calls included - read on `hcn run --json` and
 `hcn session --json` alike, at the moment the native line arrives; `backgrounded` tells an
-inline agent (`false`) from a background one (`true`). A job's end therefore arrives
+inline agent (`false`) from a background one (`true`) on the event whose native line carried
+it. A job's end therefore arrives
 as two events (`task_updated` then `task_notification`); the one carrying `outputFile`/`summary`
 is the last:
 
@@ -502,10 +503,11 @@ is the last:
   `task_id`, and an end record for a job whose type was never seen all emit nothing too.
 - Claude reports task records for inline Agent calls too, and `backgrounded` tells them apart:
   `false` is an inline (foreground) agent, `true` a background job. It forwards the native
-  `is_backgrounded` when the record carries a boolean and remembers it per job id, so every
-  later event for the job carries it too; it is absent only when no record for the job ever
-  carried one. The Agent input's `run_in_background` is unreliable: Claude may background a call
-  that omits it. The agent's own steps carry `parentCallId` either way.
+  `is_backgrounded` and derives nothing more: the flag is present only when the native line
+  carried it (`task_started` today), and later records for the job carry no boolean, so their
+  events omit it - a consumer that needs it on every event remembers it by job id. The Agent
+  input's `run_in_background` is unreliable: Claude may background a call that omits it. The
+  agent's own steps carry `parentCallId` either way.
 - A job's end can arrive between turns, after Claude's `result`. When no published turn owns
   the event, including while a send awaits acknowledgment, it stands alone as a bare
   `background` line on the session `--json` wire and opens no turn. The preceding turn's

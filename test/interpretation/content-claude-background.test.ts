@@ -10,10 +10,10 @@ import {
 /**
  * Background jobs and subagent steps on claude's stream-json, spec
  * sections 1 and 2. Every record below is real, quoted from the
- * 2026-11-09 capture of claude 2.1.319 in
- * ~/dev/dotfiles/.scratch/herdr-harness-controls/evidence/claude-background-events-2026-11-09.ndjson
- * (a `run_in_background` Bash loop, task bcrfa3pxt, and a background
- * Agent, task a34310bd3dc4bd051) - except that every machine-local path
+ * 2026-11-09 capture of claude 2.1.319
+ * (claude-background-events-2026-11-09.ndjson: a `run_in_background`
+ * Bash loop, task bcrfa3pxt, and a background Agent, task
+ * a34310bd3dc4bd051) - except that every machine-local path
  * (each `output_file`, one prompt) is replaced by a neutral placeholder:
  * the captured values named the operator's own scratch directories.
  * Synthetic records appear only where the spec decides a skip no captured
@@ -267,7 +267,6 @@ describe("claude background jobs: the mapping rows", () => {
         id: "a34310bd3dc4bd051",
         job: "agent",
         state: "running",
-        backgrounded: true,
         detail: "Running Count entries in root directory",
         toolUses: 1,
         totalTokens: 27921,
@@ -285,11 +284,10 @@ describe("claude background jobs: the mapping rows", () => {
         id: "a34310bd3dc4bd051",
         job: "agent",
         state: "completed",
-        backgrounded: true,
       },
     ]);
     expect(decodeAll([shellStarted, shellUpdatedCompleted]).slice(1)).toEqual([
-      { kind: "background", id: "bcrfa3pxt", job: "shell", state: "completed", backgrounded: true },
+      { kind: "background", id: "bcrfa3pxt", job: "shell", state: "completed" },
     ]);
   });
 
@@ -300,7 +298,6 @@ describe("claude background jobs: the mapping rows", () => {
         id: "a34310bd3dc4bd051",
         job: "agent",
         state: "completed",
-        backgrounded: true,
         outputFile: agentNotification.output_file,
         summary: agentNotification.summary,
         callId: "toolu_012jE8yMKUqo4bjJcHR7ZVkL",
@@ -312,7 +309,6 @@ describe("claude background jobs: the mapping rows", () => {
         id: "bcrfa3pxt",
         job: "shell",
         state: "completed",
-        backgrounded: true,
         outputFile: shellNotification.output_file,
         summary: shellNotification.summary,
         callId: "toolu_01HcjBC6KasyhZZTJUa1XN4p",
@@ -350,7 +346,6 @@ describe("claude background jobs: the mapping rows", () => {
         id: "a34310bd3dc4bd051",
         job: "agent",
         state: "running",
-        backgrounded: true,
         detail: "Running Count entries in root directory",
         toolUses: 1,
         totalTokens: 27921,
@@ -363,14 +358,12 @@ describe("claude background jobs: the mapping rows", () => {
         id: "a34310bd3dc4bd051",
         job: "agent",
         state: "completed",
-        backgrounded: true,
       },
       {
         kind: "background",
         id: "a34310bd3dc4bd051",
         job: "agent",
         state: "completed",
-        backgrounded: true,
         outputFile: agentNotification.output_file,
         summary: agentNotification.summary,
         callId: "toolu_012jE8yMKUqo4bjJcHR7ZVkL",
@@ -394,7 +387,6 @@ describe("claude background jobs: the mapping rows", () => {
         id: "bcrfa3pxt",
         job: "shell",
         state: "stopped",
-        backgrounded: true,
       });
     }
     expect(
@@ -416,7 +408,6 @@ describe("claude background jobs: the mapping rows", () => {
       id: "bcrfa3pxt",
       job: "shell",
       state: "running",
-      backgrounded: true,
     });
   });
 
@@ -492,58 +483,15 @@ describe("claude background jobs: the mapping rows", () => {
     }
   });
 
-  test("later task records forward their own boolean, or the one remembered for the job", () => {
+  test("a later line without the field emits no backgrounded", () => {
+    // The flag rides only the record that carries it (task_started today):
+    // progress, update and notification records name no boolean, so their
+    // events omit it - a consumer that needs it remembers it by job id.
     for (const record of [agentProgress, agentUpdatedCompleted, agentNotification]) {
-      const own = decodeAll([agentStarted, { ...record, is_backgrounded: false }]).slice(1);
-      expect(own).toHaveLength(1);
-      expect(own[0]).toHaveProperty("backgrounded", false);
+      const later = decodeAll([agentStarted, record]).slice(1);
+      expect(later).toHaveLength(1);
+      expect(later[0]).not.toHaveProperty("backgrounded");
     }
-    // A later record with no boolean of its own carries the flag the
-    // job's task_started left in the registry (true for both captures).
-    for (const record of [agentProgress, agentUpdatedCompleted, agentNotification]) {
-      const remembered = decodeAll([agentStarted, record]).slice(1);
-      expect(remembered).toHaveLength(1);
-      expect(remembered[0]).toHaveProperty("backgrounded", true);
-    }
-  });
-
-  test("an inline job's remembered false is carried on every later event for that job", () => {
-    // The explicit inline capture's task_started, then synthetic later
-    // records for the same id: every event tells the inline agent apart.
-    const inlineStarted = {
-      type: "system",
-      subtype: "task_started",
-      task_id: "a1d655a05edd41743",
-      tool_use_id: "toolu_016VFgZWiCk7BLrb9wQDaza3",
-      description: "Read note",
-      subagent_type: "general-purpose",
-      is_backgrounded: false,
-      task_type: "local_agent",
-    };
-    const events = backgroundOf(
-      decodeAll([
-        inlineStarted,
-        {
-          type: "system",
-          subtype: "task_progress",
-          task_id: "a1d655a05edd41743",
-          description: "Running Read note",
-        },
-        {
-          type: "system",
-          subtype: "task_updated",
-          task_id: "a1d655a05edd41743",
-          patch: { status: "completed" },
-        },
-        {
-          type: "system",
-          subtype: "task_notification",
-          task_id: "a1d655a05edd41743",
-          status: "completed",
-        },
-      ]),
-    );
-    expect(events.map((event) => event.backgrounded)).toEqual([false, false, false, false]);
   });
 
   test("a job whose records never carried a boolean stays without backgrounded", () => {

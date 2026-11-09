@@ -68,9 +68,12 @@ export const renderEvent = (
     case "background": {
       // An observation of a job the harness itself reported, including
       // inline (foreground) Agent calls; `backgrounded` tells the two
-      // agent forms apart, so say which one ran. The label is the
-      // harness's own text (a description while running, a summary at the
-      // end), kept verbatim.
+      // agent forms apart, so say which one ran. The flag rides only the
+      // event whose native line carried it (the job's first), so each
+      // event is labelled by what it alone carries: an agent's own label
+      // already says which form ran, a shell keeps the `background`
+      // prefix. The label text is the harness's own (a description while
+      // running, a summary at the end), kept verbatim.
       const what =
         event.job === "agent"
           ? event.backgrounded === false
@@ -78,11 +81,9 @@ export const renderEvent = (
             : event.backgrounded === true
               ? "background agent"
               : "agent"
-          : event.job;
+          : `background ${event.job}`;
       const label = event.description ?? event.detail ?? event.summary ?? "";
-      process.stdout.write(
-        dim(`\n  ◍ background ${what} ${event.state}${label === "" ? "" : ` ${label}`}`),
-      );
+      process.stdout.write(dim(`\n  ◍ ${what} ${event.state}${label === "" ? "" : ` ${label}`}`));
       break;
     }
     case "limit":

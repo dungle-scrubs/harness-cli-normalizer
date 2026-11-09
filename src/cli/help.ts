@@ -281,10 +281,12 @@ Options:
                             interrupted | not-active | rejected. Send replacement
                             text after the terminal receipt. Cancellation is best
                             effort; the conversation and native queues remain.
-                            Background jobs (claude task records) surface as
+                            Background jobs (claude task records,
+                            inline Agent calls included) surface as
                             background events (id, job shell|agent, state
-                            running|completed|failed|stopped); a subagent's own
-                            tool, tool-result and message events carry
+                            running|completed|failed|stopped, backgrounded
+                            when the native line carried it); a subagent's
+                            own tool, tool-result and message events carry
                             parentCallId. {"op":"stop-background","id":..,
                             "job":..} stops one job by that id (claude only):
                             background-stop state requested, then sent | rejected
