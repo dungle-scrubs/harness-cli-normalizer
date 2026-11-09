@@ -271,6 +271,15 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
     }
   })();
 
+  // Events no turn owns (today only `background`, a job's life between
+  // turns) ride their own pump through the same serialized writer, so on
+  // the wire a between-turn background event is a bare `background` line
+  // - never parked inside a later turn. It ends with the session, after
+  // delivering what the channel holds (review round 1, C1).
+  const outOfTurnPump = (async () => {
+    for await (const ev of a.handle.outOfTurn) await emit(ev);
+  })();
+
   const rl = createInterface({ input: a.input ?? process.stdin });
   // Commands accepted from stdin but not yet answered with a disposition,
   // by command position (caller ids may repeat). If the command stream
@@ -301,6 +310,33 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
     disposition: sent.disposition,
     ...(sent.reason !== undefined ? { reason: sent.reason } : {}),
   });
+  /** The two-phase receipt framing an interrupt and a stop-background
+   * share (review round 1): the immediate line - `requested` once the
+   * request is on the wire, or the refusal with its reason and no
+   * `requested` phase - then exactly one terminal receipt, tracked so the
+   * close waits for it. Only the event kind and the op call differ; each
+   * control's settlement semantics stay in the runner. */
+  const twoPhaseReceipt = (
+    kind: "interruption" | "background-stop",
+    id: string,
+    requested:
+      | {
+          readonly state: "requested";
+          readonly settled: Promise<{ readonly state: string; readonly reason?: string }>;
+        }
+      | { readonly state: "rejected"; readonly reason: string },
+  ): Promise<void> => {
+    const line = (state: { readonly state: string; readonly reason?: string }) => ({
+      kind,
+      id,
+      state: state.state,
+      ...(state.reason !== undefined ? { reason: state.reason } : {}),
+    });
+    if (requested.state === "rejected") return emit(line(requested));
+    const written = emit(line({ state: "requested" }));
+    trackReceipt(requested.settled.then((settled) => emit(line(settled))));
+    return written;
+  };
   const answerCommand = async (
     id: string,
     outcome: Disposition | Promise<Disposition>,
@@ -343,51 +379,18 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
       }
       if (cmd.op === "close") return;
       if (cmd.op === "interrupt") {
-        const id = cmd.id;
-        const requested = a.handle.interrupt({ id });
-        if (requested.state === "rejected") {
-          await emit({ kind: "interruption", id, state: "rejected", reason: requested.reason });
-          continue;
-        }
-        // Two phases: the request is on the wire now; the terminal receipt
-        // follows the harness's own settlement.
-        await emit({ kind: "interruption", id, state: "requested" });
-        const receipt = requested.settled.then((settled) =>
-          emit({
-            kind: "interruption",
-            id,
-            state: settled.state,
-            ...(settled.reason !== undefined ? { reason: settled.reason } : {}),
-          }),
-        );
-        trackReceipt(receipt);
+        await twoPhaseReceipt("interruption", cmd.id, a.handle.interrupt({ id: cmd.id }));
         continue;
       }
       if (cmd.op === "stop-background") {
-        // Same two-phase shape as an interrupt: requested on the wire, then
-        // exactly one terminal receipt. `sent` names only acceptance of
-        // the stop request - the job's own end arrives as a `background`
-        // event on the turn stream.
-        const requested = a.handle.stopBackground({ id: cmd.id, job: cmd.job });
-        if (requested.state === "rejected") {
-          await emit({
-            kind: "background-stop",
-            id: cmd.id,
-            state: "rejected",
-            reason: requested.reason,
-          });
-          continue;
-        }
-        await emit({ kind: "background-stop", id: cmd.id, state: "requested" });
-        const receipt = requested.settled.then((settled) =>
-          emit({
-            kind: "background-stop",
-            id: cmd.id,
-            state: settled.state,
-            ...(settled.reason !== undefined ? { reason: settled.reason } : {}),
-          }),
+        // Same two-phase shape as an interrupt. `sent` names only acceptance
+        // of the stop request - the job's own end arrives as a `background`
+        // event, inside a turn or as a bare between-turn line.
+        await twoPhaseReceipt(
+          "background-stop",
+          cmd.id,
+          a.handle.stopBackground({ id: cmd.id, job: cmd.job }),
         );
-        trackReceipt(receipt);
         continue;
       }
       if (cmd.op === "approval") {
@@ -471,11 +474,13 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
 
   // Whichever ends first drives the close: a close/EOF from stdin, or the
   // session dying (the turns iterable ends). close() is idempotent; closing
-  // the readline unblocks the stdin pump if the session died first.
-  await Promise.race([stdinDone, stdoutPump]);
+  // the readline unblocks the stdin pump if the session died first. The
+  // out-of-turn pump ends with the turns iterable (both channels close at
+  // finalize), so it joins the same waits.
+  await Promise.race([stdinDone, stdoutPump, outOfTurnPump]);
   await a.handle.close();
   rl.close();
-  await Promise.allSettled([stdinDone, stdoutPump]);
+  await Promise.allSettled([stdinDone, stdoutPump, outOfTurnPump]);
   // The closed session settled every outstanding receipt; each disposition
   // and interruption receipt leaves before the terminal line.
   await dispositionChain;

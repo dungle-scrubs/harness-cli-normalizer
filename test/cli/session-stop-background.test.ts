@@ -11,7 +11,13 @@ import { runJsonSession } from "../../src/cli/session-json.js";
 import { openSession } from "../../src/execution/open-session.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { piCli } from "../../src/knowledge/pi.js";
-import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "../execution/fakes.js";
+import {
+  claudeInitNaming,
+  FakeClock,
+  FakeProcess,
+  fakeSignal,
+  fakeSpawner,
+} from "../execution/fakes.js";
 
 const sid = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
 const tick = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -64,13 +70,6 @@ const rig = (descriptor: typeof claudeCode | typeof piCli) => {
   return { proc, input, done, send, events, stdin };
 };
 
-const claudeInitFor = (proc: FakeProcess, sidValue: string) =>
-  JSON.stringify({
-    type: "system",
-    subtype: "init",
-    session_id: sidValue,
-    user_message_uuids: [String(JSON.parse(proc.stdinLines.at(-1) ?? "{}").uuid ?? "")],
-  });
 const claudeCompleted = (uuid: string) =>
   JSON.stringify({
     type: "result",
@@ -81,6 +80,34 @@ const claudeCompleted = (uuid: string) =>
     user_message_uuid: uuid,
     user_message_uuids: [uuid],
   });
+// The task records of the 2026-11-09 capture (claude 2.1.319), trimmed to
+// the fields the decoder reads.
+const shellStarted = {
+  type: "system",
+  subtype: "task_started",
+  task_id: "bcrfa3pxt",
+  tool_use_id: "toolu_01HcjBC6KasyhZZTJUa1XN4p",
+  description: "Run background tick loop",
+  task_type: "local_bash",
+  session_id: sid,
+};
+const shellStopped = {
+  type: "system",
+  subtype: "task_updated",
+  task_id: "bcrfa3pxt",
+  patch: { status: "killed", end_time: 1794203909753 },
+  session_id: sid,
+};
+const shellNotificationKilled = {
+  type: "system",
+  subtype: "task_notification",
+  task_id: "bcrfa3pxt",
+  tool_use_id: "toolu_01HcjBC6KasyhZZTJUa1XN4p",
+  status: "killed",
+  output_file: "/tmp/tasks/bcrfa3pxt.output",
+  summary: 'Background command "Run background tick loop" was stopped',
+  session_id: sid,
+};
 const stopTaskResponse = (requestId: unknown, ok: boolean) =>
   JSON.stringify({
     type: "control_response",
@@ -97,19 +124,9 @@ describe("stop-background on the session --json wire", () => {
     await tick();
     r.send({ op: "send", id: "a1", text: "start a background loop" });
     await tick();
-    const uuid = String(r.stdin().at(-1)?.uuid);
-    r.proc.emitLine(claudeInitFor(r.proc, sid));
-    r.proc.emitLine(
-      JSON.stringify({
-        type: "system",
-        subtype: "task_started",
-        task_id: "bcrfa3pxt",
-        tool_use_id: "toolu_01HcjBC6KasyhZZTJUa1XN4p",
-        description: "Run background tick loop",
-        task_type: "local_bash",
-        session_id: sid,
-      }),
-    );
+    const uuid = r.proc.lastSentUuid();
+    r.proc.emitLine(claudeInitNaming(sid, r.proc));
+    r.proc.emitLine(JSON.stringify(shellStarted));
     await tick();
 
     r.send({ op: "stop-background", id: "stop-1", job: "bcrfa3pxt" });
@@ -184,11 +201,13 @@ describe("stop-background on the session --json wire", () => {
     const before = r.proc.stdinLines.length;
     r.send({ op: "stop-background", id: "stop-1" });
     r.send({ op: "stop-background", id: "", job: "bcrfa3pxt" });
+    r.send({ op: "stop-background", job: "bcrfa3pxt" });
+    r.send({ op: "stop-background", id: 7, job: "bcrfa3pxt" });
     r.send({ op: "stop-background", id: "stop-1", job: "" });
     r.send({ op: "stop-background", id: "stop-1", job: 7 });
     await tick();
     const errors = r.events().filter((e) => e.kind === "error");
-    expect(errors).toHaveLength(4);
+    expect(errors).toHaveLength(6);
     for (const error of errors) expect(String(error.message)).toMatch(/^malformed command:/);
     expect(r.events().filter((e) => e.kind === "background-stop")).toEqual([]);
     expect(r.proc.stdinLines).toHaveLength(before);
@@ -209,5 +228,42 @@ describe("stop-background on the session --json wire", () => {
       { kind: "background-stop", id: "stop-1", state: "rejected", reason: "closed" },
     ]);
     expect(r.events().at(-1)).toMatchObject({ kind: "closed" });
+  });
+
+  test("claude: a job's end between turns reaches the wire as bare background lines, with no further send", async () => {
+    const r = rig(claudeCode);
+    await tick();
+    r.send({ op: "send", id: "a1", text: "start a background loop" });
+    await tick();
+    const uuid = r.proc.lastSentUuid();
+    r.proc.emitLine(claudeInitNaming(sid, r.proc));
+    r.proc.emitLine(JSON.stringify(shellStarted));
+    r.proc.emitLine(claudeCompleted(uuid));
+    await tick();
+    // The turn is over and the caller sends nothing more. The job's end
+    // records arrive between turns and the command stream ends: the ends
+    // still reach the wire immediately - each a bare `background` line no
+    // turn wraps, parked nowhere - and are not lost at close (review
+    // round 1, C1).
+    r.proc.emitLine(JSON.stringify(shellStopped));
+    r.proc.emitLine(JSON.stringify(shellNotificationKilled));
+    r.input.end();
+    const code = await r.done;
+    const evs = r.events();
+    expect(
+      evs.filter((e) => e.kind === "background").map((e) => [e.state, e.outputFile ?? ""]),
+    ).toEqual([
+      ["running", ""],
+      ["stopped", ""],
+      ["stopped", "/tmp/tasks/bcrfa3pxt.output"],
+    ]);
+    const doneAt = evs.findIndex((e) => e.kind === "done");
+    const stoppedAt = evs.findIndex((e) => e.kind === "background" && e.state === "stopped");
+    const closedAt = evs.findIndex((e) => e.kind === "closed");
+    expect(doneAt).toBeGreaterThan(-1);
+    expect(stoppedAt).toBeGreaterThan(doneAt);
+    expect(closedAt).toBeGreaterThan(stoppedAt);
+    expect(evs.filter((e) => e.kind === "turn")).toHaveLength(1);
+    expect(code).toBe(0);
   });
 });

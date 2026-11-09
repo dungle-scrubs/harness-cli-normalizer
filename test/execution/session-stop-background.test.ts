@@ -14,7 +14,6 @@ import { piCli } from "../../src/knowledge/pi.js";
 import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
 
 const sid = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
-const tick = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 const rig = (descriptor = claudeCode) => {
   const proc = new FakeProcess();
@@ -216,7 +215,7 @@ describe("stop-background on a harness without the native stop", () => {
 });
 
 describe("background events on a live claude session", () => {
-  test("a job's end between turns rides its own events and opens no turn", async () => {
+  test("a job's end between turns arrives on outOfTurn at once, with no further send", async () => {
     const r = rig();
     const first = await startClaudeTurn(r, "a1");
     r.proc.emitLine(JSON.stringify(shellStarted));
@@ -228,24 +227,55 @@ describe("background events on a live claude session", () => {
     ]);
     expect(firstEvents.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
 
-    // The job ends after the result, with no turn open: like a between-turn
-    // compaction, the events park and flush into the next turn; no turn of
-    // their own is opened.
+    // The job ends after the result, with no turn open. Like a between-turn
+    // compaction it opens no turn - but unlike one it does not wait for the
+    // next turn either: each end record reaches the out-of-turn channel as
+    // it arrives, with no send, and the notification (which carries no
+    // task_type) still finds its job through the registry entry the
+    // preceding task_updated kept.
+    const outOfTurn = r.session.outOfTurn[Symbol.asyncIterator]();
+    r.proc.emitLine(JSON.stringify(shellStopped));
+    const stopped = await outOfTurn.next();
+    expect(stopped).toEqual({
+      done: false,
+      value: { kind: "background", id: "bcrfa3pxt", job: "shell", state: "stopped" },
+    });
+    r.proc.emitLine(JSON.stringify(shellNotificationKilled));
+    const notified = await outOfTurn.next();
+    expect(notified.value).toMatchObject({
+      kind: "background",
+      id: "bcrfa3pxt",
+      state: "stopped",
+      outputFile: "/tmp/tasks/bcrfa3pxt.output",
+    });
+    // No turn was opened for any of it.
+    expect(r.log.filter((e) => e.event === "turn_start")).toHaveLength(1);
+    await r.session.close();
+  });
+
+  test("a job's end between turns is not lost when the session closes idle", async () => {
+    const r = rig();
+    const first = await startClaudeTurn(r, "a1");
+    r.proc.emitLine(JSON.stringify(shellStarted));
+    r.proc.emitLine(claudeCompleted(first.uuid));
+    await drainTurn(first.turn);
+    // The job ends after the result and the session closes with no further
+    // send: the end still reaches the out-of-turn consumer before the
+    // channel ends with the session.
     r.proc.emitLine(JSON.stringify(shellStopped));
     r.proc.emitLine(JSON.stringify(shellNotificationKilled));
-    await tick();
-    const second = await startClaudeTurn(r, "b1");
-    r.proc.emitLine(claudeCompleted(String(lastStdin(r.proc).uuid)));
-    const secondEvents = await drainTurn(second.turn);
+    const closing = r.session.close();
+    const seen: HarnessEvent[] = [];
+    for await (const event of r.session.outOfTurn) seen.push(event);
+    await closing;
+    expect(seen).toHaveLength(2);
     expect(
-      secondEvents.filter((e) => e.kind === "background").map((e) => [e.state, e.outputFile ?? ""]),
+      seen.map((e) => (e.kind === "background" ? [e.state, e.outputFile ?? ""] : null)),
     ).toEqual([
       ["stopped", ""],
       ["stopped", "/tmp/tasks/bcrfa3pxt.output"],
     ]);
-    const turnStarts = r.log.filter((e) => e.event === "turn_start");
-    expect(turnStarts).toHaveLength(2);
-    await r.session.close();
+    expect(r.log.filter((e) => e.event === "turn_start")).toHaveLength(1);
   });
 
   test("the stop's own job end arrives as background stopped events after the receipt", async () => {

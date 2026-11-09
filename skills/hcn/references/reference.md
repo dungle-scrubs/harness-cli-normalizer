@@ -313,18 +313,28 @@ a context-occupancy percentage on a live signal. `detail` is the harness's own
 reason or error text, so branch on `state` and never on it. `compaction` is
 never droppable: `DROPPABLE_KINDS` is `token` and `progress` only.
 
-`background` reports one state change of a job the harness itself started -
-a Claude `run_in_background` shell or a background Agent, on `hcn run --json`
-and `hcn session --json` alike. `job` (`shell` | `agent`) and `state`
+`background` reports one event per native task record of a job the harness
+itself started - a Claude `run_in_background` shell or a background Agent,
+on `hcn run --json` and `hcn session --json` alike. A job's end is two
+events (`task_updated` then `task_notification`); the one carrying
+`outputFile`/`summary` is the last. `job` (`shell` | `agent`) and `state`
 (`running` | `completed` | `failed` | `stopped`) are closed unions; every
 optional field is the harness's own report, present only when the native
 line carried it. `id` is the harness's job id (claude's `task_id`) - the value
 a `stop-background` op names; `callId` is the tool call that started the job;
 `outputFile` is where the output is written (tail it yourself if you need
 it; hcn does not). A job's end can arrive BETWEEN turns (claude's background
-tasks finish after `result`): the event opens no turn and is buffered for the
-next one, like a between-turn `compaction`. `background` is not droppable.
-Today only Claude reports background jobs on a channel hcn reads.
+tasks finish after `result`): the event stands alone - it opens no turn and
+waits for none. On the session wire it is a bare `background` line the
+moment it arrives, never parked inside a later turn and never dropped at
+close. `background` is not droppable.
+Today only Claude reports background jobs on a channel hcn reads. Claude
+reports task records for an INLINE Agent call too, shape-identical to a
+background one (`is_backgrounded` reads `true` on a foreground Agent's
+records - live check 2026-11-09): the task records do not say which it
+was, so read `run_in_background` off the Agent call's own `tool` event
+when the distinction matters; the agent's own steps carry `parentCallId`
+either way.
 
 A Claude subagent's own steps (background or inline) are ordinary
 tool/tool-result/message events carrying `parentCallId` - the Agent tool
@@ -609,12 +619,15 @@ Send `{"op":"stop-background","id":"stop-1","job":"<background event id>"}`
 with the `id` a `background` event carried (claude's own `task_id`). A
 written request emits `background-stop` state `requested`, then exactly one
 terminal receipt: `sent` (the harness accepted the stop request) or
-`rejected` with `native-rejected`, `closed` or `unsupported` (every harness
+`rejected` with `native-rejected`, `closed`, `write-failed` (the harness's
+stdin pipe broke; the session ends) or `unsupported` (every harness
 besides Claude; nothing is written natively and the session stays usable).
-An immediate refusal has no `requested` phase. The receipt NEVER claims the
-job ended: watch the turn stream for the job's own `background` event
-(claude reports a stopped job with `state: "stopped"`). A missing or empty
-`id` or `job` is a malformed command.
+An immediate refusal - an already closed session, an unsupported harness, a
+failed write - has no `requested` phase. The receipt NEVER claims the
+job ended: watch the stream for the job's own `background` event, inside
+the turn that runs it or as a bare between-turn line (claude reports a
+stopped job with `state: "stopped"`). A missing or empty `id` or `job` is
+a malformed command.
 
 ### Session native approvals
 

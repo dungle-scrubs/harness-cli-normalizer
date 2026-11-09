@@ -106,6 +106,7 @@ describe("session control event carries only questions", () => {
     const turns = (async function* () {})();
     const handle = {
       turns,
+      outOfTurn: (async function* () {})(),
       send: () => ({ disposition: "started" as const }),
       close: async () => {},
     };

@@ -288,10 +288,12 @@ Options:
                             parentCallId. {"op":"stop-background","id":..,
                             "job":..} stops one job by that id (claude only):
                             background-stop state requested, then sent | rejected
-                            (native-rejected | closed | unsupported elsewhere).
+                            (native-rejected | closed | write-failed |
+                            unsupported elsewhere).
                             The receipt says the request was accepted, not that
                             the job ended - its end arrives as a background
-                            event.
+                            event, inside the turn that runs it or as a bare
+                            line between turns.
                             The stream opens with a session event and ends
                             with a closed event. Exit 0 clean, 1 otherwise,
                             2 refusal, 4 hcn internal crash (failure/closed pair,

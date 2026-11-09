@@ -4,7 +4,6 @@ import {
   contentEventsOf,
   contentEventsWithState,
   freshReaderState,
-  isClaudeReaderState,
   type ReaderState,
 } from "../../src/interpretation/content.js";
 
@@ -388,6 +387,42 @@ describe("claude background jobs: the mapping rows", () => {
     ).toEqual({ kind: "background", id: "bcrfa3pxt", job: "shell", state: "running" });
   });
 
+  test("a FOREGROUND Agent call's task records emit too: the field is not a discriminator", () => {
+    // Live check 2026-11-09 (fix round 1, item 5): an inline Agent call
+    // (no run_in_background) still gets task records, and the captured
+    // task_started - quoted below from
+    // claude-foreground-agent-task-records-2026-11-09.ndjson - carries
+    // `is_backgrounded: true`, shape-identical to a background agent's.
+    // Neither 2026-11-09 capture holds an `is_backgrounded: false`, so
+    // the field gates nothing: every tracked task reports, and the
+    // mapping is the spec's unchanged one.
+    const inlineAgentStarted = {
+      type: "system",
+      subtype: "task_started",
+      task_id: "a5fa5c99e746ed563",
+      run_id: "0mw90bp2q-2b03be98",
+      tool_use_id: "toolu_01DsuF4cfn5iSuiAQumzRpPJ",
+      description: "Read note.txt contents",
+      subagent_type: "general-purpose",
+      is_backgrounded: true,
+      spawn_depth: 1,
+      task_type: "local_agent",
+      prompt: "Use the Bash tool to run `cat note.txt` in the current working directory.",
+      session_id: "f01bef5e-4762-4185-b847-a42daf12e00d",
+    };
+    expect(decodeAll([inlineAgentStarted])).toEqual([
+      {
+        kind: "background",
+        id: "a5fa5c99e746ed563",
+        job: "agent",
+        state: "running",
+        description: "Read note.txt contents",
+        callId: "toolu_01DsuF4cfn5iSuiAQumzRpPJ",
+        agent: "general-purpose",
+      },
+    ]);
+  });
+
   test("a task_type on a later line still names the job", () => {
     expect(decodeAll([{ ...agentProgress, task_type: "local_agent" }])).toEqual([
       expect.objectContaining({ kind: "background", id: "a34310bd3dc4bd051", job: "agent" }),
@@ -455,6 +490,48 @@ describe("claude background jobs: the skips", () => {
       ["bcrfa3pxt", "shell", "completed"],
     ]);
   });
+
+  test("a job is kept through its terminal task_updated and dropped at its task_notification", () => {
+    // The updated marks the entry ended but keeps it: the notification
+    // that follows (no task_type of its own) still finds the job.
+    expect(
+      backgroundOf(decodeAll([shellStarted, shellUpdatedCompleted, shellNotification])).map(
+        (e) => e.state,
+      ),
+    ).toEqual(["running", "completed", "completed"]);
+    // The notification retires the entry: a later line for the same id
+    // with no task_type names an unknown job and emits nothing.
+    expect(
+      decodeAll([
+        shellStarted,
+        shellNotification,
+        { type: "system", subtype: "task_progress", task_id: "bcrfa3pxt" },
+      ]),
+    ).toHaveLength(2);
+  });
+
+  test("a long-running shell spanning more than 64 newer jobs still reports its end", () => {
+    // 65 newer agent jobs (synthetic ids on the captured started shape),
+    // each reaching its terminal task_updated but not its notification:
+    // all 65 stay in the registry as ended entries, past the 64 bound.
+    // The bound evicts ended entries first and never the running shell,
+    // so the shell's own end - whose lines carry no task_type - still
+    // decodes (review round 1).
+    const records: unknown[] = [shellStarted];
+    for (let index = 0; index < 65; index += 1) {
+      const id = `newer-agent-${index}`;
+      records.push(
+        { ...agentStarted, task_id: id, description: `newer ${index}` },
+        { type: "system", subtype: "task_updated", task_id: id, patch: { status: "completed" } },
+      );
+    }
+    records.push(shellUpdatedCompleted, shellNotification);
+    expect(
+      backgroundOf(decodeAll(records))
+        .filter((e) => e.id === "bcrfa3pxt")
+        .map((e) => e.state),
+    ).toEqual(["running", "completed", "completed"]);
+  });
 });
 
 describe("claude subagent lines carry parentCallId", () => {
@@ -490,14 +567,47 @@ describe("claude subagent lines carry parentCallId", () => {
   });
 
   test("a subagent line does not enter the turn's main-loop model attestations", () => {
-    const stateful = contentEventsWithState("claude", subagentAnswer, freshReaderState("claude"));
-    expect(
-      isClaudeReaderState(stateful.state) ? stateful.state.turnModels : ["unexpected"],
-    ).toEqual([]);
-    const mainLoop = contentEventsWithState("claude", mainLoopAnswer, stateful.state);
-    expect(
-      isClaudeReaderState(mainLoop.state) ? mainLoop.state.turnModels : ["unexpected"],
-    ).toEqual(["claude-sonnet-5-5"]);
+    // Asserted on the emission, not the reader's internals: a claude
+    // result's turn usage reports the models the MAIN LOOP attested and
+    // singles one out only when exactly one was. The result records are
+    // synthetic minimal shapes (the decoder reads usage alone); the
+    // assistant lines are the captured records above.
+    const turnResult = {
+      type: "result",
+      subtype: "success",
+      is_error: false,
+      terminal_reason: "completed",
+      session_id: "c81a836f-e08d-4fe1-ae5c-b6988292d264",
+      usage: { input_tokens: 4, output_tokens: 376 },
+    };
+    const afterSubagent = contentEventsWithState(
+      "claude",
+      subagentAnswer,
+      freshReaderState("claude"),
+    );
+    const subagentOnly = contentEventsWithState("claude", turnResult, afterSubagent.state);
+    expect(subagentOnly.events.filter((e) => e.kind === "usage")).toEqual([
+      {
+        kind: "usage",
+        scope: "turn",
+        inputTokens: 4,
+        outputTokens: 376,
+        inputIncludesCache: false,
+      },
+    ]);
+    const afterMainLoop = contentEventsWithState("claude", mainLoopAnswer, afterSubagent.state);
+    const withMainLoop = contentEventsWithState("claude", turnResult, afterMainLoop.state);
+    expect(withMainLoop.events.filter((e) => e.kind === "usage")).toEqual([
+      {
+        kind: "usage",
+        scope: "turn",
+        inputTokens: 4,
+        outputTokens: 376,
+        inputIncludesCache: false,
+        model: "claude-sonnet-5-5",
+        models: ["claude-sonnet-5-5"],
+      },
+    ]);
   });
 });
 

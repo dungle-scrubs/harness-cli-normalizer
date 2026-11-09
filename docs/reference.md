@@ -474,9 +474,11 @@ nothing compacted.
 
 ### Background jobs
 
-`background` is one observation per state change of a job the harness itself reported - a
-Claude `run_in_background` shell or a background Agent, read from the `task_*` system records
-on `hcn run --json` and `hcn session --json` alike, at the moment the native line arrives:
+`background` is one event per native `task_*` record of a job the harness itself reported - a
+Claude `run_in_background` shell or a background Agent, read on `hcn run --json` and
+`hcn session --json` alike, at the moment the native line arrives. A job's end therefore arrives
+as two events (`task_updated` then `task_notification`); the one carrying `outputFile`/`summary`
+is the last:
 
 ```ts
 { kind: "background", id: string, job: "shell" | "agent",
@@ -496,10 +498,17 @@ on `hcn run --json` and `hcn session --json` alike, at the moment the native lin
   notification adding `outputFile` and `summary`. `background_tasks_changed` and `task_summary`
   emit nothing; a `task_type` other than `local_bash`/`local_agent`, a record without a
   `task_id`, and an end record for a job whose type was never seen all emit nothing too.
-- A job's end can arrive BETWEEN turns (Claude's background tasks finish after `result`): like
-  a between-turn `compaction`, the event is emitted on its own - it opens no turn - and a
-  session delivers it with the stream, buffered for the next turn like other between-turn
-  events. `background` is never droppable.
+- Claude reports task records for an INLINE Agent call (`run_in_background` false or
+  absent) too, shape-identical to a background one - the task records themselves do not
+  say which it was (live check 2026-11-09: `is_backgrounded` reads `true` on a foreground
+  Agent's records too). A consumer that needs the distinction reads `run_in_background`
+  off the Agent call's own `tool` event, on the same stream; the agent's own steps carry
+  `parentCallId` either way.
+- A job's end can arrive BETWEEN turns (Claude's background tasks finish after `result`). Like a
+  between-turn `compaction` it opens no turn - but unlike one it waits for none: a session emits
+  each such event on its own the moment it arrives, so on the `--json` wire it is a bare
+  `background` line between turns, never parked inside a later turn and never dropped at close.
+  `background` is never droppable.
 - Stopping one is a session op, `stop-background` (below); the other harnesses report no
   background jobs on any channel hcn reads today (pi's own `bg_bash`/`subagent` extensions are
   caller-side machinery whose data hcn does not interpret).
@@ -664,7 +673,9 @@ stdout is NDJSON only - no prompt, no rendered text. The first line is a
 `turn` line, the harness's own `HarnessEvent` lines (the same kinds as
 `hcn run --json`; see [Events](#events)), and a turn-scoped `done` (`exitCode`
 null; a turn cut short by the harness dying carries the process exit code,
-equal to `closed.exitCode`). The four control events that frame the stream,
+equal to `closed.exitCode`). Between turns, an event no turn owns can stand
+alone on the wire - today a bare `background` line (a background job ending
+after `result`, [above](#background-jobs)). The four control events that frame the stream,
 as hcn 0.9.8 emitted them for one send:
 
 ```jsonl
@@ -922,10 +933,14 @@ Exactly one terminal receipt follows `requested`: `sent` when the harness
 accepted the stop request, or `rejected` with reason `native-rejected` (the
 harness refused it), `closed` (the session was already closing) or
 `unsupported` (every harness besides Claude - nothing is written natively
-and the session stays usable). An immediate refusal has no `requested`
+and the session stays usable). An already closed session, an unsupported
+harness or a failed write is rejected immediately, with reason `closed`,
+`unsupported` or `write-failed` (the harness's stdin pipe broke; the session
+ends through the usual close path); an immediate refusal has no `requested`
 phase. The receipt says only that the request went through: it never claims
-the job ended. The job's own end arrives independently on the turn stream
-as a `background` event (claude reports a stopped job with `stopped`), so
+the job ended. The job's own end arrives independently as a `background`
+event - inside the turn that runs it, or as a bare between-turn line
+(claude reports a stopped job with `stopped`), so
 watch the stream - not the receipt - for the outcome. A malformed command
 (a missing or empty `id` or `job`) is an `error` event like any other
 malformed command, and the session continues.

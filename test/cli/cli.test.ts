@@ -240,6 +240,22 @@ describe("harness-name validation", () => {
 });
 
 describe("hcn inspect (pure)", () => {
+  test("--capabilities reports sessionControls.stopBackground: claude true, others false", async () => {
+    // Review round 1, C4: the named session-controls tests proved the
+    // descriptor projection but nothing drove the inspect surface itself,
+    // so inspect dropping sessionControls would have passed them.
+    const claude = JSON.parse(
+      (await captureDispatch(["inspect", "claude", "--capabilities"])).stdout,
+    );
+    expect(claude.sessionControls).toEqual(
+      expect.objectContaining({ stopBackground: { supported: true } }),
+    );
+    const pi = JSON.parse((await captureDispatch(["inspect", "pi", "--capabilities"])).stdout);
+    expect(pi.sessionControls).toEqual(
+      expect.objectContaining({ stopBackground: { supported: false } }),
+    );
+  });
+
   test("argv preview renders native tail tokens with no separator", async () => {
     const out = await captureDispatch([
       "inspect",
