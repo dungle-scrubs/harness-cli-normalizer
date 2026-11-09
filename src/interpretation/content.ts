@@ -16,6 +16,10 @@ export interface ToolEvent {
   readonly name: string;
   readonly input?: unknown;
   readonly callId?: string;
+  /** Claude subagent lines: the Agent tool call whose subagent produced
+   * this event (the native `parent_tool_use_id`). Present only on lines
+   * that carry one; a main-loop event omits it. */
+  readonly parentCallId?: string;
 }
 
 export interface ToolResultEvent {
@@ -24,6 +28,54 @@ export interface ToolResultEvent {
   readonly callId?: string;
   readonly result?: unknown;
   readonly isError?: boolean;
+  /** Claude subagent lines, as on `tool`. */
+  readonly parentCallId?: string;
+}
+
+/** Background jobs (claude `task_*` system records, 2026-11-09 evidence).
+ * Closed unions a consumer branches on, like CompactionState: only a
+ * shell and an agent exist, and only four states, because those are the
+ * shapes the native records settle into. */
+export type BackgroundJob = "shell" | "agent";
+export type BackgroundState = "running" | "completed" | "failed" | "stopped";
+
+/** A job whose terminal notification has not arrived. Later records
+ * for the same id read its job when their own line carries no
+ * task_type. */
+interface KnownJob {
+  readonly id: string;
+  readonly job: BackgroundJob;
+}
+
+/** One observation of a job the harness itself reported, including
+ * inline Agent calls. Every field is the
+ * harness's own report; hcn derives none. Lossless and ordered: it is
+ * not droppable, and when no published turn owns it, it is emitted as a
+ * bare session sequence item that opens no turn. */
+export interface BackgroundEvent {
+  readonly kind: "background";
+  /** The harness's own job id (claude `task_id`). */
+  readonly id: string;
+  readonly job: BackgroundJob;
+  readonly state: BackgroundState;
+  /** Claude's `is_backgrounded`: false = an inline (foreground) Agent,
+   * true = a background job. Present only when the event's own native
+   * record carried the boolean (claude puts it on `task_started` today);
+   * later records for the job carry none, and hcn derives nothing. */
+  readonly backgrounded?: boolean;
+  readonly description?: string;
+  /** The tool call that started the job (claude `tool_use_id`). */
+  readonly callId?: string;
+  /** The subagent type, on an agent job (claude `subagent_type`). */
+  readonly agent?: string;
+  /** The harness's own progress text ("Running ..."). */
+  readonly detail?: string;
+  readonly toolUses?: number;
+  readonly totalTokens?: number;
+  readonly durationMs?: number;
+  /** Where the job's output is being written (claude `output_file`). */
+  readonly outputFile?: string;
+  readonly summary?: string;
 }
 
 export interface ToolDenial {
@@ -50,8 +102,14 @@ export type ContentEvent =
   | ToolEvent
   | ToolResultEvent
   | UsageEvent
+  | BackgroundEvent
   | { readonly kind: "token"; readonly text: string }
-  | { readonly kind: "message"; readonly role: string; readonly text: string }
+  | {
+      readonly kind: "message";
+      readonly role: string;
+      readonly text: string;
+      readonly parentCallId?: string;
+    }
   | { readonly kind: "progress"; readonly label: string }
   /** ADR 0009: the harness compacted its own context. Passes through
    * `decode.ts` unchanged, so this shape matches the HarnessEvent arm. */
@@ -151,8 +209,22 @@ const claudeCompaction = (r: Record<string, unknown>): ContentEvent[] | null => 
   return null;
 };
 
+const isMainLoopLine = (record: Record<string, unknown>): boolean =>
+  record.parent_tool_use_id === null ||
+  record.parent_tool_use_id === undefined ||
+  record.parent_tool_use_id === "";
+
 const claude = (r: Record<string, unknown>): ContentEvent[] => {
   const events: ContentEvent[] = [];
+  // A subagent line names the Agent tool call that started it
+  // (`parent_tool_use_id`, null on main-loop lines); every tool,
+  // tool-result and message it yields carries it so a consumer can route
+  // the subagent's own steps to the conversation pane (2026-11-09
+  // evidence: background and inline subagents alike).
+  const parentCallId =
+    !isMainLoopLine(r) && typeof r.parent_tool_use_id === "string"
+      ? { parentCallId: r.parent_tool_use_id }
+      : {};
   if (r.type === "assistant") {
     const content = at(r, "message.content");
     if (Array.isArray(content)) {
@@ -164,12 +236,13 @@ const claude = (r: Record<string, unknown>): ContentEvent[] => {
             name: block.name,
             input: block.input,
             ...callIdOf(block.id),
+            ...parentCallId,
           });
         }
       }
     }
     const text = textOfBlocks(content);
-    if (text !== "") events.push({ kind: "message", role: "assistant", text });
+    if (text !== "") events.push({ kind: "message", role: "assistant", text, ...parentCallId });
   } else if (r.type === "user") {
     const content = at(r, "message.content");
     if (Array.isArray(content)) {
@@ -182,6 +255,7 @@ const claude = (r: Record<string, unknown>): ContentEvent[] => {
           ...(typeof block.name === "string" ? { name: block.name } : {}),
           ...(Object.hasOwn(block, "content") ? { result: block.content } : {}),
           ...(typeof block.is_error === "boolean" ? { isError: block.is_error } : {}),
+          ...parentCallId,
         });
       }
     }
@@ -825,11 +899,18 @@ export const freshCursorReaderState = (): CursorReaderState => ({
 export interface ClaudeReaderState {
   readonly reader: "claude";
   readonly turnModels: readonly string[];
+  /** Background jobs by their native id: the job a later task_progress /
+   * task_updated / task_notification names when its own line carries no
+   * task_type. Each entry lives until its terminal task_notification
+   * (kept through the preceding terminal task_updated). It spans the
+   * session, so a job's end after a turn boundary still finds its job. */
+  readonly backgroundJobs: readonly KnownJob[];
 }
 
 export const freshClaudeReaderState = (): ClaudeReaderState => ({
   reader: "claude",
   turnModels: [],
+  backgroundJobs: [],
 });
 
 /** Narrowing guards for the two stateful readers; execution holds the
@@ -1117,6 +1198,40 @@ const stateless =
   (read: (r: Record<string, unknown>) => ContentEvent[]): StatefulReader =>
   (r, state) => ({ events: read(r), state });
 
+const rememberJob = (
+  jobs: readonly KnownJob[],
+  id: string,
+  job: BackgroundJob,
+): readonly KnownJob[] => {
+  const known = jobs.find((entry) => entry.id === id);
+  if (known?.job === job) return jobs;
+  return [...jobs.filter((entry) => entry.id !== id), { id, job }];
+};
+
+/** The terminal task_notification: no later record needs the entry. */
+const dropJob = (jobs: readonly KnownJob[], id: string): readonly KnownJob[] =>
+  jobs.filter((known) => known.id !== id);
+
+/** claude's own task types onto the closed job vocabulary. Anything else
+ * is not hcn's to name. */
+const jobOfTaskType = (value: unknown): BackgroundJob | undefined =>
+  value === "local_bash" ? "shell" : value === "local_agent" ? "agent" : undefined;
+
+/** claude's own end statuses onto the closed state vocabulary; killed,
+ * stopped and cancelled all read as `stopped`, the closest closed state.
+ * `killed` is not necessarily a stop the caller asked for - the harness
+ * kills its own tasks too - and hcn cannot tell who asked. */
+const stateOfTaskStatus = (value: unknown): BackgroundState | undefined =>
+  value === "completed"
+    ? "completed"
+    : value === "failed"
+      ? "failed"
+      : value === "killed" || value === "stopped" || value === "cancelled"
+        ? "stopped"
+        : value === "running"
+          ? "running"
+          : undefined;
+
 /** The claude reader with its turn-model tracking: MAIN-LOOP assistant
  * records collect the distinct models they attest, the result record
  * forgets them (the turn is over). A subagent record
@@ -1127,10 +1242,13 @@ const claudeWithState = (
   r: Record<string, unknown>,
   state: ClaudeReaderState,
 ): { readonly events: ContentEvent[]; readonly state: ClaudeReaderState } => {
+  // Background job records are decoded before the stateless reader: they
+  // need the job registry this reader threads, and they replace the
+  // droppable progress labels these subtypes carried before.
+  const background = claudeBackground(r, state);
+  if (background !== null) return background;
   const events = claude(r);
-  const mainLoop =
-    r.type === "assistant" && (r.parent_tool_use_id === null || r.parent_tool_use_id === undefined);
-  if (mainLoop) {
+  if (r.type === "assistant" && isMainLoopLine(r)) {
     const model = at(r, "message.model");
     if (
       typeof model === "string" &&
@@ -1138,11 +1256,140 @@ const claudeWithState = (
       model !== "<synthetic>" &&
       !state.turnModels.includes(model)
     )
-      return { events, state: { reader: "claude", turnModels: [...state.turnModels, model] } };
+      return {
+        events,
+        state: {
+          ...state,
+          turnModels: [...state.turnModels, model],
+        },
+      };
   } else if (r.type === "result" && state.turnModels.length > 0) {
-    return { events, state: { reader: "claude", turnModels: [] } };
+    return { events, state: { ...state, turnModels: [] } };
   }
   return { events, state };
+};
+
+/**
+ * Claude's background job records (evidence 2026-11-09, claude 2.1.319:
+ * a `run_in_background` Bash loop and a background Agent, both observed
+ * start to finish). `background_tasks_changed` re-announces the FULL
+ * running set after every change and `task_summary` adds nothing the
+ * notification did not carry, so both emit nothing. Returns null for any
+ * record that is not one of these subtypes, so the reader falls through
+ * to the compaction/progress arms unchanged.
+ */
+const claudeBackground = (
+  r: Record<string, unknown>,
+  state: ClaudeReaderState,
+): { readonly events: ContentEvent[]; readonly state: ClaudeReaderState } | null => {
+  if (r.type !== "system" || typeof r.subtype !== "string") return null;
+  switch (r.subtype) {
+    case "task_started":
+    case "task_progress":
+    case "task_updated":
+    case "task_notification":
+    case "background_tasks_changed":
+    case "task_summary":
+      break;
+    default:
+      return null;
+  }
+  if (r.subtype === "background_tasks_changed" || r.subtype === "task_summary")
+    return { events: [], state };
+  // Task records cover inline and background Agent calls; backgrounded
+  // forwards is_backgrounded and tells them apart, only on the record
+  // that carries the boolean (task_started today). The tool input's
+  // run_in_background is unreliable: Claude may background a call that
+  // omits it (2026-11-09 native captures).
+  // A line without a task_id names no job. An unrecognized task_type is
+  // not hcn's to guess at either: it emits nothing and records nothing.
+  const id = typeof r.task_id === "string" && r.task_id !== "" ? r.task_id : null;
+  if (id === null) return { events: [], state };
+  const known = state.backgroundJobs.find((entry) => entry.id === id);
+  let job: BackgroundJob | undefined;
+  if (r.task_type !== undefined) {
+    job = jobOfTaskType(r.task_type);
+    if (job === undefined) return { events: [], state };
+  }
+  if (job === undefined) {
+    // task_progress/task_updated/task_notification carry no task_type:
+    // the job last seen for this id. Never seen, nothing to say.
+    job = known?.job;
+    if (job === undefined) return { events: [], state };
+  }
+  // The line's own boolean only: no later record for the job carries
+  // the flag, and nothing is remembered for it.
+  const backgrounded = typeof r.is_backgrounded === "boolean" ? r.is_backgrounded : undefined;
+  const textOf = (value: unknown, key: string): { readonly [k: string]: string } =>
+    typeof value === "string" && value !== "" ? { [key]: value } : {};
+  const usage = asRecord(r.usage);
+  const observation = {
+    kind: "background",
+    id,
+    job,
+    ...(backgrounded === undefined ? {} : { backgrounded }),
+  } as const;
+  const events: ContentEvent[] = [];
+  // A line carrying task_type (re)names the job, and that alone
+  // refreshes the entry, which lives until the terminal notification
+  // supplies outputFile/summary.
+  let jobs =
+    r.task_type === undefined ? state.backgroundJobs : rememberJob(state.backgroundJobs, id, job);
+  switch (r.subtype) {
+    case "task_started":
+      events.push({
+        ...observation,
+        state: "running",
+        ...textOf(r.description, "description"),
+        ...callIdOf(r.tool_use_id),
+        ...textOf(r.subagent_type, "agent"),
+      });
+      break;
+    case "task_progress":
+      events.push({
+        ...observation,
+        state: "running",
+        ...textOf(r.description, "detail"),
+        ...(numberOr(usage?.tool_uses) !== undefined
+          ? { toolUses: numberOr(usage?.tool_uses) }
+          : {}),
+        ...(numberOr(usage?.total_tokens) !== undefined
+          ? { totalTokens: numberOr(usage?.total_tokens) }
+          : {}),
+        ...(numberOr(usage?.duration_ms) !== undefined
+          ? { durationMs: numberOr(usage?.duration_ms) }
+          : {}),
+        ...callIdOf(r.tool_use_id),
+        ...textOf(r.subagent_type, "agent"),
+      });
+      break;
+    case "task_updated": {
+      // Only a status patch says anything; any other status value (and no
+      // patch at all) emits nothing rather than guessing a state.
+      const patch = asRecord(r.patch);
+      const stateOfPatch = patch === null ? undefined : stateOfTaskStatus(patch.status);
+      if (stateOfPatch === undefined) return { events: [], state };
+      events.push({ ...observation, state: stateOfPatch });
+      break;
+    }
+    case "task_notification": {
+      const stateOfStatus = stateOfTaskStatus(r.status);
+      if (stateOfStatus === undefined) return { events: [], state };
+      events.push({
+        ...observation,
+        state: stateOfStatus,
+        ...textOf(r.output_file, "outputFile"),
+        ...textOf(r.summary, "summary"),
+        ...callIdOf(r.tool_use_id),
+      });
+      if (stateOfStatus !== "running") jobs = dropJob(jobs, id);
+      break;
+    }
+  }
+  return {
+    events,
+    state: jobs === state.backgroundJobs ? state : { ...state, backgroundJobs: jobs },
+  };
 };
 
 const STATEFUL_READERS: Record<HarnessName, StatefulReader> = {

@@ -508,6 +508,7 @@ describe("issue #426: pi interruption is two-phase and settles on native observa
       deliveryModes: ["queue", "steer"],
       interrupt: { supported: false },
       approvals: { supported: false },
+      stopBackground: { supported: true },
     });
     r.proc.exit(0);
     await r.session.close();
@@ -536,11 +537,13 @@ const SUPPORTED = {
   deliveryModes: ["queue", "steer"],
   interrupt: { supported: true, toolCancellation: "best-effort" },
   approvals: { supported: false },
+  stopBackground: { supported: true },
 };
 const UNSUPPORTED = {
   deliveryModes: ["queue", "steer"],
   interrupt: { supported: false },
   approvals: { supported: false },
+  stopBackground: { supported: true },
 };
 
 describe("issue #429: claude interrupt support is what the running process advertises", () => {
@@ -1266,6 +1269,9 @@ describe("issue #426: claude turns correlate by native uuid on every send", () =
       const collected = (async () => {
         const turns: { id: string | undefined; messages: string[] }[] = [];
         for await (const turn of r.session.turns) {
+          // Inlined (not isSessionTurn): this test is behaviour the branch
+          // did not change, so it also passes at the base commit.
+          if ("kind" in turn) throw new Error("unexpected bare event");
           const events = await drainTurn(turn);
           turns.push({
             id: turn.inputId,

@@ -37,6 +37,7 @@ import {
   encodeIdentityProbe,
   encodeSessionInput,
   encodeSessionInterrupt,
+  encodeSessionStopBackground,
   hasNativeReceipts,
   publishesTurnOnRunEvidence,
   readInputUuids,
@@ -122,6 +123,9 @@ export interface SessionTurn extends AsyncIterable<HarnessEvent> {
   readonly turnId?: string;
 }
 
+export const isSessionTurn = (item: SessionTurn | HarnessEvent): item is SessionTurn =>
+  !("kind" in item);
+
 /** A send's payload: the consumer's correlation id travels with the text
  * from the moment it arrives to the turn it opens and, on death, to the
  * loss report. Ids are the caller's and may repeat; the runner correlates
@@ -160,11 +164,24 @@ export type SessionInterruptResult =
   | { readonly state: "requested"; readonly settled: Promise<SessionInterruptReceipt> }
   | { readonly state: "rejected"; readonly reason: "unsupported" | "closed" | "write-failed" };
 
+/** The receipt a stop-background request settles with. `sent` says the
+ * harness accepted the stop REQUEST - never that the job ended: the job's
+ * own end arrives on the stream as a `background` event. */
+export interface SessionStopBackgroundReceipt {
+  readonly state: "sent" | "rejected";
+  readonly reason?: "unsupported" | "closed" | "write-failed" | "native-rejected";
+}
+
+export type SessionStopBackgroundResult =
+  | { readonly state: "requested"; readonly settled: Promise<SessionStopBackgroundReceipt> }
+  | { readonly state: "rejected"; readonly reason: "unsupported" | "closed" | "write-failed" };
+
 export interface SessionHandle {
-  /** One inner iterable per turn, each ending in a turn-scoped `done`.
-   * Breaking out of THIS iterable closes the session; breaking out of a
-   * single turn's iterable only stops reading that turn. */
-  readonly turns: AsyncIterable<SessionTurn>;
+  /** Ordered turns and events no published turn owns. Drain each turn
+   * through its turn-scoped `done` before reading the next item. Bare
+   * events open no turn. Breaking out of THIS iterable closes the session;
+   * breaking out of a single turn only stops reading that turn. */
+  readonly turns: AsyncIterable<SessionTurn | HarnessEvent>;
   /** The explicit controls this session supports now. Issue #429: claude
    * interrupt support is what the running process advertised on its latest
    * system/init, so it reads unsupported until then and can change; every
@@ -175,6 +192,13 @@ export interface SessionHandle {
   /** Request cancellation of the active turn while the process continues.
    * Carries no replacement text: the caller sends that after the receipt. */
   interrupt(request: { readonly id: string }): SessionInterruptResult;
+  /** Stop one background job by the id its `background` events carry,
+   * while the process continues. The receipt never claims the job ended:
+   * the job's own end arrives as a `background` event. */
+  stopBackground(request: {
+    readonly id: string;
+    readonly job: string;
+  }): SessionStopBackgroundResult;
   /** Issue #454/#455: answer one forwarded permission request. Exactly one
    * answer right per request: answered once, cleared never again. */
   answerApproval(decision: SessionApprovalDecisionRequest): SessionApprovalAnswer;
@@ -402,7 +426,7 @@ export const openSession = (
     ...(envKeys !== undefined ? { envKeys } : {}),
   });
 
-  const turnsChannel = new AsyncChannel<SessionTurn>();
+  const turnsChannel = new AsyncChannel<SessionTurn | HarnessEvent>();
   const state = freshDecodeState(opts.sessionId, h.name);
   const questionMode: QuestionMode = opts.questions ?? "ask";
   const sessionInputMode = h.sessionMode;
@@ -460,6 +484,7 @@ export const openSession = (
     deliveryModes: [],
     interrupt: { supported: false },
     approvals: { supported: false },
+    stopBackground: { supported: false },
   };
   // Issue #429: the descriptor states what the harness can do; a kind whose
   // process advertises its interrupt support offers it only once a record
@@ -477,6 +502,15 @@ export const openSession = (
   // later change re-announces it.
   let lastIdentity: (HarnessEvent & { kind: "identity" }) | null = null;
   const pendingInterrupts = new Map<string, PendingInterrupt>();
+  // Stop-background requests written and not yet answered, by their wire
+  // token. Unlike an interrupt there is no target turn to observe: the
+  // control_response alone settles the receipt, and the job's own end
+  // arrives independently as a `background` event.
+  type PendingStopBackground = {
+    readonly id: string;
+    readonly resolve: (receipt: SessionStopBackgroundReceipt) => void;
+  };
+  const pendingStopBackgrounds = new Map<string, PendingStopBackground>();
   // Issue #454/#455: the approval ledger (extracted, review round 1 F12).
   // Waiting requests keep their full proposal; an answered id becomes a
   // bounded tombstone (already-answered); a cleared request is deleted
@@ -643,6 +677,84 @@ export const openSession = (
       ...receipt,
     });
     pending.resolve(receipt);
+  };
+  const settleStopBackground = (token: string, receipt: SessionStopBackgroundReceipt): void => {
+    const pending = pendingStopBackgrounds.get(token);
+    if (pending === undefined) return;
+    pendingStopBackgrounds.delete(token);
+    log({
+      event: "stop_background_settled",
+      sessionId: opts.sessionId,
+      id: pending.id,
+      token,
+      ...receipt,
+    });
+    pending.resolve(receipt);
+  };
+  /** The shared half of every session control write (an interrupt, a
+   * stop-background): the refusal ladder - unsupported, closed, or a
+   * refusal by the encoder, all writing nothing and leaving the session
+   * usable - then the write, whose failure is the same broken stdin pipe
+   * a send takes, so the session ends through the exit path. On success
+   * the pending registration and the requested log line, keyed by the
+   * wire token the native answer settles. Each control keeps its own
+   * settlement semantics; only the write is shared. */
+  const writeControl = <R, E extends { readonly resolve: (receipt: R) => void }>(op: {
+    readonly event: string;
+    readonly rejectedLog: Record<string, unknown>;
+    readonly requestedLog: Record<string, unknown>;
+    readonly supported: boolean;
+    readonly encode: (token: string) => string;
+    readonly failMessage: string;
+    readonly pending: Map<string, E>;
+    readonly entry: (resolve: (receipt: R) => void) => E;
+  }):
+    | { readonly ok: true; readonly settled: Promise<R> }
+    | { readonly ok: false; readonly reason: "unsupported" | "closed" | "write-failed" } => {
+    const rejected = (reason: "unsupported" | "closed" | "write-failed") => {
+      log({
+        event: op.event,
+        sessionId: opts.sessionId,
+        ...op.rejectedLog,
+        state: "rejected",
+        reason,
+      });
+      return { ok: false as const, reason };
+    };
+    if (!op.supported) return rejected("unsupported");
+    if (dead || closing) return rejected("closed");
+    const token = String(++commandSeq);
+    let line: string;
+    try {
+      line = op.encode(token);
+    } catch (cause) {
+      if (!(cause instanceof SessionInputRefusalError)) throw cause;
+      return rejected("unsupported");
+    }
+    try {
+      stdin.write(line);
+    } catch {
+      // The same broken-pipe path a send takes: nothing more can reach
+      // the child, so the session ends through the exit path.
+      void routeEvent({ kind: "error", message: op.failMessage });
+      closing = true;
+      wireClosed = true;
+      sup.escalate();
+      return rejected("write-failed");
+    }
+    let resolveReceipt!: (receipt: R) => void;
+    const settled = new Promise<R>((resolve) => {
+      resolveReceipt = resolve;
+    });
+    op.pending.set(token, op.entry(resolveReceipt));
+    log({
+      event: op.event,
+      sessionId: opts.sessionId,
+      ...op.requestedLog,
+      token,
+      state: "requested",
+    });
+    return { ok: true as const, settled };
   };
   /** The run of `turn` settled. It decides only the requests written while
    * that turn was live: an accepted one settles now, an unanswered one holds
@@ -987,6 +1099,11 @@ export const openSession = (
       turnLimitSeen = true;
     }
     sup.noteEvent(event);
+    // A background observation belongs only to a published turn. An idle
+    // send's provisional turn cannot claim it or park it for later.
+    if (event.kind === "background" && !activeTurnPublished) {
+      return turnsChannel.push(event);
+    }
     // A provisional turn is published as its evidence arrives - streaming is
     // never withheld. Only run output is evidence of a run; a failure or
     // error observed locally is owed to the send. Everything else (identity,
@@ -1254,6 +1371,16 @@ export const openSession = (
           }
           return;
         }
+        case "stop-background-answered": {
+          // The control_response is the whole receipt: accepted says the
+          // stop request was sent, an error says the harness refused it.
+          // The job's own end arrives separately as a `background` event.
+          settleStopBackground(
+            record.token,
+            record.ok ? { state: "sent" } : { state: "rejected", reason: "native-rejected" },
+          );
+          return;
+        }
         case "identity":
           await announceIdentity(record.sessionId);
           return;
@@ -1517,6 +1644,10 @@ export const openSession = (
     for (const token of [...pendingInterrupts.keys()]) {
       settleInterrupt(token, { state: "rejected", reason: "closed" });
     }
+    // Every stop-background request still awaiting its answer too.
+    for (const token of [...pendingStopBackgrounds.keys()]) {
+      settleStopBackground(token, { state: "rejected", reason: "closed" });
+    }
     if (popeyePending.length > 0) {
       const dropped = popeyePending.splice(0);
       // Popeye already reported started, so its buffered send needs a turn
@@ -1656,6 +1787,7 @@ export const openSession = (
     const pipeGrace = deps.clock.setTimeout(() => {
       pipesOpenAtExit = true;
       activeTurn?.releaseBackpressure();
+      turnsChannel.releaseBackpressure();
       proc.disposeOutput();
       void pumping.then(() => finalize());
     }, PIPE_GRACE_MS);
@@ -1842,60 +1974,50 @@ export const openSession = (
       };
     },
     interrupt(request: { readonly id: string }): SessionInterruptResult {
-      const rejected = (
-        reason: "unsupported" | "closed" | "write-failed",
-      ): SessionInterruptResult => {
-        log({
-          event: "interrupt",
-          sessionId: opts.sessionId,
-          id: request.id,
-          state: "rejected",
-          reason,
-        });
-        return { state: "rejected", reason };
-      };
-      if (!controls.interrupt.supported) return rejected("unsupported");
-      if (dead || closing) return rejected("closed");
-      const token = String(++commandSeq);
       // Bound before the write: the harness may answer for this turn after
       // another one has opened.
       const target = activeTurn;
       const targetTurnId = target !== null && activeTurnPublished ? activeTurnId : undefined;
-      let line: string;
-      try {
-        line = encodeSessionInterrupt(sessionInput, token);
-      } catch (cause) {
-        if (!(cause instanceof SessionInputRefusalError)) throw cause;
-        return rejected("unsupported");
-      }
-      try {
-        stdin.write(line);
-      } catch {
-        // The same broken-pipe path a send takes: nothing more can reach
-        // the child, so the session ends through the exit path.
-        void routeEvent({ kind: "error", message: "interrupt failed: session stdin is gone" });
-        closing = true;
-        wireClosed = true;
-        sup.escalate();
-        return rejected("write-failed");
-      }
-      const settled = new Promise<SessionInterruptReceipt>((resolve) => {
-        pendingInterrupts.set(token, {
+      const written = writeControl<SessionInterruptReceipt, PendingInterrupt>({
+        event: "interrupt",
+        rejectedLog: { id: request.id },
+        requestedLog: {
+          ...(targetTurnId === undefined ? {} : { turnId: targetTurnId }),
+          id: request.id,
+        },
+        supported: controls.interrupt.supported,
+        encode: (token) => encodeSessionInterrupt(sessionInput, token),
+        failMessage: "interrupt failed: session stdin is gone",
+        pending: pendingInterrupts,
+        entry: (resolve): PendingInterrupt => ({
           id: request.id,
           target,
           phase: { kind: "awaiting-receipt", settlement: null },
           resolve,
-        });
+        }),
       });
-      log({
-        event: "interrupt",
-        sessionId: opts.sessionId,
-        ...(targetTurnId === undefined ? {} : { turnId: targetTurnId }),
-        id: request.id,
-        token,
-        state: "requested",
+      if (!written.ok) return { state: "rejected", reason: written.reason };
+      return { state: "requested", settled: written.settled };
+    },
+    stopBackground(request: {
+      readonly id: string;
+      readonly job: string;
+    }): SessionStopBackgroundResult {
+      // A descriptor fact, not a process advertisement: a harness without
+      // the native stop is refused here, nothing is written, and the
+      // session stays usable.
+      const written = writeControl<SessionStopBackgroundReceipt, PendingStopBackground>({
+        event: "stop_background",
+        rejectedLog: { id: request.id, job: request.job },
+        requestedLog: { id: request.id, job: request.job },
+        supported: controls.stopBackground.supported,
+        encode: (token) => encodeSessionStopBackground(sessionInput, token, request.job),
+        failMessage: "stop-background failed: session stdin is gone",
+        pending: pendingStopBackgrounds,
+        entry: (resolve) => ({ id: request.id, resolve }),
       });
-      return { state: "requested", settled };
+      if (!written.ok) return { state: "rejected", reason: written.reason };
+      return { state: "requested", settled: written.settled };
     },
     answerApproval(decision: SessionApprovalDecisionRequest): SessionApprovalAnswer {
       return approvals.answer(decision);

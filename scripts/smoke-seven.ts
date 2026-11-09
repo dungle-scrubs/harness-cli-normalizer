@@ -15,7 +15,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import type { HarnessEvent } from "../src/execution/events.js";
-import { openSession } from "../src/execution/open-session.js";
+import { isSessionTurn, openSession } from "../src/execution/open-session.js";
 import { streamTurn, type TurnRunOptions } from "../src/execution/stream-turn.js";
 import { antigravityCli } from "../src/knowledge/antigravity.js";
 import { claudeCode } from "../src/knowledge/claude-code.js";
@@ -157,7 +157,11 @@ const sessionContinuity = async (h: HarnessDescriptor): Promise<Cell> => {
   // session on expiry, and await cleanup on every success or error path.
   const deadline = setTimeout(() => void session.close(), 180_000);
   try {
-    const turns = session.turns[Symbol.asyncIterator]();
+    const turns = (async function* () {
+      for await (const item of session.turns) {
+        if (isSessionTurn(item)) yield item;
+      }
+    })();
     session.send({ id: "s", text: "Remember the codeword: kestrel. Reply with only: OK" });
     await collect((await turns.next()).value as AsyncIterable<HarnessEvent>);
     session.send({ id: "s", text: "Reply with only the codeword." });

@@ -9,13 +9,16 @@
  * rather than shadowing the runner's delivery order.
  */
 import { createInterface } from "node:readline/promises";
-import type { HarnessEvent } from "../execution/events.js";
 import type { FailureSummary } from "../execution/failure.js";
-import {
-  SessionClosedError,
-  type SessionHandle,
-  type SessionSendResult,
+import type {
+  SessionHandle,
+  SessionInterruptReceipt,
+  SessionInterruptResult,
+  SessionSendResult,
+  SessionStopBackgroundReceipt,
+  SessionStopBackgroundResult,
 } from "../execution/open-session.js";
+import { isSessionTurn, SessionClosedError } from "../execution/open-session.js";
 import type { SessionApprovalDecisionRequest } from "../execution/session-approval-tracker.js";
 import type { SessionSettingsRequest } from "../execution/session-settings-sequencer.js";
 import { composeAnswer, type QuestionMode } from "../interpretation/question.js";
@@ -58,6 +61,7 @@ type ParsedCommand =
       readonly verbatim?: boolean;
     }
   | { readonly op: "interrupt"; readonly id: string }
+  | { readonly op: "stop-background"; readonly id: string; readonly job: string }
   | (SessionApprovalDecisionRequest & { readonly op: "approval" })
   | (SessionSettingsRequest & { readonly op: "settings" })
   | { readonly op: "close" }
@@ -114,6 +118,13 @@ const parseCommand = (line: string): ParsedCommand => {
     // The caller keeps replacement text and sends it after the receipt.
     if ("text" in rec) return { malformed: "interrupt carries no text; send it after the receipt" };
     return { op: "interrupt", id: rec.id };
+  }
+  // Stop one background job, named by the id its `background` events
+  // carry. A missing id or job is malformed like any other command.
+  if (rec.op === "stop-background") {
+    if (typeof rec.id !== "string" || rec.id === "") return { malformed: "missing or empty id" };
+    if (typeof rec.job !== "string" || rec.job === "") return { malformed: "missing or empty job" };
+    return { op: "stop-background", id: rec.id, job: rec.job };
   }
   // Issue #454/#455: one decision on a forwarded permission request.
   // Structural failures are malformed like any other command; semantic
@@ -242,13 +253,17 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
 
   const stdoutPump = (async () => {
     for await (const turn of a.handle.turns) {
+      if (!isSessionTurn(turn)) {
+        await emit(turn);
+        continue;
+      }
       awaitingAnswer = false;
       await emit({
         kind: "turn",
         turnId: turn.turnId,
         ...(turn.inputId !== undefined ? { id: turn.inputId } : {}),
       });
-      for await (const ev of turn as AsyncIterable<HarnessEvent>) {
+      for await (const ev of turn) {
         // Update the answer state BEFORE the event reaches the consumer. A
         // consumer answers the moment it reads `done`, so setting this after
         // the emit leaves a window where a valid answer is refused.
@@ -293,6 +308,35 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
     disposition: sent.disposition,
     ...(sent.reason !== undefined ? { reason: sent.reason } : {}),
   });
+  /** The two-phase receipt framing an interrupt and a stop-background
+   * share (review round 1): the immediate line - `requested` once the
+   * request is on the wire, or the refusal with its reason and no
+   * `requested` phase - then exactly one terminal receipt, tracked so the
+   * close waits for it. Only the event kind and the op call differ; each
+   * control's settlement semantics stay in the runner. */
+  const twoPhaseReceipt = (
+    kind: "interruption" | "background-stop",
+    id: string,
+    requested: SessionInterruptResult | SessionStopBackgroundResult,
+  ): Promise<void> => {
+    const line = (state: {
+      readonly state:
+        | SessionInterruptResult["state"]
+        | SessionStopBackgroundResult["state"]
+        | SessionInterruptReceipt["state"]
+        | SessionStopBackgroundReceipt["state"];
+      readonly reason?: SessionInterruptReceipt["reason"] | SessionStopBackgroundReceipt["reason"];
+    }) => ({
+      kind,
+      id,
+      state: state.state,
+      ...(state.reason !== undefined ? { reason: state.reason } : {}),
+    });
+    if (requested.state === "rejected") return emit(line(requested));
+    const written = emit(line({ state: "requested" }));
+    trackReceipt(requested.settled.then((settled) => emit(line(settled))));
+    return written;
+  };
   const answerCommand = async (
     id: string,
     outcome: Disposition | Promise<Disposition>,
@@ -335,24 +379,18 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
       }
       if (cmd.op === "close") return;
       if (cmd.op === "interrupt") {
-        const id = cmd.id;
-        const requested = a.handle.interrupt({ id });
-        if (requested.state === "rejected") {
-          await emit({ kind: "interruption", id, state: "rejected", reason: requested.reason });
-          continue;
-        }
-        // Two phases: the request is on the wire now; the terminal receipt
-        // follows the harness's own settlement.
-        await emit({ kind: "interruption", id, state: "requested" });
-        const receipt = requested.settled.then((settled) =>
-          emit({
-            kind: "interruption",
-            id,
-            state: settled.state,
-            ...(settled.reason !== undefined ? { reason: settled.reason } : {}),
-          }),
+        await twoPhaseReceipt("interruption", cmd.id, a.handle.interrupt({ id: cmd.id }));
+        continue;
+      }
+      if (cmd.op === "stop-background") {
+        // Same two-phase shape as an interrupt. `sent` names only acceptance
+        // of the stop request - the job's own end arrives as a `background`
+        // event, inside a turn or as a bare between-turn line.
+        await twoPhaseReceipt(
+          "background-stop",
+          cmd.id,
+          a.handle.stopBackground({ id: cmd.id, job: cmd.job }),
         );
-        trackReceipt(receipt);
         continue;
       }
       if (cmd.op === "approval") {

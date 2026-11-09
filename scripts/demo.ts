@@ -15,9 +15,8 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { createInterface } from "node:readline/promises";
+import { runInteractiveSession } from "../src/cli/interactive-session.js";
 import { createRenderState, renderEvent } from "../src/cli/render.js";
-import type { HarnessEvent } from "../src/execution/events.js";
 import { nodeRunnerDeps } from "../src/execution/node-deps.js";
 import { openSession } from "../src/execution/open-session.js";
 import { streamTurn } from "../src/execution/stream-turn.js";
@@ -66,26 +65,10 @@ const chat = async (h: HarnessDescriptor): Promise<void> => {
   }
   const sessionId = randomUUID();
   const session = openSession(h, { sessionId }, nodeRunnerDeps());
-  process.stdout.write(
-    dim(`interactive ${h.name} session ${sessionId}\n(empty line or "exit" to quit)\n`),
-  );
-
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  const turns = session.turns[Symbol.asyncIterator]();
-  try {
-    while (true) {
-      const line = (await rl.question(cyan("\nyou › "))).trim();
-      if (line === "" || line === "exit") break;
-      session.send({ id: `demo-${Date.now()}`, text: line });
-      const turn = (await turns.next()).value as AsyncIterable<HarnessEvent> | undefined;
-      if (turn === undefined) break;
-      const state = createRenderState();
-      for await (const event of turn) renderEvent(event, state);
-    }
-  } finally {
-    rl.close();
-    await session.close();
-  }
+  // The same interactive REPL `hcn session` runs: one consumer renders
+  // every turn and bare event, and a send's prompt returns with the next
+  // turn that ends - including a turn Claude merged the send into.
+  await runInteractiveSession(h, sessionId, session);
 };
 
 const argv = process.argv.slice(2);

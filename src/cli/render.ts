@@ -65,6 +65,27 @@ export const renderEvent = (
       process.stdout.write(dim(`\n  ⇄ compaction ${event.state}${counts}`));
       break;
     }
+    case "background": {
+      // An observation of a job the harness itself reported, including
+      // inline (foreground) Agent calls; `backgrounded` tells the two
+      // agent forms apart, so say which one ran. The flag rides only the
+      // event whose native line carried it (the job's first), so each
+      // event is labelled by what it alone carries: an agent's own label
+      // already says which form ran, a shell keeps the `background`
+      // prefix. The label text is the harness's own (a description while
+      // running, a summary at the end), kept verbatim.
+      const what =
+        event.job === "agent"
+          ? event.backgrounded === false
+            ? "inline agent"
+            : event.backgrounded === true
+              ? "background agent"
+              : "agent"
+          : `background ${event.job}`;
+      const label = event.description ?? event.detail ?? event.summary ?? "";
+      process.stdout.write(dim(`\n  ◍ ${what} ${event.state}${label === "" ? "" : ` ${label}`}`));
+      break;
+    }
     case "limit":
       process.stdout.write(yellow(`\n  ⚠ limit: ${event.code} ${event.message}`));
       break;

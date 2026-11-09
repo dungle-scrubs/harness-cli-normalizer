@@ -121,6 +121,12 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
         kind: "claude-can-use-tool",
         spawnFlags: ["--permission-prompt-tool", "stdio"],
       },
+      // Background jobs (verified 2.1.319, evidence 2026-11-09): stopping
+      // one is the native `stop_task` control request, answered by a
+      // control_response. The receipt says only that the request was sent;
+      // the job's own end arrives on the stream as a task_updated /
+      // task_notification pair, which hcn emits as `background` events.
+      stopBackground: { kind: "claude-stop-task" },
     },
     turnEnd: { type: "result" },
     identityProbe: null,

@@ -293,6 +293,23 @@ case "$help_session" in
     ;;
 esac
 
+# Background jobs and the stop-background op are additive (claude 2.1.319
+# evidence, 2026-11-09); a maintainer/CI run treats a build without the
+# surface as a miss.
+case "$help_session" in
+  *"stop-background"*)
+    require "hcn session --help (stop-background)" "$help_session" \
+      "background events" "parentCallId" "background-stop" "controls.stopBackground.supported" \
+      "the request was accepted"
+    ;;
+  *)
+    if [ "${CHECK_CLAIMS_REQUIRE_SESSION_CONTROLS:-0}" = 1 ]; then
+      printf 'MISS: session stop-background op required for this verification\n'
+      misses=$((misses + 1))
+    fi
+    ;;
+esac
+
 # The setting-sources selection is additive (issue #457).
 case "$help_run" in
   *"--setting-sources"*)

@@ -12,7 +12,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import type { HarnessEvent } from "../src/execution/events.js";
 import { nodeRunnerDeps } from "../src/execution/node-deps.js";
-import { openSession } from "../src/execution/open-session.js";
+import { isSessionTurn, openSession } from "../src/execution/open-session.js";
 import { streamTurn } from "../src/execution/stream-turn.js";
 import { claudeCode } from "../src/knowledge/claude-code.js";
 
@@ -85,7 +85,11 @@ try {
 const sessionId = crypto.randomUUID();
 try {
   const session = openSession(claudeCode, { sessionId }, deps());
-  const turnsIter = session.turns[Symbol.asyncIterator]();
+  const turnsIter = (async function* () {
+    for await (const item of session.turns) {
+      if (isSessionTurn(item)) yield item;
+    }
+  })();
 
   session.send({ id: "s", text: "Remember the codeword: pomegranate. Reply with only: OK" });
   const turn1 = (await withTimeout("session turn1 start", turnsIter.next()))

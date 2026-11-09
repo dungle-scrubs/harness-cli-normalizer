@@ -78,6 +78,7 @@ if [ -n "$working_hcn" ]; then
     "$working_hcn" $cmd --help 2>&1 \
       | sed -e '/--native-approvals/d' -e '/--setting-sources/d' -e '/"op":"settings"/d' \
         -e '/transcript read/d' -e '/unconfined commands/d' \
+        -e '/stop-background/d' -e '/parentCallId/d' -e '/controls.stopBackground.supported/d' \
       >"$fixture_dir/pre-controls/help${cmd:-top}.txt"
   done
   {
@@ -108,7 +109,7 @@ EOF
     /bin/bash "$script" 2>&1)
   rc=$?
   case "$out" in
-    *"MISS: session --native-approvals required"*"MISS: session settings op and verbatim required"*"MISS: --setting-sources required"*) required_lines=1 ;;
+    *"MISS: session --native-approvals required"*"MISS: session settings op and verbatim required"*"MISS: session stop-background op required"*"MISS: --setting-sources required"*) required_lines=1 ;;
     *) required_lines=0 ;;
   esac
   if [ "$rc" -eq 1 ] && [ "$required_lines" -eq 1 ]; then

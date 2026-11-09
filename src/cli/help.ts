@@ -246,7 +246,7 @@ Options:
   --json                    Machine surface: NDJSON events on stdout, NDJSON
                             commands on stdin ({"op":"send","id":..,"text":..},
                             "answer", "interrupt", "settings", "approval",
-                            "close"). Send and answer
+                            "stop-background", "close"). Send and answer
                             accept optional "delivery":"queue"|"steer"; send
                             also accepts "verbatim":true, which writes the
                             text with no question preamble - how a host
@@ -263,10 +263,12 @@ Options:
                             one settings event per op (applied with the
                             confirmed model, or rejected with a reason).
                             The session event advertises controls.deliveryModes,
-                            controls.interrupt.supported and
-                            controls.approvals.supported. Claude interrupt
+                            controls.interrupt.supported,
+                            controls.approvals.supported and
+                            controls.stopBackground.supported. Claude interrupt
                             support starts false and follows what the process
-                            advertises; read the latest identity event's
+                            advertises; stop-background is true on Claude
+                            without one; read the latest identity event's
                             capabilities.sessionControls. Unsupported modes
                             reject unsupported-delivery without writing input.
                             Every send/answer gets one disposition, in command
@@ -279,6 +281,21 @@ Options:
                             interrupted | not-active | rejected. Send replacement
                             text after the terminal receipt. Cancellation is best
                             effort; the conversation and native queues remain.
+                            Background jobs (claude task records,
+                            inline Agent calls included) surface as
+                            background events (id, job shell|agent, state
+                            running|completed|failed|stopped, backgrounded
+                            when the native line carried it); a subagent's
+                            own tool, tool-result and message events carry
+                            parentCallId. {"op":"stop-background","id":..,
+                            "job":..} stops one job by that id (claude only):
+                            background-stop state requested, then sent | rejected
+                            (native-rejected | closed | write-failed |
+                            unsupported elsewhere).
+                            The receipt says the request was accepted, not that
+                            the job ended - its end arrives as a background
+                            event, inside the turn that runs it or as a bare
+                            line between turns.
                             The stream opens with a session event and ends
                             with a closed event. Exit 0 clean, 1 otherwise,
                             2 refusal, 4 hcn internal crash (failure/closed pair,

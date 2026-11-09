@@ -162,6 +162,19 @@ export interface SessionControls {
    * is a descriptor fact; a live session advertises it only when it was
    * opened with `--native-approvals`. */
   readonly approvals?: SessionApprovalChannel | null;
+  /** Stopping one background job while the same process continues, or
+   * null/absent when unsupported (verified 2.1.319: claude's `stop_task`
+   * control request). The stop is a request: the receipt never claims
+   * the job ended - the job's own end arrives on the stream as a
+   * `background` event. */
+  readonly stopBackground?: SessionStopBackgroundControl | null;
+}
+
+/** The native stop-a-background-job channel. Naming the mechanism keeps
+ * the descriptor fact shaped like the channels beside it; the wire
+ * spelling (claude's `stop_task` control request) lives in interpretation. */
+export interface SessionStopBackgroundControl {
+  readonly kind: "claude-stop-task";
 }
 
 export interface SessionInputContract {
