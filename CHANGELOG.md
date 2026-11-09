@@ -5,6 +5,27 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.19](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.18...v0.9.19) (2026-11-09)
+
+
+### Added
+
+* Claude background jobs, subagent steps and stop-background ([#468](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/468)) ([2f188ff](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/2f188ff92f62fe3c9efd7392fb7a198f582a7ca8))
+
+
+### Fixed
+
+* keep the models list out of usage field maps ([#465](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/465)) ([7e9451d](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/7e9451de4e91efa332f4d314f974c5d91841f95d))
+* stop failing a recovered turn on an over-long output line ([#467](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/467)) ([e406b1e](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/e406b1e03433dc90d6bbc321e7bfafc68a72c400))
+
+
+### Changed
+
+* **deps-dev:** bump @biomejs/biome from 2.6.3 to 2.6.4 ([#453](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/453)) ([5167231](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/5167231e633a35ee3677255cd9ead584c47837f0))
+* **deps-dev:** bump @types/node from 26.6.5 to 26.6.6 ([#451](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/451)) ([9977df7](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/9977df77ca0beab4894b98d7bbb8143cedaffed1))
+* **deps:** bump koffi from 3.3.4 to 3.3.6 ([#452](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/452)) ([f972142](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/f97214247cc3767b3bdff977f4ebc9bf7d288080))
+* point biome.json at the 2.6.4 schema ([#464](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/464)) ([6206d3b](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/6206d3bace8c9a3c51c34d7eba91cbb5eb890f7c))
+
 ## [0.9.18](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.17...v0.9.18) (2026-11-07)
 
 
