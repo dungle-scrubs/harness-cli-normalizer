@@ -3,13 +3,16 @@
  * behavior (approval ops on stdin, approval-request/disposition events on
  * stdout) is driven through runJsonSession over a real openSession on a
  * fake native process; the pre-spawn refusals and the spawn argv are
- * driven through the built CLI with a fake claude on PATH.
+ * driven through the built CLI with a fake claude and a fake pi on PATH
+ * (issue #469: pi declares the channel too, so the refusal case moved to
+ * codex).
  */
 import { PassThrough } from "node:stream";
 import { describe, expect, test } from "vitest";
 import { runJsonSession } from "../../src/cli/session-json.js";
 import { openSession } from "../../src/execution/open-session.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
+import { UUID_SHAPE } from "../../src/knowledge/descriptor.js";
 import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "../execution/fakes.js";
 import { runCliFixture, runtimes } from "./session-fixture.js";
 
@@ -216,12 +219,36 @@ describe("issue #454/#455: the flag's pre-spawn refusals and the spawn argv", ()
   test.each(runtimes)(
     "%s: --native-approvals on a harness with no channel refuses with exit 2",
     (runtime) => {
-      const run = runSession(runtime, ["pi", "--json", "--native-approvals"]);
+      const run = runSession(runtime, ["codex", "--json", "--native-approvals"]);
       expect(run.status).toBe(2);
       expect(run.argv).toBeNull();
       // The refused --json stream still owes its terminal pair.
       expect(run.events.at(-1)).toMatchObject({ kind: "closed", cause: "failed" });
       expect(run.stderr).toContain("no session permission channel");
+    },
+  );
+
+  test.each(runtimes)(
+    "%s: with --json on pi the spawn is unchanged and the controls advertise the channel",
+    (runtime) => {
+      // Issue #469: pi's extension UI needs no flag, so arming the
+      // channel adds nothing to the spawn argv.
+      const run = runSession(runtime, ["pi", "--json", "--native-approvals"]);
+      expect(run.status).toBe(0);
+      expect(run.argv).not.toBeNull();
+      // The capture holds the fake peer's own argv: the interpreter, the
+      // script, then the spawn argv hcn built (the kernel replaces argv[0]
+      // with the script path, so the spawned binary's name is the script
+      // path).
+      expect(run.argv?.[1]).toMatch(/\/pi$/);
+      const argv = run.argv?.slice(2) ?? [];
+      expect(argv.slice(0, 3)).toEqual(["--mode", "rpc", "--session-id"]);
+      expect(argv).toHaveLength(4);
+      expect(argv[3]).toMatch(UUID_SHAPE);
+      expect(run.events[0]).toMatchObject({
+        kind: "session",
+        controls: { approvals: { supported: true } },
+      });
     },
   );
 

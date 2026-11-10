@@ -635,12 +635,15 @@ a malformed command.
 
 ### Session native approvals
 
-`hcn session claude --json --native-approvals` (Claude only, `--json` only;
-refuses exit 2 otherwise, and other session harnesses refuse the flag)
-forwards each native permission request to the session host: the spawn adds
+`hcn session claude --json --native-approvals` (Claude and pi, `--json`
+only; refuses exit 2 otherwise, and other session harnesses refuse the
+flag) forwards each native permission request to the session host: on
+Claude the spawn adds
 `--permission-prompt-tool stdio`, and each permission-gated tool call,
 AskUserQuestion and ExitPlanMode plan approval arrives as one
-`approval-request` event inside the current turn. Claude resolves deny
+`approval-request` event inside the current turn. On pi the spawn is
+unchanged and each extension `select` or `input` dialog arrives as one
+`approval-request` event (`confirm` and `editor` stay ignored). Claude resolves deny
 rules, hooks and managed policy BEFORE asking, so a denied tool never
 reaches you; hcn adds no rule and stores nothing across processes.
 
@@ -684,6 +687,18 @@ stdin pipe breaking each emit
 and can no longer be answered. While any request waits, `--stall` pauses
 for that turn. Surface the request to your user; the choice is theirs, and
 a `suggestion-N` grant (or a deny) is exactly what its label says.
+
+A pi `select` dialog is a question: `category` is `question`, `tool` is
+`select`, `details` is the dialog title and `input` is the native request
+unchanged. Answer it with the `answer` choice and exactly one answer keyed
+by the title, whose value is one of the offered options exactly. A pi
+`input` dialog (`tool` `input`) is a free-text question - `freeText: true`,
+empty `options`, the native `placeholder` when sent - answered with any
+non-empty text keyed by the title. Decline either
+with `decline` (pi's cancel reply carries no message). A pi dialog
+outlives its turn - it stays answerable, and one raised between turns
+arrives with no `turnId` - and a dialog with a native timeout is cleared
+`native-resolved` when it expires.
 
 ### Mid-session model and effort
 

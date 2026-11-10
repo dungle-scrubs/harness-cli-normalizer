@@ -49,7 +49,8 @@ describe("session controls are descriptor facts", () => {
       [piCli.name]: {
         deliveryModes: ["queue", "steer"],
         interrupt: { supported: true, toolCancellation: "best-effort" },
-        approvals: { supported: false },
+        // Issue #469: pi's extension UI is the session approvals channel.
+        approvals: { supported: true },
         stopBackground: { supported: false },
       },
       [codexCli.name]: {

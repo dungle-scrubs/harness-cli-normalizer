@@ -1,9 +1,10 @@
 # Native approvals for one resumed response
 
 Two lanes share the `--native-approvals` flag: the Codex one-shot lane
-below, and the Claude session lane in
-[reference.md's session approvals](reference.md#session-native-approvals),
-which forwards requests to the session host instead of gating a single
+below, and the session lane in
+[reference.md's session approvals](reference.md#session-native-approvals)
+(Claude permission requests; pi extension `select` and `input` dialogs), which forwards
+requests to the session host instead of gating a single
 response.
 
 Check `hcn run --help` for `--native-approvals`. An older binary refuses the

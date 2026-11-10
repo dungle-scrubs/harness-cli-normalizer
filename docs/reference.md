@@ -954,13 +954,22 @@ malformed command, and the session continues.
 `hcn session claude --json --native-approvals` arms Claude's native
 permission channel: the spawn adds `--permission-prompt-tool stdio`, and each
 permission-gated tool call arrives as a `can_use_tool` control request that
-hcn forwards to the session host instead of answering itself. Without the
-flag nothing changes. The flag refuses (exit 2) without `--json` and on every
-other session harness; `session.controls.approvals.supported` and
-`hcn inspect <h> --capabilities`'s `sessionControls.approvals` report the
+hcn forwards to the session host instead of answering itself.
+
+`hcn session pi --json --native-approvals` arms pi's extension UI channel
+(issue #469). The spawn argv is unchanged - pi's extension UI is always on in
+RPC mode - and only `select` and `input` dialogs are forwarded. `confirm`
+and `editor` are emitted the same way and stay ignored, as do the
+fire-and-forget methods (`notify`, `setStatus`, `setWidget`, `setTitle`,
+`set_editor_text`), which carry no request id to answer.
+
+Without the flag nothing changes. The flag refuses (exit 2) without `--json`
+and on every session harness that declares no channel; `session.controls.approvals.supported`
+and `hcn inspect <h> --capabilities`'s `sessionControls.approvals` report the
 live and the potential support.
 
-Each request becomes one `approval-request` event inside the current turn:
+On Claude, each request becomes one `approval-request` event inside the
+current turn:
 
 ```jsonl
 {"kind":"approval-request","v":1,"requestId":"<native id>","sessionId":"..","turnId":"..","category":"tool","tool":"Write","details":"<native description, or the display name>","input":{...native tool input, unchanged...},"choices":[{"id":"allow","label":"Allow","scope":"once"},{"id":"suggestion-1","label":"Allow, and accept edits for this session","scope":"session","update":{...native suggestion, unchanged...}},{"id":"deny","label":"Deny","scope":"deny"}]}
@@ -1031,6 +1040,51 @@ entirely.
 Claude resolves deny rules, hooks and the managed policy before it asks the
 host; hcn adds no rule of its own. The pending map is per process: nothing
 persists across processes, and the caller owns durable choice records.
+
+#### Pi extension dialogs
+
+A pi `select` or `input` dialog becomes one `approval-request` event:
+
+```jsonl
+{"kind":"approval-request","v":1,"requestId":"<native id>","sessionId":"..","turnId":"..","category":"question","tool":"select","details":"<the dialog title>","input":{...the native extension_ui_request, unchanged...},"questions":[{"question":"<the dialog title>","multiSelect":false,"options":[{"label":"1. A"}]}],"choices":[{"id":"answer","label":"Answer","scope":"once"},{"id":"decline","label":"Decline to answer","scope":"deny"}]}
+```
+
+```jsonl
+{"kind":"approval-request","v":1,"requestId":"<native id>","sessionId":"..","turnId":"..","category":"question","tool":"input","details":"<the dialog title>","input":{...the native extension_ui_request, unchanged...},"questions":[{"question":"<the dialog title>","multiSelect":false,"freeText":true,"placeholder":"<native placeholder, when sent>","options":[]}],"choices":[{"id":"answer","label":"Answer","scope":"once"},{"id":"decline","label":"Decline to answer","scope":"deny"}]}
+```
+
+- `category` is `question` and `tool` is `select` or `input` - the native
+  dialog method.
+  Pi's dialog names no tool, so the method is the whole of what the native
+  request says. `details` is the dialog title and `input` is the native
+  request record unchanged.
+- The host answers with the `answer` choice and exactly one answer, keyed by
+  the dialog title: `answers` must hold one entry, a string or an array of
+  exactly one string. For `select` the value must be one of the offered
+  option strings, exactly. For `input` (`freeText: true`, empty `options`)
+  any non-empty text is the answer. A value that was not offered, a second answer, an array of two
+  and an unknown key are all `invalid-answers`; a `message` on an answer is
+  `invalid-message`. The native reply is
+  `{"type":"extension_ui_response","id":..,"value":"<the option>"}`.
+- The `decline` choice cancels the dialog: `answers` on it is
+  `invalid-answers` and a `message` is `invalid-message`, because pi's
+  cancel reply carries no message. The native reply is
+  `{"type":"extension_ui_response","id":..,"cancelled":true}`.
+
+A pi request is NOT cleared at turn end: pi resolves the dialog itself, so a
+dialog raised in a turn stays answerable after that turn ends (answering it
+afterwards still returns `sent` and writes the reply). It may also arrive
+between turns, with no turn open - such an event carries no `turnId`, and it
+arrives on the turns iterable as a bare line rather than inside a turn. A
+dialog that carries a native `timeout` is cleared `native-resolved` when the
+timeout expires (pi resolves it itself, and hcn stops waiting for it); the
+answer right is gone then, and a later decision is `unknown-request`.
+
+Pi announces no withdrawal. A dialog pi cancels on its own - an abort
+inside pi, for example after an interrupt - leaves hcn's request waiting: an
+answer to it is written and pi drops it, so `sent` means the reply was
+written, not that pi received it. A request still waiting when the process
+exits is cleared `process-ended` like any other.
 
 ### Mid-session model and effort
 

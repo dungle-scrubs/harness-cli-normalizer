@@ -91,6 +91,27 @@ export const piCli: HarnessDescriptor = deepFreeze({
     controls: {
       delivery: ["queue", "steer"],
       interrupt: { toolCancellation: "best-effort" },
+      // Issue #469, verified 1.4.0: in RPC mode pi raises an extension
+      // UI dialog as `{"type":"extension_ui_request","id":..,"method":..,
+      // "title":..,"options":[..]}` on stdout and waits for one
+      // `{"type":"extension_ui_response","id":..,"value":..}` (or
+      // `{"cancelled":true}`) line on stdin. A `select` or `input` dialog
+      // names no tool - it is a question - so it is forwarded as one
+      // (`input` as a free-text question; `{"type":..,"method":"input",
+      // "title":..,"placeholder":..}`).
+      //
+      // Only `select` and `input` are forwarded. `confirm` and `editor`
+      // are emitted the same way and stay ignored, and the fire-and-forget
+      // methods (`notify`, `setStatus`, `setWidget`, `setTitle`,
+      // `set_editor_text`) carry no request id to answer.
+      //
+      // The channel needs no flag: the extension UI is always on in RPC
+      // mode, so the spawn argv is unchanged.
+      approvals: {
+        kind: "pi-extension-ui",
+        spawnFlags: [],
+        dialogs: ["select", "input"],
+      },
     },
     turnEnd: { type: "agent_settled" },
     identityProbe: { command: "get_state", responseIdField: "data.sessionId" },

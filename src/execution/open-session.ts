@@ -32,6 +32,10 @@ import {
 import { overflowIsEcho } from "../interpretation/overflow.js";
 import { composeEscalatedPrompt, type QuestionMode } from "../interpretation/question.js";
 import {
+  claudeApprovalProtocol,
+  sessionApprovalProtocolOf,
+} from "../interpretation/session-approvals.js";
+import {
   correlatesByInputUuid,
   decodeSessionRecord,
   encodeIdentityProbe,
@@ -480,6 +484,13 @@ export const openSession = (
   // harness whose descriptor declares the channel), unlike interrupt
   // support which the running claude process advertises per init.
   const approvalsArmed = opts.nativeApprovals === true && h.sessionMode?.controls.approvals != null;
+  // Issue #469: the wire of the session's approval channel. A harness
+  // that declares no channel never arms approvals, so the Claude
+  // protocol there is an unreachable default (kept so the tracker always
+  // has a wire).
+  const approvalChannel = h.sessionMode?.controls.approvals ?? null;
+  const approvalProtocol =
+    approvalChannel === null ? claudeApprovalProtocol : sessionApprovalProtocolOf(approvalChannel);
   const potentialControls: SessionControlsCapability = sessionControlsOf(h) ?? {
     deliveryModes: [],
     interrupt: { supported: false },
@@ -520,6 +531,9 @@ export const openSession = (
   const approvals: SessionApprovalTracker = createSessionApprovalTracker({
     sessionId: opts.sessionId,
     announcedSessionId: () => state.lastSeenId ?? opts.sessionId,
+    protocol: approvalProtocol,
+    clock: deps.clock,
+    activeTurn: () => activeTurn,
     log,
     routeEvent: (event) => routeEvent(event),
     pauseInactivity: () => sup.pauseInactivity(),
@@ -1104,6 +1118,17 @@ export const openSession = (
     if (event.kind === "background" && !activeTurnPublished) {
       return turnsChannel.push(event);
     }
+    // Issue #469: an approval request or a clearing belongs to the turn
+    // it was raised in - but a request raised between turns (pi's
+    // extension dialog) has no turn, and a clearing can happen after the
+    // turn ended. Such an event is a bare line on the turns iterable,
+    // never parked for a turn that may never come.
+    if (
+      (event.kind === "approval-request" || event.kind === "approval-cleared") &&
+      !activeTurnPublished
+    ) {
+      return turnsChannel.push(event);
+    }
     // A provisional turn is published as its evidence arrives - streaming is
     // never withheld. Only run output is evidence of a run; a failure or
     // error observed locally is owed to the send. Everything else (identity,
@@ -1438,23 +1463,33 @@ export const openSession = (
         }
         case "approval-request": {
           // Issue #454/#455: the child asked the host about a tool use.
-          // Without --native-approvals no channel was armed and the child
-          // raises none; an unexpected one is dropped, never half-forwarded.
+          // Issue #469: pi raised an extension UI dialog. Without
+          // --native-approvals no channel was armed and the child raises
+          // none; an unexpected one is dropped, never half-forwarded.
           if (!approvalsArmed) return;
           // A request the tracker already knows (waiting, or answered) is
           // a replay: it gets none of a first sighting's side effects - in
           // particular it must not open a new turn after its own ended.
           if (!approvals.isKnown(record.requestId)) {
-            // The event rides inside the current turn: a provisional turn
-            // publishes like any other run output would, and with no turn
-            // open the request opens one of its own (untagged).
-            if (activeTurn !== null && !activeTurnPublished) publishUntagged();
-            else if (activeTurn === null && !dead && !closing) startTurn();
+            if (approvalProtocol.clearsAtTurnEnd) {
+              // The event rides inside the current turn: a provisional turn
+              // publishes like any other run output would, and with no turn
+              // open the request opens one of its own (untagged).
+              if (activeTurn !== null && !activeTurnPublished) publishUntagged();
+              else if (activeTurn === null && !dead && !closing) startTurn();
+            } else if (activeTurn !== null && !activeTurnPublished) {
+              // Issue #469: pi's dialog outlives its turn, so no turn is
+              // opened for it. A provisional turn is published (pi is not
+              // uuid-correlated) so the event has a home.
+              publishTurn();
+            }
           }
           // Awaited: past the turn channel's high-water mark this blocks
           // the stdout pump, so a flooding child meets its consumer's
           // pace instead of buffering unbounded request events.
-          await approvals.offer(record.requestId, record.proposal, activeTurn);
+          await approvals.offer(record.requestId, record.proposal, activeTurn, {
+            ...(record.timeoutMs === undefined ? {} : { timeoutMs: record.timeoutMs }),
+          });
           // A request arriving while a closing drain waits on this turn
           // can never be answered (the command stream has ended), so the
           // wait is now unbounded: wake the drain, whose re-check breaks
@@ -1613,7 +1648,8 @@ export const openSession = (
     settings.closeAll();
     // Issue #454: every request still waiting dies with the process. The
     // cleared events land before the dying turn's done; with no turn open
-    // they park with the other pre-turn events.
+    // they are bare lines on the turns iterable (issue #469), never
+    // parked for a turn that may never come.
     approvals.clearAll();
     // Issue #345: a refused identity probe lands here with popeyePending
     // already drained by the probe-failed arm and sessionFailure set.

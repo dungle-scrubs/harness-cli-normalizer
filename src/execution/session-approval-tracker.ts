@@ -16,13 +16,13 @@
  * write, the way the runner's other lanes split interpretation from
  * execution.
  */
-import {
-  applySessionApprovalDecision,
-  encodeClaudeControlResponse,
-  type SessionApprovalDecision,
-  type SessionApprovalProposal,
+import type {
+  SessionApprovalDecision,
+  SessionApprovalProposal,
+  SessionApprovalProtocol,
 } from "../interpretation/session-approvals.js";
 import { NATIVE_APPROVAL_LIMITS } from "../knowledge/native-approvals.js";
+import type { Clock, TimerHandle } from "./deps.js";
 import type { HarnessEvent } from "./events.js";
 
 /** One decision as the host submitted it - the shape the session handle,
@@ -63,6 +63,15 @@ export interface SessionApprovalTrackerIO {
    * harness-minted id on pi-style sessions; claude confirms the
    * caller's). */
   readonly announcedSessionId: () => string;
+  /** The wire of this session's channel: the native reply a decision
+   * becomes, and whether a request dies with its turn (issue #469). */
+  readonly protocol: SessionApprovalProtocol;
+  /** The session's clock, for a native dialog timeout (issue #469: pi
+   * resolves a dialog that carries one when it expires). */
+  readonly clock: Clock;
+  /** The turn currently open, for the stall rule: only a request on the
+   * active turn pauses the inactivity clock. */
+  readonly activeTurn: () => object | null;
   readonly log: (entry: Record<string, unknown>) => void;
   readonly routeEvent: (event: HarnessEvent) => Promise<void> | void;
   readonly pauseInactivity: () => void;
@@ -80,6 +89,11 @@ interface WaitingApproval {
   readonly requestId: string;
   readonly proposal: SessionApprovalProposal;
   readonly turn: object | null;
+  /** The turn id the request was raised in, when it was raised in one
+   * (issue #469: a request raised between turns has none). */
+  readonly turnId?: string;
+  /** The native timeout timer, when the request carries one. */
+  readonly timer?: TimerHandle;
 }
 
 export interface SessionApprovalTracker {
@@ -92,6 +106,7 @@ export interface SessionApprovalTracker {
     requestId: string,
     proposal: SessionApprovalProposal,
     turn: object | null,
+    options?: { readonly timeoutMs?: number },
   ): Promise<void> | void;
   /** Whether the id is already known - waiting, or answered (a
    * tombstone). The caller uses this to give a duplicate none of the
@@ -133,7 +148,15 @@ export const createSessionApprovalTracker = (
   };
 
   const syncStall = (): void => {
-    if (waiting.size > 0) io.pauseInactivity();
+    // Issue #469: only a request that belongs to the ACTIVE turn pauses
+    // the inactivity clock - a human is deciding right now. A request
+    // left over from an earlier turn (pi's dialog outlives its turn) or
+    // one raised between turns does not: the next turn's budget counts.
+    const active = io.activeTurn();
+    const onActiveTurn = [...waiting.values()].some(
+      (entry) => entry.turn !== null && entry.turn === active,
+    );
+    if (onActiveTurn) io.pauseInactivity();
     else io.resumeInactivity();
   };
 
@@ -142,6 +165,7 @@ export const createSessionApprovalTracker = (
     reason: "native-resolved" | "turn-ended" | "process-ended" | "channel-failed",
   ): Promise<void> | void => {
     waiting.delete(entry.requestId);
+    if (entry.timer !== undefined) io.clock.clearTimeout(entry.timer);
     io.log({
       event: "approval_cleared",
       sessionId: io.sessionId,
@@ -153,7 +177,7 @@ export const createSessionApprovalTracker = (
   };
 
   return {
-    offer(requestId, proposal, turn) {
+    offer(requestId, proposal, turn, options) {
       if (waiting.has(requestId) || answered.has(requestId)) return;
       if (waiting.size >= NATIVE_APPROVAL_LIMITS.pending) {
         // The cap exists so a pathological child cannot hold the session
@@ -162,10 +186,8 @@ export const createSessionApprovalTracker = (
         // an error event naming it - never a silent drop. The write is
         // guarded like every other: a broken pipe runs the session's
         // shutdown instead of throwing through the stdout pump.
-        const line = encodeClaudeControlResponse(requestId, {
-          behavior: "deny",
-          message: `denied by hcn: ${NATIVE_APPROVAL_LIMITS.pending} permission requests are already waiting`,
-        });
+        const message = `denied by hcn: ${NATIVE_APPROVAL_LIMITS.pending} permission requests are already waiting`;
+        const line = io.protocol.refuse(requestId, message);
         try {
           io.write(line);
         } catch {
@@ -183,7 +205,29 @@ export const createSessionApprovalTracker = (
           message: `permission request ${JSON.stringify(requestId)} denied: ${NATIVE_APPROVAL_LIMITS.pending} requests already waiting`,
         });
       }
-      waiting.set(requestId, { requestId, proposal, turn });
+      // Issue #469: a request raised between turns has no turn to name,
+      // and the event says so by carrying no turnId.
+      const turnId = turn === null ? undefined : io.turnId();
+      // Issue #469: a native timeout is the harness's own clock - pi
+      // resolves such a dialog itself when it expires, so hcn clears it
+      // as native-resolved when the timer fires.
+      const timer =
+        options?.timeoutMs === undefined
+          ? undefined
+          : io.clock.setTimeout(() => {
+              const entry = waiting.get(requestId);
+              if (entry === undefined) return;
+              const delivery = clearOne(entry, "native-resolved");
+              syncStall();
+              void delivery;
+            }, options.timeoutMs);
+      waiting.set(requestId, {
+        requestId,
+        proposal,
+        turn,
+        ...(turnId === undefined ? {} : { turnId }),
+        ...(timer === undefined ? {} : { timer }),
+      });
       syncStall();
       io.log({
         event: "approval_request",
@@ -198,7 +242,7 @@ export const createSessionApprovalTracker = (
         v: 1,
         requestId,
         sessionId: io.announcedSessionId(),
-        turnId: io.turnId(),
+        ...(turnId === undefined ? {} : { turnId }),
         category: proposal.category,
         tool: proposal.tool,
         details: proposal.details,
@@ -219,6 +263,10 @@ export const createSessionApprovalTracker = (
       return delivery;
     },
     clearTurn(turn) {
+      // Issue #469: a channel whose requests die with their turn clears
+      // them here; pi's extension dialog outlives its turn and stays
+      // answerable, so the tracker does nothing for it.
+      if (!io.protocol.clearsAtTurnEnd) return;
       let cleared = false;
       for (const entry of [...waiting.values()]) {
         if (entry.turn !== turn) continue;
@@ -256,14 +304,15 @@ export const createSessionApprovalTracker = (
       const entry = waiting.get(decision.requestId);
       if (entry === undefined) return rejected("unknown-request");
       if (io.isClosed()) return rejected("closed");
-      const applied = applySessionApprovalDecision(entry.proposal, decision);
+      const applied = io.protocol.decide(decision.requestId, entry.proposal, decision);
       if (!applied.ok) return rejected(applied.reason);
       // Encode BEFORE consuming: an encode failure must leave the request
       // answerable. The input came from JSON.parse so this cannot fail in
       // practice; the order is the contract, not the reachability.
-      const line = encodeClaudeControlResponse(decision.requestId, applied.reply);
+      const line = applied.line;
       // Consumed before the write: an uncertain delivery is never retried.
       waiting.delete(decision.requestId);
+      if (entry.timer !== undefined) io.clock.clearTimeout(entry.timer);
       tombstone(decision.requestId);
       syncStall();
       try {

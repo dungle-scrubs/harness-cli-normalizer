@@ -188,7 +188,8 @@ With `--json`, you write commands to stdin, one JSON object per line (`send`, `a
 opened by a send carry its id. Check the session packet's `controls` before choosing `delivery`
 `queue` or `steer`, or interrupting and sending a replacement after confirmation. On a Claude
 session, `--native-approvals` forwards each permission request, AskUserQuestion and plan approval
-to you as `approval-request` events; see
+to you as `approval-request` events; on a pi session it forwards each extension `select` and `input`
+dialog (a dialog stays open across turns). See
 [the reference](docs/reference.md#session-native-approvals). On Claude and pi sessions, the
 `settings` op changes model and effort mid-session, and `send` takes `"verbatim": true` to type
 the harness's own slash command untouched (Claude slash commands; on pi only extension commands
@@ -350,7 +351,7 @@ program and the harness, so if you use only one CLI, you may prefer to call that
 - Sessions work with Claude Code, Codex, pi, Antigravity CLI, and popeye. Muse and Cursor CLI run
   single turns only.
 - `hcn interactive` supports Codex only.
-- `--native-approvals` supports Codex one-shot responses and Claude sessions.
+- `--native-approvals` supports Codex one-shot responses and Claude and pi sessions.
   Saved-settings inspection supports Codex and pi.
 - The weekly version check in CI covers the harnesses published to npm. Muse, Cursor CLI, and
   Antigravity CLI are checked locally with their own version commands.
