@@ -74,6 +74,16 @@ export const transcriptStoreRoot = (
     // spawn cwd names the directory the child uses.
     return resolve(opts.cwd, ".popeye", "sessions");
   }
+  if (harness === "opencode") {
+    // The OpenCode CLI keeps its sessions in a SQLite store under the XDG
+    // data root: `$XDG_DATA_HOME/opencode` or `~/.local/share/opencode`.
+    // There is no per-session file, and the transcript surface is null,
+    // so this names the store's directory and nothing reads it yet.
+    const value = opts.env.XDG_DATA_HOME;
+    return isSet(value)
+      ? resolve(at(value), "opencode")
+      : resolve(opts.home, ".local", "share", "opencode");
+  }
   const exhaustive: never = harness;
   throw new Error(`transcriptStoreRoot: unreachable harness ${String(exhaustive)}`);
 };

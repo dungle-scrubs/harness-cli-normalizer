@@ -1,6 +1,6 @@
 # harness-cli-normalizer
 
-`hcn` is a CLI that drives seven coding-agent harnesses through one surface. It
+`hcn` is a CLI that drives eight coding-agent harnesses through one surface. It
 does two different jobs, and the difference matters enough to name: it
 **normalizes** the harnesses' interfaces, and it **supervises** the runs it
 starts. This file says which parts are which.
@@ -13,7 +13,7 @@ There is no supported way to import them.
 
 ### The two jobs
 
-**Normalize**: express what seven harnesses each do in one vocabulary, deciding
+**Normalize**: express what eight harnesses each do in one vocabulary, deciding
 nothing. A normalizing part translates. Remove it and you write the translation
 yourself, but the same runs succeed and fail at the same moments. _Avoid_:
 "abstract", "wrap".
@@ -31,7 +31,7 @@ says "this is not available here" instead of pretending parity. _Avoid_:
 ### The domain
 
 **Harness**: one coding-agent CLI that hcn drives - claude, codex, pi, muse, cursor,
-antigravity, or popeye.
+antigravity, popeye, or opencode.
 _Avoid_: "provider" (that is the model vendor), "agent" (that is the model; a
 harness's selectable persona is a **named agent**, never a bare "agent").
 
@@ -116,7 +116,7 @@ These translate and decide nothing:
 - forwarding a user-selected Claude configuration directory as native launch
   environment, with inherited and per-run choices taking precedence. hcn
   selects no account and changes no authentication storage
-- the saved-session listing: one row shape over six store layouts
+- the saved-session listing: one row shape over seven store layouts
 - divergence reporting
 
 ## What hcn supervises

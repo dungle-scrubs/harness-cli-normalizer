@@ -1,7 +1,7 @@
 /** Successful native turn delimiters, not assistant-message heuristics.
  * These are the same wire shapes the content/session readers consume. */
 import type { HarnessName } from "../knowledge/descriptor.js";
-import { asRecord } from "./shape.js";
+import { asRecord, readPath as at } from "./shape.js";
 
 export const successfulTurnEnd = (harness: HarnessName, raw: unknown): boolean => {
   const r = asRecord(raw);
@@ -22,5 +22,9 @@ export const successfulTurnEnd = (harness: HarnessName, raw: unknown): boolean =
       return r.event === "result" && asRecord(r.result)?.status === "SUCCESS";
     case "popeye":
       return r.kind === "done" && r.cause === "clean";
+    case "opencode":
+      // The turn's own delimiter: the final `step_finish`, whose reason
+      // is `stop` (a mid-turn step finishes with `tool-calls`).
+      return r.type === "step_finish" && at(r, "part.reason") === "stop";
   }
 };

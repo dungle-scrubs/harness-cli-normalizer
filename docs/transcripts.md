@@ -61,6 +61,11 @@ Save a returned bookmark only after successful delivery. Send it back unchanged 
 | Cursor | `cursor-store-v1`: `store.db` chat stores observed from 2026.09.15-d2fe57e; ID/file selection, batches and bookmarks | Requires a supported filesystem clone and a closed chat: a nonempty `store.db-wal` or `store.db-journal` refuses with `guarantee-unmet`. The latest root must extend every earlier root in the store, or the read fails. Records carry no timestamps; redacted reasoning is retained but not included as text. Positions are byte offsets in HCN's projected view. |
 | Antigravity | `antigravity-file-v1`: untruncated `transcript_full.jsonl` step logs observed from 1.2.7; ID/file selection, batches and bookmarks | Requires a supported filesystem clone. Steps must be contiguous from `step_index` 0 and carry no `truncated_fields`. Steps have no native IDs and tool calls have no call IDs, so tool-call links stay unknown. The truncated `transcript.jsonl` and the `conversations/<id>.db` store are other formats. |
 
+OpenCode has no enabled view: it files its sessions in a SQLite store under
+the XDG data root (`$XDG_DATA_HOME/opencode`, else
+`~/.local/share/opencode`), not as one file per session, so there is no
+per-session path to read. `hcn transcript read opencode` reports divergence.
+
 Inspection carries pinned public evidence and method rules. Descriptor `verifiedAgainst` still describes the existing harness verification anchor; transcript method evidence is separate. A file format does not reveal an unknown writer build, so Pi source `writerBuild` remains null-valued. Codex reports the `cli_version` its own rollout header names, which identifies the writer version but not a build hash; the reader gates on the rollout's structure, not on that version. No native reader process runs.
 
 Claude and Muse inspection includes [selected-version evidence](transcript-evidence.md) and [snapshot prerequisites](transcript-snapshot.md). Claude ID lookup scans `CLAUDE_CONFIG_DIR/projects`, defaulting to `~/.claude/projects`. Muse scans `XDG_DATA_HOME/muse/sessions`, defaulting to `~/.local/share/muse/sessions`. Both reject ambiguous matches and validate native identity in the selected file. `--accept-limits` cannot waive format, identity or snapshot failures.

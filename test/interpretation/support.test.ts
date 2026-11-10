@@ -17,7 +17,7 @@ import { defaultDescriptors } from "../../src/knowledge/overrides.js";
 import { piCli } from "../../src/knowledge/pi.js";
 
 describe("supportedBy derivation (D7)", () => {
-  it("autonomy: five harnesses with their native spellings", () => {
+  it("autonomy: six harnesses with their native spellings", () => {
     const by = supportedBy(defaultDescriptors(), "autonomy");
     expect(by).toEqual([
       { harness: "claude", spelling: "--dangerously-skip-permissions" },
@@ -25,6 +25,7 @@ describe("supportedBy derivation (D7)", () => {
       { harness: "muse", spelling: "--yolo" },
       { harness: "cursor", spelling: "--force" },
       { harness: "antigravity", spelling: "--dangerously-skip-permissions" },
+      { harness: "opencode", spelling: "--dangerously-skip-permissions" },
     ]);
   });
 
@@ -62,6 +63,7 @@ describe("refusals carry the structured fields (D8 order)", () => {
         { harness: "muse", spelling: "--yolo" },
         { harness: "cursor", spelling: "--force" },
         { harness: "antigravity", spelling: "--dangerously-skip-permissions" },
+        { harness: "opencode", spelling: "--dangerously-skip-permissions" },
       ]);
       expect(r.hint).toMatch(/pi has no unattended-run flag/);
       // the hardcoded array is gone: supported comes from the derivation

@@ -1,4 +1,4 @@
-export const TOP_LEVEL_HELP = `hcn - One stable interface to seven coding-agent CLIs
+export const TOP_LEVEL_HELP = `hcn - One stable interface to eight coding-agent CLIs
 
 Usage: hcn <command> [options] [prompt]
 
@@ -61,7 +61,8 @@ export const RUN_HELP = `hcn run - One-shot headless turn
 Usage: hcn run <harness> [prompt] [options]
 
 Arguments:
-  <harness>                 claude | codex | pi | muse | cursor | antigravity | popeye
+  <harness>                 claude | codex | pi | muse | cursor | antigravity | popeye |
+                            opencode
   [prompt]                  Prompt text (positional). Must not start with '-'.
                             Use --prompt or --prompt-file for leading '-' or multi-line.
 
@@ -99,7 +100,8 @@ Options:
   --exclude-tools <a,b>     Complement over known tools - canonical names
                             (same vocabulary, native:<name> passthrough);
                             mutually exclusive with --tools (claude, pi, popeye)
-  --autonomy                Enable autonomy flag (claude/codex/muse/cursor/antigravity)
+  --autonomy                Enable autonomy flag (claude/codex/muse/cursor/antigravity/
+                            opencode)
   --no-autonomy             Disable autonomy
   --write                   Enable write (muse)
   --no-write                Disable write
@@ -111,8 +113,8 @@ Options:
   --no-memory               Disable persistent memory (claude: env var;
                             codex: --disable memories; pi: no-op, no built-in
                             memory; popeye: no-op (declared divergence);
-                            muse/cursor/antigravity: refuse - no off switch, reported
-                            as divergence by the default profile)
+                            muse/cursor/antigravity/opencode: refuse - no off switch,
+                            reported as divergence by the default profile)
   --questions <ask|assume|none>
                             Which preamble to inject: ask = escalation
                             protocol (DEFAULT, question event +
@@ -121,7 +123,8 @@ Options:
                             nothing
   --system-prompt <text>    Replace the built-in system prompt (claude, pi,
                             popeye: flag; codex: -c instructions=<text-or-path>;
-                            muse/cursor/antigravity refuse. claude pairs the dynamic-section
+                            muse/cursor/antigravity/opencode refuse. claude pairs the
+                            dynamic-section
                             exclusion automatically. Opt-in; no default)
   --append-system-prompt <text>
                             Append to the built-in prompt (claude, pi, popeye only)
@@ -143,7 +146,8 @@ Options:
                             requests fail-closed startup). codex uses
                             --sandbox workspace-write; cursor uses --force
                             (unconfined commands, also bypasses trust);
-                            pi, muse, and popeye add no restrictions.
+                            pi, muse, and popeye add no restrictions. opencode
+                            refuses --access.
                             The sandbox covers Bash, not file or web tools.
                             Native tool denials, Bash checks and network
                             limits still apply. Unless managed policy
@@ -190,7 +194,8 @@ Options:
                             accepts the id and may announce a fresh conversation.
   --session-id <uuid>       Alias for --resume (mutually exclusive with --resume)
   --resume-last             Resume the most recent session in the spawn cwd
-                            (claude, codex, pi, cursor, antigravity; muse and popeye refuse).
+                            (claude, codex, pi, cursor, antigravity; muse, popeye and
+                            opencode refuse).
                             Mutually exclusive with --resume/--session-id.
   --native-settings-fingerprint <hash>
                             Codex or Pi resume only, with explicit --cwd. Re-read saved
@@ -387,7 +392,8 @@ export const INSPECT_HELP = `hcn inspect - Descriptor / argv inspection
 Usage: hcn inspect <harness> [options]
 
 Arguments:
-  <harness>                 claude | codex | pi | muse | cursor | antigravity | popeye
+  <harness>                 claude | codex | pi | muse | cursor | antigravity | popeye |
+                            opencode
 
 Options:
   --transcript              Report passive transcript methods and evidence;
@@ -507,6 +513,7 @@ Usage: hcn transcript read <harness> (--id <native-id> | --file <path>) [options
                          [--since-time <utc-instant>]
 
 Harnesses: claude | codex | pi | muse | cursor | antigravity | popeye
+(opencode has no transcript surface; a read reports divergence)
 Inspect support first: hcn inspect <harness> --transcript
 
 read options:

@@ -11,6 +11,9 @@ export const NATIVE_SETTINGS_SOURCES = deepFreeze({
   cursor: null,
   antigravity: null,
   popeye: null,
+  // The OpenCode CLI files its sessions in a SQLite store with no settings
+  // fingerprint hcn reads; reads report unsupported-harness.
+  opencode: null,
 } as const);
 
 export const NATIVE_SETTINGS_FINGERPRINT_SHAPE = /^[a-f0-9]{64}$/;

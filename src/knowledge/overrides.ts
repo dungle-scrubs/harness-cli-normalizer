@@ -26,6 +26,7 @@ import {
 } from "./descriptor.js";
 import { compileMatcher, MAX_MATCHERS_PER_KIND } from "./matchers.js";
 import { museCode } from "./muse.js";
+import { opencodeCli } from "./opencode.js";
 import { piCli } from "./pi.js";
 import { popeyeCli } from "./popeye.js";
 
@@ -40,6 +41,7 @@ const SHARED_DESCRIPTORS: DescriptorSet = {
   cursor: cursorCli,
   antigravity: antigravityCli,
   popeye: popeyeCli,
+  opencode: opencodeCli,
 };
 
 export const defaultDescriptors = (): DescriptorSet => SHARED_DESCRIPTORS;

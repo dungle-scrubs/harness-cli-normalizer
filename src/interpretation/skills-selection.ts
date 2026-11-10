@@ -97,9 +97,8 @@ export const renderSkillsSelection = (h: HarnessDescriptor, skills: SkillsSelect
       // Popeye's --skills takes plugin names, not registry paths; other
       // null-skills harnesses (muse) name their stay-on-harness surface.
       hint:
-        h.name === "popeye"
-          ? hintFor(h.name, "skills")
-          : "muse scopes skills by workspace trust with no per-skill surface - include the skill content in the prompt or use --trust-workspace for the whole registry",
+        hintFor(h.name, "skills") ??
+        "muse scopes skills by workspace trust with no per-skill surface - include the skill content in the prompt or use --trust-workspace for the whole registry",
     });
   }
 

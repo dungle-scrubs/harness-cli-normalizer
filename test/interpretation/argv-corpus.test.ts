@@ -36,6 +36,7 @@ import { codexCli } from "../../src/knowledge/codex.js";
 import { cursorCli } from "../../src/knowledge/cursor.js";
 import type { HarnessDescriptor } from "../../src/knowledge/descriptor.js";
 import { museCode } from "../../src/knowledge/muse.js";
+import { opencodeCli } from "../../src/knowledge/opencode.js";
 import { piCli } from "../../src/knowledge/pi.js";
 import { popeyeCli } from "../../src/knowledge/popeye.js";
 
@@ -51,13 +52,20 @@ const HARNESSES: readonly HarnessDescriptor[] = [
   cursorCli,
   antigravityCli,
   popeyeCli,
+  opencodeCli,
 ];
 const SESSION_ID = "0199a4c5-1111-2222-3333-444455556666";
 const SNAPSHOT = join(import.meta.dirname, "argv-corpus.snapshot.json");
 
-/** A curated model per harness, spelled the way a caller would type it. */
+/** A curated model per harness, spelled the way a caller would type it.
+ * The OpenCode CLI curates no model list (its free roster rotates), so the
+ * corpus names the free model the captures used. */
 const modelFor = (h: HarnessDescriptor): string =>
-  h.name === "claude" ? "sonnet" : (h.vocabulary.models[0] as string);
+  h.name === "claude"
+    ? "sonnet"
+    : h.name === "opencode"
+      ? "opencode/big-pickle"
+      : (h.vocabulary.models[0] as string);
 
 /** The merged shape a turn option carries (RFC-02 change 8). */
 const TOOL_MAP = {
@@ -150,11 +158,10 @@ const resumeLastCases = (
 };
 
 /** Passthrough-tail cases (ADR 0003): a tail after hcn's bare `--`
- * reaches buildSpawnArgv on launch and resume alike. All six harnesses
- * declare after-argv placement, so every row carries the tail verbatim
- * past hcn's own argv; a prompt-joins harness would refuse instead (none
- * declares it today - that refusal is pinned in
- * argv-passthrough-placement). */
+ * reaches buildSpawnArgv on launch and resume alike. An after-argv
+ * harness carries the tail verbatim past hcn's own argv; a prompt-joins
+ * harness (opencode) refuses instead, and its refusal rows are pinned in
+ * the snapshot. */
 const passthroughCases = (): ReadonlyArray<readonly [string, SpawnArgvOptions]> => [
   ["empty", { prompt: "hi", passthrough: [] }],
   ["tail", { prompt: "hi", passthrough: ["--native-flag"] }],
