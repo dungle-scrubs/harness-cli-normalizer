@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.20](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.19...v0.9.20) (2026-11-10)
+
+
+### Added
+
+* add OpenCode CLI harness ([#472](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/472)) ([5eb28af](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/5eb28affac67f5b86e4231da38d5209f8187ad5f))
+
 ## [0.9.19](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.18...v0.9.19) (2026-11-09)
 
 
