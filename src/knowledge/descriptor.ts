@@ -161,9 +161,30 @@ export type SessionApprovalChannel =
       readonly spawnFlags: readonly string[];
       /** The native dialog methods this channel forwards. Only the named
        * ones; the rest stay ignored (verified 1.4.0: pi emits `confirm`
-       * and `editor` the same way, and hcn does not forward them). */
+       * and `editor` the same way, and hcn does not forward them as plain
+       * dialogs). */
       readonly dialogs: readonly PiExtensionDialogMethod[];
+      /** Issue #470: hcn's own structured question format, an opt-in
+       * extension of the `editor` dialog. Absent when the channel does
+       * not offer it. */
+      readonly structuredQuestion?: PiStructuredQuestionChannel;
     };
+
+/** Issue #470: the marked pi `editor` dialog hcn decodes as a structured
+ * question. An extension raises one `editor` dialog whose title starts
+ * with `titleMarker` and whose prefill is the question JSON; hcn answers
+ * it with the same question set it offers every harness. The marker and
+ * the format version are data, so the wire spelling lives in one place
+ * and an extension author can read it off the descriptor. */
+export interface PiStructuredQuestionChannel {
+  /** The native dialog method the marked question travels on. */
+  readonly method: "editor";
+  /** The exact title prefix that marks a dialog as a structured
+   * question (the marker plus one space). */
+  readonly titleMarker: string;
+  /** The prefill format version hcn accepts. */
+  readonly version: number;
+}
 
 /** The pi extension dialog methods an approval channel can forward:
  * `select` (pick one offered option) and `input` (free text). */

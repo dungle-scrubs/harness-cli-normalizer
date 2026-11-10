@@ -21,6 +21,7 @@ import type {
   ApprovalQuestion,
   ApprovalQuestionOption,
 } from "../knowledge/native-approvals.js";
+import { validateApprovalNotes } from "./approval-notes.js";
 import { applyPiExtensionDialogDecision, encodePiExtensionCancel } from "./pi-extension-dialogs.js";
 import { asRecord } from "./shape.js";
 
@@ -46,6 +47,11 @@ export interface SessionApprovalProposal {
   readonly questions?: readonly ApprovalQuestion[];
   /** `plan` only: the input's plan text. */
   readonly plan?: string;
+  /** Issue #470: true when the request carries hcn's own structured
+   * question format (a marked pi `editor` dialog). Its native reply is
+   * the whole question set, not one answer, so its decision rules are
+   * the structured ones. */
+  readonly structured?: true;
 }
 
 /** The native reply a decision becomes: an allow with the (possibly
@@ -66,11 +72,16 @@ export interface SessionApprovalDecision {
   readonly choiceId: string;
   readonly message?: string;
   readonly answers?: Readonly<Record<string, string | readonly string[]>>;
+  /** Issue #470: one note per question, keyed by the question text. A
+   * note rides the `answer` choice alone, and only a question that
+   * allows notes may carry one. */
+  readonly notes?: Readonly<Record<string, string>>;
 }
 
 export type SessionApprovalDecisionRejection =
   | "unknown-choice"
   | "invalid-answers"
+  | "invalid-notes"
   | "invalid-message";
 
 const TOOL_NAMES: Readonly<Record<string, SessionApprovalCategory>> = {
@@ -153,6 +164,11 @@ const normalizeQuestions = (input: unknown): readonly ApprovalQuestion[] => {
       question: text,
       ...(typeof question.header === "string" ? { header: question.header } : {}),
       ...(typeof question.multiSelect === "boolean" ? { multiSelect: question.multiSelect } : {}),
+      // Issue #470: Claude's AskUserQuestion accepts any string as an
+      // answer (its "Other") and carries per-question annotations, so
+      // both are open on every question it offers.
+      allowOther: true,
+      allowNotes: true,
       options,
     });
   }
@@ -259,6 +275,15 @@ const allowWith = (
     ? { behavior: "allow", updatedInput: input }
     : { behavior: "allow", updatedInput: input, updatedPermissions };
 
+/**
+ * Issue #470: the native `annotations` a decision's notes become: one
+ * `{notes}` entry per question, keyed by the question text.
+ */
+const annotationsOf = (
+  notes: Readonly<Record<string, string>>,
+): Record<string, { notes: string }> =>
+  Object.fromEntries(Object.entries(notes).map(([question, note]) => [question, { notes: note }]));
+
 /** Apply one structurally valid decision to a proposal: the closed choice
  * validation (answers required for `answer`, refused elsewhere; message
  * denied on allow-scope choices) and the native reply it becomes. Pure:
@@ -276,6 +301,10 @@ export const applySessionApprovalDecision = (
   // field to fix rather than guessing between the two.
   if (choice.id !== "answer" && decision.answers !== undefined)
     return { ok: false, reason: "invalid-answers" };
+  // Issue #470: notes belong to the `answer` choice alone, and they get
+  // their own reason too.
+  if (choice.id !== "answer" && decision.notes !== undefined)
+    return { ok: false, reason: "invalid-notes" };
   if (choice.scope !== "deny" && decision.message !== undefined)
     return { ok: false, reason: "invalid-message" };
   if (choice.scope !== "deny") {
@@ -305,10 +334,20 @@ export const applySessionApprovalDecision = (
         }
         joined[question] = (value as readonly string[]).join(", ");
       }
+      // Issue #470: notes ride the answers - one note per answered
+      // question that allows them.
+      const notesRejection = validateApprovalNotes(questions, choice.id, answers, decision.notes);
+      if (notesRejection !== null) return { ok: false, reason: notesRejection };
       const input = isPlainRecord(proposal.input)
         ? { ...proposal.input, answers: joined }
         : { answers: joined };
-      return { ok: true, reply: { behavior: "allow", updatedInput: input } };
+      // Issue #470: Claude carries the notes as native annotations, next
+      // to the answers; every other key of the native input is kept.
+      const updatedInput =
+        decision.notes === undefined
+          ? input
+          : { ...input, annotations: annotationsOf(decision.notes) };
+      return { ok: true, reply: { behavior: "allow", updatedInput } };
     }
     // allow / approve / suggestion-N: the input passes through unchanged;
     // a suggestion additionally replays its native permission.

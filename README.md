@@ -190,7 +190,8 @@ opened by a send carry its id. Check the session packet's `controls` before choo
 `queue` or `steer`, or interrupting and sending a replacement after confirmation. On a Claude
 session, `--native-approvals` forwards each permission request, AskUserQuestion and plan approval
 to you as `approval-request` events; on a pi session it forwards each extension `select` and `input`
-dialog (a dialog stays open across turns). See
+dialog (a dialog stays open across turns), plus an extension's marked `[hcn-question]` editor
+dialog, which asks hcn's own question set (checkboxes, free text, per-question notes). See
 [the reference](docs/reference.md#session-native-approvals). On Claude and pi sessions, the
 `settings` op changes model and effort mid-session, and `send` takes `"verbatim": true` to type
 the harness's own slash command untouched (Claude slash commands; on pi only extension commands

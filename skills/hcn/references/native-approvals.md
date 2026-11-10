@@ -3,7 +3,8 @@
 Two lanes share the `--native-approvals` flag: the Codex one-shot lane
 below, and the session lane in
 [reference.md's session approvals](reference.md#session-native-approvals)
-(Claude permission requests; pi extension `select` and `input` dialogs), which forwards
+(Claude permission requests; pi extension `select` and `input` dialogs, and
+pi's marked `[hcn-question]` editor dialog), which forwards
 requests to the session host instead of gating a single
 response.
 
@@ -39,6 +40,11 @@ conversation service.
 
 `approval-request` supplies version 1, request/session/turn IDs, category,
 complete plain-text details, and choices with ID, label and scope.
+A question request carries `questions` (`question`, `header`, `multiSelect`,
+`options`, `allowOther`, `allowNotes`): `allowOther` means the answer may
+be free text, `allowNotes` means the decision may carry a note for that
+question. Answer a question with `answers` keyed by the question text, and
+add `notes` (one note per question) when the user wants to say why.
 `approval-disposition` reports sent or rejected with a reason.
 `approval-cleared` means the request stopped waiting, not that its tool worked.
 Render subsequent output for the result. `tool-result` retains each completed

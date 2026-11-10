@@ -9,6 +9,11 @@ export const NATIVE_APPROVAL_LIMITS = deepFreeze({
   nativeFrameBytes: 1024 * 1024,
   pending: 32,
   protocolDeadlineMs: 30000,
+  /** Issue #470: the bounds of hcn's own structured question format (the
+   * marked pi editor dialog): at most this many questions, each with at
+   * most this many options. */
+  structuredQuestions: 16,
+  structuredOptions: 32,
 } as const);
 
 export const NATIVE_APPROVAL_PROTOCOLS = deepFreeze({
@@ -65,6 +70,17 @@ export interface ApprovalQuestion {
   /** Issue #469: the native placeholder of a free-text question, when the
    * harness sends one. */
   readonly placeholder?: string;
+  /** Issue #470: the answer may be free text instead of, or (with
+   * `multiSelect`) besides, the offered labels. Claude's AskUserQuestion
+   * accepts any string as an answer (its "Other"), so its questions set
+   * this; pi's plain `select` dialog does not, and hcn's own structured
+   * question format sets it per question. */
+  readonly allowOther?: boolean;
+  /** Issue #470: the decision may carry a note for this question. Claude
+   * accepts per-question annotations (its `annotations`), so its
+   * questions set this; pi's plain dialogs do not, and hcn's own
+   * structured question format sets it per question. */
+  readonly allowNotes?: boolean;
   readonly options: readonly ApprovalQuestionOption[];
 }
 

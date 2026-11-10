@@ -45,6 +45,7 @@ export type SessionApprovalAnswer =
         | "already-answered"
         | "unknown-choice"
         | "invalid-answers"
+        | "invalid-notes"
         | "invalid-message"
         | "closed"
         | "write-failed";

@@ -12,7 +12,7 @@ import type {
   SessionInputKind,
 } from "../knowledge/descriptor.js";
 import { SESSION_INPUT_KINDS } from "../knowledge/descriptor.js";
-import { decodePiExtensionDialog } from "./pi-extension-dialogs.js";
+import { decodePiExtensionDialog, decodePiStructuredQuestion } from "./pi-extension-dialogs.js";
 import {
   decodeClaudePermissionRequest,
   type SessionApprovalProposal,
@@ -369,6 +369,11 @@ export type SessionRecord =
   /** Issue #454: claude cancelled a permission request itself (an
    * interrupt while it waited); the request loses its answer right. */
   | { readonly kind: "approval-cancelled"; readonly requestId: string }
+  /** Issue #470: a pi extension raised hcn's marked structured question
+   * with a prefill hcn cannot read. The dialog is not forwarded and
+   * nothing is written; the runner reports it as an error event so the
+   * host sees why nothing arrived. */
+  | { readonly kind: "approval-invalid"; readonly requestId: string; readonly message: string }
   /** Issue #456: the harness answered a settings command hcn wrote
    * (`set_model` / `apply_flag_settings` on claude; `set_model` /
    * `set_thinking_level` / `get_available_models` / `get_state` on pi).
@@ -569,6 +574,27 @@ export const decodeSessionRecord = (
     // before this channel existed.
     const channel = mode.controls.approvals;
     const dialogs = channel?.kind === "pi-extension-ui" ? channel.dialogs : [];
+    // Issue #470: hcn's own structured question format - a marked
+    // `editor` dialog whose prefill is the question JSON. It is read
+    // before the plain dialogs, and an unmarked editor stays ignored.
+    const structured = channel?.kind === "pi-extension-ui" ? channel.structuredQuestion : undefined;
+    if (structured !== undefined) {
+      const decodedQuestion = decodePiStructuredQuestion(parsed, structured);
+      if (decodedQuestion !== null) {
+        if (decodedQuestion.kind === "invalid") {
+          return {
+            kind: "approval-invalid",
+            requestId: decodedQuestion.requestId,
+            message: decodedQuestion.message,
+          };
+        }
+        return {
+          kind: "approval-request",
+          requestId: decodedQuestion.dialog.requestId,
+          proposal: decodedQuestion.dialog.proposal,
+        };
+      }
+    }
     const decoded = decodePiExtensionDialog(parsed, dialogs);
     if (decoded === null) return { kind: "content" };
     return {

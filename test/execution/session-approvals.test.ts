@@ -833,3 +833,143 @@ describe("issue #454: the stall clock pauses while a request waits", () => {
     await r.session.close();
   });
 });
+
+describe("issue #470: a claude question answered with free text and a note", () => {
+  const askQuestion = (requestId: string): string =>
+    canUseTool(requestId, {
+      subtype: "can_use_tool",
+      tool_name: "AskUserQuestion",
+      display_name: "AskUserQuestion",
+      input: {
+        questions: [
+          {
+            question: "Which database?",
+            header: "Database",
+            multiSelect: false,
+            options: [{ label: "Postgres" }, { label: "SQLite" }],
+          },
+        ],
+      },
+      tool_use_id: "toolu_q",
+      requires_user_interaction: true,
+    });
+
+  const raised = async (r: ReturnType<typeof rig>, requestId = "req-q") => {
+    const { turn, uuid } = await startTurn(r, "a");
+    r.proc.emitLine(askQuestion(requestId));
+    const draining = drainTurn(turn);
+    await tick();
+    return { draining, uuid };
+  };
+
+  test("the request's questions offer other text and notes", async () => {
+    const r = rig({ nativeApprovals: true });
+    const { turn, uuid } = await startTurn(r, "a");
+    const events: HarnessEvent[] = [];
+    const draining = (async () => {
+      for await (const event of turn) events.push(event);
+    })();
+    await tick();
+    r.proc.emitLine(askQuestion("req-q"));
+    await tick();
+    expect(events.find((event) => event.kind === "approval-request")).toMatchObject({
+      questions: [
+        {
+          question: "Which database?",
+          header: "Database",
+          multiSelect: false,
+          allowOther: true,
+          allowNotes: true,
+          options: [{ label: "Postgres" }, { label: "SQLite" }],
+        },
+      ],
+    });
+    r.proc.emitLine(claudeResult([uuid]));
+    await draining;
+    await r.session.close();
+  });
+
+  test("free text and a note reach claude as answers and annotations", async () => {
+    const r = rig({ nativeApprovals: true });
+    const { draining, uuid } = await raised(r);
+    expect(
+      r.session.answerApproval({
+        id: "d1",
+        requestId: "req-q",
+        choiceId: "answer",
+        answers: { "Which database?": "a third thing" },
+        notes: { "Which database?": "the first one is full" },
+      }),
+    ).toEqual({ status: "sent" });
+    expect((lastStdin(r.proc).response as { response: unknown })?.response).toEqual({
+      behavior: "allow",
+      updatedInput: {
+        questions: [
+          {
+            question: "Which database?",
+            header: "Database",
+            multiSelect: false,
+            options: [{ label: "Postgres" }, { label: "SQLite" }],
+          },
+        ],
+        answers: { "Which database?": "a third thing" },
+        annotations: { "Which database?": { notes: "the first one is full" } },
+      },
+    });
+    r.proc.emitLine(claudeResult([uuid]));
+    await draining;
+    await r.session.close();
+  });
+
+  test("without notes the reply carries no annotations", async () => {
+    const r = rig({ nativeApprovals: true });
+    const { draining, uuid } = await raised(r);
+    expect(
+      r.session.answerApproval({
+        id: "d1",
+        requestId: "req-q",
+        choiceId: "answer",
+        answers: { "Which database?": "SQLite" },
+      }),
+    ).toEqual({ status: "sent" });
+    const reply = (lastStdin(r.proc).response as { response: Record<string, unknown> })?.response;
+    expect(reply).not.toHaveProperty("updatedInput.annotations");
+    r.proc.emitLine(claudeResult([uuid]));
+    await draining;
+    await r.session.close();
+  });
+
+  test.each([
+    ["notes on a decline", { choiceId: "decline", notes: { "Which database?": "no" } }],
+    [
+      "notes on an unanswered question",
+      {
+        choiceId: "answer",
+        answers: { "Which database?": "SQLite" },
+        notes: { "Which regions?": "no" },
+      },
+    ],
+    [
+      "notes on an unknown question",
+      {
+        choiceId: "answer",
+        answers: { "Which database?": "SQLite" },
+        notes: { Nope: "no" },
+      },
+    ],
+  ])("notes are refused invalid-notes and nothing is written: %s", async (_label, decision) => {
+    const r = rig({ nativeApprovals: true });
+    const { draining, uuid } = await raised(r);
+    expect(
+      r.session.answerApproval({
+        id: "d1",
+        requestId: "req-q",
+        ...decision,
+      }),
+    ).toEqual({ status: "rejected", reason: "invalid-notes" });
+    expect(r.proc.stdinLines.filter((line) => line.includes("control_response"))).toEqual([]);
+    r.proc.emitLine(claudeResult([uuid]));
+    await draining;
+    await r.session.close();
+  });
+});

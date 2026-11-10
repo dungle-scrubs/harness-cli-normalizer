@@ -201,7 +201,21 @@ describe("issue #454: decoding can_use_tool requests", () => {
       tool: "AskUserQuestion",
       details: "AskUserQuestion",
       input: { questions },
-      questions,
+      // Issue #470: Claude accepts any string as an answer and carries
+      // per-question annotations, so both are open on its questions.
+      questions: [
+        {
+          question: "Which database should the service use?",
+          header: "Database",
+          multiSelect: false,
+          allowOther: true,
+          allowNotes: true,
+          options: [
+            { label: "Postgres", description: "server" },
+            { label: "SQLite", description: "file" },
+          ],
+        },
+      ],
       choices: [
         { id: "answer", label: "Answer", scope: "once" },
         { id: "decline", label: "Decline to answer", scope: "deny" },
@@ -508,5 +522,149 @@ describe("issue #454: encoding the native reply", () => {
         encodeClaudeControlResponse("req-3", { behavior: "allow", updatedInput: { a: 1 } }),
       ).response.response,
     ).toEqual({ behavior: "allow", updatedInput: { a: 1 } });
+  });
+});
+
+describe("issue #470: notes on a claude question", () => {
+  const question = () =>
+    proposalOf(
+      controlRequest({
+        subtype: "can_use_tool",
+        tool_name: "AskUserQuestion",
+        input: {
+          questions: [
+            {
+              question: "Which database?",
+              multiSelect: false,
+              options: [{ label: "Postgres" }, { label: "SQLite" }],
+            },
+            {
+              question: "Which regions?",
+              multiSelect: true,
+              options: [{ label: "eu" }, { label: "us" }],
+            },
+          ],
+        },
+        requires_user_interaction: true,
+      }),
+    );
+
+  test("the questions offer other text and notes", () => {
+    expect(question().questions).toEqual([
+      {
+        question: "Which database?",
+        multiSelect: false,
+        allowOther: true,
+        allowNotes: true,
+        options: [{ label: "Postgres" }, { label: "SQLite" }],
+      },
+      {
+        question: "Which regions?",
+        multiSelect: true,
+        allowOther: true,
+        allowNotes: true,
+        options: [{ label: "eu" }, { label: "us" }],
+      },
+    ]);
+  });
+
+  test("notes become native annotations next to the answers", () => {
+    const applied = applySessionApprovalDecision(question(), {
+      choiceId: "answer",
+      answers: { "Which database?": "a third thing" },
+      notes: { "Which database?": "because the first one is full" },
+    });
+    expect(applied).toEqual({
+      ok: true,
+      reply: {
+        behavior: "allow",
+        updatedInput: {
+          questions: [
+            {
+              question: "Which database?",
+              multiSelect: false,
+              options: [{ label: "Postgres" }, { label: "SQLite" }],
+            },
+            {
+              question: "Which regions?",
+              multiSelect: true,
+              options: [{ label: "eu" }, { label: "us" }],
+            },
+          ],
+          answers: { "Which database?": "a third thing" },
+          annotations: { "Which database?": { notes: "because the first one is full" } },
+        },
+      },
+    });
+  });
+
+  test("a decision without notes produces the same reply as before", () => {
+    const applied = applySessionApprovalDecision(question(), {
+      choiceId: "answer",
+      answers: { "Which database?": "SQLite" },
+    });
+    expect(applied).toEqual({
+      ok: true,
+      reply: {
+        behavior: "allow",
+        updatedInput: {
+          questions: [
+            {
+              question: "Which database?",
+              multiSelect: false,
+              options: [{ label: "Postgres" }, { label: "SQLite" }],
+            },
+            {
+              question: "Which regions?",
+              multiSelect: true,
+              options: [{ label: "eu" }, { label: "us" }],
+            },
+          ],
+          answers: { "Which database?": "SQLite" },
+        },
+      },
+    });
+  });
+
+  test.each([
+    ["notes on a decline", { choiceId: "decline", notes: { "Which database?": "no" } }, question()],
+    [
+      "notes on a tool choice",
+      { choiceId: "allow", notes: { "Which database?": "no" } },
+      proposalOf(controlRequest(WRITE_REQUEST)),
+    ],
+    [
+      "notes on an unanswered question",
+      {
+        choiceId: "answer",
+        answers: { "Which database?": "SQLite" },
+        notes: { "Which regions?": "no" },
+      },
+      question(),
+    ],
+    [
+      "notes on an unknown question",
+      { choiceId: "answer", answers: { "Which database?": "SQLite" }, notes: { Nope: "no" } },
+      question(),
+    ],
+    [
+      "an empty notes map",
+      { choiceId: "answer", answers: { "Which database?": "SQLite" }, notes: {} },
+      question(),
+    ],
+  ])("notes are refused invalid-notes: %s", (_label, decision, proposal) => {
+    expect(applySessionApprovalDecision(proposal, decision as SessionApprovalDecision)).toEqual({
+      ok: false,
+      reason: "invalid-notes",
+    });
+  });
+
+  test("notes without any answers are refused invalid-answers: the answers come first", () => {
+    expect(
+      applySessionApprovalDecision(question(), {
+        choiceId: "answer",
+        notes: { "Which database?": "no" },
+      }),
+    ).toEqual({ ok: false, reason: "invalid-answers" });
   });
 });

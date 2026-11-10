@@ -8,7 +8,7 @@
  */
 import { describe, expect, test } from "vitest";
 import type { HarnessEvent } from "../../src/execution/events.js";
-import { openSession, type SessionTurn } from "../../src/execution/open-session.js";
+import { isSessionTurn, openSession, type SessionTurn } from "../../src/execution/open-session.js";
 import { piCli } from "../../src/knowledge/pi.js";
 import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
 
@@ -137,6 +137,8 @@ describe("issue #469: a select dialog becomes an approval-request", () => {
         {
           question: TITLE,
           multiSelect: false,
+          allowOther: false,
+          allowNotes: false,
           options: [{ label: "1. A" }, { label: "1. B" }],
         },
       ],
@@ -621,6 +623,197 @@ describe("issue #469: the Other flow - a select, then a free-text input", () => 
     ]);
     r.proc.emitLine(piSettled(false));
     await draining;
+    await r.session.close();
+  });
+});
+
+describe("issue #470: pi's structured question dialog", () => {
+  const MARKER = "[hcn-question] ";
+  const PREFILL = {
+    v: 1,
+    questions: [
+      {
+        question: "Pick toppings",
+        header: "Pizza",
+        options: [{ label: "Cheese" }, { label: "Olives" }],
+        multiSelect: true,
+        allowOther: true,
+        allowNotes: true,
+      },
+      {
+        question: "Pick a size",
+        options: [{ label: "Small" }, { label: "Large" }],
+      },
+    ],
+  };
+  const editorDialog = (id: string, prefill: unknown = PREFILL): string =>
+    JSON.stringify({
+      type: "extension_ui_request",
+      id,
+      method: "editor",
+      title: `${MARKER}Pick toppings`,
+      prefill: typeof prefill === "string" ? prefill : JSON.stringify(prefill),
+    });
+
+  test("a marked dialog is relayed as a question with its whole question set", async () => {
+    const r = rig({ nativeApprovals: true });
+    r.proc.emitLine(editorDialog("dlg-1"));
+    await tick();
+    const event = (await r.turns.next()).value as HarnessEvent;
+    expect(event).toEqual({
+      kind: "approval-request",
+      v: 1,
+      requestId: "dlg-1",
+      sessionId: sid,
+      category: "question",
+      tool: "editor",
+      details: "Pick toppings",
+      input: {
+        type: "extension_ui_request",
+        id: "dlg-1",
+        method: "editor",
+        title: `${MARKER}Pick toppings`,
+        prefill: JSON.stringify(PREFILL),
+      },
+      questions: [
+        {
+          question: "Pick toppings",
+          header: "Pizza",
+          multiSelect: true,
+          allowOther: true,
+          allowNotes: true,
+          options: [{ label: "Cheese" }, { label: "Olives" }],
+        },
+        {
+          question: "Pick a size",
+          multiSelect: false,
+          allowOther: false,
+          allowNotes: false,
+          options: [{ label: "Small" }, { label: "Large" }],
+        },
+      ],
+      choices: [
+        { id: "answer", label: "Answer", scope: "once" },
+        { id: "decline", label: "Decline to answer", scope: "deny" },
+      ],
+    });
+    r.proc.exit(0);
+    await r.session.close();
+  });
+
+  test("two checkboxes, an other text and a note become the editor's value", async () => {
+    const r = rig({ nativeApprovals: true });
+    r.proc.emitLine(editorDialog("dlg-1"));
+    await tick();
+    expect(
+      r.session.answerApproval({
+        id: "d1",
+        requestId: "dlg-1",
+        choiceId: "answer",
+        answers: { "Pick toppings": ["Cheese", "Olives", "Anchovies"], "Pick a size": "Small" },
+        notes: { "Pick toppings": "no anchovies" },
+      }),
+    ).toEqual({ status: "sent" });
+    const written = responses(r.proc);
+    expect(written).toHaveLength(1);
+    expect(JSON.parse(String(written[0]?.value))).toEqual({
+      answers: { "Pick toppings": ["Cheese", "Olives", "Anchovies"], "Pick a size": "Small" },
+      notes: { "Pick toppings": "no anchovies" },
+    });
+    r.proc.exit(0);
+    await r.session.close();
+  });
+
+  test("a decline cancels the dialog", async () => {
+    const r = rig({ nativeApprovals: true });
+    r.proc.emitLine(editorDialog("dlg-1"));
+    await tick();
+    expect(r.session.answerApproval({ id: "d1", requestId: "dlg-1", choiceId: "decline" })).toEqual(
+      { status: "sent" },
+    );
+    expect(responses(r.proc)).toEqual([
+      { type: "extension_ui_response", id: "dlg-1", cancelled: true },
+    ]);
+    r.proc.exit(0);
+    await r.session.close();
+  });
+
+  test.each([
+    ["prefill that is not JSON", "{not json"],
+    ["a missing version", JSON.stringify({ questions: [{ question: "q" }] })],
+    [
+      "duplicate option labels",
+      JSON.stringify({
+        v: 1,
+        questions: [{ question: "q", options: [{ label: "A" }, { label: "A" }] }],
+      }),
+    ],
+    ["no questions", JSON.stringify({ v: 1, questions: [] })],
+  ])(
+    "an invalid prefill is an error event and nothing is forwarded: %s",
+    async (_label, prefill) => {
+      const r = rig({ nativeApprovals: true });
+      const events: HarnessEvent[] = [];
+      const draining = (async () => {
+        for await (const event of r.session.turns) {
+          if (!isSessionTurn(event)) events.push(event);
+        }
+      })();
+      r.proc.emitLine(editorDialog("dlg-1", prefill));
+      await tick();
+      const errors = events.filter((event) => event.kind === "error");
+      expect(errors).toHaveLength(1);
+      const message = String((errors[0] as { message: string }).message);
+      expect(message).toContain("dlg-1");
+      expect(message).toContain("hcn-question prefill is invalid");
+      expect(events.filter((event) => event.kind === "approval-request")).toEqual([]);
+      expect(responses(r.proc)).toEqual([]);
+      r.proc.exit(0);
+      await draining;
+      await r.session.close();
+    },
+  );
+
+  test("an unmarked editor dialog stays ignored", async () => {
+    const r = rig({ nativeApprovals: true });
+    const events: HarnessEvent[] = [];
+    const draining = (async () => {
+      for await (const event of r.session.turns) {
+        if (!isSessionTurn(event)) events.push(event);
+      }
+    })();
+    r.proc.emitLine(
+      JSON.stringify({
+        type: "extension_ui_request",
+        id: "dlg-1",
+        method: "editor",
+        title: "Edit the file",
+        prefill: "hello",
+      }),
+    );
+    await tick();
+    expect(events.filter((event) => event.kind === "approval-request")).toEqual([]);
+    expect(responses(r.proc)).toEqual([]);
+    r.proc.exit(0);
+    await draining;
+    await r.session.close();
+  });
+
+  test("notes on a plain pi select are refused invalid-notes", async () => {
+    const r = rig({ nativeApprovals: true });
+    r.proc.emitLine(selectDialog("dlg-1"));
+    await tick();
+    expect(
+      r.session.answerApproval({
+        id: "d1",
+        requestId: "dlg-1",
+        choiceId: "answer",
+        answers: { [TITLE]: "1. A" },
+        notes: { [TITLE]: "no" },
+      }),
+    ).toEqual({ status: "rejected", reason: "invalid-notes" });
+    expect(responses(r.proc)).toEqual([]);
+    r.proc.exit(0);
     await r.session.close();
   });
 });
