@@ -8,6 +8,7 @@
  */
 import { type ChildProcess, spawn as nodeSpawn } from "node:child_process";
 import { homedir } from "node:os";
+import { resolve } from "node:path";
 import type { Readable } from "node:stream";
 import type { Clock, ProcessStart, RunnerDeps, SpawnedProcess, SpawnOptions } from "./deps.js";
 import { mergeEnvironment } from "./environment.js";
@@ -96,6 +97,11 @@ const realSpawn = (argv: readonly string[], opts: SpawnOptions): SpawnedProcess 
   const [bin, ...args] = argv;
   if (bin === undefined) throw new Error("empty argv");
   const env = mergeEnvironment(process.env, opts.env);
+  // A shell keeps PWD in step with the directory it starts a child in; a
+  // bare spawn inherits the parent's. opencode 1.19.5 reads PWD before
+  // process.cwd(), so without this it works in hcn's directory, not --cwd.
+  // An explicit PWD in the caller's env still wins.
+  if (opts.cwd !== undefined && opts.env?.PWD === undefined) env.PWD = resolve(opts.cwd);
   const child = nodeSpawn(bin, args, {
     ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
     ...(env !== undefined ? { env } : {}),
