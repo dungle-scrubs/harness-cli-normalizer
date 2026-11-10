@@ -18,6 +18,7 @@ export const HARNESS_NAMES = [
   "cursor",
   "antigravity",
   "popeye",
+  "opencode",
 ] as const;
 export type HarnessName = (typeof HARNESS_NAMES)[number];
 

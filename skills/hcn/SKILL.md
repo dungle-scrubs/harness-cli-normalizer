@@ -1,6 +1,6 @@
 ---
 name: hcn
-description: "Operate hcn, one CLI for multiple coding-agent harnesses such as Claude, Codex, Pi, Muse, Cursor, Antigravity and Popeye: headless runs, live sessions, worker questions and escalation (hcn-question blocks, awaiting-input turns, answering and resuming), native terminal resume, saved transcripts, event streams and invocation refusals."
+description: "Operate hcn, one CLI for multiple coding-agent harnesses such as Claude, Codex, Pi, Muse, Cursor, Antigravity, Popeye and OpenCode: headless runs, live sessions, worker questions and escalation (hcn-question blocks, awaiting-input turns, answering and resuming), native terminal resume, saved transcripts, event streams and invocation refusals."
 metadata:
   upstream: https://github.com/dungle-scrubs/harness-cli-normalizer
 ---

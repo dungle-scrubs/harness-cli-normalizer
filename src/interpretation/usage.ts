@@ -59,6 +59,19 @@ const CURSOR_FIELDS: Fields = {
   cacheReadTokens: "cacheReadTokens",
   cacheWriteTokens: "cacheWriteTokens",
 };
+/** The OpenCode CLI reports one step's counts on its `step_finish` part
+ * (`part.tokens`), with the step's cost beside them (`part.cost`). The
+ * counts are that step's own, not a running total, so a turn's spend is
+ * the sum over its steps - which the caller does, hcn reports none. */
+const OPENCODE_FIELDS: Fields = {
+  inputTokens: "part.tokens.input",
+  outputTokens: "part.tokens.output",
+  reasoningTokens: "part.tokens.reasoning",
+  totalTokens: "part.tokens.total",
+  cacheReadTokens: "part.tokens.cache.read",
+  cacheWriteTokens: "part.tokens.cache.write",
+  costUsd: "part.cost",
+};
 const CODEX_SESSION_FIELDS: Fields = {
   inputTokens: "inputTokens",
   outputTokens: "outputTokens",
@@ -203,5 +216,15 @@ export function usageEventsOf(
     case "muse":
     case "popeye":
       return [];
+    case "opencode":
+      // One usage event per step, scoped to the message the step
+      // produced: each step reports its own model call, input excluding
+      // cache. Consecutive steps overlap by the prior context whenever the
+      // provider cache misses (big-pickle re-billed ~16k input on step 2
+      // in test/fixtures/opencode-1.19.5/tool-use.jsonl), so summing
+      // input or total across a turn's steps overcounts; only cost sums.
+      return r.type === "step_finish"
+        ? usageEvent(r, OPENCODE_FIELDS, "message", { inputIncludesCache: false })
+        : [];
   }
 }

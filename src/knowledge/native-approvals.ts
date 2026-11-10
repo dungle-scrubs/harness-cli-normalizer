@@ -20,6 +20,9 @@ export const NATIVE_APPROVAL_PROTOCOLS = deepFreeze({
   cursor: null,
   antigravity: null,
   popeye: null,
+  // `opencode run` auto-rejects permission requests; there is no approval
+  // channel to forward.
+  opencode: null,
 } as const);
 
 export const NATIVE_APPROVAL_REQUEST_IDS = deepFreeze({

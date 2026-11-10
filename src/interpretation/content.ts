@@ -695,6 +695,77 @@ const muse = (r: Record<string, unknown>): ContentEvent[] => {
   return [];
 };
 
+/** OpenCode CLI `--format json` contract (verified 1.19.5; captures in
+ * test/fixtures/opencode-1.19.5). One JSON object per line:
+ * `{type, timestamp, sessionID, part|error}`.
+ * - `tool_use` carries the tool AND its settled state (input, output or
+ *   error) on ONE line, so the line yields a tool event and its result.
+ * - `text` carries the whole text part when it ends - there are no
+ *   deltas, so the stream is message-granular.
+ * - `step_finish` carries the step's token counts and cost; the usage
+ *   reader owns those numbers.
+ * - `error` is the turn's terminal error.
+ */
+const opencode = (r: Record<string, unknown>): ContentEvent[] => {
+  if (r.type === "tool_use") {
+    const part = asRecord(r.part);
+    if (part === null) return [];
+    const name = typeof part.tool === "string" ? part.tool : "tool";
+    const state = asRecord(part.state) ?? {};
+    const callId = callIdOf(part.callID);
+    const events: ContentEvent[] = [
+      {
+        kind: "tool",
+        name,
+        ...(Object.hasOwn(state, "input") ? { input: state.input } : {}),
+        ...callId,
+      },
+    ];
+    // The settled state carries the result (`output`) or the failure
+    // (`error`); the status says which. A pending or running tool never
+    // reaches this line - opencode emits it once the tool completed or
+    // errored.
+    const failed = state.error !== undefined && state.error !== null;
+    if (Object.hasOwn(state, "output") || failed) {
+      events.push({
+        kind: "tool-result",
+        name,
+        ...callId,
+        result: failed ? state.error : state.output,
+        ...(typeof state.status === "string" ? { isError: state.status === "error" } : {}),
+      });
+    }
+    return events;
+  }
+  if (r.type === "text") {
+    const part = asRecord(r.part);
+    const text = typeof part?.text === "string" ? part.text : "";
+    return text === "" ? [] : [{ kind: "message", role: "assistant", text }];
+  }
+  if (r.type === "error") {
+    const error = asRecord(r.error);
+    const name = typeof error?.name === "string" ? error.name : "UnknownError";
+    const data = asRecord(error?.data);
+    // Bounded like the body, so a long provider message cannot push the
+    // body past the limit matchers' input window.
+    const message = typeof data?.message === "string" ? data.message.slice(0, 1024) : "";
+    // The provider's own wall naming lives in `responseBody` (the free
+    // tier's `FreeUsageLimitError`, the Go plan's `GoUsageLimitError`),
+    // so the body rides the terminal error text and the limit matchers
+    // read it. The body is bounded, and it sits early enough in the text
+    // for the matchers' input window.
+    const body = typeof data?.responseBody === "string" ? data.responseBody.slice(0, 2048) : "";
+    const status = typeof data?.statusCode === "number" ? data.statusCode : undefined;
+    const detail = [
+      message === "" ? "" : `: ${message}`,
+      body === "" ? "" : ` [responseBody: ${body}]`,
+      status === undefined ? "" : ` [status: ${status}]`,
+    ].join("");
+    return [{ kind: "error", message: `opencode error: ${name}${detail}`, terminal: true }];
+  }
+  return [];
+};
+
 const compactDetail = (value: unknown): string => {
   if (typeof value === "string") return value.slice(0, 512);
   try {
@@ -934,6 +1005,7 @@ const STATE_FACTORIES: Record<HarnessName, () => ReaderState> = {
   cursor: freshCursorReaderState,
   antigravity: () => null,
   popeye: () => null,
+  opencode: () => null,
 };
 
 export const freshReaderState = (harness: HarnessName): ReaderState => STATE_FACTORIES[harness]();
@@ -1402,6 +1474,7 @@ const STATEFUL_READERS: Record<HarnessName, StatefulReader> = {
     cursorWithState(r, isCursorReaderState(state) ? state : freshCursorReaderState()),
   antigravity: stateless(antigravity),
   popeye: stateless(popeyeReader),
+  opencode: stateless(opencode),
 };
 
 /** Stateful entry point: every harness returns { events, state }.

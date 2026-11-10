@@ -1729,7 +1729,8 @@
             "codex --yolo",
             "muse --yolo",
             "cursor --force",
-            "antigravity --dangerously-skip-permissions"
+            "antigravity --dangerously-skip-permissions",
+            "opencode --dangerously-skip-permissions"
           ],
           "supportedBy": [
             {
@@ -1751,10 +1752,14 @@
             {
               "harness": "antigravity",
               "spelling": "--dangerously-skip-permissions"
+            },
+            {
+              "harness": "opencode",
+              "spelling": "--dangerously-skip-permissions"
             }
           ],
           "hint": "pi has no unattended-run flag; approximate with a per-tool allowlist (--tools read,bash) if you need unattended behavior on pi",
-          "message": "pi has no unattended-run flag; supported: claude --dangerously-skip-permissions, codex --yolo, muse --yolo, cursor --force, antigravity --dangerously-skip-permissions - drop autonomy or route to a supporting harness"
+          "message": "pi has no unattended-run flag; supported: claude --dangerously-skip-permissions, codex --yolo, muse --yolo, cursor --force, antigravity --dangerously-skip-permissions, opencode --dangerously-skip-permissions - drop autonomy or route to a supporting harness"
         }
       },
       "explicit-dash-prompt": {
@@ -4308,7 +4313,8 @@
             "codex --yolo",
             "muse --yolo",
             "cursor --force",
-            "antigravity --dangerously-skip-permissions"
+            "antigravity --dangerously-skip-permissions",
+            "opencode --dangerously-skip-permissions"
           ],
           "supportedBy": [
             {
@@ -4330,10 +4336,14 @@
             {
               "harness": "antigravity",
               "spelling": "--dangerously-skip-permissions"
+            },
+            {
+              "harness": "opencode",
+              "spelling": "--dangerously-skip-permissions"
             }
           ],
           "hint": "pi has no unattended-run flag; approximate with a per-tool allowlist (--tools read,bash) if you need unattended behavior on pi",
-          "message": "popeye has no unattended-run flag; supported: claude --dangerously-skip-permissions, codex --yolo, muse --yolo, cursor --force, antigravity --dangerously-skip-permissions - drop autonomy or route to a supporting harness"
+          "message": "popeye has no unattended-run flag; supported: claude --dangerously-skip-permissions, codex --yolo, muse --yolo, cursor --force, antigravity --dangerously-skip-permissions, opencode --dangerously-skip-permissions - drop autonomy or route to a supporting harness"
         }
       },
       "explicit-dash-prompt": {
@@ -4353,6 +4363,691 @@
             "prompt must not start with '-'"
           ],
           "message": "positional prompt may not start with '-'; it would be parsed as a flag by popeye (it would be parsed as a flag by popeye); supported: prompt must not start with '-' - remove leading '-' or prefix with a space"
+        }
+      }
+    },
+    "opencode": {
+      "bare": {
+        "argv": [
+          "opencode",
+          "run",
+          "hi",
+          "--format",
+          "json"
+        ]
+      },
+      "tool-free": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "isolation",
+          "supported": [
+            "(none)"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--bare"
+            }
+          ],
+          "message": "opencode cannot express option \"isolation\" (tool-free); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tool-free-conflict": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "opencode",
+          "option": "isolation",
+          "supported": [
+            "tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough"
+          ],
+          "message": "opencode cannot combine option \"isolation\" (discovery); supported: tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough - pass exactly one of them"
+        }
+      },
+      "model": {
+        "argv": [
+          "opencode",
+          "run",
+          "hi",
+          "--format",
+          "json",
+          "--model",
+          "opencode/big-pickle"
+        ]
+      },
+      "effort-high": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "effort",
+          "supported": [
+            "(none)"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--effort"
+            },
+            {
+              "harness": "codex",
+              "spelling": "-c"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--thinking"
+            },
+            {
+              "harness": "muse",
+              "spelling": "--reasoning-effort"
+            },
+            {
+              "harness": "cursor",
+              "spelling": "--model"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--effort"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--effort"
+            }
+          ],
+          "message": "opencode cannot express option \"effort\" (high); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "effort-with-model": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "effort",
+          "supported": [
+            "(none)"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--effort"
+            },
+            {
+              "harness": "codex",
+              "spelling": "-c"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--thinking"
+            },
+            {
+              "harness": "muse",
+              "spelling": "--reasoning-effort"
+            },
+            {
+              "harness": "cursor",
+              "spelling": "--model"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--effort"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--effort"
+            }
+          ],
+          "message": "opencode cannot express option \"effort\" (high); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "effort-unknown": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "effort",
+          "supported": [
+            "(none)"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--effort"
+            },
+            {
+              "harness": "codex",
+              "spelling": "-c"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--thinking"
+            },
+            {
+              "harness": "muse",
+              "spelling": "--reasoning-effort"
+            },
+            {
+              "harness": "cursor",
+              "spelling": "--model"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--effort"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--effort"
+            }
+          ],
+          "message": "opencode cannot express option \"effort\" (bogus); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "model-unknown": {
+        "argv": [
+          "opencode",
+          "run",
+          "hi",
+          "--format",
+          "json",
+          "--model",
+          "no-such-model"
+        ]
+      },
+      "sandbox-read-only": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "sandbox",
+          "supported": [
+            "(none)"
+          ],
+          "supportedBy": [
+            {
+              "harness": "codex",
+              "spelling": "--sandbox"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--sandbox"
+            }
+          ],
+          "message": "opencode cannot express option \"sandbox\" (read-only); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "context-window": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "contextWindow",
+          "supported": [
+            "(none)"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--autocompact"
+            },
+            {
+              "harness": "codex",
+              "spelling": "-c"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--context-window"
+            }
+          ],
+          "message": "opencode cannot express option \"contextWindow\" (100000); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "provider": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "provider",
+          "supported": [
+            "(none)"
+          ],
+          "supportedBy": [
+            {
+              "harness": "pi",
+              "spelling": "--provider"
+            }
+          ],
+          "message": "opencode cannot express option \"provider\" (zai); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "agent": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "agent",
+          "supported": [
+            "(none)"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--agent"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--agent"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--agent"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--agent"
+            }
+          ],
+          "message": "opencode cannot express option \"agent\" (scout-agent); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-tools": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "discovery",
+          "supported": [
+            "(none)"
+          ],
+          "message": "opencode cannot express option \"discovery\" (tools); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-instruction-files": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "discovery",
+          "supported": [
+            "(none)"
+          ],
+          "message": "opencode cannot express option \"discovery\" (instructionFiles); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-extensions": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "discovery",
+          "supported": [
+            "(none)"
+          ],
+          "message": "opencode cannot express option \"discovery\" (extensions); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-skills": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "discovery",
+          "supported": [
+            "(none)"
+          ],
+          "message": "opencode cannot express option \"discovery\" (skills); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "discovery-all-on": {
+        "argv": [
+          "opencode",
+          "run",
+          "hi",
+          "--format",
+          "json"
+        ]
+      },
+      "write-off": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "write",
+          "supported": [
+            "(none)"
+          ],
+          "supportedBy": [
+            {
+              "harness": "muse",
+              "spelling": "--disable-write"
+            }
+          ],
+          "message": "opencode cannot express option \"write\" (false); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "shell-off": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "shell",
+          "supported": [
+            "(none)"
+          ],
+          "supportedBy": [
+            {
+              "harness": "muse",
+              "spelling": "--disable-shell"
+            }
+          ],
+          "message": "opencode cannot express option \"shell\" (false); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "max-steps": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "maxSteps",
+          "supported": [
+            "(none)"
+          ],
+          "supportedBy": [
+            {
+              "harness": "muse",
+              "spelling": "--max-model-steps"
+            }
+          ],
+          "message": "opencode cannot express option \"maxSteps\" (5); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "system-prompt": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "systemPrompt",
+          "supported": [
+            "(none)"
+          ],
+          "supportedBy": [],
+          "message": "opencode cannot express option \"systemPrompt\" (you are terse); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "append-system-prompt": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "appendSystemPrompt",
+          "supported": [
+            "(none)"
+          ],
+          "supportedBy": [],
+          "message": "opencode cannot express option \"appendSystemPrompt\" (and polite); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "access-read": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "access",
+          "supported": [
+            "(none)"
+          ],
+          "message": "opencode cannot express option \"access\" (read); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "access-write": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "access",
+          "supported": [
+            "(none)"
+          ],
+          "message": "opencode cannot express option \"access\" (write); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "access-read-no-tools": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "discovery",
+          "supported": [
+            "(none)"
+          ],
+          "message": "opencode cannot express option \"discovery\" (tools); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-include": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--allowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--tools"
+            }
+          ],
+          "hint": "opencode has no per-tool name lists on the command line; gate execution with the opencode config (opencode.json permissions) or run in a disposable directory",
+          "message": "opencode cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-include-native": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--allowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--tools"
+            }
+          ],
+          "hint": "opencode has no per-tool name lists on the command line; gate execution with the opencode config (opencode.json permissions) or run in a disposable directory",
+          "message": "opencode cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-include-empty": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--allowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--tools"
+            }
+          ],
+          "hint": "opencode has no per-tool name lists on the command line; gate execution with the opencode config (opencode.json permissions) or run in a disposable directory",
+          "message": "opencode cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-exclude": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "excludeTools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--disallowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--exclude-tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--exclude-tools"
+            }
+          ],
+          "hint": "opencode has no per-tool name lists on the command line; gate execution with the opencode config (opencode.json permissions) or run in a disposable directory",
+          "message": "opencode cannot express option \"excludeTools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-exclude-native": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "excludeTools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--disallowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--exclude-tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--exclude-tools"
+            }
+          ],
+          "hint": "opencode has no per-tool name lists on the command line; gate execution with the opencode config (opencode.json permissions) or run in a disposable directory",
+          "message": "opencode cannot express option \"excludeTools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-both": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "opencode",
+          "option": "tools",
+          "supported": [
+            "--tools (exact allowlist) or --exclude-tools (complement), never both"
+          ],
+          "message": "opencode cannot combine option \"tools\" (mutual exclusion); supported: --tools (exact allowlist) or --exclude-tools (complement), never both - pass exactly one of them"
+        }
+      },
+      "tools-via-toolmap": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--allowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--tools"
+            }
+          ],
+          "hint": "opencode has no per-tool name lists on the command line; gate execution with the opencode config (opencode.json permissions) or run in a disposable directory",
+          "message": "opencode cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-unknown-name": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--allowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--tools"
+            }
+          ],
+          "hint": "opencode has no per-tool name lists on the command line; gate execution with the opencode config (opencode.json permissions) or run in a disposable directory",
+          "message": "opencode cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "skills-pick": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "skills",
+          "supported": [
+            "caller-directed skill sets"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "skillOverrides"
+            },
+            {
+              "harness": "codex",
+              "spelling": "-c skills.config"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--skill"
+            }
+          ],
+          "hint": "opencode has no per-skill selection surface on the command line; include the skill content in the prompt or configure it in the opencode config",
+          "message": "opencode cannot express option \"skills\"; supported: caller-directed skill sets - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "autonomy": {
+        "argv": [
+          "opencode",
+          "run",
+          "hi",
+          "--format",
+          "json",
+          "--dangerously-skip-permissions"
+        ]
+      },
+      "explicit-dash-prompt": {
+        "argv": [
+          "opencode",
+          "run",
+          "-x",
+          "--format",
+          "json"
+        ]
+      },
+      "implicit-dash-prompt": {
+        "refusal": {
+          "issue": "prompt-flag-injection",
+          "harness": "opencode",
+          "supported": [
+            "prompt must not start with '-'"
+          ],
+          "message": "positional prompt may not start with '-'; it would be parsed as a flag by opencode (it would be parsed as a flag by opencode); supported: prompt must not start with '-' - remove leading '-' or prefix with a space"
         }
       }
     }
@@ -6182,7 +6877,8 @@
             "codex --yolo",
             "muse --yolo",
             "cursor --force",
-            "antigravity --dangerously-skip-permissions"
+            "antigravity --dangerously-skip-permissions",
+            "opencode --dangerously-skip-permissions"
           ],
           "supportedBy": [
             {
@@ -6204,10 +6900,14 @@
             {
               "harness": "antigravity",
               "spelling": "--dangerously-skip-permissions"
+            },
+            {
+              "harness": "opencode",
+              "spelling": "--dangerously-skip-permissions"
             }
           ],
           "hint": "pi has no unattended-run flag; approximate with a per-tool allowlist (--tools read,bash) if you need unattended behavior on pi",
-          "message": "pi has no unattended-run flag; supported: claude --dangerously-skip-permissions, codex --yolo, muse --yolo, cursor --force, antigravity --dangerously-skip-permissions - drop autonomy or route to a supporting harness"
+          "message": "pi has no unattended-run flag; supported: claude --dangerously-skip-permissions, codex --yolo, muse --yolo, cursor --force, antigravity --dangerously-skip-permissions, opencode --dangerously-skip-permissions - drop autonomy or route to a supporting harness"
         }
       },
       "explicit-dash-prompt": {
@@ -8863,7 +9563,8 @@
             "codex --yolo",
             "muse --yolo",
             "cursor --force",
-            "antigravity --dangerously-skip-permissions"
+            "antigravity --dangerously-skip-permissions",
+            "opencode --dangerously-skip-permissions"
           ],
           "supportedBy": [
             {
@@ -8885,10 +9586,14 @@
             {
               "harness": "antigravity",
               "spelling": "--dangerously-skip-permissions"
+            },
+            {
+              "harness": "opencode",
+              "spelling": "--dangerously-skip-permissions"
             }
           ],
           "hint": "pi has no unattended-run flag; approximate with a per-tool allowlist (--tools read,bash) if you need unattended behavior on pi",
-          "message": "popeye has no unattended-run flag; supported: claude --dangerously-skip-permissions, codex --yolo, muse --yolo, cursor --force, antigravity --dangerously-skip-permissions - drop autonomy or route to a supporting harness"
+          "message": "popeye has no unattended-run flag; supported: claude --dangerously-skip-permissions, codex --yolo, muse --yolo, cursor --force, antigravity --dangerously-skip-permissions, opencode --dangerously-skip-permissions - drop autonomy or route to a supporting harness"
         }
       },
       "explicit-dash-prompt": {
@@ -8910,6 +9615,703 @@
             "prompt must not start with '-'"
           ],
           "message": "positional prompt may not start with '-'; it would be parsed as a flag by popeye (it would be parsed as a flag by popeye); supported: prompt must not start with '-' - remove leading '-' or prefix with a space"
+        }
+      }
+    },
+    "opencode": {
+      "bare": {
+        "argv": [
+          "opencode",
+          "run",
+          "--session",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "hi",
+          "--format",
+          "json"
+        ]
+      },
+      "tool-free": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "isolation",
+          "supported": [
+            "(none)"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--bare"
+            }
+          ],
+          "message": "opencode cannot express option \"isolation\" (tool-free); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tool-free-conflict": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "opencode",
+          "option": "isolation",
+          "supported": [
+            "tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough"
+          ],
+          "message": "opencode cannot combine option \"isolation\" (discovery); supported: tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough - pass exactly one of them"
+        }
+      },
+      "model": {
+        "argv": [
+          "opencode",
+          "run",
+          "--session",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "hi",
+          "--format",
+          "json",
+          "--model",
+          "opencode/big-pickle"
+        ]
+      },
+      "effort-high": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "effort",
+          "supported": [
+            "(none)"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--effort"
+            },
+            {
+              "harness": "codex",
+              "spelling": "-c"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--thinking"
+            },
+            {
+              "harness": "muse",
+              "spelling": "--reasoning-effort"
+            },
+            {
+              "harness": "cursor",
+              "spelling": "--model"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--effort"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--effort"
+            }
+          ],
+          "message": "opencode cannot express option \"effort\" (high); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "effort-with-model": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "effort",
+          "supported": [
+            "(none)"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--effort"
+            },
+            {
+              "harness": "codex",
+              "spelling": "-c"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--thinking"
+            },
+            {
+              "harness": "muse",
+              "spelling": "--reasoning-effort"
+            },
+            {
+              "harness": "cursor",
+              "spelling": "--model"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--effort"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--effort"
+            }
+          ],
+          "message": "opencode cannot express option \"effort\" (high); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "effort-unknown": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "effort",
+          "supported": [
+            "(none)"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--effort"
+            },
+            {
+              "harness": "codex",
+              "spelling": "-c"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--thinking"
+            },
+            {
+              "harness": "muse",
+              "spelling": "--reasoning-effort"
+            },
+            {
+              "harness": "cursor",
+              "spelling": "--model"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--effort"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--effort"
+            }
+          ],
+          "message": "opencode cannot express option \"effort\" (bogus); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "model-unknown": {
+        "argv": [
+          "opencode",
+          "run",
+          "--session",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "hi",
+          "--format",
+          "json",
+          "--model",
+          "no-such-model"
+        ]
+      },
+      "sandbox-read-only": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "sandbox",
+          "supported": [
+            "(none)"
+          ],
+          "supportedBy": [
+            {
+              "harness": "codex",
+              "spelling": "--sandbox"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--sandbox"
+            }
+          ],
+          "message": "opencode cannot express option \"sandbox\" (read-only); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "context-window": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "contextWindow",
+          "supported": [
+            "(none)"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--autocompact"
+            },
+            {
+              "harness": "codex",
+              "spelling": "-c"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--context-window"
+            }
+          ],
+          "message": "opencode cannot express option \"contextWindow\" (100000); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "provider": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "provider",
+          "supported": [
+            "(none)"
+          ],
+          "supportedBy": [
+            {
+              "harness": "pi",
+              "spelling": "--provider"
+            }
+          ],
+          "message": "opencode cannot express option \"provider\" (zai); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "agent": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "agent",
+          "supported": [
+            "(none)"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--agent"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--agent"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--agent"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--agent"
+            }
+          ],
+          "message": "opencode cannot express option \"agent\" (scout-agent); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-tools": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "discovery",
+          "supported": [
+            "(none)"
+          ],
+          "message": "opencode cannot express option \"discovery\" (tools); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-instruction-files": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "discovery",
+          "supported": [
+            "(none)"
+          ],
+          "message": "opencode cannot express option \"discovery\" (instructionFiles); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-extensions": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "discovery",
+          "supported": [
+            "(none)"
+          ],
+          "message": "opencode cannot express option \"discovery\" (extensions); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "no-skills": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "discovery",
+          "supported": [
+            "(none)"
+          ],
+          "message": "opencode cannot express option \"discovery\" (skills); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "discovery-all-on": {
+        "argv": [
+          "opencode",
+          "run",
+          "--session",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "hi",
+          "--format",
+          "json"
+        ]
+      },
+      "write-off": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "write",
+          "supported": [
+            "(none)"
+          ],
+          "supportedBy": [
+            {
+              "harness": "muse",
+              "spelling": "--disable-write"
+            }
+          ],
+          "message": "opencode cannot express option \"write\" (false); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "shell-off": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "shell",
+          "supported": [
+            "(none)"
+          ],
+          "supportedBy": [
+            {
+              "harness": "muse",
+              "spelling": "--disable-shell"
+            }
+          ],
+          "message": "opencode cannot express option \"shell\" (false); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "max-steps": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "maxSteps",
+          "supported": [
+            "(none)"
+          ],
+          "supportedBy": [
+            {
+              "harness": "muse",
+              "spelling": "--max-model-steps"
+            }
+          ],
+          "message": "opencode cannot express option \"maxSteps\" (5); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "system-prompt": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "systemPrompt",
+          "supported": [
+            "(none)"
+          ],
+          "supportedBy": [],
+          "message": "opencode cannot express option \"systemPrompt\" (you are terse); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "append-system-prompt": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "appendSystemPrompt",
+          "supported": [
+            "(none)"
+          ],
+          "supportedBy": [],
+          "message": "opencode cannot express option \"appendSystemPrompt\" (and polite); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "access-read": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "access",
+          "supported": [
+            "(none)"
+          ],
+          "message": "opencode cannot express option \"access\" (read); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "access-write": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "access",
+          "supported": [
+            "(none)"
+          ],
+          "message": "opencode cannot express option \"access\" (write); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "access-read-no-tools": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "discovery",
+          "supported": [
+            "(none)"
+          ],
+          "message": "opencode cannot express option \"discovery\" (tools); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-include": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--allowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--tools"
+            }
+          ],
+          "hint": "opencode has no per-tool name lists on the command line; gate execution with the opencode config (opencode.json permissions) or run in a disposable directory",
+          "message": "opencode cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-include-native": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--allowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--tools"
+            }
+          ],
+          "hint": "opencode has no per-tool name lists on the command line; gate execution with the opencode config (opencode.json permissions) or run in a disposable directory",
+          "message": "opencode cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-include-empty": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--allowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--tools"
+            }
+          ],
+          "hint": "opencode has no per-tool name lists on the command line; gate execution with the opencode config (opencode.json permissions) or run in a disposable directory",
+          "message": "opencode cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-exclude": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "excludeTools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--disallowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--exclude-tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--exclude-tools"
+            }
+          ],
+          "hint": "opencode has no per-tool name lists on the command line; gate execution with the opencode config (opencode.json permissions) or run in a disposable directory",
+          "message": "opencode cannot express option \"excludeTools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-exclude-native": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "excludeTools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--disallowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--exclude-tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--exclude-tools"
+            }
+          ],
+          "hint": "opencode has no per-tool name lists on the command line; gate execution with the opencode config (opencode.json permissions) or run in a disposable directory",
+          "message": "opencode cannot express option \"excludeTools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-both": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "opencode",
+          "option": "tools",
+          "supported": [
+            "--tools (exact allowlist) or --exclude-tools (complement), never both"
+          ],
+          "message": "opencode cannot combine option \"tools\" (mutual exclusion); supported: --tools (exact allowlist) or --exclude-tools (complement), never both - pass exactly one of them"
+        }
+      },
+      "tools-via-toolmap": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--allowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--tools"
+            }
+          ],
+          "hint": "opencode has no per-tool name lists on the command line; gate execution with the opencode config (opencode.json permissions) or run in a disposable directory",
+          "message": "opencode cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "tools-unknown-name": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "tools",
+          "supported": [
+            "per-tool name lists"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--allowedTools"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--tools"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--tools"
+            }
+          ],
+          "hint": "opencode has no per-tool name lists on the command line; gate execution with the opencode config (opencode.json permissions) or run in a disposable directory",
+          "message": "opencode cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "skills-pick": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "skills",
+          "supported": [
+            "caller-directed skill sets"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "skillOverrides"
+            },
+            {
+              "harness": "codex",
+              "spelling": "-c skills.config"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--skill"
+            }
+          ],
+          "hint": "opencode has no per-skill selection surface on the command line; include the skill content in the prompt or configure it in the opencode config",
+          "message": "opencode cannot express option \"skills\"; supported: caller-directed skill sets - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "autonomy": {
+        "argv": [
+          "opencode",
+          "run",
+          "--session",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "hi",
+          "--format",
+          "json",
+          "--dangerously-skip-permissions"
+        ]
+      },
+      "explicit-dash-prompt": {
+        "argv": [
+          "opencode",
+          "run",
+          "--session",
+          "0199a4c5-1111-2222-3333-444455556666",
+          "-x",
+          "--format",
+          "json"
+        ]
+      },
+      "implicit-dash-prompt": {
+        "refusal": {
+          "issue": "prompt-flag-injection",
+          "harness": "opencode",
+          "supported": [
+            "prompt must not start with '-'"
+          ],
+          "message": "positional prompt may not start with '-'; it would be parsed as a flag by opencode (it would be parsed as a flag by opencode); supported: prompt must not start with '-' - remove leading '-' or prefix with a space"
         }
       }
     }
@@ -9373,6 +10775,94 @@
           "message": "popeye cannot combine (both --resume and --resume-last given); supported: --resume or --resume-last, not both (most-recent and a named id are two answers to one question) - pass exactly one of them"
         }
       }
+    },
+    "opencode": {
+      "bare": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "resumeLast",
+          "supported": [
+            "claude --continue",
+            "codex --last",
+            "pi --continue",
+            "cursor --continue",
+            "antigravity --continue"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--continue"
+            },
+            {
+              "harness": "codex",
+              "spelling": "--last"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--continue"
+            },
+            {
+              "harness": "cursor",
+              "spelling": "--continue"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--continue"
+            }
+          ],
+          "hint": "opencode has no most-recent spelling; keep the session id from the identity event and re-enter with hcn run opencode --resume <id>",
+          "message": "opencode cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue, cursor --continue, antigravity --continue - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "model": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "resumeLast",
+          "supported": [
+            "claude --continue",
+            "codex --last",
+            "pi --continue",
+            "cursor --continue",
+            "antigravity --continue"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--continue"
+            },
+            {
+              "harness": "codex",
+              "spelling": "--last"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--continue"
+            },
+            {
+              "harness": "cursor",
+              "spelling": "--continue"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--continue"
+            }
+          ],
+          "hint": "opencode has no most-recent spelling; keep the session id from the identity event and re-enter with hcn run opencode --resume <id>",
+          "message": "opencode cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue, cursor --continue, antigravity --continue - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "id-and-last-refuse": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "opencode",
+          "supported": [
+            "--resume or --resume-last, not both (most-recent and a named id are two answers to one question)"
+          ],
+          "message": "opencode cannot combine (both --resume and --resume-last given); supported: --resume or --resume-last, not both (most-recent and a named id are two answers to one question) - pass exactly one of them"
+        }
+      }
     }
   },
   "passthrough": {
@@ -9615,6 +11105,35 @@
           "hcn",
           "--native-flag"
         ]
+      }
+    },
+    "opencode": {
+      "empty": {
+        "argv": [
+          "opencode",
+          "run",
+          "hi",
+          "--format",
+          "json"
+        ]
+      },
+      "tail": {
+        "refusal": {
+          "issue": "unsupported-passthrough",
+          "harness": "opencode",
+          "supported": [],
+          "hint": "remove the tokens after `--` and re-run on opencode",
+          "message": "opencode joins tokens after the -- separator into the prompt as text (--native-flag); supported: (none) - remove the tokens after -- and re-run; to pass native flags, invoke opencode directly"
+        }
+      },
+      "tail-resume": {
+        "refusal": {
+          "issue": "unsupported-passthrough",
+          "harness": "opencode",
+          "supported": [],
+          "hint": "remove the tokens after `--` and re-run on opencode",
+          "message": "opencode joins tokens after the -- separator into the prompt as text (--native-flag); supported: (none) - remove the tokens after -- and re-run; to pass native flags, invoke opencode directly"
+        }
       }
     }
   },
@@ -10386,6 +11905,120 @@
             "a session id of letters, digits, '.', '_', ':', '@', '-' only, starting with a letter or digit, at most 128 chars"
           ],
           "message": "popeye cannot resume session id \"../etc\" is not a usable id: must match /^[A-Za-z0-9][A-Za-z0-9._:@-]*$/ and be at most 128 chars"
+        }
+      }
+    },
+    "opencode": {
+      "fresh": {
+        "refusal": {
+          "issue": "no-session-mode",
+          "harness": "opencode",
+          "supported": [
+            "claude",
+            "codex",
+            "pi",
+            "antigravity",
+            "popeye"
+          ],
+          "message": "opencode declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
+        }
+      },
+      "model": {
+        "refusal": {
+          "issue": "no-session-mode",
+          "harness": "opencode",
+          "supported": [
+            "claude",
+            "codex",
+            "pi",
+            "antigravity",
+            "popeye"
+          ],
+          "message": "opencode declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
+        }
+      },
+      "effort": {
+        "refusal": {
+          "issue": "no-session-mode",
+          "harness": "opencode",
+          "supported": [
+            "claude",
+            "codex",
+            "pi",
+            "antigravity",
+            "popeye"
+          ],
+          "message": "opencode declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
+        }
+      },
+      "model-effort": {
+        "refusal": {
+          "issue": "no-session-mode",
+          "harness": "opencode",
+          "supported": [
+            "claude",
+            "codex",
+            "pi",
+            "antigravity",
+            "popeye"
+          ],
+          "message": "opencode declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
+        }
+      },
+      "provider": {
+        "refusal": {
+          "issue": "no-session-mode",
+          "harness": "opencode",
+          "supported": [
+            "claude",
+            "codex",
+            "pi",
+            "antigravity",
+            "popeye"
+          ],
+          "message": "opencode declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
+        }
+      },
+      "context-window": {
+        "refusal": {
+          "issue": "no-session-mode",
+          "harness": "opencode",
+          "supported": [
+            "claude",
+            "codex",
+            "pi",
+            "antigravity",
+            "popeye"
+          ],
+          "message": "opencode declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
+        }
+      },
+      "resume": {
+        "refusal": {
+          "issue": "no-session-mode",
+          "harness": "opencode",
+          "supported": [
+            "claude",
+            "codex",
+            "pi",
+            "antigravity",
+            "popeye"
+          ],
+          "message": "opencode declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
+        }
+      },
+      "bad-id": {
+        "refusal": {
+          "issue": "no-session-mode",
+          "harness": "opencode",
+          "supported": [
+            "claude",
+            "codex",
+            "pi",
+            "antigravity",
+            "popeye"
+          ],
+          "message": "opencode declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
         }
       }
     }
@@ -16723,6 +18356,762 @@
           "unrenderable": [
             {
               "key": "sandbox",
+              "tier": "profile"
+            }
+          ]
+        }
+      }
+    },
+    "opencode": {
+      "bare": {
+        "resolved": {
+          "options": {},
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "harness"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": "all-known",
+              "tier": "harness"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "effort",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "access-read": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "access",
+          "supported": [
+            "(none)"
+          ],
+          "message": "opencode cannot express option \"access\" (read); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "access-read-explicit-sandbox": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "access",
+          "supported": [
+            "(none)"
+          ],
+          "message": "opencode cannot express option \"access\" (read); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "access-read-config-sandbox": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "access",
+          "supported": [
+            "(none)"
+          ],
+          "message": "opencode cannot express option \"access\" (read); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "access-and-tools": {
+        "refusal": {
+          "issue": "mutually-exclusive-options",
+          "harness": "opencode",
+          "option": "access",
+          "supported": [
+            "--access selects a permission preset, not a filter over --tools/--exclude-tools"
+          ],
+          "message": "opencode cannot combine option \"access\" (mutual exclusion); supported: --access selects a permission preset, not a filter over --tools/--exclude-tools - pass exactly one of them"
+        }
+      },
+      "access-from-project": {
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "opencode",
+          "option": "access",
+          "supported": [
+            "(none)"
+          ],
+          "message": "opencode cannot express option \"access\" (read); supported: (none) - drop the option or route this work to a harness that supports it"
+        }
+      },
+      "access-invalid": {
+        "refusal": {
+          "issue": "invalid-option-value",
+          "harness": "opencode",
+          "option": "access",
+          "supported": [
+            "read",
+            "write"
+          ],
+          "message": "invalid value for option \"access\" on opencode (rw); supported: read, write - use a supported value instead"
+        }
+      },
+      "tools-within-floor": {
+        "resolved": {
+          "options": {
+            "tools": [
+              "read"
+            ]
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "harness"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": [
+                "read"
+              ],
+              "tier": "arg"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "effort",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "tools-exceeds-floor": {
+        "refusal": {
+          "name": "FloorExceededError",
+          "excess": [
+            "shell"
+          ],
+          "floor": [
+            "read"
+          ],
+          "message": "tool grant exceeds the project floor: [\"shell\"] not in floor [\"read\"] - request a grant within the floor or raise the floor in the project config"
+        }
+      },
+      "tools-empty-floor": {
+        "refusal": {
+          "name": "FloorExceededError",
+          "excess": [
+            "read"
+          ],
+          "floor": [],
+          "message": "tool grant exceeds the project floor: [\"read\"] not in floor [] - request a grant within the floor or raise the floor in the project config"
+        }
+      },
+      "toolset": {
+        "resolved": {
+          "options": {
+            "tools": [
+              "read",
+              "grep"
+            ]
+          },
+          "provenance": [
+            {
+              "key": "tools",
+              "value": [
+                "read",
+                "grep"
+              ],
+              "tier": "arg"
+            },
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "harness"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": [
+                "read",
+                "grep"
+              ],
+              "tier": "arg"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "effort",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "toolmap-tiers": {
+        "resolved": {
+          "options": {
+            "toolMap": {
+              "pi": {
+                "web-search": {
+                  "native": "ws_project",
+                  "tier": "project-config"
+                }
+              }
+            }
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "harness"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": "all-known",
+              "tier": "harness"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "effort",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "discovery-tools-off": {
+        "resolved": {
+          "options": {
+            "discovery": {
+              "tools": false
+            }
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "harness"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": false
+              },
+              "tier": "arg"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": "all-known",
+              "tier": "harness"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "effort",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "effort-tiers": {
+        "resolved": {
+          "options": {
+            "effort": "low"
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "low",
+              "tier": "project-config"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": "all-known",
+              "tier": "harness"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "effort-arg-wins": {
+        "resolved": {
+          "options": {
+            "effort": "max"
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "max",
+              "tier": "arg"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": "all-known",
+              "tier": "harness"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
+              "tier": "profile"
+            }
+          ]
+        }
+      },
+      "behaviour-keys": {
+        "resolved": {
+          "options": {
+            "questions": "assume",
+            "timeout": 30
+          },
+          "provenance": [
+            {
+              "key": "effort",
+              "value": "medium",
+              "tier": "harness"
+            },
+            {
+              "key": "sandbox",
+              "value": "workspace-write",
+              "tier": "harness"
+            },
+            {
+              "key": "contextWindow",
+              "value": 272000,
+              "tier": "harness"
+            },
+            {
+              "key": "discovery",
+              "value": {
+                "tools": true,
+                "instructionFiles": true,
+                "extensions": true,
+                "skills": true
+              },
+              "tier": "profile"
+            },
+            {
+              "key": "autonomy",
+              "value": false,
+              "tier": "profile"
+            },
+            {
+              "key": "write",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "shell",
+              "value": true,
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "value": false,
+              "tier": "harness"
+            },
+            {
+              "key": "tools",
+              "value": "all-known",
+              "tier": "harness"
+            },
+            {
+              "key": "questions",
+              "value": "assume",
+              "tier": "user-config"
+            },
+            {
+              "key": "timeout",
+              "value": 30,
+              "tier": "user-config"
+            }
+          ],
+          "unrenderable": [
+            {
+              "key": "effort",
+              "tier": "profile"
+            },
+            {
+              "key": "sandbox",
+              "tier": "profile"
+            },
+            {
+              "key": "contextWindow",
+              "tier": "profile"
+            },
+            {
+              "key": "memory",
+              "tier": "profile"
+            },
+            {
+              "key": "tools",
               "tier": "profile"
             }
           ]

@@ -3,7 +3,8 @@
 Read this before relying on behavior that differs by harness: model choice,
 provider selection, live-session controls, Claude write sandbox limits, the
 Claude configuration directory, native approvals and input requests, Cursor
-trust and effort, and Antigravity results. The flag table and support matrix are in
+trust and effort, Antigravity results, and OpenCode's free tier and event
+stream. The flag table and support matrix are in
 [reference.md](reference.md).
 
 ## Claude models
@@ -227,3 +228,46 @@ a denial. HCN caller cancellation outranks Antigravity's shutdown
 `context canceled` result, and an HCN wall-clock timeout remains a timeout.
 Quota error records remain unqualified because qualification did not
 deliberately exhaust the free allowance.
+
+## OpenCode
+
+OpenCode runs one-shot turns as `opencode run --format json` and writes one
+JSON object per line: `step_start`, `tool_use`, `text`, `step_finish`,
+`reasoning` (only with `--thinking`) and `error`. A `tool_use` line carries
+the tool and its settled state together, so it is one tool event and one
+tool result; a `text` line carries the whole text part, so the stream is
+message-granular, not token-granular. Every line carries the harness-minted
+`sessionID`, so the first line announces the session even when that line is
+the failure.
+
+The model vocabulary is open: OpenCode's free roster rotates, so hcn curates
+no model list and `--model provider/model` passes through. A free model needs
+no account and no API key. The data terms differ per free model (some retain
+prompts or train on them); hcn does not choose the model.
+
+`run` auto-rejects every permission request, so a turn that needs one is
+denied by OpenCode itself. `--autonomy` renders the native
+`--dangerously-skip-permissions` flag, which approves those requests once.
+`run` takes a variadic positional message and joins trailing text into it,
+so a passthrough tail after `--` refuses before spawn instead of rewriting
+the prompt. An unknown session id is a refusal (exit 1, `Session not found`),
+not a fresh session; an unknown model arrives as an opaque `UnknownError`.
+The free tier's own wall names `FreeUsageLimitError` in the provider's
+response body and the Go plan's names `GoUsageLimitError`; both classify as a
+usage limit. OpenCode retries such a wall up to five times before it reports
+it, waiting as long as the provider's `retry-after` asks, and prints nothing
+while it waits, so a limited turn can go silent before it fails. Bound it
+with `--timeout`.
+
+For private code, pick a free model whose provider keeps no data, such as
+`opencode/glm-5.3-flash-free` (OpenCode's Zen docs, 2026-11-10); `big-pickle`
+and several others may retain prompts or train on them.
+
+A prompt that starts with `-` reaches `opencode run` as a flag and fails
+natively. hcn's default question preamble hides this; with `--questions none`,
+start the prompt with another character.
+
+Only the one-shot turn is supported. There is no persistent session mode, no
+transcript reading (OpenCode files its sessions in a SQLite store under the
+XDG data root), no context inspection, no compaction claim, no tool selection
+and no access preset.

@@ -150,12 +150,20 @@ export async function transcriptList(raw: readonly string[]): Promise<void> {
   process.on("SIGTERM", interrupt);
   try {
     const deps = nodeRunnerDeps();
+    // The default roster lists the harnesses that HAVE a listing method
+    // (an empty selection means every harness with a listing method). A
+    // harness the caller named explicitly still gets its row, reporting
+    // the divergence it has.
+    const requests = listingRequests(
+      options.harnesses.length ? options.harnesses : [...HARNESS_NAMES],
+      cwd,
+    );
+    const harnesses = options.harnesses.length
+      ? requests
+      : requests.filter((entry) => entry.listing !== null);
     process.exitCode = await listSessions(
       {
-        harnesses: listingRequests(
-          options.harnesses.length ? options.harnesses : [...HARNESS_NAMES],
-          cwd,
-        ),
+        harnesses,
         hcnVersion: version,
         workspace: options.allWorkspaces ? null : cwd,
         headless: options.headless,

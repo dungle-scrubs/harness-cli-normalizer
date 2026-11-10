@@ -6,7 +6,7 @@ A unified interface across multiple coding agents.
 
 hcn is a command-line tool for scripts and agents that hand work to coding-agent CLIs. hcn calls
 each of these CLIs a harness. It currently supports Claude Code, Codex, pi, Muse, Cursor CLI,
-Antigravity CLI, and popeye. You choose the harness and model for each task and pass the same
+Antigravity CLI, popeye, and OpenCode CLI. You choose the harness and model for each task and pass the same
 options to any of them. hcn translates the options into that harness's flags and reports the result
 as the same JSON events and exit codes. If a harness has no equivalent for an option, hcn exits
 without starting it and lists the harnesses that do.
@@ -49,6 +49,7 @@ muse@1.4.2 (installed:muse)
 cursor@2026.10.01-e373342 (installed:agent)
 antigravity@1.3.3 (installed:agy)
 popeye@0.2.0 (npm:@dungle-scrubs/popeye)
+opencode@1.19.5 (npm:opencode-ai)
 ```
 
 To teach your coding agents hcn's flags, events and refusals, install its agent skill:
@@ -74,8 +75,8 @@ provenance: questions = ask (default)
   ○ clean (exit 0)
 ```
 
-To use another harness, replace `claude` with `codex`, `pi`, `muse`, `cursor`, `antigravity`, or
-`popeye` and keep the other flags. hcn checks `--model` and `--effort` against the harness first.
+To use another harness, replace `claude` with `codex`, `pi`, `muse`, `cursor`, `antigravity`,
+`popeye`, or `opencode` and keep the other flags. hcn checks `--model` and `--effort` against the harness first.
 On claude, `--setting-sources <list>` (`user`, `project`, `local`) picks which settings scopes the
 child loads; runs pass nothing by default and sessions pin `project`.
 For example, `--model haiku` on codex exits 2 and lists the codex models. The stderr lines show where
@@ -270,7 +271,7 @@ hcn check                      Compare those versions with the latest releases
 ```
 
 `<harness>` is one of `claude`, `codex`, `pi`, `muse`, `cursor` (binary `agent`), `antigravity`
-(binary `agy`), or `popeye`. `hcn <command> --help` lists every flag.
+(binary `agy`), `popeye`, or `opencode`. `hcn <command> --help` lists every flag.
 
 Session `send` and `answer` commands accept `delivery: "queue"` or `"steer"` where supported.
 The [session controls reference](docs/reference.md#delivery-and-interruption-controls) covers
@@ -347,8 +348,8 @@ hcn is pre-1.0. It is not a harness and does not run a model itself. It adds a l
 program and the harness, so if you use only one CLI, you may prefer to call that CLI directly.
 [ROADMAP.md](ROADMAP.md) lists planned work, including new harnesses. Support differs by harness:
 
-- Sessions work with Claude Code, Codex, pi, Antigravity CLI, and popeye. Muse and Cursor CLI run
-  single turns only.
+- Sessions work with Claude Code, Codex, pi, Antigravity CLI, and popeye. Muse, Cursor CLI, and
+  OpenCode CLI run single turns only.
 - `hcn interactive` supports Codex only.
 - `--native-approvals` supports Codex one-shot responses and Claude sessions.
   Saved-settings inspection supports Codex and pi.
@@ -361,8 +362,9 @@ hcn runs these CLIs: [Claude Code](https://www.npmjs.com/package/@anthropic-ai/c
 [Codex](https://www.npmjs.com/package/@openai/codex),
 [pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent), Muse (installed from source,
 not on a registry), Cursor CLI (installed via script, binary `agent`, not on a registry),
-[Antigravity CLI](https://antigravity.google/docs/cli/), and
-[popeye](https://www.npmjs.com/package/@dungle-scrubs/popeye).
+[Antigravity CLI](https://antigravity.google/docs/cli/),
+[popeye](https://www.npmjs.com/package/@dungle-scrubs/popeye), and
+[OpenCode CLI](https://www.npmjs.com/package/opencode-ai).
 
 ## License
 

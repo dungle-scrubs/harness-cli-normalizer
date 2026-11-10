@@ -15,6 +15,46 @@ Planned work for hcn. Each item must pass the scope test in `AGENTS.md`.
 
 ## Shipped harnesses
 
+- **OpenCode CLI 1.19.5** - ships as a one-shot harness. `opencode run
+  --format json` normalizes into hcn events: the harness-minted session id
+  on the first line, one tool and its result per `tool_use` line, the whole
+  text part as one message, the step's token counts and cost as a
+  message-scoped usage observation, and a terminal failure from the `error`
+  line. Model selection rides the native `--model provider/model`, and a
+  session resumes with `-s`. The use is keyless free-tier inference on a
+  fresh machine: the captures ran with empty XDG directories, no API key and
+  no account (2026-11-10, `test/fixtures/opencode-1.19.5`). The free roster
+  rotates, so hcn curates no model list and the model vocabulary stays
+  extensible.
+
+  The first slice is the one-shot turn. There is no persistent session mode,
+  no transcript reading (1.19.5 files its sessions in a SQLite store), no
+  context inspection, no compaction claim, no tool selection and no access
+  preset: those options refuse before spawn. `run` auto-rejects permission
+  requests, so autonomy renders the native `--dangerously-skip-permissions`
+  flag.
+
+  `run` takes a variadic positional message and joins trailing text into
+  it, so a passthrough tail refuses before spawn instead of silently
+  rewriting the prompt. An unknown session id is a refusal (exit 1,
+  `Session not found`), not a fresh session, and an unknown model arrives as
+  an opaque `UnknownError`.
+
+  `run` resolves its directory from `PWD` before `process.cwd()`, so the
+  spawn adapter now sets `PWD` to the spawn cwd for every harness, as a
+  shell does; without it OpenCode worked in hcn's directory, not `--cwd`.
+
+  Still open: a captured free-limit failure (the `FreeUsageLimitError` and
+  `GoUsageLimitError` matchers come from the 1.19.5 bundle, not from a
+  captured run; OpenCode retries the wall silently up to five times before
+  reporting it), an explicit prompt starting with `-` under
+  `--questions none` (OpenCode parses it as a flag; rendering it after `--`
+  needs a prompt-placement descriptor value), the read access preset, the
+  `--variant` model variant, and `opencode serve`, which would expose retry
+  status and text deltas over SSE. Data terms differ per free model:
+  `glm-5.3-flash-free` and a few others keep no data, `big-pickle` may train
+  on prompts; hcn does not choose the model.
+
 - **Popeye 0.2.0** - the npm-distributed CLI is verified for fresh turns,
   streaming, persistent sessions, separate-process resume, interruption, and
   missing-executable failures (2026-10-11). The version source now tracks

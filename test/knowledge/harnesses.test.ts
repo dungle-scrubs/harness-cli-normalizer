@@ -112,7 +112,7 @@ describe("muse descriptor (v1 scars)", () => {
 });
 
 describe("registry", () => {
-  test("all seven harnesses have code defaults", () => {
+  test("all eight harnesses have code defaults", () => {
     const all = defaultDescriptors();
     expect(Object.keys(all).sort()).toEqual([
       "antigravity",
@@ -120,6 +120,7 @@ describe("registry", () => {
       "codex",
       "cursor",
       "muse",
+      "opencode",
       "pi",
       "popeye",
     ]);

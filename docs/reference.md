@@ -38,9 +38,9 @@ Usage: `hcn run <harness> [prompt] [options]`. Each flag sets one turn option.
 | `--context-window <tokens>` | `contextWindow` | Codex, integer 1-272000 (launch default 272000); Popeye 1-10000000; Claude 100000-1000000 as native `--autocompact` (auto-compact window, no launch default). Session spawns accept explicit flags only |
 | `--provider <value>` | `provider` | pi only |
 | `--setting-sources <list>` | `settingSources` | Claude only: comma list of `user`, `project`, `local` - non-empty, no repeats - selecting which settings scopes the child loads (rendered as Claude's `--setting-sources`). A bare run renders nothing (Claude's own default applies); a session keeps the curated default `project`, and an explicit selection replaces it. Other harnesses refuse before spawn; `--no-extensions` (whose Claude spelling pins the same native flag to `project`) refuses together with it. No config key |
-| `--agent <name>` | `agent` | Select a named agent the harness defines natively - hcn selects among them, never defines them. claude, antigravity, and popeye (native `--agent`); pi is **extension-registered** (ADR 0010): its subagent extension provides the flag, hcn verifies with a runtime probe before spawn (`extension-option-unavailable` refusal names the extension when it is absent; one provenance line on a verified pass), and `inspect pi --runtime` answers for the machine; codex, muse, and cursor refuse before spawn. An unknown name is the harness's own native error (antigravity and pi tolerate one and continue with a warning; claude and popeye reject with a typed error); no harness exposes a stable machine roster, so hcn does not validate the name beyond the selector rule. Rendered on session spawn and on resume as well (probed: claude `--resume`, antigravity `--conversation`) |
-| `--tools <a,b>` | `tools` | Canonical names (read, write, edit, shell, grep, glob, list, web-fetch, web-search, subagent, skill); `native:<name>` passes a harness-native or extension tool through. Per-tool allowlist; claude, pi and popeye (pi and popeye strict `--tools`, claude via an `--allowedTools` grant + `--disallowedTools` deny-complement). A bare name matching a configured toolset expands to it |
-| `--exclude-tools <a,b>` | `excludeTools` | Canonical names (same vocabulary, `native:<name>` passthrough); complement over known tool names; claude, pi and popeye; mutually exclusive with `--tools` |
+| `--agent <name>` | `agent` | Select a named agent the harness defines natively - hcn selects among them, never defines them. claude, antigravity, and popeye (native `--agent`); opencode refuses (its `run --agent` is not rendered yet); pi is **extension-registered** (ADR 0010): its subagent extension provides the flag, hcn verifies with a runtime probe before spawn (`extension-option-unavailable` refusal names the extension when it is absent; one provenance line on a verified pass), and `inspect pi --runtime` answers for the machine; codex, muse, and cursor refuse before spawn. An unknown name is the harness's own native error (antigravity and pi tolerate one and continue with a warning; claude and popeye reject with a typed error); no harness exposes a stable machine roster, so hcn does not validate the name beyond the selector rule. Rendered on session spawn and on resume as well (probed: claude `--resume`, antigravity `--conversation`) |
+| `--tools <a,b>` | `tools` | Canonical names (read, write, edit, shell, grep, glob, list, web-fetch, web-search, subagent, skill); `native:<name>` passes a harness-native or extension tool through. Per-tool allowlist; claude, pi and popeye (pi and popeye strict `--tools`, claude via an `--allowedTools` grant + `--disallowedTools` deny-complement); opencode refuses (no per-tool list on its command line). A bare name matching a configured toolset expands to it |
+| `--exclude-tools <a,b>` | `excludeTools` | Canonical names (same vocabulary, `native:<name>` passthrough); complement over known tool names; claude, pi and popeye; opencode refuses; mutually exclusive with `--tools` |
 | `-- <harness args>` | `passthrough` | Verbatim harness tokens rendered at the harness's descriptor placement with no separator (ADR 0003); failures surface as labeled native errors (hcn exit 1, native exit code as data). A harness that declares `prompt-joins` refuses a non-empty tail before spawn instead of rewriting the prompt (none do today) |
 | `--autonomy` / `--no-autonomy` | `autonomy` | |
 | `--write` / `--no-write` | `write` | Muse |
@@ -52,7 +52,7 @@ Usage: `hcn run <harness> [prompt] [options]`. Each flag sets one turn option.
 | `--env KEY=VAL` | `env` | Repeatable; `KEY=` deletes |
 | `--resume <uuid>` | `resume` | Resume session |
 | `--session-id <uuid>` | `resume` | Alias for `--resume`; UUID of session to resume or re-enter |
-| `--resume-last` | `resumeLast` | Resume the harness's most recent session in the spawn cwd, without naming an id (claude, codex, pi, cursor, antigravity; muse refuses). Mutually exclusive with `--resume`/`--session-id`; refused on `hcn session`, with `--native-approvals`, and with `--native-settings-fingerprint` |
+| `--resume-last` | `resumeLast` | Resume the harness's most recent session in the spawn cwd, without naming an id (claude, codex, pi, cursor, antigravity; muse, popeye and opencode refuse). Mutually exclusive with `--resume`/`--session-id`; refused on `hcn session`, with `--native-approvals`, and with `--native-settings-fingerprint` |
 | `--skills <a,b>` | `skills` | Skill allowlist; claude, pi and codex (pi strict via --skill, claude via --settings skillOverrides, codex via -c skills.config) |
 | `--timeout <seconds>` | `timeoutSeconds` | Wall-clock budget for the run (hcn-enforced; 0 disables; no default) |
 | `--questions <ask\|assume\|none>` | `questions` | Which preamble hcn injects: `ask` lets the worker ask when blocked (DEFAULT), `assume` tells it never to ask and to state its assumption, `none` injects nothing. See [Question escalation](#question-escalation) |
@@ -278,6 +278,7 @@ Rendering per harness:
 | muse | `--disable-write --disable-shell` | nothing |
 | cursor | `--mode ask --sandbox enabled` | `--force` (unconfined commands) |
 | popeye | `--tools read,grep,glob,list,web-fetch,web-search` | nothing |
+| opencode | - (refuses; no access preset on its command line) | nothing |
 
 On claude, the read preset denies every MCP tool (`mcp__*`). A deny rule wins over
 allow rules, so the denial also overrides native MCP pre-approvals from settings.
@@ -364,7 +365,7 @@ of its final message. hcn detects it and emits a typed `question` event
 successful turn. The caller escalates through its own question tool, then
 resumes with the answer: `hcn run <harness> --resume <id> --prompt "<answer>"`.
 Id continuity per harness: claude stable, pi/muse caller-assigned,
-codex/cursor/antigravity minted (the identity event carries the id). With
+codex/cursor/antigravity/opencode minted (the identity event carries the id). With
 `--questions assume` the worker is instructed never to ask - it states the assumption it
 proceeded under and continues.
 
@@ -432,6 +433,7 @@ unknown. `costUsd` is the harness's estimate, not authoritative billing or subsc
 | Codex app-server | `session` snapshots from `tokenUsage.total` | Read the latest snapshot, not a sum; it can include earlier turns. hcn does not turn the latest-request `last` field into a turn total. |
 | Cursor | `turn` | Native terminal usage. |
 | Antigravity | `session` | Native result accounting accumulates through the persistent session/process; do not sum snapshots. |
+| OpenCode | `message` per step | The counts are that step's own, not a running total; a turn's spend is the sum over its steps, which the caller does. hcn derives no total. |
 | Muse, Popeye | none in their current streams | Silence is missing reporting, not zero usage. |
 
 Codex exec's `turn.completed` name does not establish turn-scoped accounting:
@@ -460,6 +462,7 @@ planning.
 | Muse | MSP view | `compacted`, `noop`, `failed`, `aborted` | yes |
 | Codex | - | none | - |
 | Cursor | - | none | - |
+| OpenCode | - | none | - |
 
 **`null` means the harness reports nothing, not that it never compacts.** Codex and
 cursor both compact natively, and neither says so on any channel hcn reads. Silence
@@ -1461,5 +1464,5 @@ it, with native spellings; `hint`: the nearest alternative on your current
 harness). A native flag typed before `--` is recognized and redirected to
 its normalized spelling.
 
-- Descriptors live in `src/knowledge/` (`claude-code.ts`, `codex.ts`, `pi.ts`, `muse.ts`, `cursor.ts`, `antigravity.ts`, `popeye.ts`), with shared types in `descriptor.ts`.
+- Descriptors live in `src/knowledge/` (`claude-code.ts`, `codex.ts`, `pi.ts`, `muse.ts`, `cursor.ts`, `antigravity.ts`, `popeye.ts`, `opencode.ts`), with shared types in `descriptor.ts`.
 - Internally, `parseOverrides` (`src/knowledge/overrides.ts`) narrows or overrides a descriptor's facts. An override a harness cannot satisfy throws `OverrideRefusalError` instead of producing a broken argv. `limitMatchers`/`authMatchers` are serializable `{pattern, flags, code/kind}` objects so they can be overridden from JSON; bad patterns are refused at load with file and harness named. The CLI exposes no override input.

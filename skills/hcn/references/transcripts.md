@@ -168,6 +168,12 @@ must be contiguous from `step_index` 0. Antigravity steps have no native IDs and
 tool calls have no call IDs, so tool-call links stay unknown. Both methods rest
 on observed local stores, not vendor documentation.
 
+OpenCode has no transcript surface: it files its sessions in a SQLite store
+under the XDG data root (`$XDG_DATA_HOME/opencode`, else
+`~/.local/share/opencode`), not as one file per session, so there is no
+per-session path to read. `hcn transcript read opencode` reports divergence
+and `hcn transcript ls` leaves it out of the default roster.
+
 Transcript evidence is separate from the harness's broader `verifiedAgainst`
 pin. Inspect the installed build before use. Coverage opt-ins cannot waive
 format, identity, integrity or snapshot prerequisites.

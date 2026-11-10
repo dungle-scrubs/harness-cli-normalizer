@@ -105,6 +105,19 @@ const HINTS: Readonly<Record<string, Readonly<Record<string, string>>>> = deepFr
     resumeLast:
       "popeye has no most-recent spelling; its flat session dir has no workspace binding, so keep the session id from the identity event and re-enter with --resume <id>",
   },
+  // The OpenCode CLI takes no per-tool, per-skill or most-recent flag on
+  // the command line: its `run` grammar carries the prompt, the model and
+  // the session id, and everything else lives in its own config.
+  opencode: {
+    tools:
+      "opencode has no per-tool name lists on the command line; gate execution with the opencode config (opencode.json permissions) or run in a disposable directory",
+    excludeTools:
+      "opencode has no per-tool name lists on the command line; gate execution with the opencode config (opencode.json permissions) or run in a disposable directory",
+    skills:
+      "opencode has no per-skill selection surface on the command line; include the skill content in the prompt or configure it in the opencode config",
+    resumeLast:
+      "opencode has no most-recent spelling; keep the session id from the identity event and re-enter with hcn run opencode --resume <id>",
+  },
 });
 
 /** The confirmed hint for a refused option on a harness, or undefined. */

@@ -532,7 +532,9 @@ const popeyeListing: TranscriptListing = {
   },
 };
 
-const LISTINGS: Readonly<Record<HarnessName, TranscriptListing>> = {
+// A harness with no transcript surface contributes no listing: the
+// lookup below answers null for it and the caller reports divergence.
+const LISTINGS: Readonly<Partial<Record<HarnessName, TranscriptListing>>> = {
   antigravity: antigravityListing,
   claude: claudeListing,
   codex: codexListing,

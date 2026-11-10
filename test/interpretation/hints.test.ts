@@ -10,8 +10,8 @@ import { describe, expect, it } from "vitest";
 import { allHints, hintFor } from "../../src/interpretation/hints.js";
 
 describe("hint table (confirmed instances)", () => {
-  it("carries exactly 37 entries (24 confirmed + 3 issue #48 ratified + 4 tools + 1 memory ratified 2026-08-26 + 2 cursor ratified 2026-09-17 + 1 resumeLast ratified 2026-09-17 + 2 popeye RFC-02 P5)", () => {
-    expect(allHints().length).toBe(37);
+  it("carries exactly 41 entries (24 confirmed + 3 issue #48 ratified + 4 tools + 1 memory ratified 2026-08-26 + 2 cursor ratified 2026-09-17 + 1 resumeLast ratified 2026-09-17 + 2 popeye RFC-02 P5 + 4 opencode first slice)", () => {
+    expect(allHints().length).toBe(41);
   });
 
   it("covers exactly the confirmed harness-dimension pairs", () => {
@@ -54,6 +54,10 @@ describe("hint table (confirmed instances)", () => {
         "pi/maxSteps",
         "popeye/resumeLast",
         "popeye/skills",
+        "opencode/excludeTools",
+        "opencode/resumeLast",
+        "opencode/skills",
+        "opencode/tools",
         "pi/sandbox",
         "pi/shell",
         "pi/write",
@@ -74,6 +78,8 @@ describe("hint table (confirmed instances)", () => {
     expect(hintFor("cursor", "tools")).toContain("config-file allow and deny lists");
     expect(hintFor("cursor", "excludeTools")).toContain("config-file allow and deny lists");
     expect(hintFor("muse", "resumeLast")).toContain("hcn run muse --resume <id>");
+    expect(hintFor("opencode", "tools")).toContain("opencode.json permissions");
+    expect(hintFor("opencode", "resumeLast")).toContain("hcn run opencode --resume <id>");
   });
 
   it("every hint names a concrete control or bounds strategy (no dead ends)", () => {
