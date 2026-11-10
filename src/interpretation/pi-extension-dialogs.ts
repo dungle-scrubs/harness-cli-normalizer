@@ -63,6 +63,15 @@ export type PiStructuredQuestionDecode =
   | { readonly kind: "question"; readonly dialog: PiExtensionDialog }
   | { readonly kind: "invalid"; readonly requestId: string; readonly message: string };
 
+/** The dialog's own timeout in ms, when it carries a usable one: pi
+ * resolves such a dialog itself when it expires. */
+const nativeTimeoutOf = (record: Record<string, unknown>): number | undefined => {
+  const timeout = record.timeout;
+  return typeof timeout === "number" && Number.isFinite(timeout) && timeout > 0
+    ? timeout
+    : undefined;
+};
+
 const isPlainRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -138,9 +147,7 @@ export const decodePiExtensionDialog = (
   if (typeof title !== "string") return null;
   const question = questionOf(method, title, record);
   if (question === null) return null;
-  const timeout = record.timeout;
-  const timeoutMs =
-    typeof timeout === "number" && Number.isFinite(timeout) && timeout > 0 ? timeout : undefined;
+  const timeoutMs = nativeTimeoutOf(record);
   return {
     requestId,
     proposal: {
@@ -286,6 +293,7 @@ export const decodePiStructuredQuestion = (
   if (body === null) return invalidPrefill(requestId, "the prefill is not an object");
   const questions = structuredQuestions(body, spec.version);
   if (questions === null) return invalidPrefill(requestId, "the question set is not valid");
+  const timeoutMs = nativeTimeoutOf(record);
   return {
     kind: "question",
     dialog: {
@@ -307,6 +315,9 @@ export const decodePiStructuredQuestion = (
         // Issue #470: the native reply is the whole question set.
         structured: true,
       },
+      // The same native timeout rule as the plain dialogs: pi resolves
+      // a dialog that carries one itself when it expires.
+      ...(timeoutMs === undefined ? {} : { timeoutMs }),
     },
   };
 };

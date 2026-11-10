@@ -716,8 +716,9 @@ prefill is `{"v":1,"questions":[{"question":"..","header":"..","options":[{"labe
 option labels, a question with no options must allow other text) asks
 hcn's question set. It arrives as one `approval-request` (`tool` is
 `editor`, `details` is the title without the marker) and is answered with
-`answers` per question - a string, or an array of strings when the
-question is a multi-select - plus optional `notes`. The reply is the
+`answers` per question - a string, or an array of strings (more than one
+only when the question is a multi-select; an array of one answers any
+question) - plus optional `notes`. The reply is the
 editor's value: the JSON of `{"answers":{..},"notes":{..}}`. An invalid
 prefill is not forwarded and writes nothing; hcn emits one `error` event
 naming the dialog instead.

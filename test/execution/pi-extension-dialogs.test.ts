@@ -817,3 +817,85 @@ describe("issue #470: pi's structured question dialog", () => {
     await r.session.close();
   });
 });
+
+describe("issue #470: a structured question inside a turn, and its native timeout", () => {
+  const PREFILL = { v: 1, questions: [{ question: "Pick one", options: [{ label: "A" }] }] };
+  const marked = (
+    id: string,
+    extra: Record<string, unknown> = {},
+    prefill: string = JSON.stringify(PREFILL),
+  ) =>
+    JSON.stringify({
+      type: "extension_ui_request",
+      id,
+      method: "editor",
+      title: "[hcn-question] Pick one",
+      prefill,
+      ...extra,
+    });
+
+  test("a marked dialog raised in a turn rides inside that turn", async () => {
+    const r = rig({ nativeApprovals: true });
+    const turn = await startPiTurn(r, "a");
+    const events: HarnessEvent[] = [];
+    const draining = (async () => {
+      for await (const event of turn) events.push(event);
+    })();
+    await tick();
+    r.proc.emitLine(marked("dlg-1"));
+    await tick();
+    expect(events.find((event) => event.kind === "approval-request")).toMatchObject({
+      requestId: "dlg-1",
+      turnId: `${sid}:turn-1`,
+      tool: "editor",
+    });
+    r.proc.emitLine(piSettled(false));
+    await draining;
+    await r.session.close();
+  });
+
+  test("an invalid prefill raised in a turn reports its error inside that turn", async () => {
+    const r = rig({ nativeApprovals: true });
+    const turn = await startPiTurn(r, "a");
+    const events: HarnessEvent[] = [];
+    const draining = (async () => {
+      for await (const event of turn) events.push(event);
+    })();
+    await tick();
+    r.proc.emitLine(marked("dlg-1", {}, "{not json"));
+    await tick();
+    const errors = events.filter((event) => event.kind === "error");
+    expect(errors).toHaveLength(1);
+    expect(String((errors[0] as { message: string }).message)).toContain("dlg-1");
+    expect(events.filter((event) => event.kind === "approval-request")).toEqual([]);
+    expect(responses(r.proc)).toEqual([]);
+    r.proc.emitLine(piSettled(false));
+    await draining;
+    await r.session.close();
+  });
+
+  test("a marked dialog with a native timeout is cleared native-resolved when it expires", async () => {
+    const r = rig({ nativeApprovals: true });
+    r.proc.emitLine(marked("dlg-1", { timeout: 5000 }));
+    const request = (await r.turns.next()).value as HarnessEvent;
+    expect(request).toMatchObject({ kind: "approval-request", requestId: "dlg-1" });
+    r.clock.advance(5001);
+    const cleared = (await r.turns.next()).value as HarnessEvent;
+    expect(cleared).toEqual({
+      kind: "approval-cleared",
+      requestId: "dlg-1",
+      reason: "native-resolved",
+      v: 1,
+    });
+    expect(
+      r.session.answerApproval({
+        id: "d1",
+        requestId: "dlg-1",
+        choiceId: "answer",
+        answers: { "Pick one": "A" },
+      }),
+    ).toEqual({ status: "rejected", reason: "unknown-request" });
+    r.proc.exit(0);
+    await r.session.close();
+  });
+});

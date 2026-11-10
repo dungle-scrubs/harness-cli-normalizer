@@ -592,6 +592,9 @@ export const decodeSessionRecord = (
           kind: "approval-request",
           requestId: decodedQuestion.dialog.requestId,
           proposal: decodedQuestion.dialog.proposal,
+          ...(decodedQuestion.dialog.timeoutMs === undefined
+            ? {}
+            : { timeoutMs: decodedQuestion.dialog.timeoutMs }),
         };
       }
     }
