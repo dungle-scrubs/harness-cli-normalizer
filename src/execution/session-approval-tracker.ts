@@ -89,9 +89,6 @@ interface WaitingApproval {
   readonly requestId: string;
   readonly proposal: SessionApprovalProposal;
   readonly turn: object | null;
-  /** The turn id the request was raised in, when it was raised in one
-   * (issue #469: a request raised between turns has none). */
-  readonly turnId?: string;
   /** The native timeout timer, when the request carries one. */
   readonly timer?: TimerHandle;
 }
@@ -217,15 +214,16 @@ export const createSessionApprovalTracker = (
           : io.clock.setTimeout(() => {
               const entry = waiting.get(requestId);
               if (entry === undefined) return;
-              const delivery = clearOne(entry, "native-resolved");
-              syncStall();
-              void delivery;
+              void clearOne(entry, "native-resolved");
+              // Only a request on the active turn can have paused the
+              // stall clock. A leftover dialog expiring during a later
+              // turn must not restart that turn's inactivity budget.
+              if (entry.turn !== null && entry.turn === io.activeTurn()) syncStall();
             }, options.timeoutMs);
       waiting.set(requestId, {
         requestId,
         proposal,
         turn,
-        ...(turnId === undefined ? {} : { turnId }),
         ...(timer === undefined ? {} : { timer }),
       });
       syncStall();

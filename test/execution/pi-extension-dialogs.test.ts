@@ -481,6 +481,63 @@ describe("issue #469: the stall clock", () => {
   });
 });
 
+describe("issue #469: a leftover dialog's timeout and the next turn's stall clock", () => {
+  test("a dialog from an earlier turn expiring does not restart the active turn's budget", async () => {
+    const r = rig({ nativeApprovals: true }, 1000);
+    const first = await startPiTurn(r, "a");
+    r.proc.emitLine(selectDialog("dlg-1", { timeout: 500 }));
+    const firstEvents = drainTurn(first);
+    await tick();
+    r.proc.emitLine(piSettled(false));
+    await firstEvents;
+    const second = await startPiTurn(r, "b");
+    const secondEvents = drainTurn(second);
+    await tick();
+    // The leftover dialog expires 600 ms into the second turn's 1000 ms budget.
+    r.clock.advance(600);
+    await tick();
+    expect(r.log.filter((entry) => entry.event === "stall")).toEqual([]);
+    // The budget still ends at 1000 ms, not 1000 ms after the expiry.
+    r.clock.advance(450);
+    expect(r.log.filter((entry) => entry.event === "stall")).toHaveLength(1);
+    r.proc.exit(1);
+    const events = await secondEvents;
+    expect(events).toContainEqual({
+      kind: "approval-cleared",
+      requestId: "dlg-1",
+      reason: "native-resolved",
+      v: 1,
+    });
+    await r.session.close();
+  });
+});
+
+describe("issue #469: a dialog before the turn's receipt", () => {
+  test("publishes the provisional turn and rides inside it", async () => {
+    const r = rig({ nativeApprovals: true });
+    r.session.send({ id: "a", text: "work" });
+    const wire = r.proc.lastSendRequestId();
+    // The dialog arrives before pi's prompt receipt.
+    r.proc.emitLine(selectDialog("dlg-1"));
+    const turn = (await r.turns.next()).value as SessionTurn;
+    expect(turn.inputId).toBe("a");
+    expect(turn.turnId).toBe(`${sid}:turn-1`);
+    const events: HarnessEvent[] = [];
+    const draining = (async () => {
+      for await (const event of turn) events.push(event);
+    })();
+    r.proc.emitLine(piReceipt(wire, "started"));
+    await tick();
+    expect(events.find((event) => event.kind === "approval-request")).toMatchObject({
+      requestId: "dlg-1",
+      turnId: `${sid}:turn-1`,
+    });
+    r.proc.emitLine(piSettled(false));
+    await draining;
+    await r.session.close();
+  });
+});
+
 describe("issue #469: the pending cap", () => {
   test("a dialog beyond the cap is cancelled natively and reported as an error", async () => {
     const r = rig({ nativeApprovals: true });

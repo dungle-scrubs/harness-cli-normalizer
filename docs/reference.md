@@ -678,8 +678,11 @@ stdout is NDJSON only - no prompt, no rendered text. The first line is a
 `hcn run --json`; see [Events](#events)), and a turn-scoped `done` (`exitCode`
 null; a turn cut short by the harness dying carries the process exit code,
 equal to `closed.exitCode`). Between turns, an event no turn owns can stand
-alone on the wire - today a bare `background` line (a background job ending
-after `result`, [above](#background-jobs)). The four control events that frame the stream,
+alone on the wire - a bare `background` line (a background job ending
+after `result`, [above](#background-jobs)), or, on a pi session with
+`--native-approvals`, a bare `approval-request` or `approval-cleared` line
+(a dialog raised, expired or ended with the process while no turn is open;
+see [Pi extension dialogs](#pi-extension-dialogs)). The four control events that frame the stream,
 as hcn 0.9.8 emitted them for one send:
 
 ```jsonl
@@ -1085,6 +1088,11 @@ inside pi, for example after an interrupt - leaves hcn's request waiting: an
 answer to it is written and pi drops it, so `sent` means the reply was
 written, not that pi received it. A request still waiting when the process
 exits is cleared `process-ended` like any other.
+
+The cap is the same as Claude's: at most 32 dialogs wait at once. A dialog
+beyond the cap is cancelled natively at once
+(`{"type":"extension_ui_response","id":..,"cancelled":true}`) and surfaces as
+an `error` event naming it; no `approval-request` is emitted for it.
 
 ### Mid-session model and effort
 
