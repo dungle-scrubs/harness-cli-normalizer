@@ -339,12 +339,13 @@ caller override can remove hcn's sandbox settings. hcn does not merge caller JSO
 Cursor access selects the SDK toolset, not native CLI flags: `hcn run cursor` and
 `hcn session cursor` execute the pinned `@cursor/sdk` in one Node worker hcn owns (the worker
 runs under Node even when hcn runs under Bun; the native `agent` CLI is not spawned headless).
-Read picks the strict allowlist above; write, and autonomy without an explicit read, run the
-native toolset unconfined with the SDK sandbox explicitly off. An explicit `--access read`
-stays read even with `--autonomy`. A bare run or session sets no restriction keys at all: the
-SDK's own defaults own the bare case - its standard toolset (shell, edit, write) runs without
-approval and its sandbox ships disabled in the pinned build - so callers who want the
-restricted surface pass `--access read`. The read preset is tool selection, not a sandbox: the
+On `hcn run cursor`, read picks the strict allowlist above; write, and autonomy without an
+explicit read, run the native toolset unconfined with the SDK sandbox explicitly off. An
+explicit `--access read` stays read even with `--autonomy`. A bare run or session sets no
+restriction keys at all: the SDK's own defaults own the bare case - its standard toolset
+(shell, edit, write) runs without approval and its sandbox ships disabled in the pinned build -
+so callers who want the restricted surface run `hcn run cursor --access read`. A Cursor session
+has no restricted preset. The read preset is tool selection, not a sandbox: the
 read set keeps the two web tools, `read` reads any path, and nothing confines the network; the
 `mcp`
 deny also removes custom tools and the `task` deny prevents subagents. The SDK loads project

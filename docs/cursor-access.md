@@ -28,7 +28,8 @@ the worker's stdin, not agent argv.
 set no tool or sandbox restrictions. SDK 1.0.38 offers its standard toolset,
 including shell, edit and write, without approval and with its sandbox off by
 default. Use `hcn run cursor --access read` for the restricted toolset.
-`hcn session` takes no access options, so Cursor sessions use native defaults.
+`hcn session cursor` refuses every access option with exit 2 before it spawns, so a
+Cursor session always uses native defaults.
 The SDK has no equivalent of the native CLI's workspace-trust refusal: an SDK
 run can execute in a directory the CLI has not trusted. `--autonomy` does not
 restore or persist that CLI trust decision.

@@ -219,7 +219,8 @@ session in a different, incompatible store and refuses explicitly.
 path), and a native passthrough tail after `--` refuses (the worker takes no
 native CLI flags).
 
-Access: `--access read` selects the SDK read toolset (`read`, `grep`, `glob`,
+Access (`hcn run cursor` only; a session refuses these flags, see Sessions):
+`--access read` selects the SDK read toolset (`read`, `grep`, `glob`,
 `ls`, `webFetch`, `webSearch`, with `task` and `mcp` disallowed so subagents
 and custom tools cannot grow it back). That is tool selection, not a sandbox:
 the web tools stay and `read` reads any path. `--access write`, and autonomy
@@ -228,8 +229,8 @@ explicitly off - use them only with the human's authorization for that access.
 A bare run or bare session sets no hcn restriction: the SDK's own defaults own
 the bare case - its standard toolset (shell, edit, write) runs without approval
 and its sandbox ships disabled in the pinned build - so writable tools are
-available and you must pass `--access read` explicitly when the work should
-stay read-only. An explicit read stays read even with `--autonomy`. There is
+available. Work that should stay read-only uses `hcn run cursor --access read`;
+a Cursor session has no read-only preset. An explicit read stays read even with `--autonomy`. There is
 no normalized Cursor `--sandbox` and no
 `--tools`/`--exclude-tools` selectors. `hcn inspect cursor --runtime --json --prompt "preview only"`
 prints the exact mapping in its `sdk` block.
