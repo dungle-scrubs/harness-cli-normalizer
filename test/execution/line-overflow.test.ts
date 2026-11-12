@@ -378,3 +378,185 @@ describe("openSession: an over-long line is judged where it happened", () => {
     await session.close();
   });
 });
+
+/** Issue #466: the pending stdout overflows settle with the turn they
+ * landed in. Every ending that reports a turn's outcome to the caller
+ * settles them there, so a later turn can no longer supersede an earlier
+ * turn's overflow. */
+describe("openSession: the overflow settles with the turn it landed in", () => {
+  const piSession = () => {
+    const proc = new FakeProcess();
+    const session = openSession(
+      piCli,
+      { sessionId: sid, questions: "none" },
+      { spawn: fakeSpawner([proc]).spawn, clock: new FakeClock(), signal: fakeSignal().signal },
+    );
+    return { proc, session };
+  };
+
+  const claudeTurn = async () => {
+    const proc = new FakeProcess();
+    const session = openSession(
+      claudeCode,
+      { sessionId: sid, questions: "none" },
+      { spawn: fakeSpawner([proc]).spawn, clock: new FakeClock(), signal: fakeSignal().signal },
+    );
+    session.send({ id: "s", text: "invented prompt" });
+    // Native uuid evidence publishes the input's turn (issue #426).
+    proc.emitLine(claudeInitNaming(sid, proc));
+    const turn = (await session.turns[Symbol.asyncIterator]().next())
+      .value as AsyncIterable<HarnessEvent>;
+    return { proc, session, turn };
+  };
+
+  /** pi's assistant message: it publishes a provisional turn (run
+   * evidence) and supersedes the overflows the turn held. */
+  const piMessage = (text: string) =>
+    JSON.stringify({
+      type: "message_end",
+      message: { role: "assistant", content: [{ type: "text", text }], stopReason: "stop" },
+    });
+  /** pi's turn-end record. */
+  const piSettled = () => JSON.stringify({ type: "agent_settled" });
+  /** pi's receipt for the prompt the runner wrote. */
+  const piReceipt = (proc: FakeProcess, disposition: string) =>
+    JSON.stringify({
+      id: proc.lastSendRequestId(),
+      type: "response",
+      command: "prompt",
+      success: true,
+      data: { disposition },
+    });
+
+  test("a refused opener settles the overflow it held, and the next turn does not carry it", async () => {
+    const { proc, session } = piSession();
+    const turns = session.turns[Symbol.asyncIterator]();
+    const send = session.send({ id: "a", text: "invented prompt" });
+    // The overflow lands in the turn the refused prompt opened.
+    proc.emitChunk(`${"x".repeat(OVER)}\n`);
+    // pi refuses the prompt natively: the refusal is the turn's outcome.
+    proc.emitLine(
+      JSON.stringify({
+        id: proc.lastSendRequestId(),
+        type: "response",
+        command: "prompt",
+        success: false,
+        error: "invented refusal",
+      }),
+    );
+    const turn = (await turns.next()).value as AsyncIterable<HarnessEvent>;
+    expect(await send.settled).toMatchObject({
+      disposition: "rejected",
+      reason: "native-rejected",
+    });
+    const events = await collect(turn);
+    // The overflow settled with the refusal: the refused turn failed on
+    // it, and it landed inside that turn.
+    expect(events.filter((e) => e.kind === "failure")).toContainEqual({
+      kind: "failure",
+      class: "transport",
+      retryable: true,
+      message: overflowMessage("stdout", "16,777,217"),
+    });
+    expect(events.at(-1)).toMatchObject({ kind: "done", cause: "failed" });
+
+    // The next turn starts from no inherited overflow.
+    session.send({ id: "b", text: "another prompt" });
+    proc.emitLine(piMessage("invented answer"));
+    proc.emitLine(piSettled());
+    const next = (await turns.next()).value as AsyncIterable<HarnessEvent>;
+    const nextEvents = await collect(next);
+    expect(nextEvents.filter((e) => e.kind === "failure")).toEqual([]);
+    expect(nextEvents.filter((e) => e.kind === "warning")).toEqual([]);
+    expect(nextEvents.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+    await session.close();
+  });
+
+  test("a handled receipt that ends a published turn settles the overflow there", async () => {
+    const { proc, session } = piSession();
+    const turns = session.turns[Symbol.asyncIterator]();
+    const send = session.send({ id: "a", text: "invented prompt" });
+    proc.emitChunk(`${"x".repeat(OVER)}\n`);
+    // The assistant message publishes the provisional turn and supersedes
+    // the overflow it held: the turn recovered from the discard.
+    proc.emitLine(piMessage("invented answer"));
+    // pi consumed the input with no run, so no settlement will follow:
+    // the turn ends here, and the caller sees that outcome.
+    proc.emitLine(piReceipt(proc, "handled"));
+    const turn = (await turns.next()).value as AsyncIterable<HarnessEvent>;
+    expect(await send.settled).toEqual({ disposition: "started" });
+    const events = await collect(turn);
+    // The ending reports a clean turn, so the overflow it recovered from
+    // warns - and it settled here, inside that turn.
+    expect(events.filter((e) => e.kind === "failure")).toEqual([]);
+    expect(events.filter((e) => e.kind === "warning")).toEqual([
+      {
+        kind: "warning",
+        message: overflowWarning("stdout", "16,777,217", "the turn completed after it"),
+      },
+    ]);
+    expect(events.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+
+    // The next turn starts from no inherited overflow.
+    session.send({ id: "b", text: "another prompt" });
+    proc.emitLine(piMessage("invented answer"));
+    proc.emitLine(piSettled());
+    const next = (await turns.next()).value as AsyncIterable<HarnessEvent>;
+    const nextEvents = await collect(next);
+    expect(nextEvents.filter((e) => e.kind === "failure")).toEqual([]);
+    expect(nextEvents.filter((e) => e.kind === "warning")).toEqual([]);
+    expect(nextEvents.at(-1)).toMatchObject({ kind: "done", cause: "clean" });
+    await session.close();
+  });
+
+  test("an aborted turn-end fails a superseded overflow", async () => {
+    const { proc, session, turn } = await claudeTurn();
+    proc.emitLine(init);
+    proc.emitChunk(`${"x".repeat(OVER)}\n`);
+    proc.emitLine(assistant("invented answer"));
+    // The harness cancelled the turn: an overflow the turn recovered from
+    // fails, because the turn did not complete.
+    proc.emitLine(
+      JSON.stringify({ type: "result", subtype: "success", terminal_reason: "aborted_streaming" }),
+    );
+    const events = await collect(turn);
+    const message = overflowMessage("stdout", "16,777,217");
+    expect(events.filter((e) => e.kind === "failure")).toEqual([
+      { kind: "failure", class: "transport", retryable: true, message },
+    ]);
+    expect(events.filter((e) => e.kind === "warning")).toEqual([]);
+    expect(events.at(-1)).toMatchObject({
+      kind: "done",
+      cause: "failed",
+      failure: { class: "transport", message },
+    });
+    await session.close();
+  });
+
+  test("a turn still open when the process died fails on its held overflows", async () => {
+    const { proc, session, turn } = await claudeTurn();
+    proc.emitLine(init);
+    proc.emitChunk(`${"x".repeat(OVER)}\n`);
+    // The assistant message supersedes the first overflow: the turn
+    // recovered from it.
+    proc.emitLine(assistant("invented answer"));
+    // A second overflow lands after it and is still held.
+    proc.emitChunk(`${"y".repeat(OVER)}\n`);
+    proc.exit(1);
+    const events = await collect(turn);
+    const message = overflowMessage("stdout", "16,777,217");
+    // Both fail: the recovered one because the turn never completed, the
+    // held one because nothing recovered from it.
+    expect(events.filter((e) => e.kind === "failure")).toEqual([
+      { kind: "failure", class: "transport", retryable: true, message },
+      { kind: "failure", class: "transport", retryable: true, message },
+    ]);
+    expect(events.filter((e) => e.kind === "warning")).toEqual([]);
+    expect(events.at(-1)).toMatchObject({
+      kind: "done",
+      cause: "crash",
+      failure: { class: "transport", message },
+    });
+    await session.close();
+  });
+});

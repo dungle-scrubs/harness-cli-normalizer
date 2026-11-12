@@ -551,7 +551,14 @@ What the overflow means depends on what the discarded line carried, because a di
 - On stdout, a discarded line that was an **echo record** - a record that only repeats content hcn already read from an earlier record (pi's `turn_end` and `agent_end` repeat the assistant message `message_end` carried) - lost nothing. It is a `warning` event and never a failure, and its message ends with `; it repeats records already read`.
 - Any other discarded stdout line is held as pending evidence until the turn ends. A later assistant message in the same turn supersedes it: the turn recovered, so the discard cost the caller nothing. A turn that then ended successfully reports a `warning` whose message ends with `; the turn completed after it`; a turn that ended in an error or a cancellation, and a turn with no later assistant message, fail with the `transport` failure.
 
-In a session, the overflow settles with the turn it landed in: the turn-end record settles it (a turn that ended in an error or a cancellation fails on it), and a turn still open when the process died fails on it. An echo record between turns still warns. Any other overflow between turns keeps the older behaviour and is parked as a failure with the next turn.
+In a session, the overflow settles with the turn it landed in. Every ending that reports a turn's outcome to the caller settles it there:
+
+- the turn-end record settles it, and a turn that ended in an error or a cancellation fails on it;
+- a refused opener - the harness refused the command that opened the turn - settles it, and the refused turn fails on it;
+- a `handled` receipt that ends a published turn - the harness consumed the input with no run - settles it, and that clean ending warns on an overflow the turn recovered from and fails on one it did not;
+- a turn still open when the process died settles it, and fails on it.
+
+A `handled` receipt for a turn that was never published reports no turn outcome at all, so the overflow stays pending evidence and settles with the next turn that ends. An echo record between turns still warns. Any other overflow between turns keeps the older behaviour and is parked as a failure with the next turn.
 
 A pi reply that ends with `stopReason` `stop` or `length` and no answer text (for example, reasoning only) fails the run with a `task` failure. Its message names the stop reason and pi's token counts, for example `pi turn ended with stopReason length and no text (usage: input 1234, output 5678, reasoning 910)`. A later reply with text in the same run supersedes it, as for `stopReason` `error`.
 
