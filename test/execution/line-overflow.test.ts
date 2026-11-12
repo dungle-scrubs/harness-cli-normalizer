@@ -428,6 +428,32 @@ describe("openSession: the overflow settles with the turn it landed in", () => {
       data: { disposition },
     });
 
+  test("a stalled turn settles the overflow it held inside the turn", async () => {
+    const proc = new FakeProcess();
+    const clock = new FakeClock();
+    const session = openSession(
+      claudeCode,
+      { sessionId: sid, questions: "none" },
+      { spawn: fakeSpawner([proc]).spawn, clock, signal: fakeSignal().signal, stallMs: 1_000 },
+    );
+    session.send({ id: "s", text: "invented prompt" });
+    proc.emitLine(claudeInitNaming(sid, proc));
+    const turn = (await session.turns[Symbol.asyncIterator]().next())
+      .value as AsyncIterable<HarnessEvent>;
+    proc.emitChunk(`${"x".repeat(OVER)}\n`);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    clock.advance(1_000);
+    const events = await collect(turn);
+    expect(events.filter((e) => e.kind === "failure")).toContainEqual({
+      kind: "failure",
+      class: "transport",
+      retryable: true,
+      message: overflowMessage("stdout", "16,777,217"),
+    });
+    expect(events.at(-1)).toMatchObject({ kind: "done", cause: "stall" });
+    await session.close();
+  });
+
   test("a refused opener settles the overflow it held, and the next turn does not carry it", async () => {
     const { proc, session } = piSession();
     const turns = session.turns[Symbol.asyncIterator]();

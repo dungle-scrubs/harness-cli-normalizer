@@ -657,6 +657,10 @@ export const openSession = (
         reason: "inactivity",
         budgetMs: deps.stallMs,
       });
+      // A stall is the turn's outcome and it failed, so the stdout
+      // overflows the turn held settle here (#466), inside the turn and
+      // ahead of its done.
+      for (const event of settleOverflows(state, false)) void routeDecoded(event);
       // The turn is owed its own terminal event before the process dies;
       // the exit path then closes the session with the same cause.
       void pushFailure(failureFromTransport("stalled: inactivity"));
