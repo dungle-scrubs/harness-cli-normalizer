@@ -141,12 +141,33 @@ export type SessionDelivery = (typeof SESSION_DELIVERIES)[number];
  * forward to its host. Claude's `--permission-prompt-tool stdio` makes the
  * child ask about each permission-gated tool call with a `can_use_tool`
  * control request and wait for the host's `control_response` (verified
- * 2.1.319). */
-export interface SessionApprovalChannel {
-  readonly kind: "claude-can-use-tool";
-  /** What hcn adds to the session argv to arm the channel. */
-  readonly spawnFlags: readonly string[];
-}
+ * 2.1.319).
+ *
+ * Issue #469: pi's extension UI is the second kind. In RPC mode pi emits
+ * `extension_ui_request` records on stdout and waits for one
+ * `extension_ui_response` line on stdin (verified 1.4.0). The dialog
+ * methods hcn forwards are named in `dialogs`; the wire spelling lives in
+ * interpretation. */
+export type SessionApprovalChannel =
+  | {
+      readonly kind: "claude-can-use-tool";
+      /** What hcn adds to the session argv to arm the channel. */
+      readonly spawnFlags: readonly string[];
+    }
+  | {
+      readonly kind: "pi-extension-ui";
+      /** What hcn adds to the session argv to arm the channel. Empty for
+       * pi: the extension UI needs no flag, it is always on in RPC mode. */
+      readonly spawnFlags: readonly string[];
+      /** The native dialog methods this channel forwards. Only the named
+       * ones; the rest stay ignored (verified 1.4.0: pi emits `confirm`
+       * and `editor` the same way, and hcn does not forward them). */
+      readonly dialogs: readonly PiExtensionDialogMethod[];
+    };
+
+/** The pi extension dialog methods an approval channel can forward:
+ * `select` (pick one offered option) and `input` (free text). */
+export type PiExtensionDialogMethod = "select" | "input";
 
 /** The live-session controls a harness supports natively, as verified data.
  * The runner refuses anything not listed here before writing native input. */

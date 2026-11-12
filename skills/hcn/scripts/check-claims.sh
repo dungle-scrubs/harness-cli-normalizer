@@ -267,7 +267,7 @@ esac
 case "$help_session" in
   *"--native-approvals"*)
     require "hcn session --help (native approvals)" "$help_session" \
-      "Claude only, with --json" "approval-request" "approval-disposition" \
+      "Claude and Pi, with --json" "approval-request" "approval-disposition" \
       "approval-cleared" "hcn adds no" "refuses (exit 2)" "controls.approvals.supported"
     ;;
   *)

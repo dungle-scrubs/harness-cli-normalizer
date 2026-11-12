@@ -138,6 +138,15 @@ These own state, a clock, or a policy that no harness has. Each is deliberate.
   harness cancels it or its turn or process ends, and pauses the stall clock
   while a request waits. Forwarding decides nothing - the host's choice is
   the decision - and nothing persists across processes.
+- **Pi extension dialog forwarding (issue #469, 2026-11-10, maintainer ask
+  in the fix request).** The same responder, on pi's channel: it forwards
+  each extension `select` and `input` dialog to the session host as an
+  `approval-request` event and writes the host's answer back as pi's
+  `extension_ui_response`. The channel widens what the responder forwards,
+  not what it decides: the host's choice is the decision, and pi resolves
+  the dialog itself (a timeout expires it, an abort cancels it inside pi
+  without announcing it). A pi dialog outlives its turn, so the turn-end
+  clearing does not apply to it.
 - **Killing on stall or deadline.** hcn ends the child process and synthesizes
   the failure. `--timeout` is a wall clock hcn enforces; no harness has one.
 - **The stall clock.** `stall` appears in no descriptor. hcn invented the idea

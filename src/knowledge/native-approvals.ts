@@ -59,6 +59,12 @@ export interface ApprovalQuestion {
   readonly question: string;
   readonly header?: string;
   readonly multiSelect?: boolean;
+  /** Issue #469: true when the answer is free text rather than one of
+   * `options` (pi's `input` dialog); `options` is then empty. */
+  readonly freeText?: boolean;
+  /** Issue #469: the native placeholder of a free-text question, when the
+   * harness sends one. */
+  readonly placeholder?: string;
   readonly options: readonly ApprovalQuestionOption[];
 }
 
@@ -80,7 +86,10 @@ export type NativeApprovalEvent =
       readonly plan?: string;
       /** Issue #454: the native tool name on the Claude session lane. */
       readonly tool?: string;
-      readonly turnId: string;
+      /** The turn the request was raised in. Absent when the request was
+       * raised between turns (issue #469: pi's extension dialog can
+       * arrive with no turn open). */
+      readonly turnId?: string;
       readonly v: 1;
     }
   | {

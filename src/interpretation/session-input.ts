@@ -12,6 +12,7 @@ import type {
   SessionInputKind,
 } from "../knowledge/descriptor.js";
 import { SESSION_INPUT_KINDS } from "../knowledge/descriptor.js";
+import { decodePiExtensionDialog } from "./pi-extension-dialogs.js";
 import {
   decodeClaudePermissionRequest,
   type SessionApprovalProposal,
@@ -354,11 +355,16 @@ export type SessionRecord =
   /** Issue #454/#455: claude asked the host about a tool use
    * (`can_use_tool` under --permission-prompt-tool stdio). The proposal
    * is fully normalized; the runner forwards it as an approval-request
-   * event when the session was opened with --native-approvals. */
+   * event when the session was opened with --native-approvals.
+   *
+   * Issue #469: pi raises an extension UI `select` dialog the same way.
+   * `timeoutMs` is the dialog's own timeout, when it carries one: pi
+   * resolves such a dialog itself when it expires. */
   | {
       readonly kind: "approval-request";
       readonly requestId: string;
       readonly proposal: SessionApprovalProposal;
+      readonly timeoutMs?: number;
     }
   /** Issue #454: claude cancelled a permission request itself (an
    * interrupt while it waited); the request loses its answer right. */
@@ -554,6 +560,23 @@ export const decodeSessionRecord = (
       };
     }
     return { kind: "ignored" };
+  }
+  if (mode.input.kind === "pi-rpc-prompt" && parsed.type === "extension_ui_request") {
+    // Issue #469: pi raised an extension UI dialog. Only the dialog
+    // methods the descriptor's channel names are forwarded; every other
+    // extension UI record (the other dialog methods and the
+    // fire-and-forget ones) stays on the content path, exactly as it read
+    // before this channel existed.
+    const channel = mode.controls.approvals;
+    const dialogs = channel?.kind === "pi-extension-ui" ? channel.dialogs : [];
+    const decoded = decodePiExtensionDialog(parsed, dialogs);
+    if (decoded === null) return { kind: "content" };
+    return {
+      kind: "approval-request",
+      requestId: decoded.requestId,
+      proposal: decoded.proposal,
+      ...(decoded.timeoutMs === undefined ? {} : { timeoutMs: decoded.timeoutMs }),
+    };
   }
   if (mode.input.kind === "popeye-rpc-prompt") {
     const result = asRecord(parsed.result);

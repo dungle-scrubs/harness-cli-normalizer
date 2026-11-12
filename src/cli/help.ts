@@ -311,9 +311,10 @@ ${DENIAL_COUNT_HELP}
                             (default: no limit). While a native approval
                             request waits (--native-approvals), the clock
                             pauses: a human is deciding
-  --native-approvals        Claude only, with --json: forward each native
-                            permission request (tool calls, AskUserQuestion,
-                            plan approvals) to the session host as
+  --native-approvals        Claude and Pi, with --json: forward each native
+                            permission request (Claude tool calls,
+                            AskUserQuestion, plan approvals) and each pi
+                            extension select or input dialog to the host as
                             approval-request events; answer with stdin
                             {"v":1,"op":"approval","id",..,"requestId",
                             ..,"choiceId",..}. One approval-disposition per
@@ -321,8 +322,13 @@ ${DENIAL_COUNT_HELP}
                             requests emit approval-cleared and lose their
                             answer right. Claude resolves deny rules, hooks
                             and managed policy before asking; hcn adds no
-                            rule. Without the flag nothing changes; without
-                            --json or on another harness it refuses (exit 2)
+                            rule. A pi dialog stays open across the turn
+                            that raised it and is answered with
+                            extension_ui_response (input takes free text);
+                            confirm and editor are not forwarded. Without
+                            the flag nothing changes;
+                            without --json or on another harness it
+                            refuses (exit 2)
   --provider <value>        Provider (pi only)
   --agent <name>            Named agent for the session spawn (claude,
                             antigravity, popeye; pi with its subagent

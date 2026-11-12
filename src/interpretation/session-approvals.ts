@@ -14,11 +14,14 @@
  * rule of hcn's own, and nothing is offered that would write the user's
  * settings files (suggestions with other destinations are dropped).
  */
+
+import type { SessionApprovalChannel } from "../knowledge/descriptor.js";
 import type {
   ApprovalChoice,
   ApprovalQuestion,
   ApprovalQuestionOption,
 } from "../knowledge/native-approvals.js";
+import { applyPiExtensionDialogDecision, encodePiExtensionCancel } from "./pi-extension-dialogs.js";
 import { asRecord } from "./shape.js";
 
 export type SessionApprovalCategory = "tool" | "question" | "plan";
@@ -329,3 +332,69 @@ export const applySessionApprovalDecision = (
 
 const isPlainRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+
+/**
+ * Issue #454/#469: the wire of one approval channel, as pure data. The
+ * tracker owns the pending map, the write and the clearing; the native
+ * spelling of a decision, of a turn-ended clearing and of a refusal
+ * belongs to the channel, so the tracker holds no wire field of its own.
+ */
+export interface SessionApprovalProtocol {
+  /** Whether a request still waiting when its turn ends is cleared
+   * (`turn-ended`). Claude's `can_use_tool` request dies with its turn;
+   * pi's extension dialog outlives the turn that raised it (verified
+   * 1.4.0: pi resolves the dialog itself, and a later answer still
+   * reaches it). */
+  readonly clearsAtTurnEnd: boolean;
+  /** Validate a decision against a proposal and return the native reply
+   * line, or the reason the decision is refused. */
+  readonly decide: (
+    requestId: string,
+    proposal: SessionApprovalProposal,
+    decision: SessionApprovalDecision,
+  ) =>
+    | { readonly ok: true; readonly line: string }
+    | { readonly ok: false; readonly reason: SessionApprovalDecisionRejection };
+  /** The native line that refuses a request beyond the pending cap. */
+  readonly refuse: (requestId: string, message: string) => string;
+}
+
+/** Claude's channel: the `can_use_tool` control request and its
+ * `control_response` reply (verified 2.1.319). */
+export const claudeApprovalProtocol: SessionApprovalProtocol = {
+  clearsAtTurnEnd: true,
+  decide: (requestId, proposal, decision) => {
+    const applied = applySessionApprovalDecision(proposal, decision);
+    if (!applied.ok) return { ok: false, reason: applied.reason };
+    return { ok: true, line: encodeClaudeControlResponse(requestId, applied.reply) };
+  },
+  refuse: (requestId, message) =>
+    encodeClaudeControlResponse(requestId, { behavior: "deny", message }),
+};
+
+/** Pi's channel: the extension UI dialog and its `extension_ui_response`
+ * reply (verified 1.4.0). A dialog carries no message back, so a refusal
+ * is a cancellation. */
+export const piExtensionApprovalProtocol: SessionApprovalProtocol = {
+  clearsAtTurnEnd: false,
+  decide: applyPiExtensionDialogDecision,
+  refuse: (requestId) => encodePiExtensionCancel(requestId),
+};
+
+/** The protocol of one declared channel. Exhaustive over the closed
+ * channel kinds: a descriptor cannot name a channel the runner has no
+ * wire for. */
+export const sessionApprovalProtocolOf = (
+  channel: SessionApprovalChannel,
+): SessionApprovalProtocol => {
+  switch (channel.kind) {
+    case "claude-can-use-tool":
+      return claudeApprovalProtocol;
+    case "pi-extension-ui":
+      return piExtensionApprovalProtocol;
+    default: {
+      const exhaustive: never = channel;
+      return exhaustive;
+    }
+  }
+};

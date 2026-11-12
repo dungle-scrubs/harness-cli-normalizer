@@ -109,6 +109,20 @@ Planned work for hcn. Each item must pass the scope test in `AGENTS.md`.
   [session native approvals](docs/reference.md#session-native-approvals)
   and [machine session](docs/reference.md#machine-session).
 
+- **Pi extension dialogs (#469)** - built: a pi session forwards each
+  extension `select` dialog, and each `input` dialog as a free-text
+  question, to the session host as an `approval-request` event
+  (`--native-approvals`), answered with an `extension_ui_response`. The
+  dialog outlives the turn that raised it, may arrive between turns, and is
+  cleared `native-resolved` when its own timeout expires. `confirm` and
+  `editor` are not forwarded.
+
+- **Pi extension `confirm`/`editor` dialogs** - planned: the remaining pi
+  extension dialog methods on the session approvals channel. `confirm` is a
+  yes/no and `editor` opens a buffer, so each needs its own proposal shape
+  before it can be forwarded. Issue #470 proposes a marked `editor` dialog
+  for structured questions.
+
 - **Claude launch environment (#446)** - built: the user config key
   `claudeConfigDir` (non-empty absolute path, no shell expansion) supplies a
   fallback `CLAUDE_CONFIG_DIR` for Claude run and session launches, fresh

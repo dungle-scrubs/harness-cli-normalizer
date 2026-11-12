@@ -161,9 +161,9 @@ In a live session (`hcn session <harness>`, harnesses listed by
 worker's ask ends the turn `awaiting-input`, answered by the next message
 (`{"op":"answer"}` on the `--json` machine surface). On a Claude session,
 `--native-approvals` also forwards permission requests, questions and
-plan approvals to you as `approval-request` events
-([reference.md](references/reference.md#session-native-approvals)). Take
-the live channel when you have it; the run/resume protocol is the baseline.
+plan approvals to you as `approval-request` events; on pi, each extension
+`select` or `input` dialog ([reference.md](references/reference.md#session-native-approvals)).
+Take the live channel when you have it; the run/resume protocol is the baseline.
 
 ## When a flag refuses
 
