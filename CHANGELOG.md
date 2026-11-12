@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.21](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.20...v0.9.21) (2026-11-12)
+
+
+### Fixed
+
+* relay Pi extension select and input dialogs to session callers ([#471](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/471)) ([f868ac4](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/f868ac4572dd836854746813f48530b3b4932e4c))
+* settle pending stdout overflows at every turn ending ([#476](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/476)) ([30b45d9](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/30b45d903d2b88e881ecf96fb4e630b662a89b59))
+
+
+### Changed
+
+* retry a fixture placement scan whose compiler stalls ([#477](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/477)) ([685984b](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/685984b4d118cb3137d5705c1ac9d97de6eb92d9))
+
 ## [0.9.20](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.19...v0.9.20) (2026-11-10)
 
 
