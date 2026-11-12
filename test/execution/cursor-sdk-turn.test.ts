@@ -464,4 +464,54 @@ describe("streamTurn cursor-sdk dispatch (fake worker process)", () => {
       failure: { class: "transport", message },
     });
   });
+
+  test("#467: a recovered overflow still fails when the turn itself ends unsuccessfully", async () => {
+    // Recovery turns the overflow into a warning only on a successful
+    // terminal record; an error terminal settles it as the transport failure.
+    const proc = new FakeProcess();
+    const deps = makeDeps(proc);
+    const collecting = drain(streamTurn(cursorCli, { prompt: "p", questions: "none" }, deps));
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    proc.emitLine(opened());
+    proc.emitChunk(`${"x".repeat(OVER)}\n`);
+    proc.emitLine(
+      event({
+        type: "assistant",
+        message: { role: "assistant", content: [{ type: "text", text: "partial answer" }] },
+      }),
+    );
+    proc.emitLine(
+      JSON.stringify({ hcn: "turn-end", status: "error", message: "the model exploded" }),
+    );
+    proc.exit(0);
+    const events = await collecting;
+    expect(events.filter((e) => e.kind === "warning")).toEqual([]);
+    expect(events.filter((e) => e.kind === "failure")).toContainEqual({
+      kind: "failure",
+      class: "transport",
+      retryable: true,
+      message: overflowMessage("stdout", "16,777,217"),
+    });
+    expect(events.at(-1)).toMatchObject({ kind: "done", cause: "failed" });
+  });
+
+  test("#467: an over-long unterminated final line is reported when the stream closes", async () => {
+    // The line buffer reports an over-long partial line only at end of
+    // stream; that report settles like any other overflow.
+    const proc = new FakeProcess();
+    const deps = makeDeps(proc);
+    const collecting = drain(streamTurn(cursorCli, { prompt: "p", questions: "none" }, deps));
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    proc.emitLine(opened());
+    proc.emitChunk("x".repeat(OVER));
+    proc.exit(0);
+    const events = await collecting;
+    expect(events.filter((e) => e.kind === "failure")).toContainEqual({
+      kind: "failure",
+      class: "transport",
+      retryable: true,
+      message: overflowMessage("stdout", "16,777,217"),
+    });
+    expect(events.at(-1)).toMatchObject({ kind: "done", cause: "failed" });
+  });
 });
