@@ -962,7 +962,12 @@ export const openSession = (
    * with no run (pi handled). It never becomes public: no turn, no done.
    * Events held for it stay parked for the next turn. No settlement will
    * follow, so an interrupt the harness already accepted against it settles
-   * not-active now. */
+   * not-active now.
+   *
+   * No turn outcome reaches the caller here, so the stdout overflows the
+   * retired turn held do not settle either: they stay pending evidence and
+   * settle with the next turn that ends, the way the events held for this
+   * turn do. */
   const retireProvisionalTurn = (): void => {
     if (activeTurn === null || activeTurnPublished) return;
     const retired = activeTurn;
@@ -1181,6 +1186,21 @@ export const openSession = (
     }
   };
 
+  /** Settle the stdout overflows a turn held, at a turn ending that
+   * reports the turn's outcome to the caller. The events are routed
+   * before the turn ends, so they land inside the closing turn, ahead of
+   * its done - the order the turn-end record settles them in.
+   *
+   * `succeeded` is whether this ending reports a successful turn: a
+   * refused or failed turn passes false, a clean one true. It decides
+   * what a recovered overflow says - a warning when the turn completed
+   * after it, the same failure when it did not. */
+  const settleTurnOverflows = async (succeeded: boolean): Promise<void> => {
+    for (const event of settleOverflows(state, succeeded)) {
+      await routeDecoded(event);
+    }
+  };
+
   /** The probe answered: bind the announced id under the descriptor's
    * authority, or surface a rotation. The re-announce below keeps a live
    * session's identity current: when a later model attestation arrives on
@@ -1347,6 +1367,11 @@ export const openSession = (
             if (opened && !activeTurnOpenerAccepted) {
               if (activeTurnPublished) {
                 const ending = activeTurn;
+                // The turn ends here and the caller sees its outcome, so
+                // the stdout overflows it held settle now: the ending
+                // reports a clean turn, so an overflow the turn recovered
+                // from warns and one it did not fails.
+                await settleTurnOverflows(true);
                 endTurn({ kind: "done", exitCode: null, cause: "clean" });
                 observeSettlement(ending, false);
               } else retireProvisionalTurn();
@@ -1448,6 +1473,11 @@ export const openSession = (
               // The refused input ran nothing and no settlement will follow:
               // an interrupt already accepted against it settles not-active.
               observeSettlement(activeTurn, false);
+              // The refusal is the turn's outcome and it failed, so the
+              // stdout overflows the turn held settle here, failing on
+              // them: the caller never saw what the discarded lines
+              // carried, and the turn failed anyway.
+              await settleTurnOverflows(false);
               endTurn({ kind: "done", exitCode: null, cause: "clean" });
               // A refusal settles the send it names, so a gated wire is
               // free again: the next held send is written now.
