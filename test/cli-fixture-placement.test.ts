@@ -111,6 +111,14 @@ const scanCase = async (name: string, source: string): Promise<FixtureAllocation
 };
 
 describe("fixture placement scanner", () => {
+  test("a compiler that misses the snapshot deadline is retried once, then named", async () => {
+    const path = join(CASE_ROOT, "deadline.ts");
+    writeFileSync(path, "export {};\n");
+    await expect(scanFixtureAllocations([path], 0)).rejects.toThrow(
+      "two compiler processes in a row gave no snapshot within 0 ms",
+    );
+  });
+
   test("an allocation through the shared fixture helper is canonical", async () => {
     const allocations = await scanCase(
       "safe-direct",
