@@ -1484,6 +1484,10 @@ export const openSession = (
             void close(false);
             observeSettlement(activeTurn, false);
             if (activeTurn !== null) {
+              // The failed open is the turn's outcome and it failed, so the
+              // stdout overflows the turn held settle here (#476), as at a
+              // refused opener.
+              await settleTurnOverflows(false);
               endTurn({ kind: "done", exitCode: null, cause: turnLimitSeen ? "limit" : "clean" });
             }
             return;

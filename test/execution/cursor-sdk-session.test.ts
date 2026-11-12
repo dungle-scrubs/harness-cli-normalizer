@@ -206,6 +206,30 @@ describe("openSession cursor-sdk (fake worker process)", () => {
     await handle.close();
   });
 
+  test("#476: a failed open settles the stdout overflow its turn held", async () => {
+    const proc = new FakeProcess();
+    const handle = openSession(cursorCli, { sessionId: callerSessionId }, makeDeps(proc));
+    const send = handle.send({ id: "one", text: "early" });
+    proc.emitChunk(`${"x".repeat(16_777_217)}\n`);
+    proc.emitLine(
+      JSON.stringify({ hcn: "open-failed", message: "Invalid API key", errorKind: "auth" }),
+    );
+    expect(await send.settled).toEqual({ disposition: "rejected", reason: "native-rejected" });
+    proc.exit(1);
+    const turns = handle.turns[Symbol.asyncIterator]();
+    const turn = (await turns.next()).value;
+    const events = turn ? await drainTurn(turn) : [];
+    expect(events.filter((e) => e.kind === "failure")).toContainEqual({
+      kind: "failure",
+      class: "transport",
+      retryable: true,
+      message:
+        "Transport failure (output line overflow: stdout line of 16,777,217 bytes exceeds the 16,777,216-character line limit and was discarded) - retry or route to another provider",
+    });
+    expect(events.at(-1)).toMatchObject({ kind: "done" });
+    await handle.close();
+  });
+
   test("a failed open rejects two sends without starting a second provisional turn", async () => {
     const proc = new FakeProcess();
     const handle = openSession(cursorCli, { sessionId: callerSessionId }, makeDeps(proc));
