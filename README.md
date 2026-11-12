@@ -128,8 +128,9 @@ On Cursor, `--access read` selects the SDK's read-only toolset
 That is tool selection, not a filesystem or network sandbox. **Cursor write access is
 unconfined**: `--access write` runs the SDK's native toolset with its sandbox explicitly off.
 A bare run or bare session sets no hcn restriction - the SDK's native defaults apply (its
-standard toolset runs without approval, and its sandbox ships disabled) - so pass
-`--access read` explicitly for the restricted toolset. An explicit read stays read even
+standard toolset runs without approval, and its sandbox ships disabled) - so use
+`hcn run cursor --access read` for the restricted toolset; a Cursor session has no
+restricted preset and refuses `--access` with exit 2. On a run, an explicit read stays read even
 together with `--autonomy`; only write, or autonomy without an explicit read, gains the
 unconfined toolset. The SDK does not provide the native CLI's workspace-trust refusal;
 a bare SDK run can execute in a directory the CLI has not trusted.
