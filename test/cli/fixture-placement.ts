@@ -369,6 +369,18 @@ const analyzeSource = (file: string, sourceFile: SourceFile): FixtureAllocation[
 };
 
 /**
+ * How long one compiler gets to answer the snapshot request. Under heavy load
+ * the tsgo API server occasionally holds that reply for 60 seconds, while every
+ * other request still answers in milliseconds (issue #460: about one scan in
+ * five thousand at load average 20 or more). A scan normally takes well under a
+ * second, so a compiler that misses this deadline is abandoned and the scan
+ * runs once more on a fresh compiler process, inside the test's own timeout.
+ */
+const SNAPSHOT_DEADLINE_MS = 8_000;
+
+class CompilerStall extends Error {}
+
+/**
  * Scan the given files for temporary-directory allocations.
  *
  * The file labels come back exactly as they were passed in, so a caller
@@ -380,12 +392,40 @@ const analyzeSource = (file: string, sourceFile: SourceFile): FixtureAllocation[
  */
 export async function scanFixtureAllocations(
   files: readonly string[],
+  snapshotDeadlineMs: number = SNAPSHOT_DEADLINE_MS,
 ): Promise<FixtureAllocation[]> {
   if (files.length === 0) return [];
+  try {
+    return await scanWithCompiler(files, snapshotDeadlineMs);
+  } catch (error) {
+    if (!(error instanceof CompilerStall)) throw error;
+    try {
+      return await scanWithCompiler(files, snapshotDeadlineMs);
+    } catch (retryError) {
+      if (!(retryError instanceof CompilerStall)) throw retryError;
+      throw new Error(
+        `fixture placement scan: two compiler processes in a row gave no snapshot within ${snapshotDeadlineMs} ms`,
+      );
+    }
+  }
+}
+
+/** One scan on one compiler process; a missed snapshot deadline throws CompilerStall. */
+async function scanWithCompiler(
+  files: readonly string[],
+  snapshotDeadlineMs: number,
+): Promise<FixtureAllocation[]> {
   // The compiler workspace is a disposable fixture too, so it lives under the
   // shared CLI fixture root rather than in the system temp directory.
   const workspace = mkdtempSync(join(cliFixtureTmpdir(), "hcn-fixture-placement-"));
   const api = new API({ cwd: REPO_ROOT });
+  const release = async (): Promise<void> => {
+    await api.close();
+    rmSync(workspace, { recursive: true, force: true });
+  };
+  // A stalled request is still in flight: its compiler and workspace are
+  // released once it settles, not under it.
+  let inFlight: Promise<unknown> | undefined;
   try {
     const tsconfig = join(workspace, "tsconfig.json");
     writeFileSync(
@@ -406,7 +446,15 @@ export async function scanFixtureAllocations(
         2,
       )}\n`,
     );
-    const snapshot = await api.updateSnapshot({ openProjects: [tsconfig] });
+    const pending = api.updateSnapshot({ openProjects: [tsconfig] });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        inFlight = pending;
+        reject(new CompilerStall());
+      }, snapshotDeadlineMs);
+    });
+    const snapshot = await Promise.race([pending, deadline]).finally(() => clearTimeout(timer));
     const project = snapshot.getProjects()[0];
     if (!project) throw new Error("fixture placement scan: the compiler returned no project");
     const allocations: FixtureAllocation[] = [];
@@ -419,7 +467,8 @@ export async function scanFixtureAllocations(
     }
     return allocations;
   } finally {
-    await api.close();
-    rmSync(workspace, { recursive: true, force: true });
+    // Cleanup after an abandoned scan has no caller left to report to.
+    if (inFlight) void inFlight.then(release, release).catch(() => {});
+    else await release();
   }
 }
