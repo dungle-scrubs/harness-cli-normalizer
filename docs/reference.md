@@ -967,12 +967,64 @@ hcn forwards to the session host instead of answering itself.
 RPC mode - and only `select` and `input` dialogs are forwarded. `confirm`
 and `editor` are emitted the same way and stay ignored, as do the
 fire-and-forget methods (`notify`, `setStatus`, `setWidget`, `setTitle`,
-`set_editor_text`), which carry no request id to answer.
+`set_editor_text`), which carry no request id to answer. One exception
+(issue #470): an `editor` dialog whose title carries hcn's marker is
+hcn's own structured question format - see
+[The hcn structured question dialog](#the-hcn-structured-question-dialog).
 
 Without the flag nothing changes. The flag refuses (exit 2) without `--json`
 and on every session harness that declares no channel; `session.controls.approvals.supported`
 and `hcn inspect <h> --capabilities`'s `sessionControls.approvals` report the
 live and the potential support.
+
+#### Question approvals
+
+A question request is the same shape on every harness, so one host renders
+one card for all of them (issue #470). The `questions` of an
+`approval-request` carry, per question:
+
+| field | meaning |
+| --- | --- |
+| `question` | the question text; it keys the `answers` and `notes` maps of a decision |
+| `header` | an optional short label |
+| `multiSelect` | more than one answer may be picked |
+| `freeText` | the answer is text, not one of the `options` (then `options` is empty) |
+| `allowOther` | the answer may be free text instead of, or (with `multiSelect`) besides, the offered labels |
+| `allowNotes` | the decision may carry a note for this question |
+| `options` | the offered labels, each a `label` and an optional `description` |
+
+Which harness sets what:
+
+- Claude's AskUserQuestion sets `allowOther: true` and `allowNotes: true`
+  on every question it offers: Claude accepts any string as an answer (its
+  "Other") and carries per-question annotations.
+- pi's plain `select` dialog sets both to `false`: the answer is one of
+  the offered options, exactly. pi's `input` dialog sets `freeText: true`
+  (and both to `false`): the answer is any non-empty text.
+- hcn's own structured question dialog (below) sets them per question.
+
+A decision may carry notes, one per question, keyed by the question text:
+
+```jsonl
+{"v":1,"op":"approval","id":"<decision id>","requestId":"<offered>","choiceId":"answer","answers":{"<question text>":"label"},"notes":{"<question text>":"a note for that question"}}
+```
+
+`notes` rides the `answer` choice alone, and every note key must name a
+question that allows notes and is answered in the same `answers` map - a
+note on an unanswered question has nothing to annotate. An empty `notes`
+map, and any other use, is `invalid-notes`.
+
+The native reply each harness gets:
+
+- Claude: `updatedInput.answers` holds the answers (an array joins with
+  `", "`) and `updatedInput.annotations` holds the notes, one
+  `{"notes":".."}` entry per question. A decision without notes produces
+  the same reply as before, byte for byte.
+- pi's structured question: the editor's value is the JSON of
+  `{"answers":{..},"notes":{..}}` (no `notes` key when the decision carried
+  none), holding the host's own values - no joining.
+- pi's plain `select` and `input` dialogs: notes are refused
+  (`invalid-notes`), because those questions allow none.
 
 On Claude, each request becomes one `approval-request` event inside the
 current turn:
@@ -999,9 +1051,9 @@ current turn:
   files. At most 32 requests wait at once (the same cap the Codex run
   lane enforces): a request beyond the cap is denied natively with a
   message and surfaces as an `error` event.
-- `question` carries the normalized `questions`
-  (`question`, `header`, `multiSelect`, `options` of `label`/`description`)
-  and the choices `answer` and `decline`.
+- `question` carries the normalized `questions` and the choices `answer`
+  and `decline`; the question shape is the shared one in
+  [Question approvals](#question-approvals).
 - `plan` carries the plan text and the choices `approve` and `deny`.
 
 The host answers on stdin, one line per decision:
@@ -1020,13 +1072,15 @@ The host answers on stdin, one line per decision:
   tool result.
 - `answers` is required for `answer` and refused elsewhere; `message` is
   refused on allow-scope choices (its own reason, `invalid-message`, so the
-  host reads which field to fix).
+  host reads which field to fix). `notes` rides `answer` alone (its own
+  reason, `invalid-notes`) - see
+  [Question approvals](#question-approvals).
 
 Each decision gets exactly one `approval-disposition` event
 `{v:1, id, requestId, status}` - `sent`, or `rejected` with a reason:
 `unknown-request` (never offered, or cleared), `already-answered`,
-`unknown-choice`, `invalid-answers`, `invalid-message`, `closed`,
-`write-failed`. A decision is
+`unknown-choice`, `invalid-answers`, `invalid-notes`, `invalid-message`,
+`closed`, `write-failed`. A decision is
 consumed before its write and never retried; a structurally malformed
 decision line is an `error` event like other malformed commands. A request
 the harness cancels (`control_cancel_request`, for example after an
@@ -1052,11 +1106,11 @@ persists across processes, and the caller owns durable choice records.
 A pi `select` or `input` dialog becomes one `approval-request` event:
 
 ```jsonl
-{"kind":"approval-request","v":1,"requestId":"<native id>","sessionId":"..","turnId":"..","category":"question","tool":"select","details":"<the dialog title>","input":{...the native extension_ui_request, unchanged...},"questions":[{"question":"<the dialog title>","multiSelect":false,"options":[{"label":"1. A"}]}],"choices":[{"id":"answer","label":"Answer","scope":"once"},{"id":"decline","label":"Decline to answer","scope":"deny"}]}
+{"kind":"approval-request","v":1,"requestId":"<native id>","sessionId":"..","turnId":"..","category":"question","tool":"select","details":"<the dialog title>","input":{...the native extension_ui_request, unchanged...},"questions":[{"question":"<the dialog title>","multiSelect":false,"allowOther":false,"allowNotes":false,"options":[{"label":"1. A"}]}],"choices":[{"id":"answer","label":"Answer","scope":"once"},{"id":"decline","label":"Decline to answer","scope":"deny"}]}
 ```
 
 ```jsonl
-{"kind":"approval-request","v":1,"requestId":"<native id>","sessionId":"..","turnId":"..","category":"question","tool":"input","details":"<the dialog title>","input":{...the native extension_ui_request, unchanged...},"questions":[{"question":"<the dialog title>","multiSelect":false,"freeText":true,"placeholder":"<native placeholder, when sent>","options":[]}],"choices":[{"id":"answer","label":"Answer","scope":"once"},{"id":"decline","label":"Decline to answer","scope":"deny"}]}
+{"kind":"approval-request","v":1,"requestId":"<native id>","sessionId":"..","turnId":"..","category":"question","tool":"input","details":"<the dialog title>","input":{...the native extension_ui_request, unchanged...},"questions":[{"question":"<the dialog title>","multiSelect":false,"freeText":true,"allowOther":false,"allowNotes":false,"placeholder":"<native placeholder, when sent>","options":[]}],"choices":[{"id":"answer","label":"Answer","scope":"once"},{"id":"decline","label":"Decline to answer","scope":"deny"}]}
 ```
 
 - `category` is `question` and `tool` is `select` or `input` - the native
@@ -1096,6 +1150,63 @@ The cap is the same as Claude's: at most 32 dialogs wait at once. A dialog
 beyond the cap is cancelled natively at once
 (`{"type":"extension_ui_response","id":..,"cancelled":true}`) and surfaces as
 an `error` event naming it; no `approval-request` is emitted for it.
+
+#### The hcn structured question dialog
+
+pi's own dialogs cannot ask more than one question at a time, and none of
+them carries notes. hcn therefore defines one marked dialog an extension
+can opt into (issue #470): the extension raises one `editor` dialog whose
+title starts with the exact marker `[hcn-question] ` (the marker plus one
+space) and whose prefill is the question JSON.
+
+```json
+{"v":1,"questions":[{"question":"Pick toppings","header":"Pizza","options":[{"label":"Cheese","description":"optional"}],"multiSelect":true,"allowOther":true,"allowNotes":true}]}
+```
+
+- `v` is the format version; hcn accepts `1`.
+- `questions` holds 1 to 16 questions. Each carries `question` (non-empty
+  and unique within the request), an optional `header`, an optional
+  `options` array of 0 to 32 entries (each a non-empty `label`, unique
+  within its question, with an optional `description`), and the optional
+  booleans `multiSelect`, `allowOther` and `allowNotes` (an absent
+  boolean is false). Unknown keys are ignored.
+- A question with no options must set `allowOther: true`; it is then a
+  free-text question (`freeText: true`).
+
+The marked dialog arrives as one `approval-request` event like any other
+question: `category` is `question`, `tool` is `editor`, `details` is the
+title without the marker, `input` is the native record unchanged, and
+`questions` carry the prefill's questions.
+
+Answering it: `answers` holds one entry per answered question, keyed by
+the question text - at least one, and at most one per question. A value
+is a string, or an array of non-empty strings (more than one only when
+the question is a multi-select; an array of one answers any question).
+Each value must be one of the question's offered labels, unless the
+question sets `allowOther` - then any non-empty text is accepted, alone
+or beside the labels. `notes` works as in
+[Question approvals](#question-approvals). The native reply is the
+editor's value: the JSON string of
+`{"answers":{"<question>":"label" | ["label",".."]},"notes":{"<question>":"note"}}`,
+with `notes` omitted when the decision carried none, holding the host's
+own values (no joining):
+
+```jsonl
+{"type":"extension_ui_response","id":"<native id>","value":"{\"answers\":{\"Pick toppings\":[\"Cheese\",\"Olives\"]},\"notes\":{\"Pick toppings\":\"no onions\"}}"}
+```
+
+`decline` cancels the dialog
+(`{"type":"extension_ui_response","id":..,"cancelled":true}`), and
+`answers`, `notes` or `message` on it are refused.
+
+An invalid prefill - not JSON, the wrong version, a question count or an
+option count out of bounds, an empty or duplicate question text, an empty
+or duplicate option label, a question with no options that does not allow
+other text, or a boolean that is not a boolean - is not forwarded and
+nothing is written: the runner emits one `error` event naming the dialog
+and saying the hcn-question prefill was invalid, so the host sees why
+nothing arrived. An unmarked `editor` dialog stays ignored, exactly as
+before.
 
 ### Mid-session model and effort
 

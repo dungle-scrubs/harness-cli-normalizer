@@ -1509,6 +1509,24 @@ export const openSession = (
           await approvals.cancel(record.requestId);
           return;
         }
+        case "approval-invalid": {
+          // Issue #470: a marked pi structured question whose prefill
+          // hcn cannot read. Nothing is forwarded and nothing is
+          // written; the host hears why nothing arrived, in the place
+          // the request would have arrived: inside the turn it was
+          // raised in, or as a bare line between turns. Without
+          // --native-approvals no channel was armed and the dialog was
+          // never hcn's to answer, so the session stays quiet.
+          if (!approvalsArmed) return;
+          const event: HarnessEvent = { kind: "error", message: record.message };
+          if (activeTurn !== null && !activeTurnPublished) publishTurn();
+          if (activeTurn === null || !activeTurnPublished) {
+            await turnsChannel.push(event);
+            return;
+          }
+          await routeEvent(event);
+          return;
+        }
         case "settings-answered": {
           // Synchronous: the op's settlement (and any queued op it drains
           // into) completes before this call returns, so the pump reads

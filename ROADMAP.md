@@ -115,13 +115,25 @@ Planned work for hcn. Each item must pass the scope test in `AGENTS.md`.
   (`--native-approvals`), answered with an `extension_ui_response`. The
   dialog outlives the turn that raised it, may arrive between turns, and is
   cleared `native-resolved` when its own timeout expires. `confirm` and
-  `editor` are not forwarded.
+  an unmarked `editor` are not forwarded.
+
+- **Rich question approvals (#470)** - built: one question approval shape
+  for every harness. A question carries `allowOther` (the answer may be
+  free text) and `allowNotes` (the decision may carry a note for it);
+  Claude's AskUserQuestion offers both, pi's plain dialogs neither. A
+  decision carries `notes`, one per question, and Claude receives them as
+  native `annotations`. On pi, hcn defines one marked `editor` dialog
+  (`[hcn-question] `) whose prefill is the question JSON, so an extension
+  can ask hcn's own question set - checkboxes, free text and notes - and
+  hcn answers it with the whole question set. See
+  [Question approvals](docs/reference.md#question-approvals).
 
 - **Pi extension `confirm`/`editor` dialogs** - planned: the remaining pi
-  extension dialog methods on the session approvals channel. `confirm` is a
-  yes/no and `editor` opens a buffer, so each needs its own proposal shape
-  before it can be forwarded. Issue #470 proposes a marked `editor` dialog
-  for structured questions.
+  extension dialog methods on the session approvals channel. `confirm` is
+  a yes/no, so it needs its own proposal shape before it can be
+  forwarded. `editor` is forwarded only in hcn's marked structured
+  question format (issue #470); an unmarked `editor` dialog stays
+  ignored.
 
 - **Claude launch environment (#446)** - built: the user config key
   `claudeConfigDir` (non-empty absolute path, no shell expansion) supplies a

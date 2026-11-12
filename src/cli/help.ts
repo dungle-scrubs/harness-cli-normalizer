@@ -317,7 +317,10 @@ ${DENIAL_COUNT_HELP}
                             extension select or input dialog to the host as
                             approval-request events; answer with stdin
                             {"v":1,"op":"approval","id",..,"requestId",
-                            ..,"choiceId",..}. One approval-disposition per
+                            ..,"choiceId",..,"notes":{"<question>":"note"}}.
+                            notes ride the answer choice, name a question
+                            that allows them and are answered in the same
+                            decision. One approval-disposition per
                             decision; cancelled, turn-ended and process-ended
                             requests emit approval-cleared and lose their
                             answer right. Claude resolves deny rules, hooks
@@ -325,7 +328,9 @@ ${DENIAL_COUNT_HELP}
                             rule. A pi dialog stays open across the turn
                             that raised it and is answered with
                             extension_ui_response (input takes free text);
-                            confirm and editor are not forwarded. Without
+                            a marked [hcn-question] editor dialog asks
+                            hcn's own question set; other confirm and
+                            editor dialogs are not forwarded. Without
                             the flag nothing changes;
                             without --json or on another harness it
                             refuses (exit 2)

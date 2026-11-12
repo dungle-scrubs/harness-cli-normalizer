@@ -647,7 +647,7 @@ Claude the spawn adds
 AskUserQuestion and ExitPlanMode plan approval arrives as one
 `approval-request` event inside the current turn. On pi the spawn is
 unchanged and each extension `select` or `input` dialog arrives as one
-`approval-request` event (`confirm` and `editor` stay ignored). Claude resolves deny
+`approval-request` event (`confirm` and unmarked `editor` stay ignored). Claude resolves deny
 rules, hooks and managed policy BEFORE asking, so a denied tool never
 reaches you; hcn adds no rule and stores nothing across processes.
 
@@ -663,7 +663,8 @@ reaches you; hcn adds no rule and stores nothing across processes.
   native suggestion object unchanged as `update`, so you can show exactly
   what it grants; addRules labels render each rule as `Tool` or
   `Tool(ruleContent)`. `question` offers `answer`/`decline` and carries
-  normalized `questions` (`question`, `header`, `multiSelect`, `options`).
+  normalized `questions` (`question`, `header`, `multiSelect`, `options`,
+  `allowOther`, `allowNotes`).
   `plan` offers `approve`/`deny` and carries the plan text. At most 32
   requests wait at once; a request beyond the cap is denied natively with
   a message and surfaces as an `error` event.
@@ -671,17 +672,21 @@ reaches you; hcn adds no rule and stores nothing across processes.
 Answer on stdin:
 
 ```json
-{"v":1,"op":"approval","id":"<your decision id>","requestId":"<offered>","choiceId":"<offered id>","message":"optional, deny-scope only","answers":{"<question text>":"label"|["label",".."]}}
+{"v":1,"op":"approval","id":"<your decision id>","requestId":"<offered>","choiceId":"<offered id>","message":"optional, deny-scope only","answers":{"<question text>":"label"|["label",".."]},"notes":{"<question text>":"a note"}}
 ```
 
 `answers` is required for `answer` (free text allowed; arrays join with
 ", ") and refused elsewhere; `message` is refused on allow-scope choices
-(its own reason, `invalid-message`).
+(its own reason, `invalid-message`). `notes` is one note per question,
+keyed by the question text: it rides `answer` alone and every note must
+name a question that allows notes (`allowNotes: true`) and be answered in
+the same decision, or it is `invalid-notes`. Claude carries the notes as
+`updatedInput.annotations[<question>].notes`.
 Each decision gets exactly one `approval-disposition`
 `{v:1,id,requestId,status:"sent"|"rejected",reason?}` with reasons
 `unknown-request` (never offered or cleared), `already-answered`,
-`unknown-choice`, `invalid-answers`, `invalid-message`, `closed`,
-`write-failed`. A decision is
+`unknown-choice`, `invalid-answers`, `invalid-notes`, `invalid-message`,
+`closed`, `write-failed`. A decision is
 consumed before its write and never retried; a malformed decision line is
 an `error` event. A request the harness cancels
 (`control_cancel_request`, e.g. after your own interrupt), one still waiting
@@ -703,6 +708,20 @@ with `decline` (pi's cancel reply carries no message). A pi dialog
 outlives its turn - it stays answerable, and one raised between turns
 arrives with no `turnId` - and a dialog with a native timeout is cleared
 `native-resolved` when it expires.
+
+One pi `editor` dialog is hcn's own question format: an extension whose
+title starts with `[hcn-question] ` (the marker plus one space) and whose
+prefill is `{"v":1,"questions":[{"question":"..","header":"..","options":[{"label":"..","description":".."}],"multiSelect":true,"allowOther":true,"allowNotes":true}]}`
+(1 to 16 questions, 0 to 32 options each, unique question texts and
+option labels, a question with no options must allow other text) asks
+hcn's question set. It arrives as one `approval-request` (`tool` is
+`editor`, `details` is the title without the marker) and is answered with
+`answers` per question - a string, or an array of strings (more than one
+only when the question is a multi-select; an array of one answers any
+question) - plus optional `notes`. The reply is the
+editor's value: the JSON of `{"answers":{..},"notes":{..}}`. An invalid
+prefill is not forwarded and writes nothing; hcn emits one `error` event
+naming the dialog instead.
 
 ### Mid-session model and effort
 

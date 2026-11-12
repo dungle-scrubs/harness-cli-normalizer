@@ -100,10 +100,18 @@ export const piCli: HarnessDescriptor = deepFreeze({
       // (`input` as a free-text question; `{"type":..,"method":"input",
       // "title":..,"placeholder":..}`).
       //
-      // Only `select` and `input` are forwarded. `confirm` and `editor`
-      // are emitted the same way and stay ignored, and the fire-and-forget
-      // methods (`notify`, `setStatus`, `setWidget`, `setTitle`,
-      // `set_editor_text`) carry no request id to answer.
+      // Only `select` and `input` are forwarded as plain dialogs.
+      // `confirm` and `editor` are emitted the same way and stay
+      // ignored, and the fire-and-forget methods (`notify`, `setStatus`,
+      // `setWidget`, `setTitle`, `set_editor_text`) carry no request id
+      // to answer.
+      //
+      // Issue #470: an `editor` dialog whose title carries hcn's marker
+      // is hcn's own structured question format: the prefill is the
+      // question JSON, and hcn answers it with the question set. The
+      // marker and the format version are data (below), so an extension
+      // author can read them off the descriptor. An unmarked `editor`
+      // dialog stays ignored.
       //
       // The channel needs no flag: the extension UI is always on in RPC
       // mode, so the spawn argv is unchanged.
@@ -111,6 +119,11 @@ export const piCli: HarnessDescriptor = deepFreeze({
         kind: "pi-extension-ui",
         spawnFlags: [],
         dialogs: ["select", "input"],
+        structuredQuestion: {
+          method: "editor",
+          titleMarker: "[hcn-question] ",
+          version: 1,
+        },
       },
     },
     turnEnd: { type: "agent_settled" },

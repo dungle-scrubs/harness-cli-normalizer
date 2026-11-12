@@ -153,6 +153,18 @@ const parseCommand = (line: string): ParsedCommand => {
           return { malformed: "answers values must be a label or a non-empty array of labels" };
       }
     }
+    // Issue #470: notes are one note per question, keyed by the question
+    // text. A malformed map is a malformed command, like every other
+    // malformed field.
+    if (rec.notes !== undefined) {
+      const notes = rec.notes as unknown;
+      if (typeof notes !== "object" || notes === null || Array.isArray(notes))
+        return { malformed: "notes must be an object keyed by question text" };
+      for (const value of Object.values(notes as Record<string, unknown>)) {
+        if (typeof value !== "string" || value === "")
+          return { malformed: "notes values must be non-empty strings" };
+      }
+    }
     return {
       op: "approval",
       id: rec.id,
@@ -162,6 +174,7 @@ const parseCommand = (line: string): ParsedCommand => {
       ...(rec.answers === undefined
         ? {}
         : { answers: rec.answers as Record<string, string | readonly string[]> }),
+      ...(rec.notes === undefined ? {} : { notes: rec.notes as Record<string, string> }),
     };
   }
   // Issue #456: change the model and/or effort of the session. At least

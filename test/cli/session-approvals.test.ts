@@ -280,3 +280,96 @@ describe("issue #454/#455: the flag's pre-spawn refusals and the spawn argv", ()
     },
   );
 });
+
+describe("issue #470: the notes field on the wire", () => {
+  const askQuestion = (requestId: string): string =>
+    JSON.stringify({
+      type: "control_request",
+      request_id: requestId,
+      request: {
+        subtype: "can_use_tool",
+        tool_name: "AskUserQuestion",
+        display_name: "AskUserQuestion",
+        input: {
+          questions: [
+            {
+              question: "Which database?",
+              multiSelect: false,
+              options: [{ label: "Postgres" }, { label: "SQLite" }],
+            },
+          ],
+        },
+        requires_user_interaction: true,
+      },
+    });
+
+  const raised = async (r: ReturnType<typeof rig>, requestId = "req-1") => {
+    await tick();
+    r.raw('{"op":"send","id":"a","text":"work"}');
+    await tick();
+    const uuid = sentUuid(r.proc);
+    r.proc.emitLine(claudeInit(uuid));
+    r.proc.emitLine(askQuestion(requestId));
+    await tick();
+    return uuid;
+  };
+
+  test.each([
+    ["notes that are not an object", '"notes":"no"'],
+    ["notes that are an array", '"notes":["no"]'],
+    ["a note that is not a string", '"notes":{"Which database?":7}'],
+    ["an empty note", '"notes":{"Which database?":""}'],
+  ])("a malformed notes map is an error event: %s", async (_label, notes) => {
+    const r = rig();
+    const uuid = await raised(r);
+    r.raw(
+      `{"v":1,"op":"approval","id":"d1","requestId":"req-1","choiceId":"answer","answers":{"Which database?":"SQLite"},${notes}}`,
+    );
+    await tick();
+    r.proc.emitLine(claudeResult(uuid));
+    await tick();
+    r.input.end();
+    await r.done;
+    const evs = r.events();
+    const errors = evs.filter((e) => e.kind === "error");
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({ kind: "error", message: expect.stringContaining("notes") });
+    // The request is still waiting: a malformed line writes nothing.
+    expect(evs.filter((e) => e.kind === "approval-disposition")).toEqual([]);
+  });
+
+  test("a well-formed note reaches claude as an annotation", async () => {
+    const r = rig();
+    const uuid = await raised(r);
+    r.raw(
+      '{"v":1,"op":"approval","id":"d1","requestId":"req-1","choiceId":"answer","answers":{"Which database?":"SQLite"},"notes":{"Which database?":"because the first one is full"}}',
+    );
+    await tick();
+    r.proc.emitLine(claudeResult(uuid));
+    await tick();
+    r.input.end();
+    await r.done;
+    const evs = r.events();
+    expect(evs.find((e) => e.kind === "approval-disposition")).toEqual({
+      kind: "approval-disposition",
+      v: 1,
+      id: "d1",
+      requestId: "req-1",
+      status: "sent",
+    });
+    const reply = r.proc.stdinLines
+      .map((line) => JSON.parse(line) as Record<string, unknown>)
+      .find((line) => line.type === "control_response");
+    expect(reply).toMatchObject({
+      response: {
+        response: {
+          behavior: "allow",
+          updatedInput: {
+            answers: { "Which database?": "SQLite" },
+            annotations: { "Which database?": { notes: "because the first one is full" } },
+          },
+        },
+      },
+    });
+  });
+});

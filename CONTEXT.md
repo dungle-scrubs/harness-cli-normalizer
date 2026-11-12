@@ -147,6 +147,15 @@ These own state, a clock, or a policy that no harness has. Each is deliberate.
   the dialog itself (a timeout expires it, an abort cancels it inside pi
   without announcing it). A pi dialog outlives its turn, so the turn-end
   clearing does not apply to it.
+- **The hcn structured question dialog (issue #470, 2026-11-10, maintainer
+  ask in the issue).** The same responder again, widened to own a format
+  of hcn's own: an extension `editor` dialog titled with the
+  `[hcn-question] ` marker carries a question set as JSON (format version,
+  16-question and 32-option bounds, uniqueness rules), and hcn writes the
+  host's answers and notes back as the editor's value. The format and its
+  invalid-prefill policy are hcn's (an invalid prefill is reported as an
+  `error` event and nothing is written); forwarding still decides nothing -
+  the host's choice is the decision.
 - **Killing on stall or deadline.** hcn ends the child process and synthesizes
   the failure. `--timeout` is a wall clock hcn enforces; no harness has one.
 - **The stall clock.** `stall` appears in no descriptor. hcn invented the idea
