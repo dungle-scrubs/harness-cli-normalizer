@@ -239,9 +239,13 @@ escalation. A send while a run is active is rejected natively - the SDK allows
 one active run and hcn keeps no queue; there are no explicit queue or steer
 modes. `interrupt` maps to native `Run.cancel`: best effort, and it does not
 undo completed actions. During SDK startup it cancels deferred inputs, reports
-`interrupted`, and creates no turn. The session surface takes no access options, so a
-Cursor session runs at the SDK's native defaults (writable tools, sandbox
-off). The SDK can raise a native `request` (approval or
+`interrupted`, and creates no turn. The session surface refuses every option
+it cannot express - the permission options (`--access`, `--tools`,
+`--exclude-tools`, `--no-tools`, `--autonomy`), `--skills`,
+`--native-approvals` and `--setting-sources` - exit 2 before the worker
+spawns, with the same refusal shape a harness with no session permission
+dimension gives; a bare Cursor session runs at the SDK's native defaults
+(writable tools, sandbox off). The SDK can raise a native `request` (approval or
 input) that has no reply API; hcn reports it as an error event it cannot
 answer - handle it through native hooks or hcn's question protocol, never by
 adding `--autonomy` on your own.

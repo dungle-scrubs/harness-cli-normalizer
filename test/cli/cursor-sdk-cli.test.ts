@@ -973,6 +973,73 @@ describe("hcn session cursor (built CLI, fake SDK worker)", () => {
     }
   });
 
+  test("session options the SDK backend cannot express refuse exit 2 before any spawn (#440 review)", async () => {
+    // The same shared session refusals a native session runs: each option
+    // names its dimension, carries the permission-dimension detail (or the
+    // option's own shared detail), and never spawns the worker - no SDK
+    // call is recorded.
+    const permissionFlags = [
+      ["--access", "read"],
+      ["--tools", "read"],
+      ["--no-tools"],
+      ["--autonomy"],
+    ] as const;
+    for (const flags of permissionFlags) {
+      const run = await runCliWithFakeSdk({
+        script: { agentId },
+        args: [...sessionArgs, ...flags],
+        input: [{ text: command({ op: "close" }) }],
+      });
+      try {
+        expect(run.status, `${flags.join(" ")}: ${run.stderr}`).toBe(2);
+        expect(run.stderr, flags.join(" ")).toContain("cursor cannot express option");
+        expect(run.stderr, flags.join(" ")).toContain(
+          "the session spawn carries no permission dimension",
+        );
+        expect(run.calls, flags.join(" ")).toHaveLength(0);
+        const events = ndjsonOf(run.stdout);
+        expect(events[0]).toMatchObject({ kind: "failure", issue: "unsupported-option" });
+        expect(events.at(-1)).toMatchObject({ kind: "closed", cause: "failed" });
+      } finally {
+        run.cleanup();
+      }
+    }
+    // --setting-sources has its own shared refusal (claude-only fact).
+    const settingSources = await runCliWithFakeSdk({
+      script: { agentId },
+      args: [...sessionArgs, "--setting-sources", "user"],
+      input: [{ text: command({ op: "close" }) }],
+    });
+    try {
+      expect(settingSources.status, settingSources.stderr).toBe(2);
+      expect(settingSources.stderr).toContain("settingSources");
+      expect(settingSources.stderr).toContain("this harness has no setting-sources flag");
+      expect(settingSources.calls).toHaveLength(0);
+      const events = ndjsonOf(settingSources.stdout);
+      expect(events[0]).toMatchObject({ kind: "failure", issue: "unsupported-option" });
+      expect(events.at(-1)).toMatchObject({ kind: "closed", cause: "failed" });
+    } finally {
+      settingSources.cleanup();
+    }
+    // --native-approvals: no declared channel on the SDK session grammar.
+    const approvals = await runCliWithFakeSdk({
+      script: { agentId },
+      args: [...sessionArgs, "--native-approvals"],
+      input: [{ text: command({ op: "close" }) }],
+    });
+    try {
+      expect(approvals.status, approvals.stderr).toBe(2);
+      expect(approvals.stderr).toContain("nativeApprovals");
+      expect(approvals.stderr).toContain("declares no session permission channel");
+      expect(approvals.calls).toHaveLength(0);
+      const events = ndjsonOf(approvals.stdout);
+      expect(events[0]).toMatchObject({ kind: "failure", issue: "unsupported-option" });
+      expect(events.at(-1)).toMatchObject({ kind: "closed", cause: "failed" });
+    } finally {
+      approvals.cleanup();
+    }
+  });
+
   test("an open failure closes the session with a failure, never a hang", async () => {
     const run = await runCliWithFakeSdk({
       script: { agentId, openError: { name: "AuthenticationError", message: "Invalid API key" } },

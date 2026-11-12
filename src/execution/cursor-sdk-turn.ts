@@ -35,7 +35,14 @@ import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { matcherOverridesOf } from "../knowledge/overrides.js";
 import { AsyncChannel } from "./channel.js";
 import { failureFromCursorSdkRecord } from "./cursor-sdk-failure.js";
-import { decodeLine, decodeParsed, freshDecodeState, settleProvisionalError } from "./decode.js";
+import {
+  decodeLine,
+  decodeParsed,
+  freshDecodeState,
+  noteStdoutOverflow,
+  settleOverflows,
+  settleProvisionalError,
+} from "./decode.js";
 import type { RunnerDeps, SpawnedProcess } from "./deps.js";
 import type { EscalationDetection, ExitCause, HarnessEvent } from "./events.js";
 import type { FailureSummary } from "./failure.js";
@@ -54,7 +61,7 @@ import {
   redactBounded,
   reduceFailures,
 } from "./failure.js";
-import { LineBuffer, RUN_LINE_MAX } from "./lines.js";
+import { LineBuffer, type LineOverflow, RUN_LINE_MAX } from "./lines.js";
 import { redactArgv } from "./stream-turn.js";
 import { CLOSE_GRACE_MS, PIPE_GRACE_MS, StderrTail, superviseTurn } from "./supervisor.js";
 
@@ -390,10 +397,7 @@ export async function* streamCursorSdkTurn(
   }
 
   const pumpStdout = async (): Promise<void> => {
-    const overflows: FailureSummary[] = [];
-    const lines = new LineBuffer(RUN_LINE_MAX, (overflow) =>
-      overflows.push(failureFromLineOverflow("stdout", overflow)),
-    );
+    const lines = new LineBuffer(RUN_LINE_MAX);
     const handleLine = async (line: string): Promise<void> => {
       let parsed: Record<string, unknown> | null = null;
       try {
@@ -481,10 +485,22 @@ export async function* streamCursorSdkTurn(
       sup.noteEvent(event);
       await queue.push(event);
     };
+    // #467's evidence rule, the same one the shared run and session
+    // pumps apply: an echo overflow warns at once; any other overflow is
+    // held as pending evidence, a later assistant message supersedes it,
+    // and the turn's own terminal record decides warn vs fail when the
+    // stream settles. The items arrive in stream order, so a discarded
+    // line is judged before the lines that came after it.
+    const handleOverflow = async (overflow: LineOverflow): Promise<void> => {
+      const event = noteStdoutOverflow(h, state, overflow);
+      if (event !== null) await handleEvent(event);
+    };
     for await (const chunk of proc.stdout) {
       sup.rearm();
-      for (const line of lines.push(chunk as string | Uint8Array)) await handleLine(line);
-      for (const overflow of overflows.splice(0)) await pushFailure(overflow);
+      for (const item of lines.pushItems(chunk as string | Uint8Array)) {
+        if (item.kind === "line") await handleLine(item.text);
+        else await handleOverflow(item.overflow);
+      }
       if (terminal.ended !== null || startupRefused) {
         // The turn is over natively, or the agent never opened and nothing
         // more can happen: end stdin so the worker disposes, exits, and
@@ -499,9 +515,24 @@ export async function* streamCursorSdkTurn(
         }
       }
     }
-    const rest = lines.flush();
-    if (rest !== null && terminal.ended === null) await handleLine(rest);
-    for (const overflow of overflows.splice(0)) await pushFailure(overflow);
+    // An unterminated final line is decoded only while no terminal record
+    // closed the turn - after one, a trailing partial is worker leftover,
+    // not a record. An over-long final line's report is still noted: the
+    // stream close is where its evidence settles.
+    for (const item of lines.flushItems()) {
+      if (item.kind === "overflow") {
+        await handleOverflow(item.overflow);
+        continue;
+      }
+      if (terminal.ended === null) await handleLine(item.text);
+    }
+    // The stream is over, so nothing can supersede a pending overflow
+    // anymore: the worker's own terminal record decides success, the same
+    // settlement the shared run pump applies - a recovered overflow warns
+    // on a finished turn and fails on any other verdict.
+    for (const event of settleOverflows(state, state.nativeTerminalSeen === true)) {
+      await handleEvent(event);
+    }
     // A provisional terminal error nothing superseded settles here, the
     // same way the CLI runner settles it.
     for (const event of settleProvisionalError(state)) {

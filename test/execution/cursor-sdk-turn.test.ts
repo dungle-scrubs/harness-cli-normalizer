@@ -9,6 +9,7 @@
 import { describe, expect, test } from "vitest";
 import { ABORT_CANCEL_GRACE_MS } from "../../src/execution/cursor-sdk-turn.js";
 import type { HarnessEvent } from "../../src/execution/events.js";
+import { RUN_LINE_MAX } from "../../src/execution/lines.js";
 import { streamTurn } from "../../src/execution/stream-turn.js";
 import { encodeCursorSdkOpened } from "../../src/interpretation/cursor-sdk.js";
 import { composeEscalatedPrompt } from "../../src/interpretation/question.js";
@@ -44,6 +45,14 @@ const event = (observation: Record<string, unknown>) =>
 const delta = (text: string) =>
   JSON.stringify({ hcn: "event", delta: { type: "text-delta", text } });
 const turnEnd = (status: string) => JSON.stringify({ hcn: "turn-end", status });
+
+/** The line bound's discard reports, the same text the shared pumps emit
+ * (issue #467); the SDK runner must settle them the same way. */
+const OVER = RUN_LINE_MAX + 1;
+const overflowMessage = (stream: string, bytes: string) =>
+  `Transport failure (output line overflow: ${stream} line of ${bytes} bytes exceeds the 16,777,216-character line limit and was discarded) - retry or route to another provider`;
+const overflowWarning = (stream: string, bytes: string, reason: string) =>
+  `output line overflow: ${stream} line of ${bytes} bytes exceeds the 16,777,216-character line limit and was discarded; ${reason}`;
 
 describe("streamTurn cursor-sdk dispatch (fake worker process)", () => {
   test("a pre-aborted request ends killed without spawning or sending work", async () => {
@@ -397,5 +406,62 @@ describe("streamTurn cursor-sdk dispatch (fake worker process)", () => {
     expect(open.resume).toBe(agentId);
     proc.exit(0);
     await collecting;
+  });
+
+  test("#467: an over-long stdout line the turn recovered from warns, and done stays clean", async () => {
+    // The SDK runner drives stdout through the shared overflow settlement
+    // (noteStdoutOverflow + settleOverflows), like the run and session
+    // pumps: a discarded line a later assistant message supersedes costs
+    // the caller nothing, so a finished turn warns instead of failing.
+    const proc = new FakeProcess();
+    const deps = makeDeps(proc);
+    const collecting = drain(streamTurn(cursorCli, { prompt: "p", questions: "none" }, deps));
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    proc.emitLine(opened());
+    proc.emitChunk(`${"x".repeat(OVER)}\n`);
+    proc.emitLine(
+      event({
+        type: "assistant",
+        message: { role: "assistant", content: [{ type: "text", text: "invented answer" }] },
+      }),
+    );
+    proc.emitLine(turnEnd("finished"));
+    proc.exit(0);
+    const events = await collecting;
+    expect(events.filter((e) => e.kind === "failure")).toEqual([]);
+    expect(events.filter((e) => e.kind === "warning")).toEqual([
+      {
+        kind: "warning",
+        message: overflowWarning("stdout", "16,777,217", "the turn completed after it"),
+      },
+    ]);
+    expect(events.find((e) => e.kind === "message")).toMatchObject({
+      text: "invented answer",
+    });
+    expect(events.at(-1)).toMatchObject({ kind: "done", exitCode: 0, cause: "clean" });
+  });
+
+  test("#467: an over-long stdout line nothing recovered still fails the turn", async () => {
+    // No assistant message followed the discarded line, so nothing says
+    // the turn recovered: the pending overflow settles to the transport
+    // failure even though the worker's terminal record says finished.
+    const proc = new FakeProcess();
+    const deps = makeDeps(proc);
+    const collecting = drain(streamTurn(cursorCli, { prompt: "p", questions: "none" }, deps));
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    proc.emitLine(opened());
+    proc.emitChunk(`${"x".repeat(OVER)}\n`);
+    proc.emitLine(turnEnd("finished"));
+    proc.exit(0);
+    const events = await collecting;
+    const message = overflowMessage("stdout", "16,777,217");
+    expect(events.filter((e) => e.kind === "failure")).toEqual([
+      { kind: "failure", class: "transport", retryable: true, message },
+    ]);
+    expect(events.at(-1)).toMatchObject({
+      kind: "done",
+      cause: "failed",
+      failure: { class: "transport", message },
+    });
   });
 });

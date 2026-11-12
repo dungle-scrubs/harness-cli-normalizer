@@ -350,8 +350,11 @@ read set keeps the two web tools, `read` reads any path, and nothing confines th
 deny also removes custom tools and the `task` deny prevents subagents. The SDK loads project
 and user file-based hooks natively; hcn authors none. The SDK does not expose a
 programmatic approval or hook-reply API. There is no normalized Cursor `--sandbox` support and no
-Cursor `--tools`/`--exclude-tools` selectors. The session surface takes no access options, so
-a Cursor session always runs at the SDK's native defaults today. `hcn inspect cursor --runtime --json --prompt "preview only"` reports the exact
+Cursor `--tools`/`--exclude-tools` selectors. The session surface refuses every option it cannot
+express - the permission options (`--access`, `--tools`, `--exclude-tools`, `--no-tools`,
+`--autonomy`), `--skills`, `--native-approvals` and `--setting-sources` - exit 2 before the worker
+spawns, with the same refusal shape a harness with no session permission dimension gives; a bare
+Cursor session always runs at the SDK's native defaults. `hcn inspect cursor --runtime --json --prompt "preview only"` reports the exact
 mapping in its `sdk` block (worker argv, SDK id shape, access map); `--argv` previews the worker
 marker, because model, access, and resume settings ride the worker's stdin, not agent argv.
 See [the Cursor access mapping](cursor-access.md).

@@ -727,6 +727,38 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
   // refused value never reaches the session grammar - including the SDK
   // session grammar below, which cannot express it either.
   if (opts.settingSources !== undefined) validateSettingSources(h, opts.settingSources);
+  // Review of #440: the SHARED session refusals run before the SDK
+  // dispatch, exactly like the setting-source validation above. An
+  // SDK-backed session cannot express these dimensions either - the
+  // worker's open line carries model, effort, resume and the run-lane
+  // access mapping only - so a permission option (access, tools,
+  // excludeTools, autonomy, discovery.tools), a skills selection on a
+  // null-skills harness, or a native-approvals request with no declared
+  // channel refuses here, before any spawn, with the same error shape a
+  // harness with no such dimension refuses with. The renders still feed
+  // the native assembly below; the SDK branch discards the tokens.
+  const permissions = renderSessionPermissions(h, opts);
+  const skillParts = opts.skills === undefined ? undefined : renderSkillsSelection(h, opts.skills);
+  // Read lazily: a malformed descriptor whose sessionMode lacks controls
+  // must still reach the session-input contract refusal, not crash here
+  // (the boundary-review pin in session-hardening).
+  const approvalsChannel =
+    opts.nativeApprovals === true ? h.sessionMode.controls.approvals : undefined;
+  if (
+    opts.nativeApprovals === true &&
+    (approvalsChannel === null || approvalsChannel === undefined)
+  ) {
+    const supported = Object.values(defaultDescriptors())
+      .filter((d): d is HarnessDescriptor => d.sessionMode?.controls.approvals != null)
+      .map((d) => d.name);
+    throw new ArgvRefusalError({
+      issue: "unsupported-option",
+      harness: h.name,
+      option: "nativeApprovals",
+      supported,
+      detail: "this harness declares no session permission channel",
+    });
+  }
   // Issue #440: an SDK-backed session spawns the worker too - the same
   // backend drives hcn run and hcn session. No id or resume flag renders:
   // the caller-side handle stays local, resume rides the open line, and
@@ -772,8 +804,8 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
     );
     return [h.sdk.workerMarker];
   }
-  // Refuse unsupported permissions before assembling the native invocation.
-  const permissions = renderSessionPermissions(h, opts);
+  // The permission render above already refused what this harness cannot
+  // express; here its tokens ride the native invocation.
   const flag = opts.isResume ? h.sessionMode.resumeFlag : h.sessionMode.idFlag;
   const argv = [
     h.bin,
@@ -847,34 +879,21 @@ export const buildSessionArgv = (h: HarnessDescriptor, opts: SessionOptions): st
   argv.push(...permissions.tokens);
   settings.push(...permissions.settings);
   // issue #332: the skills allowlist renders through the one owner a
-  // launch argv uses (renderSkillsSelection), so a null-skills harness
-  // refuses here - before spawn - with the same unsupported-option shape
-  // hcn run refuses with. pi renders its discovery facet off plus one
-  // --skill per pick; claude and codex render the complement-off overrides.
-  if (opts.skills !== undefined) {
-    const parts = renderSkillsSelection(h, opts.skills);
-    argv.push(...parts.tokens);
-    settings.push(...parts.settings);
+  // launch argv uses (renderSkillsSelection, run above so an SDK session
+  // refuses through it too) - a null-skills harness refuses before spawn
+  // with the same unsupported-option shape hcn run refuses with. pi
+  // renders its discovery facet off plus one --skill per pick; claude and
+  // codex render the complement-off overrides.
+  if (skillParts !== undefined) {
+    argv.push(...skillParts.tokens);
+    settings.push(...skillParts.settings);
   }
   // Issue #454: the native permission channel rides the session spawn; a
-  // harness with no declared channel cannot open one, so the flag refuses
-  // here - the same pre-spawn boundary every other session dimension
+  // harness with no declared channel cannot open one, so the flag refused
+  // above - the same pre-spawn boundary every other session dimension
   // refuses at.
-  if (opts.nativeApprovals === true) {
-    const channel = h.sessionMode.controls.approvals;
-    if (channel === null || channel === undefined) {
-      const supported = Object.values(defaultDescriptors())
-        .filter((d): d is HarnessDescriptor => d.sessionMode?.controls.approvals != null)
-        .map((d) => d.name);
-      throw new ArgvRefusalError({
-        issue: "unsupported-option",
-        harness: h.name,
-        option: "nativeApprovals",
-        supported,
-        detail: "this harness declares no session permission channel",
-      });
-    }
-    argv.push(...channel.spawnFlags);
+  if (opts.nativeApprovals === true && approvalsChannel != null) {
+    argv.push(...approvalsChannel.spawnFlags);
   }
   argv.push(...renderInlineSettings(settings));
   return argv;
