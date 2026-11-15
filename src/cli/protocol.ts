@@ -251,11 +251,12 @@ type HarnessDoneEvent = Extract<HarnessEvent, { kind: "done" }>;
 
 /**
  * The one `done` line of both streams. A turn the runner finished carries
- * its `escalation` record. A `done` with a `failure` and no `escalation`
- * ends a stream before any turn ran to record a question mode: on
- * `hcn run --json` after a refusal, a transport failure or a crash of hcn
- * itself; on `hcn session --json` only after a crash of hcn itself, because
- * a refused or failed session ends on `closed`.
+ * its `escalation` record. A `done` with a `failure` and no `escalation` is
+ * written by hcn itself, which has no question-mode record to report: on
+ * `hcn run --json` after a refusal, a transport failure or a crash of hcn;
+ * on `hcn session --json` only after a crash of hcn, because a refused or
+ * failed session ends on `closed`. A crash can follow turns that already
+ * wrote their own `done`.
  */
 export type DoneEvent = Omit<HarnessDoneEvent, "escalation"> & {
   readonly escalation?: EscalationRecord;
