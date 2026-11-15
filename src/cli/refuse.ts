@@ -3,6 +3,7 @@ import { failureFromRejected } from "../execution/failure.js";
 import type { ArgvRefusalError, RefusalIssue } from "../interpretation/refusal.js";
 import { markJsonCrashStream } from "./crash.js";
 import { EXIT_REFUSAL } from "./exit-codes.js";
+import type { SessionClosedEvent, TerminalDoneEvent } from "./protocol.js";
 import { writeEventNdjson } from "./render.js";
 
 export interface Refusal {
@@ -29,19 +30,19 @@ export const refusalOf = (err: ArgvRefusalError): Refusal => ({
 
 /** Write the terminal pair a --json stream is owed when it ends before the
  * runner produced one: the failure, then the stream's terminal event. A
- * one-shot turn ends with `done`; a session ends with `closed`. Shared so
- * both surfaces stay identical apart from that kind. */
+ * one-shot turn ends with the escalation-less terminal `done`; a session
+ * ends with `closed`. Shared so both surfaces stay identical apart from
+ * that kind. */
 export const writeFailurePair = (
   summary: FailureSummary,
   terminal: "done" | "closed" = "done",
 ): void => {
   writeEventNdjson({ kind: "failure", ...summary });
-  writeEventNdjson({
-    kind: terminal,
-    exitCode: null,
-    cause: "failed",
-    failure: summary,
-  } as never);
+  const terminalEvent: TerminalDoneEvent | SessionClosedEvent =
+    terminal === "done"
+      ? { kind: "done", exitCode: null, cause: "failed", failure: summary }
+      : { kind: "closed", exitCode: null, cause: "failed", failure: summary };
+  writeEventNdjson(terminalEvent);
 };
 
 export const refuse = (r: Refusal, json: boolean, terminal: "done" | "closed" = "done"): void => {

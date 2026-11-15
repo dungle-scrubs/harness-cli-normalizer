@@ -26,6 +26,7 @@ import { markJsonCrashStream } from "./crash.js";
 import { gateExtensionOptions, writeExtensionProvenance } from "./extension-gate.js";
 import { runInteractiveSession } from "./interactive-session.js";
 import { resolveLaunchEnvironment } from "./launch-environment.js";
+import type { SessionCloseCause } from "./protocol.js";
 import { writeProvenance } from "./provenance.js";
 import { resolveHarness } from "./resolve-harness.js";
 import { listKnownSkills, resolveSkillNames } from "./skills-root.js";
@@ -512,7 +513,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
   // leaves a session failure for `closed` to carry.
   const closeInfo: {
     exitCode: number | null;
-    cause: string;
+    cause: SessionCloseCause;
     failure?: FailureSummary;
   } = { exitCode: null, cause: "clean" };
   const droppedIds: string[] = [];
@@ -522,7 +523,7 @@ export const session = async (harnessName: string, rawArgs: string[]): Promise<v
         log: (e: Record<string, unknown>) => {
           if (e.event === "session_close") {
             closeInfo.exitCode = (e.exitCode as number | null) ?? null;
-            closeInfo.cause = (e.cause as string) ?? "clean";
+            closeInfo.cause = (e.cause as SessionCloseCause | undefined) ?? "clean";
             if (e.failure !== undefined && typeof e.failure === "object") {
               closeInfo.failure = e.failure as FailureSummary;
             }

@@ -5,7 +5,8 @@
  */
 import { PassThrough } from "node:stream";
 import { describe, expect, test } from "vitest";
-import { runJsonSession } from "../../src/cli/session-json.js";
+import type { SessionCloseCause } from "../../src/cli/protocol.js";
+import { type CloseInfo, runJsonSession } from "../../src/cli/session-json.js";
 import { openSession } from "../../src/execution/open-session.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import type { HarnessDescriptor } from "../../src/knowledge/descriptor.js";
@@ -18,7 +19,7 @@ const tick = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 const rig = (questions: "ask" | "none" = "ask", descriptor: HarnessDescriptor = claudeCode) => {
   const proc = new FakeProcess();
   const spawner = fakeSpawner([proc]);
-  const closeInfo: { exitCode: number | null; cause: string } = { exitCode: null, cause: "clean" };
+  const closeInfo: CloseInfo = { exitCode: null, cause: "clean" };
   const handle = openSession(
     descriptor,
     { sessionId: sid, questions },
@@ -29,7 +30,7 @@ const rig = (questions: "ask" | "none" = "ask", descriptor: HarnessDescriptor = 
       log: (entry) => {
         if (entry.event === "session_close") {
           closeInfo.exitCode = (entry.exitCode as number | null) ?? null;
-          closeInfo.cause = (entry.cause as string) ?? "clean";
+          closeInfo.cause = (entry.cause as SessionCloseCause | undefined) ?? "clean";
         }
       },
     },

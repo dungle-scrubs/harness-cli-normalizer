@@ -6,7 +6,8 @@
  */
 import { PassThrough } from "node:stream";
 import { describe, expect, test } from "vitest";
-import { runJsonSession } from "../../src/cli/session-json.js";
+import type { SessionCloseCause } from "../../src/cli/protocol.js";
+import { type CloseInfo, runJsonSession } from "../../src/cli/session-json.js";
 import { openSession } from "../../src/execution/open-session.js";
 import { antigravityCli } from "../../src/knowledge/antigravity.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
@@ -23,7 +24,7 @@ const rig = (descriptor: HarnessDescriptor) => {
   const proc = new FakeProcess();
   const spawner = fakeSpawner([proc]);
   const sig = fakeSignal();
-  const closeInfo: { exitCode: number | null; cause: string } = { exitCode: null, cause: "clean" };
+  const closeInfo: CloseInfo = { exitCode: null, cause: "clean" };
   const handle = openSession(
     descriptor,
     { sessionId: sid, questions: "none" },
@@ -34,7 +35,7 @@ const rig = (descriptor: HarnessDescriptor) => {
       log: (entry: Record<string, unknown>) => {
         if (entry.event === "session_close") {
           closeInfo.exitCode = (entry.exitCode as number | null) ?? null;
-          closeInfo.cause = (entry.cause as string) ?? "clean";
+          closeInfo.cause = (entry.cause as SessionCloseCause | undefined) ?? "clean";
         }
       },
     },

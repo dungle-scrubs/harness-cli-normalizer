@@ -157,6 +157,10 @@ The count reports observations, not unique calls or task correctness. A missing 
 establish success: a failed command can produce only `tool-result.isError`.
 See the [event contract](docs/reference.md#tool-results-and-usage).
 The format is the same for every harness, and the last line is always `done`.
+A TypeScript consumer can import the wire types instead of handwriting them:
+`import type { RunEvent } from "@dungle-scrubs/harness-cli-normalizer/protocol"` (also
+`SessionEvent` and `SessionCommand` for `hcn session --json`). They describe the installed
+version's wire format; no client ships with them.
 On a nonzero run exit, `done.completion` preserves output evidence:
 `native-terminal` means the harness reported successful turn completion;
 `message-delivered` means assistant text arrived without confirmed turn completion.

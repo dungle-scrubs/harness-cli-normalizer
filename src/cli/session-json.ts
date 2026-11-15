@@ -10,29 +10,30 @@
  */
 import { createInterface } from "node:readline/promises";
 import type { FailureSummary } from "../execution/failure.js";
-import type {
-  SessionHandle,
-  SessionInterruptReceipt,
-  SessionInterruptResult,
-  SessionSendResult,
-  SessionStopBackgroundReceipt,
-  SessionStopBackgroundResult,
-} from "../execution/open-session.js";
+import type { SessionHandle, SessionSendResult } from "../execution/open-session.js";
 import { isSessionTurn, SessionClosedError } from "../execution/open-session.js";
-import type { SessionApprovalDecisionRequest } from "../execution/session-approval-tracker.js";
-import type { SessionSettingsRequest } from "../execution/session-settings-sequencer.js";
 import { composeAnswer, type QuestionMode } from "../interpretation/question.js";
 import { SESSION_DELIVERIES, type SessionDelivery } from "../knowledge/descriptor.js";
+import type {
+  SessionApprovalDispositionEvent,
+  SessionCloseCause,
+  SessionClosedEvent,
+  SessionCommand,
+  SessionDispositionEvent,
+  SessionEvent,
+  SessionHeaderEvent,
+  SessionOrigin,
+  SessionSettingsEvent,
+  SessionTurnEvent,
+} from "./protocol.js";
 
 /** Captured from `session_close`: a refused session open (#345) or a crash
  * with no open turn (#347) leaves a session failure for `closed` to carry. */
 export interface CloseInfo {
   exitCode: number | null;
-  cause: string;
+  cause: SessionCloseCause;
   failure?: FailureSummary;
 }
-
-export type SessionOrigin = "fresh" | "resumed";
 
 export interface JsonSessionArgs {
   readonly handle: SessionHandle;
@@ -52,20 +53,10 @@ export interface JsonSessionArgs {
   readonly onDrain?: (fn: () => void) => void;
 }
 
-type ParsedCommand =
-  | {
-      readonly op: "send" | "answer";
-      readonly id: string;
-      readonly text: string;
-      readonly delivery?: SessionDelivery;
-      readonly verbatim?: boolean;
-    }
-  | { readonly op: "interrupt"; readonly id: string }
-  | { readonly op: "stop-background"; readonly id: string; readonly job: string }
-  | (SessionApprovalDecisionRequest & { readonly op: "approval" })
-  | (SessionSettingsRequest & { readonly op: "settings" })
-  | { readonly op: "close" }
-  | { readonly malformed: string };
+/** The parse result: a well-formed command, or the malformed diagnosis the
+ * `error` event carries. The well-formed arms are the wire's own
+ * `SessionCommand` (protocol.ts, published at `./protocol`). */
+type ParsedCommand = SessionCommand | { readonly malformed: string };
 
 /** One send/answer's answer on the wire: the runner's disposition, or the
  * CLI's own refusal of an answer with no open question. */
@@ -221,7 +212,7 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
   // One serialized, drain-aware writer for both pumps: stdout never
   // interleaves two events and never buffers past the OS pipe.
   let chain: Promise<void> = Promise.resolve();
-  const emit = (event: unknown): Promise<void> => {
+  const emit = (event: SessionEvent): Promise<void> => {
     chain = chain.then(
       () =>
         new Promise<void>((resolve) => {
@@ -244,7 +235,7 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
   };
 
   const qMode: QuestionMode = a.questions ?? "ask";
-  await emit({
+  const header: SessionHeaderEvent = {
     kind: "session",
     sessionId: a.sessionId,
     harness: a.harness,
@@ -256,7 +247,8 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
     // claude this is the state before the process advertised anything; later
     // changes ride the identity event's capabilities.sessionControls.
     controls: a.handle.controls,
-  });
+  };
+  await emit(header);
 
   // Shared between the pumps: the last question asked, whether the last turn
   // ended awaiting an answer, and the last failure seen (for closed.failure).
@@ -271,11 +263,17 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
         continue;
       }
       awaitingAnswer = false;
-      await emit({
+      // publishTurn assigns the turn id before the turn reaches this loop,
+      // so the marker always carries it; a turn published without one is a
+      // runner bug worth failing loudly rather than a marker the wire
+      // contract says always names its turn.
+      if (turn.turnId === undefined) throw new Error("turn published without a turn id");
+      const marker: SessionTurnEvent = {
         kind: "turn",
         turnId: turn.turnId,
         ...(turn.inputId !== undefined ? { id: turn.inputId } : {}),
-      });
+      };
+      await emit(marker);
       for await (const ev of turn) {
         // Update the answer state BEFORE the event reaches the consumer. A
         // consumer answers the moment it reads `done`, so setting this after
@@ -315,7 +313,7 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
       receipts.delete(receipt);
     });
   };
-  const dispositionOf = (id: string, sent: Disposition) => ({
+  const dispositionOf = (id: string, sent: Disposition): SessionDispositionEvent => ({
     kind: "disposition",
     id,
     disposition: sent.disposition,
@@ -325,29 +323,27 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
    * share (review round 1): the immediate line - `requested` once the
    * request is on the wire, or the refusal with its reason and no
    * `requested` phase - then exactly one terminal receipt, tracked so the
-   * close waits for it. Only the event kind and the op call differ; each
-   * control's settlement semantics stay in the runner. */
-  const twoPhaseReceipt = (
-    kind: "interruption" | "background-stop",
-    id: string,
-    requested: SessionInterruptResult | SessionStopBackgroundResult,
+   * close waits for it. The generic keeps each kind's event type exact
+   * (`interrupted`/`not-active` never appear on a `background-stop`);
+   * each control's settlement semantics stay in the runner. */
+  const twoPhaseReceipt = <ReceiptState extends string, ReceiptReason extends string>(
+    write: (line: {
+      readonly state: "requested" | "rejected" | ReceiptState;
+      readonly reason?: ReceiptReason;
+    }) => Promise<void>,
+    requested:
+      | { readonly state: "rejected"; readonly reason: ReceiptReason }
+      | {
+          readonly state: "requested";
+          readonly settled: Promise<{
+            readonly state: ReceiptState;
+            readonly reason?: ReceiptReason;
+          }>;
+        },
   ): Promise<void> => {
-    const line = (state: {
-      readonly state:
-        | SessionInterruptResult["state"]
-        | SessionStopBackgroundResult["state"]
-        | SessionInterruptReceipt["state"]
-        | SessionStopBackgroundReceipt["state"];
-      readonly reason?: SessionInterruptReceipt["reason"] | SessionStopBackgroundReceipt["reason"];
-    }) => ({
-      kind,
-      id,
-      state: state.state,
-      ...(state.reason !== undefined ? { reason: state.reason } : {}),
-    });
-    if (requested.state === "rejected") return emit(line(requested));
-    const written = emit(line({ state: "requested" }));
-    trackReceipt(requested.settled.then((settled) => emit(line(settled))));
+    if (requested.state === "rejected") return write(requested);
+    const written = write({ state: "requested" });
+    trackReceipt(requested.settled.then((settled) => write(settled)));
     return written;
   };
   const answerCommand = async (
@@ -392,7 +388,16 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
       }
       if (cmd.op === "close") return;
       if (cmd.op === "interrupt") {
-        await twoPhaseReceipt("interruption", cmd.id, a.handle.interrupt({ id: cmd.id }));
+        await twoPhaseReceipt(
+          (line): Promise<void> =>
+            emit({
+              kind: "interruption",
+              id: cmd.id,
+              state: line.state,
+              ...(line.reason !== undefined ? { reason: line.reason } : {}),
+            }),
+          a.handle.interrupt({ id: cmd.id }),
+        );
         continue;
       }
       if (cmd.op === "stop-background") {
@@ -400,8 +405,13 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
         // of the stop request - the job's own end arrives as a `background`
         // event, inside a turn or as a bare between-turn line.
         await twoPhaseReceipt(
-          "background-stop",
-          cmd.id,
+          (line): Promise<void> =>
+            emit({
+              kind: "background-stop",
+              id: cmd.id,
+              state: line.state,
+              ...(line.reason !== undefined ? { reason: line.reason } : {}),
+            }),
           a.handle.stopBackground({ id: cmd.id, job: cmd.job }),
         );
         continue;
@@ -411,14 +421,24 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
         // directly like the other command receipts - the request events it
         // answers ride inside the turn stream instead.
         const answered = a.handle.answerApproval(cmd);
-        await emit({
-          kind: "approval-disposition",
-          v: 1,
-          id: cmd.id,
-          requestId: cmd.requestId,
-          status: answered.status,
-          ...(answered.status === "rejected" ? { reason: answered.reason } : {}),
-        });
+        const disposition: SessionApprovalDispositionEvent =
+          answered.status === "rejected"
+            ? {
+                kind: "approval-disposition",
+                v: 1,
+                id: cmd.id,
+                requestId: cmd.requestId,
+                status: answered.status,
+                reason: answered.reason,
+              }
+            : {
+                kind: "approval-disposition",
+                v: 1,
+                id: cmd.id,
+                requestId: cmd.requestId,
+                status: answered.status,
+              };
+        await emit(disposition);
         continue;
       }
       if (cmd.op === "settings") {
@@ -435,7 +455,12 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
         const receipt = a.handle.settings(cmd);
         trackReceipt(
           receipt.then(async (settled) => {
-            const receiptWrite = emit({ kind: "settings", id: cmd.id, ...settled });
+            const settingsEvent: SessionSettingsEvent = {
+              kind: "settings",
+              id: cmd.id,
+              ...settled,
+            };
+            const receiptWrite = emit(settingsEvent);
             const diagnosticWrite =
               settled.unconfirmed !== undefined && settled.unconfirmed.length > 0
                 ? emit({
@@ -516,12 +541,13 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
   const info = a.getCloseInfo();
   // The session failure wins over the last turn failure.
   const failure: FailureSummary | undefined = info.failure ?? lastFailure;
-  await emit({
+  const closed: SessionClosedEvent = {
     kind: "closed",
     exitCode: info.exitCode,
     cause: info.cause,
     ...(info.cause !== "clean" && failure !== undefined ? { failure } : {}),
-  });
+  };
+  await emit(closed);
   // A consumer that stopped reading gets exit 1 even on a clean harness exit:
   // the session did not end the way the consumer asked for.
   if (consumerGone) return 1;

@@ -19,6 +19,7 @@ interface PackageManifest {
     readonly access?: string;
   };
   readonly bin?: Record<string, string>;
+  readonly exports?: Readonly<Record<string, unknown>>;
 }
 
 const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
@@ -65,12 +66,15 @@ try {
   assert.ok(pack?.files, "npm pack returned no package result");
 
   const files = new Set(pack.files.map(({ path }) => path));
-  // CLI-only surface (Phase 7): the bin is the product. No root export, no
-  // library subpaths, no d.ts entry points - src/ ships for reading, dist/
-  // for running.
+  // The install surface (issue #441, ADR 0014): the bin is the product, and
+  // the package exports the NDJSON protocol's TypeScript types at
+  // ./protocol - types only, no client, no library entry point. src/ ships
+  // for reading, dist/ for running.
   for (const required of [
     "dist/cli.js",
     "dist/cli/index.js",
+    "dist/cli/protocol.js",
+    "dist/cli/protocol.d.ts",
     "LICENSE",
     "README.md",
     "package.json",
@@ -82,6 +86,17 @@ try {
   for (const forbidden of ["dist/index.js", "dist/index.d.ts"]) {
     assert.equal(files.has(forbidden), false, `packed package must not carry ${forbidden}`);
   }
+
+  // The exported surface is exactly the protocol types: the map is checked
+  // whole so a new subpath joins only by editing it here and in package.json
+  // together.
+  assert.deepEqual(manifest.exports, {
+    "./protocol": {
+      types: "./dist/cli/protocol.d.ts",
+      default: "./dist/cli/protocol.js",
+    },
+    "./package.json": "./package.json",
+  });
 
   // Issue #193: npm publish rewrites a "./"-prefixed bin path and reports the
   // entry as "invalid and removed". The form `npm pkg fix` writes is the only

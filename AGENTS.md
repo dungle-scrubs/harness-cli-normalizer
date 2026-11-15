@@ -11,7 +11,9 @@ CLIs (Claude Code, Codex, pi, Muse, Cursor CLI, Antigravity CLI, popeye, and Ope
 CLI) into one
 stable surface. Each harness is described as pure data; interpretation and execution
 layers consume those descriptors. The `hcn` binary is the product; internal
-library layers are not an install surface. The package is published to npm as
+library layers are not an install surface. The one package export besides the
+binary is the NDJSON protocol's TypeScript types at `./protocol` (ADR 0014),
+and nothing else. The package is published to npm as
 `@dungle-scrubs/harness-cli-normalizer` (`publishConfig.access: public`) and is
 source-public.
 

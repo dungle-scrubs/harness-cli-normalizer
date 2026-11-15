@@ -7,7 +7,9 @@ starts. This file says which parts are which.
 
 The `hcn` binary is the product. The layers inside it - knowledge,
 interpretation, execution - are internal structure, not an install surface.
-There is no supported way to import them.
+The one package export is the NDJSON protocol's TypeScript types at
+`./protocol` (ADR 0014), and nothing else; there is no supported way to
+import the layers themselves.
 
 ## Language
 
@@ -196,7 +198,9 @@ These own state, a clock, or a policy that no harness has. Each is deliberate.
 ## Flagged ambiguities
 
 - **"Library API"** is used two ways and both are true. hcn ships no importable
-  library: the binary is the product. But `hcn session --json` has named
+  library: the binary is the product, and the package's one export besides
+  the bin is the protocol's types at `./protocol` - data for consumers, not
+  code. But `hcn session --json` has named
   operations, typed arguments, typed responses, and ordering rules, which is an
   API by shape. The first claim is about packaging, the second about interface.
   Neither cancels the other, and the README should say which it means.

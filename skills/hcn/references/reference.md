@@ -254,6 +254,13 @@ https://github.com/dungle-scrubs/harness-cli-normalizer/blob/main/docs/observer.
 
 ## Event schema (NDJSON, --json)
 
+The package exports these shapes as TypeScript types at
+`@dungle-scrubs/harness-cli-normalizer/protocol`: `RunEvent` (every `hcn run
+--json` stdout line), `SessionEvent` (every `hcn session --json` stdout line)
+and `SessionCommand` (every session stdin command). They describe the
+installed hcn version's wire format; no client ships with them - a consumer
+owns the process and parses the NDJSON itself.
+
 ```
 {"kind":"identity","sessionId":..,"authority":..,"resumeLast":?,"capabilities":{..}}
 {"kind":"token","text":..}              # delta

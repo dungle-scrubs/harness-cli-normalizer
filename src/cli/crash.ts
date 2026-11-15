@@ -2,6 +2,7 @@ import { writeSync } from "node:fs";
 import { type FailureSummary, failureFromInternal } from "../execution/failure.js";
 import { EXIT_CRASH } from "./exit-codes.js";
 import { markCrashed } from "./ledger.js";
+import type { RunEvent, TerminalDoneEvent } from "./protocol.js";
 
 /** Crash tier (standards-cli: the error-delivery contract, failure class
  * "uncaught exception"). Every route ends in one structured shape, one
@@ -33,15 +34,15 @@ export const crashSummary = (kind: string, error: unknown): FailureSummary =>
  * done event carries cause "crash" and hcn's own exit code (4): there is no
  * child exit code to report at this point. */
 export const writeCrashPair = (summary: FailureSummary): void => {
-  process.stdout.write(`${JSON.stringify({ kind: "failure", ...summary })}\n`);
-  process.stdout.write(
-    `${JSON.stringify({
-      kind: "done",
-      exitCode: EXIT_CRASH,
-      cause: "crash",
-      failure: summary,
-    })}\n`,
-  );
+  const failureEvent: Extract<RunEvent, { kind: "failure" }> = { kind: "failure", ...summary };
+  const done: TerminalDoneEvent = {
+    kind: "done",
+    exitCode: EXIT_CRASH,
+    cause: "crash",
+    failure: summary,
+  };
+  process.stdout.write(`${JSON.stringify(failureEvent)}\n`);
+  process.stdout.write(`${JSON.stringify(done)}\n`);
 };
 
 const writeStderrLines = (summary: FailureSummary, error: unknown): void => {
@@ -81,10 +82,15 @@ export const handleProcessCrash = (
   }
   if (jsonStream) {
     try {
-      write(`${JSON.stringify({ kind: "failure", ...summary })}\n`);
-      write(
-        `${JSON.stringify({ kind: "done", exitCode: EXIT_CRASH, cause: "crash", failure: summary })}\n`,
-      );
+      const failureEvent: Extract<RunEvent, { kind: "failure" }> = { kind: "failure", ...summary };
+      const done: TerminalDoneEvent = {
+        kind: "done",
+        exitCode: EXIT_CRASH,
+        cause: "crash",
+        failure: summary,
+      };
+      write(`${JSON.stringify(failureEvent)}\n`);
+      write(`${JSON.stringify(done)}\n`);
     } catch {
       // Last resort failed; exit code 4 still carries the class.
     }
