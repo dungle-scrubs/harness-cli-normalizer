@@ -35,10 +35,7 @@ import type {
   SessionApprovalAnswer,
   SessionApprovalDecisionRequest,
 } from "../execution/session-approval-tracker.js";
-import type {
-  SessionSettingsReceipt,
-  SessionSettingsRequest,
-} from "../execution/session-settings-sequencer.js";
+import type { SessionSettingsReceipt } from "../execution/session-settings-sequencer.js";
 import type {
   CapabilityResult,
   SessionControlsCapability,
@@ -87,7 +84,6 @@ export type {
   SessionDelivery,
   SessionInterruptReceipt,
   SessionSettingsReceipt,
-  SessionSettingsRequest,
   SessionStopBackgroundReceipt,
   ToolDenial,
   TurnCompletion,
@@ -255,9 +251,11 @@ type HarnessDoneEvent = Extract<HarnessEvent, { kind: "done" }>;
 
 /**
  * The one `done` line of both streams. A turn the runner finished carries
- * its `escalation` record. A refusal, a crash and a transport failure end a
- * `--json` stream with a `done` that has a `failure` and no `escalation`,
- * because no turn ran to record a question mode.
+ * its `escalation` record. A `done` with a `failure` and no `escalation`
+ * ends a stream before any turn ran to record a question mode: on
+ * `hcn run --json` after a refusal, a transport failure or a crash of hcn
+ * itself; on `hcn session --json` only after a crash of hcn itself, because
+ * a refused or failed session ends on `closed`.
  */
 export type DoneEvent = Omit<HarnessDoneEvent, "escalation"> & {
   readonly escalation?: EscalationRecord;
@@ -269,7 +267,14 @@ type StreamedHarnessEvent = Exclude<HarnessEvent, HarnessDoneEvent>;
 /** Every line `hcn run --json` writes on stdout. */
 export type RunEvent = StreamedHarnessEvent | DoneEvent;
 
-/** Every line `hcn session --json` writes on stdout. */
+/**
+ * Every line `hcn session --json` writes on stdout. The session's turn
+ * stream is the runner's own event stream, so its `approval-disposition`
+ * arm is the runner's. The one such line a session writes today is the
+ * receipt of an `approval` command: `id` and `requestId` are the command's
+ * own strings, and a `rejected` receipt always carries a `reason` from
+ * `SessionApprovalAnswer`.
+ */
 export type SessionEvent =
   | SessionHeaderEvent
   | SessionTurnEvent

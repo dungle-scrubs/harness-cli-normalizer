@@ -408,8 +408,10 @@ them - a consumer still owns the process and parses the NDJSON itself.
 `approval` needs and the model or effort a `settings` needs. It cannot type
 the value rules: an empty `id`, `job`, `model` or `effort` still type-checks
 and is still answered as a malformed command. Both streams have one `done`
-shape, `DoneEvent`, whose `escalation` is absent when a refusal, a crash or
-a transport failure ended the stream before a turn ran.
+shape, `DoneEvent`, whose `escalation` is absent when the stream ended
+before a turn ran: on `hcn run --json` after a refusal, a transport failure
+or a crash of hcn itself, and on `hcn session --json` only after a crash of
+hcn itself, since a refused or failed session ends on `closed`.
 
 - The normalized event surface is `HarnessEvent` in `src/execution/events.ts`: `identity`, `token`, `message`, `progress`, `tool`, `tool-result`, `usage`, `compaction`, `background`, `limit`, `warning`, `error`, `failure`, `question`, `done` (with `done.failure`; `done.cause` includes `awaiting-input`). Event kinds and failure classes are additive across releases; a consumer ignores a kind or class it does not recognize and still waits for `done`. Additive optional fields (such as `resumeLast: true` on `identity`, or `parentCallId` on a subagent `tool`/`tool-result`/`message`) never break that rule: branch on presence, never on prose.
 - For named resumes on create-on-missing harnesses, a checkable missing id is refused before spawn. A confirmed existing id produces no unknown-id diagnostic. When existence cannot be checked, an early `{kind: "warning", message: string}` advisory asks the caller to verify the id; it establishes no failure and does not change the turn verdict.

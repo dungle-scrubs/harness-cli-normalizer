@@ -3,7 +3,7 @@ import { failureFromRejected } from "../execution/failure.js";
 import type { ArgvRefusalError, RefusalIssue } from "../interpretation/refusal.js";
 import { markJsonCrashStream } from "./crash.js";
 import { EXIT_REFUSAL } from "./exit-codes.js";
-import type { DoneEvent, SessionClosedEvent } from "./protocol.js";
+import type { RunEvent, SessionClosedEvent } from "./protocol.js";
 import { writeEventNdjson } from "./render.js";
 
 export interface Refusal {
@@ -38,7 +38,7 @@ export const writeFailurePair = (
   terminal: "done" | "closed" = "done",
 ): void => {
   writeEventNdjson({ kind: "failure", ...summary });
-  const terminalEvent: DoneEvent | SessionClosedEvent =
+  const terminalEvent: Extract<RunEvent, { kind: "done" }> | SessionClosedEvent =
     terminal === "done"
       ? { kind: "done", exitCode: null, cause: "failed", failure: summary }
       : { kind: "closed", exitCode: null, cause: "failed", failure: summary };

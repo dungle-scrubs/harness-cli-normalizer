@@ -168,7 +168,7 @@ describe("T02: hcn session --json happy path", () => {
   });
 });
 
-describe("wire conformance (issue #441): every stdout line is one SessionEvent names", () => {
+describe("issue #441: the session loop writes only kinds SessionEvent names", () => {
   test("a session with a send, an interrupt, a malformed command and a close", async () => {
     const r = rig();
     await tick();

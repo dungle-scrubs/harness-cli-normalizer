@@ -2,7 +2,7 @@ import { writeSync } from "node:fs";
 import { type FailureSummary, failureFromInternal } from "../execution/failure.js";
 import { EXIT_CRASH } from "./exit-codes.js";
 import { markCrashed } from "./ledger.js";
-import type { DoneEvent, RunEvent } from "./protocol.js";
+import type { RunEvent, SessionEvent } from "./protocol.js";
 
 /** Crash tier (standards-cli: the error-delivery contract, failure class
  * "uncaught exception"). Every route ends in one structured shape, one
@@ -35,7 +35,7 @@ export const crashSummary = (kind: string, error: unknown): FailureSummary =>
  * child exit code to report at this point. */
 export const writeCrashPair = (summary: FailureSummary): void => {
   const failureEvent: Extract<RunEvent, { kind: "failure" }> = { kind: "failure", ...summary };
-  const done: DoneEvent = {
+  const done: Extract<RunEvent | SessionEvent, { kind: "done" }> = {
     kind: "done",
     exitCode: EXIT_CRASH,
     cause: "crash",
@@ -83,7 +83,7 @@ export const handleProcessCrash = (
   if (jsonStream) {
     try {
       const failureEvent: Extract<RunEvent, { kind: "failure" }> = { kind: "failure", ...summary };
-      const done: DoneEvent = {
+      const done: Extract<RunEvent | SessionEvent, { kind: "done" }> = {
         kind: "done",
         exitCode: EXIT_CRASH,
         cause: "crash",
