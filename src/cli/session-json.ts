@@ -12,10 +12,14 @@ import { createInterface } from "node:readline/promises";
 import type { FailureSummary } from "../execution/failure.js";
 import type { SessionHandle, SessionSendResult } from "../execution/open-session.js";
 import { isSessionTurn, SessionClosedError } from "../execution/open-session.js";
+import type { SessionApprovalAnswer } from "../execution/session-approval-tracker.js";
 import { composeAnswer, type QuestionMode } from "../interpretation/question.js";
-import { SESSION_DELIVERIES, type SessionDelivery } from "../knowledge/descriptor.js";
+import {
+  type HarnessName,
+  SESSION_DELIVERIES,
+  type SessionDelivery,
+} from "../knowledge/descriptor.js";
 import type {
-  SessionApprovalDispositionEvent,
   SessionCloseCause,
   SessionClosedEvent,
   SessionCommand,
@@ -38,7 +42,7 @@ export interface CloseInfo {
 export interface JsonSessionArgs {
   readonly handle: SessionHandle;
   readonly sessionId: string;
-  readonly harness: string;
+  readonly harness: HarnessName;
   readonly hcnVersion: string;
   readonly questions?: QuestionMode;
   readonly origin: SessionOrigin;
@@ -57,6 +61,16 @@ export interface JsonSessionArgs {
  * `error` event carries. The well-formed arms are the wire's own
  * `SessionCommand` (protocol.ts, published at `./protocol`). */
 type ParsedCommand = SessionCommand | { readonly malformed: string };
+
+/** The receipt of one `approval` command. On the wire it is the runner's
+ * own `approval-disposition` line; this narrower shape keeps the receipt's
+ * closed reason set checked where it is built. */
+type ApprovalReceipt = {
+  readonly kind: "approval-disposition";
+  readonly v: 1;
+  readonly id: string;
+  readonly requestId: string;
+} & SessionApprovalAnswer;
 
 /** One send/answer's answer on the wire: the runner's disposition, or the
  * CLI's own refusal of an answer with no open question. */
@@ -96,13 +110,13 @@ const parseCommand = (line: string): ParsedCommand => {
       return { malformed: "verbatim must be a boolean" };
     if (rec.op === "answer" && "verbatim" in rec)
       return { malformed: "answer carries no verbatim; compose the reply yourself" };
-    return {
-      op: rec.op,
+    const common = {
       id: rec.id,
       text: rec.text,
       ...(isSessionDelivery(rec.delivery) ? { delivery: rec.delivery } : {}),
-      ...(rec.verbatim === true ? { verbatim: true } : {}),
     };
+    if (rec.op === "answer") return { op: "answer", ...common };
+    return { op: "send", ...common, ...(rec.verbatim === true ? { verbatim: true } : {}) };
   }
   if (rec.op === "interrupt") {
     if (typeof rec.id !== "string" || rec.id === "") return { malformed: "missing or empty id" };
@@ -158,6 +172,7 @@ const parseCommand = (line: string): ParsedCommand => {
     }
     return {
       op: "approval",
+      v: 1,
       id: rec.id,
       requestId: rec.requestId,
       choiceId: rec.choiceId,
@@ -177,14 +192,13 @@ const parseCommand = (line: string): ParsedCommand => {
       return { malformed: "model must be a non-empty string" };
     if (rec.effort !== undefined && (typeof rec.effort !== "string" || rec.effort === ""))
       return { malformed: "effort must be a non-empty string" };
-    if (rec.model === undefined && rec.effort === undefined)
-      return { malformed: "settings needs model, effort, or both" };
-    return {
-      op: "settings",
-      id: rec.id,
-      ...(rec.model === undefined ? {} : { model: rec.model }),
-      ...(rec.effort === undefined ? {} : { effort: rec.effort }),
-    };
+    const model = typeof rec.model === "string" ? rec.model : undefined;
+    const effort = typeof rec.effort === "string" ? rec.effort : undefined;
+    if (model !== undefined) {
+      return { op: "settings", id: rec.id, model, ...(effort === undefined ? {} : { effort }) };
+    }
+    if (effort !== undefined) return { op: "settings", id: rec.id, effort };
+    return { malformed: "settings needs model, effort, or both" };
   }
   return { malformed: `unknown op ${JSON.stringify(rec.op)}` };
 };
@@ -421,23 +435,13 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
         // directly like the other command receipts - the request events it
         // answers ride inside the turn stream instead.
         const answered = a.handle.answerApproval(cmd);
-        const disposition: SessionApprovalDispositionEvent =
-          answered.status === "rejected"
-            ? {
-                kind: "approval-disposition",
-                v: 1,
-                id: cmd.id,
-                requestId: cmd.requestId,
-                status: answered.status,
-                reason: answered.reason,
-              }
-            : {
-                kind: "approval-disposition",
-                v: 1,
-                id: cmd.id,
-                requestId: cmd.requestId,
-                status: answered.status,
-              };
+        const disposition: ApprovalReceipt = {
+          kind: "approval-disposition",
+          v: 1,
+          id: cmd.id,
+          requestId: cmd.requestId,
+          ...answered,
+        };
         await emit(disposition);
         continue;
       }
@@ -488,7 +492,7 @@ export const runJsonSession = async (a: JsonSessionArgs): Promise<number> => {
           id: cmd.id,
           text,
           ...(cmd.delivery === undefined ? {} : { delivery: cmd.delivery }),
-          ...(cmd.verbatim === undefined ? {} : { verbatim: cmd.verbatim }),
+          ...(cmd.op === "send" && cmd.verbatim !== undefined ? { verbatim: cmd.verbatim } : {}),
         });
       } catch (err) {
         // A session the caller already closed, or one already dead: a

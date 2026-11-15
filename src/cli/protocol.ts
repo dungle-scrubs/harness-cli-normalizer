@@ -52,13 +52,16 @@ import type {
   CompactionState,
   CompactionTrigger,
   DiscoveryFacet,
+  HarnessName,
   LimitCode,
   SessionDelivery,
 } from "../knowledge/descriptor.js";
 import type { NativeApprovalFailure } from "../knowledge/native-approvals.js";
 
 /** The names a consumer needs to spell the three unions and their fields.
- * These are re-exports, not copies: each type keeps the module that owns it. */
+ * These are re-exports, not copies: each type keeps the module that owns it.
+ * The runner's in-process result types (`SessionSendResult` and its kin) are
+ * not here: their `settled` promises never cross the wire. */
 export type {
   AuthFailureKind,
   CapabilityResult,
@@ -71,6 +74,7 @@ export type {
   ExitCause,
   FailureSummary,
   HarnessEvent,
+  HarnessName,
   LimitCode,
   NativeApprovalFailure,
   QuestionMode,
@@ -82,12 +86,9 @@ export type {
   SessionControlsCapability,
   SessionDelivery,
   SessionInterruptReceipt,
-  SessionInterruptResult,
-  SessionSendResult,
   SessionSettingsReceipt,
   SessionSettingsRequest,
   SessionStopBackgroundReceipt,
-  SessionStopBackgroundResult,
   ToolDenial,
   TurnCompletion,
 };
@@ -96,39 +97,83 @@ export type {
  * harness store already held. */
 export type SessionOrigin = "fresh" | "resumed";
 
+/** `send` starts a turn, or joins the harness's own busy-send queue. */
+export interface SessionSendCommand {
+  readonly op: "send";
+  readonly id: string;
+  readonly text: string;
+  /** An explicit native delivery mode; omitted means the harness's own
+   * busy-send behavior. A mode the harness does not support is a
+   * malformed command, never a silent fallback. */
+  readonly delivery?: SessionDelivery;
+  /** Write the text exactly as given, with no question preamble in any
+   * questions mode. */
+  readonly verbatim?: boolean;
+}
+
+/** `answer` replies to the open question of a turn that ended
+ * `awaiting-input`. It carries no `verbatim` at all, not even `false`:
+ * compose the reply yourself. */
+export interface SessionAnswerCommand {
+  readonly op: "answer";
+  readonly id: string;
+  readonly text: string;
+  readonly delivery?: SessionDelivery;
+}
+
+export interface SessionInterruptCommand {
+  readonly op: "interrupt";
+  readonly id: string;
+}
+
+export interface SessionStopBackgroundCommand {
+  readonly op: "stop-background";
+  readonly id: string;
+  /** The id the job's `background` events carry. */
+  readonly job: string;
+}
+
+/** One decision on a forwarded permission request. `v: 1` is required on
+ * the wire; a command without it is malformed. */
+export type SessionApprovalCommand = SessionApprovalDecisionRequest & {
+  readonly op: "approval";
+  readonly v: 1;
+};
+
+/** Change the session's model, effort, or both. At least one of the two is
+ * required; a command with neither is malformed. */
+export type SessionSettingsCommand = {
+  readonly op: "settings";
+  readonly id: string;
+} & (
+  | { readonly model: string; readonly effort?: string }
+  | { readonly effort: string; readonly model?: string }
+);
+
+export interface SessionCloseCommand {
+  readonly op: "close";
+}
+
 /**
- * One stdin command of `hcn session --json`. A line that does not parse
- * into this shape is answered with a bare `error` event and never reaches
- * the harness. Ids are the consumer's own correlation tokens and may repeat.
+ * One stdin command of `hcn session --json`, as written on the wire. A line
+ * that does not parse into this shape is answered with a bare `error` event
+ * and never reaches the harness. Ids are the consumer's own correlation
+ * tokens and may repeat.
  */
 export type SessionCommand =
-  | {
-      /** `send` starts a turn, or joins the harness's own busy-send queue;
-       * `answer` replies to the open question of a turn that ended
-       * `awaiting-input`. */
-      readonly op: "send" | "answer";
-      readonly id: string;
-      readonly text: string;
-      /** An explicit native delivery mode; omitted means the harness's own
-       * busy-send behavior. A mode the harness does not support is a
-       * malformed command, never a silent fallback. */
-      readonly delivery?: SessionDelivery;
-      /** `send` only: write the text exactly as given, with no question
-       * preamble in any questions mode. `answer` carries no verbatim at
-       * all - compose the reply yourself. */
-      readonly verbatim?: boolean;
-    }
-  | { readonly op: "interrupt"; readonly id: string }
-  | { readonly op: "stop-background"; readonly id: string; readonly job: string }
-  | (SessionApprovalDecisionRequest & { readonly op: "approval" })
-  | (SessionSettingsRequest & { readonly op: "settings" })
-  | { readonly op: "close" };
+  | SessionSendCommand
+  | SessionAnswerCommand
+  | SessionInterruptCommand
+  | SessionStopBackgroundCommand
+  | SessionApprovalCommand
+  | SessionSettingsCommand
+  | SessionCloseCommand;
 
 /** The first line of every session stream: what was opened, and how. */
 export interface SessionHeaderEvent {
   readonly kind: "session";
   readonly sessionId: string;
-  readonly harness: string;
+  readonly harness: HarnessName;
   readonly hcn: string;
   readonly questions: QuestionMode;
   readonly origin: SessionOrigin;
@@ -177,35 +222,28 @@ export interface SessionBackgroundStopEvent {
   readonly reason?: SessionStopBackgroundReceipt["reason"];
 }
 
-/** Exactly one receipt per `approval` command: the write's outcome. The
- * request it answers rode the turn stream as an `approval-request` event. */
-export type SessionApprovalDispositionEvent = {
-  readonly kind: "approval-disposition";
-  readonly v: 1;
-  readonly id: string;
-  readonly requestId: string;
-} & SessionApprovalAnswer;
-
 /** Exactly one receipt per `settings` command, emitted as it settles. */
 export type SessionSettingsEvent = {
   readonly kind: "settings";
   readonly id: string;
 } & SessionSettingsReceipt;
 
-/** A bare observation the session owes the consumer outside any turn: a
- * malformed command, a failed command stream, or a settings readback the
- * receipt could not confirm. Informational - the stream stays open. */
-export interface SessionErrorEvent {
-  readonly kind: "error";
-  readonly message: string;
-}
+/** An `error` line. Inside a turn it is the runner's own event and may
+ * carry `terminal` and `denial`. Outside any turn the session writes the
+ * same shape bare, with `message` alone: a malformed command, a failed
+ * command stream, or a settings readback the receipt could not confirm.
+ * Informational either way - the stream stays open. This is the
+ * `HarnessEvent` error arm, named, so narrowing on `kind` keeps its fields. */
+export type SessionErrorEvent = Extract<HarnessEvent, { kind: "error" }>;
 
 /** `closed.cause` never carries `awaiting-input`: that cause ends a turn,
  * never a session. */
 export type SessionCloseCause = Exclude<ExitCause, "awaiting-input">;
 
-/** The last line of every session stream, with and without `failure`: the
- * failure rides whenever the cause is not clean and a failure was seen. */
+/** The last line of a session stream that ends in order, with and without
+ * `failure`: the failure rides whenever the cause is not clean and a failure
+ * was seen. A crash of hcn itself ends the stream with a `failure` and a
+ * `done` instead. */
 export interface SessionClosedEvent {
   readonly kind: "closed";
   readonly exitCode: number | null;
@@ -213,34 +251,32 @@ export interface SessionClosedEvent {
   readonly failure?: FailureSummary;
 }
 
-/**
- * The terminal `done` a dying stream writes with no `escalation` record:
- * the refusal, crash and transport-failure paths end a `--json` stream with
- * this done because no turn ran to record an escalation mode. The crash
- * tier writes the same pair on a session stream too, so it terminates both
- * unions.
- */
-export interface TerminalDoneEvent {
-  readonly kind: "done";
-  readonly exitCode: number | null;
-  readonly cause: ExitCause;
-  readonly failure: FailureSummary;
-}
+type HarnessDoneEvent = Extract<HarnessEvent, { kind: "done" }>;
 
-/** Every line `hcn run --json` writes on stdout: the runner's own events,
- * then the terminal `done` a refusal, crash or transport failure writes. */
-export type RunEvent = HarnessEvent | TerminalDoneEvent;
+/**
+ * The one `done` line of both streams. A turn the runner finished carries
+ * its `escalation` record. A refusal, a crash and a transport failure end a
+ * `--json` stream with a `done` that has a `failure` and no `escalation`,
+ * because no turn ran to record a question mode.
+ */
+export type DoneEvent = Omit<HarnessDoneEvent, "escalation"> & {
+  readonly escalation?: EscalationRecord;
+};
+
+/** Every runner event except `done`, which the wire widens to `DoneEvent`. */
+type StreamedHarnessEvent = Exclude<HarnessEvent, HarnessDoneEvent>;
+
+/** Every line `hcn run --json` writes on stdout. */
+export type RunEvent = StreamedHarnessEvent | DoneEvent;
 
 /** Every line `hcn session --json` writes on stdout. */
 export type SessionEvent =
   | SessionHeaderEvent
   | SessionTurnEvent
-  | HarnessEvent
+  | StreamedHarnessEvent
+  | DoneEvent
   | SessionDispositionEvent
   | SessionInterruptionEvent
   | SessionBackgroundStopEvent
-  | SessionApprovalDispositionEvent
   | SessionSettingsEvent
-  | SessionErrorEvent
-  | SessionClosedEvent
-  | TerminalDoneEvent;
+  | SessionClosedEvent;

@@ -4,7 +4,12 @@ import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { PassThrough } from "node:stream";
 import { describe, expect, test, vi } from "vitest";
-import type { SessionCloseCause, SessionEvent, SessionOrigin } from "../../src/cli/protocol.js";
+import type {
+  HarnessName,
+  SessionCloseCause,
+  SessionEvent,
+  SessionOrigin,
+} from "../../src/cli/protocol.js";
 import { session } from "../../src/cli/session.js";
 import { type CloseInfo, runJsonSession } from "../../src/cli/session-json.js";
 import { openSession } from "../../src/execution/open-session.js";
@@ -52,7 +57,7 @@ const rig = (
   procOpts: { exitOnStdinEnd?: boolean } = {},
   origin: SessionOrigin = "fresh",
   descriptor: typeof claudeCode = claudeCode,
-  harness: string = "claude",
+  harness: HarnessName = "claude",
 ) => {
   const proc = new FakeProcess(procOpts);
   const spawner = fakeSpawner([proc]);

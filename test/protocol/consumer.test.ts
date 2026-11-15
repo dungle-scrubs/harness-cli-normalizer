@@ -38,7 +38,7 @@ const consumerTsconfig = {
 };
 
 /** A consumer that spells every command arm, switches exhaustively on both
- * event unions, and tries the three shapes the wire must refuse. */
+ * event unions, and tries the shapes the wire must refuse. */
 const consumerMain = `import type {
   RunEvent,
   SessionCommand,
@@ -50,7 +50,8 @@ const commands: readonly SessionCommand[] = [
   { op: "answer", id: "in-2", text: "yes" },
   { op: "interrupt", id: "in-3" },
   { op: "stop-background", id: "in-4", job: "job-1" },
-  { op: "approval", id: "in-5", requestId: "req-1", choiceId: "allow" },
+  { op: "approval", v: 1, id: "in-5", requestId: "req-1", choiceId: "allow" },
+  { op: "settings", id: "in-7", effort: "high" },
   { op: "settings", id: "in-6", model: "opus" },
   { op: "close" },
 ];
@@ -86,11 +87,11 @@ const runKindOf = (event: RunEvent): string => {
     case "failure":
       return event.class;
     case "done":
-      return event.cause;
+      return event.escalation?.mode ?? event.completion ?? event.failure?.class ?? event.cause;
     case "approval-request":
       return event.requestId;
     case "approval-disposition":
-      return event.status;
+      return event.reason ?? event.status;
     case "approval-cleared":
       return event.requestId;
     default: {
@@ -145,11 +146,11 @@ const sessionKindOf = (event: SessionEvent): string => {
     case "failure":
       return event.class;
     case "done":
-      return event.cause;
+      return event.escalation?.mode ?? event.completion ?? event.failure?.class ?? event.cause;
     case "approval-request":
       return event.requestId;
     case "approval-disposition":
-      return event.status;
+      return event.reason ?? event.status;
     case "approval-cleared":
       return event.requestId;
     default: {
@@ -166,6 +167,31 @@ const unknownKind: SessionEvent = { kind: "reboot" };
 // A send without its id is not a command the session reads.
 // @ts-expect-error
 const sendWithoutId: SessionCommand = { op: "send", text: "hi" };
+
+// An approval without its wire version is malformed.
+// @ts-expect-error
+const approvalWithoutVersion: SessionCommand = {
+  op: "approval",
+  id: "in-8",
+  requestId: "req-1",
+  choiceId: "allow",
+};
+
+// An answer carries no verbatim, not even false.
+// @ts-expect-error
+const answerWithVerbatim: SessionCommand = { op: "answer", id: "in-9", text: "yes", verbatim: false };
+
+// A settings command names a model, an effort, or both.
+// @ts-expect-error
+const emptySettings: SessionCommand = { op: "settings", id: "in-10" };
+
+// The in-process result types are not part of the wire.
+// @ts-expect-error
+type NotExported = import("@dungle-scrubs/harness-cli-normalizer/protocol").SessionSendResult;
+
+const failed: SessionEvent = { kind: "error", message: "denied", terminal: true };
+// An error line keeps the runner's fields after narrowing on kind.
+export const errorDenial = failed.kind === "error" ? failed.denial : undefined;
 
 const ended: SessionEvent = { kind: "closed", exitCode: 0, cause: "clean" };
 if (ended.kind === "closed") {

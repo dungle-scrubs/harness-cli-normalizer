@@ -39,7 +39,7 @@ Three boundaries hold:
 field types from the modules that own them, and the CLI writes the streams
 through the unions it publishes: `runJsonSession`'s `emit` takes
 `SessionEvent`, the refusal, crash and transport-failure paths write
-`TerminalDoneEvent` values, and the render helpers type their parameters as
+`DoneEvent` values, and the render helpers type their parameters as
 `RunEvent | SessionEvent`. The export is the writer's own type, not a copy,
 so adding a field or an event kind fails `pnpm typecheck` until
 `protocol.ts` agrees - in hcn and in every consumer.

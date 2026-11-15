@@ -11,7 +11,7 @@ import { EXIT_FAILURE, exitCodeForCause } from "./exit-codes.js";
 import { createRunObserver } from "./observer.js";
 import { ownOutputErrors } from "./output-errors.js";
 import { planTurn, writePlanDiagnostics } from "./plan-turn.js";
-import type { RunEvent, TerminalDoneEvent } from "./protocol.js";
+import type { DoneEvent, RunEvent } from "./protocol.js";
 import { refusalOf, refuse } from "./refuse.js";
 import { createRenderState, renderEvent, writeEventNdjsonAsync } from "./render.js";
 import { resolveHarness } from "./resolve-harness.js";
@@ -241,7 +241,7 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
       retryable: true,
       message: String(err),
     };
-    const transportDone: TerminalDoneEvent = {
+    const transportDone: DoneEvent = {
       kind: "done",
       exitCode: null,
       cause: "failed",
