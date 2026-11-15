@@ -63,6 +63,8 @@ interface Spawned {
   readonly stderr: string;
   readonly kinds: readonly string[];
   readonly lines: readonly Record<string, unknown>[];
+  /** The raw stdout bytes, for the framing check. */
+  readonly stdout: string;
 }
 
 const spawnHcn = (
@@ -92,7 +94,8 @@ const spawnHcn = (
       timeout: 20000,
     });
     expect(result.error).toBeUndefined();
-    const lines = (result.stdout ?? "")
+    const stdout = result.stdout ?? "";
+    const lines = stdout
       .split("\n")
       .filter((line) => line !== "")
       .map((line) => JSON.parse(line) as Record<string, unknown>);
@@ -101,13 +104,21 @@ const spawnHcn = (
       stderr: result.stderr ?? "",
       kinds: lines.map((line) => String(line.kind)),
       lines,
+      stdout,
     };
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 };
 
+/** The wire framing: each event is one compact JSON object followed by one
+ * newline, with nothing between events and nothing after the last. */
+const expectFraming = (spawned: Spawned): void => {
+  expect(spawned.stdout).toBe(spawned.lines.map((line) => `${JSON.stringify(line)}\n`).join(""));
+};
+
 const expectKinds = (spawned: Spawned, kinds: readonly string[]): void => {
+  expectFraming(spawned);
   for (const kind of spawned.kinds) {
     expect(kinds, `the binary wrote a kind the union does not name: ${kind}`).toContain(kind);
   }

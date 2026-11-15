@@ -185,9 +185,15 @@ const answerWithVerbatim: SessionCommand = { op: "answer", id: "in-9", text: "ye
 // @ts-expect-error
 const emptySettings: SessionCommand = { op: "settings", id: "in-10" };
 
-// The in-process result types are not part of the wire.
+// The in-process types are not part of the wire.
 // @ts-expect-error
-type NotExported = import("@dungle-scrubs/harness-cli-normalizer/protocol").SessionSendResult;
+type NoSendResult = import("@dungle-scrubs/harness-cli-normalizer/protocol").SessionSendResult;
+// @ts-expect-error
+type NoInterruptResult = import("@dungle-scrubs/harness-cli-normalizer/protocol").SessionInterruptResult;
+// @ts-expect-error
+type NoStopResult = import("@dungle-scrubs/harness-cli-normalizer/protocol").SessionStopBackgroundResult;
+// @ts-expect-error
+type NoSettingsRequest = import("@dungle-scrubs/harness-cli-normalizer/protocol").SessionSettingsRequest;
 
 const failed: SessionEvent = { kind: "error", message: "denied", terminal: true };
 // An error line keeps the runner's fields after narrowing on kind.
