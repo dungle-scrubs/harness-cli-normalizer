@@ -4,8 +4,14 @@ import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { PassThrough } from "node:stream";
 import { describe, expect, test, vi } from "vitest";
+import type {
+  HarnessName,
+  SessionCloseCause,
+  SessionEvent,
+  SessionOrigin,
+} from "../../src/cli/protocol.js";
 import { session } from "../../src/cli/session.js";
-import { runJsonSession, type SessionOrigin } from "../../src/cli/session-json.js";
+import { type CloseInfo, runJsonSession } from "../../src/cli/session-json.js";
 import { openSession } from "../../src/execution/open-session.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
@@ -51,17 +57,13 @@ const rig = (
   procOpts: { exitOnStdinEnd?: boolean } = {},
   origin: SessionOrigin = "fresh",
   descriptor: typeof claudeCode = claudeCode,
-  harness: string = "claude",
+  harness: HarnessName = "claude",
 ) => {
   const proc = new FakeProcess(procOpts);
   const spawner = fakeSpawner([proc]);
   const sig = fakeSignal();
   const clock = new FakeClock();
-  const closeInfo: {
-    exitCode: number | null;
-    cause: string;
-    failure?: import("../../src/execution/failure.js").FailureSummary;
-  } = { exitCode: null, cause: "clean" };
+  const closeInfo: CloseInfo = { exitCode: null, cause: "clean" };
   const handle = openSession(
     descriptor,
     { sessionId: sid },
@@ -72,7 +74,7 @@ const rig = (
       log: (e: Record<string, unknown>) => {
         if (e.event === "session_close") {
           closeInfo.exitCode = (e.exitCode as number | null) ?? null;
-          closeInfo.cause = (e.cause as string) ?? "clean";
+          closeInfo.cause = (e.cause as SessionCloseCause | undefined) ?? "clean";
           if (e.failure !== undefined && typeof e.failure === "object") {
             closeInfo.failure =
               e.failure as import("../../src/execution/failure.js").FailureSummary;
@@ -166,6 +168,48 @@ describe("T02: hcn session --json happy path", () => {
   });
 });
 
+describe("issue #441: the session loop writes only kinds SessionEvent names", () => {
+  test("a session with a send, an interrupt, a malformed command and a close", async () => {
+    const r = rig();
+    await tick();
+
+    r.send({ op: "send", id: "in-1", text: "hi" });
+    await tick();
+    r.proc.emitLine(initFor(r.proc));
+    r.proc.emitLine(assistant("hello back"));
+    r.proc.emitLine(result);
+    await tick();
+
+    // The fake never advertises interrupt support, so the receipt is the
+    // single rejected line - still an `interruption` on the wire.
+    r.send({ op: "interrupt", id: "stop" });
+    await tick();
+    r.input.write("not json at all\n");
+    await tick();
+    r.input.end(); // EOF == close
+    await r.done;
+
+    // The kinds this scenario produces. `satisfies` keeps the list inside
+    // the union SessionEvent names, so a kind removed from the wire type
+    // fails typecheck here, and a kind the wire grows past the list fails
+    // the membership assertion below.
+    const kinds = [
+      "session",
+      "disposition",
+      "turn",
+      "identity",
+      "message",
+      "done",
+      "interruption",
+      "error",
+      "closed",
+    ] satisfies readonly SessionEvent["kind"][];
+    const seen = r.events().map((e) => (e as { kind: string }).kind);
+    for (const kind of seen) expect(kinds, `unexpected kind ${kind} on the wire`).toContain(kind);
+    for (const kind of kinds) expect(seen, `scenario never produced ${kind}`).toContain(kind);
+  });
+});
+
 describe("T03: sends during a turn are handed to the harness; the next turn carries the id", () => {
   test("second send while busy -> started, then next turn carries in-2", async () => {
     const r = rig();
@@ -205,7 +249,7 @@ describe("T03: sends during a turn are handed to the harness; the next turn carr
   test("a Pi steer reports its disposition only after the native command settles", async () => {
     const proc = new FakeProcess();
     const spawner = fakeSpawner([proc]);
-    const closeInfo = { exitCode: null as number | null, cause: "clean" };
+    const closeInfo: CloseInfo = { exitCode: null, cause: "clean" };
     const handle = openSession(
       piCli,
       { sessionId: sid },
@@ -216,7 +260,7 @@ describe("T03: sends during a turn are handed to the harness; the next turn carr
         log: (event: Record<string, unknown>) => {
           if (event.event === "session_close") {
             closeInfo.exitCode = (event.exitCode as number | null) ?? null;
-            closeInfo.cause = (event.cause as string) ?? "clean";
+            closeInfo.cause = (event.cause as SessionCloseCause | undefined) ?? "clean";
           }
         },
       },
@@ -329,7 +373,7 @@ describe("branch review: fixes for the findings the cross-family review raised",
   test("F7: a pending send that dies with the session is rejected on the wire", async () => {
     const proc = new FakeProcess();
     const spawner = fakeSpawner([proc]);
-    const closeInfo = { exitCode: null as number | null, cause: "clean" };
+    const closeInfo: CloseInfo = { exitCode: null, cause: "clean" };
     const droppedIds: string[] = [];
     const handle = openSession(
       claudeCode,
@@ -341,7 +385,7 @@ describe("branch review: fixes for the findings the cross-family review raised",
         log: (e: Record<string, unknown>) => {
           if (e.event === "session_close") {
             closeInfo.exitCode = (e.exitCode as number | null) ?? null;
-            closeInfo.cause = (e.cause as string) ?? "clean";
+            closeInfo.cause = (e.cause as SessionCloseCause | undefined) ?? "clean";
           }
           if (e.event === "sends_dropped" && Array.isArray(e.ids)) {
             for (const id of e.ids as unknown[]) if (typeof id === "string") droppedIds.push(id);
@@ -483,7 +527,7 @@ describe("follow-ups: backpressure and a broken command stream", () => {
   const congestedRig = () => {
     const proc = new FakeProcess();
     const spawner = fakeSpawner([proc]);
-    const closeInfo = { exitCode: null as number | null, cause: "clean" };
+    const closeInfo: CloseInfo = { exitCode: null, cause: "clean" };
     const handle = openSession(
       claudeCode,
       { sessionId: sid },

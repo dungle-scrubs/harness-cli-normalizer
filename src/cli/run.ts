@@ -11,6 +11,7 @@ import { EXIT_FAILURE, exitCodeForCause } from "./exit-codes.js";
 import { createRunObserver } from "./observer.js";
 import { ownOutputErrors } from "./output-errors.js";
 import { planTurn, writePlanDiagnostics } from "./plan-turn.js";
+import type { RunEvent } from "./protocol.js";
 import { refusalOf, refuse } from "./refuse.js";
 import { createRenderState, renderEvent, writeEventNdjsonAsync } from "./render.js";
 import { resolveHarness } from "./resolve-harness.js";
@@ -234,16 +235,16 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
     process.stderr.write(`run failed: ${err instanceof Error ? err.message : String(err)}\n`);
     // The synthetic failure and done go to the observer whatever --json
     // is: they are the run's terminal outcome even when stdout is gone.
-    const transportFailure = {
-      kind: "failure" as const,
-      class: "transport" as const,
+    const transportFailure: Extract<RunEvent, { kind: "failure" }> = {
+      kind: "failure",
+      class: "transport",
       retryable: true,
       message: String(err),
     };
-    const transportDone = {
-      kind: "done" as const,
+    const transportDone: Extract<RunEvent, { kind: "done" }> = {
+      kind: "done",
       exitCode: null,
-      cause: "failed" as const,
+      cause: "failed",
       failure: transportFailure,
     };
     if (lastEvent?.kind !== "done") {

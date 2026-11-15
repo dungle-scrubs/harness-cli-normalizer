@@ -99,8 +99,8 @@ A dispatch-level usage error with `--json` in argv also writes the
 
 ## Reading events
 
-Consume `--json` as NDJSON. For tool results, usage, nonzero exits or
-`done.completion`, read [the event contract](references/reference.md).
+Consume `--json` as NDJSON; a TypeScript consumer imports its types from `@dungle-scrubs/harness-cli-normalizer/protocol`.
+For tool results, usage, nonzero exits or `done.completion`, read [the event contract](references/reference.md).
 
 A clean `done` is not proof of tool success: inspect `tool-result.isError`
 and `result` using the native contract. Missing error flags mean unknown.

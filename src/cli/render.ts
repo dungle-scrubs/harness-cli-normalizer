@@ -1,5 +1,6 @@
 import type { HarnessEvent } from "../execution/events.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
+import type { RunEvent, SessionEvent } from "./protocol.js";
 
 const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
 const cyan = (s: string) => `\x1b[36m${s}\x1b[0m`;
@@ -145,7 +146,7 @@ export const renderEvent = (
  * again (see `writeEventNdjsonAsync`); a caller writing one terminal pair on
  * the way out may ignore it, because Node flushes pending stdout writes
  * before it exits. */
-export const writeEventNdjson = (event: HarnessEvent): boolean =>
+export const writeEventNdjson = (event: RunEvent | SessionEvent): boolean =>
   process.stdout.write(`${JSON.stringify(event)}\n`);
 
 /** The streaming form: resolves once stdout has taken the line.
@@ -154,7 +155,7 @@ export const writeEventNdjson = (event: HarnessEvent): boolean =>
  * back on: hcn keeps pulling from the harness and buffering, so memory grows
  * with the turn instead of the harness being stalled. RFC-01 rule 8 names
  * both hops; this is the hcn-to-consumer one. */
-export const writeEventNdjsonAsync = async (event: HarnessEvent): Promise<void> => {
+export const writeEventNdjsonAsync = async (event: RunEvent | SessionEvent): Promise<void> => {
   await new Promise<void>((resolve, reject) => {
     process.stdout.write(`${JSON.stringify(event)}\n`, (error) => {
       if (error) reject(error);

@@ -63,6 +63,13 @@ function runPackageCheck(mode: "npm11" | "npm12" | "pack-failure" | "publish-rew
         name: "@dungle-scrubs/harness-cli-normalizer",
         type: "module",
         publishConfig: { access: "public" },
+        exports: {
+          "./protocol": {
+            types: "./dist/cli/protocol.d.ts",
+            default: "./dist/cli/protocol.js",
+          },
+          "./package.json": "./package.json",
+        },
         bin: { hcn: "dist/cli.js" },
       }),
     );
@@ -103,7 +110,7 @@ if (args[0] === "pack" && process.env.FIXTURE_MODE === "pack-failure") {
   process.exit(99);
 }
 if (args[0] === "pack") {
-  const files = ["dist/cli.js", "dist/cli/index.js", "LICENSE", "README.md", "package.json", "skills/hcn/SKILL.md", "skills/hcn/scripts/check-claims.sh"];
+  const files = ["dist/cli.js", "dist/cli/index.js", "dist/cli/protocol.js", "dist/cli/protocol.d.ts", "LICENSE", "README.md", "package.json", "skills/hcn/SKILL.md", "skills/hcn/scripts/check-claims.sh"];
   const packed = { files: files.map(path => ({ path })) };
   console.log(JSON.stringify(process.env.FIXTURE_MODE === "npm12" ? { "@dungle-scrubs/harness-cli-normalizer": packed } : [packed]));
 } else if (args[0] === "publish") {

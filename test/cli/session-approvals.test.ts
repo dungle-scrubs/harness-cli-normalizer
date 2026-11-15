@@ -9,7 +9,8 @@
  */
 import { PassThrough } from "node:stream";
 import { describe, expect, test } from "vitest";
-import { runJsonSession } from "../../src/cli/session-json.js";
+import type { SessionCloseCause } from "../../src/cli/protocol.js";
+import { type CloseInfo, runJsonSession } from "../../src/cli/session-json.js";
 import { openSession } from "../../src/execution/open-session.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { UUID_SHAPE } from "../../src/knowledge/descriptor.js";
@@ -23,7 +24,7 @@ const rig = () => {
   const proc = new FakeProcess();
   const spawner = fakeSpawner([proc]);
   const sig = fakeSignal();
-  const closeInfo: { exitCode: number | null; cause: string } = { exitCode: null, cause: "clean" };
+  const closeInfo: CloseInfo = { exitCode: null, cause: "clean" };
   const handle = openSession(
     claudeCode,
     { sessionId: sid, questions: "none", nativeApprovals: true },
@@ -34,7 +35,7 @@ const rig = () => {
       log: (entry) => {
         if (entry.event === "session_close") {
           closeInfo.exitCode = (entry.exitCode as number | null) ?? null;
-          closeInfo.cause = (entry.cause as string) ?? "clean";
+          closeInfo.cause = (entry.cause as SessionCloseCause | undefined) ?? "clean";
         }
       },
     },

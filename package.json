@@ -10,6 +10,13 @@
   },
   "homepage": "https://github.com/dungle-scrubs/harness-cli-normalizer#readme",
   "type": "module",
+  "exports": {
+    "./protocol": {
+      "types": "./dist/cli/protocol.d.ts",
+      "default": "./dist/cli/protocol.js"
+    },
+    "./package.json": "./package.json"
+  },
   "bin": {
     "hcn": "dist/cli.js"
   },
