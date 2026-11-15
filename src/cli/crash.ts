@@ -30,12 +30,17 @@ const detailOf = (error: unknown): string =>
 export const crashSummary = (kind: string, error: unknown): FailureSummary =>
   failureFromInternal(`${kind}: ${detailOf(error)}`);
 
+/** The crash `done` goes onto whichever `--json` stream is active, so it
+ * must be a `done` of both unions: if either drops or narrows its arm, this
+ * type stops accepting the object below. */
+type CrashDone = Extract<RunEvent, { kind: "done" }> & Extract<SessionEvent, { kind: "done" }>;
+
 /** The failure/done pair a --json stream is owed when hcn itself dies. The
  * done event carries cause "crash" and hcn's own exit code (4): there is no
  * child exit code to report at this point. */
 export const writeCrashPair = (summary: FailureSummary): void => {
   const failureEvent: Extract<RunEvent, { kind: "failure" }> = { kind: "failure", ...summary };
-  const done: Extract<RunEvent | SessionEvent, { kind: "done" }> = {
+  const done: CrashDone = {
     kind: "done",
     exitCode: EXIT_CRASH,
     cause: "crash",
@@ -83,7 +88,7 @@ export const handleProcessCrash = (
   if (jsonStream) {
     try {
       const failureEvent: Extract<RunEvent, { kind: "failure" }> = { kind: "failure", ...summary };
-      const done: Extract<RunEvent | SessionEvent, { kind: "done" }> = {
+      const done: CrashDone = {
         kind: "done",
         exitCode: EXIT_CRASH,
         cause: "crash",
