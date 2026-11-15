@@ -50,7 +50,8 @@ and the CLI stub tests fail when it is missing or stale. `pnpm test` on its
 own needs a fresh `pnpm build` first for the same reason.
 
 `pnpm test:mutation` runs four isolated Stryker passes over failure classification,
-argv construction, content decoding, and persistent-session input. It is a manual,
+argv construction, content decoding (including the shared Cursor tool-outcome parser),
+and persistent-session input. It is a manual,
 non-blocking audit and is not part of `pnpm check` or CI. Run one module with a
 `test:mutation:<module>` script when reviewing a local change. Each lane writes its
 actionable report to `reports/mutation/<module>.json` and enforces its own reviewed

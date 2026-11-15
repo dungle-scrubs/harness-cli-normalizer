@@ -8,6 +8,12 @@ import type {
   HarnessName,
   LimitCode,
 } from "../knowledge/descriptor.js";
+import {
+  type CursorSdkReaderState,
+  cursorSdkContentEvents,
+  freshCursorSdkReaderState,
+} from "./cursor-sdk.js";
+import { cursorDenialEvent, cursorToolOutcome } from "./cursor-tool-outcome.js";
 import { asRecord, readPath as at } from "./shape.js";
 import { type UsageEvent, usageEventsOf } from "./usage.js";
 
@@ -647,7 +653,7 @@ const muse = (r: Record<string, unknown>): ContentEvent[] => {
       try {
         command = (JSON.parse(payload.text) as Record<string, unknown>).command;
       } catch {
-        command = undefined;
+        // Plain tool output has no command field.
       }
     }
     const outcome = facts?.outcome;
@@ -934,7 +940,9 @@ const popeyeReader = (r: Record<string, unknown>): ContentEvent[] => {
  * (drop-oldest) so a pathological turn cannot grow memory without bound;
  * the two text fields hold only the current segment's assistant text.
  * Completions land in their own set precisely so settling normal calls
- * never pushes an evicted id out of the tombstones. */
+ * never pushes an evicted id out of the tombstones. `sdk` carries the
+ * SDK worker-envelope reader's state (issue #440); the legacy fields
+ * above are untouched by SDK records and vice versa. */
 export interface CursorReaderState {
   readonly reader: "cursor";
   readonly pending: readonly string[];
@@ -946,6 +954,7 @@ export interface CursorReaderState {
   /** Text already ended as a message at a notification, which Cursor's
    * next full-text record repeats as its prefix. */
   readonly emittedText: string;
+  readonly sdk?: CursorSdkReaderState;
 }
 
 export const freshCursorReaderState = (): CursorReaderState => ({
@@ -1078,42 +1087,19 @@ const unknownInputOf = (
   return recorded ?? asRecord(entry.call.args) ?? undefined;
 };
 
-const denialEvent = (tool: string, reason: string): ContentEvent => ({
-  kind: "error",
-  message:
-    reason === "" ? `cursor denied ${tool} (no reason given)` : `cursor denied ${tool}: ${reason}`,
-  denial: { tool, reason },
-});
-
-type ToolOutcome =
-  | { readonly kind: "success"; readonly isError?: boolean }
-  | { readonly kind: "error"; readonly isError: true }
-  | { readonly kind: "unknown" }
-  | { readonly kind: "rejected"; readonly reason: string; readonly isError: true };
-
-const toolOutcome = (call: Record<string, unknown>, toolName: string): ToolOutcome | null => {
-  const result = asRecord(call.result);
-  if (result === null || Object.keys(result).length === 0) return null;
-  const rejected = asRecord(result.rejected);
-  if (rejected !== null)
-    return {
-      kind: "rejected",
-      isError: true,
-      reason: typeof rejected.reason === "string" ? rejected.reason : "",
-    };
-  if (result.error != null) return { kind: "error", isError: true };
-  if (Object.hasOwn(result, "success")) {
-    const exitCode = numberOr(at(result, "success.exitCode"));
-    if (toolName === "shellToolCall" && exitCode === undefined) return { kind: "success" };
-    return { kind: "success", isError: exitCode !== undefined && exitCode !== 0 };
-  }
-  return { kind: "unknown" };
-};
-
 const cursorWithState = (
   r: Record<string, unknown>,
   state: CursorReaderState,
 ): { readonly events: ContentEvent[]; readonly state: CursorReaderState } => {
+  // The SDK worker envelope (issue #440): every wire record carries the
+  // private `hcn` discriminator, which no captured CLI record ever did,
+  // so the two cursor readers cannot collide. The SDK mapping is the
+  // pure module's; the legacy fields of this state are untouched.
+  if (r.hcn !== undefined) {
+    const sdkState = state.sdk ?? freshCursorSdkReaderState();
+    const decoded = cursorSdkContentEvents(r, sdkState);
+    return { events: decoded.events, state: { ...state, sdk: decoded.state } };
+  }
   if (r.type === "retry" || r.type === "connection") {
     const label = typeof r.subtype === "string" ? r.subtype : r.type;
     return { events: [{ kind: "progress", label }], state };
@@ -1167,7 +1153,7 @@ const cursorWithState = (
   }
   if (r.type === "tool_call" && r.subtype === "completed") {
     const entry = toolCallEntry(r);
-    const outcome = entry === null ? null : toolOutcome(entry.call, entry.name);
+    const outcome = entry === null ? null : cursorToolOutcome(entry.call, entry.name);
     if (typeof r.call_id !== "string" || entry === null || outcome === null) {
       return { events: [], state };
     }
@@ -1201,7 +1187,7 @@ const cursorWithState = (
           : { isError: outcome.isError }),
       });
     }
-    if (outcome.kind === "rejected") events.push(denialEvent(entry.name, outcome.reason));
+    if (outcome.kind === "rejected") events.push(cursorDenialEvent(entry.name, outcome.reason));
     return { events, state: settled };
   }
   if (r.type === "interaction_query") {

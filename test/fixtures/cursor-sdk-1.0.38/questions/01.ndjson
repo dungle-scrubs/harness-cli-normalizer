@@ -1,0 +1,105 @@
+{"hcn":"opened","id":"hcn-identity","agentId":"agent-f626b885-2e53-44f2-b916-a6fa7a9cc08f","type":"system","subtype":"init","session_id":"agent-f626b885-2e53-44f2-b916-a6fa7a9cc08f"}
+{"hcn":"receipt","id":"hcn-send:1","disposition":"started"}
+{"hcn":"event","delta":{"type":"text-delta","text":"The"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" two"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" deploy"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" targets"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" conflict"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" and"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" the"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" file"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" contents"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" depend"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" on"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" which"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" one"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" is"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" correct"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"."}}
+{"hcn":"event","delta":{"type":"text-delta","text":" I’ll"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" check"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" the"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" directory"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" once"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" for"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" anything"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" that"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" settles"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" it"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" before"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" deciding"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" whether"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" to"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" ask"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"."}}
+{"hcn":"event","event":{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"The two deploy targets conflict and the file contents depend on which one is correct. I’ll check the directory once for anything that settles it before deciding whether to ask."}]}}}
+{"hcn":"event","event":{"type":"tool_call","agent_id":"agent-f626b885-2e53-44f2-b916-a6fa7a9cc08f","run_id":"run-eb2f7ac5-f38d-4dab-a618-6ed2b3f6b881","call_id":"call-15e528fb-07f7-47d7-bde4-80ca8731f575-0\nfc_68d2204d-6bed-9fb0-8675-d3612aa79427_0","name":"glob","status":"running","args":{"globPattern":"**/*","targetDirectory":"/private/var/folders/tw/f14p0yj14539tbphfm20yc340000gn/T/hcn-cursor-sdk-cleanup.1l8LQ8s3nl"}}}
+{"hcn":"event","event":{"type":"tool_call","agent_id":"agent-f626b885-2e53-44f2-b916-a6fa7a9cc08f","run_id":"run-eb2f7ac5-f38d-4dab-a618-6ed2b3f6b881","call_id":"call-15e528fb-07f7-47d7-bde4-80ca8731f575-0\nfc_68d2204d-6bed-9fb0-8675-d3612aa79427_0","name":"glob","status":"completed","args":{"globPattern":"**/*","targetDirectory":"/private/var/folders/tw/f14p0yj14539tbphfm20yc340000gn/T/hcn-cursor-sdk-cleanup.1l8LQ8s3nl"},"result":{"status":"success","value":{"files":[],"totalFiles":0,"clientTruncated":false,"ripgrepTruncated":false}}}}
+{"hcn":"event","delta":{"type":"text-delta","text":"Nothing"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" in"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" this"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" directory"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" names"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" a"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" deploy"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" environment"}}
+{"hcn":"event","delta":{"type":"text-delta","text":","}}
+{"hcn":"event","delta":{"type":"text-delta","text":" and"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" staging"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" versus"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" production"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" would"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" write"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" different"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" file"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" contents"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" that"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" cannot"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" be"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" corrected"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" later"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" without"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" re"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"doing"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" the"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" work"}}
+{"hcn":"event","delta":{"type":"text-delta","text":".\n\n"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"```"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"h"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"cn"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"-"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"question"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"\n"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"{\""}}
+{"hcn":"event","delta":{"type":"text-delta","text":"question"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"\":"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" \""}}
+{"hcn":"event","delta":{"type":"text-delta","text":"Which"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" environment"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" should"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" deploy"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"-"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"target"}}
+{"hcn":"event","delta":{"type":"text-delta","text":".txt"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" name"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"?\","}}
+{"hcn":"event","delta":{"type":"text-delta","text":" \""}}
+{"hcn":"event","delta":{"type":"text-delta","text":"options"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"\":"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" [\""}}
+{"hcn":"event","delta":{"type":"text-delta","text":"staging"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"\","}}
+{"hcn":"event","delta":{"type":"text-delta","text":" \""}}
+{"hcn":"event","delta":{"type":"text-delta","text":"production"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"\"],"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" \""}}
+{"hcn":"event","delta":{"type":"text-delta","text":"recommended"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"\":"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" \""}}
+{"hcn":"event","delta":{"type":"text-delta","text":"staging"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"\"}"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"\n"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"```"}}
+{"hcn":"event","event":{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Nothing in this directory names a deploy environment, and staging versus production would write different file contents that cannot be corrected later without redoing the work.\n\n```hcn-question\n{\"question\": \"Which environment should deploy-target.txt name?\", \"options\": [\"staging\", \"production\"], \"recommended\": \"staging\"}\n```"}]}}}
+{"hcn":"event","event":{"type":"usage","agent_id":"agent-f626b885-2e53-44f2-b916-a6fa7a9cc08f","run_id":"run-eb2f7ac5-f38d-4dab-a618-6ed2b3f6b881","usage":{"inputTokens":21628,"outputTokens":1048,"cacheReadTokens":14080,"cacheWriteTokens":0,"totalTokens":36756,"reasoningTokens":890}}}
+{"hcn":"turn-end","status":"finished"}

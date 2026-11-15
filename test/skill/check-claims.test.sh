@@ -23,7 +23,7 @@ cleanup() {
 }
 trap cleanup EXIT
 mkdir "$fixture_dir/working" "$fixture_dir/broken" "$fixture_dir/invalid" "$fixture_dir/pi-settings" "$fixture_dir/muse-evidence" "$fixture_dir/aliases" "$fixture_dir/denial-count" "$fixture_dir/claude-write" \
-  "$fixture_dir/node-only" "$fixture_dir/old-node" "$fixture_dir/no-interpreter" "$fixture_dir/home-launcher"
+  "$fixture_dir/node-only" "$fixture_dir/old-node" "$fixture_dir/no-interpreter" "$fixture_dir/home-launcher" "$fixture_dir/cursor-sdk"
 real_node=$(node -p 'process.execPath')
 ln -s "$real_node" "$fixture_dir/node-only/node"
 
@@ -72,13 +72,18 @@ if [ -n "$working_hcn" ]; then
   # Every help the script reads; the lanes it gates behind their own
   # markers (transcript, observations, interactive) are skipped by
   # stripping those markers too, so only the session-control surface
-  # differs from the working build.
+  # differs from the working build. The observation markers
+  # (done.denialCount, strict native sandbox, unconfined commands) gate
+  # check-observations.mjs, which probes `inspect --json` and stub CLI
+  # runs; a help-only stub cannot answer those, so the stub models a
+  # build older than the observations surface and the gate stays closed.
   for cmd in "" "run" "session" "inspect" "interactive" "transcript"; do
     # shellcheck disable=SC2086 # cmd is deliberately empty for the top level
     "$working_hcn" $cmd --help 2>&1 \
       | sed -e '/--native-approvals/d' -e '/--setting-sources/d' -e '/"op":"settings"/d' \
         -e '/transcript read/d' -e '/unconfined commands/d' \
         -e '/stop-background/d' -e '/parentCallId/d' -e '/controls.stopBackground.supported/d' \
+        -e '/done.denialCount/d' -e '/strict native sandbox/d' \
       >"$fixture_dir/pre-controls/help${cmd:-top}.txt"
   done
   {
@@ -222,6 +227,30 @@ EOF
       fi
       ;;
   esac
+fi
+
+# SDK tool restrictions must remain part of the advertised access mapping.
+if [ -n "$working_hcn" ] && "$working_hcn" inspect cursor --runtime --json --prompt fixture 2>/dev/null | node -e 'const fs=require("node:fs"); try{process.exit(JSON.parse(fs.readFileSync(0,"utf8")).sdk ? 0 : 1)}catch{process.exit(1)}'; then
+  {
+    printf '#!/usr/bin/env bash\n'
+    printf 'working_hcn=%q\n' "$working_hcn"
+    cat <<'EOF'
+if [ "$1 ${2:-} ${3:-}" = "inspect cursor --runtime" ]; then
+  "$working_hcn" "$@" | node -e 'const fs=require("node:fs"); const doc=JSON.parse(fs.readFileSync(0,"utf8")); doc.sdk.access.read.disallowedTools=[]; process.stdout.write(JSON.stringify(doc)+"\n");'
+  exit "${PIPESTATUS[0]}"
+fi
+exec "$working_hcn" "$@"
+EOF
+  } > "$fixture_dir/cursor-sdk/hcn"
+  chmod +x "$fixture_dir/cursor-sdk/hcn"
+  HCN_BIN="$fixture_dir/cursor-sdk/hcn" /bin/bash "$script" >/dev/null 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ]; then
+    echo "ok: omitted Cursor SDK tool denial fails verification"
+  else
+    echo "FAIL: omitted Cursor SDK tool denial gave exit $rc, want 1"
+    fails=$((fails + 1))
+  fi
 fi
 
 # Test 2: missing binary -> "blocked" and exit 2. PATH holds only node, so

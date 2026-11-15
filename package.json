@@ -41,7 +41,7 @@
     "test:bun": "bun test --timeout=20000",
     "test:mutation": "pnpm test:mutation:failure && pnpm test:mutation:argv && pnpm test:mutation:content && pnpm test:mutation:session-input",
     "test:mutation:argv": "stryker run --mutate src/interpretation/argv.ts",
-    "test:mutation:content": "stryker run --mutate src/interpretation/content.ts",
+    "test:mutation:content": "stryker run --mutate src/interpretation/content.ts,src/interpretation/cursor-tool-outcome.ts",
     "test:mutation:failure": "stryker run --mutate src/execution/failure.ts",
     "test:mutation:session-input": "stryker run --mutate src/interpretation/session-input.ts",
     "prepack": "pnpm build:release",
@@ -62,6 +62,7 @@
     "vitest": "^5.0.5"
   },
   "dependencies": {
+    "@cursor/sdk": "1.0.38",
     "koffi": "3.3.7"
   }
 }

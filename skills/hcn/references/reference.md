@@ -16,19 +16,19 @@ typed transport failure, never permission to start an empty task.
 | Flag | Scope | Notes |
 |---|---|---|
 | `--prompt <text>` / `--prompt-file <path\|->` | all | one prompt source; `-` reads stdin |
-| `--model <id>` | per-harness vocab | validated; aliases resolve; on cursor only listed slugs run - a bare family stem (e.g. `claude-opus-4-8`) without `--effort` refuses naming that family's slugs; opencode curates no model list (its free roster rotates), so any `provider/model` selector passes and the harness owns the answer |
-| `--effort <level>` | all | ladder per harness; profile defaults medium; on cursor the level resolves into the `--model` slug through per-family ladders and only arg-tier `--effort` enforces (profile/config values report divergence) |
+| `--model <id>` | per-harness vocab | validated; aliases resolve; on cursor listed slugs, SDK base ids, and bare family stems all run - a stem or base id runs at the catalog's defaults, and the worker resolves slugs into a catalog id plus parameters against the account's model list; unknown ids fail natively; opencode curates no model list (its free roster rotates), so any `provider/model` selector passes and the harness owns the answer |
+| `--effort <level>` | all | ladder per harness; profile defaults medium; on cursor the level resolves into the model selection through per-family ladders and only arg-tier `--effort` enforces (profile/config values report divergence); parameter spelling varies by model (grok-4.7 uses `reasoning_effort`, older models may use `effort`) |
 | `--sandbox <mode>` | codex, antigravity | codex: read-only, workspace-write, danger-full-access; antigravity: normalized workspace-write renders its boolean `--sandbox`; profile: workspace-write; cursor refuses any value |
 | `--context-window <tokens>` | codex, popeye (1-10000000), claude (100000-1000000); run and session | integer 1-272000 on codex (launch default 272000); popeye 1-10000000; claude renders native `--autocompact` (builds whose run help lists it) - an auto-compact window; hcn adds no request-token or cost enforcement - with NO launch default (the profile window does not transfer; claude's native default applies unless a flag or config sets it); native env `CLAUDE_CODE_AUTO_COMPACT_WINDOW` overrides the flag; Claude also provides `DISABLE_AUTO_COMPACT` and `DISABLE_COMPACT` (interaction with the flag untested); native percentage controls can trigger compaction earlier; config key `contextWindow` on run launches only (resume and session spawns use explicit flags) |
 | `--provider <id>` | pi | pi routes providers; Pi 1.0 requires an accompanying model, or use a provider/model selector; provider-only failures stay native; others refuse with hint |
 | `--setting-sources <list>` | claude; `hcn run` and `hcn session` | comma list of `user`, `project`, `local` (non-empty, no repeats) selecting which settings scopes the child loads, rendered as Claude's `--setting-sources`; a bare run passes nothing (Claude's own default applies), sessions keep the default `project` and an explicit list replaces it - a host standing in for an interactive Claude usually wants `user,project,local` so the user's own permissions and plugins apply; other harnesses refuse exit 2; refuses together with `--no-extensions` (its Claude spelling pins the same flag to project); no config key |
 | `--agent <name>` | claude, antigravity, popeye (codex, muse, cursor, opencode refuse exit 2); pi extension-registered (ADR 0010) | select a named agent the harness defines natively - hcn selects, never defines; the name passes through beyond the selector rule, so an unknown name is the harness's own native error (antigravity tolerates one and runs with its default; popeye and claude strictly reject with a typed error and the roster of valid agents); popeye reads from ./.popeye/agents and ~/.popeye/agents (POPEYE_AGENTS_DIR overrides); no stable machine roster exists across harnesses, so `hcn inspect <harness>` `namedAgents` (and `--capabilities`) is the planning surface ; pi's roster fact is machine-conditional: `hcn inspect pi --runtime` runs the declared probe and answers expressible-here / not-here (ADR 0010) |
-| `--tools <a,b>` | claude, pi, popeye (muse via category switches; codex, cursor, antigravity, opencode refuse) | claude renders an `--allowedTools` grant plus a `--disallowedTools` deny complement; pi and popeye render a strict `--tools` allowlist; canonical names only (`read write edit shell grep glob list web-fetch web-search subagent skill`); `native:<name>` passes through; a configured toolset name expands; `toolMap` config maps canonical -> extension names; cursor allow/deny lives in config files, named in the refusal hint |
+| `--tools <a,b>` | claude, pi, popeye (muse via category switches; codex, cursor, antigravity, opencode refuse) | claude renders an `--allowedTools` grant plus a `--disallowedTools` deny complement; pi and popeye render a strict `--tools` allowlist; canonical names only (`read write edit shell grep glob list web-fetch web-search subagent skill`); `native:<name>` passes through; a configured toolset name expands; `toolMap` config maps canonical -> extension names |
 | `--exclude-tools <a,b>` | claude, pi, popeye (muse via category switches; codex, cursor, antigravity, opencode refuse) | canonical names; complement over the harness's known names; mutually exclusive with --tools |
 | `--isolation <tool-free>` | claude, builds listing it in help | fresh turn only; no tools, MCP, instruction files, hooks, or extensions; refuses resume/session/native passthrough and grants; requires bare-mode authentication; invocation-only |
-| `--access <read\|write>` | claude, codex, pi, muse, cursor, popeye (antigravity and opencode refuse) | preset grant: `read` = read, grep, glob, list, web-fetch, web-search; claude read -> closed `--tools Read,Grep,Glob,WebFetch,WebSearch` set + `--permission-mode dontAsk` + `--disallowedTools mcp__*` (no allow rules; unmatched calls deny; every MCP tool denied, overriding native MCP pre-approvals; the web tools keep native approval semantics - the inventory pre-approves no web requests and confines neither files nor network), write -> `--permission-mode acceptEdits` plus strict native Bash sandbox ([limits](harness-notes.md#claude-write-access)); pi/popeye -> `--tools`, codex -> `--sandbox read-only`/`workspace-write`, muse -> `--disable-write --disable-shell`; cursor read -> `--mode ask --sandbox enabled`, write -> `--force` (unconfined commands, bypasses trust; human authorization required); no default; mutually exclusive with --tools/--exclude-tools (and --sandbox on codex); honors --no-tools |
+| `--access <read\|write>` | claude, codex, pi, muse, cursor, popeye (antigravity and opencode refuse) | preset grant: `read` = read, grep, glob, list, web-fetch, web-search; claude read -> closed `--tools Read,Grep,Glob,WebFetch,WebSearch` set + `--permission-mode dontAsk` + `--disallowedTools mcp__*` (no allow rules; unmatched calls deny; every MCP tool denied, overriding native MCP pre-approvals; the web tools keep native approval semantics - the inventory pre-approves no web requests and confines neither files nor network), write -> `--permission-mode acceptEdits` plus strict native Bash sandbox ([limits](harness-notes.md#claude-write-access)); pi/popeye -> `--tools`, codex -> `--sandbox read-only`/`workspace-write`, muse -> `--disable-write --disable-shell`; cursor runs the SDK: read -> read toolset (`read, grep, glob, ls, webFetch, webSearch`, `task` and `mcp` disallowed - tool selection, not a sandbox), write -> SDK toolset unconfined, sandbox explicitly off (human authorization required); a bare cursor run and session set no restriction - the SDK's native defaults (standard toolset, no approval, sandbox off) apply; no default; mutually exclusive with --tools/--exclude-tools (and --sandbox on codex); honors --no-tools |
 | `--skills <a,b>` | claude, codex, pi; `hcn run` and `hcn session` | caller-directed skills allowlist; names resolve against the registry root ($HCN_SKILLS_ROOT, default ~/.agents/skills); unknown names refuse exit 2 listing the registry; on a session the allowlist is a spawn property and holds across every turn (resume included); muse, cursor, antigravity, popeye and opencode refuse with a hint (antigravity and popeye sessions refuse the same way rather than open with the full set) |
-| `--autonomy` / `--no-autonomy` | claude, codex, muse, cursor, antigravity, opencode | profile: off; on antigravity and opencode renders `--dangerously-skip-permissions`; on cursor renders `--force`, which also bypasses the workspace-trust gate per run without persisting trust |
+| `--autonomy` / `--no-autonomy` | claude, codex, muse, cursor, antigravity, opencode | profile: off; on antigravity and opencode renders `--dangerously-skip-permissions`; on cursor selects the SDK's unconfined toolset - unless `--access read` is explicit, which stays read |
 | `--questions <ask\|assume\|none>` | all (hcn-owned), run and session | default ask; assume instructs the worker to state assumptions and continue; none injects nothing; question detection only in ask; config key `questions` |
 | `--system-prompt <text>` | claude, codex, pi, popeye | replace the built-in prompt; codex accepts text or a path; muse refuses; opt-in |
 | `--append-system-prompt <text>` | claude, pi, popeye | append to the built-in prompt; opt-in |
@@ -38,8 +38,8 @@ typed transport failure, never permission to start an empty task.
 | `--timeout <s>` | all (hcn-owned) | wall clock, opt-in, 0 disables; SIGTERM then SIGKILL |
 | `--no-tools/--no-instruction-files/--no-extensions/--no-skills` | discovery facets | per-harness spellings differ; refusals hint |
 | `--cwd`, `--env K=V`, `--resume <uuid>`, `--json` | run control | `--resume` is also the question-escalation answer path |
-| `--resume-last` | claude, codex, pi, cursor, antigravity (muse, popeye and opencode refuse) | most-recent session in the exact spawn cwd, no id; mutually exclusive with `--resume`/`--session-id`; refused on `session`, with `--native-approvals`, and with `--native-settings-fingerprint`; preview with `inspect <harness> --argv --resume-last --prompt "preview only"` |
-| `-- <args>` | passthrough | verbatim to harness at the descriptor placement, no separator rendered; failures are native-labeled; a `prompt-joins` harness refuses any tail instead of rewriting the prompt (opencode: `run` takes a variadic message and joins trailing text into it) |
+| `--resume-last` | claude, codex, pi, antigravity (muse, popeye, opencode, and cursor refuse) | most-recent session in the exact spawn cwd, no id; mutually exclusive with `--resume`/`--session-id`; refused on `session`, with `--native-approvals`, and with `--native-settings-fingerprint`; preview with `inspect <harness> --argv --resume-last --prompt "preview only"` |
+| `-- <args>` | passthrough | verbatim to harness at the descriptor placement, no separator rendered; failures are native-labeled; a `prompt-joins` harness refuses any tail instead of rewriting the prompt (opencode: `run` takes a variadic message and joins trailing text into it); cursor also refuses any tail - the SDK worker takes no native CLI flags |
 
 ## Defaults, config and tool grants
 
@@ -62,7 +62,8 @@ A native name passed bare (`Read`, `find`) refuses exit 2 listing the
 canonical set. `native:<name>` passes a harness-native or extension tool
 through untouched and shows up in provenance. A canonical name the
 requested harness cannot express refuses with the nearest control (codex
-`--sandbox`, muse category switches, cursor config-file allow/deny lists) -
+`--sandbox`, muse category switches, cursor: no per-call tool grant - it
+refuses) -
 never a silent narrowing. Extension tools get a name through config:
 `"toolMap": {"pi": {"web-search": "web_search"}}` in either tier; the
 refusal hint names the key to add. The tiers merge per canonical, project
@@ -93,7 +94,7 @@ the harness picks the session.
 | claude | `--continue --fork-session` | fresh session, exit 0, native defaults |
 | codex | `exec resume --last` | fresh session, exit 0, native defaults |
 | pi | `--continue` | fresh session, exit 0, native defaults |
-| cursor | `--continue` (`--force` joins after `--model` when autonomy is on) | exit 1, `No previous chats found.` (also the wrong-store-root symptom), classified native before the trust gate |
+| cursor | refuses: `unsupported-option`, option `resumeLast` - the SDK backend has no most-recent-conversation path | keep the `agent-<uuid>` id from the `identity` event and use `hcn run cursor --resume <id>` |
 | antigravity | `--continue` | reuses the most-recent native conversation; starts fresh when the workspace cache is missing or stale |
 | muse | refuses: `unsupported-option`, option `resumeLast` | re-enter with `hcn run muse --resume <id>` from the stored identity id |
 
@@ -101,11 +102,12 @@ Every resume-last turn is resume-semantics (no defaults profile, so a
 silently created session runs native defaults). Scope is the exact
 spawn cwd: a subdirectory run never sees the parent directory's
 session, and sibling repositories never cross. A run from inside a
-live session in the same directory re-enters that session on codex,
-pi, and cursor; claude forks under a new id instead, so the parent
+live session in the same directory re-enters that session on codex
+and pi; claude forks under a new id instead, so the parent
 file is never written, though the child still inherits its history.
 Callers that need strict continuation store ids and use `--resume`.
-Cursor `--effort` needs a slugged `--model` alongside it.
+On cursor, `--resume` takes an SDK conversation id (`agent-<uuid>`);
+a bare UUID names a CLI-chat session and refuses.
 
 On Antigravity, a named unknown conversation ID was observed to start fresh
 and announce a different ID.
@@ -186,15 +188,15 @@ command. The version probe has bounded time and output.
 
 | Dimension | claude | codex | pi | muse | cursor | antigravity | popeye | opencode |
 |---|---|---|---|---|---|---|---|---|
-| effort | --effort | -c model_reasoning_effort | --thinking | --reasoning-effort | resolves into --model slug (per-family ladders) | --effort | --effort | - (refuses) |
+| effort | --effort | -c model_reasoning_effort | --thinking | --reasoning-effort | resolves into the model selection (SDK catalog id + params) | --effort | --effort | - (refuses) |
 | sandbox | - | --sandbox | - | - (on by default, no mode selector) | - (refuses, no headless confinement) | --sandbox for workspace-write | - (refuses) | - (refuses) |
 | context window | --autocompact (no default) | -c model_context_window | - | - | - | - | --context-window | - (refuses) |
 | provider | - | - | --provider | - | - | - | - | - (refuses) |
 | agent | --agent | - (refuses) | --agent (extension-verified) | - (refuses) | - (refuses) | --agent | --agent | - (refuses) |
-| tools include | --allowedTools (grant) + deny complement | - (refuses, --sandbox hint) | --tools (strict) | category switches (--disable-write/--disable-shell/--disable-web-tools) | - (refuses, config-file hint) | - (refuses) | --tools (strict) | - (refuses, config-file hint) |
-| tools exclude | --disallowedTools | - (refuses, hint) | --exclude-tools | category switches | - (refuses, hint) | - (refuses) | --exclude-tools | - (refuses, hint) |
-| access | read: --tools Read,Grep,Glob,WebFetch,WebSearch + --permission-mode dontAsk + --disallowedTools mcp__* (closed set, MCP denied); write: acceptEdits + strict native Bash sandbox | --sandbox | --tools (read subset) | --disable-write --disable-shell | --mode ask --sandbox enabled (read); --force (write, unconfined) | - (refuses) | --tools (read subset) | - (refuses) |
-| autonomy | --dangerously-skip-permissions | --yolo | - | --yolo | --force (also bypasses trust per run) | --dangerously-skip-permissions | - | --dangerously-skip-permissions |
+| tools include | --allowedTools (grant) + deny complement | - (refuses, --sandbox hint) | --tools (strict) | category switches (--disable-write/--disable-shell/--disable-web-tools) | - (refuses) | - (refuses) | --tools (strict) | - (refuses, config-file hint) |
+| tools exclude | --disallowedTools | - (refuses, hint) | --exclude-tools | category switches | - (refuses) | - (refuses) | --exclude-tools | - (refuses, hint) |
+| access | read: --tools Read,Grep,Glob,WebFetch,WebSearch + --permission-mode dontAsk + --disallowedTools mcp__* (closed set, MCP denied); write: acceptEdits + strict native Bash sandbox | --sandbox | --tools (read subset) | --disable-write --disable-shell | SDK read toolset, task+mcp disallowed (read); SDK toolset unconfined, sandbox off (write); bare run/session -> native SDK defaults | - (refuses) | --tools (read subset) | - (refuses) |
+| autonomy | --dangerously-skip-permissions | --yolo | - | --yolo | SDK toolset unconfined (stays read when --access read is explicit) | --dangerously-skip-permissions | - | --dangerously-skip-permissions |
 | write | - | - | - | --disable-write | - | - | - | - (refuses) |
 | shell | - | - | - | --disable-shell | - | - | - | - (refuses) |
 | maxSteps | - | - | - | --max-model-steps | - | - | - | - (refuses) |
@@ -286,8 +288,10 @@ redacted and bounded, with tail lines as fallback.
 Persistent sessions keep the existing separation: a completed turn's `done`
 stays completed and a later process crash is reported by `closed`.
 
-For a named `--resume` on a create-on-missing harness (pi, muse, cursor),
-hcn refuses a checkable missing id before spawn. A confirmed existing id
+For a named `--resume` on a create-on-missing harness (pi, muse),
+hcn refuses a checkable missing id before spawn. On cursor the SDK answers an
+unknown id natively (`AgentNotFoundError`); only a bare UUID (a CLI-chat id)
+refuses before spawn. A confirmed existing id
 emits no unknown-id notice. If existence cannot be checked, an early
 `warning` with `message` asks the caller to verify the id; it establishes no
 failure and does not change `done.cause`. Text mode renders it as an advisory,
@@ -298,7 +302,7 @@ announce and attestation re-emit alike): the announced id was picked by
 the harness as most-recent, never requested by the caller, and MAY be a
 fresh session or another run's session. The fixed pre-spawn warning,
 the `store root <root> for scope <cwd>` diagnostic, and the
-absent-directory warn (claude, pi, and cursor only) arrive as early
+absent-directory warn (claude and pi only) arrive as early
 non-terminal `error` events before any harness output. Text mode renders
 `forked most-recent session as <id>` on claude (the announced id is the
 fork id, never the source id) and `resumed most-recent <id>` elsewhere,
@@ -407,9 +411,10 @@ the initial prompt is greater than the context length` only at the start
 of the message body - bare, after pi's stopReason error relay, or after
 its failed overflow-compaction wrapper; prose that mentions or even
 quotes the clause mid-message is not a refusal and stays task),
-trust-refused (cursor workspace-trust gate - untrusted directory with no
-bypass; retryable, route elsewhere or to a trusted directory; `--force`
-bypasses per run), rejected (hcn refusal - see fields
+trust-refused (the historical cursor native-CLI workspace-trust gate -
+untrusted directory with no bypass; retryable, route elsewhere or to a trusted
+directory. hcn now runs cursor through the SDK, which never hits this gate;
+the class remains for legacy decode), rejected (hcn refusal - see fields
 issue/option/supportedBy/hint), native (harness's own error;
 nativeExitCode as data), timeout (hcn's wall clock; raise the budget or
 split the task), internal (hcn's own bug, not a harness outcome;
@@ -418,13 +423,14 @@ non-retryable; the process exits 4 and a `--json` stream gets the
 
 For `auth`, `authKind` distinguishes `not-logged-in`, `expired`, `invalid-key`
 and `credential-access`. The last means the harness cannot read credentials it
-already holds. When cursor reports its locked-keychain line on stderr and exits
-nonzero, hcn retains that line and following stderr in the failure message,
+already holds. Cursor's locked-keychain line is the historical native-CLI
+form: hcn retains that line and following stderr in the failure message,
 redacted and bounded to 4,096 characters, and records the exit code in
-`nativeExitCode`. A stream-reported terminal error can carry the same kind
-without that field. The owner must restore credential access in the context the
-run executed in. hcn never unlocks a keychain or enters a password; an unlock
-from another shell or SSH session may not reach that context.
+`nativeExitCode`. Under cursor's SDK backend, auth failures arrive as
+open-failure errors the SDK raises by class (no `nativeExitCode`). The owner
+must restore credential access in the context the run executed in. hcn never
+unlocks a keychain or enters a password; an unlock from another shell or SSH
+session may not reach that context.
 
 Codex nonfatal error items remain informational `error` events without
 `terminal: true`. Native `turn.failed` and top-level `error` records are
@@ -438,7 +444,7 @@ Done causes: clean, limit, crash, stall, killed (timeout or signal
 death), failed, awaiting-input (issue #41: the turn ended by asking;
 exit 0 - resume with the answer). In sessions the same
 awaiting-input cause ends the ASKING TURN while the session stays
-live (hcn >= 0.4.3, claude + pi; Antigravity in builds whose `hcn ls` reports `antigravity@1.2.7`) - answer via the next send, not a
+live (hcn >= 0.4.3, claude + pi; Antigravity in builds whose `hcn ls` reports `antigravity@1.2.7`; cursor on the SDK backend) - answer via the next send, not a
 resume.
 
 ### Denial observations
@@ -449,6 +455,10 @@ absent, as in Claude's final `permission_denials` entries. Optional `callId`
 preserves the native call ID. Optional `inputSummary` is hcn's JSON preview of
 native input, bounded to 512 characters. A truncated preview may not be valid
 JSON. Assistant prose never establishes a denial.
+
+Cursor SDK 1.0.38 combines built-in tool rejections and execution errors into
+the same error shape. Those errors retain their raw result and `isError`
+flag, but hcn does not infer a denial category from their reason text.
 
 On builds whose JSON help advertises `done.denialCount`, a positive count
 reports emitted denial observations for that turn. Zero is omitted. Repeated
@@ -509,9 +519,13 @@ for a consumer that owns its input timing. The human REPL without
 use the run/resume protocol. Native transports: pi sessions run over
 `--mode rpc`; claude and Antigravity sessions run over stream-json (JSONL
 both directions); codex sessions run `codex app-server` (newline-delimited
-JSON-RPC over stdio, one process, many `turn/start` calls). In the human
-REPL a worker's question renders as a pickable menu (recommended
-starred); the answer flows back as the next message on the same session.
+JSON-RPC over stdio, one process, many `turn/start` calls); cursor sessions
+run the Cursor SDK in hcn's own Node worker (send/answer/interrupt/close; a
+busy send is rejected natively, no queue; interrupt is best-effort
+`Run.cancel`; a native SDK `request` has no reply API and surfaces as an
+error event). In the human REPL a worker's question renders as a pickable
+menu (recommended starred); the answer flows back as the next message on the
+same session.
 
 Control events (stdout):
 
@@ -561,12 +575,12 @@ fields mean the build does not advertise these controls.
 
 | Rule | Detail |
 |---|---|
-| disposition | every well-formed send/answer gets exactly one, in command order: `started` (accepted by the harness), or `rejected` with reason `closed` \| `no-open-question` \| `native-rejected` \| `unsupported-delivery` \| `write-failed`. Pi and codex wait for their native command response before reporting the disposition; without explicit delivery, a busy Pi send uses native `steer` and joins the current turn; a busy codex send uses `turn/steer` under codex's `expectedTurnId` precondition and also joins the RUNNING turn, so a send arriving after the native turn ended reports `rejected`/`native-rejected` (codex's out-of-band `codex queue` CLI is not reachable from the session protocol, so no queue disposition exists). Other harnesses report after their input write and keep their native busy-input behavior. hcn has no send queue (pi sends are written one at a time, each only after pi answered the previous send's native response, so back-to-back sends cannot race inside pi; a closing drain writes held sends out while its turn is still open, and a hold reports `rejected`/`closed` when the session ends before the wire freed it); a send that opens a turn carries the input id |
+| disposition | every well-formed send/answer gets exactly one, in command order: `started` (accepted by the harness), or `rejected` with reason `closed` \| `no-open-question` \| `native-rejected` \| `unsupported-delivery` \| `write-failed`. Pi and codex wait for their native command response before reporting the disposition; without explicit delivery, a busy Pi send uses native `steer` and joins the current turn; a busy codex send uses `turn/steer` under codex's `expectedTurnId` precondition and also joins the RUNNING turn, so a send arriving after the native turn ended reports `rejected`/`native-rejected` (codex's out-of-band `codex queue` CLI is not reachable from the session protocol, so no queue disposition exists). Other harnesses report after their input write and keep their native busy-input behavior. hcn has no send queue (pi sends are written one at a time, each only after pi answered the previous send's native response, so back-to-back sends cannot race inside pi; a closing drain writes held sends out while its turn is still open, and a hold reports `rejected`/`closed` when the session ends before the wire freed it); a send that opens a turn carries the input id; `native-rejected` also covers hcn's Cursor SDK worker declining an input it deferred before the native send |
 | answer | hcn composes the preamble (`The user answered the question: "<q>" with: <text>. Continue accordingly.`); a plain `send` after a question adds none |
 | malformed | not JSON / unknown op / bad id / non-string text / invalid delivery / interrupt carrying text / a missing or empty `job` on `stop-background` / a structurally bad approval decision -> `error` event, no disposition, session continues |
 | close | `close` op or stdin EOF; turn-scoped `done` never ends the process |
 | harness exit | a turn still open when the harness exits nonzero with no failure yet gets run mode's stderr-tail classification: a transport, unavailable or trust phrasing, else `native` with the tail, else `transport` on empty stderr. The detail is bounded with secret-shaped tokens masked. The `failure` lands in that turn before its `done` (cause stays `crash`), and `closed.failure` carries it. From hcn 0.9.6 a nonzero exit with no open turn also puts a failure on `closed.failure`: one hcn already read from stderr (an auth or limit wall; a limit keeps cause `limit`) first, else the same stderr-tail classification. A codex crash before the session opens creates no turn for its rejected sends |
-| refusals | from hcn 0.9.6. A harness that refuses the command that opened a turn, before acknowledging it (pi `prompt` with `success:false`, a popeye prompt error), ends that turn with the classified failure and `done` cause `failed`; a refused later send, even one reusing the id, leaves the turn running. A refused session open (codex `thread/start` error, popeye `create` error) ends the session: codex rejects the waiting sends with `native-rejected`, popeye ends the first waiting send's turn with the failure, and `closed` reports cause `failed` (exit 1) with the failure. A refusal is classified like a terminal error, except that a generic one is `native`, not `task`. A codex app-server that never answers still waits on the caller |
+| refusals | from hcn 0.9.6. A harness that refuses the command that opened a turn, before acknowledging it (pi `prompt` with `success:false`, a popeye prompt error), ends that turn with the classified failure and `done` cause `failed`, unless the refusal classifies as a rate-limit, usage-limit or quota wall, which takes limit precedence: the turn ends `done` cause `limit` and the session closes `limit` and hcn exits 1, a session-level limit cause that persists even if later turns succeed; a refused later send, even one reusing the id, leaves the turn running. A refused session open (codex `thread/start` error, popeye `create` error) ends the session: codex rejects the waiting sends with `native-rejected`, popeye ends the first waiting send's turn with the failure, and `closed` reports cause `failed` (exit 1) with the failure, unless the refusal is a rate-limit, usage-limit or quota wall, which takes limit precedence: `closed` reports cause `limit` instead, and hcn exits 1. A refusal is classified like a terminal error, except that a generic one is `native`, not `task`. A codex app-server that never answers still waits on the caller |
 | ids | `session.sessionId` = caller-side handle; `identity.sessionId` (first turn) = harness-confirmed id (pi and codex: minted; codex mints the thread id at open, `--resume <id>` reopens it via `thread/resume`) |
 | exit codes | 0 `closed.cause` clean, 1 any other harness or session outcome, 2 refusal before the stream opens, 4 hcn internal crash (an `internal` failure and `closed` with cause `crash`; an hcn bug - report it, do not retry or reroute). A refusal still writes `failure` + `closed cause=failed` on stdout (prose to stderr); a spawn failure writes a `transport` failure + the same `closed`, exit 1. The exit code is set after the terminal line flushes. EPIPE on stdout: hcn closes the session (grace, then signal) and exits 1 |
 | flags | `--stall <s>` per-turn inactivity budget (0 disables, no default; expiry ends the turn `stall` and closes the session `stall`); `--provider` pi only, same validation as run; `--agent <name>` claude, antigravity, popeye, and pi (extension-verified at open), rendered at spawn exactly as run renders it; `--effort <v>` (>= 0.6.0) validated against the ladder for the picked `--model` exactly as on run - no default, the harness's own effort applies without it; `--skills <a,b>` (issue #332) the run allowlist at session spawn through the same resolution and render, holding across every turn, antigravity/popeye refusing exit 2 before spawn; `--model` renders per harness (codex sessions take `-c model=<id>` - app-server has no `--model` flag - and sessions render no sandbox flag, so codex's own sandbox default applies). Claude and Pi accept explicit `--tools`, `--exclude-tools`, `--no-tools`, `--autonomy`/`--no-autonomy`, and `--access read|write` at spawn through the run renderers. Pi refuses `--autonomy`; Claude refuses `--no-tools`, as on run. Other harnesses refuse these settings before spawn. `--write`/`--no-write`, `--shell`/`--no-shell`, `--sandbox`, and `--isolation` remain run-only. Refusals exit 2 with a typed failure instead of dropping the setting |
@@ -606,13 +620,18 @@ turn.
 
 Send `{"op":"interrupt","id":"stop-1"}` without replacement text. A written
 request emits `interruption` state `requested`. Wait for its terminal state:
-`interrupted` confirms a native aborted run; `not-active` means work settled
-normally or none was active; `rejected` carries `unsupported`, `closed`,
+`interrupted` confirms the harness aborted the active run, or that a
+deferred input was cancelled before any run started; `not-active` means the
+worker reports an explicit no-target idle decline, or an accepted request
+cancelled no run because the target had settled normally or was idle;
+`rejected` carries `unsupported`, `closed`,
 `write-failed` or `native-rejected`. An immediate refusal has no `requested`
 phase. A native success response alone does not confirm interruption. The
-receipt describes the turn running when the request was written: a request
-written while idle, or whose turn settled normally before the acknowledgement, is
-`not-active` even if a later turn is running or aborted by then.
+receipt describes the turn running when the request was written: an accepted
+request written while idle, or whose turn settled normally before an accepted
+acknowledgement, is `not-active` even if a later turn is running or aborted
+by then. A request the harness refused stays `rejected` even when the run's
+completion arrives first.
 
 After the terminal receipt, send the replacement instruction on the same
 session. Interrupting keeps the process and conversation. Native queued

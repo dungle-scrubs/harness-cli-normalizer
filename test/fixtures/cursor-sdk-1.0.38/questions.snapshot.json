@@ -1,0 +1,23 @@
+{
+  "ranAt": "2026-11-02T10:53:07.189Z",
+  "results": {
+    "cursor": {
+      "status": "pass",
+      "observedOn": {
+        "harness": "cursor",
+        "model": "grok-4.7-high",
+        "version": "1.0.38",
+        "date": "2026-11-02"
+      },
+      "detail": "question \"Which environment should deplo\""
+    }
+  },
+  "observations": {
+    "cursor": {
+      "harness": "cursor",
+      "model": "grok-4.7-high",
+      "version": "1.0.38",
+      "date": "2026-11-02"
+    }
+  }
+}

@@ -46,8 +46,8 @@ const ofKind = <K extends ContentEvent["kind"]>(events: readonly ContentEvent[],
 const toolNames = (events: readonly ContentEvent[]): string[] =>
   ofKind(events, "tool").map((e) => e.name);
 
-describe("cursor verification anchor", () => {
-  test("smoke:seven and smoke:questions pass on the verified version", () => {
+describe("historical Cursor CLI verification", () => {
+  test("the retained CLI smoke snapshots passed on their captured version", () => {
     const seven = JSON.parse(readFileSync(join(SNAPSHOT_DIR, "seven.snapshot.json"), "utf8"));
     for (const [name, cell] of Object.entries(seven.results.cursor))
       expect(cell).toMatchObject({ status: name === "session-cont(1proc)" ? "skip" : "pass" });
@@ -55,8 +55,7 @@ describe("cursor verification anchor", () => {
       readFileSync(join(SNAPSHOT_DIR, "questions.snapshot.json"), "utf8"),
     );
     expect(questions.results.cursor.status).toBe("pass");
-    expect(questions.observations.cursor).toEqual(cursorCli.escalation.observedOn);
-    expect(questions.observations.cursor.version).toBe(cursorCli.verifiedAgainst);
+    expect(questions.observations.cursor.version).toBe("2026.10.01-e373342");
   });
 });
 
@@ -206,11 +205,12 @@ test("current automatic compaction hooks expose no usable accounting and saved H
   expect(native.filter((event) => event.kind === "error")).toEqual([]);
 });
 
-test("current Cursor family selectors render the native high-effort slugs", () => {
+test("current Cursor family selectors resolve the native high-effort slugs onto the worker open line (#440)", () => {
   for (const stem of ["grok-4.7", "claude-opus-5-5", "claude-sonnet-5-5"]) {
     const model = resolveEffortSlug(cursorCli, stem, "high");
+    expect(model).toBe(`${stem}-high`);
     const argv = buildSpawnArgv(cursorCli, { prompt: "Reply only OK.", model });
-    expect(argv[argv.indexOf("--model") + 1]).toBe(`${stem}-high`);
+    expect(argv).toEqual(["hcn-cursor-sdk-worker"]);
   }
 });
 

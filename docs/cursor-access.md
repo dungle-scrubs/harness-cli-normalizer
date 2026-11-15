@@ -1,23 +1,68 @@
 # Cursor access presets
 
-`--access read` selects Cursor's native ask mode:
-`--mode ask --sandbox enabled`. `--access write` renders `--force`.
-Write access grants commands and bypasses workspace trust; native explicit
-denials still apply. It is unconfined, not a workspace sandbox.
+`hcn run cursor` and `hcn session cursor` execute the Cursor SDK (`@cursor/sdk`,
+pinned 1.0.38 and installed as a dependency of the hcn package) in one Node
+worker process that hcn owns and supervises. The worker runs under Node even
+when hcn itself runs under Bun. The native `agent` CLI is not spawned for
+headless turns or sessions. Historical native terminal operations and CLI version inspection
+remain separate.
 
-The normalized `--sandbox` option remains unsupported. Rendering
-`--force --sandbox enabled` for write would suggest a boundary that the
-native CLI did not enforce in the probes below. No access preset is applied
-unless the caller requests one. Fresh, named-resume, and resume-last runs
-render an explicit preset identically.
+## SDK access mapping
 
-`--autonomy` independently adds `--force`, including with `--access read`.
-That combination renders `--mode ask --sandbox enabled --force`; neither
-these probes nor the official documentation establish precedence. It is not
-a verified read-only combination. Use `--no-autonomy` for the probed read preset,
-including when configuration enables autonomy.
+The access preset selects the SDK toolset on the worker's open line, never an
+agent flag. `hcn inspect cursor --runtime --json --prompt "preview only"` prints the exact mapping in
+its `sdk` block (`workerArgv`, `resumeIdShape`, and the access map for bare,
+read, write, and autonomy); `hcn inspect cursor --argv` previews the worker
+marker `hcn-cursor-sdk-worker`, because model, access, and resume settings ride
+the worker's stdin, not agent argv.
 
-## Native verification
+| Request | SDK restriction |
+|---|---|
+| `--access read` | `tools: [read, grep, glob, ls, webFetch, webSearch]` plus `disallowedTools: [task, mcp]` |
+| `--access write` | native toolset, `sandboxOptions.enabled: false` stated explicitly |
+| bare run, no autonomy | no restriction keys - native SDK defaults |
+| bare run with `--autonomy` | the same unconfined toolset as `--access write` |
+| bare `hcn session cursor` | no restriction keys - native SDK defaults |
+
+`--access read` holds even when `--autonomy` is set. Bare runs and sessions
+set no tool or sandbox restrictions. SDK 1.0.38 offers its standard toolset,
+including shell, edit and write, without approval and with its sandbox off by
+default. Use `hcn run cursor --access read` for the restricted toolset.
+`hcn session cursor` refuses every access option with exit 2 before it spawns, so a
+Cursor session always uses native defaults.
+The SDK has no equivalent of the native CLI's workspace-trust refusal: an SDK
+run can execute in a directory the CLI has not trusted. `--autonomy` does not
+restore or persist that CLI trust decision.
+
+The read preset is tool selection, not a sandbox. The read set keeps the two web
+tools, the `read` tool reads any path, and nothing confines the network. The
+`mcp` deny also removes custom tools and the `task` deny prevents subagents, so
+neither can grow the allowlist back. Write runs the native toolset with the
+sandbox disabled: it grants commands and edits, not a boundary. Loaded
+file-based hooks can still reject tool calls.
+
+On EOF or a termination signal, the worker attempts native cancellation and
+agent disposal within hcn's existing cleanup grace. A hard kill, or SDK
+cancellation that cannot settle before SIGKILL, can leave the conversation
+busy in the native store. hcn never forces a takeover of that conversation.
+
+The normalized `--sandbox` option still refuses on Cursor, and `--tools` and
+`--exclude-tools` have no Cursor selectors. The SDK loads project and user
+settings sources (rules and hooks from `.cursor/` and `~/.cursor/`); hooks are
+file-based only, and hcn authors none.
+
+SDK 1.0.38 exposes built-in tool rejections and execution errors in the same
+error shape. hcn preserves the raw result and `tool-result.isError`; it does
+not infer `error.denial` or `done.denialCount` from the reason text.
+
+## Historical: native CLI verification (#373)
+
+The probes below ran against the native `agent` CLI, which #440 removed from
+headless duty. They remain the evidence for the descriptor's documented CLI
+grammar (`--mode ask --sandbox enabled` for read, `--force` for write) and for
+the conclusion that carried into the SDK mapping: write grants commands, not
+confinement. `--force --sandbox enabled` still permitted writes outside the
+workspace on both builds probed.
 
 The probes used disposable git repositories, `gpt-5-mini`, print mode,
 stream-json output, and native `--trust` to isolate access behavior from the
@@ -33,10 +78,12 @@ File existence and contents were checked independently of model prose.
 | 2026.10.01-e373342 | `--force --sandbox enabled` | Edit and shell ran; shell created files inside and outside the workspace. |
 | 2026.10.12-d47ca18 | `--force --sandbox enabled` | Same outside-workspace shell write succeeded. |
 
-These observations support native ask mode for read and `--force` for write.
-They do not establish an OS-level read sandbox, guarantee behavior under
-other native overrides, or qualify every capability of the newer build.
-The descriptor's verification anchor remains 2026.10.01-e373342.
+These observations supported native ask mode for read and `--force` for write
+on the CLI. They did not establish an OS-level read sandbox, guarantee behavior
+under other native overrides, or qualify every capability of the newer build.
+These historical probes retain their CLI version. The current headless descriptor is qualified
+against SDK 1.0.38 by its separate seven-scenario and question captures in
+[`test/fixtures/cursor-sdk-1.0.38`](../test/fixtures/cursor-sdk-1.0.38).
 
 Evidence:
 
@@ -52,8 +99,12 @@ Evidence:
   configuration was found in these captures.
 - Official Cursor documentation: [parameters](https://cursor.com/docs/cli/reference/parameters),
   [modes](https://cursor.com/docs/cli/using#modes), and
-  [output formats](https://cursor.com/docs/cli/reference/output-format).
+  [output formats](https://cursor.com/docs/cli/reference/output-format), plus
+  the [TypeScript SDK](https://cursor.com/docs/sdk/typescript) for the toolset
+  and sandbox options above.
 
 `test/knowledge/cursor-access-evidence.test.ts` checks the captured decoder
-rows and the independent filesystem observations. Built-CLI stub tests
-exercise the explicit presets on fresh and resumed runs under Node and Bun.
+rows and the independent filesystem observations.
+`test/interpretation/access-preset.test.ts` asserts the SDK restriction
+mapping, and the built-CLI tests assert the open line the worker receives on
+fresh and resumed runs under Node and Bun.

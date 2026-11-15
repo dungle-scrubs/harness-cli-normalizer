@@ -61,14 +61,11 @@ const HINTS: Readonly<Record<string, Readonly<Record<string, string>>>> = deepFr
     maxSteps:
       "pi has no step cap flag; bound the work in the prompt or impose a wall-clock timeout at the caller",
   },
-  // RFC-05 (ratified 2026-09-17): cursor keeps allow/deny in config
-  // files only, so the --tools refusal names that control instead of the
-  // codex fallback.
   cursor: {
     tools:
-      "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
+      "cursor tool selectors are not exposed by hcn; use --access read for the SDK read toolset or --access write for its unconfined native toolset",
     excludeTools:
-      "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
+      "cursor tool selectors are not exposed by hcn; use --access read for the SDK read toolset or --access write for its unconfined native toolset",
   },
   muse: {
     // RFC-06: no headless most-recent grammar exists, so the id-less path

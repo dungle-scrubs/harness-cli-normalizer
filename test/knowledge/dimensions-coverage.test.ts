@@ -52,6 +52,9 @@ const DESCRIPTOR_KEYS = [
   "approvalObserver",
   // Issue #457 adds the setting-source selection (claude only).
   "settingSources",
+  // Issue #440 adds the optional SDK-backed headless backend key (only
+  // cursor carries it).
+  "sdk",
 ] as const satisfies readonly (keyof HarnessDescriptor)[];
 
 type Missing = Exclude<keyof HarnessDescriptor, (typeof DESCRIPTOR_KEYS)[number]>;
@@ -64,6 +67,9 @@ const complete: Missing extends never ? true : false = true;
 const OPTIONAL_KEYS = [
   "trustMatchers",
   "approvalObserver",
+  // Issue #440: the optional SDK-backed headless backend (only cursor
+  // carries it today).
+  "sdk",
 ] as const satisfies readonly (keyof HarnessDescriptor)[];
 
 describe("descriptor key coverage", () => {
@@ -78,11 +84,9 @@ describe("descriptor key coverage", () => {
     }
   });
 
-  test("resumeLast headless dimension: renderable set vs parse-only set (RFC-06 Phase 5: cursor renders)", () => {
-    const renderable = [claudeCode, codexCli, piCli, cursorCli, antigravityCli]
-      .map((h) => h.name)
-      .sort();
-    const parseOnly = [museCode].map((h) => h.name).sort();
+  test("resumeLast headless dimension: renderable set vs parse-only set (cursor moved to parse-only when its headless surface became the SDK backend, issue #440)", () => {
+    const renderable = [claudeCode, codexCli, piCli, antigravityCli].map((h) => h.name).sort();
+    const parseOnly = [museCode, cursorCli].map((h) => h.name).sort();
     for (const h of [claudeCode, codexCli, piCli, museCode, cursorCli, antigravityCli]) {
       expect(h.resumeLast).not.toBeNull();
     }

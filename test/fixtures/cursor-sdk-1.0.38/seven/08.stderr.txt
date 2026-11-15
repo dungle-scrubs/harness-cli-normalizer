@@ -1,0 +1,12 @@
+hcn cursor-sdk worker: warn: [hooks] Claude Code event "<redacted: operator agent configuration (registered hook event), 17 chars>" is not supported in Cursor and will be ignored
+hcn cursor-sdk worker: warn: [hooks] Unknown Claude Code event "<redacted: operator agent configuration (registered hook event), 18 chars>", skipping
+hcn cursor-sdk worker: warn: [hooks] Unknown Claude Code event "<redacted: operator agent configuration (registered hook event), 16 chars>", skipping
+hcn cursor-sdk worker: warn: [hooks] Unknown Claude Code event "<redacted: operator agent configuration (registered hook event), 17 chars>", skipping
+hcn cursor-sdk worker: warn: [hooks] Claude Code event "<redacted: operator agent configuration (registered hook event), 12 chars>" is not supported in Cursor and will be ignored
+hcn cursor-sdk worker: warn: [hooks] Unknown Claude Code event "<redacted: operator agent configuration (registered hook event), 11 chars>", skipping
+hcn cursor-sdk worker: warn: [hooks] Unknown Claude Code event "<redacted: operator agent configuration (registered hook event), 13 chars>", skipping
+hcn cursor-sdk worker: warn: [hooks] Unknown Claude Code event "<redacted: operator agent configuration (registered hook event), 12 chars>", skipping
+hcn cursor-sdk worker: warn: [hooks] Unknown Claude Code event "<redacted: operator agent configuration (registered hook event), 11 chars>", skipping
+hcn cursor-sdk worker: warn: [hooks] Unknown Claude Code event "<redacted: operator agent configuration (registered hook event), 11 chars>", skipping
+hcn cursor-sdk worker: log: 10:52:14.122 INFO  LocalCursorRulesService load completed meta={durationMs: 13, ruleCount: <redacted: operator agent configuration (ruleCount), 1 chars>}
+hcn cursor-sdk worker: log: 10:52:14.175 INFO  AgentSkillsCursorRulesService load completed meta={durationMs: 64, ruleCount: <redacted: operator agent configuration (ruleCount), 3 chars>, skillCount: <redacted: operator agent configuration (skillCount), 3 chars>, servedFromCache: false}

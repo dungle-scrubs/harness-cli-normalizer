@@ -31,8 +31,14 @@ To have the harness and model chosen for you, put model-router in front of hcn, 
 
 ## Install
 
-hcn needs Node 24 or newer and at least one harness CLI, installed and signed in. The CLIs are
-linked under [Thanks](#thanks). hcn uses each CLI's own login.
+hcn needs Node 24 or newer. For CLI-backed harnesses, install and sign in to a CLI linked
+under [Thanks](#thanks); hcn uses that CLI's login.
+
+Cursor is the exception: `hcn run cursor` and `hcn session cursor` run through the Cursor SDK
+(a dependency the hcn package installs) in a worker process hcn owns. The SDK needs its own
+authentication - a `CURSOR_API_KEY`, or a key stored by the SDK's browser login at
+`~/.cursor/sdk/auth.json` - and a login to the native Cursor CLI does not satisfy it. See
+Cursor's [SDK authentication](https://cursor.com/docs/sdk/typescript#authentication).
 
 ```sh
 npm install -g @dungle-scrubs/harness-cli-normalizer
@@ -46,7 +52,7 @@ claude@2.1.312 (npm:@anthropic-ai/claude-code)
 codex@0.165.0 (npm:@openai/codex)
 pi@1.4.0 (npm:@earendil-works/pi-coding-agent)
 muse@1.4.2 (installed:muse)
-cursor@2026.10.01-e373342 (installed:agent)
+cursor@1.0.38 (npm:@cursor/sdk)
 antigravity@1.3.3 (installed:agy)
 popeye@0.2.0 (npm:@dungle-scrubs/popeye)
 opencode@1.19.5 (npm:opencode-ai)
@@ -117,9 +123,18 @@ own domain controls. Keeping the filesystem sandbox does not promise network con
 Autonomy alone does not request this sandbox. See the
 [access mappings and native limits](docs/reference.md#access-presets).
 
-On Cursor, `--access read` selects native ask mode. **Cursor write access is unconfined**:
-`--access write` renders `--force`, allowing commands and bypassing workspace trust. It does not
-provide a workspace sandbox; native explicit denials still apply.
+On Cursor, `--access read` selects the SDK's read-only toolset
+(`read`, `grep`, `glob`, `ls`, `webFetch`, `webSearch`, with `task` and `mcp` disallowed).
+That is tool selection, not a filesystem or network sandbox. **Cursor write access is
+unconfined**: `--access write` runs the SDK's native toolset with its sandbox explicitly off.
+A bare run or bare session sets no hcn restriction - the SDK's native defaults apply (its
+standard toolset runs without approval, and its sandbox ships disabled) - so use
+`hcn run cursor --access read` for the restricted toolset; a Cursor session has no
+restricted preset and refuses `--access` with exit 2. On a run, an explicit read stays read even
+together with `--autonomy`; only write, or autonomy without an explicit read, gains the
+unconfined toolset. The SDK does not provide the native CLI's workspace-trust refusal;
+a bare SDK run can execute in a directory the CLI has not trusted.
+See [the Cursor access mapping](docs/cursor-access.md).
 
 ### Read results as JSON
 
@@ -197,8 +212,10 @@ dialog, which asks hcn's own question set (checkboxes, free text, per-question n
 the harness's own slash command untouched (Claude slash commands; on pi only extension commands
 such as `/skill:x` run); see
 [the reference](docs/reference.md#mid-session-model-and-effort). Sessions work
-with Claude Code, Codex, pi, Antigravity CLI, and popeye. Without `--json`, `hcn session claude`
-opens an interactive prompt.
+with Claude Code, Codex, pi, Cursor, Antigravity CLI, and popeye. Cursor sessions run the SDK
+in hcn's worker: a busy send is rejected by the SDK (no queue), `interrupt` is best-effort
+cancellation, and the session surface takes no access options, so a Cursor session runs at
+the SDK's native defaults. Without `--json`, `hcn session claude` opens an interactive prompt.
 
 ### Read saved sessions
 
@@ -212,7 +229,8 @@ $ hcn transcript read claude --id 1daeb0ec-1d9c-4461-8e5c-84ca8c6ee3f6 > transcr
 
 `hcn transcript ls` lists the saved sessions of every harness for the current directory, newest
 first, in one format. `hcn transcript read` exports the messages and tool results of one session
-without starting the harness. Support differs by harness; see
+without starting the harness. For Cursor, the reader covers historical CLI chats;
+new SDK conversations are not listed or readable here. Support differs by harness; see
 [docs/transcripts.md](docs/transcripts.md).
 
 ### Answer a question from the model
@@ -272,8 +290,10 @@ hcn ls                         List harnesses and the CLI version each was verif
 hcn check                      Compare those versions with the latest releases
 ```
 
-`<harness>` is one of `claude`, `codex`, `pi`, `muse`, `cursor` (binary `agent`), `antigravity`
-(binary `agy`), `popeye`, or `opencode`. `hcn <command> --help` lists every flag.
+`<harness>` is one of `claude`, `codex`, `pi`, `muse`, `cursor`, `antigravity` (binary `agy`),
+`popeye`, or `opencode`. Cursor runs through the Cursor SDK in a worker process, not the native
+`agent` binary, which remains available for historical native terminal operations and CLI version
+inspection. `hcn <command> --help` lists every flag.
 
 Session `send` and `answer` commands accept `delivery: "queue"` or `"steer"` where supported.
 The [session controls reference](docs/reference.md#delivery-and-interruption-controls) covers
@@ -350,8 +370,10 @@ hcn is pre-1.0. It is not a harness and does not run a model itself. It adds a l
 program and the harness, so if you use only one CLI, you may prefer to call that CLI directly.
 [ROADMAP.md](ROADMAP.md) lists planned work, including new harnesses. Support differs by harness:
 
-- Sessions work with Claude Code, Codex, pi, Antigravity CLI, and popeye. Muse, Cursor CLI, and
-  OpenCode CLI run single turns only.
+- Sessions work with Claude Code, Codex, pi, Cursor, Antigravity CLI, and popeye. Muse and
+  OpenCode CLI run single turns only. Cursor sessions run at the SDK's native defaults (writable
+  tools, no sandbox): the session surface takes no access options,
+  and `--resume-last` refuses on Cursor because the SDK has no most-recent-conversation path.
 - `hcn interactive` supports Codex only.
 - `--native-approvals` supports Codex one-shot responses and Claude and pi sessions.
   Saved-settings inspection supports Codex and pi.
@@ -363,8 +385,9 @@ program and the harness, so if you use only one CLI, you may prefer to call that
 hcn runs these CLIs: [Claude Code](https://www.npmjs.com/package/@anthropic-ai/claude-code),
 [Codex](https://www.npmjs.com/package/@openai/codex),
 [pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent), Muse (installed from source,
-not on a registry), Cursor CLI (installed via script, binary `agent`, not on a registry),
-[Antigravity CLI](https://antigravity.google/docs/cli/),
+not on a registry), Cursor through the [Cursor TypeScript SDK](https://www.npmjs.com/package/@cursor/sdk)
+(the native CLI, installed via script as binary `agent`, is no longer run headless and is not on
+a registry), [Antigravity CLI](https://antigravity.google/docs/cli/),
 [popeye](https://www.npmjs.com/package/@dungle-scrubs/popeye), and
 [OpenCode CLI](https://www.npmjs.com/package/opencode-ai).
 

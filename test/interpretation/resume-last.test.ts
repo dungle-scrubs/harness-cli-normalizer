@@ -89,10 +89,10 @@ describe("RFC-06 Phase 3: pinned resume-last warning texts", () => {
     );
   });
 
-  test("cursor warns it resumes, with the error-meaning and parent-session clauses", () => {
-    expect(resumeLastWarning(cursorCli, cwd)).toBe(
-      `hcn: --resume-last resumes the most-recent cursor session in ${cwd}; the most recent session may be a killed, failed, or unrelated run's session; cursor errors with exit 1 when no session is resumable, and the same error means the store root resolved away from the session; a run from inside a live cursor session in the same directory re-enters that session`,
-    );
+  test("cursor carries no renderable warning: the SDK backend is parse-only (#440)", () => {
+    expect(cursorCli.resumeLast).toMatchObject({ headless: false });
+    // The parse-only arm has no warning text to drift, like muse.
+    expect(resumeLastWarning).toThrow();
   });
 
   test("antigravity warns about cached most-recent fallback", () => {
@@ -105,7 +105,7 @@ describe("RFC-06 Phase 3: pinned resume-last warning texts", () => {
     // The renderer substitutes only the scope cwd into a fixed template,
     // so no UUID-shaped token can appear unless the cwd itself carries
     // one - the fixed cwd here carries none.
-    for (const h of [claudeCode, codexCli, piCli, cursorCli, antigravityCli]) {
+    for (const h of [claudeCode, codexCli, piCli, antigravityCli]) {
       expect(resumeLastWarning(h, cwd)).not.toMatch(UUID_SHAPE);
     }
   });

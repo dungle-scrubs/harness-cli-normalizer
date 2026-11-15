@@ -26,8 +26,8 @@ describe("cursor descriptor identity", () => {
   test("names the cursor harness at the verified version", () => {
     expect(cursorCli.name).toBe("cursor");
     expect(cursorCli.bin).toBe("agent");
-    expect(cursorCli.verifiedAgainst).toBe("2026.10.01-e373342");
-    expect(cursorCli.versionSource).toEqual({ kind: "installed" });
+    expect(cursorCli.verifiedAgainst).toBe("1.0.38");
+    expect(cursorCli.versionSource).toEqual({ kind: "npm", package: "@cursor/sdk" });
   });
 
   test("is deeply frozen like the other descriptors", () => {

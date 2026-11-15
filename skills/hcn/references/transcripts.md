@@ -158,10 +158,14 @@ deleted data.
 Cursor chat stores and Antigravity step logs also support ID/file reads,
 batches and bookmarks through the same clone. Cursor ID lookup scans
 `chats/*/<id>/store.db` under `CURSOR_CONFIG_DIR`, else `XDG_CONFIG_HOME/cursor`,
-else `~/.cursor`. A Cursor chat whose `store.db-wal` holds writes (a turn still
-running) fails with `guarantee-unmet`; read it after the turn ends. Cursor
-records carry no timestamps, and redacted reasoning is retained but not included
-as text. Antigravity ID lookup opens
+else `~/.cursor` - the historical CLI chats store. `hcn run cursor` and
+`hcn session cursor` now run through the Cursor SDK, whose conversations
+(`agent-<uuid>` ids) persist in a separate SDK store that no enabled transcript
+method covers: SDK sessions do not appear in `hcn transcript ls` rows and
+cannot be read by `transcript read`. A Cursor chat whose `store.db-wal` holds
+writes (a turn still running) fails with `guarantee-unmet`; read it after the
+turn ends. Cursor records carry no timestamps, and redacted reasoning is
+retained but not included as text. Antigravity ID lookup opens
 `~/.gemini/antigravity-cli/brain/<id>/.system_generated/logs/transcript_full.jsonl`;
 an explicit file must sit at that layout because steps carry no identity. Steps
 must be contiguous from `step_index` 0. Antigravity steps have no native IDs and

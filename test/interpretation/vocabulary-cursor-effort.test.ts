@@ -71,11 +71,10 @@ describe("resolveEffortSlug", () => {
     expect(slug(undefined, undefined)).toBeUndefined();
   });
 
-  test("a bare stem with no effort is not a selection", () => {
-    const err = refusalOf("claude-opus-4-8", undefined);
-    expect(err.issue).toBe("unknown-model");
-    expect(err.supported).toContain("claude-opus-4-8-high");
-    expect(err.supported).toHaveLength(5);
+  test("a bare stem with no effort runs as the catalog base id on the SDK backend (#440)", () => {
+    // The historical CLI refusal named the stem's row; the SDK backend
+    // resolves the stem against Cursor.models.list() at native defaults.
+    expect(resolveEffortSlug(cursorCli, "claude-opus-4-8", undefined)).toBe("claude-opus-4-8");
   });
 
   test("model checks run before effort checks: a typo refuses unknown-model", () => {

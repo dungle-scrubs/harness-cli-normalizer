@@ -122,19 +122,17 @@ describe("RFC-06 Phase 3: planTurn refusals", () => {
     expect(outcome.refusal.option).toBe("resumeLast");
   });
 
-  test("cursor --resume-last plans the continue argv with no fork flag (RFC-06 Phase 5: cursor renders)", async () => {
+  test("cursor --resume-last refuses: the SDK backend has no most-recent conversation path (#440)", async () => {
     const outcome = await planTurn(
       cursorCli,
       ["--prompt", "hi", "--resume-last"],
       { command: "run" },
       deps,
     );
-    expect(outcome.kind).toBe("plan");
-    if (outcome.kind !== "plan") return;
-    expect(outcome.plan.options.resumeLast).toBe(true);
-    expect(outcome.plan.provenance).toEqual([]);
-    expect(outcome.plan.argv).toContain("--continue");
-    expect(outcome.plan.argv).not.toContain("--fork-session");
+    expect(outcome).toMatchObject({
+      kind: "refusal",
+      refusal: { issue: "unsupported-option", option: "resumeLast" },
+    });
   });
 
   test("codex --resume-last with --native-approvals refuses: no id to bind the plan", async () => {

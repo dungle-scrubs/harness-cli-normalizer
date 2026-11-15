@@ -1063,7 +1063,7 @@ describe("hcn run execution (human + json)", () => {
     expect(out.stderr).toMatch(/supported/i);
   });
 
-  test("F-23 cursor resume with unknown id refuses with invalid-option-value and path", async () => {
+  test("F-23 cursor resume with a bare CLI UUID refuses as an SDK-incompatible id (#440)", async () => {
     const tmpHome = mkdtempSync(join(tmpdir(), "hcn-home-"));
     const tmpCwd = mkdtempSync(join(tmpdir(), "hcn-cwd-"));
     const prevHome = process.env.HOME;
@@ -1085,9 +1085,10 @@ describe("hcn run execution (human + json)", () => {
         "--cwd",
         tmpCwd,
       ]);
+      // The CLI-store guard no longer runs for the SDK backend; the bare
+      // UUID refuses at the argv build with the incompatibility instead.
       expect(out.exitCode).toBe(2);
-      expect(out.stderr).toContain(`no cursor session ${fakeId} found at`);
-      expect(out.stderr).toContain(join(tmpHome, ".cursor", "chats"));
+      expect(out.stderr).toContain("not an SDK conversation id");
     } finally {
       if (prevHome === undefined) delete process.env.HOME;
       else process.env.HOME = prevHome;
@@ -1277,10 +1278,10 @@ describe("hcn run execution (human + json)", () => {
 });
 
 describe("run --help documents --skills and --session-id", () => {
-  test("run --help output contains --skills <a,b> and --session-id <uuid>", async () => {
+  test("run --help output contains --skills <a,b> and --session-id <id>", async () => {
     const out = await captureDispatch(["run", "--help"]);
     expect(out.stdout).toContain("--skills <a,b>");
-    expect(out.stdout).toContain("--session-id <uuid>");
+    expect(out.stdout).toContain("--session-id <id>");
   });
 });
 

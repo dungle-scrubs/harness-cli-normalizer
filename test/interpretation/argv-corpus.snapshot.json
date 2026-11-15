@@ -2342,12 +2342,7 @@
     "cursor": {
       "bare": {
         "argv": [
-          "agent",
-          "-p",
-          "hi",
-          "--output-format",
-          "stream-json",
-          "--stream-partial-output"
+          "hcn-cursor-sdk-worker"
         ]
       },
       "tool-free": {
@@ -2381,36 +2376,17 @@
       },
       "model": {
         "argv": [
-          "agent",
-          "-p",
-          "hi",
-          "--output-format",
-          "stream-json",
-          "--stream-partial-output",
-          "--model",
-          "grok-4.7-low"
+          "hcn-cursor-sdk-worker"
         ]
       },
       "effort-high": {
         "argv": [
-          "agent",
-          "-p",
-          "hi",
-          "--output-format",
-          "stream-json",
-          "--stream-partial-output"
+          "hcn-cursor-sdk-worker"
         ]
       },
       "effort-with-model": {
         "argv": [
-          "agent",
-          "-p",
-          "hi",
-          "--output-format",
-          "stream-json",
-          "--stream-partial-output",
-          "--model",
-          "grok-4.7-low"
+          "hcn-cursor-sdk-worker"
         ]
       },
       "effort-unknown": {
@@ -2680,9 +2656,48 @@
             "kimi-k3-max",
             "kimi-k2.7-code",
             "glm-5.2-high",
-            "glm-5.2-max"
+            "glm-5.2-max",
+            "grok-4.7",
+            "claude-opus-5-5",
+            "claude-sonnet-5-5",
+            "claude-4.5-opus",
+            "claude-4.5-opus-thinking",
+            "claude-4.6-opus",
+            "claude-4.6-opus-thinking",
+            "claude-4.6-sonnet",
+            "claude-4.6-sonnet-thinking",
+            "claude-fable-5",
+            "claude-fable-5-1",
+            "claude-fable-5-1-thinking",
+            "claude-fable-5-thinking",
+            "claude-opus-4-7",
+            "claude-opus-4-7-thinking",
+            "claude-opus-4-8",
+            "claude-opus-4-8-thinking",
+            "claude-opus-5",
+            "claude-opus-5-thinking",
+            "claude-sonnet-5",
+            "claude-sonnet-5-thinking",
+            "cursor-grok-4.5",
+            "cursor-grok-4.6",
+            "gemini-3.6-flash",
+            "gemini-3.7-flash",
+            "gemini-3.8-flash",
+            "glm-5.2",
+            "gpt-5.1",
+            "gpt-5.2",
+            "gpt-5.3-codex",
+            "gpt-5.4",
+            "gpt-5.4-mini",
+            "gpt-5.4-nano",
+            "gpt-5.5",
+            "gpt-5.6-luna",
+            "gpt-5.6-sol",
+            "gpt-5.6-terra",
+            "kimi-k3",
+            "muse-spark-1.3"
           ],
-          "message": "unknown cursor model \"no-such-model\"; supported: grok-4.7-low, grok-4.7-low-fast, grok-4.7-medium, grok-4.7-medium-fast, grok-4.7-high, grok-4.7-high-fast, grok-4.7-xhigh, grok-4.7-xhigh-fast, claude-opus-5-5-low, claude-opus-5-5-low-fast, claude-opus-5-5-medium, claude-opus-5-5-medium-fast, claude-opus-5-5-high, claude-opus-5-5-high-fast, claude-opus-5-5-xhigh, claude-opus-5-5-xhigh-fast, claude-opus-5-5-max, claude-opus-5-5-max-fast, claude-sonnet-5-5-low, claude-sonnet-5-5-medium, claude-sonnet-5-5-high, claude-sonnet-5-5-xhigh, claude-sonnet-5-5-max, auto, gpt-5.3-codex-low, gpt-5.3-codex-low-fast, gpt-5.3-codex, gpt-5.3-codex-fast, gpt-5.3-codex-high, gpt-5.3-codex-high-fast, gpt-5.3-codex-xhigh, gpt-5.3-codex-xhigh-fast, gpt-5.2, cursor-grok-4.6-high-fast, composer-2.5, claude-opus-5-thinking-high, claude-opus-5-thinking-high-fast, gpt-5.6-sol-high, gpt-5.6-sol-high-fast, gpt-5.6-sol-xhigh, gpt-5.6-sol-xhigh-fast, claude-fable-5-thinking-high, claude-fable-5-thinking-xhigh, cursor-grok-4.5-high, cursor-grok-4.5-high-fast, gemini-3.7-flash-high, claude-sonnet-5-thinking-high, claude-sonnet-5-thinking-xhigh, gpt-5.6-luna-high, cursor-grok-4.6-low, cursor-grok-4.6-low-fast, cursor-grok-4.6-medium, cursor-grok-4.6-medium-fast, cursor-grok-4.6-high, cursor-grok-4.6-xhigh, cursor-grok-4.6-xhigh-fast, composer-2.5-fast, claude-opus-5-low, claude-opus-5-low-fast, claude-opus-5-medium, claude-opus-5-medium-fast, claude-opus-5-high, claude-opus-5-high-fast, claude-opus-5-thinking-low, claude-opus-5-thinking-low-fast, claude-opus-5-thinking-medium, claude-opus-5-thinking-medium-fast, claude-opus-5-thinking-xhigh, claude-opus-5-thinking-xhigh-fast, claude-opus-5-thinking-max, claude-opus-5-thinking-max-fast, claude-opus-4-8-low, claude-opus-4-8-low-fast, claude-opus-4-8-medium, claude-opus-4-8-medium-fast, claude-opus-4-8-high, claude-opus-4-8-high-fast, claude-opus-4-8-xhigh, claude-opus-4-8-xhigh-fast, claude-opus-4-8-max, claude-opus-4-8-max-fast, claude-opus-4-8-thinking-low, claude-opus-4-8-thinking-low-fast, claude-opus-4-8-thinking-medium, claude-opus-4-8-thinking-medium-fast, claude-opus-4-8-thinking-high, claude-opus-4-8-thinking-high-fast, claude-opus-4-8-thinking-xhigh, claude-opus-4-8-thinking-xhigh-fast, claude-opus-4-8-thinking-max, claude-opus-4-8-thinking-max-fast, gpt-5.6-sol-none, gpt-5.6-sol-none-fast, gpt-5.6-sol-low, gpt-5.6-sol-low-fast, gpt-5.6-sol-medium, gpt-5.6-sol-medium-fast, gpt-5.6-sol-max, gpt-5.6-sol-max-fast, gpt-5.5-none, gpt-5.5-none-fast, gpt-5.5-low, gpt-5.5-low-fast, gpt-5.5-medium, gpt-5.5-medium-fast, gpt-5.5-high, gpt-5.5-high-fast, gpt-5.5-extra-high, gpt-5.5-extra-high-fast, claude-fable-5-1-low, claude-fable-5-1-medium, claude-fable-5-1-high, claude-fable-5-1-xhigh, claude-fable-5-1-max, claude-fable-5-1-thinking-low, claude-fable-5-1-thinking-medium, claude-fable-5-1-thinking-high, claude-fable-5-1-thinking-xhigh, claude-fable-5-1-thinking-max, claude-fable-5-low, claude-fable-5-medium, claude-fable-5-high, claude-fable-5-xhigh, claude-fable-5-max, claude-fable-5-thinking-low, claude-fable-5-thinking-medium, claude-fable-5-thinking-max, cursor-grok-4.5-low, cursor-grok-4.5-low-fast, cursor-grok-4.5-medium, cursor-grok-4.5-medium-fast, gemini-3.8-flash-low, gemini-3.8-flash-medium, gemini-3.8-flash-high, gemini-3.7-flash-low, gemini-3.7-flash-medium, muse-spark-1.3-minimal, muse-spark-1.3-low, muse-spark-1.3-medium, muse-spark-1.3-high, muse-spark-1.3-xhigh, muse-spark-1.3-max, gpt-5.6-terra-none, gpt-5.6-terra-none-fast, gpt-5.6-terra-low, gpt-5.6-terra-low-fast, gpt-5.6-terra-medium, gpt-5.6-terra-medium-fast, gpt-5.6-terra-high, gpt-5.6-terra-high-fast, gpt-5.6-terra-xhigh, gpt-5.6-terra-xhigh-fast, gpt-5.6-terra-max, gpt-5.6-terra-max-fast, claude-sonnet-5-low, claude-sonnet-5-medium, claude-sonnet-5-high, claude-sonnet-5-xhigh, claude-sonnet-5-max, claude-sonnet-5-thinking-low, claude-sonnet-5-thinking-medium, claude-sonnet-5-thinking-max, claude-4.6-sonnet-medium, claude-4.6-sonnet-medium-thinking, claude-opus-4-7-low, claude-opus-4-7-low-fast, claude-opus-4-7-medium, claude-opus-4-7-medium-fast, claude-opus-4-7-high, claude-opus-4-7-high-fast, claude-opus-4-7-xhigh, claude-opus-4-7-xhigh-fast, claude-opus-4-7-max, claude-opus-4-7-max-fast, claude-opus-4-7-thinking-low, claude-opus-4-7-thinking-low-fast, claude-opus-4-7-thinking-medium, claude-opus-4-7-thinking-medium-fast, claude-opus-4-7-thinking-high, claude-opus-4-7-thinking-high-fast, claude-opus-4-7-thinking-xhigh, claude-opus-4-7-thinking-xhigh-fast, claude-opus-4-7-thinking-max, claude-opus-4-7-thinking-max-fast, gpt-5.4-low, gpt-5.4-medium, gpt-5.4-medium-fast, gpt-5.4-high, gpt-5.4-high-fast, gpt-5.4-xhigh, gpt-5.4-xhigh-fast, claude-4.6-opus-high, claude-4.6-opus-max, claude-4.6-opus-high-thinking, claude-4.6-opus-max-thinking, claude-4.5-opus-high, claude-4.5-opus-high-thinking, gpt-5.2-low, gpt-5.2-low-fast, gpt-5.2-fast, gpt-5.2-high, gpt-5.2-high-fast, gpt-5.2-xhigh, gpt-5.2-xhigh-fast, gpt-5.6-luna-none, gpt-5.6-luna-none-fast, gpt-5.6-luna-low, gpt-5.6-luna-low-fast, gpt-5.6-luna-medium, gpt-5.6-luna-medium-fast, gpt-5.6-luna-high-fast, gpt-5.6-luna-xhigh, gpt-5.6-luna-xhigh-fast, gpt-5.6-luna-max, gpt-5.6-luna-max-fast, gemini-3.6-flash-minimal, gemini-3.6-flash-low, gemini-3.6-flash-medium, gemini-3.6-flash-high, gemini-3.1-pro, gpt-5.4-mini-none, gpt-5.4-mini-low, gpt-5.4-mini-medium, gpt-5.4-mini-high, gpt-5.4-mini-xhigh, gpt-5.4-nano-none, gpt-5.4-nano-low, gpt-5.4-nano-medium, gpt-5.4-nano-high, gpt-5.4-nano-xhigh, claude-4.5-sonnet, claude-4.5-sonnet-thinking, gpt-5.1-low, gpt-5.1, gpt-5.1-high, gemini-3-flash, gemini-3.5-flash, claude-4-sonnet, claude-4-sonnet-thinking, gpt-5-mini, kimi-k3-low, kimi-k3-high, kimi-k3-max, kimi-k2.7-code, glm-5.2-high, glm-5.2-max - use one of the supported models"
+          "message": "unknown cursor model \"no-such-model\"; supported: grok-4.7-low, grok-4.7-low-fast, grok-4.7-medium, grok-4.7-medium-fast, grok-4.7-high, grok-4.7-high-fast, grok-4.7-xhigh, grok-4.7-xhigh-fast, claude-opus-5-5-low, claude-opus-5-5-low-fast, claude-opus-5-5-medium, claude-opus-5-5-medium-fast, claude-opus-5-5-high, claude-opus-5-5-high-fast, claude-opus-5-5-xhigh, claude-opus-5-5-xhigh-fast, claude-opus-5-5-max, claude-opus-5-5-max-fast, claude-sonnet-5-5-low, claude-sonnet-5-5-medium, claude-sonnet-5-5-high, claude-sonnet-5-5-xhigh, claude-sonnet-5-5-max, auto, gpt-5.3-codex-low, gpt-5.3-codex-low-fast, gpt-5.3-codex, gpt-5.3-codex-fast, gpt-5.3-codex-high, gpt-5.3-codex-high-fast, gpt-5.3-codex-xhigh, gpt-5.3-codex-xhigh-fast, gpt-5.2, cursor-grok-4.6-high-fast, composer-2.5, claude-opus-5-thinking-high, claude-opus-5-thinking-high-fast, gpt-5.6-sol-high, gpt-5.6-sol-high-fast, gpt-5.6-sol-xhigh, gpt-5.6-sol-xhigh-fast, claude-fable-5-thinking-high, claude-fable-5-thinking-xhigh, cursor-grok-4.5-high, cursor-grok-4.5-high-fast, gemini-3.7-flash-high, claude-sonnet-5-thinking-high, claude-sonnet-5-thinking-xhigh, gpt-5.6-luna-high, cursor-grok-4.6-low, cursor-grok-4.6-low-fast, cursor-grok-4.6-medium, cursor-grok-4.6-medium-fast, cursor-grok-4.6-high, cursor-grok-4.6-xhigh, cursor-grok-4.6-xhigh-fast, composer-2.5-fast, claude-opus-5-low, claude-opus-5-low-fast, claude-opus-5-medium, claude-opus-5-medium-fast, claude-opus-5-high, claude-opus-5-high-fast, claude-opus-5-thinking-low, claude-opus-5-thinking-low-fast, claude-opus-5-thinking-medium, claude-opus-5-thinking-medium-fast, claude-opus-5-thinking-xhigh, claude-opus-5-thinking-xhigh-fast, claude-opus-5-thinking-max, claude-opus-5-thinking-max-fast, claude-opus-4-8-low, claude-opus-4-8-low-fast, claude-opus-4-8-medium, claude-opus-4-8-medium-fast, claude-opus-4-8-high, claude-opus-4-8-high-fast, claude-opus-4-8-xhigh, claude-opus-4-8-xhigh-fast, claude-opus-4-8-max, claude-opus-4-8-max-fast, claude-opus-4-8-thinking-low, claude-opus-4-8-thinking-low-fast, claude-opus-4-8-thinking-medium, claude-opus-4-8-thinking-medium-fast, claude-opus-4-8-thinking-high, claude-opus-4-8-thinking-high-fast, claude-opus-4-8-thinking-xhigh, claude-opus-4-8-thinking-xhigh-fast, claude-opus-4-8-thinking-max, claude-opus-4-8-thinking-max-fast, gpt-5.6-sol-none, gpt-5.6-sol-none-fast, gpt-5.6-sol-low, gpt-5.6-sol-low-fast, gpt-5.6-sol-medium, gpt-5.6-sol-medium-fast, gpt-5.6-sol-max, gpt-5.6-sol-max-fast, gpt-5.5-none, gpt-5.5-none-fast, gpt-5.5-low, gpt-5.5-low-fast, gpt-5.5-medium, gpt-5.5-medium-fast, gpt-5.5-high, gpt-5.5-high-fast, gpt-5.5-extra-high, gpt-5.5-extra-high-fast, claude-fable-5-1-low, claude-fable-5-1-medium, claude-fable-5-1-high, claude-fable-5-1-xhigh, claude-fable-5-1-max, claude-fable-5-1-thinking-low, claude-fable-5-1-thinking-medium, claude-fable-5-1-thinking-high, claude-fable-5-1-thinking-xhigh, claude-fable-5-1-thinking-max, claude-fable-5-low, claude-fable-5-medium, claude-fable-5-high, claude-fable-5-xhigh, claude-fable-5-max, claude-fable-5-thinking-low, claude-fable-5-thinking-medium, claude-fable-5-thinking-max, cursor-grok-4.5-low, cursor-grok-4.5-low-fast, cursor-grok-4.5-medium, cursor-grok-4.5-medium-fast, gemini-3.8-flash-low, gemini-3.8-flash-medium, gemini-3.8-flash-high, gemini-3.7-flash-low, gemini-3.7-flash-medium, muse-spark-1.3-minimal, muse-spark-1.3-low, muse-spark-1.3-medium, muse-spark-1.3-high, muse-spark-1.3-xhigh, muse-spark-1.3-max, gpt-5.6-terra-none, gpt-5.6-terra-none-fast, gpt-5.6-terra-low, gpt-5.6-terra-low-fast, gpt-5.6-terra-medium, gpt-5.6-terra-medium-fast, gpt-5.6-terra-high, gpt-5.6-terra-high-fast, gpt-5.6-terra-xhigh, gpt-5.6-terra-xhigh-fast, gpt-5.6-terra-max, gpt-5.6-terra-max-fast, claude-sonnet-5-low, claude-sonnet-5-medium, claude-sonnet-5-high, claude-sonnet-5-xhigh, claude-sonnet-5-max, claude-sonnet-5-thinking-low, claude-sonnet-5-thinking-medium, claude-sonnet-5-thinking-max, claude-4.6-sonnet-medium, claude-4.6-sonnet-medium-thinking, claude-opus-4-7-low, claude-opus-4-7-low-fast, claude-opus-4-7-medium, claude-opus-4-7-medium-fast, claude-opus-4-7-high, claude-opus-4-7-high-fast, claude-opus-4-7-xhigh, claude-opus-4-7-xhigh-fast, claude-opus-4-7-max, claude-opus-4-7-max-fast, claude-opus-4-7-thinking-low, claude-opus-4-7-thinking-low-fast, claude-opus-4-7-thinking-medium, claude-opus-4-7-thinking-medium-fast, claude-opus-4-7-thinking-high, claude-opus-4-7-thinking-high-fast, claude-opus-4-7-thinking-xhigh, claude-opus-4-7-thinking-xhigh-fast, claude-opus-4-7-thinking-max, claude-opus-4-7-thinking-max-fast, gpt-5.4-low, gpt-5.4-medium, gpt-5.4-medium-fast, gpt-5.4-high, gpt-5.4-high-fast, gpt-5.4-xhigh, gpt-5.4-xhigh-fast, claude-4.6-opus-high, claude-4.6-opus-max, claude-4.6-opus-high-thinking, claude-4.6-opus-max-thinking, claude-4.5-opus-high, claude-4.5-opus-high-thinking, gpt-5.2-low, gpt-5.2-low-fast, gpt-5.2-fast, gpt-5.2-high, gpt-5.2-high-fast, gpt-5.2-xhigh, gpt-5.2-xhigh-fast, gpt-5.6-luna-none, gpt-5.6-luna-none-fast, gpt-5.6-luna-low, gpt-5.6-luna-low-fast, gpt-5.6-luna-medium, gpt-5.6-luna-medium-fast, gpt-5.6-luna-high-fast, gpt-5.6-luna-xhigh, gpt-5.6-luna-xhigh-fast, gpt-5.6-luna-max, gpt-5.6-luna-max-fast, gemini-3.6-flash-minimal, gemini-3.6-flash-low, gemini-3.6-flash-medium, gemini-3.6-flash-high, gemini-3.1-pro, gpt-5.4-mini-none, gpt-5.4-mini-low, gpt-5.4-mini-medium, gpt-5.4-mini-high, gpt-5.4-mini-xhigh, gpt-5.4-nano-none, gpt-5.4-nano-low, gpt-5.4-nano-medium, gpt-5.4-nano-high, gpt-5.4-nano-xhigh, claude-4.5-sonnet, claude-4.5-sonnet-thinking, gpt-5.1-low, gpt-5.1, gpt-5.1-high, gemini-3-flash, gemini-3.5-flash, claude-4-sonnet, claude-4-sonnet-thinking, gpt-5-mini, kimi-k3-low, kimi-k3-high, kimi-k3-max, kimi-k2.7-code, glm-5.2-high, glm-5.2-max, grok-4.7, claude-opus-5-5, claude-sonnet-5-5, claude-4.5-opus, claude-4.5-opus-thinking, claude-4.6-opus, claude-4.6-opus-thinking, claude-4.6-sonnet, claude-4.6-sonnet-thinking, claude-fable-5, claude-fable-5-1, claude-fable-5-1-thinking, claude-fable-5-thinking, claude-opus-4-7, claude-opus-4-7-thinking, claude-opus-4-8, claude-opus-4-8-thinking, claude-opus-5, claude-opus-5-thinking, claude-sonnet-5, claude-sonnet-5-thinking, cursor-grok-4.5, cursor-grok-4.6, gemini-3.6-flash, gemini-3.7-flash, gemini-3.8-flash, glm-5.2, gpt-5.1, gpt-5.2, gpt-5.3-codex, gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, gpt-5.5, gpt-5.6-luna, gpt-5.6-sol, gpt-5.6-terra, kimi-k3, muse-spark-1.3 - use one of the supported models"
         }
       },
       "sandbox-read-only": {
@@ -2831,12 +2846,7 @@
       },
       "discovery-all-on": {
         "argv": [
-          "agent",
-          "-p",
-          "hi",
-          "--output-format",
-          "stream-json",
-          "--stream-partial-output"
+          "hcn-cursor-sdk-worker"
         ]
       },
       "write-off": {
@@ -2921,27 +2931,12 @@
       },
       "access-read": {
         "argv": [
-          "agent",
-          "-p",
-          "--mode",
-          "ask",
-          "--sandbox",
-          "enabled",
-          "hi",
-          "--output-format",
-          "stream-json",
-          "--stream-partial-output"
+          "hcn-cursor-sdk-worker"
         ]
       },
       "access-write": {
         "argv": [
-          "agent",
-          "-p",
-          "--force",
-          "hi",
-          "--output-format",
-          "stream-json",
-          "--stream-partial-output"
+          "hcn-cursor-sdk-worker"
         ]
       },
       "access-read-no-tools": {
@@ -2978,7 +2973,7 @@
               "spelling": "--tools"
             }
           ],
-          "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
+          "hint": "cursor tool selectors are not exposed by hcn; use --access read for the SDK read toolset or --access write for its unconfined native toolset",
           "message": "cursor cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
         }
       },
@@ -3004,7 +2999,7 @@
               "spelling": "--tools"
             }
           ],
-          "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
+          "hint": "cursor tool selectors are not exposed by hcn; use --access read for the SDK read toolset or --access write for its unconfined native toolset",
           "message": "cursor cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
         }
       },
@@ -3030,7 +3025,7 @@
               "spelling": "--tools"
             }
           ],
-          "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
+          "hint": "cursor tool selectors are not exposed by hcn; use --access read for the SDK read toolset or --access write for its unconfined native toolset",
           "message": "cursor cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
         }
       },
@@ -3056,7 +3051,7 @@
               "spelling": "--exclude-tools"
             }
           ],
-          "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
+          "hint": "cursor tool selectors are not exposed by hcn; use --access read for the SDK read toolset or --access write for its unconfined native toolset",
           "message": "cursor cannot express option \"excludeTools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
         }
       },
@@ -3082,7 +3077,7 @@
               "spelling": "--exclude-tools"
             }
           ],
-          "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
+          "hint": "cursor tool selectors are not exposed by hcn; use --access read for the SDK read toolset or --access write for its unconfined native toolset",
           "message": "cursor cannot express option \"excludeTools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
         }
       },
@@ -3119,7 +3114,7 @@
               "spelling": "--tools"
             }
           ],
-          "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
+          "hint": "cursor tool selectors are not exposed by hcn; use --access read for the SDK read toolset or --access write for its unconfined native toolset",
           "message": "cursor cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
         }
       },
@@ -3145,7 +3140,7 @@
               "spelling": "--tools"
             }
           ],
-          "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
+          "hint": "cursor tool selectors are not exposed by hcn; use --access read for the SDK read toolset or --access write for its unconfined native toolset",
           "message": "cursor cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
         }
       },
@@ -3177,34 +3172,18 @@
       },
       "autonomy": {
         "argv": [
-          "agent",
-          "-p",
-          "hi",
-          "--output-format",
-          "stream-json",
-          "--stream-partial-output",
-          "--force"
+          "hcn-cursor-sdk-worker"
         ]
       },
       "explicit-dash-prompt": {
         "argv": [
-          "agent",
-          "-p",
-          "-x",
-          "--output-format",
-          "stream-json",
-          "--stream-partial-output"
+          "hcn-cursor-sdk-worker"
         ]
       },
       "implicit-dash-prompt": {
-        "refusal": {
-          "issue": "prompt-flag-injection",
-          "harness": "cursor",
-          "supported": [
-            "prompt must not start with '-'"
-          ],
-          "message": "positional prompt may not start with '-'; it would be parsed as a flag by cursor (it would be parsed as a flag by agent); supported: prompt must not start with '-' - remove leading '-' or prefix with a space"
-        }
+        "argv": [
+          "hcn-cursor-sdk-worker"
+        ]
       }
     },
     "antigravity": {
@@ -7523,887 +7502,373 @@
     },
     "cursor": {
       "bare": {
-        "argv": [
-          "agent",
-          "--resume",
-          "0199a4c5-1111-2222-3333-444455556666",
-          "-p",
-          "hi",
-          "--output-format",
-          "stream-json",
-          "--stream-partial-output"
-        ]
+        "refusal": {
+          "issue": "invalid-option-value",
+          "harness": "cursor",
+          "supported": [
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
+          ],
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
+        }
       },
       "tool-free": {
         "refusal": {
-          "issue": "unsupported-option",
+          "issue": "invalid-option-value",
           "harness": "cursor",
-          "option": "isolation",
           "supported": [
-            "effort",
-            "access"
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
           ],
-          "supportedBy": [
-            {
-              "harness": "claude",
-              "spelling": "--bare"
-            }
-          ],
-          "message": "cursor cannot express option \"isolation\" (tool-free); supported: effort, access - drop the option or route this work to a harness that supports it"
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
         }
       },
       "tool-free-conflict": {
         "refusal": {
-          "issue": "mutually-exclusive-options",
+          "issue": "invalid-option-value",
           "harness": "cursor",
-          "option": "isolation",
           "supported": [
-            "tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough"
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
           ],
-          "message": "cursor cannot combine option \"isolation\" (discovery); supported: tool-free without explicit tools, skills, access, autonomy, discovery, or native passthrough - pass exactly one of them"
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
         }
       },
       "model": {
-        "argv": [
-          "agent",
-          "--resume",
-          "0199a4c5-1111-2222-3333-444455556666",
-          "-p",
-          "hi",
-          "--output-format",
-          "stream-json",
-          "--stream-partial-output",
-          "--model",
-          "grok-4.7-low"
-        ]
+        "refusal": {
+          "issue": "invalid-option-value",
+          "harness": "cursor",
+          "supported": [
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
+          ],
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
+        }
       },
       "effort-high": {
-        "argv": [
-          "agent",
-          "--resume",
-          "0199a4c5-1111-2222-3333-444455556666",
-          "-p",
-          "hi",
-          "--output-format",
-          "stream-json",
-          "--stream-partial-output"
-        ]
+        "refusal": {
+          "issue": "invalid-option-value",
+          "harness": "cursor",
+          "supported": [
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
+          ],
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
+        }
       },
       "effort-with-model": {
-        "argv": [
-          "agent",
-          "--resume",
-          "0199a4c5-1111-2222-3333-444455556666",
-          "-p",
-          "hi",
-          "--output-format",
-          "stream-json",
-          "--stream-partial-output",
-          "--model",
-          "grok-4.7-low"
-        ]
+        "refusal": {
+          "issue": "invalid-option-value",
+          "harness": "cursor",
+          "supported": [
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
+          ],
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
+        }
       },
       "effort-unknown": {
         "refusal": {
-          "issue": "unknown-effort",
+          "issue": "invalid-option-value",
           "harness": "cursor",
-          "option": "effort",
           "supported": [
-            "minimal",
-            "none",
-            "low",
-            "medium",
-            "high",
-            "xhigh",
-            "max"
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
           ],
-          "message": "unknown effort for cursor \"bogus\"; supported: minimal, none, low, medium, high, xhigh, max - use one of the ladder values"
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
         }
       },
       "model-unknown": {
         "refusal": {
-          "issue": "unknown-model",
+          "issue": "invalid-option-value",
           "harness": "cursor",
           "supported": [
-            "grok-4.7-low",
-            "grok-4.7-low-fast",
-            "grok-4.7-medium",
-            "grok-4.7-medium-fast",
-            "grok-4.7-high",
-            "grok-4.7-high-fast",
-            "grok-4.7-xhigh",
-            "grok-4.7-xhigh-fast",
-            "claude-opus-5-5-low",
-            "claude-opus-5-5-low-fast",
-            "claude-opus-5-5-medium",
-            "claude-opus-5-5-medium-fast",
-            "claude-opus-5-5-high",
-            "claude-opus-5-5-high-fast",
-            "claude-opus-5-5-xhigh",
-            "claude-opus-5-5-xhigh-fast",
-            "claude-opus-5-5-max",
-            "claude-opus-5-5-max-fast",
-            "claude-sonnet-5-5-low",
-            "claude-sonnet-5-5-medium",
-            "claude-sonnet-5-5-high",
-            "claude-sonnet-5-5-xhigh",
-            "claude-sonnet-5-5-max",
-            "auto",
-            "gpt-5.3-codex-low",
-            "gpt-5.3-codex-low-fast",
-            "gpt-5.3-codex",
-            "gpt-5.3-codex-fast",
-            "gpt-5.3-codex-high",
-            "gpt-5.3-codex-high-fast",
-            "gpt-5.3-codex-xhigh",
-            "gpt-5.3-codex-xhigh-fast",
-            "gpt-5.2",
-            "cursor-grok-4.6-high-fast",
-            "composer-2.5",
-            "claude-opus-5-thinking-high",
-            "claude-opus-5-thinking-high-fast",
-            "gpt-5.6-sol-high",
-            "gpt-5.6-sol-high-fast",
-            "gpt-5.6-sol-xhigh",
-            "gpt-5.6-sol-xhigh-fast",
-            "claude-fable-5-thinking-high",
-            "claude-fable-5-thinking-xhigh",
-            "cursor-grok-4.5-high",
-            "cursor-grok-4.5-high-fast",
-            "gemini-3.7-flash-high",
-            "claude-sonnet-5-thinking-high",
-            "claude-sonnet-5-thinking-xhigh",
-            "gpt-5.6-luna-high",
-            "cursor-grok-4.6-low",
-            "cursor-grok-4.6-low-fast",
-            "cursor-grok-4.6-medium",
-            "cursor-grok-4.6-medium-fast",
-            "cursor-grok-4.6-high",
-            "cursor-grok-4.6-xhigh",
-            "cursor-grok-4.6-xhigh-fast",
-            "composer-2.5-fast",
-            "claude-opus-5-low",
-            "claude-opus-5-low-fast",
-            "claude-opus-5-medium",
-            "claude-opus-5-medium-fast",
-            "claude-opus-5-high",
-            "claude-opus-5-high-fast",
-            "claude-opus-5-thinking-low",
-            "claude-opus-5-thinking-low-fast",
-            "claude-opus-5-thinking-medium",
-            "claude-opus-5-thinking-medium-fast",
-            "claude-opus-5-thinking-xhigh",
-            "claude-opus-5-thinking-xhigh-fast",
-            "claude-opus-5-thinking-max",
-            "claude-opus-5-thinking-max-fast",
-            "claude-opus-4-8-low",
-            "claude-opus-4-8-low-fast",
-            "claude-opus-4-8-medium",
-            "claude-opus-4-8-medium-fast",
-            "claude-opus-4-8-high",
-            "claude-opus-4-8-high-fast",
-            "claude-opus-4-8-xhigh",
-            "claude-opus-4-8-xhigh-fast",
-            "claude-opus-4-8-max",
-            "claude-opus-4-8-max-fast",
-            "claude-opus-4-8-thinking-low",
-            "claude-opus-4-8-thinking-low-fast",
-            "claude-opus-4-8-thinking-medium",
-            "claude-opus-4-8-thinking-medium-fast",
-            "claude-opus-4-8-thinking-high",
-            "claude-opus-4-8-thinking-high-fast",
-            "claude-opus-4-8-thinking-xhigh",
-            "claude-opus-4-8-thinking-xhigh-fast",
-            "claude-opus-4-8-thinking-max",
-            "claude-opus-4-8-thinking-max-fast",
-            "gpt-5.6-sol-none",
-            "gpt-5.6-sol-none-fast",
-            "gpt-5.6-sol-low",
-            "gpt-5.6-sol-low-fast",
-            "gpt-5.6-sol-medium",
-            "gpt-5.6-sol-medium-fast",
-            "gpt-5.6-sol-max",
-            "gpt-5.6-sol-max-fast",
-            "gpt-5.5-none",
-            "gpt-5.5-none-fast",
-            "gpt-5.5-low",
-            "gpt-5.5-low-fast",
-            "gpt-5.5-medium",
-            "gpt-5.5-medium-fast",
-            "gpt-5.5-high",
-            "gpt-5.5-high-fast",
-            "gpt-5.5-extra-high",
-            "gpt-5.5-extra-high-fast",
-            "claude-fable-5-1-low",
-            "claude-fable-5-1-medium",
-            "claude-fable-5-1-high",
-            "claude-fable-5-1-xhigh",
-            "claude-fable-5-1-max",
-            "claude-fable-5-1-thinking-low",
-            "claude-fable-5-1-thinking-medium",
-            "claude-fable-5-1-thinking-high",
-            "claude-fable-5-1-thinking-xhigh",
-            "claude-fable-5-1-thinking-max",
-            "claude-fable-5-low",
-            "claude-fable-5-medium",
-            "claude-fable-5-high",
-            "claude-fable-5-xhigh",
-            "claude-fable-5-max",
-            "claude-fable-5-thinking-low",
-            "claude-fable-5-thinking-medium",
-            "claude-fable-5-thinking-max",
-            "cursor-grok-4.5-low",
-            "cursor-grok-4.5-low-fast",
-            "cursor-grok-4.5-medium",
-            "cursor-grok-4.5-medium-fast",
-            "gemini-3.8-flash-low",
-            "gemini-3.8-flash-medium",
-            "gemini-3.8-flash-high",
-            "gemini-3.7-flash-low",
-            "gemini-3.7-flash-medium",
-            "muse-spark-1.3-minimal",
-            "muse-spark-1.3-low",
-            "muse-spark-1.3-medium",
-            "muse-spark-1.3-high",
-            "muse-spark-1.3-xhigh",
-            "muse-spark-1.3-max",
-            "gpt-5.6-terra-none",
-            "gpt-5.6-terra-none-fast",
-            "gpt-5.6-terra-low",
-            "gpt-5.6-terra-low-fast",
-            "gpt-5.6-terra-medium",
-            "gpt-5.6-terra-medium-fast",
-            "gpt-5.6-terra-high",
-            "gpt-5.6-terra-high-fast",
-            "gpt-5.6-terra-xhigh",
-            "gpt-5.6-terra-xhigh-fast",
-            "gpt-5.6-terra-max",
-            "gpt-5.6-terra-max-fast",
-            "claude-sonnet-5-low",
-            "claude-sonnet-5-medium",
-            "claude-sonnet-5-high",
-            "claude-sonnet-5-xhigh",
-            "claude-sonnet-5-max",
-            "claude-sonnet-5-thinking-low",
-            "claude-sonnet-5-thinking-medium",
-            "claude-sonnet-5-thinking-max",
-            "claude-4.6-sonnet-medium",
-            "claude-4.6-sonnet-medium-thinking",
-            "claude-opus-4-7-low",
-            "claude-opus-4-7-low-fast",
-            "claude-opus-4-7-medium",
-            "claude-opus-4-7-medium-fast",
-            "claude-opus-4-7-high",
-            "claude-opus-4-7-high-fast",
-            "claude-opus-4-7-xhigh",
-            "claude-opus-4-7-xhigh-fast",
-            "claude-opus-4-7-max",
-            "claude-opus-4-7-max-fast",
-            "claude-opus-4-7-thinking-low",
-            "claude-opus-4-7-thinking-low-fast",
-            "claude-opus-4-7-thinking-medium",
-            "claude-opus-4-7-thinking-medium-fast",
-            "claude-opus-4-7-thinking-high",
-            "claude-opus-4-7-thinking-high-fast",
-            "claude-opus-4-7-thinking-xhigh",
-            "claude-opus-4-7-thinking-xhigh-fast",
-            "claude-opus-4-7-thinking-max",
-            "claude-opus-4-7-thinking-max-fast",
-            "gpt-5.4-low",
-            "gpt-5.4-medium",
-            "gpt-5.4-medium-fast",
-            "gpt-5.4-high",
-            "gpt-5.4-high-fast",
-            "gpt-5.4-xhigh",
-            "gpt-5.4-xhigh-fast",
-            "claude-4.6-opus-high",
-            "claude-4.6-opus-max",
-            "claude-4.6-opus-high-thinking",
-            "claude-4.6-opus-max-thinking",
-            "claude-4.5-opus-high",
-            "claude-4.5-opus-high-thinking",
-            "gpt-5.2-low",
-            "gpt-5.2-low-fast",
-            "gpt-5.2-fast",
-            "gpt-5.2-high",
-            "gpt-5.2-high-fast",
-            "gpt-5.2-xhigh",
-            "gpt-5.2-xhigh-fast",
-            "gpt-5.6-luna-none",
-            "gpt-5.6-luna-none-fast",
-            "gpt-5.6-luna-low",
-            "gpt-5.6-luna-low-fast",
-            "gpt-5.6-luna-medium",
-            "gpt-5.6-luna-medium-fast",
-            "gpt-5.6-luna-high-fast",
-            "gpt-5.6-luna-xhigh",
-            "gpt-5.6-luna-xhigh-fast",
-            "gpt-5.6-luna-max",
-            "gpt-5.6-luna-max-fast",
-            "gemini-3.6-flash-minimal",
-            "gemini-3.6-flash-low",
-            "gemini-3.6-flash-medium",
-            "gemini-3.6-flash-high",
-            "gemini-3.1-pro",
-            "gpt-5.4-mini-none",
-            "gpt-5.4-mini-low",
-            "gpt-5.4-mini-medium",
-            "gpt-5.4-mini-high",
-            "gpt-5.4-mini-xhigh",
-            "gpt-5.4-nano-none",
-            "gpt-5.4-nano-low",
-            "gpt-5.4-nano-medium",
-            "gpt-5.4-nano-high",
-            "gpt-5.4-nano-xhigh",
-            "claude-4.5-sonnet",
-            "claude-4.5-sonnet-thinking",
-            "gpt-5.1-low",
-            "gpt-5.1",
-            "gpt-5.1-high",
-            "gemini-3-flash",
-            "gemini-3.5-flash",
-            "claude-4-sonnet",
-            "claude-4-sonnet-thinking",
-            "gpt-5-mini",
-            "kimi-k3-low",
-            "kimi-k3-high",
-            "kimi-k3-max",
-            "kimi-k2.7-code",
-            "glm-5.2-high",
-            "glm-5.2-max"
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
           ],
-          "message": "unknown cursor model \"no-such-model\"; supported: grok-4.7-low, grok-4.7-low-fast, grok-4.7-medium, grok-4.7-medium-fast, grok-4.7-high, grok-4.7-high-fast, grok-4.7-xhigh, grok-4.7-xhigh-fast, claude-opus-5-5-low, claude-opus-5-5-low-fast, claude-opus-5-5-medium, claude-opus-5-5-medium-fast, claude-opus-5-5-high, claude-opus-5-5-high-fast, claude-opus-5-5-xhigh, claude-opus-5-5-xhigh-fast, claude-opus-5-5-max, claude-opus-5-5-max-fast, claude-sonnet-5-5-low, claude-sonnet-5-5-medium, claude-sonnet-5-5-high, claude-sonnet-5-5-xhigh, claude-sonnet-5-5-max, auto, gpt-5.3-codex-low, gpt-5.3-codex-low-fast, gpt-5.3-codex, gpt-5.3-codex-fast, gpt-5.3-codex-high, gpt-5.3-codex-high-fast, gpt-5.3-codex-xhigh, gpt-5.3-codex-xhigh-fast, gpt-5.2, cursor-grok-4.6-high-fast, composer-2.5, claude-opus-5-thinking-high, claude-opus-5-thinking-high-fast, gpt-5.6-sol-high, gpt-5.6-sol-high-fast, gpt-5.6-sol-xhigh, gpt-5.6-sol-xhigh-fast, claude-fable-5-thinking-high, claude-fable-5-thinking-xhigh, cursor-grok-4.5-high, cursor-grok-4.5-high-fast, gemini-3.7-flash-high, claude-sonnet-5-thinking-high, claude-sonnet-5-thinking-xhigh, gpt-5.6-luna-high, cursor-grok-4.6-low, cursor-grok-4.6-low-fast, cursor-grok-4.6-medium, cursor-grok-4.6-medium-fast, cursor-grok-4.6-high, cursor-grok-4.6-xhigh, cursor-grok-4.6-xhigh-fast, composer-2.5-fast, claude-opus-5-low, claude-opus-5-low-fast, claude-opus-5-medium, claude-opus-5-medium-fast, claude-opus-5-high, claude-opus-5-high-fast, claude-opus-5-thinking-low, claude-opus-5-thinking-low-fast, claude-opus-5-thinking-medium, claude-opus-5-thinking-medium-fast, claude-opus-5-thinking-xhigh, claude-opus-5-thinking-xhigh-fast, claude-opus-5-thinking-max, claude-opus-5-thinking-max-fast, claude-opus-4-8-low, claude-opus-4-8-low-fast, claude-opus-4-8-medium, claude-opus-4-8-medium-fast, claude-opus-4-8-high, claude-opus-4-8-high-fast, claude-opus-4-8-xhigh, claude-opus-4-8-xhigh-fast, claude-opus-4-8-max, claude-opus-4-8-max-fast, claude-opus-4-8-thinking-low, claude-opus-4-8-thinking-low-fast, claude-opus-4-8-thinking-medium, claude-opus-4-8-thinking-medium-fast, claude-opus-4-8-thinking-high, claude-opus-4-8-thinking-high-fast, claude-opus-4-8-thinking-xhigh, claude-opus-4-8-thinking-xhigh-fast, claude-opus-4-8-thinking-max, claude-opus-4-8-thinking-max-fast, gpt-5.6-sol-none, gpt-5.6-sol-none-fast, gpt-5.6-sol-low, gpt-5.6-sol-low-fast, gpt-5.6-sol-medium, gpt-5.6-sol-medium-fast, gpt-5.6-sol-max, gpt-5.6-sol-max-fast, gpt-5.5-none, gpt-5.5-none-fast, gpt-5.5-low, gpt-5.5-low-fast, gpt-5.5-medium, gpt-5.5-medium-fast, gpt-5.5-high, gpt-5.5-high-fast, gpt-5.5-extra-high, gpt-5.5-extra-high-fast, claude-fable-5-1-low, claude-fable-5-1-medium, claude-fable-5-1-high, claude-fable-5-1-xhigh, claude-fable-5-1-max, claude-fable-5-1-thinking-low, claude-fable-5-1-thinking-medium, claude-fable-5-1-thinking-high, claude-fable-5-1-thinking-xhigh, claude-fable-5-1-thinking-max, claude-fable-5-low, claude-fable-5-medium, claude-fable-5-high, claude-fable-5-xhigh, claude-fable-5-max, claude-fable-5-thinking-low, claude-fable-5-thinking-medium, claude-fable-5-thinking-max, cursor-grok-4.5-low, cursor-grok-4.5-low-fast, cursor-grok-4.5-medium, cursor-grok-4.5-medium-fast, gemini-3.8-flash-low, gemini-3.8-flash-medium, gemini-3.8-flash-high, gemini-3.7-flash-low, gemini-3.7-flash-medium, muse-spark-1.3-minimal, muse-spark-1.3-low, muse-spark-1.3-medium, muse-spark-1.3-high, muse-spark-1.3-xhigh, muse-spark-1.3-max, gpt-5.6-terra-none, gpt-5.6-terra-none-fast, gpt-5.6-terra-low, gpt-5.6-terra-low-fast, gpt-5.6-terra-medium, gpt-5.6-terra-medium-fast, gpt-5.6-terra-high, gpt-5.6-terra-high-fast, gpt-5.6-terra-xhigh, gpt-5.6-terra-xhigh-fast, gpt-5.6-terra-max, gpt-5.6-terra-max-fast, claude-sonnet-5-low, claude-sonnet-5-medium, claude-sonnet-5-high, claude-sonnet-5-xhigh, claude-sonnet-5-max, claude-sonnet-5-thinking-low, claude-sonnet-5-thinking-medium, claude-sonnet-5-thinking-max, claude-4.6-sonnet-medium, claude-4.6-sonnet-medium-thinking, claude-opus-4-7-low, claude-opus-4-7-low-fast, claude-opus-4-7-medium, claude-opus-4-7-medium-fast, claude-opus-4-7-high, claude-opus-4-7-high-fast, claude-opus-4-7-xhigh, claude-opus-4-7-xhigh-fast, claude-opus-4-7-max, claude-opus-4-7-max-fast, claude-opus-4-7-thinking-low, claude-opus-4-7-thinking-low-fast, claude-opus-4-7-thinking-medium, claude-opus-4-7-thinking-medium-fast, claude-opus-4-7-thinking-high, claude-opus-4-7-thinking-high-fast, claude-opus-4-7-thinking-xhigh, claude-opus-4-7-thinking-xhigh-fast, claude-opus-4-7-thinking-max, claude-opus-4-7-thinking-max-fast, gpt-5.4-low, gpt-5.4-medium, gpt-5.4-medium-fast, gpt-5.4-high, gpt-5.4-high-fast, gpt-5.4-xhigh, gpt-5.4-xhigh-fast, claude-4.6-opus-high, claude-4.6-opus-max, claude-4.6-opus-high-thinking, claude-4.6-opus-max-thinking, claude-4.5-opus-high, claude-4.5-opus-high-thinking, gpt-5.2-low, gpt-5.2-low-fast, gpt-5.2-fast, gpt-5.2-high, gpt-5.2-high-fast, gpt-5.2-xhigh, gpt-5.2-xhigh-fast, gpt-5.6-luna-none, gpt-5.6-luna-none-fast, gpt-5.6-luna-low, gpt-5.6-luna-low-fast, gpt-5.6-luna-medium, gpt-5.6-luna-medium-fast, gpt-5.6-luna-high-fast, gpt-5.6-luna-xhigh, gpt-5.6-luna-xhigh-fast, gpt-5.6-luna-max, gpt-5.6-luna-max-fast, gemini-3.6-flash-minimal, gemini-3.6-flash-low, gemini-3.6-flash-medium, gemini-3.6-flash-high, gemini-3.1-pro, gpt-5.4-mini-none, gpt-5.4-mini-low, gpt-5.4-mini-medium, gpt-5.4-mini-high, gpt-5.4-mini-xhigh, gpt-5.4-nano-none, gpt-5.4-nano-low, gpt-5.4-nano-medium, gpt-5.4-nano-high, gpt-5.4-nano-xhigh, claude-4.5-sonnet, claude-4.5-sonnet-thinking, gpt-5.1-low, gpt-5.1, gpt-5.1-high, gemini-3-flash, gemini-3.5-flash, claude-4-sonnet, claude-4-sonnet-thinking, gpt-5-mini, kimi-k3-low, kimi-k3-high, kimi-k3-max, kimi-k2.7-code, glm-5.2-high, glm-5.2-max - use one of the supported models"
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
         }
       },
       "sandbox-read-only": {
         "refusal": {
-          "issue": "unsupported-option",
+          "issue": "invalid-option-value",
           "harness": "cursor",
-          "option": "sandbox",
           "supported": [
-            "effort",
-            "access"
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
           ],
-          "supportedBy": [
-            {
-              "harness": "codex",
-              "spelling": "--sandbox"
-            },
-            {
-              "harness": "antigravity",
-              "spelling": "--sandbox"
-            }
-          ],
-          "message": "cursor cannot express option \"sandbox\" (read-only); supported: effort, access - drop the option or route this work to a harness that supports it"
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
         }
       },
       "context-window": {
         "refusal": {
-          "issue": "unsupported-option",
+          "issue": "invalid-option-value",
           "harness": "cursor",
-          "option": "contextWindow",
           "supported": [
-            "effort",
-            "access"
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
           ],
-          "supportedBy": [
-            {
-              "harness": "claude",
-              "spelling": "--autocompact"
-            },
-            {
-              "harness": "codex",
-              "spelling": "-c"
-            },
-            {
-              "harness": "popeye",
-              "spelling": "--context-window"
-            }
-          ],
-          "message": "cursor cannot express option \"contextWindow\" (100000); supported: effort, access - drop the option or route this work to a harness that supports it"
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
         }
       },
       "provider": {
         "refusal": {
-          "issue": "unsupported-option",
+          "issue": "invalid-option-value",
           "harness": "cursor",
-          "option": "provider",
           "supported": [
-            "effort",
-            "access"
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
           ],
-          "supportedBy": [
-            {
-              "harness": "pi",
-              "spelling": "--provider"
-            }
-          ],
-          "message": "cursor cannot express option \"provider\" (zai); supported: effort, access - drop the option or route this work to a harness that supports it"
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
         }
       },
       "agent": {
         "refusal": {
-          "issue": "unsupported-option",
+          "issue": "invalid-option-value",
           "harness": "cursor",
-          "option": "agent",
           "supported": [
-            "effort",
-            "access"
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
           ],
-          "supportedBy": [
-            {
-              "harness": "claude",
-              "spelling": "--agent"
-            },
-            {
-              "harness": "pi",
-              "spelling": "--agent"
-            },
-            {
-              "harness": "antigravity",
-              "spelling": "--agent"
-            },
-            {
-              "harness": "popeye",
-              "spelling": "--agent"
-            }
-          ],
-          "message": "cursor cannot express option \"agent\" (scout-agent); supported: effort, access - drop the option or route this work to a harness that supports it"
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
         }
       },
       "no-tools": {
         "refusal": {
-          "issue": "unsupported-option",
+          "issue": "invalid-option-value",
           "harness": "cursor",
-          "option": "discovery",
           "supported": [
-            "effort",
-            "access"
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
           ],
-          "message": "cursor cannot express option \"discovery\" (tools); supported: effort, access - drop the option or route this work to a harness that supports it"
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
         }
       },
       "no-instruction-files": {
         "refusal": {
-          "issue": "unsupported-option",
+          "issue": "invalid-option-value",
           "harness": "cursor",
-          "option": "discovery",
           "supported": [
-            "effort",
-            "access"
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
           ],
-          "message": "cursor cannot express option \"discovery\" (instructionFiles); supported: effort, access - drop the option or route this work to a harness that supports it"
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
         }
       },
       "no-extensions": {
         "refusal": {
-          "issue": "unsupported-option",
+          "issue": "invalid-option-value",
           "harness": "cursor",
-          "option": "discovery",
           "supported": [
-            "effort",
-            "access"
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
           ],
-          "message": "cursor cannot express option \"discovery\" (extensions); supported: effort, access - drop the option or route this work to a harness that supports it"
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
         }
       },
       "no-skills": {
         "refusal": {
-          "issue": "unsupported-option",
+          "issue": "invalid-option-value",
           "harness": "cursor",
-          "option": "discovery",
           "supported": [
-            "effort",
-            "access"
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
           ],
-          "message": "cursor cannot express option \"discovery\" (skills); supported: effort, access - drop the option or route this work to a harness that supports it"
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
         }
       },
       "discovery-all-on": {
-        "argv": [
-          "agent",
-          "--resume",
-          "0199a4c5-1111-2222-3333-444455556666",
-          "-p",
-          "hi",
-          "--output-format",
-          "stream-json",
-          "--stream-partial-output"
-        ]
+        "refusal": {
+          "issue": "invalid-option-value",
+          "harness": "cursor",
+          "supported": [
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
+          ],
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
+        }
       },
       "write-off": {
         "refusal": {
-          "issue": "unsupported-option",
+          "issue": "invalid-option-value",
           "harness": "cursor",
-          "option": "write",
           "supported": [
-            "effort",
-            "access"
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
           ],
-          "supportedBy": [
-            {
-              "harness": "muse",
-              "spelling": "--disable-write"
-            }
-          ],
-          "message": "cursor cannot express option \"write\" (false); supported: effort, access - drop the option or route this work to a harness that supports it"
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
         }
       },
       "shell-off": {
         "refusal": {
-          "issue": "unsupported-option",
+          "issue": "invalid-option-value",
           "harness": "cursor",
-          "option": "shell",
           "supported": [
-            "effort",
-            "access"
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
           ],
-          "supportedBy": [
-            {
-              "harness": "muse",
-              "spelling": "--disable-shell"
-            }
-          ],
-          "message": "cursor cannot express option \"shell\" (false); supported: effort, access - drop the option or route this work to a harness that supports it"
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
         }
       },
       "max-steps": {
         "refusal": {
-          "issue": "unsupported-option",
+          "issue": "invalid-option-value",
           "harness": "cursor",
-          "option": "maxSteps",
           "supported": [
-            "effort",
-            "access"
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
           ],
-          "supportedBy": [
-            {
-              "harness": "muse",
-              "spelling": "--max-model-steps"
-            }
-          ],
-          "message": "cursor cannot express option \"maxSteps\" (5); supported: effort, access - drop the option or route this work to a harness that supports it"
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
         }
       },
       "system-prompt": {
         "refusal": {
-          "issue": "unsupported-option",
+          "issue": "invalid-option-value",
           "harness": "cursor",
-          "option": "systemPrompt",
           "supported": [
-            "effort",
-            "access"
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
           ],
-          "supportedBy": [],
-          "message": "cursor cannot express option \"systemPrompt\" (you are terse); supported: effort, access - drop the option or route this work to a harness that supports it"
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
         }
       },
       "append-system-prompt": {
         "refusal": {
-          "issue": "unsupported-option",
+          "issue": "invalid-option-value",
           "harness": "cursor",
-          "option": "appendSystemPrompt",
           "supported": [
-            "effort",
-            "access"
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
           ],
-          "supportedBy": [],
-          "message": "cursor cannot express option \"appendSystemPrompt\" (and polite); supported: effort, access - drop the option or route this work to a harness that supports it"
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
         }
       },
       "access-read": {
-        "argv": [
-          "agent",
-          "--resume",
-          "0199a4c5-1111-2222-3333-444455556666",
-          "-p",
-          "--mode",
-          "ask",
-          "--sandbox",
-          "enabled",
-          "hi",
-          "--output-format",
-          "stream-json",
-          "--stream-partial-output"
-        ]
+        "refusal": {
+          "issue": "invalid-option-value",
+          "harness": "cursor",
+          "supported": [
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
+          ],
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
+        }
       },
       "access-write": {
-        "argv": [
-          "agent",
-          "--resume",
-          "0199a4c5-1111-2222-3333-444455556666",
-          "-p",
-          "--force",
-          "hi",
-          "--output-format",
-          "stream-json",
-          "--stream-partial-output"
-        ]
+        "refusal": {
+          "issue": "invalid-option-value",
+          "harness": "cursor",
+          "supported": [
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
+          ],
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
+        }
       },
       "access-read-no-tools": {
         "refusal": {
-          "issue": "unsupported-option",
+          "issue": "invalid-option-value",
           "harness": "cursor",
-          "option": "discovery",
           "supported": [
-            "effort",
-            "access"
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
           ],
-          "message": "cursor cannot express option \"discovery\" (tools); supported: effort, access - drop the option or route this work to a harness that supports it"
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
         }
       },
       "tools-include": {
         "refusal": {
-          "issue": "unsupported-option",
+          "issue": "invalid-option-value",
           "harness": "cursor",
-          "option": "tools",
           "supported": [
-            "per-tool name lists"
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
           ],
-          "supportedBy": [
-            {
-              "harness": "claude",
-              "spelling": "--allowedTools"
-            },
-            {
-              "harness": "pi",
-              "spelling": "--tools"
-            },
-            {
-              "harness": "popeye",
-              "spelling": "--tools"
-            }
-          ],
-          "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
-          "message": "cursor cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
         }
       },
       "tools-include-native": {
         "refusal": {
-          "issue": "unsupported-option",
+          "issue": "invalid-option-value",
           "harness": "cursor",
-          "option": "tools",
           "supported": [
-            "per-tool name lists"
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
           ],
-          "supportedBy": [
-            {
-              "harness": "claude",
-              "spelling": "--allowedTools"
-            },
-            {
-              "harness": "pi",
-              "spelling": "--tools"
-            },
-            {
-              "harness": "popeye",
-              "spelling": "--tools"
-            }
-          ],
-          "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
-          "message": "cursor cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
         }
       },
       "tools-include-empty": {
         "refusal": {
-          "issue": "unsupported-option",
+          "issue": "invalid-option-value",
           "harness": "cursor",
-          "option": "tools",
           "supported": [
-            "per-tool name lists"
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
           ],
-          "supportedBy": [
-            {
-              "harness": "claude",
-              "spelling": "--allowedTools"
-            },
-            {
-              "harness": "pi",
-              "spelling": "--tools"
-            },
-            {
-              "harness": "popeye",
-              "spelling": "--tools"
-            }
-          ],
-          "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
-          "message": "cursor cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
         }
       },
       "tools-exclude": {
         "refusal": {
-          "issue": "unsupported-option",
+          "issue": "invalid-option-value",
           "harness": "cursor",
-          "option": "excludeTools",
           "supported": [
-            "per-tool name lists"
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
           ],
-          "supportedBy": [
-            {
-              "harness": "claude",
-              "spelling": "--disallowedTools"
-            },
-            {
-              "harness": "pi",
-              "spelling": "--exclude-tools"
-            },
-            {
-              "harness": "popeye",
-              "spelling": "--exclude-tools"
-            }
-          ],
-          "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
-          "message": "cursor cannot express option \"excludeTools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
         }
       },
       "tools-exclude-native": {
         "refusal": {
-          "issue": "unsupported-option",
+          "issue": "invalid-option-value",
           "harness": "cursor",
-          "option": "excludeTools",
           "supported": [
-            "per-tool name lists"
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
           ],
-          "supportedBy": [
-            {
-              "harness": "claude",
-              "spelling": "--disallowedTools"
-            },
-            {
-              "harness": "pi",
-              "spelling": "--exclude-tools"
-            },
-            {
-              "harness": "popeye",
-              "spelling": "--exclude-tools"
-            }
-          ],
-          "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
-          "message": "cursor cannot express option \"excludeTools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
         }
       },
       "tools-both": {
         "refusal": {
-          "issue": "mutually-exclusive-options",
+          "issue": "invalid-option-value",
           "harness": "cursor",
-          "option": "tools",
           "supported": [
-            "--tools (exact allowlist) or --exclude-tools (complement), never both"
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
           ],
-          "message": "cursor cannot combine option \"tools\" (mutual exclusion); supported: --tools (exact allowlist) or --exclude-tools (complement), never both - pass exactly one of them"
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
         }
       },
       "tools-via-toolmap": {
         "refusal": {
-          "issue": "unsupported-option",
+          "issue": "invalid-option-value",
           "harness": "cursor",
-          "option": "tools",
           "supported": [
-            "per-tool name lists"
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
           ],
-          "supportedBy": [
-            {
-              "harness": "claude",
-              "spelling": "--allowedTools"
-            },
-            {
-              "harness": "pi",
-              "spelling": "--tools"
-            },
-            {
-              "harness": "popeye",
-              "spelling": "--tools"
-            }
-          ],
-          "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
-          "message": "cursor cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
         }
       },
       "tools-unknown-name": {
         "refusal": {
-          "issue": "unsupported-option",
+          "issue": "invalid-option-value",
           "harness": "cursor",
-          "option": "tools",
           "supported": [
-            "per-tool name lists"
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
           ],
-          "supportedBy": [
-            {
-              "harness": "claude",
-              "spelling": "--allowedTools"
-            },
-            {
-              "harness": "pi",
-              "spelling": "--tools"
-            },
-            {
-              "harness": "popeye",
-              "spelling": "--tools"
-            }
-          ],
-          "hint": "cursor has no per-tool name lists; shape the grant with the config-file allow and deny lists instead - there is no call-time flag",
-          "message": "cursor cannot express option \"tools\"; supported: per-tool name lists - drop the option or route this work to a harness that supports it"
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
         }
       },
       "skills-pick": {
         "refusal": {
-          "issue": "unsupported-option",
+          "issue": "invalid-option-value",
           "harness": "cursor",
-          "option": "skills",
           "supported": [
-            "caller-directed skill sets"
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
           ],
-          "supportedBy": [
-            {
-              "harness": "claude",
-              "spelling": "skillOverrides"
-            },
-            {
-              "harness": "codex",
-              "spelling": "-c skills.config"
-            },
-            {
-              "harness": "pi",
-              "spelling": "--skill"
-            }
-          ],
-          "hint": "muse scopes skills by workspace trust with no per-skill surface - include the skill content in the prompt or use --trust-workspace for the whole registry",
-          "message": "cursor cannot express option \"skills\"; supported: caller-directed skill sets - drop the option or route this work to a harness that supports it"
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
         }
       },
       "autonomy": {
-        "argv": [
-          "agent",
-          "--resume",
-          "0199a4c5-1111-2222-3333-444455556666",
-          "-p",
-          "hi",
-          "--output-format",
-          "stream-json",
-          "--stream-partial-output",
-          "--force"
-        ]
+        "refusal": {
+          "issue": "invalid-option-value",
+          "harness": "cursor",
+          "supported": [
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
+          ],
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
+        }
       },
       "explicit-dash-prompt": {
-        "argv": [
-          "agent",
-          "--resume",
-          "0199a4c5-1111-2222-3333-444455556666",
-          "-p",
-          "-x",
-          "--output-format",
-          "stream-json",
-          "--stream-partial-output"
-        ]
+        "refusal": {
+          "issue": "invalid-option-value",
+          "harness": "cursor",
+          "supported": [
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
+          ],
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
+        }
       },
       "implicit-dash-prompt": {
         "refusal": {
-          "issue": "prompt-flag-injection",
+          "issue": "invalid-option-value",
           "harness": "cursor",
           "supported": [
-            "prompt must not start with '-'"
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
           ],
-          "message": "positional prompt may not start with '-'; it would be parsed as a flag by cursor (it would be parsed as a flag by agent); supported: prompt must not start with '-' - remove leading '-' or prefix with a space"
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
         }
       }
     },
@@ -10528,7 +9993,6 @@
             "claude --continue",
             "codex --last",
             "pi --continue",
-            "cursor --continue",
             "antigravity --continue"
           ],
           "supportedBy": [
@@ -10545,16 +10009,12 @@
               "spelling": "--continue"
             },
             {
-              "harness": "cursor",
-              "spelling": "--continue"
-            },
-            {
               "harness": "antigravity",
               "spelling": "--continue"
             }
           ],
           "hint": "muse has no headless most-recent spelling; keep the session id from the identity event and re-enter with hcn run muse --resume <id> - there is no --last on exec",
-          "message": "muse cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue, cursor --continue, antigravity --continue - drop the option or route this work to a harness that supports it"
+          "message": "muse cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue, antigravity --continue - drop the option or route this work to a harness that supports it"
         }
       },
       "model": {
@@ -10566,7 +10026,6 @@
             "claude --continue",
             "codex --last",
             "pi --continue",
-            "cursor --continue",
             "antigravity --continue"
           ],
           "supportedBy": [
@@ -10583,16 +10042,12 @@
               "spelling": "--continue"
             },
             {
-              "harness": "cursor",
-              "spelling": "--continue"
-            },
-            {
               "harness": "antigravity",
               "spelling": "--continue"
             }
           ],
           "hint": "muse has no headless most-recent spelling; keep the session id from the identity event and re-enter with hcn run muse --resume <id> - there is no --last on exec",
-          "message": "muse cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue, cursor --continue, antigravity --continue - drop the option or route this work to a harness that supports it"
+          "message": "muse cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue, antigravity --continue - drop the option or route this work to a harness that supports it"
         }
       },
       "id-and-last-refuse": {
@@ -10608,40 +10063,100 @@
     },
     "cursor": {
       "bare": {
-        "argv": [
-          "agent",
-          "-p",
-          "--continue",
-          "hi",
-          "--output-format",
-          "stream-json",
-          "--stream-partial-output"
-        ]
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "resumeLast",
+          "supported": [
+            "claude --continue",
+            "codex --last",
+            "pi --continue",
+            "antigravity --continue"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--continue"
+            },
+            {
+              "harness": "codex",
+              "spelling": "--last"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--continue"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--continue"
+            }
+          ],
+          "message": "cursor cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue, antigravity --continue - drop the option or route this work to a harness that supports it"
+        }
       },
       "model": {
-        "argv": [
-          "agent",
-          "-p",
-          "--continue",
-          "hi",
-          "--output-format",
-          "stream-json",
-          "--stream-partial-output",
-          "--model",
-          "grok-4.7-low"
-        ]
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "resumeLast",
+          "supported": [
+            "claude --continue",
+            "codex --last",
+            "pi --continue",
+            "antigravity --continue"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--continue"
+            },
+            {
+              "harness": "codex",
+              "spelling": "--last"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--continue"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--continue"
+            }
+          ],
+          "message": "cursor cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue, antigravity --continue - drop the option or route this work to a harness that supports it"
+        }
       },
       "autonomy": {
-        "argv": [
-          "agent",
-          "-p",
-          "--continue",
-          "hi",
-          "--output-format",
-          "stream-json",
-          "--stream-partial-output",
-          "--force"
-        ]
+        "refusal": {
+          "issue": "unsupported-option",
+          "harness": "cursor",
+          "option": "resumeLast",
+          "supported": [
+            "claude --continue",
+            "codex --last",
+            "pi --continue",
+            "antigravity --continue"
+          ],
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--continue"
+            },
+            {
+              "harness": "codex",
+              "spelling": "--last"
+            },
+            {
+              "harness": "pi",
+              "spelling": "--continue"
+            },
+            {
+              "harness": "antigravity",
+              "spelling": "--continue"
+            }
+          ],
+          "message": "cursor cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue, antigravity --continue - drop the option or route this work to a harness that supports it"
+        }
       },
       "id-and-last-refuse": {
         "refusal": {
@@ -10698,7 +10213,6 @@
             "claude --continue",
             "codex --last",
             "pi --continue",
-            "cursor --continue",
             "antigravity --continue"
           ],
           "supportedBy": [
@@ -10715,16 +10229,12 @@
               "spelling": "--continue"
             },
             {
-              "harness": "cursor",
-              "spelling": "--continue"
-            },
-            {
               "harness": "antigravity",
               "spelling": "--continue"
             }
           ],
           "hint": "popeye has no most-recent spelling; its flat session dir has no workspace binding, so keep the session id from the identity event and re-enter with --resume <id>",
-          "message": "popeye cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue, cursor --continue, antigravity --continue - drop the option or route this work to a harness that supports it"
+          "message": "popeye cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue, antigravity --continue - drop the option or route this work to a harness that supports it"
         }
       },
       "model": {
@@ -10736,7 +10246,6 @@
             "claude --continue",
             "codex --last",
             "pi --continue",
-            "cursor --continue",
             "antigravity --continue"
           ],
           "supportedBy": [
@@ -10753,16 +10262,12 @@
               "spelling": "--continue"
             },
             {
-              "harness": "cursor",
-              "spelling": "--continue"
-            },
-            {
               "harness": "antigravity",
               "spelling": "--continue"
             }
           ],
           "hint": "popeye has no most-recent spelling; its flat session dir has no workspace binding, so keep the session id from the identity event and re-enter with --resume <id>",
-          "message": "popeye cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue, cursor --continue, antigravity --continue - drop the option or route this work to a harness that supports it"
+          "message": "popeye cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue, antigravity --continue - drop the option or route this work to a harness that supports it"
         }
       },
       "id-and-last-refuse": {
@@ -10786,7 +10291,6 @@
             "claude --continue",
             "codex --last",
             "pi --continue",
-            "cursor --continue",
             "antigravity --continue"
           ],
           "supportedBy": [
@@ -10803,16 +10307,12 @@
               "spelling": "--continue"
             },
             {
-              "harness": "cursor",
-              "spelling": "--continue"
-            },
-            {
               "harness": "antigravity",
               "spelling": "--continue"
             }
           ],
           "hint": "opencode has no most-recent spelling; keep the session id from the identity event and re-enter with hcn run opencode --resume <id>",
-          "message": "opencode cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue, cursor --continue, antigravity --continue - drop the option or route this work to a harness that supports it"
+          "message": "opencode cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue, antigravity --continue - drop the option or route this work to a harness that supports it"
         }
       },
       "model": {
@@ -10824,7 +10324,6 @@
             "claude --continue",
             "codex --last",
             "pi --continue",
-            "cursor --continue",
             "antigravity --continue"
           ],
           "supportedBy": [
@@ -10841,16 +10340,12 @@
               "spelling": "--continue"
             },
             {
-              "harness": "cursor",
-              "spelling": "--continue"
-            },
-            {
               "harness": "antigravity",
               "spelling": "--continue"
             }
           ],
           "hint": "opencode has no most-recent spelling; keep the session id from the identity event and re-enter with hcn run opencode --resume <id>",
-          "message": "opencode cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue, cursor --continue, antigravity --continue - drop the option or route this work to a harness that supports it"
+          "message": "opencode cannot express option \"resumeLast\"; supported: claude --continue, codex --last, pi --continue, antigravity --continue - drop the option or route this work to a harness that supports it"
         }
       },
       "id-and-last-refuse": {
@@ -11008,37 +10503,30 @@
     "cursor": {
       "empty": {
         "argv": [
-          "agent",
-          "-p",
-          "hi",
-          "--output-format",
-          "stream-json",
-          "--stream-partial-output"
+          "hcn-cursor-sdk-worker"
         ]
       },
       "tail": {
-        "argv": [
-          "agent",
-          "-p",
-          "hi",
-          "--output-format",
-          "stream-json",
-          "--stream-partial-output",
-          "--native-flag"
-        ]
+        "refusal": {
+          "issue": "unsupported-passthrough",
+          "harness": "cursor",
+          "supported": [
+            "no passthrough tail: the cursor SDK worker takes no native CLI flags"
+          ],
+          "hint": "remove the tokens after `--` and re-run on cursor",
+          "message": "cursor joins tokens after the -- separator into the prompt as text (--native-flag); supported: no passthrough tail: the cursor SDK worker takes no native CLI flags - remove the tokens after -- and re-run; to pass native flags, invoke agent directly"
+        }
       },
       "tail-resume": {
-        "argv": [
-          "agent",
-          "--resume",
-          "0199a4c5-1111-2222-3333-444455556666",
-          "-p",
-          "hi",
-          "--output-format",
-          "stream-json",
-          "--stream-partial-output",
-          "--native-flag"
-        ]
+        "refusal": {
+          "issue": "unsupported-passthrough",
+          "harness": "cursor",
+          "supported": [
+            "no passthrough tail: the cursor SDK worker takes no native CLI flags"
+          ],
+          "hint": "remove the tokens after `--` and re-run on cursor",
+          "message": "cursor joins tokens after the -- separator into the prompt as text (--native-flag); supported: no passthrough tail: the cursor SDK worker takes no native CLI flags - remove the tokens after -- and re-run; to pass native flags, invoke agent directly"
+        }
       }
     },
     "antigravity": {
@@ -11481,10 +10969,11 @@
             "claude",
             "codex",
             "pi",
+            "cursor",
             "antigravity",
             "popeye"
           ],
-          "message": "muse declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "muse declares no persistent headless session mode; supported: claude, codex, pi, cursor, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "model": {
@@ -11495,10 +10984,11 @@
             "claude",
             "codex",
             "pi",
+            "cursor",
             "antigravity",
             "popeye"
           ],
-          "message": "muse declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "muse declares no persistent headless session mode; supported: claude, codex, pi, cursor, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "effort": {
@@ -11509,10 +10999,11 @@
             "claude",
             "codex",
             "pi",
+            "cursor",
             "antigravity",
             "popeye"
           ],
-          "message": "muse declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "muse declares no persistent headless session mode; supported: claude, codex, pi, cursor, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "model-effort": {
@@ -11523,10 +11014,11 @@
             "claude",
             "codex",
             "pi",
+            "cursor",
             "antigravity",
             "popeye"
           ],
-          "message": "muse declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "muse declares no persistent headless session mode; supported: claude, codex, pi, cursor, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "provider": {
@@ -11537,10 +11029,11 @@
             "claude",
             "codex",
             "pi",
+            "cursor",
             "antigravity",
             "popeye"
           ],
-          "message": "muse declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "muse declares no persistent headless session mode; supported: claude, codex, pi, cursor, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "context-window": {
@@ -11551,10 +11044,11 @@
             "claude",
             "codex",
             "pi",
+            "cursor",
             "antigravity",
             "popeye"
           ],
-          "message": "muse declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "muse declares no persistent headless session mode; supported: claude, codex, pi, cursor, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "resume": {
@@ -11565,10 +11059,11 @@
             "claude",
             "codex",
             "pi",
+            "cursor",
             "antigravity",
             "popeye"
           ],
-          "message": "muse declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "muse declares no persistent headless session mode; supported: claude, codex, pi, cursor, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "bad-id": {
@@ -11579,124 +11074,97 @@
             "claude",
             "codex",
             "pi",
+            "cursor",
             "antigravity",
             "popeye"
           ],
-          "message": "muse declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "muse declares no persistent headless session mode; supported: claude, codex, pi, cursor, antigravity, popeye - use hcn run --resume <id>"
         }
       }
     },
     "cursor": {
       "fresh": {
-        "refusal": {
-          "issue": "no-session-mode",
-          "harness": "cursor",
-          "supported": [
-            "claude",
-            "codex",
-            "pi",
-            "antigravity",
-            "popeye"
-          ],
-          "message": "cursor declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
-        }
+        "argv": [
+          "hcn-cursor-sdk-worker"
+        ]
       },
       "model": {
-        "refusal": {
-          "issue": "no-session-mode",
-          "harness": "cursor",
-          "supported": [
-            "claude",
-            "codex",
-            "pi",
-            "antigravity",
-            "popeye"
-          ],
-          "message": "cursor declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
-        }
+        "argv": [
+          "hcn-cursor-sdk-worker"
+        ]
       },
       "effort": {
-        "refusal": {
-          "issue": "no-session-mode",
-          "harness": "cursor",
-          "supported": [
-            "claude",
-            "codex",
-            "pi",
-            "antigravity",
-            "popeye"
-          ],
-          "message": "cursor declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
-        }
+        "argv": [
+          "hcn-cursor-sdk-worker"
+        ]
       },
       "model-effort": {
-        "refusal": {
-          "issue": "no-session-mode",
-          "harness": "cursor",
-          "supported": [
-            "claude",
-            "codex",
-            "pi",
-            "antigravity",
-            "popeye"
-          ],
-          "message": "cursor declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
-        }
+        "argv": [
+          "hcn-cursor-sdk-worker"
+        ]
       },
       "provider": {
         "refusal": {
-          "issue": "no-session-mode",
+          "issue": "unsupported-option",
           "harness": "cursor",
+          "option": "provider",
           "supported": [
-            "claude",
-            "codex",
-            "pi",
-            "antigravity",
-            "popeye"
+            "effort",
+            "access"
           ],
-          "message": "cursor declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
+          "supportedBy": [
+            {
+              "harness": "pi",
+              "spelling": "--provider"
+            }
+          ],
+          "message": "cursor cannot express option \"provider\" (zai); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "context-window": {
         "refusal": {
-          "issue": "no-session-mode",
+          "issue": "unsupported-option",
           "harness": "cursor",
+          "option": "contextWindow",
           "supported": [
-            "claude",
-            "codex",
-            "pi",
-            "antigravity",
-            "popeye"
+            "effort",
+            "access"
           ],
-          "message": "cursor declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
+          "supportedBy": [
+            {
+              "harness": "claude",
+              "spelling": "--autocompact"
+            },
+            {
+              "harness": "codex",
+              "spelling": "-c"
+            },
+            {
+              "harness": "popeye",
+              "spelling": "--context-window"
+            }
+          ],
+          "message": "cursor cannot express option \"contextWindow\" (100000); supported: effort, access - drop the option or route this work to a harness that supports it"
         }
       },
       "resume": {
         "refusal": {
-          "issue": "no-session-mode",
+          "issue": "invalid-option-value",
           "harness": "cursor",
           "supported": [
-            "claude",
-            "codex",
-            "pi",
-            "antigravity",
-            "popeye"
+            "an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
           ],
-          "message": "cursor declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "invalid value for on cursor (cursor session 0199a4c5-1111-2222-3333-444455556666 is not an SDK conversation id; bare UUIDs name CLI-chat sessions, and the SDK store cannot resume them); supported: an SDK conversation id matching /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i - use a supported value instead"
         }
       },
       "bad-id": {
         "refusal": {
-          "issue": "no-session-mode",
+          "issue": "invalid-option-value",
           "harness": "cursor",
           "supported": [
-            "claude",
-            "codex",
-            "pi",
-            "antigravity",
-            "popeye"
+            "a session id of letters, digits, '.', '_', ':', '@', '-' only, starting with a letter or digit, at most 128 chars"
           ],
-          "message": "cursor declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "cursor cannot resume session id \"../etc\" is not a usable id: must match /^[A-Za-z0-9][A-Za-z0-9._:@-]*$/ and be at most 128 chars"
         }
       }
     },
@@ -11917,10 +11385,11 @@
             "claude",
             "codex",
             "pi",
+            "cursor",
             "antigravity",
             "popeye"
           ],
-          "message": "opencode declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "opencode declares no persistent headless session mode; supported: claude, codex, pi, cursor, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "model": {
@@ -11931,10 +11400,11 @@
             "claude",
             "codex",
             "pi",
+            "cursor",
             "antigravity",
             "popeye"
           ],
-          "message": "opencode declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "opencode declares no persistent headless session mode; supported: claude, codex, pi, cursor, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "effort": {
@@ -11945,10 +11415,11 @@
             "claude",
             "codex",
             "pi",
+            "cursor",
             "antigravity",
             "popeye"
           ],
-          "message": "opencode declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "opencode declares no persistent headless session mode; supported: claude, codex, pi, cursor, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "model-effort": {
@@ -11959,10 +11430,11 @@
             "claude",
             "codex",
             "pi",
+            "cursor",
             "antigravity",
             "popeye"
           ],
-          "message": "opencode declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "opencode declares no persistent headless session mode; supported: claude, codex, pi, cursor, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "provider": {
@@ -11973,10 +11445,11 @@
             "claude",
             "codex",
             "pi",
+            "cursor",
             "antigravity",
             "popeye"
           ],
-          "message": "opencode declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "opencode declares no persistent headless session mode; supported: claude, codex, pi, cursor, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "context-window": {
@@ -11987,10 +11460,11 @@
             "claude",
             "codex",
             "pi",
+            "cursor",
             "antigravity",
             "popeye"
           ],
-          "message": "opencode declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "opencode declares no persistent headless session mode; supported: claude, codex, pi, cursor, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "resume": {
@@ -12001,10 +11475,11 @@
             "claude",
             "codex",
             "pi",
+            "cursor",
             "antigravity",
             "popeye"
           ],
-          "message": "opencode declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "opencode declares no persistent headless session mode; supported: claude, codex, pi, cursor, antigravity, popeye - use hcn run --resume <id>"
         }
       },
       "bad-id": {
@@ -12015,10 +11490,11 @@
             "claude",
             "codex",
             "pi",
+            "cursor",
             "antigravity",
             "popeye"
           ],
-          "message": "opencode declares no persistent headless session mode; supported: claude, codex, pi, antigravity, popeye - use hcn run --resume <id>"
+          "message": "opencode declares no persistent headless session mode; supported: claude, codex, pi, cursor, antigravity, popeye - use hcn run --resume <id>"
         }
       }
     }

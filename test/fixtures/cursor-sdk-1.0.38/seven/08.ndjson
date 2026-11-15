@@ -1,0 +1,10 @@
+{"hcn":"opened","id":"hcn-identity","agentId":"agent-647b3bf7-ec32-4b10-a900-86bb6bb92706","type":"system","subtype":"init","session_id":"agent-647b3bf7-ec32-4b10-a900-86bb6bb92706"}
+{"hcn":"receipt","id":"hcn-send:1","disposition":"started"}
+{"hcn":"event","delta":{"type":"text-delta","text":"1"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"\n"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"2"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"\n"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"3"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"\n"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"4"}}
+{"hcn":"turn-end","status":"cancelled"}

@@ -8,35 +8,45 @@
  * run, effort resolves into the --model slug via effortSlugs, and sessions
  * file under chats/<md5-of-cwd> below a root that follows CURSOR_CONFIG_DIR
  * / XDG_CONFIG_HOME.
+ *
+ * Issue #440: every headless turn and session runs through the Cursor
+ * SDK in one owned worker process (the `sdk` block below) - the CLI
+ * grammar facts stay as the native interactive reference and for the
+ * legacy transcript corpus, and `hcn run cursor` never spawns `agent`.
+ * SDK conversations are durable in the SDK's own native store and are
+ * named agent-<uuid>; the CLI chats store and its bare-UUID ids are a
+ * different, incompatible id space (the guards say so explicitly). The
+ * legacy stream decoder stays for captured CLI records and transcripts.
  */
-import { deepFreeze, type HarnessDescriptor, UUID_SHAPE } from "./descriptor.js";
+import { deepFreeze, type HarnessDescriptor } from "./descriptor.js";
 import { SHARED_AUTH_MATCHERS, SHARED_LIMIT_MATCHERS } from "./matchers.js";
 import { CURSOR_TRANSCRIPT } from "./transcript/cursor.js";
+
+/** SDK 1.0.38 creates durable conversations with agent-<uuid> ids. */
+const AGENT_ID_SHAPE = /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Historical Cursor CLI model slugs the SDK catalog names differently
+ * (issue #440): the CLI vocabulary above keeps the cursor-prefixed grok ids
+ * the native CLI accepted, and the account's SDK catalog lists the same
+ * families unprefixed. Pure data for the SDK model mapper
+ * (interpretation/cursor-sdk.ts), which rewrites a selector that is exactly
+ * one of these keys or continues past one at a dash boundary - no arbitrary
+ * cursor- prefix is stripped and no unknown model is rewritten. */
+export const CURSOR_SDK_HISTORICAL_MODEL_ALIASES: Readonly<Record<string, string>> = deepFreeze({
+  "cursor-grok-4.5": "grok-4.5",
+  "cursor-grok-4.6": "grok-4.6",
+});
 
 export const cursorCli: HarnessDescriptor = deepFreeze({
   name: "cursor",
   transcript: CURSOR_TRANSCRIPT,
   bin: "agent",
-  verifiedAgainst: "2026.10.01-e373342",
-  // Re-verified 2026-10-03: smoke:seven (6 pass / 1 skip) and
-  // smoke:questions pass on this version after synthetic-workspace trust
-  // preparation. test/fixtures/cursor-2026.10.01-e373342 carries the suite
-  // snapshots and all 246 native model slugs. The decoding corpus in
-  // test/fixtures/cursor-2026.09.15-d2fe57e remains retained.
-  // Phase 5 on that older version re-probed the sandbox: no confinement.
-  // No npm package exists (script install only), so drift detection falls
-  // back to the local `agent --version`, skipped where absent.
-  //
-  // This anchor is not stable under the CLI's own updater. On 2026-09-22 the
-  // binary behind `agent` moved from 2026.09.15-d2fe57e to 2026.09.18-9a7762b
-  // mid-probe, between two runs minutes apart, with no way found to turn the
-  // updater off (docs/research/2026-09-22-compaction-signals/cursor). So a
-  // later `agent --version` can disagree with the version that served an
-  // earlier run, and `verifiedAgainst` names the version the facts were
-  // verified on, not necessarily the one a given run used. `versionSource`
-  // has no field for that, so it is recorded here.
-  // Installed version rechecked with agent --version on 2026-10-03.
-  versionSource: { kind: "installed" },
+  verifiedAgainst: "1.0.38",
+  versionSource: { kind: "npm", package: "@cursor/sdk" },
+  // Headless SDK qualification: all seven scenarios and question escalation
+  // passed on 1.0.38. Captures live in test/fixtures/cursor-sdk-1.0.38.
+  // The native CLI grammar and historical transcript/model corpus below
+  // remain facts captured on agent 2026.10.01-e373342.
   launch: {
     // Every headless probe runs `-p` (print mode, with write and shell).
     baseFlags: ["-p"],
@@ -59,20 +69,59 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
   },
   resume: {
     // `-p --resume <id>` re-enters headless under the same session_id
-    // with turn-1 facts recalled (probes 21a/21b).
+    // with turn-1 facts recalled (probes 21a/21b). Grammar fact for the
+    // native CLI; hcn's own headless resume rides the SDK backend below
+    // (issue #440) and is decided inside the worker protocol, not argv.
     style: "flag",
     flag: "--resume",
     aliases: [],
-    // `--resume not-a-uuid` fails fast: ids must be UUIDs (probe 25).
-    idShape: UUID_SHAPE,
+    // `--resume not-a-uuid` fails fast: ids must be UUIDs (probe 25). On
+    // the SDK backend both shapes parse - bare UUIDs name CLI-chat
+    // sessions, agent-<uuid> names SDK conversations - and the run/session
+    // guards refuse a bare UUID explicitly instead of letting the SDK
+    // treat it as a foreign (missing) conversation id.
+    idShape: /^(?:agent-)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
     // Resume never inherits launch flags, so -p rides along; --model, the
     // stream flags and --force render through the normal paths.
     extraFlags: ["-p"],
-    // An unknown UUID returns exit 0 and files a fresh session under the
-    // given id (probe 24): create, not error.
+    // CLI fact: an unknown UUID returns exit 0 and files a fresh session
+    // under the given id (probe 24). The SDK backend's Agent.resume errors
+    // on an unknown id natively (AgentNotFoundError), so the create
+    // warning and the CLI-store guard do not apply to it.
     onMissing: "create",
   },
-  sessionMode: null,
+  // Issue #440: the SDK-backed headless backend. The marker is the argv
+  // the pure builders render; only the OS spawn adapter (node-deps.ts)
+  // rewrites it to the real node + worker entrypoint, so no global
+  // name-based hijack of any `agent` binary is possible. resumeIdShape is
+  // the SDK store's own conversation id shape.
+  sdk: {
+    kind: "cursor-sdk",
+    workerMarker: "hcn-cursor-sdk-worker",
+    resumeIdShape: AGENT_ID_SHAPE,
+  },
+  sessionMode: {
+    // The complete argv after the marker is empty: model, resume and the
+    // access restriction ride the worker's private open line, never argv.
+    flags: [],
+    // The SDK mints agent-<uuid> itself; there is no id flag to name a
+    // fresh conversation and no resume flag - resume is an open-line
+    // field the worker hands to Agent.resume.
+    idFlag: null,
+    resumeFlag: null,
+    input: { kind: "cursor-sdk" },
+    // Issue #440, verified 1.0.38: a concurrent Agent.send rejects
+    // natively ("already has active run") - no queue is synthesized -
+    // and Run.cancel settles the run as cancelled with the same process
+    // accepting the next prompt, so interrupt is native and best-effort
+    // for in-flight tools. No explicit delivery modes.
+    controls: {
+      delivery: [],
+      interrupt: { toolCancellation: "best-effort" },
+    },
+    turnEnd: { hcn: "turn-end" },
+    identityProbe: { command: "hcn-open", responseIdField: "agentId" },
+  },
   output: {
     // Partial deltas are token events; bare stream-json carries full-text
     // assistant records plus thinking events (probes 11, 11b).
@@ -99,6 +148,8 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
   },
   limitMatchers: [...SHARED_LIMIT_MATCHERS],
   authMatchers: [
+    { pattern: "API key is required for cloud operations", kind: "not-logged-in" },
+    { pattern: "Invalid API key", flags: "i", kind: "invalid-key" },
     // Documented mechanism with research-observed strings; the spike ran
     // logged in throughout, so Phase 4 re-verifies both on logged-out runs.
     { pattern: "Authentication required. Please run 'agent login' first", kind: "not-logged-in" },
@@ -658,18 +709,18 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
   // counts exist (probe 10) but no window size is known, and the harness
   // reports it as 0, so no usedPct can be computed.
   nativeContextManagement: { kind: "auto-compaction", modes: ["headless-turn"] },
-  // `-p --continue` resumes the most recently touched session (probe 22;
-  // observed on 2026.09.15-d2fe57e, 2026-09-17). RFC-06 Phase 5 renders headless after RFC-05
-  // landed (merge to main).
+  // `-p --continue` resumes the most recently touched CLI session (probe
+  // 22; observed on 2026.09.15-d2fe57e, 2026-09-17). Parse-only now: the
+  // SDK backend has no most-recent conversation path (Agent.list probing
+  // for it is future work, not part of #440), so a headless resume-last
+  // turn refuses instead of silently falling back to a fresh conversation.
   // Cursor compacts automatically - 11 times on the anchor version - and
   // emits nothing on stream-json stdout for it. Null, so a caller knows
   // silence here is absence of reporting, not absence of compaction.
   compactionReporting: null,
   resumeLast: {
     flag: "--continue",
-    headless: true,
-    warning:
-      "hcn: --resume-last resumes the most-recent cursor session in {cwd}; the most recent session may be a killed, failed, or unrelated run's session; cursor errors with exit 1 when no session is resumable, and the same error means the store root resolved away from the session; a run from inside a live cursor session in the same directory re-enters that session",
+    headless: false,
   },
   // A positional prompt plus open stdin emits `result` then never exits,
   // so stdin is closed at spawn (notes 07).
@@ -686,25 +737,33 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
     images: false,
     streamingByMode: {
       "headless-turn": "token",
-      "headless-session": "none",
+      // Issue #440: the SDK worker streams text deltas on its private
+      // wire for sessions too, with the full text delivered before the
+      // turn ends (verified 1.0.38).
+      "headless-session": "token",
       interactive: "none",
     },
-    session: false,
+    session: true,
   },
-  // smoke:questions on 2026.10.01-e373342 passed on 2026-10-03 after
-  // synthetic-workspace trust preparation; the native question and suite
-  // snapshot are in test/fixtures/cursor-2026.10.01-e373342.
+  // The SDK question and suite snapshot are retained alongside its
+  // seven-scenario captures in test/fixtures/cursor-sdk-1.0.38.
   escalation: {
     supported: true,
     observedOn: {
       harness: "cursor",
-      model: "gpt-5-mini",
-      version: "2026.10.01-e373342",
-      date: "2026-10-03",
+      model: "grok-4.7-high",
+      version: "1.0.38",
+      date: "2026-11-02",
     },
   },
   turnOptions: {
     effort: { kind: "effort-in-model", render: { kind: "in-model" } },
+    // The renders below are the native CLI spellings, retained as the
+    // documented CLI mapping (docs/cursor-access.md). On the SDK backend
+    // (issue #440) the preset renders onto AgentOptions instead - the
+    // read allowlist plus the task/mcp deny, or the explicitly
+    // unconfined write - in interpretation/cursor-sdk.ts, and
+    // `hcn inspect cursor --runtime` reports that exact mapping.
     // --force --sandbox enabled still permits writes outside the workspace
     // on both the anchor and 2026.10.12-d47ca18 (#373 access captures).
     // Write grants commands, not confinement; normalized sandbox stays absent.

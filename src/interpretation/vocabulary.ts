@@ -35,7 +35,12 @@ export const resolveModel = (h: HarnessDescriptor, model: string): ResolvedModel
     ? h.vocabulary.aliases[trimmed]
     : undefined;
   const id = aliased ?? trimmed;
-  return { id, curated: h.vocabulary.models.includes(id) };
+  return {
+    id,
+    curated:
+      h.vocabulary.models.includes(id) ||
+      (h.sdk != null && Object.hasOwn(h.vocabulary.effortSlugs ?? {}, id)),
+  };
 };
 
 export const validateModel = (h: HarnessDescriptor, model: string): Validated => {
@@ -100,6 +105,12 @@ export const resolveEffortSlug = (
   effort: string | undefined,
 ): string | undefined => {
   const table = h.vocabulary.effortSlugs ?? {};
+  // Issue #440: on an SDK-backed harness a bare stem is the catalog's
+  // base id and a real selector - it runs at the native catalog defaults
+  // instead of refusing. The CLI grammar never sees it (the worker, not
+  // `agent`, executes), so the historical bare-stem refusal stays for
+  // CLI-backed harnesses.
+  const allowBareStem = h.sdk != null;
   if (model === undefined) {
     if (effort === undefined) return undefined;
     throw new ArgvRefusalError({
@@ -124,7 +135,7 @@ export const resolveEffortSlug = (
     });
   }
   if (effort === undefined) {
-    if (row !== undefined && !isSlug) {
+    if (row !== undefined && !isSlug && !allowBareStem) {
       throw new ArgvRefusalError({
         issue: "unknown-model",
         harness: h.name,

@@ -28,22 +28,31 @@ async function run(harness: HarnessDescriptor, records: unknown[], exitCode: num
 
 const cases = [
   {
+    // Issue #440: cursor runs through the SDK worker, so the case rides
+    // the worker's event envelopes - the same native result payloads the
+    // shared outcome reader decodes.
     harness: cursorCli,
     denial: {
-      type: "tool_call",
-      subtype: "completed",
-      call_id: "same-call",
-      tool_call: { shellToolCall: { result: { rejected: { reason: "needs approval" } } } },
-    },
-    ordinaryError: {
-      type: "tool_call",
-      subtype: "completed",
-      call_id: "ordinary-error",
-      tool_call: {
-        shellToolCall: { result: { error: { message: "command exited with status 3" } } },
+      hcn: "event",
+      event: {
+        type: "tool_call",
+        call_id: "same-call",
+        name: "shell",
+        status: "completed",
+        result: { rejected: { reason: "needs approval" } },
       },
     },
-    terminalError: { type: "result", subtype: "error_during_execution", is_error: true },
+    ordinaryError: {
+      hcn: "event",
+      event: {
+        type: "tool_call",
+        call_id: "ordinary-error",
+        name: "shell",
+        status: "completed",
+        result: { error: { message: "command exited with status 3" } },
+      },
+    },
+    terminalError: { hcn: "turn-end", status: "error", message: "invalid model selection" },
   },
   {
     harness: antigravityCli,

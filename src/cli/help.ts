@@ -4,7 +4,7 @@ Usage: hcn <command> [options] [prompt]
 
 Commands:
   run <harness> [prompt]    One-shot headless turn (streamTurn)
-  session <harness>         Interactive session (openSession, claude + pi + antigravity + popeye)
+  session <harness>         Live session (claude, codex, pi, cursor, antigravity, popeye)
   interactive <harness>     Strict native terminal resume with a separate control pipe
   inspect <harness>         Descriptor / argv / capability inspection (no spawn)
   transcript read <harness> Passive native transcript export (JSONL)
@@ -138,16 +138,16 @@ Options:
                             --permission-mode dontAsk and an explicit
                             --disallowedTools mcp__* deny, pi/popeye via
                             --tools, codex via --sandbox read-only, muse via
-                            --disable-write --disable-shell, cursor via
-                            --mode ask --sandbox enabled; antigravity refuses);
+                            --disable-write --disable-shell, cursor via its
+                            SDK read toolset; antigravity refuses);
                             write = claude --permission-mode acceptEdits
                             plus strict native sandbox (auto-approves
                             sandboxed Bash; no unsandboxed retry;
                             requests fail-closed startup). codex uses
-                            --sandbox workspace-write; cursor uses --force
-                            (unconfined commands, also bypasses trust);
-                            pi, muse, and popeye add no restrictions. opencode
-                            refuses --access.
+                            --sandbox workspace-write; cursor runs the SDK
+                            toolset unconfined (sandbox off - commands,
+                            not confinement); pi, muse, and popeye add no
+                            restrictions. opencode refuses --access.
                             The sandbox covers Bash, not file or web tools.
                             Native tool denials, Bash checks and network
                             limits still apply. Unless managed policy
@@ -156,9 +156,8 @@ Options:
                             domain policy may be needed for installs or tests.
                             Claude keeps the explicit write sandbox with
                             --autonomy.
-                            Cursor read with autonomy also adds --force;
-                            precedence is unverified. Use --no-autonomy for
-                            the qualified read preset.
+                            Cursor keeps an explicit read toolset with
+                            --autonomy.
                             Mutually exclusive with --tools/--exclude-tools
                             and with --sandbox on codex; no default
   --max-steps <n>           Max steps (muse, 1-10000)
@@ -183,19 +182,22 @@ Options:
   --no-skills               Disable skills discovery facet
   --cwd <path>              Working directory for spawn
   --env KEY=VAL             Environment (repeatable; KEY= deletes)
-  --resume <uuid>           Resume session id (UUID). Continues the
+  --resume <id>             Resume session id. Continues the
                             conversation where it left off. The answer
                             path for question escalation: resume with the
                             chosen answer as the prompt; id continuity per
                             harness (claude stable, pi/muse caller-assigned,
                             codex/cursor/antigravity minted via identity event)
                             Note: hcn refuses an unknown id before spawn
-                            (exit 2) for pi, muse, and cursor. Antigravity
-                            accepts the id and may announce a fresh conversation.
-  --session-id <uuid>       Alias for --resume (mutually exclusive with --resume)
+                            (exit 2) for pi and muse. Cursor requires an
+                            SDK agent-<uuid>; the SDK reports missing ids
+                            natively. Bare CLI-chat UUIDs refuse before spawn.
+                            Antigravity accepts the id
+                            and may announce a fresh conversation.
+  --session-id <id>         Alias for --resume (mutually exclusive with --resume)
   --resume-last             Resume the most recent session in the spawn cwd
-                            (claude, codex, pi, cursor, antigravity; muse, popeye and
-                            opencode refuse).
+                            (claude, codex, pi, antigravity; muse, popeye,
+                            opencode, and cursor's SDK backend refuse).
                             Mutually exclusive with --resume/--session-id.
   --native-settings-fingerprint <hash>
                             Codex or Pi resume only, with explicit --cwd. Re-read saved
@@ -226,8 +228,13 @@ Defaults with no flags:
   auto-compaction default - the profile window does not transfer there;
   other harnesses report divergence), discovery on,
   autonomy off, write/shell on. timeout, max-steps and
-  access have no default; no access preset is applied. Explicit access write emits
-  --force on cursor, --sandbox workspace-write on codex, and --permission-mode
+  access have no default on most harnesses; a bare cursor run sets no
+  hcn restriction and inherits the SDK's native defaults (its standard
+  toolset runs without approval; its sandbox ships disabled in the
+  pinned build) - pass --access read for the read-only toolset, which
+  stays read even with --autonomy. Explicit access write runs cursor's
+  SDK toolset unconfined
+  (sandbox off), --sandbox workspace-write on codex, and --permission-mode
   acceptEdits plus strict sandbox settings on claude; no extra flags on
   pi, muse, or popeye; antigravity refuses --access. The profile's sandbox
   setting is separate from access. toolMap is config-only (no flag) - canonical -> native
@@ -240,12 +247,12 @@ Defaults with no flags:
   'hcn inspect <harness>' for the resolved argv of a bare run.
 `;
 
-export const SESSION_HELP = `hcn session - Interactive session (claude, pi, antigravity, popeye, codex)
+export const SESSION_HELP = `hcn session - Interactive session (claude, pi, antigravity, popeye, codex, cursor)
 
 Usage: hcn session <harness> [options]
 
 Arguments:
-  <harness>               claude | pi | antigravity | popeye | codex
+  <harness>               claude | codex | pi | cursor | antigravity | popeye
 
 Options:
   --json                    Machine surface: NDJSON events on stdout, NDJSON
@@ -369,14 +376,14 @@ ${DENIAL_COUNT_HELP}
                             auto-compact window; codex 1-272000;
                             popeye 1-10000000; no default - the harness's
                             own setting applies without the flag)
-  --resume <uuid>           Resume session id (UUID). Continues the
+  --resume <id>             Resume session id. Continues the
                             conversation where it left off. --session-id
                             is an alias (mutually exclusive with --resume).
                             If no id is given, a fresh session is started
                             with a new id. hcn refuses an unknown id before
                             spawn (exit 2) for harnesses that would otherwise
                             create a fresh session silently (pi)
-  --session-id <uuid>       Alias for --resume (mutually exclusive with --resume)
+  --session-id <id>         Alias for --resume (mutually exclusive with --resume)
   --questions <ask|assume|none>
                             Which preamble to inject: ask = worker may
                             ask (DEFAULT, pickable menu), assume = never

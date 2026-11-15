@@ -36,6 +36,8 @@ import {
 /** SIGTERM -> SIGKILL escalation budget for a child that ignores the first
  * signal. */
 export const KILL_GRACE_MS = 5_000;
+export const CLOSE_GRACE_MS = 5_000;
+export const PIPE_GRACE_MS = 2_000;
 
 /** Shared process termination policy for turn runners and control probes. */
 export function superviseTermination(

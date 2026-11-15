@@ -12,6 +12,13 @@ import type {
   SessionInputKind,
 } from "../knowledge/descriptor.js";
 import { SESSION_INPUT_KINDS } from "../knowledge/descriptor.js";
+import {
+  CURSOR_SDK_TURN_END,
+  cursorSdkWireKindOf,
+  encodeCursorSdkAbort,
+  encodeCursorSdkOpen,
+  encodeCursorSdkPrompt,
+} from "./cursor-sdk.js";
 import { decodePiExtensionDialog, decodePiStructuredQuestion } from "./pi-extension-dialogs.js";
 import {
   decodeClaudePermissionRequest,
@@ -46,7 +53,7 @@ export class SessionInputRefusalError extends Error {
  * responses cannot be confused with anything user-visible. */
 export const IDENTITY_PROBE_ID = "hcn-identity";
 export const SEND_ID = "hcn-send";
-const SEND_ID_PREFIX = `${SEND_ID}:`;
+export const SEND_ID_PREFIX = `${SEND_ID}:`;
 /** The JSON-RPC request id of the initialize handshake line, written
  * before the identity probe on a codex session. Its response carries
  * nothing hcn needs; the marker keeps it recognizable. */
@@ -152,13 +159,27 @@ export const encodeSessionInput = (
               },
       })}\n`;
     }
+    case "cursor-sdk": {
+      // Issue #440: no explicit delivery modes - a busy Agent.send is
+      // rejected natively and forwarded as that rejection, never queued.
+      if (options?.delivery !== undefined)
+        throw new SessionInputRefusalError("unsupported-delivery");
+      return encodeCursorSdkPrompt(
+        options === undefined ? SEND_ID : `${SEND_ID_PREFIX}${options.id}`,
+        text,
+      );
+    }
   }
 };
 
 /** Issue #426: the native command that requests cancellation of the active
  * turn, correlated by the runner's internal token. Pi rpc writes `abort`;
  * claude (issue #429) writes an `interrupt` control request without
- * `cancel_queued`, so queued inputs stay with the harness. Every other kind
+ * `cancel_queued`, so queued inputs stay with the harness; the cursor SDK
+ * worker (issue #440) writes its private abort line, which the worker
+ * answers with a receipt and then settles with a native cancelled turn
+ * end or an explicit cancellation of deferred input before any run exists.
+ * Acceptance alone is never read as cancellation. Every other kind
  * refuses. */
 export const encodeSessionInterrupt = (input: SessionInputContract, token: string): string => {
   const id = `${INTERRUPT_ID_PREFIX}${token}`;
@@ -171,6 +192,8 @@ export const encodeSessionInterrupt = (input: SessionInputContract, token: strin
         request_id: id,
         request: { subtype: "interrupt" },
       })}\n`;
+    case "cursor-sdk":
+      return encodeCursorSdkAbort(id);
     default:
       throw new SessionInputRefusalError("unsupported-interrupt");
   }
@@ -261,6 +284,7 @@ export const encodeIdentityProbe = (
     readonly sessionId?: string;
     readonly isResume?: boolean;
     readonly model?: string;
+    readonly effort?: string;
     readonly clientVersion?: string;
   },
 ): string | null => {
@@ -270,6 +294,7 @@ export const encodeIdentityProbe = (
     return `${JSON.stringify({ _tag: mode.identityProbe.command, id: IDENTITY_PROBE_ID })}\n`;
   if (mode.input.kind === "pi-rpc-prompt")
     return `${JSON.stringify({ id: IDENTITY_PROBE_ID, type: mode.identityProbe.command })}\n`;
+  if (mode.input.kind === "cursor-sdk") return encodeCursorSdkIdentityProbe(opts);
   if (mode.input.kind !== "codex-jsonrpc") return null;
   const initialize = `${JSON.stringify({
     jsonrpc: "2.0",
@@ -296,11 +321,33 @@ export const encodeIdentityProbe = (
   return `${initialize}${JSON.stringify(open)}\n`;
 };
 
+/** Issue #440: the cursor-sdk open line - the identity probe and the
+ * worker's whole spawn configuration in one record. The session surface
+ * takes no access options, so its open line adds no hcn tool restriction.
+ * The SDK owns the native toolset and sandbox defaults. The explicit effort word
+ * rides alongside the resolved model slug for the same reason it does on
+ * a one-shot open: a tier the CLI grammar folds onto the bare slug would
+ * otherwise run at the catalog's own default. */
+export const encodeCursorSdkIdentityProbe = (opts?: {
+  readonly sessionId?: string;
+  readonly isResume?: boolean;
+  readonly model?: string;
+  readonly effort?: string;
+}): string => {
+  return encodeCursorSdkOpen({
+    id: IDENTITY_PROBE_ID,
+    ...(opts?.isResume === true && opts.sessionId !== undefined ? { resume: opts.sessionId } : {}),
+    ...(opts?.model !== undefined ? { model: opts.model } : {}),
+    ...(opts?.effort !== undefined ? { effort: opts.effort } : {}),
+  });
+};
+
 /** Kinds whose send requests are answered by a native receipt the runner
- * can correlate (pi rpc responses; codex JSON-RPC responses). The runner
- * settles the send's disposition on that receipt. */
+ * can correlate (pi rpc responses; codex JSON-RPC responses; the cursor
+ * SDK worker's receipt lines, which settle when Agent.send resolves).
+ * The runner settles the send's disposition on that receipt. */
 export const hasNativeReceipts = (kind: SessionInputKind): boolean =>
-  kind === "pi-rpc-prompt" || kind === "codex-jsonrpc";
+  kind === "pi-rpc-prompt" || kind === "codex-jsonrpc" || kind === "cursor-sdk";
 
 /** Issue #426: kinds whose turn records name the native message uuids of
  * the inputs they answer (claude `user_message_uuids`). The runner stamps
@@ -310,10 +357,11 @@ export const correlatesByInputUuid = (kind: SessionInputKind): boolean =>
   isClaudeSessionInput(kind);
 
 /** Issue #426: kinds where a written prompt can produce no run at all (pi
- * `handled`: an extension consumed it). The runner publishes such a turn
+ * `handled`: an extension consumed it; cursor-sdk: the native busy
+ * rejection can beat the run output). The runner publishes such a turn
  * only on run evidence: a started receipt, run output, or a settlement. */
 export const publishesTurnOnRunEvidence = (kind: SessionInputKind): boolean =>
-  kind === "pi-rpc-prompt";
+  kind === "pi-rpc-prompt" || kind === "cursor-sdk";
 
 /** What one parsed stdout record means to a session, as a closed kind. */
 export type SessionRecord =
@@ -343,11 +391,15 @@ export type SessionRecord =
       readonly kind: "interrupt-answered";
       readonly token: string;
       readonly accepted: boolean;
+      /** The worker explicitly had no cancellation target. */
+      readonly inactive?: true;
     }
   /** The native stop-background request was answered. `ok` says only that
    * the harness accepted the stop request; the job's own end arrives as a
    * `background` event. */
   | { readonly kind: "stop-background-answered"; readonly token: string; readonly ok: boolean }
+  /** A deferred input cancelled before any native run existed. */
+  | { readonly kind: "command-cancelled"; readonly inputId: string }
   /** An rpc command hcn wrote was refused by the harness. */
   | { readonly inputId?: string; readonly kind: "command-failed"; readonly message: string }
   /** Protocol bookkeeping with nothing to surface. */
@@ -481,6 +533,71 @@ export const decodeSessionRecord = (
     }
     // The initialize response (and any other uncorrelated response).
     return { kind: "ignored" };
+  }
+  if (mode.input.kind === "cursor-sdk") {
+    // The private worker wire (issue #440). Every record carries the `hcn`
+    // discriminator; the field names live in interpretation/cursor-sdk.ts.
+    const wire = cursorSdkWireKindOf(parsed);
+    if (wire === null) return { kind: "ignored" };
+    if (wire === "opened" && parsed.id === IDENTITY_PROBE_ID) {
+      const probe = mode.identityProbe;
+      const announced = probe === null ? undefined : readPath(parsed, probe.responseIdField);
+      return typeof announced === "string" && announced !== ""
+        ? { kind: "identity", sessionId: announced }
+        : { kind: "probe-failed", message: "cursor SDK worker announced no agent id" };
+    }
+    if (wire === "open-failed") {
+      const message =
+        typeof parsed.message === "string" && parsed.message !== ""
+          ? parsed.message
+          : "cursor SDK agent failed to open";
+      return { kind: "probe-failed", message };
+    }
+    if (wire === "abort-receipt" && typeof parsed.id === "string") {
+      if (!parsed.id.startsWith(INTERRUPT_ID_PREFIX)) return { kind: "ignored" };
+      return {
+        kind: "interrupt-answered",
+        token: parsed.id.slice(INTERRUPT_ID_PREFIX.length),
+        accepted: parsed.accepted === true,
+        ...(parsed.accepted !== true && parsed.idle === true ? { inactive: true } : {}),
+      };
+    }
+    if (wire === "receipt" || wire === "send-failed" || wire === "send-cancelled") {
+      const inputId =
+        typeof parsed.id === "string" && parsed.id.startsWith(SEND_ID_PREFIX)
+          ? parsed.id.slice(SEND_ID_PREFIX.length)
+          : undefined;
+      if (wire === "send-cancelled") {
+        return inputId === undefined ? { kind: "ignored" } : { kind: "command-cancelled", inputId };
+      }
+      if (wire === "receipt") {
+        return inputId === undefined
+          ? { kind: "ignored" }
+          : { inputId, kind: "command-accepted", nativeDisposition: "started" };
+      }
+      const message =
+        typeof parsed.message === "string" && parsed.message !== ""
+          ? parsed.message
+          : "cursor SDK send failed";
+      return {
+        ...(inputId === undefined ? {} : { inputId }),
+        kind: "command-failed",
+        message,
+      };
+    }
+    if (matchesTurnEnd(parsed, CURSOR_SDK_TURN_END)) {
+      // The worker's terminal record for one Run: status comes from
+      // Run.wait, never an assistant-text heuristic. `cancelled` is the
+      // native cancellation receipt an accepted interrupt settles on.
+      const status = parsed.status;
+      return status === "cancelled"
+        ? { kind: "turn-end", isError: false, aborted: true }
+        : {
+            kind: "turn-end",
+            isError: status === "error",
+          };
+    }
+    return { kind: "content" };
   }
   if (mode.input.kind === "pi-rpc-prompt" && parsed.type === "response") {
     const probe = mode.identityProbe;

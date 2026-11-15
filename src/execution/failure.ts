@@ -203,12 +203,13 @@ export const failureFromLimit = (
 /** The auth kinds whose remedy is re-authenticating. `credential-access`
  * has its own constructor, so the wrong remedy cannot be built for it. */
 export const failureFromAuth = (
-  kind: Exclude<AuthFailureKind, "credential-access">,
+  kind?: Exclude<AuthFailureKind, "credential-access">,
+  detail: string | undefined = kind,
 ): FailureSummary => ({
   class: "auth",
   retryable: retryableOf("auth"),
-  message: messageFor("auth", kind),
-  authKind: kind,
+  message: messageFor("auth", detail),
+  ...(kind === undefined ? {} : { authKind: kind }),
 });
 
 /** Bound on native diagnostic text carried in a failure or error event. */

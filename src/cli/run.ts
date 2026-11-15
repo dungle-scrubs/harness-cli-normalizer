@@ -54,11 +54,17 @@ export const run = async (harnessName: string, rawArgs: string[]): Promise<void>
   // is also the legitimate first run in a new cwd.
   const resume = plan.options.resume;
   let resumeVerified: true | undefined;
-  if (resume !== undefined && h.resume.onMissing === "create") {
+  if (resume !== undefined && h.resume.onMissing === "create" && h.sdk == null) {
     // The guard reads the child's effective environment once: --env merged
     // over the process env with the spawn's delete rule, plus the
     // descriptor turn env. Home comes from that same env, so --env HOME
     // moves the guard with the child.
+    //
+    // Issue #440: an SDK-backed harness never runs this CLI-store guard -
+    // its conversations live in the SDK's native store, and Agent.resume
+    // answers a missing id with its own error, which is the refusal the
+    // caller should see. The bare-UUID incompatibility already refused at
+    // the argv build (planTurn).
     const guardEnv = effectiveGuardEnv(
       process.env,
       plan.options.env ?? {},

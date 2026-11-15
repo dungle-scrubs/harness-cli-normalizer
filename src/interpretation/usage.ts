@@ -58,6 +58,11 @@ const CURSOR_FIELDS: Fields = {
   outputTokens: "outputTokens",
   cacheReadTokens: "cacheReadTokens",
   cacheWriteTokens: "cacheWriteTokens",
+  // The SDK usage message carries both (verified 1.0.38); the legacy
+  // result record simply never populated them, so the same field map
+  // serves both surfaces.
+  reasoningTokens: "reasoningTokens",
+  totalTokens: "totalTokens",
 };
 /** The OpenCode CLI reports one step's counts on its `step_finish` part
  * (`part.tokens`), with the step's cost beside them (`part.cost`). The
@@ -197,9 +202,18 @@ export function usageEventsOf(
         });
       return [];
     case "cursor":
-      return r.type === "result"
-        ? usageEvent(r.usage, CURSOR_FIELDS, "turn", { inputIncludesCache: false })
-        : [];
+      // The legacy result record carries per-turn usage; the SDK worker
+      // envelope (issue #440) carries the SDK's per-turn `usage` message
+      // inside `event`. One arm each, no double counting: the worker
+      // forwards only the SDKMessage records, never the turn-ended delta
+      // that repeats them.
+      if (r.type === "result")
+        return usageEvent(r.usage, CURSOR_FIELDS, "turn", { inputIncludesCache: false });
+      if (r.hcn === "event" && asRecord(r.event)?.type === "usage")
+        return usageEvent(asRecord(r.event)?.usage, CURSOR_FIELDS, "turn", {
+          inputIncludesCache: false,
+        });
+      return [];
     case "antigravity":
       return r.event === "result"
         ? usageEvent(

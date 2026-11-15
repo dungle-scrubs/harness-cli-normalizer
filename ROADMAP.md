@@ -79,9 +79,22 @@ Planned work for hcn. Each item must pass the scope test in `AGENTS.md`.
   call identifiers and error flags, and report native tokens/costs as scoped
   observations. Clean completion is not a tool-success verdict. See the
   [event contract](docs/reference.md#tool-results-and-usage).
-- **Cursor access (#373)** - built: read selects native ask mode, write
-  renders `--force`. Write is explicitly unconfined; normalized sandbox
-  options remain unsupported. See [verification](docs/cursor-access.md).
+- **Cursor access (#373)** - built on the native CLI: read selected native
+  ask mode, write rendered `--force`. Write was explicitly unconfined; normalized sandbox
+  options remained unsupported. The SDK backend (#440) replaced these renders; the probes
+  stay as evidence in [the access doc](docs/cursor-access.md).
+- **Cursor SDK backend (#440)** - built: `hcn run cursor` and
+  `hcn session cursor` execute the pinned `@cursor/sdk` local runtime in one
+  owned Node worker, with sessions, question escalation, best-effort
+  interrupt, and resume by SDK conversation id (`agent-<uuid>`, reattached
+  through `Agent.resume` after a process restart). The native `agent` CLI no
+  longer runs headless; its grammar facts and access probes stay as
+  historical evidence in [the access doc](docs/cursor-access.md), and the
+  CLI chats store remains the transcript reader's source. The access preset
+  now selects the SDK toolset: read picks the strict read-only allowlist,
+  write and bare autonomy run unconfined. Bare runs and sessions use the SDK's
+  native defaults, without hcn tool restrictions. SDK authentication is separate
+  from the native CLI login.
 - **Claude read access (#411)** - built: `--access read` renders a closed
   inventory (`--tools Read,Grep,Glob,WebFetch,WebSearch`) plus
   `--permission-mode dontAsk` and an explicit `--disallowedTools mcp__*`

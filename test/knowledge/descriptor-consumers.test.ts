@@ -78,19 +78,21 @@ describe("every descriptor field has a consumer outside the knowledge layer", ()
 });
 
 describe("resumeLast renderable split (RFC-06 Phase 1)", () => {
-  test("six descriptor values: five renderable, muse parse-only", () => {
+  test("six descriptor values: four renderable, muse and cursor parse-only (#440 moved cursor off)", () => {
     expect(claudeCode.resumeLast).toMatchObject({ flag: "--continue", headless: true });
     expect(piCli.resumeLast).toMatchObject({ flag: "--continue", headless: true });
     expect(codexCli.resumeLast).toMatchObject({ flag: "--last", headless: true });
     expect(museCode.resumeLast).toMatchObject({ flag: "--last", headless: false });
-    expect(cursorCli.resumeLast).toMatchObject({ flag: "--continue", headless: true });
+    expect(cursorCli.resumeLast).toMatchObject({ flag: "--continue", headless: false });
     expect(antigravityCli.resumeLast).toMatchObject({ flag: "--continue", headless: true });
   });
 
-  test("the parse-only arm carries no warning text: muse has no renderable warning to drift", () => {
+  test("the parse-only arm carries no warning text: muse and cursor have no renderable warning to drift", () => {
     expect(museCode.resumeLast).not.toBeNull();
     expect(museCode.resumeLast).not.toHaveProperty("warning");
-    for (const h of [claudeCode, piCli, codexCli, cursorCli, antigravityCli]) {
+    expect(cursorCli.resumeLast).not.toBeNull();
+    expect(cursorCli.resumeLast).not.toHaveProperty("warning");
+    for (const h of [claudeCode, piCli, codexCli, antigravityCli]) {
       expect(h.resumeLast).toHaveProperty("warning");
     }
   });

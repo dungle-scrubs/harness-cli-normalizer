@@ -53,11 +53,34 @@ const AFTER: readonly HarnessDescriptor[] = [
   codexCli,
   piCli,
   museCode,
-  cursorCli,
+  // cursor moved off this list when its headless surface became the SDK
+  // worker (#440): the worker takes no native CLI flags, so a passthrough
+  // tail refuses instead of appending.
   antigravityCli,
 ];
 
 describe("after-argv placement", () => {
+  test("cursor refuses a passthrough tail: the SDK worker takes no native CLI flags (#440)", () => {
+    let refused: unknown;
+    try {
+      buildSpawnArgv(cursorCli, { prompt: "hi", passthrough: TAIL });
+    } catch (err) {
+      refused = err;
+    }
+    expect((refused as { issue?: string })?.issue).toBe("unsupported-passthrough");
+    let resumeRefused: unknown;
+    try {
+      buildSpawnArgv(cursorCli, {
+        prompt: "hi",
+        resume: "agent-0199a4c5-1111-4222-8333-444455556666",
+        passthrough: TAIL,
+      });
+    } catch (err) {
+      resumeRefused = err;
+    }
+    expect((resumeRefused as { issue?: string })?.issue).toBe("unsupported-passthrough");
+  });
+
   for (const h of AFTER) {
     test(`${h.name} launch appends the tail with no separator`, () => {
       const argv = buildSpawnArgv(h, { prompt: "hi", passthrough: TAIL });

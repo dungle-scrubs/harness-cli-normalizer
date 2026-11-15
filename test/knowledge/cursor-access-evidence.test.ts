@@ -6,6 +6,7 @@ import {
   freshCursorReaderState,
   isCursorReaderState,
 } from "../../src/interpretation/content.js";
+import { cursorSdkAccessRestriction } from "../../src/interpretation/cursor-sdk.js";
 import { cursorCli } from "../../src/knowledge/cursor.js";
 
 const evidence = JSON.parse(
@@ -80,9 +81,20 @@ for (const [file, name] of [
   });
 }
 
-test("supplemental access probes do not silently advance the descriptor anchor", () => {
-  expect(cursorCli.verifiedAgainst).toBe("2026.10.01-e373342");
+test("the Cursor SDK roadmap records the native access default", () => {
+  expect(cursorSdkAccessRestriction({})).toEqual({});
+  const roadmap = readFileSync(new URL("../../ROADMAP.md", import.meta.url), "utf8")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+  expect(
+    roadmap,
+    "ROADMAP.md: update the #440 entry to say bare runs and sessions use the SDK's native defaults",
+  ).toContain("bare runs and sessions use the sdk's native defaults");
+});
+
+test("historical CLI access evidence remains separate from the SDK anchor", () => {
+  expect(cursorCli.verifiedAgainst).toBe("1.0.38");
   expect(evidence.find((row: { name: string }) => row.name === "read").version).toBe(
-    cursorCli.verifiedAgainst,
+    "2026.10.01-e373342",
   );
 });

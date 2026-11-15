@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildLaunchArgv, buildResumeArgv } from "../../src/interpretation/argv.js";
+import { cursorSdkAccessRestriction } from "../../src/interpretation/cursor-sdk.js";
 import { ArgvRefusalError } from "../../src/interpretation/refusal.js";
 import { resolveEffectiveOptions } from "../../src/interpretation/resolve-options.js";
 import { renderTurnOptions } from "../../src/interpretation/turn-options.js";
@@ -99,19 +100,21 @@ describe("--access preset", () => {
     expect(argv).toContain("--disable-write");
     expect(argv).toContain("--disable-shell");
   });
-  it("Cursor access read selects ask mode; write grants commands without claiming a sandbox", () => {
-    const read = buildLaunchArgv(cursorCli, { prompt: "hi", access: "read" });
-    expect(read.slice(read.indexOf("--mode"), read.indexOf("--mode") + 2)).toEqual([
-      "--mode",
-      "ask",
-    ]);
-    expect(read).not.toContain("--force");
-    const write = buildLaunchArgv(cursorCli, { prompt: "hi", access: "write" });
-    expect(write).toContain("--force");
-    expect(write).not.toContain("--sandbox");
-    const both = buildLaunchArgv(cursorCli, { prompt: "hi", access: "write", autonomy: true });
-    expect(both.filter((token) => token === "--force")).toHaveLength(1);
-    expect(buildLaunchArgv(cursorCli, { prompt: "hi" })).not.toContain("--force");
+  it("Cursor access renders onto the SDK worker options, not CLI flags (#440)", () => {
+    // The argv is the worker marker; the restriction rides the open line,
+    // mapped by the one owner (interpretation/cursor-sdk.ts).
+    for (const access of ["read", "write"] as const) {
+      const argv = buildLaunchArgv(cursorCli, { prompt: "hi", access });
+      expect(argv).toEqual(["hcn-cursor-sdk-worker"]);
+    }
+    const read = cursorSdkAccessRestriction({ access: "read" });
+    expect(read.tools).toEqual(["read", "grep", "glob", "ls", "webFetch", "webSearch"]);
+    expect(read.disallowedTools).toEqual(["task", "mcp"]);
+    const write = cursorSdkAccessRestriction({ access: "write" });
+    expect(write).toEqual({ sandbox: false });
+    // A bare call sets no restriction - the SDK's native defaults apply.
+    expect(cursorSdkAccessRestriction({})).toEqual({});
+    expect(buildLaunchArgv(cursorCli, { prompt: "hi" })).toEqual(["hcn-cursor-sdk-worker"]);
   });
   it("write on Claude/pi/Muse does not set tool-selection flags", () => {
     expect(buildLaunchArgv(claudeCode, { prompt: "hi", access: "write" }).join(" ")).not.toContain(

@@ -1,0 +1,38 @@
+{"hcn":"opened","id":"hcn-identity","agentId":"agent-c0f27989-964f-4878-b910-13e84525895f","type":"system","subtype":"init","session_id":"agent-c0f27989-964f-4878-b910-13e84525895f"}
+{"hcn":"receipt","id":"hcn-send:1","disposition":"started"}
+{"hcn":"event","delta":{"type":"text-delta","text":"I'll"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" run"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" `"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"echo"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" sevent"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"est"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"`"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" and"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" report"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" the"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" output"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"."}}
+{"hcn":"event","event":{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"I'll run `echo seventest` and report the output."}]}}}
+{"hcn":"event","event":{"type":"tool_call","agent_id":"agent-c0f27989-964f-4878-b910-13e84525895f","run_id":"run-8abd13a9-2866-4944-a339-e0d94e7aa3a3","call_id":"call-366a1d35-2e98-4acf-8034-9eb9f4224375-0\nfc_3da4f231-f3d2-9cbb-8bf0-80891aac2001_0","name":"shell","status":"running","args":{"command":"echo seventest","timeout":30000}}}
+{"hcn":"event","event":{"type":"tool_call","agent_id":"agent-c0f27989-964f-4878-b910-13e84525895f","run_id":"run-8abd13a9-2866-4944-a339-e0d94e7aa3a3","call_id":"call-366a1d35-2e98-4acf-8034-9eb9f4224375-0\nfc_3da4f231-f3d2-9cbb-8bf0-80891aac2001_0","name":"shell","status":"completed","args":{"command":"echo seventest","timeout":30000},"result":{"status":"success","value":{"exitCode":0,"signal":"","stdout":"seventest\n","stderr":"","executionTime":1276}}}}
+{"hcn":"event","delta":{"type":"text-delta","text":"The"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" command"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" printed"}}
+{"hcn":"event","delta":{"type":"text-delta","text":":\n\n"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"```"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"\n"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"se"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"vent"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"est"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"\n"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"```"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"\n\n"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"Exit"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" code"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" was"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" "}}
+{"hcn":"event","delta":{"type":"text-delta","text":"0"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"."}}
+{"hcn":"event","event":{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"The command printed:\n\n```\nseventest\n```\n\nExit code was 0."}]}}}
+{"hcn":"event","event":{"type":"usage","agent_id":"agent-c0f27989-964f-4878-b910-13e84525895f","run_id":"run-8abd13a9-2866-4944-a339-e0d94e7aa3a3","usage":{"inputTokens":27194,"outputTokens":128,"cacheReadTokens":26880,"cacheWriteTokens":0,"totalTokens":54202,"reasoningTokens":79}}}
+{"hcn":"turn-end","status":"finished"}

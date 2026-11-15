@@ -30,6 +30,7 @@ import { ArgvRefusalError } from "../interpretation/refusal.js";
 import type { HarnessDescriptor } from "../knowledge/descriptor.js";
 import { matcherOverridesOf } from "../knowledge/overrides.js";
 import { AsyncChannel } from "./channel.js";
+import { streamCursorSdkTurn } from "./cursor-sdk-turn.js";
 import {
   decodeLine,
   freshDecodeState,
@@ -67,16 +68,14 @@ import {
 import { LineBuffer, type LineOverflow, RUN_LINE_MAX } from "./lines.js";
 import { type MuseApprovalObserver, watchMuseApprovals } from "./muse-approvals.js";
 import { streamNativeApprovalTurn } from "./native-approval-turn.js";
-import { StderrTail, superviseTurn } from "./supervisor.js";
+import { PIPE_GRACE_MS, StderrTail, superviseTurn } from "./supervisor.js";
 import { verifyNativeSettings } from "./verified-native-settings.js";
 
 /** Fallback correlation when the host does not mint turn ids: monotonic per
  * process. Hosts that need cross-process uniqueness pass deps.turnId. */
 let turnCounter = 0;
 
-/** The grace allowed for pipes still held open (by a grandchild) after the
- * process itself exited. */
-export const PIPE_GRACE_MS = 2_000;
+export { PIPE_GRACE_MS } from "./supervisor.js";
 
 const OUTPUT_STREAMS = ["stdout", "stderr"] as const;
 
@@ -151,6 +150,13 @@ export async function* streamTurn(
   const turnId = deps.turnId ?? `turn-${++turnCounter}`;
   if (opts.nativeApprovals) {
     yield* streamNativeApprovalTurn(h, opts, { ...deps, turnId });
+    return;
+  }
+  // Issue #440: an SDK-backed harness never spawns its native CLI for a
+  // headless turn - the worker runner owns the whole turn, with the same
+  // supervising policies this runner composes.
+  if (h.sdk != null) {
+    yield* streamCursorSdkTurn(h, opts, { ...deps, turnId });
     return;
   }
   const log = deps.log ?? (() => {});
