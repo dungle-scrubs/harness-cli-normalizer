@@ -134,6 +134,19 @@ export const museCode: HarnessDescriptor = deepFreeze({
   // rejected-replacement failure the 1.1.1 records hold (muse-1.4.1
   // re-observes it live). Native growth handling is not a pending-prompt count or a guarantee
   // that arbitrary incoming content fits; native compaction can fail.
+  //
+  // NOT reproduced on 1.4.20 (2026-11-15) or on 1.4.24 (2026-11-20): a
+  // five-step soft/hard threshold ladder at the 1.4.2 probe shape never
+  // produced a successful replacement (no candidate at 0.08 and above;
+  // no_progress_exhausted at 0.02/0.04 on 1.4.20; a turn deadline at
+  // 0.06/0.08), and on 1.4.24 the bounded re-run at the ladder's best setting
+  // (0.02/0.04) fired no candidate at all across eight read turns while
+  // later recall stayed intact - the trigger accounting has moved past the
+  // probe shape. The failed attempts' raw captures are retained in the
+  // capture machine's refresh task evidence trees (the issue-442 reverify
+  // of 2026-11-15 and the 2026-11-21 refresh). The anchor stays 1.4.2
+  // until a later refresh reproduces the contract; seven and questions pass
+  // on 1.4.24 (2026-11-20).
   nativeContextManagement: { kind: "auto-compaction", modes: ["headless-turn"] },
   // `muse resume --last` exists (muse resume --help) but needs a
   // terminal: parse data for `parse-resume.ts` only, never a render
