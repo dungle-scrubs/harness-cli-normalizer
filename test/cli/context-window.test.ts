@@ -92,7 +92,6 @@ describe("context window", () => {
           supportedBy: [
             { harness: "claude", spelling: "--autocompact" },
             { harness: "codex", spelling: "-c" },
-            { harness: "popeye", spelling: "--context-window" },
           ],
         },
       });

@@ -14,7 +14,6 @@ import { claudeCode } from "../../src/knowledge/claude-code.js";
 import { codexCli } from "../../src/knowledge/codex.js";
 import type { HarnessDescriptor } from "../../src/knowledge/descriptor.js";
 import { piCli } from "../../src/knowledge/pi.js";
-import { popeyeCli } from "../../src/knowledge/popeye.js";
 import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "../execution/fakes.js";
 
 const sid = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
@@ -100,10 +99,6 @@ describe("issue #426: the session packet advertises the harness's controls", () 
     },
     {
       descriptor: antigravityCli,
-      controls: { deliveryModes: [], interrupt: { supported: false } },
-    },
-    {
-      descriptor: popeyeCli,
       controls: { deliveryModes: [], interrupt: { supported: false } },
     },
   ])("$descriptor.name", async ({ descriptor, controls }) => {

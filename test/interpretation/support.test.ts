@@ -29,10 +29,10 @@ describe("supportedBy derivation (D7)", () => {
     ]);
   });
 
-  it("tools: claude, pi, and popeye", () => {
+  it("tools: claude and pi", () => {
     const by = supportedBy(defaultDescriptors(), "tools");
-    expect(by.map((e) => e.harness)).toEqual(["claude", "pi", "popeye"]);
-    expect(by.map((e) => e.spelling)).toEqual(["--allowedTools", "--tools", "--tools"]);
+    expect(by.map((e) => e.harness)).toEqual(["claude", "pi"]);
+    expect(by.map((e) => e.spelling)).toEqual(["--allowedTools", "--tools"]);
   });
 
   it("sandbox: codex and Antigravity", () => {
@@ -79,7 +79,7 @@ describe("refusals carry the structured fields (D8 order)", () => {
       const r = e as ArgvRefusalError;
       expect(r.issue).toBe("unsupported-option");
       expect(r.option).toBe("tools");
-      expect(r.supportedBy?.map((x) => x.harness)).toEqual(["claude", "pi", "popeye"]);
+      expect(r.supportedBy?.map((x) => x.harness)).toEqual(["claude", "pi"]);
       expect(r.hint).toMatch(/category switches via config keys/);
     }
   });
@@ -90,7 +90,7 @@ describe("refusals carry the structured fields (D8 order)", () => {
       expect.unreachable();
     } catch (e) {
       const r = e as ArgvRefusalError;
-      expect(r.supportedBy?.map((x) => x.harness)).toEqual(["claude", "pi", "popeye"]);
+      expect(r.supportedBy?.map((x) => x.harness)).toEqual(["claude", "pi"]);
       expect(r.hint).toMatch(/--disable-write/);
     }
   });
@@ -106,7 +106,7 @@ describe("native spelling recognition (D7 part B)", () => {
   it("pi's exclude flag maps to excludeTools", () => {
     const r = recognizeNativeSpelling(defaultDescriptors(), "--exclude-tools");
     expect(r?.option).toBe("excludeTools");
-    expect(r?.entries.map((e) => e.harness)).toEqual(["pi", "popeye"]);
+    expect(r?.entries.map((e) => e.harness)).toEqual(["pi"]);
   });
 
   it("unknown flags return null (keep plain error)", () => {

@@ -25,8 +25,6 @@ export const resolveStoreRoot = (
     const rooted = suffix === "" ? value : join(value, suffix);
     return isAbsolute(rooted) ? rooted : resolve(opts.cwd, rooted);
   }
-  // {cwd} names a spawn-relative root (popeye's session dir defaults to
-  // the spawn cwd); {home} keeps the existing home-anchored behavior.
   return h.store.defaultRoot === undefined
     ? undefined
     : expandRoot(h, h.store.defaultRoot, opts.home, opts.cwd);

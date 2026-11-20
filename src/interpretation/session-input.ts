@@ -71,8 +71,7 @@ export interface SessionInputEncodingOptions {
   /** Claude: the native message uuid stamped on an explicitly delivered
    * user frame, so turn records naming it correlate back to this input. */
   readonly uuid?: string;
-  /** Popeye prompt frames and codex requests carry the minted session id
-   * (popeye session, codex thread). */
+  /** Codex requests carry the minted thread session id. */
   readonly sessionId?: string;
   /** Codex steer precondition: the tracked id of the currently running
    * native turn. A mismatch fails the request server-side, which is the
@@ -125,15 +124,6 @@ export const encodeSessionInput = (
       if (options?.delivery !== undefined)
         throw new SessionInputRefusalError("unsupported-delivery");
       return `${JSON.stringify({ event: "user", message: { content: text } })}\n`;
-    case "popeye-rpc-prompt":
-      if (options?.delivery !== undefined)
-        throw new SessionInputRefusalError("unsupported-delivery");
-      return `${JSON.stringify({
-        _tag: "prompt",
-        content: text,
-        id: options === undefined ? SEND_ID : `${SEND_ID_PREFIX}${options.id}`,
-        ...(options?.sessionId === undefined ? {} : { sessionId: options.sessionId }),
-      })}\n`;
     case "codex-jsonrpc": {
       if (options?.delivery === "queue") throw new SessionInputRefusalError("unsupported-delivery");
       // One JSON-RPC request line per send. Idle: turn/start opens the
@@ -271,8 +261,7 @@ export const readInputUuids = (
 /** What one spawn must write to learn the session id, or null when the
  * harness announces identity on its stream unprompted. pi rpc is
  * identity-silent at startup (spike fixtures); the response echoes the
- * marker id. Popeye rpc is likewise silent: the probe is a create frame,
- * and the snapshot response mints the session. Codex app-server is
+ * marker id. Codex app-server is
  * silent AND needs a handshake: the probe is two JSON-RPC lines,
  * `initialize` (required before any other request - verified 0.159.2:
  * everything else fails with -32600 "Not initialized") then the thread
@@ -290,8 +279,6 @@ export const encodeIdentityProbe = (
 ): string | null => {
   const mode = h.sessionMode;
   if (mode === null || mode.identityProbe === null) return null;
-  if (mode.input.kind === "popeye-rpc-prompt")
-    return `${JSON.stringify({ _tag: mode.identityProbe.command, id: IDENTITY_PROBE_ID })}\n`;
   if (mode.input.kind === "pi-rpc-prompt")
     return `${JSON.stringify({ id: IDENTITY_PROBE_ID, type: mode.identityProbe.command })}\n`;
   if (mode.input.kind === "cursor-sdk") return encodeCursorSdkIdentityProbe(opts);
@@ -723,54 +710,6 @@ export const decodeSessionRecord = (
       proposal: decoded.proposal,
       ...(decoded.timeoutMs === undefined ? {} : { timeoutMs: decoded.timeoutMs }),
     };
-  }
-  if (mode.input.kind === "popeye-rpc-prompt") {
-    const result = asRecord(parsed.result);
-    const error = asRecord(parsed.error);
-    if (error !== null || (result === null && parsed.id !== undefined)) {
-      const inputId =
-        typeof parsed.id === "string" && parsed.id.startsWith(SEND_ID_PREFIX)
-          ? parsed.id.slice(SEND_ID_PREFIX.length)
-          : undefined;
-      // The identity probe answered with an error: route through
-      // probe-failed so the runner's #345 arm can settle buffered sends
-      // and set the session-scoped failure, the way it does for codex.
-      if (parsed.id === IDENTITY_PROBE_ID) {
-        const message =
-          error !== null && typeof error.message === "string"
-            ? `rpc command failed: ${JSON.stringify(parsed.id)} - ${error.message}`
-            : `rpc command failed: ${JSON.stringify(error ?? parsed)}`;
-        return { kind: "probe-failed", message };
-      }
-      return {
-        ...(inputId === undefined ? {} : { inputId }),
-        kind: "command-failed",
-        message: `rpc command failed: ${JSON.stringify(error ?? parsed)}`,
-      };
-    }
-    if (result !== null && result._tag === "snapshot") {
-      const probe = mode.identityProbe;
-      const announced = probe === null ? undefined : readPath(parsed, probe.responseIdField);
-      if (parsed.id === IDENTITY_PROBE_ID) {
-        return typeof announced === "string"
-          ? { kind: "identity", sessionId: announced }
-          : { kind: "probe-failed", message: "create response carried no sessionId" };
-      }
-      // A prompt response carries the settled snapshot: the turn is over
-      // in the same record (no native receipt; the send settled at write).
-      // A trailing error/aborted assistant entry marks the turn failed.
-      const entries = Array.isArray(result.entries) ? result.entries : [];
-      const reasons = entries.flatMap((line) => {
-        const entry = asRecord(line);
-        const payload = asRecord(entry?.payload);
-        return entry?.kind === "message" && payload?.role === "assistant"
-          ? [payload.stopReason]
-          : [];
-      });
-      const lastReason = reasons.at(-1);
-      return { kind: "turn-end", isError: lastReason === "error" || lastReason === "aborted" };
-    }
-    return { kind: "content" };
   }
   if (isClaudeSessionInput(mode.input.kind) && parsed.type === "control_request") {
     // Issue #454/#455: a permission-gated tool use the child asks the host

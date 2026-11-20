@@ -10,8 +10,8 @@ import { describe, expect, it } from "vitest";
 import { allHints, hintFor } from "../../src/interpretation/hints.js";
 
 describe("hint table (confirmed instances)", () => {
-  it("carries exactly 41 entries (24 confirmed + 3 issue #48 ratified + 4 tools + 1 memory ratified 2026-08-26 + 2 cursor ratified 2026-09-17 + 1 resumeLast ratified 2026-09-17 + 2 popeye RFC-02 P5 + 4 opencode first slice)", () => {
-    expect(allHints().length).toBe(41);
+  it("carries exactly 39 entries (24 confirmed + 3 issue #48 ratified + 4 tools + 1 memory ratified 2026-08-26 + 2 cursor ratified 2026-09-17 + 1 resumeLast ratified 2026-09-17 + 4 opencode first slice)", () => {
+    expect(allHints().length).toBe(39);
   });
 
   it("covers exactly the confirmed harness-dimension pairs", () => {
@@ -52,8 +52,6 @@ describe("hint table (confirmed instances)", () => {
         "muse/systemPrompt",
         "muse/tools",
         "pi/maxSteps",
-        "popeye/resumeLast",
-        "popeye/skills",
         "opencode/excludeTools",
         "opencode/resumeLast",
         "opencode/skills",

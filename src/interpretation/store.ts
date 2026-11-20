@@ -47,17 +47,13 @@ export const slugFor = (h: HarnessDescriptor, cwd: string): string => {
 };
 
 /** Expand a root-table string (a `defaultRoot`, or a `rootEnv` suffix):
- * `{home}`, `{cwd}`, and `{cwdSlug}` under the descriptor's slug rule. */
+ * `{home}` and `{cwdSlug}` under the descriptor's slug rule. */
 export const expandRoot = (
   h: HarnessDescriptor,
   value: string,
   home: string,
   cwd: string,
-): string =>
-  value
-    .replaceAll("{home}", () => home)
-    .replaceAll("{cwd}", () => cwd)
-    .replaceAll("{cwdSlug}", () => slugFor(h, cwd));
+): string => value.replaceAll("{home}", () => home).replaceAll("{cwdSlug}", () => slugFor(h, cwd));
 
 export const storePath = (h: HarnessDescriptor, inputs: StorePathInputs): string => {
   assertUsableSessionId(inputs.sessionId);

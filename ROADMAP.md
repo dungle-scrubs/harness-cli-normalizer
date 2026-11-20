@@ -55,13 +55,6 @@ Planned work for hcn. Each item must pass the scope test in `AGENTS.md`.
   `glm-5.3-flash-free` and a few others keep no data, `big-pickle` may train
   on prompts; hcn does not choose the model.
 
-- **Popeye 0.2.0** - the npm-distributed CLI is verified for fresh turns,
-  streaming, persistent sessions, separate-process resume, interruption, and
-  missing-executable failures (2026-10-11). The version source now tracks
-  `@dungle-scrubs/popeye` on npm. Question escalation remains unverified and
-  disabled; native context management remains undeclared. Earlier descriptor,
-  journal reader, and session-driving evidence is retained (RFC-02 P5).
-
 - **Antigravity CLI 1.2.8** - authenticated qualification covers headless
   streaming, native permissions, cancellation, timeout, model selection,
   persistent sessions, named resume, resume last, native store creation,
@@ -72,6 +65,11 @@ Planned work for hcn. Each item must pass the scope test in `AGENTS.md`.
   (`test/fixtures/antigravity-1.2.7`) and stands; the anchor moved to 1.2.8
   when the capability tripwires were re-run on it
   (`test/fixtures/antigravity-1.2.8`).
+
+## Removed harnesses
+
+- Popeye removed on 2026-11-21 at the maintainer's request; its evidence
+  remains in git history.
 
 ## Native stream and access normalization
 
@@ -237,8 +235,8 @@ Nothing here is takeable: the map is complete.
 
 ## Named-agent flips
 
-The normalized `--agent <name>` flag ships on claude, antigravity, and
-popeye (map
+The normalized `--agent <name>` flag shipped on claude, antigravity, and
+popeye, since removed (map
 [#288](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/288);
 popeye flipped in 0.7.7, verified against popeye 0.1.4). Pi shipped as
 the fourth through the extension-registered route (map

@@ -68,12 +68,6 @@ export const transcriptStoreRoot = (
     if (root === undefined) throw new Error("cursor descriptor declares no store root");
     return root;
   }
-  if (harness === "popeye") {
-    // Flat <sessionDir>/<sessionId>.jsonl; the default session dir is
-    // cwd-relative. POPEYE_SESSION_DIR is not a popeye feature; the
-    // spawn cwd names the directory the child uses.
-    return resolve(opts.cwd, ".popeye", "sessions");
-  }
   if (harness === "opencode") {
     // The OpenCode CLI keeps its sessions in a SQLite store under the XDG
     // data root: `$XDG_DATA_HOME/opencode` or `~/.local/share/opencode`.

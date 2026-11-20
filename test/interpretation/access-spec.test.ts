@@ -84,7 +84,6 @@ describe("one access spec", () => {
       { harness: "pi", spelling: "--tools" },
       { harness: "muse", spelling: "--disable-write" },
       { harness: "cursor", spelling: "--mode" },
-      { harness: "popeye", spelling: "--tools" },
     ]);
   });
 

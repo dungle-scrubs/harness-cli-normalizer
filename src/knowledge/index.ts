@@ -1,7 +1,7 @@
 /**
  * Knowledge layer: owns harness descriptors as pure data.
  *
- * Each supported CLI (claude, codex, pi, muse, cursor, antigravity, popeye,
+ * Each supported CLI (claude, codex, pi, muse, cursor, antigravity,
  * opencode) is described by an immutable
  * descriptor capturing its argv shapes, identity and store locations, flag
  * sets, and capability claims. The point of this module is to keep every fact
@@ -31,4 +31,3 @@ export {
   parseOverrides,
 } from "./overrides.js";
 export { piCli } from "./pi.js";
-export { popeyeCli } from "./popeye.js";

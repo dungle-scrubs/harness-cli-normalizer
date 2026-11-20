@@ -39,7 +39,7 @@ const runSession = (
 ): SessionRun => {
   const configDir = "config";
   return runCliFixture(runtime, ["session", harness, "--json", ...flags], {
-    binaries: ["claude", "codex", "antigravity", "popeye", "pi"],
+    binaries: ["claude", "codex", "antigravity", "pi"],
     env: { HCN_CONFIG_DIR: configDir },
     setup: (root) => {
       mkdirSync(join(root, configDir), { recursive: true });
@@ -152,7 +152,7 @@ for (const runtime of runtimes) {
     });
   }
 
-  for (const harness of ["codex", "antigravity", "popeye"]) {
+  for (const harness of ["codex", "antigravity"]) {
     for (const flags of [
       ["--tools", "read"],
       ["--exclude-tools", "shell"],

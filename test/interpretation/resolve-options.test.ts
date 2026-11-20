@@ -16,7 +16,6 @@ import { cursorCli } from "../../src/knowledge/cursor.js";
 import { museCode } from "../../src/knowledge/muse.js";
 import { parseOverrides } from "../../src/knowledge/overrides.js";
 import { piCli } from "../../src/knowledge/pi.js";
-import { popeyeCli } from "../../src/knowledge/popeye.js";
 import { DEFAULT_TURN_PROFILE } from "../../src/knowledge/profile.js";
 
 const base: TurnOptions = { prompt: "hi" };
@@ -388,11 +387,9 @@ describe("claude contextWindow profile exemption", () => {
     expect(r.unrenderable).not.toContainEqual({ key: "contextWindow", tier: "profile" });
   });
 
-  it("codex and popeye keep the profile window", () => {
+  it("codex keeps the profile window", () => {
     const rc = resolveEffectiveOptions(codexCli, base, undefined);
     expect(rc.options.contextWindow).toBe(272000);
-    const rp = resolveEffectiveOptions(popeyeCli, base, undefined);
-    expect(rp.options.contextWindow).toBe(272000);
   });
 });
 

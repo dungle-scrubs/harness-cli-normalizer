@@ -28,7 +28,6 @@ import { compileMatcher, MAX_MATCHERS_PER_KIND } from "./matchers.js";
 import { museCode } from "./muse.js";
 import { opencodeCli } from "./opencode.js";
 import { piCli } from "./pi.js";
-import { popeyeCli } from "./popeye.js";
 
 export type DescriptorSet = Partial<Record<HarnessName, HarnessDescriptor>>;
 
@@ -40,7 +39,6 @@ const SHARED_DESCRIPTORS: DescriptorSet = {
   // RFC-05: the cursor entry is also what makes `hcn ls` list it.
   cursor: cursorCli,
   antigravity: antigravityCli,
-  popeye: popeyeCli,
   opencode: opencodeCli,
 };
 

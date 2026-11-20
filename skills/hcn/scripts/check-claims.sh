@@ -242,7 +242,6 @@ case "$help_run" in
   *"--autocompact"*)
     require "hcn run --help (context window)" "$help_run" \
       "codex 1-272000" \
-      "popeye 1-10000000" \
       "claude 100000-1000000" \
       "--autocompact" \
       "auto-compact window" \
@@ -342,7 +341,7 @@ esac
 
 # Session roster, questions, effort, and write-through sends.
 require "hcn session --help" "$help_session" \
-  "claude | codex | pi | cursor | antigravity | popeye" \
+  "claude | codex | pi | cursor | antigravity" \
   "--session-id" \
   "--questions <ask|assume|none>" \
   "--effort" \

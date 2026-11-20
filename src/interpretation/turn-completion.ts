@@ -24,8 +24,6 @@ export const successfulTurnEnd = (harness: HarnessName, raw: unknown): boolean =
     }
     case "antigravity":
       return r.event === "result" && asRecord(r.result)?.status === "SUCCESS";
-    case "popeye":
-      return r.kind === "done" && r.cause === "clean";
     case "opencode":
       // The turn's own delimiter: the final `step_finish`, whose reason
       // is `stop` (a mid-turn step finishes with `tool-calls`).

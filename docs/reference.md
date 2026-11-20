@@ -35,12 +35,12 @@ Usage: `hcn run <harness> [prompt] [options]`. Each flag sets one turn option.
 | `--model <id>` | `model` | Validated via `validateModel` |
 | `--effort <value>` | `effort` | Validated via `validateEffort` |
 | `--sandbox <value>` | `sandbox` | Codex; Antigravity accepts normalized `workspace-write` and renders its boolean `--sandbox` flag |
-| `--context-window <tokens>` | `contextWindow` | Codex, integer 1-272000 (launch default 272000); Popeye 1-10000000; Claude 100000-1000000 as native `--autocompact` (auto-compact window, no launch default). Session spawns accept explicit flags only |
+| `--context-window <tokens>` | `contextWindow` | Codex, integer 1-272000 (launch default 272000); Claude 100000-1000000 as native `--autocompact` (auto-compact window, no launch default). Session spawns accept explicit flags only |
 | `--provider <value>` | `provider` | pi only |
 | `--setting-sources <list>` | `settingSources` | Claude only: comma list of `user`, `project`, `local` - non-empty, no repeats - selecting which settings scopes the child loads (rendered as Claude's `--setting-sources`). A bare run renders nothing (Claude's own default applies); a session keeps the curated default `project`, and an explicit selection replaces it. Other harnesses refuse before spawn; `--no-extensions` (whose Claude spelling pins the same native flag to `project`) refuses together with it. No config key |
-| `--agent <name>` | `agent` | Select a named agent the harness defines natively - hcn selects among them, never defines them. claude, antigravity, and popeye (native `--agent`); opencode refuses (its `run --agent` is not rendered yet); pi is **extension-registered** (ADR 0010): its subagent extension provides the flag, hcn verifies with a runtime probe before spawn (`extension-option-unavailable` refusal names the extension when it is absent; one provenance line on a verified pass), and `inspect pi --runtime` answers for the machine; codex, muse, and cursor refuse before spawn. An unknown name is the harness's own native error (antigravity and pi tolerate one and continue with a warning; claude and popeye reject with a typed error); no harness exposes a stable machine roster, so hcn does not validate the name beyond the selector rule. Rendered on session spawn and on resume as well (probed: claude `--resume`, antigravity `--conversation`) |
-| `--tools <a,b>` | `tools` | Canonical names (read, write, edit, shell, grep, glob, list, web-fetch, web-search, subagent, skill); `native:<name>` passes a harness-native or extension tool through. Per-tool allowlist; claude, pi and popeye (pi and popeye strict `--tools`, claude via an `--allowedTools` grant + `--disallowedTools` deny-complement); opencode refuses (no per-tool list on its command line). A bare name matching a configured toolset expands to it |
-| `--exclude-tools <a,b>` | `excludeTools` | Canonical names (same vocabulary, `native:<name>` passthrough); complement over known tool names; claude, pi and popeye; opencode refuses; mutually exclusive with `--tools` |
+| `--agent <name>` | `agent` | Select a named agent the harness defines natively - hcn selects among them, never defines them. claude and antigravity (native `--agent`); opencode refuses (its `run --agent` is not rendered yet); pi is **extension-registered** (ADR 0010): its subagent extension provides the flag, hcn verifies with a runtime probe before spawn (`extension-option-unavailable` refusal names the extension when it is absent; one provenance line on a verified pass), and `inspect pi --runtime` answers for the machine; codex, muse, and cursor refuse before spawn. An unknown name is the harness's own native error (antigravity and pi tolerate one and continue with a warning; claude rejects with a typed error); no harness exposes a stable machine roster, so hcn does not validate the name beyond the selector rule. Rendered on session spawn and on resume as well (probed: claude `--resume`, antigravity `--conversation`) |
+| `--tools <a,b>` | `tools` | Canonical names (read, write, edit, shell, grep, glob, list, web-fetch, web-search, subagent, skill); `native:<name>` passes a harness-native or extension tool through. Per-tool allowlist; claude and pi (pi strict `--tools`, claude via an `--allowedTools` grant + `--disallowedTools` deny-complement); opencode refuses (no per-tool list on its command line). A bare name matching a configured toolset expands to it |
+| `--exclude-tools <a,b>` | `excludeTools` | Canonical names (same vocabulary, `native:<name>` passthrough); complement over known tool names; claude and pi; opencode refuses; mutually exclusive with `--tools` |
 | `-- <harness args>` | `passthrough` | Verbatim harness tokens rendered at the harness's descriptor placement with no separator (ADR 0003); failures surface as labeled native errors (hcn exit 1, native exit code as data). A harness that declares `prompt-joins` refuses a non-empty tail before spawn instead of rewriting the prompt (none do today). Cursor also refuses any tail: the SDK worker takes no native CLI flags |
 | `--autonomy` / `--no-autonomy` | `autonomy` | |
 | `--write` / `--no-write` | `write` | Muse |
@@ -52,7 +52,7 @@ Usage: `hcn run <harness> [prompt] [options]`. Each flag sets one turn option.
 | `--env KEY=VAL` | `env` | Repeatable; `KEY=` deletes |
 | `--resume <uuid>` | `resume` | Resume session. Cursor resumes an SDK conversation id (`agent-<uuid>`), which survives process restarts; a bare UUID names a CLI-chat session in a different store and refuses explicitly |
 | `--session-id <uuid>` | `resume` | Alias for `--resume`; UUID of session to resume or re-enter |
-| `--resume-last` | `resumeLast` | Resume the harness's most recent session in the spawn cwd, without naming an id (claude, codex, pi, antigravity; muse, popeye, opencode, and cursor refuse). Mutually exclusive with `--resume`/`--session-id`; refused on `hcn session`, with `--native-approvals`, and with `--native-settings-fingerprint` |
+| `--resume-last` | `resumeLast` | Resume the harness's most recent session in the spawn cwd, without naming an id (claude, codex, pi, antigravity; muse, opencode, and cursor refuse). Mutually exclusive with `--resume`/`--session-id`; refused on `hcn session`, with `--native-approvals`, and with `--native-settings-fingerprint` |
 | `--skills <a,b>` | `skills` | Skill allowlist; claude, pi and codex (pi strict via --skill, claude via --settings skillOverrides, codex via -c skills.config) |
 | `--timeout <seconds>` | `timeoutSeconds` | Wall-clock budget for the run (hcn-enforced; 0 disables; no default) |
 | `--questions <ask\|assume\|none>` | `questions` | Which preamble hcn injects: `ask` lets the worker ask when blocked (DEFAULT), `assume` tells it never to ask and to state its assumption, `none` injects nothing. See [Question escalation](#question-escalation) |
@@ -93,7 +93,7 @@ its fallback on failure. See the [native CLI reference](https://code.claude.com/
 recent session in the exact spawn cwd through each harness's own
 most-recent grammar (claude `--continue --fork-session`, codex
 `exec resume --last`, pi `--continue`, Antigravity
-`--continue`; muse, popeye, and cursor refuse - cursor's SDK backend has
+`--continue`; muse and cursor refuse - cursor's SDK backend has
 no most-recent-conversation path, so the flag refuses instead of
 silently starting a fresh conversation). Most-recent resolution stays inside the harness;
 hcn only renders. A resume-last turn is resume-semantics: no defaults
@@ -122,7 +122,7 @@ The built-in profile pins the ratified defaults: effort `medium` (the only
 value in all five uniform ladders; profile-tier effort reports divergence on
 cursor, whose ladders are per-family), sandbox `workspace-write` (codex and
 Antigravity; reported as divergence elsewhere), context window `272000`
-(codex and popeye; Claude keeps its native auto-compaction default;
+(codex; Claude keeps its native auto-compaction default;
 other harnesses report divergence),
 discovery fully on, autonomy off, memory off. A dimension a
 harness cannot express is reported as divergence, never a silent skip and
@@ -278,7 +278,6 @@ Rendering per harness:
 | codex | `--sandbox read-only` | `--sandbox workspace-write` |
 | muse | `--disable-write --disable-shell` | nothing |
 | cursor | SDK `tools: read, grep, glob, ls, webFetch, webSearch` + `disallowedTools: task, mcp` (bare runs and sessions set no restriction - the SDK's native defaults) | SDK native toolset, sandbox explicitly off (unconfined commands) |
-| popeye | `--tools read,grep,glob,list,web-fetch,web-search` | nothing |
 | opencode | - (refuses; no access preset on its command line) | nothing |
 
 On claude, the read preset denies every MCP tool (`mcp__*`). A deny rule wins over
@@ -433,7 +432,7 @@ name. Results retain structured values, including Pi extension `details`, rather
 or truncating them. Pi's execution-end record is emitted once; partial updates and message echoes
 are not duplicate results. Cursor completions also retain their native success/error/rejection
 payloads. Codex results retain the completed tool item, Muse its result text, and Antigravity its
-output or structured error. Popeye's current stream reports no tool results.
+output or structured error.
 
 A tool error does not establish a failed turn. `done.cause: clean` reports a clean lifecycle
 outcome, including a session turn cancelled by a confirmed native interrupt. It does not judge
@@ -472,7 +471,7 @@ unknown. `costUsd` is the harness's estimate, not authoritative billing or subsc
 | Cursor | `turn` | Native terminal usage. |
 | Antigravity | `session` | Native result accounting accumulates through the persistent session/process; do not sum snapshots. |
 | OpenCode | `message` per step | The counts are that step's own, not a running total; a turn's spend is the sum over its steps, which the caller does. hcn derives no total. |
-| Muse, Popeye | none in their current streams | Silence is missing reporting, not zero usage. |
+| Muse | none in its current stream | Silence is missing reporting, not zero usage. |
 
 Codex exec's `turn.completed` name does not establish turn-scoped accounting:
 [Codex 0.162.1's emitter](https://github.com/openai/codex/blob/rust-v0.162.1/codex-rs/exec/src/event_processor_with_jsonl_output.rs#L118-L128)
@@ -764,12 +763,11 @@ as hcn 0.9.8 emitted them for one send:
   `failed`. `closed.failure` carries the reduced `FailureSummary` when the
   cause is not clean and a failure was seen. `awaiting-input` ends a turn,
   never a session. `failed` is the cause when the harness refused hcn's
-  session open (codex answering `thread/start` with an error, popeye
-  refusing `create`) and then exited cleanly, unless the refusal
+  session open (codex answering `thread/start` with an error) and then
+  exited cleanly, unless the refusal
   classifies as a rate-limit, usage-limit or quota wall, which takes limit
   precedence: `closed` reports cause `limit` instead, and hcn exits 1; codex
-  rejects the waiting send with reason `native-rejected`, and popeye ends
-  the waiting send's turn with the failure. A nonzero exit while no turn
+  rejects the waiting send with reason `native-rejected`. A nonzero exit while no turn
   is open (for example,
   codex dying before it answers hcn's session open or `turn/start`) reports
   a failure on `closed.failure`, with cause `crash`. A failure already
@@ -894,7 +892,7 @@ allowlist `hcn run --skills` takes, resolved against `$HCN_SKILLS_ROOT`
 through the same code path: pi loads only the picks, claude narrows the
 registry via `--settings skillOverrides`, codex via `-c skills.config`.
 The allowlist is a spawn property, so it holds for the whole session across
-every turn (resume included); antigravity and popeye cannot enforce it and
+every turn (resume included); antigravity cannot enforce it and
 refuse with exit 2 rather than open with the full set, and unknown names
 refuse with exit 2 before spawn. The other
 session flags (`--model`, `--session-id`, `--cwd`, `--questions`, `--context-window`,
@@ -942,7 +940,7 @@ for await (const line of rl) {
 | Pi | Prompt with `streamingBehavior: "followUp"` | Prompt with `streamingBehavior: "steer"` | Native `abort` |
 | Codex | Unsupported | `turn/start` when idle, `turn/steer` while busy | Unsupported |
 | Cursor | Unsupported | Unsupported | Native `Run.cancel`, best-effort |
-| Antigravity, Popeye | Unsupported | Unsupported | Unsupported |
+| Antigravity | Unsupported | Unsupported | Unsupported |
 
 Muse has no persistent session. Cursor's session runs the SDK in hcn's worker: `send`,
 `answer`, `interrupt`, and `close` work, a send while a run is active is rejected natively
@@ -1704,5 +1702,5 @@ it, with native spellings; `hint`: the nearest alternative on your current
 harness). A native flag typed before `--` is recognized and redirected to
 its normalized spelling.
 
-- Descriptors live in `src/knowledge/` (`claude-code.ts`, `codex.ts`, `pi.ts`, `muse.ts`, `cursor.ts`, `antigravity.ts`, `popeye.ts`, `opencode.ts`), with shared types in `descriptor.ts`.
+- Descriptors live in `src/knowledge/` (`claude-code.ts`, `codex.ts`, `pi.ts`, `muse.ts`, `cursor.ts`, `antigravity.ts`, `opencode.ts`), with shared types in `descriptor.ts`.
 - Internally, `parseOverrides` (`src/knowledge/overrides.ts`) narrows or overrides a descriptor's facts. An override a harness cannot satisfy throws `OverrideRefusalError` instead of producing a broken argv. `limitMatchers`/`authMatchers` are serializable `{pattern, flags, code/kind}` objects so they can be overridden from JSON; bad patterns are refused at load with file and harness named. The CLI exposes no override input.
