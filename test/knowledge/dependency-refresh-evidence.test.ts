@@ -162,6 +162,12 @@ test.each([
     marker: "LANTERN-133-1010",
   },
   {
+    harness: antigravityCli,
+    directory: "antigravity-1.5.13",
+    version: "1.5.13",
+    marker: "LANTERN-1121",
+  },
+  {
     harness: claudeCode,
     directory: "claude-2.1.304",
     version: "2.1.304",

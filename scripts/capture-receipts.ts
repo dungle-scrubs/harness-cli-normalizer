@@ -27,6 +27,7 @@ export const coveredDirectories = [
   "codex-0.165.0",
   "pi-1.4.0",
   "codex-0.171.0",
+  "antigravity-1.5.13",
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -975,6 +976,59 @@ export const CAPTURE_MAP: readonly MapEntry[] = [
     transform: snapshot,
   },
   { file: "pi-1.4.0/version.txt", scenario: "anchor", transform: { kind: "version-anchor" } },
+  {
+    file: "antigravity-1.5.13/fresh.ndjson",
+    scenario: "seven/01",
+    source: "antigravity/seven-captures/01.ndjson",
+    transform: { kind: "copied" },
+  },
+  {
+    file: "antigravity-1.5.13/question.ndjson",
+    scenario: "questions/01",
+    source: "antigravity/questions-captures/01.ndjson",
+    transform: { kind: "copied" },
+  },
+  {
+    file: "antigravity-1.5.13/compaction.ndjson",
+    scenario: "compaction/session-capture",
+    source: "antigravity/compaction/captures/01.ndjson",
+    transform: { kind: "copied" },
+  },
+  {
+    file: "antigravity-1.5.13/later-recall.ndjson",
+    scenario: "compaction/later-recall",
+    source: "antigravity/compaction/captures/02.ndjson",
+    transform: { kind: "copied" },
+  },
+  {
+    file: "antigravity-1.5.13/models.txt",
+    scenario: "models",
+    source: "antigravity/models.txt",
+    transform: { kind: "copied" },
+  },
+  {
+    file: "antigravity-1.5.13/seven.snapshot.json",
+    scenario: "seven",
+    source: "antigravity/seven.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "antigravity-1.5.13/questions.snapshot.json",
+    scenario: "questions",
+    source: "antigravity/questions.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "antigravity-1.5.13/version-source.snapshot.json",
+    scenario: "version-source",
+    source: "antigravity/version-source.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "antigravity-1.5.13/version.txt",
+    scenario: "anchor",
+    transform: { kind: "version-anchor" },
+  },
 ];
 
 // ---------------------------------------------------------------------------

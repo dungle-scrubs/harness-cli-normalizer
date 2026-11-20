@@ -1,0 +1,9 @@
+{
+  "checkedAt": "2026-11-20T18:14:00.000Z",
+  "version": "1.5.13",
+  "latest": "1.5.13",
+  "versionSource": {
+    "kind": "installed"
+  },
+  "install": "~/.local/bin/agy (machine install, already upgraded; `agy models` roster captured the same day)"
+}

@@ -2,8 +2,9 @@
  * Antigravity CLI descriptor. Current Google documentation and authenticated
  * probes establish the argv, stream, permission, session, resume, model, and
  * escalation contracts. Current tripwires, questions, checkpoint, later-process
- * marker recall and model inventory are captured in test/fixtures/antigravity-1.3.3.
- * The historical 1.2.16 tripwires, automatic checkpoint,
+ * marker recall and model inventory are captured in test/fixtures/antigravity-1.5.13
+ * (antigravity-1.3.3, 1.3.2, 1.2.16 and 1.2.7 kept as the prior anchors). The
+ * historical 1.2.16 tripwires, automatic checkpoint,
  * replacement-store entry and later-process marker recall are captured in
  * test/fixtures/antigravity-1.2.16. The permission, sandbox, store and
  * validation corpus behind the remaining claims was captured on 1.2.7
@@ -17,7 +18,7 @@ export const antigravityCli: HarnessDescriptor = deepFreeze({
   name: "antigravity",
   transcript: ANTIGRAVITY_TRANSCRIPT,
   bin: "agy",
-  verifiedAgainst: "1.3.3",
+  verifiedAgainst: "1.5.13",
   versionSource: { kind: "installed" },
   launch: {
     // --print consumes the immediately following positional prompt. Keep
@@ -67,20 +68,14 @@ export const antigravityCli: HarnessDescriptor = deepFreeze({
   autonomy: { flag: "--dangerously-skip-permissions" },
   vocabulary: {
     modelFlag: "--model",
-    // Captured from `agy models` on the free Individual plan. Runtime
+    // Captured from `agy models` on the free Individual plan (1.5.13
+    // capture, 2026-11-20; the 1.3.3 fourteen-slug roster with the
+    // gemini-3.7/3.6/3.1 generations stays in that fixture). Runtime
     // configuration and plan eligibility keep the selector open.
     models: [
       "gemini-3.8-flash-high",
       "gemini-3.8-flash-medium",
       "gemini-3.8-flash-low",
-      "gemini-3.7-flash-high",
-      "gemini-3.7-flash-medium",
-      "gemini-3.7-flash-low",
-      "gemini-3.6-flash-high",
-      "gemini-3.6-flash-medium",
-      "gemini-3.6-flash-low",
-      "gemini-3.1-pro-high",
-      "gemini-3.1-pro-low",
       "claude-sonnet-4-6",
       "claude-opus-4-6-thinking",
       "gpt-oss-120b-medium",
@@ -111,7 +106,12 @@ export const antigravityCli: HarnessDescriptor = deepFreeze({
   // checkpointed before a native capacity failure, which remains a failure.
   // Reproduced on 1.3.2: checkpoint and later-process LANTERN-1010 recall
   // are captured in test/fixtures/antigravity-1.3.2. Reproduced again on 1.3.3
-  // with LANTERN-133-1010 (test/fixtures/antigravity-1.3.3).
+  // with LANTERN-133-1010 (test/fixtures/antigravity-1.3.3), on 1.5.9 with
+  // LANTERN-442 (fourteen blocks; roughly double the 1.3.3 context crosses)
+  // and on 1.5.13 with LANTERN-1121 at the same fourteen-block shape
+  // (test/fixtures/antigravity-1.5.13). Since 1.5.9 the checkpoint record
+  // carries a `usage` object (the checkpoint's own model call); the decoder
+  // still deliberately reads no token counts from it.
   //
   // The stream says nothing while it runs and one bare record afterwards: a
   // `step_update` with `step_type: "checkpoint"`, `state: "DONE"` and a
@@ -152,8 +152,8 @@ export const antigravityCli: HarnessDescriptor = deepFreeze({
     observedOn: {
       harness: "antigravity",
       model: "gemini-3.8-flash-medium",
-      version: "1.3.3",
-      date: "2026-10-10",
+      version: "1.5.13",
+      date: "2026-11-20",
     },
   },
   turnOptions: {
