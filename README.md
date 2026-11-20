@@ -54,7 +54,7 @@ pi@1.4.0 (npm:@earendil-works/pi-coding-agent)
 muse@1.4.2 (installed:muse)
 cursor@1.0.38 (npm:@cursor/sdk)
 antigravity@1.3.3 (installed:agy)
-opencode@1.19.5 (npm:opencode-ai)
+opencode@1.19.6 (npm:opencode-ai)
 ```
 
 To teach your coding agents hcn's flags, events and refusals, install its agent skill:

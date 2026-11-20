@@ -1,7 +1,7 @@
 /**
  * The opencode descriptor: facts about the OpenCode CLI (`opencode`) as
- * data, verified against opencode 1.19.5 (npm package `opencode-ai`,
- * 1.19.5; captures in test/fixtures/opencode-1.19.5).
+ * data, verified against opencode 1.19.6 (npm package `opencode-ai`,
+ * 1.19.6; captures in test/fixtures/opencode-1.19.6).
  *
  * What the captures establish:
  * - One JSON object per line on stdout: `{type, timestamp, sessionID,
@@ -44,7 +44,7 @@ export const opencodeCli: HarnessDescriptor = deepFreeze({
   // reader.
   transcript: null,
   bin: "opencode",
-  verifiedAgainst: "1.19.5",
+  verifiedAgainst: "1.19.6",
   versionSource: { kind: "npm", package: "opencode-ai" },
   launch: {
     // `opencode run` is the one-shot headless turn; `--format json` is
@@ -96,7 +96,8 @@ export const opencodeCli: HarnessDescriptor = deepFreeze({
   limitMatchers: [
     // The free tier's own wall, as the provider names it in the error
     // body's `responseBody` (from the 1.19.5 bundle; not captured live,
-    // because provoking a free-tier limit would spend the allowance).
+    // because provoking a free-tier limit would spend the allowance; no
+    // new matcher surface was observed on 1.19.6).
     { pattern: "FreeUsageLimitError", flags: "i", code: "usage-limit" },
     // The Go subscription tier's wall, same shape.
     { pattern: "GoUsageLimitError", flags: "i", code: "usage-limit" },
@@ -104,7 +105,8 @@ export const opencodeCli: HarnessDescriptor = deepFreeze({
   ],
   authMatchers: [...SHARED_AUTH_MATCHERS],
   // `--dangerously-skip-permissions` (a hidden alias of `--auto` and
-  // `--yolo` in the 1.19.5 bundle) approves the permission requests `run`
+  // `--yolo` in the 1.19.5 bundle; the 1.19.6 captures ran keyless and
+  // permission-free under `--pure`) approves the permission requests `run`
   // otherwise auto-rejects. Without it a headless turn's write or shell
   // call is denied by opencode itself.
   autonomy: { flag: "--dangerously-skip-permissions" },
@@ -114,7 +116,8 @@ export const opencodeCli: HarnessDescriptor = deepFreeze({
     // different set of free models on 1.17.10 and on 1.19.5 the same day
     // (2026-11-10). The vocabulary therefore carries no model list and stays
     // extensible, so a caller may name any `provider/model` selector the
-    // installed opencode knows.
+    // installed opencode knows (reconfirmed on 1.19.6: the same free model
+    // served the capture).
     models: [],
     aliases: {},
     // `--variant` carries the model variant, but the first slice does not
@@ -123,7 +126,7 @@ export const opencodeCli: HarnessDescriptor = deepFreeze({
     extensible: true,
   },
   store: {
-    // 1.19.5 keeps its sessions in a SQLite store under the XDG data
+    // 1.19.5 and 1.19.6 keep sessions in a SQLite store under the XDG data
     // root (`$XDG_DATA_HOME/opencode/opencode.db`, or
     // `~/.local/share/opencode/opencode.db`). The template names that
     // store; no per-session file exists to name.

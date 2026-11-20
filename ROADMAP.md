@@ -15,7 +15,9 @@ Planned work for hcn. Each item must pass the scope test in `AGENTS.md`.
 
 ## Shipped harnesses
 
-- **OpenCode CLI 1.19.5** - ships as a one-shot harness. `opencode run
+- **OpenCode CLI 1.19.6** - ships as a one-shot harness (verified on 1.19.6,
+  2026-11-20, `test/fixtures/opencode-1.19.6`; the 1.19.5 captures stay
+  beside it). `opencode run
   --format json` normalizes into hcn events: the harness-minted session id
   on the first line, one tool and its result per `tool_use` line, the whole
   text part as one message, the step's token counts and cost as a
@@ -23,12 +25,13 @@ Planned work for hcn. Each item must pass the scope test in `AGENTS.md`.
   line. Model selection rides the native `--model provider/model`, and a
   session resumes with `-s`. The use is keyless free-tier inference on a
   fresh machine: the captures ran with empty XDG directories, no API key and
-  no account (2026-11-10, `test/fixtures/opencode-1.19.5`). The free roster
+  no account (2026-11-10, recaptured 2026-11-20 on 1.19.6,
+  `test/fixtures/opencode-1.19.6`). The free roster
   rotates, so hcn curates no model list and the model vocabulary stays
   extensible.
 
   The first slice is the one-shot turn. There is no persistent session mode,
-  no transcript reading (1.19.5 files its sessions in a SQLite store), no
+  no transcript reading (1.19.6 files its sessions in a SQLite store), no
   context inspection, no compaction claim, no tool selection and no access
   preset: those options refuse before spawn. `run` auto-rejects permission
   requests, so autonomy renders the native `--dangerously-skip-permissions`
