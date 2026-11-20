@@ -196,30 +196,34 @@ describe("only operator configuration is redacted", () => {
         return;
       }
 
-      if (file === "pi-1.4.0/installed-compactions.snapshot.json") {
+      if (file.endsWith("/installed-compactions.snapshot.json") && file.startsWith("pi-")) {
         for (const entry of found)
           expect(
             PI_INSTALLED_LABELS.has(entry.label),
             `${file}: ${entry.label} is not operator configuration`,
           ).toBe(true);
-        const [installed] = JSON.parse(text) as {
+        const installed = JSON.parse(text) as {
           systemMessage: { toolsAdded: { name: string; description: string }[] };
         }[];
-        const core = (installed?.systemMessage.toolsAdded ?? []).filter((tool) =>
-          Object.hasOwn(PI_NATIVE_TOOL_DESCRIPTIONS, tool.name),
-        );
-        expect(core.map((tool) => tool.name).sort()).toEqual(
-          Object.keys(PI_NATIVE_TOOL_DESCRIPTIONS).sort(),
-        );
-        for (const tool of core)
-          expect(
-            sha256(tool.description),
-            `${file}: the native Pi 1.4.0 SDK description of ${tool.name} was redacted or changed`,
-          ).toBe(PI_NATIVE_TOOL_DESCRIPTIONS[tool.name]);
+        // The 1.6.0 qualifying session holds three installed entries; every
+        // entry carries the same core-tool set.
+        for (const entry of installed) {
+          const core = (entry.systemMessage?.toolsAdded ?? []).filter((tool) =>
+            Object.hasOwn(PI_NATIVE_TOOL_DESCRIPTIONS, tool.name),
+          );
+          expect(core.map((tool) => tool.name).sort()).toEqual(
+            Object.keys(PI_NATIVE_TOOL_DESCRIPTIONS).sort(),
+          );
+          for (const tool of core)
+            expect(
+              sha256(tool.description),
+              `${file}: the native Pi 1.4.0 SDK description of ${tool.name} was redacted or changed`,
+            ).toBe(PI_NATIVE_TOOL_DESCRIPTIONS[tool.name]);
+        }
         return;
       }
 
-      expect(file, `${file} may not carry redactions`).toMatch(/^pi-1\.4\.0\/.*\.ndjson$/);
+      expect(file, `${file} may not carry redactions`).toMatch(/^pi-1\.(4\.0|6\.0)\/.*\.ndjson$/);
       for (const line of text.trimEnd().split("\n")) {
         const record = JSON.parse(line) as {
           message?: { content?: { type: string; thinking?: string }[] };

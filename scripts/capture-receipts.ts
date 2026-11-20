@@ -28,6 +28,7 @@ export const coveredDirectories = [
   "pi-1.4.0",
   "codex-0.171.0",
   "antigravity-1.5.13",
+  "pi-1.6.0",
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -1029,6 +1030,61 @@ export const CAPTURE_MAP: readonly MapEntry[] = [
     scenario: "anchor",
     transform: { kind: "version-anchor" },
   },
+  {
+    file: "pi-1.6.0/fresh.ndjson",
+    scenario: "seven/01",
+    source: "pi/seven-captures/01.ndjson",
+    transform: excerpt("pi"),
+  },
+  {
+    file: "pi-1.6.0/question.ndjson",
+    scenario: "questions/01",
+    source: "pi/questions-captures/01.ndjson",
+    transform: excerpt("pi-last-assistant"),
+  },
+  {
+    file: "pi-1.6.0/compaction.ndjson",
+    scenario: "json/r985000/turn-01",
+    source: "pi/json/r985000/turn-01.ndjson",
+    transform: excerpt("pi-compaction"),
+  },
+  {
+    file: "pi-1.6.0/later-recall.ndjson",
+    scenario: "json/r985000/later-recall-2",
+    source: "pi/json/r985000/later-recall-2.ndjson",
+    transform: excerpt("pi"),
+  },
+  {
+    file: "pi-1.6.0/compaction-rpc.ndjson",
+    scenario: "rpc/rpc-stream",
+    source: "pi/rpc-final/rpc-stream.ndjson",
+    transform: excerpt("pi-compaction-rpc"),
+  },
+  {
+    file: "pi-1.6.0/installed-compactions.snapshot.json",
+    scenario: "json/installed-compactions",
+    source: "pi/json/installed-compactions.snapshot.json",
+    transform: { kind: "snapshot", policy: "pi-installed-compactions" },
+  },
+  {
+    file: "pi-1.6.0/seven.snapshot.json",
+    scenario: "seven",
+    source: "pi/seven.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "pi-1.6.0/questions.snapshot.json",
+    scenario: "questions",
+    source: "pi/questions.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "pi-1.6.0/version-source.snapshot.json",
+    scenario: "version-source",
+    source: "pi/version-source.snapshot.json",
+    transform: snapshot,
+  },
+  { file: "pi-1.6.0/version.txt", scenario: "anchor", transform: { kind: "version-anchor" } },
 ];
 
 // ---------------------------------------------------------------------------

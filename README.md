@@ -50,7 +50,7 @@ npm install -g @dungle-scrubs/harness-cli-normalizer
 $ hcn ls
 claude@2.1.312 (npm:@anthropic-ai/claude-code)
 codex@0.171.0 (npm:@openai/codex)
-pi@1.4.0 (npm:@earendil-works/pi-coding-agent)
+pi@1.6.0 (npm:@earendil-works/pi-coding-agent)
 muse@1.4.2 (installed:muse)
 cursor@1.4.2 (npm:@cursor/sdk)
 antigravity@1.5.13 (installed:agy)

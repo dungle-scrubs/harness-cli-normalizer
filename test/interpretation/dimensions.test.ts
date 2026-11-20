@@ -145,8 +145,8 @@ describe("observed model provenance (pi)", () => {
     expect(piCli.escalation.observedOn).toEqual({
       harness: "pi",
       model: "zai/glm-5.3",
-      version: "1.4.0",
-      date: "2026-10-29",
+      version: "1.6.0",
+      date: "2026-11-20",
     });
     // The static probe record above is untouched by design: the decoder
     // fills the re-emitted identity's observedOn from the stream

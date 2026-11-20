@@ -120,6 +120,13 @@ const freshQuestionCaptures: {
     date: "2026-11-20",
     current: true,
   },
+  {
+    harness: piCli,
+    directory: "pi-1.6.0",
+    version: "1.6.0",
+    date: "2026-11-20",
+    current: true,
+  },
 ];
 
 test.each(freshQuestionCaptures)(
@@ -237,6 +244,7 @@ test.each([
   { directory: "pi-1.1.0", installed: false, marker: "HERON-PI-1010" },
   { directory: "pi-1.3.0", installed: true, marker: "HERON-PI-1010" },
   { directory: "pi-1.4.0", installed: true, marker: "HERON-PI-420" },
+  { directory: "pi-1.6.0", installed: true, marker: "HERON-PI-1121" },
 ])("$directory RPC compaction still reports one completion", ({ directory, installed, marker }) => {
   const events = decoded(piCli, directory, "compaction-rpc.ndjson");
   expect(
@@ -244,8 +252,11 @@ test.each([
   ).toHaveLength(1);
   if (installed) {
     const installedCompactions = JSON.parse(read(directory, "installed-compactions.snapshot.json"));
-    expect(installedCompactions).toHaveLength(1);
-    expect(installedCompactions[0].summary).toContain(marker);
+    // The 1.6.0 qualifying session crossed three times (one compaction per
+    // recall turn near the lowered threshold); every installed entry's
+    // summary carries the marker.
+    expect(installedCompactions.length).toBeGreaterThanOrEqual(1);
+    for (const entry of installedCompactions) expect(entry.summary).toContain(marker);
   }
 });
 

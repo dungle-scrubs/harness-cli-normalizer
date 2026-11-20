@@ -1878,6 +1878,274 @@
       "sha256": "42c4a6120f79b4a9745000fe22d0d4c91dc462231c7f98421e26f26992cd1d42",
       "bytes": 7,
       "source": null
+    },
+    {
+      "file": "pi-1.6.0/fresh.ndjson",
+      "harness": "pi",
+      "version": "1.6.0",
+      "scenario": "seven/01",
+      "transform": "excerpt:pi",
+      "sha256": "3f80f442727712ecd76b3b5648a94ccdc588402c00f622751802c09a07a6da10",
+      "bytes": 970,
+      "source": {
+        "sha256": "b08051efe61666e3679143b723470e6706208d0522b0f12d1a2c02a83cf55be2",
+        "bytes": 321705,
+        "lines": 41
+      },
+      "records": [
+        {
+          "sourceLine": 1,
+          "type": "session",
+          "sourceSha256": "398290f615762943f4de9690dc19e11e105e7f06e818581df4196fc5c86256c7",
+          "sha256": "398290f615762943f4de9690dc19e11e105e7f06e818581df4196fc5c86256c7"
+        },
+        {
+          "sourceLine": 37,
+          "type": "message_end/assistant",
+          "sourceSha256": "add1778fd6830a75db97ce4943beb9e8677e29e5d5995532805bb4edd6539b16",
+          "sha256": "add1778fd6830a75db97ce4943beb9e8677e29e5d5995532805bb4edd6539b16"
+        }
+      ]
+    },
+    {
+      "file": "pi-1.6.0/question.ndjson",
+      "harness": "pi",
+      "version": "1.6.0",
+      "scenario": "questions/01",
+      "transform": "excerpt:pi-last-assistant",
+      "sha256": "6aa8bdff33d4dfc8b5a5d13a18eff4a54515f98071bb0a544032b9688b41f733",
+      "bytes": 3980,
+      "source": {
+        "sha256": "763b446516fe1ea8c3b1e907545acdca2e6982a7a3d8455425ec02336a9065f7",
+        "bytes": 1512322,
+        "lines": 4367
+      },
+      "records": [
+        {
+          "sourceLine": 1,
+          "type": "session",
+          "sourceSha256": "2795c1038c63c8457e8f7a5ba87f7f928130372a7ff9843f147bab430ca02ae1",
+          "sha256": "2795c1038c63c8457e8f7a5ba87f7f928130372a7ff9843f147bab430ca02ae1"
+        },
+        {
+          "sourceLine": 4363,
+          "type": "message_end/assistant",
+          "sourceSha256": "0aa68aa6e4776bb360fcc1249c174a15dfb470465e27122502f4c6e70e0a2c11",
+          "sha256": "0aa68aa6e4776bb360fcc1249c174a15dfb470465e27122502f4c6e70e0a2c11"
+        }
+      ]
+    },
+    {
+      "file": "pi-1.6.0/compaction.ndjson",
+      "harness": "pi",
+      "version": "1.6.0",
+      "scenario": "json/r985000/turn-01",
+      "transform": "excerpt:pi-compaction",
+      "sha256": "77282d9c42aa1ea1ea1d7eddd140dec993735cffc32a393662bf6ee1884928a3",
+      "bytes": 4758,
+      "source": {
+        "sha256": "2e06622fec359ac242b20479a0853448905ab27f03642e0cdba06dd7cc2b3f64",
+        "bytes": 938242,
+        "lines": 451
+      },
+      "records": [
+        {
+          "sourceLine": 1,
+          "type": "session",
+          "sourceSha256": "6212e81a3c6f9f7048818a89b2ba9c87576d9ede2761ed6c71ae8f46afdd618f",
+          "sha256": "6212e81a3c6f9f7048818a89b2ba9c87576d9ede2761ed6c71ae8f46afdd618f"
+        },
+        {
+          "sourceLine": 444,
+          "type": "message_end/assistant",
+          "sourceSha256": "8be81f32d92e020e3bbee42704d365261637de9c7b9175a0c6e78de22f193c34",
+          "sha256": "8be81f32d92e020e3bbee42704d365261637de9c7b9175a0c6e78de22f193c34"
+        },
+        {
+          "sourceLine": 449,
+          "type": "compaction_start",
+          "sourceSha256": "fbc97ead6e2d742dd4da0d83c29e7697bb0c5772c8d96184145448e75c98803a",
+          "sha256": "fbc97ead6e2d742dd4da0d83c29e7697bb0c5772c8d96184145448e75c98803a"
+        },
+        {
+          "sourceLine": 450,
+          "type": "compaction_end",
+          "sourceSha256": "4e92fd40db954c2bdda878866cefdfb78d0ef4852ed0abcf100b3aceaf918c0b",
+          "sha256": "4e92fd40db954c2bdda878866cefdfb78d0ef4852ed0abcf100b3aceaf918c0b"
+        }
+      ]
+    },
+    {
+      "file": "pi-1.6.0/later-recall.ndjson",
+      "harness": "pi",
+      "version": "1.6.0",
+      "scenario": "json/r985000/later-recall-2",
+      "transform": "excerpt:pi",
+      "sha256": "5bbc12e400496dd081c130deb08ff7d4b8277333078c2e38941ef646a7be4c42",
+      "bytes": 4644,
+      "source": {
+        "sha256": "e95548d3e6e8cb1d12bee66c0ff013f3835c45aa8301232669c383ec8442a0a9",
+        "bytes": 227477,
+        "lines": 810
+      },
+      "records": [
+        {
+          "sourceLine": 1,
+          "type": "session",
+          "sourceSha256": "6212e81a3c6f9f7048818a89b2ba9c87576d9ede2761ed6c71ae8f46afdd618f",
+          "sha256": "6212e81a3c6f9f7048818a89b2ba9c87576d9ede2761ed6c71ae8f46afdd618f"
+        },
+        {
+          "sourceLine": 803,
+          "type": "message_end/assistant",
+          "sourceSha256": "aada7e162a00dc1e09a9d1b687a7d96ed78a68ebae67b7378d7259cf4a3d83d8",
+          "sha256": "aba96c815ef8a15dbda2be1d369eedd981272a2f8d42a05115e23bd4ac937359",
+          "redactions": {
+            "message.content[].thinking operator quote": {
+              "markers": 1,
+              "entries": 1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "file": "pi-1.6.0/compaction-rpc.ndjson",
+      "harness": "pi",
+      "version": "1.6.0",
+      "scenario": "rpc/rpc-stream",
+      "transform": "excerpt:pi-compaction-rpc",
+      "sha256": "b13431fdaf7f588f96834f8efebd6c7f165de48de16ff399dc98df5734de1972",
+      "bytes": 9869,
+      "source": {
+        "sha256": "c07a6745ac2821dd66ac1eec6b90cae6cf76f1c96586265ff9788146ed405f18",
+        "bytes": 1030532,
+        "lines": 919
+      },
+      "records": [
+        {
+          "sourceLine": 176,
+          "type": "message_end/assistant",
+          "sourceSha256": "951ce0c82da84b3ad13ecf9c7c87e5a215521fc43d108bfb06eb0b833e7b38b6",
+          "sha256": "951ce0c82da84b3ad13ecf9c7c87e5a215521fc43d108bfb06eb0b833e7b38b6"
+        },
+        {
+          "sourceLine": 793,
+          "type": "message_end/assistant",
+          "sourceSha256": "33b13a948a56d9341ebc2c1cf729407a7553c0b516f6c7bf8ed785b1276ab562",
+          "sha256": "33b13a948a56d9341ebc2c1cf729407a7553c0b516f6c7bf8ed785b1276ab562"
+        },
+        {
+          "sourceLine": 797,
+          "type": "compaction_start",
+          "sourceSha256": "fbc97ead6e2d742dd4da0d83c29e7697bb0c5772c8d96184145448e75c98803a",
+          "sha256": "fbc97ead6e2d742dd4da0d83c29e7697bb0c5772c8d96184145448e75c98803a"
+        },
+        {
+          "sourceLine": 798,
+          "type": "compaction_end",
+          "sourceSha256": "3b39e53a954dd88bad5505df66f9c3e4432358aedf24588df6e3a3b19f42dc30",
+          "sha256": "3b39e53a954dd88bad5505df66f9c3e4432358aedf24588df6e3a3b19f42dc30"
+        },
+        {
+          "sourceLine": 910,
+          "type": "message_end/assistant",
+          "sourceSha256": "e1bbb7da39970d713a601f5fd90daad53ecde554313b33b140e0e8ae4aed63f4",
+          "sha256": "e1bbb7da39970d713a601f5fd90daad53ecde554313b33b140e0e8ae4aed63f4"
+        }
+      ]
+    },
+    {
+      "file": "pi-1.6.0/installed-compactions.snapshot.json",
+      "harness": "pi",
+      "version": "1.6.0",
+      "scenario": "json/installed-compactions",
+      "transform": "snapshot",
+      "sha256": "553a8f848aac145bf69dc9ff0897fdabcbe7c37af6a997ff4d2356354a6c47a4",
+      "bytes": 203711,
+      "source": {
+        "sha256": "50acbf120aa472b788fefa8a4975a261056540a75ac9075312745a1c9889bad5",
+        "bytes": 407813,
+        "lines": 5099
+      },
+      "redactions": {
+        "sections.tools": {
+          "markers": 3,
+          "entries": 3
+        },
+        "sections.rules": {
+          "markers": 3,
+          "entries": 3
+        },
+        "sections.docs": {
+          "markers": 3,
+          "entries": 3
+        },
+        "sections.project_context": {
+          "markers": 3,
+          "entries": 3
+        },
+        "sections.skills": {
+          "markers": 3,
+          "entries": 3
+        },
+        "toolsAdded.description": {
+          "markers": 114,
+          "entries": 114
+        }
+      }
+    },
+    {
+      "file": "pi-1.6.0/seven.snapshot.json",
+      "harness": "pi",
+      "version": "1.6.0",
+      "scenario": "seven",
+      "transform": "snapshot",
+      "sha256": "499fb2d78c8358bdadad4b0b8fb28ff7fb7933551d16c61e444f703f67ee71fb",
+      "bytes": 827,
+      "source": {
+        "sha256": "59d6046c02c085d56f77e4010cb4c83ccd03924fc11bf10979fd35a123266d50",
+        "bytes": 826,
+        "lines": 35
+      }
+    },
+    {
+      "file": "pi-1.6.0/questions.snapshot.json",
+      "harness": "pi",
+      "version": "1.6.0",
+      "scenario": "questions",
+      "transform": "snapshot",
+      "sha256": "4530994dd0aa273f7564d6657732ab285d2c02f13a6ad103c757198b9161cb29",
+      "bytes": 460,
+      "source": {
+        "sha256": "2e499e466f6dcf56bff6ef01c9c36e95f88e810c239ac52c37440d3f454a7434",
+        "bytes": 459,
+        "lines": 23
+      }
+    },
+    {
+      "file": "pi-1.6.0/version-source.snapshot.json",
+      "harness": "pi",
+      "version": "1.6.0",
+      "scenario": "version-source",
+      "transform": "snapshot",
+      "sha256": "6476d13d2998f09231c66bd810a803bccdaf5ac2c5b279bba831894d7b95c73e",
+      "bytes": 264,
+      "source": {
+        "sha256": "6476d13d2998f09231c66bd810a803bccdaf5ac2c5b279bba831894d7b95c73e",
+        "bytes": 264,
+        "lines": 10
+      }
+    },
+    {
+      "file": "pi-1.6.0/version.txt",
+      "harness": "pi",
+      "version": "1.6.0",
+      "scenario": "anchor",
+      "transform": "version-anchor",
+      "sha256": "cb1d9a30bc4ab8a397f39b7d786bb82aca0b816077eefc35d7c822017d75f6a5",
+      "bytes": 6,
+      "source": null
     }
   ]
 }

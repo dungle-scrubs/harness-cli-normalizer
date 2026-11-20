@@ -1,0 +1,23 @@
+{
+  "ranAt": "2026-11-20T18:08:39.266Z",
+  "results": {
+    "pi": {
+      "status": "pass",
+      "observedOn": {
+        "harness": "pi",
+        "model": "zai/glm-5.3",
+        "version": "1.6.0",
+        "date": "2026-11-20"
+      },
+      "detail": "question \"Which environment must deploy-\""
+    }
+  },
+  "observations": {
+    "pi": {
+      "harness": "pi",
+      "model": "zai/glm-5.3",
+      "version": "1.6.0",
+      "date": "2026-11-20"
+    }
+  }
+}
