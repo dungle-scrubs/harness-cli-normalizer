@@ -61,15 +61,15 @@
     "smoke:questions": "bun scripts/smoke-questions.ts"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.6.3",
+    "@biomejs/biome": "^2.6.8",
     "@stryker-mutator/core": "10.1.1",
     "@types/node": "^26.6.5",
     "lefthook": "^2.2.2",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.5"
+    "vitest": "^5.1.1"
   },
   "dependencies": {
     "@cursor/sdk": "1.0.38",
-    "koffi": "3.3.7"
+    "koffi": "3.3.8"
   }
 }
