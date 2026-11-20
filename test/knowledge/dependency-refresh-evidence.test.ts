@@ -110,9 +110,16 @@ const freshQuestionCaptures: {
     directory: "codex-0.165.0",
     version: "0.165.0",
     date: "2026-10-29",
+    current: false,
+  },
+  { harness: piCli, directory: "pi-1.4.0", version: "1.4.0", date: "2026-10-29", current: false },
+  {
+    harness: codexCli,
+    directory: "codex-0.171.0",
+    version: "0.171.0",
+    date: "2026-11-20",
     current: true,
   },
-  { harness: piCli, directory: "pi-1.4.0", version: "1.4.0", date: "2026-10-29", current: true },
 ];
 
 test.each(freshQuestionCaptures)(
@@ -393,31 +400,39 @@ test("pi-1.4.0 compaction carries the native before and after token counts", () 
   ]);
 });
 
-test("codex-0.165.0 local store metadata reads the payload-nested compaction schema", () => {
-  const metadata = JSON.parse(read("codex-0.165.0", "native-store-metadata.snapshot.json"));
-  expect(metadata).toMatchObject({
-    standing: "local-agent-observed-metadata",
-    completion: { payloadType: "item_completed", itemType: "ContextCompaction", atLeast: 2 },
-    installedReplacement: { recordType: "compacted", type: "array", nonempty: true },
-  });
-  expect(metadata.compactedRows).toHaveLength(2);
-  for (const row of metadata.compactedRows) {
-    expect(row).toMatchObject({
-      replacement_history_type: "array",
-      replacement_history_nonempty: true,
-      latest_token_usage_present: true,
-      has_window_links: true,
+// The payload-nested compaction schema, every generation that has it
+// (0.165.0 and 0.171.0), each with its own literal marker.
+test.each([
+  { directory: "codex-0.165.0", marker: "HERON-CODEX-420" },
+  { directory: "codex-0.171.0", marker: "HERON-CODEX-1121" },
+])(
+  "$directory local store metadata reads the payload-nested compaction schema",
+  ({ directory, marker }) => {
+    const metadata = JSON.parse(read(directory, "native-store-metadata.snapshot.json"));
+    expect(metadata).toMatchObject({
+      standing: "local-agent-observed-metadata",
+      completion: { payloadType: "item_completed", itemType: "ContextCompaction", atLeast: 2 },
+      installedReplacement: { recordType: "compacted", type: "array", nonempty: true },
     });
-    expect(row.replacement_history_items).toBeGreaterThan(0);
-  }
-  expect(metadata.compactedRows.map((row: { window_number: number }) => row.window_number)).toEqual(
-    [1, 2],
-  );
-  expect(metadata.limits).toContain(
-    "large rows were truncated; complete replacement contents and window links were not inspected",
-  );
-  expect(textOf(decoded(codexCli, "codex-0.165.0", "later-recall.ndjson"))).toBe("HERON-CODEX-420");
-});
+    expect(metadata.compactedRows).toHaveLength(2);
+    for (const row of metadata.compactedRows) {
+      expect(row).toMatchObject({
+        replacement_history_type: "array",
+        replacement_history_nonempty: true,
+        latest_token_usage_present: true,
+        has_window_links: true,
+      });
+      expect(row.replacement_history_items).toBeGreaterThan(0);
+    }
+    expect(
+      metadata.compactedRows.map((row: { window_number: number }) => row.window_number),
+    ).toEqual([1, 2]);
+    expect(metadata.limits).toContain(
+      "large rows were truncated; complete replacement contents and window links were not inspected",
+    );
+    expect(textOf(decoded(codexCli, directory, "later-recall.ndjson"))).toBe(marker);
+  },
+);
 
 // The 2.1.312 probes staged the same synthetic prompt shape with this
 // generation's own sentinel, and appended the tool isolation once.

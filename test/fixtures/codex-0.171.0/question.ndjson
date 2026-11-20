@@ -1,0 +1,4 @@
+{"type":"thread.started","thread_id":"01a1fa1d-00f9-78a2-90d9-c2df1edc65d2"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"```hcn-question\n{\"question\":\"Which environment must deploy-target.txt contain?\",\"options\":[\"staging\",\"production\"],\"recommended\":\"staging\"}\n```"}}
+{"type":"turn.completed","usage":{"input_tokens":30370,"cached_input_tokens":0,"cache_write_input_tokens":0,"output_tokens":212,"reasoning_output_tokens":175}}
