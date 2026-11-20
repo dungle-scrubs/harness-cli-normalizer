@@ -4,11 +4,11 @@ import { expect, test } from "vitest";
 import { contentEventsWithState, freshReaderState } from "../../src/interpretation/content.js";
 import { cursorCli } from "../../src/knowledge/cursor.js";
 
-const root = join(import.meta.dirname, "../fixtures/cursor-sdk-1.0.38");
+const root = join(import.meta.dirname, "../fixtures/cursor-sdk-1.4.2");
 const json = (name: string) => JSON.parse(readFileSync(join(root, name), "utf8"));
 
 test("the SDK descriptor anchor has passing native capability tripwires", () => {
-  expect(cursorCli.verifiedAgainst).toBe("1.0.38");
+  expect(cursorCli.verifiedAgainst).toBe("1.4.2");
   expect(cursorCli.versionSource).toEqual({ kind: "npm", package: "@cursor/sdk" });
   const seven = Object.values(json("seven.snapshot.json").results.cursor);
   expect(seven).toHaveLength(7);

@@ -41,12 +41,13 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
   name: "cursor",
   transcript: CURSOR_TRANSCRIPT,
   bin: "agent",
-  verifiedAgainst: "1.0.38",
+  verifiedAgainst: "1.4.2",
   versionSource: { kind: "npm", package: "@cursor/sdk" },
   // Headless SDK qualification: all seven scenarios and question escalation
-  // passed on 1.0.38. Captures live in test/fixtures/cursor-sdk-1.0.38.
-  // The native CLI grammar and historical transcript/model corpus below
-  // remain facts captured on agent 2026.10.01-e373342.
+  // passed on 1.4.2 (2026-11-20; captures in test/fixtures/cursor-sdk-1.4.2,
+  // the 1.0.38 directory kept as the prior SDK anchor). The native CLI
+  // grammar and historical transcript/model corpus below remain facts
+  // captured on agent 2026.10.01-e373342.
   launch: {
     // Every headless probe runs `-p` (print mode, with write and shell).
     baseFlags: ["-p"],
@@ -702,7 +703,10 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
   // on the auto-updated 2026.09.18-9a7762b
   // (docs/research/2026-09-22-compaction-signals/cursor). Reproduced on
   // 2026.10.01-e373342 with fourteen synthetic file reads, automatic hooks,
-  // a clean completed turn, and a later process recalling LANTERN-903.
+  // a clean completed turn, and a later process recalling LANTERN-903, and
+  // again on the SDK 1.4.2 backend with a fifteen-turn file-read ladder
+  // (input tokens crossing ~1.01M and dropping to ~325k three times) plus
+  // cross-process LANTERN-1121 recall (test/fixtures/cursor-sdk-1.4.2).
   // The stream itself
   // carries no compaction record - the print-mode emitter has no such code
   // path - so this is a curated fact, not a decoded signal. result.usage token
@@ -746,14 +750,14 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
     session: true,
   },
   // The SDK question and suite snapshot are retained alongside its
-  // seven-scenario captures in test/fixtures/cursor-sdk-1.0.38.
+  // seven-scenario captures in test/fixtures/cursor-sdk-1.4.2.
   escalation: {
     supported: true,
     observedOn: {
       harness: "cursor",
       model: "grok-4.7-high",
-      version: "1.0.38",
-      date: "2026-11-02",
+      version: "1.4.2",
+      date: "2026-11-20",
     },
   },
   turnOptions: {

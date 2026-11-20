@@ -1,0 +1,58 @@
+{"hcn":"opened","id":"hcn-identity","agentId":"agent-0f90beba-0b0b-4c99-adae-6277345093c8","type":"system","subtype":"init","session_id":"agent-0f90beba-0b0b-4c99-adae-6277345093c8"}
+{"hcn":"receipt","id":"hcn-send:1","disposition":"started"}
+{"hcn":"event","delta":{"type":"text-delta","text":"I'll"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" run"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" `"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"echo"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" sevent"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"est"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"`"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" and"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" report"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" the"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" output"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"."}}
+{"hcn":"event","event":{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"I'll run `echo seventest` and report the output."}]}}}
+{"hcn":"event","event":{"type":"tool_call","agent_id":"agent-0f90beba-0b0b-4c99-adae-6277345093c8","run_id":"run-39c5657f-5258-4fd4-879c-288f0f80b16b","call_id":"call-7494ee5d-8554-49f7-8e57-0daa5f4268c9-0\nfc_ae542a32-a2ae-9245-ba9b-d662f973e91f_0","name":"shell","status":"running","args":{"command":"echo seventest","timeout":30000}}}
+{"hcn":"event","event":{"type":"tool_call","agent_id":"agent-0f90beba-0b0b-4c99-adae-6277345093c8","run_id":"run-39c5657f-5258-4fd4-879c-288f0f80b16b","call_id":"call-7494ee5d-8554-49f7-8e57-0daa5f4268c9-0\nfc_ae542a32-a2ae-9245-ba9b-d662f973e91f_0","name":"shell","status":"completed","args":{"command":"echo seventest","timeout":30000},"result":{"status":"success","value":{"exitCode":0,"signal":"","stdout":"seventest\n","stderr":"(eval):12: unmatched '\n(eval):12: unmatched '\n","executionTime":764}}}}
+{"hcn":"event","delta":{"type":"text-delta","text":"`"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"echo"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" sevent"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"est"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"`"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" exited"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" "}}
+{"hcn":"event","delta":{"type":"text-delta","text":"0"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"."}}
+{"hcn":"event","delta":{"type":"text-delta","text":" The"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" command"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" printed"}}
+{"hcn":"event","delta":{"type":"text-delta","text":":\n\n"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"```"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"\n"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"se"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"vent"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"est"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"\n"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"```"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"\n\n"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"The"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" shell"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" also"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" printed"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" two"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" `("}}
+{"hcn":"event","delta":{"type":"text-delta","text":"eval"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"):"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"12"}}
+{"hcn":"event","delta":{"type":"text-delta","text":":"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" unmatched"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" '`"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" lines"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" before"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" that"}}
+{"hcn":"event","delta":{"type":"text-delta","text":" output"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"."}}
+{"hcn":"event","event":{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"`echo seventest` exited 0. The command printed:\n\n```\nseventest\n```\n\nThe shell also printed two `(eval):12: unmatched '` lines before that output."}]}}}
+{"hcn":"event","event":{"type":"usage","agent_id":"agent-0f90beba-0b0b-4c99-adae-6277345093c8","run_id":"run-39c5657f-5258-4fd4-879c-288f0f80b16b","usage":{"inputTokens":28954,"outputTokens":188,"cacheReadTokens":19968,"cacheWriteTokens":0,"totalTokens":29142,"reasoningTokens":119}}}
+{"hcn":"turn-end","status":"finished"}

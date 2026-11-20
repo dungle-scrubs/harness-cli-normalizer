@@ -1,0 +1,10 @@
+{"hcn":"opened","id":"hcn-identity","agentId":"agent-a8f6b789-878d-4e50-bc0f-f74819b6775b","type":"system","subtype":"init","session_id":"agent-a8f6b789-878d-4e50-bc0f-f74819b6775b"}
+{"hcn":"receipt","id":"p0","disposition":"started"}
+{"hcn":"event","delta":{"type":"text-delta","text":"LAN"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"TERN"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"-"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"112"}}
+{"hcn":"event","delta":{"type":"text-delta","text":"1"}}
+{"hcn":"event","event":{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"LANTERN-1121"}]}}}
+{"hcn":"event","event":{"type":"usage","agent_id":"agent-a8f6b789-878d-4e50-bc0f-f74819b6775b","run_id":"run-d797b3e7-27f9-4ff3-b82a-7229ab3ac4c6","usage":{"inputTokens":212263,"outputTokens":48,"cacheReadTokens":212096,"cacheWriteTokens":0,"totalTokens":212311,"reasoningTokens":43}}}
+{"hcn":"turn-end","status":"finished"}
