@@ -23,8 +23,9 @@ Malformed and failed accounting operations remain unavailable through the determ
   consumes it yet).
 - WebFetch was probed on this version: absent from the init tool list on
   2.1.329 and 2.1.330 even with `--setting-sources ""`, so operator settings
-  do not cause it; `--tools WebFetch` restores a working fetch (observed
-  2026-11-21 on 2.1.330, fetching example.com); CLAUDE_CODE_DISABLE_WEB_FETCH
+  do not cause it; `--tools WebFetch --allowedTools WebFetch` together
+  restored a working fetch (observed 2026-11-21 on 2.1.330, fetching
+  example.com); CLAUDE_CODE_DISABLE_WEB_FETCH
   is not set; Claude's changelog from 2.1.312 to 2.1.330 records no default
   removal, and 2.1.323 notes organization policy can disable WebFetch. The
   absence is therefore most likely account or organization policy, not a
