@@ -438,8 +438,9 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
       // Absent from the init tool list on 2.1.329 and 2.1.330 even with
       // --setting-sources "" (so operator settings are not the cause), and
       // CLAUDE_CODE_DISABLE_WEB_FETCH is not set on the capture machine.
-      // Naming it in --tools or --allowedTools restores a working fetch
-      // (observed 2026-11-21 on 2.1.330), and the read access preset does.
+      // `--tools WebFetch --allowedTools WebFetch` together restored a
+      // working fetch (observed 2026-11-21 on 2.1.330); the read access
+      // preset names it in --tools.
       // Claude's changelog from 2.1.312 to 2.1.330 records no default
       // removal, and 2.1.323 notes organization policy can disable WebFetch,
       // so the absence is most likely account or organization policy, not a

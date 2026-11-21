@@ -8,7 +8,7 @@ Malformed and failed accounting operations remain unavailable through the determ
 
 ## Probe settings
 
-- Tool isolation on every probe: `--tools '' --strict-mcp-config --mcp-config {"mcpServers":{}}`. The compact turn and the later recall also pass `--tools ''` with the same MCP isolation.
+- Tool isolation on the accounting and compaction probes: `--tools '' --strict-mcp-config --mcp-config {"mcpServers":{}}`; the compact turn and the later recall pass the same. The seven-scenario and question smokes run with the harness's default tools (their init lists 32 tools, Bash and Write included).
 - The executable under test was the machine's own claude at
   ~/.local/share/claude/versions/2.1.330 (~/.local/bin/claude), the binary
   `hcn inspect claude --runtime` selects. `version-source.snapshot.json` records the
