@@ -31,6 +31,7 @@ export const coveredDirectories = [
   "pi-1.6.0",
   "claude-2.1.329",
   "claude-2.1.330",
+  "muse-1.4.24-R9131.1",
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -569,6 +570,10 @@ type NativeRecord = {
   type?: string;
   subtype?: string;
   message?: { role?: string };
+  // MSP wire replies (muse helper captures): the request id and, for error
+  // replies, the JSON-RPC error the helper received.
+  id?: string | number;
+  error?: { code?: number; message?: string; data?: { sessionId?: string } };
 };
 
 export type Selection =
@@ -578,13 +583,22 @@ export type Selection =
   | "pi"
   | "pi-last-assistant"
   | "pi-compaction"
-  | "pi-compaction-rpc";
+  | "pi-compaction-rpc"
+  | "muse-helper";
+
+/** Per-selection context: the muse helper selection drops view-read
+ * failures polled for a session other than the capture's own session. */
+export type SelectionContext = { session?: string };
 
 const piAssistantEnd = (record: NativeRecord) =>
   record.type === "message_end" && record.message?.role === "assistant";
 
 /** Source line indices (0-based) the capture map selects, in source order. */
-export const select = (selection: Selection, records: NativeRecord[]): number[] => {
+export const select = (
+  selection: Selection,
+  records: NativeRecord[],
+  context: SelectionContext = {},
+): number[] => {
   const keep = (predicate: (record: NativeRecord) => boolean) =>
     records.flatMap((record, index) => (predicate(record) ? [index] : []));
   switch (selection) {
@@ -629,6 +643,23 @@ export const select = (selection: Selection, records: NativeRecord[]): number[] 
           record.type === "compaction_end" ||
           piAssistantEnd(record),
       );
+    case "muse-helper": {
+      // The #491 helper capture interleaves one other session's failed view
+      // polling with the capture's own; the fixture keeps every reply except
+      // `view range read failed` errors polled for a foreign session.
+      const session = context.session;
+      if (session === undefined)
+        throw new Mismatch("muse-helper selection needs the capture's session id");
+      return keep((record) => {
+        const error = record.error;
+        return !(
+          error?.code === -32603 &&
+          error.message === "view range read failed" &&
+          error.data?.sessionId !== undefined &&
+          error.data.sessionId !== session
+        );
+      });
+    }
   }
 };
 
@@ -644,7 +675,8 @@ const policyFor = (
 };
 
 const recordKind = (record: NativeRecord) =>
-  [record.type, record.subtype, record.message?.role].filter(Boolean).join("/");
+  [record.type, record.subtype, record.message?.role].filter(Boolean).join("/") ||
+  (record.id !== undefined ? `${record.error ? "error" : "reply"}/${record.id}` : "");
 
 const lines = (text: string, what: string): string[] => {
   if (!text.endsWith("\n")) throw new Mismatch(`${what} does not end with a newline`);
@@ -665,10 +697,11 @@ export const verifyExcerpt = (
   fixtureText: string,
   selection: Selection,
   owners: OwnerLookup,
+  context: SelectionContext = {},
 ): RecordReceipt[] => {
   const sourceLines = lines(sourceText, "source capture");
   const records = sourceLines.map((line) => JSON.parse(line) as NativeRecord);
-  const selected = select(selection, records);
+  const selected = select(selection, records, context);
   const fixtureLines = lines(fixtureText, "fixture");
   const receipts: RecordReceipt[] = [];
   fixtureLines.forEach((line, position) => {
@@ -730,11 +763,16 @@ const sameRecord = (
 // ---------------------------------------------------------------------------
 
 type Transform =
-  | { kind: "excerpt"; selection: Selection }
+  | { kind: "excerpt"; selection: Selection; session?: string }
   | { kind: "native-line" }
   | { kind: "copied" }
   | { kind: "snapshot"; policy: "none" | "pi-installed-compactions" }
-  | { kind: "version-anchor" };
+  | { kind: "version-anchor" }
+  // Muse #491: the durable session log's primary context-compaction
+  // events, projected to their payload.event, and the version strings the
+  // capture run recorded in its summary.
+  | { kind: "muse-durable-compactions" }
+  | { kind: "muse-version-line"; which: "print" | "build" };
 
 type MapEntry = { file: string; scenario: string; source?: string; transform: Transform };
 
@@ -1254,6 +1292,118 @@ export const CAPTURE_MAP: readonly MapEntry[] = [
     transform: snapshot,
   },
   { file: "claude-2.1.330/version.txt", scenario: "anchor", transform: { kind: "version-anchor" } },
+  {
+    file: "muse-1.4.24-R9131.1/seven-01.ndjson",
+    scenario: "seven/01",
+    source: "muse/seven-captures/01.ndjson",
+    transform: { kind: "copied" },
+  },
+  {
+    file: "muse-1.4.24-R9131.1/seven-03.ndjson",
+    scenario: "seven/03",
+    source: "muse/seven-captures/03.ndjson",
+    transform: { kind: "copied" },
+  },
+  {
+    file: "muse-1.4.24-R9131.1/seven-05.ndjson",
+    scenario: "seven/05",
+    source: "muse/seven-captures/05.ndjson",
+    transform: { kind: "copied" },
+  },
+  {
+    file: "muse-1.4.24-R9131.1/seven-07.ndjson",
+    scenario: "seven/07",
+    source: "muse/seven-captures/07.ndjson",
+    transform: { kind: "copied" },
+  },
+  {
+    file: "muse-1.4.24-R9131.1/seven-09.ndjson",
+    scenario: "seven/09",
+    source: "muse/seven-captures/09.ndjson",
+    transform: { kind: "copied" },
+  },
+  {
+    file: "muse-1.4.24-R9131.1/seven-11.ndjson",
+    scenario: "seven/11",
+    source: "muse/seven-captures/11.ndjson",
+    transform: { kind: "copied" },
+  },
+  {
+    file: "muse-1.4.24-R9131.1/seven-13.ndjson",
+    scenario: "seven/13",
+    source: "muse/seven-captures/13.ndjson",
+    transform: { kind: "copied" },
+  },
+  {
+    file: "muse-1.4.24-R9131.1/seven-15.ndjson",
+    scenario: "seven/15",
+    source: "muse/seven-captures/15.ndjson",
+    transform: { kind: "copied" },
+  },
+  {
+    file: "muse-1.4.24-R9131.1/question.ndjson",
+    scenario: "questions/01",
+    source: "muse/questions-captures/01.ndjson",
+    transform: { kind: "copied" },
+  },
+  {
+    file: "muse-1.4.24-R9131.1/seven.snapshot.json",
+    scenario: "seven",
+    source: "muse/seven.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "muse-1.4.24-R9131.1/questions.snapshot.json",
+    scenario: "questions",
+    source: "muse/questions.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "muse-1.4.24-R9131.1/msp-missing-limit.ndjson",
+    scenario: "msp/missing-limit",
+    source: "muse-491/msp-missing-limit.ndjson",
+    transform: { kind: "copied" },
+  },
+  {
+    file: "muse-1.4.24-R9131.1/tool-history-recall.ndjson",
+    scenario: "compaction/later-recall",
+    source: "muse-491/H-adapter/recall.normalized.ndjson",
+    transform: { kind: "copied" },
+  },
+  {
+    file: "muse-1.4.24-R9131.1/threshold-failure.ndjson",
+    scenario: "compaction/threshold-failure",
+    source: "muse-491/threshold-failure-adapter/events.normalized.ndjson",
+    transform: { kind: "copied" },
+  },
+  {
+    file: "muse-1.4.24-R9131.1/hcn-helper.ndjson",
+    scenario: "compaction/held-session-helper",
+    source: "muse-491/H-adapter/captures/04.ndjson",
+    transform: {
+      kind: "excerpt",
+      selection: "muse-helper",
+      session: "01a1fc18-9e26-7083-a3bd-6d2897d2f90f",
+    },
+  },
+  {
+    file: "muse-1.4.24-R9131.1/compaction-records.snapshot.json",
+    scenario: "compaction/durable-log",
+    source: "muse-491/H-adapter/session.jsonl",
+    transform: { kind: "muse-durable-compactions" },
+  },
+  {
+    file: "muse-1.4.24-R9131.1/version.txt",
+    scenario: "version-print",
+    source: "muse/compaction/summary.json",
+    transform: { kind: "muse-version-line", which: "print" },
+  },
+  {
+    file: "muse-1.4.24-R9131.1/build.txt",
+    scenario: "version-build",
+    source: "muse/compaction/summary.json",
+    transform: { kind: "muse-version-line", which: "build" },
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -1275,11 +1425,25 @@ export type FileReceipt = {
 
 export type Receipts = { description: string; files: FileReceipt[] };
 
-/** Files the gate covers: every file in the covered directories but the hand-written notes. */
+/** Files the gate covers: every file in the covered directories but the hand-written notes and the captures whose original is gone. */
+
+/** Covered-directory files with no surviving original capture, so no
+ * receipt can tie them to one. The muse 1.4.24 help texts were captured
+ * straight into the fixture tree during the #491 probes with no raw copy
+ * kept, and msp-view-posthoc.ndjson was written directly by its capture
+ * script (evidence muse-491/msp-view-posthoc.ts) with no separate raw.
+ * They stay uncovered until the next harness refresh captures their raws
+ * beside them; every other file in a covered directory must be receipted. */
+const UNRECEIPTED: readonly string[] = [
+  "muse-1.4.24-R9131.1/help.txt",
+  "muse-1.4.24-R9131.1/exec-help.txt",
+  "muse-1.4.24-R9131.1/msp-view-posthoc.ndjson",
+];
+
 export const coveredFiles = (root: string = fixtureRoot): string[] =>
   coveredDirectories.flatMap((directory) =>
     readdirSync(join(root, directory))
-      .filter((name) => name !== "VERIFICATION.md")
+      .filter((name) => name !== "VERIFICATION.md" && !UNRECEIPTED.includes(`${directory}/${name}`))
       .sort()
       .map((name) => `${directory}/${name}`),
   );
@@ -1308,8 +1472,11 @@ export const receiptFor = (
   fixtureText: string,
 ): FileReceipt => {
   const [directory = ""] = entry.file.split("/");
-  const harness = directory.slice(0, directory.lastIndexOf("-"));
-  const version = directory.slice(directory.lastIndexOf("-") + 1);
+  const separator = directory.indexOf("-");
+  const harness = directory.slice(0, separator);
+  // The version is everything after the harness name, so build-tagged
+  // directories like muse-1.4.24-R9131.1 keep their full version triple.
+  const version = directory.slice(separator + 1);
   const base = {
     file: entry.file,
     harness,
@@ -1318,7 +1485,9 @@ export const receiptFor = (
     transform:
       entry.transform.kind === "excerpt"
         ? `excerpt:${entry.transform.selection}`
-        : entry.transform.kind,
+        : entry.transform.kind === "muse-version-line"
+          ? `muse-version-line:${entry.transform.which}`
+          : entry.transform.kind,
     sha256: sha256(fixtureText),
     bytes: Buffer.byteLength(fixtureText),
   };
@@ -1361,6 +1530,45 @@ export const receiptFor = (
         throw new Mismatch("must end with one newline");
       return { ...base, source, redactions };
     }
+    case "muse-durable-compactions": {
+      // The durable session log's primary context-compaction records,
+      // projected to their payload.event and two-space formatted. The
+      // resume_state copies a resume writes are replays of earlier records,
+      // not primary ones, so they never enter the selection.
+      const events: unknown[] = [];
+      for (const line of lines(sourceText, "source session log")) {
+        let record: unknown;
+        try {
+          record = JSON.parse(line);
+        } catch {
+          continue;
+        }
+        const event = (record as { payload?: { event?: unknown } }).payload?.event;
+        if (
+          typeof event === "object" &&
+          event !== null &&
+          typeof (event as { kind?: unknown }).kind === "string" &&
+          (event as { kind: string }).kind.startsWith("context_compaction")
+        ) {
+          events.push(event);
+        }
+      }
+      if (fixtureText !== JSON.stringify(events, null, 2))
+        throw new Mismatch(
+          "must be the durable log's primary context_compaction payload events, two-space formatted",
+        );
+      return { ...base, source };
+    }
+    case "muse-version-line": {
+      const recorded = (JSON.parse(sourceText) as { version?: string }).version;
+      if (typeof recorded !== "string" || !recorded.includes("(") || !recorded.endsWith(")"))
+        throw new Mismatch("source summary records no `... (build)` version string");
+      const build = recorded.slice(recorded.indexOf("(") + 1, -1);
+      const expected = entry.transform.which === "print" ? recorded : build;
+      if (fixtureText !== `${expected}\n`)
+        throw new Mismatch(`must hold the capture run's recorded ${entry.transform.which} version`);
+      return { ...base, source };
+    }
     case "excerpt": {
       const owners = (() => {
         let lookup: OwnerLookup | undefined;
@@ -1381,7 +1589,9 @@ export const receiptFor = (
       return {
         ...base,
         source,
-        records: verifyExcerpt(sourceText, fixtureText, entry.transform.selection, owners),
+        records: verifyExcerpt(sourceText, fixtureText, entry.transform.selection, owners, {
+          session: entry.transform.session,
+        }),
       };
     }
   }

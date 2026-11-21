@@ -22,8 +22,87 @@ const decoded = (file: string): HarnessEvent[] => {
 };
 
 test("current Muse native compaction installs replacements and preserves later recall and failures", () => {
-  const current = "muse-1.4.2-R4684.1";
-  const records = JSON.parse(read("tool-history-compaction-records.snapshot.json", current));
+  const current = "muse-1.4.24-R9131.1";
+  const records = JSON.parse(read("compaction-records.snapshot.json", current));
+  // Session 01a1fc18-9e26 (2026-11-21, issue #491): the blocking path
+  // still fires and installs replacements mid-turn, and the async soft
+  // candidate still fires pre-turn. A rejected soft replacement is now a
+  // warning the run survives (can_continue: true); 1.4.2 killed the run
+  // on the equivalent hard-threshold rejection.
+  expect(records).toContainEqual(
+    expect.objectContaining({
+      kind: "context_compaction_candidate",
+      trigger: "hard_threshold_blocking",
+      timing: "mid_turn",
+      status: "succeeded",
+    }),
+  );
+  expect(records).toContainEqual(
+    expect.objectContaining({
+      kind: "context_compaction_installed",
+      trigger: "hard_threshold_blocking",
+      timing: "mid_turn",
+    }),
+  );
+  expect(records).toContainEqual(
+    expect.objectContaining({
+      kind: "context_compaction_candidate",
+      trigger: "soft_threshold_async",
+      timing: "pre_turn",
+      status: "rejected",
+    }),
+  );
+  expect(records).toContainEqual(
+    expect.objectContaining({
+      kind: "context_compaction_fallback",
+      trigger: "soft_threshold_async",
+      severity: "warning",
+      can_continue: true,
+    }),
+  );
+  // Thresholds resolve against the effective context limit: 0.02 / 0.04
+  // of the model catalog's 1,007,997-token window for
+  // muse-spark-1.3-contributor. The same resolution rule already appears
+  // in the 1.4.2 threshold-failure fixture against the same 1,007,997
+  // limit; the 1.4.2 tool-history captures resolved these fractions to
+  // 10,240/20,480 instead, and no capture shows what produced that
+  // 512,000 base (see the descriptor comment).
+  const blocking = records.find(
+    (record: { kind?: string; trigger?: string }) =>
+      record.kind === "context_compaction_candidate" &&
+      record.trigger === "hard_threshold_blocking",
+  );
+  expect(blocking.strategy).toMatchObject({
+    strategy_id: "summary-preserved-suffix/v1",
+    config_fingerprint: "soft=0.0200,hard=0.0400",
+    soft_threshold_tokens: 20159,
+    hard_threshold_tokens: 40319,
+  });
+  const events = (file: string) =>
+    read(file, current)
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+  expect(events("tool-history-recall.ndjson")).toContainEqual({
+    kind: "message",
+    role: "assistant",
+    text: "MARIGOLD-491G",
+  });
+  expect(events("tool-history-recall.ndjson").at(-1)).toMatchObject({
+    kind: "done",
+    cause: "clean",
+  });
+  expect(read("build.txt", current).trim()).toBe("1.4.24-R9131.1");
+});
+
+test("the 1.4.2 prior anchor: soft install, later recall, non-convergence and native threshold failure", () => {
+  // Prior-anchor evidence (1.4.2, 2026-10-03): both trigger paths
+  // installed replacements, a later process recalled the marker, a soft
+  // non-convergence stayed a task failure, and a startup prompt past the
+  // hard threshold stayed a native crash - the pre-1.4.24 behavior the
+  // current anchor above moved off.
+  const prior = "muse-1.4.2-R4684.1";
+  const records = JSON.parse(read("tool-history-compaction-records.snapshot.json", prior));
   for (const trigger of ["hard_threshold_blocking", "soft_threshold_async"]) {
     expect(records).toContainEqual(
       expect.objectContaining({
@@ -45,7 +124,7 @@ test("current Muse native compaction installs replacements and preserves later r
     }),
   );
   const events = (file: string) =>
-    read(file, current)
+    read(file, prior)
       .trim()
       .split("\n")
       .map((line) => JSON.parse(line));
@@ -69,15 +148,15 @@ test("current Muse native compaction installs replacements and preserves later r
     cause: "crash",
     failure: { class: "native", nativeExitCode: 1 },
   });
-  expect(read("build.txt", current).trim()).toBe("1.4.2-R4684.1");
+  expect(read("build.txt", prior).trim()).toBe("1.4.2-R4684.1");
 });
 
 test("current MSP attachment initializes and preserves the original missing-limit refusal", () => {
-  const lines = read("msp-missing-limit.ndjson", "muse-1.4.2-R4684.1")
+  const lines = read("msp-missing-limit.ndjson", "muse-1.4.24-R9131.1")
     .trim()
     .split("\n")
     .map((line) => JSON.parse(line));
-  expect(lines[0].result.serverInfo).toEqual({ name: "muse", version: "1.4.2" });
+  expect(lines[0].result.serverInfo).toEqual({ name: "muse", version: "1.4.24" });
   expect(lines.find((line) => line.id === "pending").result).toEqual({
     approvals: [],
     userInputs: [],
@@ -89,12 +168,12 @@ test("current MSP attachment initializes and preserves the original missing-limi
 });
 
 test("Muse's verification anchor has passing native capability and question captures", () => {
-  const seven = JSON.parse(read("seven.snapshot.json", "muse-1.4.2-R4684.1"));
+  const seven = JSON.parse(read("seven.snapshot.json", "muse-1.4.24-R9131.1"));
   expect(Object.keys(seven.results.muse)).toHaveLength(7);
   for (const [name, cell] of Object.entries(seven.results.muse)) {
     expect(cell).toMatchObject({ status: name === "session-cont(1proc)" ? "skip" : "pass" });
   }
-  const questions = JSON.parse(read("questions.snapshot.json", "muse-1.4.2-R4684.1"));
+  const questions = JSON.parse(read("questions.snapshot.json", "muse-1.4.24-R9131.1"));
   expect(questions.results.muse.status).toBe("pass");
   expect(questions.observations.muse).toEqual(museCode.escalation.observedOn);
   expect(questions.observations.muse.version).toBe(museCode.verifiedAgainst);
@@ -155,7 +234,7 @@ test("Muse installed automatic compaction and a later process recalled the marke
 });
 
 test("the approval observer's MSP helper answers on the verified Muse", () => {
-  const [initialize] = read("msp-missing-limit.ndjson", "muse-1.4.2-R4684.1")
+  const [initialize] = read("msp-missing-limit.ndjson", "muse-1.4.24-R9131.1")
     .trim()
     .split("\n")
     .map((line) => JSON.parse(line));
@@ -196,7 +275,7 @@ test("native compaction failure remains a failure, not successful accounting", (
 });
 
 test("a threshold the startup prompt already exceeds stays a native failure", () => {
-  const events = read("threshold-failure.ndjson")
+  const events = read("threshold-failure.ndjson", "muse-1.4.24-R9131.1")
     .trim()
     .split("\n")
     .map((line) => JSON.parse(line));
@@ -208,15 +287,14 @@ test("a threshold the startup prompt already exceeds stays a native failure", ()
   expect(events.at(-1).failure.message).toContain("reaches hard threshold");
 });
 
-// Latest-harness compatibility validation, run on 2026-10-03 against
-// build 1.4.2-R4684.1. Historical Muse tests above stay on 1.4.1 by
-// default; this block adds current coverage on the named 1.4.2 captures
-// without disturbing the 1.4.1 contract. The seven files are the
-// 1.4.2 fixtures `bun run smoke:seven` produced; their snapshot says
-// every cell is pass (session-cont(1proc) is the intentional skip for
-// `sessionMode: null`).
+// Latest-harness compatibility validation, updated 2026-11-21 against
+// build 1.4.24-R9131.1 (issue #491). Historical Muse tests above stay on
+// 1.4.1 by default; prior 1.4.2 anchors remain in their own directory.
+// The seven files are the 1.4.24 fixtures `bun run smoke:seven` produced
+// (2026-11-20); their snapshot says every cell is pass
+// (session-cont(1proc) is the intentional skip for `sessionMode: null`).
 
-const CURRENT = "muse-1.4.2-R4684.1";
+const CURRENT = "muse-1.4.24-R9131.1";
 const decodedCurrent = (file: string, dir = CURRENT): HarnessEvent[] => {
   const state = freshDecodeState(null, "muse");
   return read(file, dir)
@@ -238,30 +316,30 @@ const messageText = (file: string, dir = CURRENT): string | null => {
   return message?.text ?? null;
 };
 
-test("current 1.4.2 seven captures decode to the named turn outcomes", () => {
+test("current 1.4.24 seven captures decode to the named turn outcomes", () => {
   // single-turn: the run produces a token "alpha" and a final assistant
   // message of "alpha". The decoder emits identity once (no requestedId,
   // first session record), then the run_output_delta text and the
   // run_terminal message.
   const single = decodedCurrent("seven-01.ndjson");
-  expect(identityOf("seven-01.ndjson").sessionId).toBe("01a10134-76a3-79f0-a7ed-bdad567bda19");
+  expect(identityOf("seven-01.ndjson").sessionId).toBe("01a1fa25-cfed-7c41-ae25-b9f22bbb13ed");
   expect(single).toContainEqual(expect.objectContaining({ kind: "token", text: "alpha" }));
   expect(single).toContainEqual(
     expect.objectContaining({ kind: "message", role: "assistant", text: "alpha" }),
   );
 
-  // streaming: the model counts from one to three and the run emits two
-  // run_output_delta tokens that join to "Count is 3." plus the terminal
-  // message with the same text.
+  // streaming: the model counts from one to three and the run emits
+  // run_output_delta tokens that join to "one two three" plus the
+  // terminal message with the same text.
   const streaming = decodedCurrent("seven-03.ndjson");
   expect(
     streaming
       .filter((event): event is Extract<HarnessEvent, { kind: "token" }> => event.kind === "token")
       .map((event) => event.text)
       .join(""),
-  ).toBe("Count is 3.");
+  ).toBe("one two three");
   expect(streaming).toContainEqual(
-    expect.objectContaining({ kind: "message", role: "assistant", text: "Count is 3." }),
+    expect.objectContaining({ kind: "message", role: "assistant", text: "one two three" }),
   );
 
   // tool-use: one bash tool event plus the assistant message reporting
@@ -292,10 +370,10 @@ test("current 1.4.2 seven captures decode to the named turn outcomes", () => {
   expect(messageText("seven-15.ndjson")).toBe("otter");
 });
 
-test("the current 1.4.2 native question is detected from the assistant turn", () => {
-  // The 1.4.2 question stream still ends in a terminal record with the
+test("the current 1.4.24 native question is detected from the assistant turn", () => {
+  // The 1.4.24 question stream still ends in a terminal record with the
   // hcn-question block as the run's full text, so detectQuestionBlock
-  // must pick it out. The tool use is `bash` and the model self-
+  // must pick it out. The tool use includes `bash` and the model self-
   // attests to muse-spark-1.3-contributor (the descriptor's
   // vocabulary.models[0]).
   const question = decodedCurrent("question.ndjson");
@@ -315,17 +393,29 @@ test("the current 1.4.2 native question is detected from the assistant turn", ()
   // exactly the two environments.
   expect(block.block.question).toContain("environment");
   expect(block.block.options).toEqual(["staging", "production"]);
-  // Escalation provenance pins the model the harness announced.
-  expect(identityOf("question.ndjson").capabilities.escalation.observedOn).toEqual(
-    museCode.escalation.observedOn,
-  );
+  // Escalation provenance pins the model the harness announced. The
+  // echoed observedOn version/date is the descriptor at capture time
+  // (2026-11-20, captured while the anchor was still 1.4.2); the anchor
+  // moved to 1.4.24 in the same change that added this fixture, so the
+  // echo pins the capture run, not the current claim.
+  expect(identityOf("question.ndjson").capabilities.escalation).toMatchObject({
+    source: "runtime-verified",
+    confidence: "high",
+    observedOn: {
+      harness: "muse",
+      model: "muse-spark-1.3-contributor",
+    },
+  });
 });
 
-test("the current HCN helper replays the 13 ordered outcomes through the current MSP adapter", () => {
-  const summary = JSON.parse(read("hcn-observer-summary.snapshot.json", CURRENT));
+test("the 1.4.2 HCN helper replays the 13 ordered outcomes through the current MSP adapter", () => {
+  // Prior-anchor fold evidence (1.4.2, 2026-10-03): the live helper's
+  // view pages carried 13 terminal compaction outcomes. On 1.4.24 the
+  // live view read fails instead (see the 1.4.24 helper test below).
+  const summary = JSON.parse(read("hcn-observer-summary.snapshot.json", "muse-1.4.2-R4684.1"));
   const seen = new Set<string>();
   const observed: MuseCompaction[] = [];
-  for (const line of read("hcn-helper.ndjson", CURRENT).trim().split("\n")) {
+  for (const line of read("hcn-helper.ndjson", "muse-1.4.2-R4684.1").trim().split("\n")) {
     const response = JSON.parse(line);
     const page = museViewPageOf(response.result);
     for (const compaction of page?.compactions ?? []) {
@@ -348,4 +438,50 @@ test("the current HCN helper replays the 13 ordered outcomes through the current
       return counts;
     }, {}),
   ).toEqual({ compacted: 7, noop: 3, failed: 2, aborted: 1 });
+});
+
+test("the 1.4.24 live helper folds no compactions because every view page fails while the session is held", () => {
+  // Issue #491: on 1.4.24 every live `view/page` reply during a held
+  // session is a -32603 "view range read failed" error, so the observer
+  // reports nothing even while the durable log records candidates and
+  // installs (compaction-records.snapshot.json, same session). This is
+  // why the 1.4.20 ladder and the 1.4.24 re-run both recorded misses.
+  const replies = read("hcn-helper.ndjson", CURRENT)
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line));
+  const views = replies.filter((reply) => typeof reply.id === "string" && reply.id.startsWith("v"));
+  expect(views.length).toBeGreaterThan(0);
+  for (const view of views) {
+    expect(view.error).toMatchObject({ code: -32603, message: "view range read failed" });
+  }
+  const compactions: MuseCompaction[] = [];
+  for (const view of views) {
+    const page = museViewPageOf(view.result);
+    if (page !== null) compactions.push(...page.compactions);
+  }
+  expect(compactions).toEqual([]);
+});
+
+test("the 1.4.24 view still carries the terminal compaction item once the session ends", () => {
+  // A `muse serve` started after the compacting session ended pages the
+  // last terminal compaction item fine: the view source still exists on
+  // 1.4.24, it is the live held-session read that fails. The item is the
+  // mid-turn no_progress_exhausted failure from the read turn; successful
+  // installs collapse out of the rebuilt view projection.
+  const replies = read("msp-view-posthoc.ndjson", CURRENT)
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line));
+  const page = museViewPageOf(replies.find((reply) => reply.id === "view-0").result);
+  expect(page).not.toBeNull();
+  expect(page?.compactions).toEqual([
+    {
+      itemId: "01a1fc19-3bde-7f60-9abe-f7b23ef77706",
+      state: "failed",
+      trigger: "auto",
+      tokensBefore: 86317,
+      detail: "no_progress_exhausted",
+    },
+  ]);
 });

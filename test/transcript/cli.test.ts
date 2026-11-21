@@ -357,7 +357,7 @@ test("transcript inspection reports Muse's file method without starting a native
   expect(doc.methods.map((method: { id: string }) => method.id)).toEqual(["muse-file-v1"]);
   expect(doc.capabilities.history.status).toBe("available");
   expect(Object.keys(doc.capabilities)).toHaveLength(8);
-  expect(doc.verifiedAgainst).toBe("1.4.2");
+  expect(doc.verifiedAgainst).toBe("1.4.24");
   expect(doc.capabilities.history.evidence[1].appliesTo.writerBuilds).toContainEqual({
     version: "1.1.1",
     buildId: "1.1.1-R2514.1",

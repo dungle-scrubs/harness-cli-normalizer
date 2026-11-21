@@ -1,0 +1,5 @@
+{"kind":"warning","message":"muse creates a new session when 01a1fc18-9e26-7083-a3bd-6d2897d2f90f is unknown; verify the id exists"}
+{"kind":"identity","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f","authority":"caller-assigned","capabilities":{"vision":false,"images":false,"streaming":"token","session":false,"source":"curated","confidence":"medium","escalation":{"supported":true,"source":"runtime-verified","confidence":"high","observedOn":{"harness":"muse","model":"muse-spark-1.3-contributor","version":"1.4.2","date":"2026-10-03"}},"compactionReporting":{"source":"view","states":["compacted","noop","failed","aborted"],"tokens":true},"namedAgents":false,"sessionControls":null}}
+{"kind":"token","text":"MARIGOLD-491G"}
+{"kind":"message","role":"assistant","text":"MARIGOLD-491G"}
+{"kind":"done","exitCode":0,"cause":"clean","escalation":{"mode":"none","detection":"none"}}
