@@ -1,7 +1,7 @@
 # Cursor access presets
 
 `hcn run cursor` and `hcn session cursor` execute the Cursor SDK (`@cursor/sdk`,
-pinned 1.0.38 and installed as a dependency of the hcn package) in one Node
+pinned 1.4.2 and installed as a dependency of the hcn package) in one Node
 worker process that hcn owns and supervises. The worker runs under Node even
 when hcn itself runs under Bun. The native `agent` CLI is not spawned for
 headless turns or sessions. Historical native terminal operations and CLI version inspection
@@ -82,8 +82,8 @@ These observations supported native ask mode for read and `--force` for write
 on the CLI. They did not establish an OS-level read sandbox, guarantee behavior
 under other native overrides, or qualify every capability of the newer build.
 These historical probes retain their CLI version. The current headless descriptor is qualified
-against SDK 1.0.38 by its separate seven-scenario and question captures in
-[`test/fixtures/cursor-sdk-1.0.38`](../test/fixtures/cursor-sdk-1.0.38).
+against SDK 1.4.2 by its separate seven-scenario, question and compaction captures in
+[`test/fixtures/cursor-sdk-1.4.2`](../test/fixtures/cursor-sdk-1.4.2).
 
 Evidence:
 

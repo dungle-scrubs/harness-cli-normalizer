@@ -705,7 +705,8 @@ export const cursorCli: HarnessDescriptor = deepFreeze({
   // 2026.10.01-e373342 with fourteen synthetic file reads, automatic hooks,
   // a clean completed turn, and a later process recalling LANTERN-903, and
   // again on the SDK 1.4.2 backend with a fifteen-turn file-read ladder
-  // (input tokens crossing ~1.01M and dropping to ~325k three times) plus
+  // (input tokens climbing to ~1.01M twice and ~730k twice, each time
+  // dropping back to ~325k) plus
   // cross-process LANTERN-1121 recall (test/fixtures/cursor-sdk-1.4.2).
   // The stream itself
   // carries no compaction record - the print-mode emitter has no such code

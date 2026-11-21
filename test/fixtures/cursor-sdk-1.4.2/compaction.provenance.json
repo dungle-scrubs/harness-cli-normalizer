@@ -14,7 +14,7 @@
       164831, 321654, 512344, 1007948, 325045, 515796, 1013013, 325808, 516718, 728825, 327069,
       518058, 731172, 328777, 212155
     ],
-    "trigger": "input tokens cross ~1.01M and drop back to ~325k three times (turns 3->4, 6->7 and around 10): the native agent replaced older history automatically",
+    "trigger": "input tokens peak at ~1.01M (turns 4 and 7) and ~730k (turns 10 and 13), dropping back to ~325k after each peak: the native agent replaced older history automatically",
     "laterProcess": "a separate worker process resumed the agent and answered exactly LANTERN-1121",
     "streamSilence": "the SDK run stream carries no compaction or summary record; the evidence is the usage shape plus cross-process marker recall, matching the CLI-era method"
   },

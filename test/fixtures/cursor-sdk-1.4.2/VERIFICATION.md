@@ -27,8 +27,8 @@ CLI grammar facts in the descriptor remain anchored to agent
   state; account identity fields were never captured in the fixture.
 - `compaction-ladder.ndjson`, `compaction-later-recall.ndjson`,
   `compaction.provenance.json`: the native-compaction contract on the SDK
-  path. A fifteen-turn synthetic file-read ladder drove input tokens past
-  ~1.01M three times; each crossing dropped the context back to ~325k
+  path. A fifteen-turn synthetic file-read ladder drove input tokens to
+  ~1.01M twice and ~730k twice; each peak dropped the context back to ~325k
   (automatic replacement installation), and a separate resumed worker
   process answered exactly LANTERN-1121. The ladder excerpt keeps every
   opened/receipt/turn-end record, all fifteen usage records and the final
