@@ -38,7 +38,6 @@ import type { HarnessDescriptor } from "../../src/knowledge/descriptor.js";
 import { museCode } from "../../src/knowledge/muse.js";
 import { opencodeCli } from "../../src/knowledge/opencode.js";
 import { piCli } from "../../src/knowledge/pi.js";
-import { popeyeCli } from "../../src/knowledge/popeye.js";
 
 // Cursor rows pin the launch shape (-p placement, prompt-first order,
 // effort rendering zero tokens because slug resolution lives at the
@@ -51,7 +50,6 @@ const HARNESSES: readonly HarnessDescriptor[] = [
   museCode,
   cursorCli,
   antigravityCli,
-  popeyeCli,
   opencodeCli,
 ];
 const SESSION_ID = "0199a4c5-1111-2222-3333-444455556666";

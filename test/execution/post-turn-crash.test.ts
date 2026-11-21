@@ -8,7 +8,6 @@ import { cursorCli } from "../../src/knowledge/cursor.js";
 import type { HarnessDescriptor } from "../../src/knowledge/descriptor.js";
 import { museCode } from "../../src/knowledge/muse.js";
 import { piCli } from "../../src/knowledge/pi.js";
-import { popeyeCli } from "../../src/knowledge/popeye.js";
 import { FakeClock, FakeProcess, fakeSignal, fakeSpawner } from "./fakes.js";
 
 const run = async (
@@ -55,7 +54,6 @@ test.each([
   //  record is the private turn-end wire shape.
   [cursorCli, { hcn: "turn-end", status: "finished" }],
   [antigravityCli, { event: "result", result: { status: "SUCCESS", response: "done" } }],
-  [popeyeCli, { kind: "done", cause: "clean" }],
 ] as const)(
   "%s successful native terminal survives a silent process crash without retrying work",
   async (h, terminal) => {

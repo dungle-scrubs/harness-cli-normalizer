@@ -10,7 +10,6 @@ export const NATIVE_SETTINGS_SOURCES = deepFreeze({
   // RFC-05: no settings source observed; reads report unsupported-harness.
   cursor: null,
   antigravity: null,
-  popeye: null,
   // The OpenCode CLI files its sessions in a SQLite store with no settings
   // fingerprint hcn reads; reads report unsupported-harness.
   opencode: null,

@@ -169,12 +169,11 @@ const DE7584_SKILL_ROW =
 
 /** The corrected wording this gate pins, per document. */
 const FIXED_DOCS_SESSION_OPEN = `\`failed\` is the cause when the harness refused hcn's
-  session open (codex answering \`thread/start\` with an error, popeye
-  refusing \`create\`) and then exited cleanly, unless the refusal
+  session open (codex answering \`thread/start\` with an error) and then
+  exited cleanly, unless the refusal
   classifies as a rate-limit, usage-limit or quota wall, which takes limit
   precedence: \`closed\` reports cause \`limit\` instead, and hcn exits 1; codex
-  rejects the waiting send with reason \`native-rejected\`, and popeye ends
-  the waiting send's turn with the failure.`;
+  rejects the waiting send with reason \`native-rejected\`.`;
 
 const FIXED_DOCS_REFUSED_PROMPT = `A refused prompt (pi's
   \`prompt\` answered \`success: false\`) ends its turn with \`done\` cause
@@ -187,7 +186,7 @@ const FIXED_DOCS_REFUSED_PROMPT = `A refused prompt (pi's
   succeed.`;
 
 const FIXED_SKILL_ROW =
-  "| refusals | from hcn 0.9.6. A harness that refuses the command that opened a turn, before acknowledging it (pi `prompt` with `success:false`, a popeye prompt error), ends that turn with the classified failure and `done` cause `failed`, unless the refusal classifies as a rate-limit, usage-limit or quota wall, which takes limit precedence: the turn ends `done` cause `limit` and the session closes `limit` and hcn exits 1, a session-level limit cause that persists even if later turns succeed; a refused later send, even one reusing the id, leaves the turn running. A refused session open (codex `thread/start` error, popeye `create` error) ends the session: codex rejects the waiting sends with `native-rejected`, popeye ends the first waiting send's turn with the failure, and `closed` reports cause `failed` (exit 1) with the failure, unless the refusal is a rate-limit, usage-limit or quota wall, which takes limit precedence: `closed` reports cause `limit` instead, and hcn exits 1. A refusal is classified like a terminal error, except that a generic one is `native`, not `task`. A codex app-server that never answers still waits on the caller |";
+  "| refusals | from hcn 0.9.6. A harness that refuses the command that opened a turn, before acknowledging it (pi `prompt` with `success:false`), ends that turn with the classified failure and `done` cause `failed`, unless the refusal classifies as a rate-limit, usage-limit or quota wall, which takes limit precedence: the turn ends `done` cause `limit` and the session closes `limit` and hcn exits 1, a session-level limit cause that persists even if later turns succeed; a refused later send, even one reusing the id, leaves the turn running. A refused session open (codex `thread/start` error) ends the session: codex rejects the waiting sends with `native-rejected`, and `closed` reports cause `failed` (exit 1) with the failure, unless the refusal is a rate-limit, usage-limit or quota wall, which takes limit precedence: `closed` reports cause `limit` instead, and hcn exits 1. A refusal is classified like a terminal error, except that a generic one is `native`, not `task`. A codex app-server that never answers still waits on the caller |";
 
 describe("session limit contract", () => {
   it("docs/reference.md qualifies both refusal claims with the limit exception", () => {

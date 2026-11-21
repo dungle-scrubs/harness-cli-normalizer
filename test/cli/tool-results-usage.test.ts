@@ -348,7 +348,7 @@ for (const runtime of [process.execPath, bun]) {
       "trusted user or managed domain policy may be needed for installs or tests",
     );
     expect(help).toContain("Claude keeps the explicit write sandbox with --autonomy");
-    expect(help).not.toContain("no extra flags on claude/pi/muse/popeye");
+    expect(help).toContain("no extra flags on pi or muse");
   }, 30000);
 
   test(`${runtime}: Claude write and selected skills compose on fresh, named and last turns`, () => {

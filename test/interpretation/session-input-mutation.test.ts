@@ -24,13 +24,8 @@ import { codexCli } from "../../src/knowledge/codex.js";
 import { cursorCli } from "../../src/knowledge/cursor.js";
 import type { HarnessDescriptor } from "../../src/knowledge/descriptor.js";
 import { piCli } from "../../src/knowledge/pi.js";
-import { popeyeCli } from "../../src/knowledge/popeye.js";
 
 const sessionlessClaude = { ...claudeCode, sessionMode: null } as HarnessDescriptor;
-const probelessPopeye = {
-  ...popeyeCli,
-  sessionMode: { ...popeyeCli.sessionMode, identityProbe: null },
-} as unknown as HarnessDescriptor;
 const probelessCodex = {
   ...codexCli,
   sessionMode: { ...codexCli.sessionMode, identityProbe: null },
@@ -41,12 +36,6 @@ const probelessCursor = {
 } as unknown as HarnessDescriptor;
 
 describe("bare sends with no correlation options", () => {
-  test("a popeye prompt without options carries the bare send marker and no session id", () => {
-    expect(encodeSessionInput({ kind: "popeye-rpc-prompt" }, "hello")).toBe(
-      '{"_tag":"prompt","content":"hello","id":"hcn-send"}\n',
-    );
-  });
-
   test("a codex send without options starts a turn on an empty thread id", () => {
     expect(encodeSessionInput({ kind: "codex-jsonrpc" }, "hello")).toBe(
       '{"jsonrpc":"2.0","id":"hcn-send","method":"turn/start","params":{"threadId":"","input":[{"text":"hello","type":"text"}]}}\n',
@@ -61,10 +50,6 @@ describe("bare sends with no correlation options", () => {
 });
 
 describe("identity probes", () => {
-  test("the popeye probe is a create frame stamped with the marker id", () => {
-    expect(encodeIdentityProbe(popeyeCli)).toBe('{"_tag":"create","id":"hcn-identity"}\n');
-  });
-
   test("a codex probe without a client version reports version 0 on the initialize handshake", () => {
     const [initialize, open] = (encodeIdentityProbe(codexCli) ?? "").trim().split("\n");
     expect(JSON.parse(initialize ?? "")).toEqual({
@@ -110,15 +95,11 @@ describe("protocol vocabulary facts", () => {
     expect(hasNativeReceipts("cursor-sdk")).toBe(true);
     expect(hasNativeReceipts("claude-sdk-user-message")).toBe(false);
     expect(hasNativeReceipts("antigravity-stream-user")).toBe(false);
-    expect(hasNativeReceipts("popeye-rpc-prompt")).toBe(false);
   });
 
   test("refusing an interrupt names the closed issue", () => {
     expect(() => encodeSessionInterrupt({ kind: "antigravity-stream-user" }, "1")).toThrowError(
       expect.objectContaining({ issue: "unsupported-interrupt" }),
-    );
-    expect(() => encodeSessionInterrupt({ kind: "popeye-rpc-prompt" }, "1")).toThrowError(
-      "session input refused: unsupported-interrupt",
     );
   });
 });
@@ -408,131 +389,6 @@ describe("pi session records", () => {
         success: false,
       }),
     ).toStrictEqual({ kind: "command-failed", message: 'rpc command failed: "prompt" - "x"' });
-  });
-});
-
-describe("popeye session records", () => {
-  test("a failed command without an id still surfaces", () => {
-    expect(decodeSessionRecord(popeyeCli, { error: { message: "boom" } })).toStrictEqual({
-      kind: "command-failed",
-      message: 'rpc command failed: {"message":"boom"}',
-    });
-  });
-
-  test("a response that is only an id is a failed command naming the whole record", () => {
-    expect(decodeSessionRecord(popeyeCli, { id: `${SEND_ID}:s2` })).toStrictEqual({
-      inputId: "s2",
-      kind: "command-failed",
-      message: 'rpc command failed: {"id":"hcn-send:s2"}',
-    });
-  });
-
-  test("a record with nothing to correlate is content", () => {
-    expect(decodeSessionRecord(popeyeCli, { type: "log" })).toEqual({ kind: "content" });
-  });
-
-  test("a non-snapshot result is content", () => {
-    expect(decodeSessionRecord(popeyeCli, { result: { _tag: "other" } })).toEqual({
-      kind: "content",
-    });
-  });
-
-  test("the create answer must be a string session id", () => {
-    const probeFailed = {
-      kind: "probe-failed",
-      message: "create response carried no sessionId",
-    };
-    expect(
-      decodeSessionRecord(popeyeCli, { id: IDENTITY_PROBE_ID, result: { _tag: "snapshot" } }),
-    ).toEqual(probeFailed);
-    expect(
-      decodeSessionRecord(popeyeCli, {
-        id: IDENTITY_PROBE_ID,
-        result: { _tag: "snapshot", sessionId: 42 },
-      }),
-    ).toEqual(probeFailed);
-  });
-
-  test("a descriptor without an identity probe still decodes the snapshot as a failed probe", () => {
-    expect(
-      decodeSessionRecord(probelessPopeye, {
-        id: IDENTITY_PROBE_ID,
-        result: { _tag: "snapshot", sessionId: "sess01" },
-      }),
-    ).toEqual({
-      kind: "probe-failed",
-      message: "create response carried no sessionId",
-    });
-  });
-
-  test("a create failure carries the native message; other shapes fall back to the record", () => {
-    expect(
-      decodeSessionRecord(popeyeCli, {
-        id: IDENTITY_PROBE_ID,
-        error: { code: "invalid_config", message: "config.toml parse error" },
-      }),
-    ).toEqual({
-      kind: "probe-failed",
-      message: 'rpc command failed: "hcn-identity" - config.toml parse error',
-    });
-    expect(
-      decodeSessionRecord(popeyeCli, { id: IDENTITY_PROBE_ID, error: { code: "invalid_config" } }),
-    ).toEqual({
-      kind: "probe-failed",
-      message: 'rpc command failed: {"code":"invalid_config"}',
-    });
-    expect(decodeSessionRecord(popeyeCli, { id: IDENTITY_PROBE_ID })).toEqual({
-      kind: "probe-failed",
-      message: 'rpc command failed: {"id":"hcn-identity"}',
-    });
-  });
-
-  test("only assistant message entries vote on the turn verdict", () => {
-    const snapshot = (entries: unknown[]) => ({
-      id: `${SEND_ID}:s1`,
-      result: { _tag: "snapshot", entries },
-    });
-    expect(
-      decodeSessionRecord(
-        popeyeCli,
-        snapshot([
-          { kind: "message", payload: { role: "assistant", stopReason: "error" } },
-          { kind: "tool" },
-        ]),
-      ),
-    ).toEqual({ kind: "turn-end", isError: true });
-    expect(
-      decodeSessionRecord(
-        popeyeCli,
-        snapshot([{ kind: "tool", payload: { role: "assistant", stopReason: "error" } }]),
-      ),
-    ).toEqual({ kind: "turn-end", isError: false });
-    expect(
-      decodeSessionRecord(
-        popeyeCli,
-        snapshot([{ kind: "message", payload: { role: "user", stopReason: "error" } }]),
-      ),
-    ).toEqual({ kind: "turn-end", isError: false });
-    expect(decodeSessionRecord(popeyeCli, snapshot([{ kind: "message" }]))).toEqual({
-      kind: "turn-end",
-      isError: false,
-    });
-    expect(decodeSessionRecord(popeyeCli, snapshot(["raw string"]))).toEqual({
-      kind: "turn-end",
-      isError: false,
-    });
-  });
-
-  test("an aborted assistant entry also ends the turn failed", () => {
-    expect(
-      decodeSessionRecord(popeyeCli, {
-        id: `${SEND_ID}:s1`,
-        result: {
-          _tag: "snapshot",
-          entries: [{ kind: "message", payload: { role: "assistant", stopReason: "aborted" } }],
-        },
-      }),
-    ).toEqual({ kind: "turn-end", isError: true });
   });
 });
 

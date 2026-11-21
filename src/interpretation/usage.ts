@@ -228,7 +228,6 @@ export function usageEventsOf(
           )
         : [];
     case "muse":
-    case "popeye":
       return [];
     case "opencode":
       // One usage event per step, scoped to the message the step

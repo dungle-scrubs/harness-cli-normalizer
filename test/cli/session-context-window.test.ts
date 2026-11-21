@@ -55,7 +55,6 @@ describe("hcn session --context-window", () => {
     expect(failure.supportedBy).toEqual([
       { harness: "claude", spelling: "--autocompact" },
       { harness: "codex", spelling: "-c" },
-      { harness: "popeye", spelling: "--context-window" },
     ]);
   });
 });

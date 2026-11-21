@@ -12,7 +12,6 @@ import { antigravityCli } from "../../src/knowledge/antigravity.js";
 import { claudeCode } from "../../src/knowledge/claude-code.js";
 import type { HarnessDescriptor } from "../../src/knowledge/descriptor.js";
 import { piCli } from "../../src/knowledge/pi.js";
-import { popeyeCli } from "../../src/knowledge/popeye.js";
 
 describe("session input encoding", () => {
   test("encodes one exact Claude SDK user-message record for arbitrary user text", () => {
@@ -64,8 +63,6 @@ describe("session input encoding", () => {
   test.each([
     ["antigravity-stream-user", "queue"],
     ["antigravity-stream-user", "steer"],
-    ["popeye-rpc-prompt", "queue"],
-    ["popeye-rpc-prompt", "steer"],
     ["codex-jsonrpc", "queue"],
   ] as const)("refuses unsupported %s delivery %s", (kind, delivery) => {
     expect(() =>
@@ -237,70 +234,4 @@ describe("session input encoding", () => {
       }),
     );
   });
-});
-
-describe("popeye session records", () => {
-  test("encodes the popeye prompt frame with the minted session id", () => {
-    expect(
-      encodeSessionInput({ kind: "popeye-rpc-prompt" }, "hello", {
-        busy: false,
-        id: "s1",
-        sessionId: "sess01",
-      }),
-    ).toBe('{"_tag":"prompt","content":"hello","id":"hcn-send:s1","sessionId":"sess01"}\n');
-  });
-
-  test("the create response announces harness-minted identity", () => {
-    expect(
-      decodeSessionRecord(popeyeCli, {
-        id: IDENTITY_PROBE_ID,
-        result: { _tag: "snapshot", sessionId: "sess01" },
-      }),
-    ).toEqual({ kind: "identity", sessionId: "sess01" });
-  });
-
-  test("a prompt snapshot ends the turn", () => {
-    expect(
-      decodeSessionRecord(popeyeCli, {
-        id: `${SEND_ID}:s1`,
-        result: { _tag: "snapshot", sessionId: "sess01" },
-      }),
-    ).toEqual({ kind: "turn-end", isError: false });
-  });
-
-  test("a failed command surfaces with its input id", () => {
-    expect(
-      decodeSessionRecord(popeyeCli, {
-        error: { code: "session_not_found" },
-        id: `${SEND_ID}:s1`,
-      }),
-    ).toMatchObject({ inputId: "s1", kind: "command-failed" });
-  });
-
-  test("a create probe failure (error on the identity probe id) decodes as probe-failed", () => {
-    // Issue #345: popeye's create probe failure rides the identity-probe
-    // request id; the runner uses the same probe-failed arm codex uses
-    // so the buffered sends settle and the session closes failed.
-    expect(
-      decodeSessionRecord(popeyeCli, {
-        error: { code: "invalid_config", message: "config.toml parse error" },
-        id: IDENTITY_PROBE_ID,
-      }),
-    ).toMatchObject({ kind: "probe-failed" });
-  });
-});
-
-test("a prompt snapshot with a failed assistant entry ends the turn failed", () => {
-  expect(
-    decodeSessionRecord(popeyeCli, {
-      id: `${SEND_ID}:s1`,
-      result: {
-        _tag: "snapshot",
-        entries: [
-          { kind: "message", payload: { content: "x", role: "assistant", stopReason: "error" } },
-        ],
-        sessionId: "sess01",
-      },
-    }),
-  ).toEqual({ kind: "turn-end", isError: true });
 });

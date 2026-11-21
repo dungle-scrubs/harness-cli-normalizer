@@ -6,7 +6,7 @@ A unified interface across multiple coding agents.
 
 hcn is a command-line tool for scripts and agents that hand work to coding-agent CLIs. hcn calls
 each of these CLIs a harness. It currently supports Claude Code, Codex, pi, Muse, Cursor CLI,
-Antigravity CLI, popeye, and OpenCode CLI. You choose the harness and model for each task and pass the same
+Antigravity CLI, and OpenCode CLI. You choose the harness and model for each task and pass the same
 options to any of them. hcn translates the options into that harness's flags and reports the result
 as the same JSON events and exit codes. If a harness has no equivalent for an option, hcn exits
 without starting it and lists the harnesses that do.
@@ -22,7 +22,7 @@ argv: codex exec --json ... -c model_context_window=200000 --disable memories --
 
 $ hcn inspect pi --argv --access read --context-window 200000 --prompt "find bugs in src/"
 pi cannot express option "contextWindow" (200000); supported: effort, provider, ... - drop the option or route this work to a harness that supports it
-supported on: claude (--autocompact), codex (-c), popeye (--context-window)
+supported on: claude (--autocompact), codex (-c)
 ```
 
 `hcn inspect --argv` prints the command hcn would run. `hcn run` takes the same flags and runs it.
@@ -54,7 +54,6 @@ pi@1.4.0 (npm:@earendil-works/pi-coding-agent)
 muse@1.4.2 (installed:muse)
 cursor@1.0.38 (npm:@cursor/sdk)
 antigravity@1.3.3 (installed:agy)
-popeye@0.2.0 (npm:@dungle-scrubs/popeye)
 opencode@1.19.5 (npm:opencode-ai)
 ```
 
@@ -81,8 +80,8 @@ provenance: questions = ask (default)
   ○ clean (exit 0)
 ```
 
-To use another harness, replace `claude` with `codex`, `pi`, `muse`, `cursor`, `antigravity`,
-`popeye`, or `opencode` and keep the other flags. hcn checks `--model` and `--effort` against the harness first.
+To use another harness, replace `claude` with `codex`, `pi`, `muse`, `cursor`, `antigravity`, or
+`opencode` and keep the other flags. hcn checks `--model` and `--effort` against the harness first.
 On claude, `--setting-sources <list>` (`user`, `project`, `local`) picks which settings scopes the
 child loads; runs pass nothing by default and sessions pin `project`.
 For example, `--model haiku` on codex exits 2 and lists the codex models. The stderr lines show where
@@ -171,7 +170,7 @@ and `done.failure.class` gives the reason, such as `rate-limit`, `auth`, `transp
 
 ```console
 $ hcn run pi "find bugs in src/" --context-window 200000 --json
-{"kind":"failure","class":"rejected","retryable":false,...,"supportedBy":[{"harness":"claude","spelling":"--autocompact"},{"harness":"codex","spelling":"-c"},{"harness":"popeye","spelling":"--context-window"}]}
+{"kind":"failure","class":"rejected","retryable":false,...,"supportedBy":[{"harness":"claude","spelling":"--autocompact"},{"harness":"codex","spelling":"-c"}]}
 {"kind":"done","exitCode":null,"cause":"failed","failure":{...}}
 ```
 
@@ -216,7 +215,7 @@ dialog, which asks hcn's own question set (checkboxes, free text, per-question n
 the harness's own slash command untouched (Claude slash commands; on pi only extension commands
 such as `/skill:x` run); see
 [the reference](docs/reference.md#mid-session-model-and-effort). Sessions work
-with Claude Code, Codex, pi, Cursor, Antigravity CLI, and popeye. Cursor sessions run the SDK
+with Claude Code, Codex, pi, Cursor, and Antigravity CLI. Cursor sessions run the SDK
 in hcn's worker: a busy send is rejected by the SDK (no queue), `interrupt` is best-effort
 cancellation, and the session surface takes no access options, so a Cursor session runs at
 the SDK's native defaults. Without `--json`, `hcn session claude` opens an interactive prompt.
@@ -225,7 +224,7 @@ the SDK's native defaults. Without `--json`, `hcn session claude` opens an inter
 
 ```console
 $ hcn transcript ls --limit 1
-{"schemaVersion":1,"kind":"session-list-source","hcnVersion":"0.9.8","harnesses":["claude","codex","pi","muse","cursor","antigravity","popeye"],...}
+{"schemaVersion":1,"kind":"session-list-source","hcnVersion":"0.9.8","harnesses":["claude","codex","pi","muse","cursor","antigravity"],...}
 {"schemaVersion":1,"kind":"session","harness":"claude","id":"1daeb0ec-1d9c-4461-8e5c-84ca8c6ee3f6",...,"mode":"interactive","readable":true,"blocked":null}
 {"schemaVersion":1,"kind":"session-list-result","exitCode":0,"status":"complete","rowsReturned":1,"more":true,...}
 $ hcn transcript read claude --id 1daeb0ec-1d9c-4461-8e5c-84ca8c6ee3f6 > transcript.jsonl
@@ -269,8 +268,7 @@ registry file: the models you can use, the harnesses that reach them, and rating
 [model-router](https://github.com/dungle-scrubs/model-router) reads the registry, takes a task, and
 returns routes ranked best first. Each route is a harness, a model, and an effort. hcn runs the
 route. If the run fails with `retryable: true`, run the next route.
-[popeye](https://github.com/dungle-scrubs/popeye) is a harness built for hcn to drive, and a
-registry can list routes through it like any other harness. Each package also works on its own.
+Each package also works on its own.
 hcn runs any harness and model you give it, and model-router ranks routes without running anything.
 
 ### Refusal and divergence
@@ -295,7 +293,7 @@ hcn check                      Compare those versions with the latest releases
 ```
 
 `<harness>` is one of `claude`, `codex`, `pi`, `muse`, `cursor`, `antigravity` (binary `agy`),
-`popeye`, or `opencode`. Cursor runs through the Cursor SDK in a worker process, not the native
+or `opencode`. Cursor runs through the Cursor SDK in a worker process, not the native
 `agent` binary, which remains available for historical native terminal operations and CLI version
 inspection. `hcn <command> --help` lists every flag.
 
@@ -333,7 +331,7 @@ launch context. Inherited `CLAUDE_CONFIG_DIR` and per-run `--env` choices take
 precedence. See [configuration and account context](docs/reference.md#defaults-config-provenance).
 
 hcn's defaults are effort `medium`, autonomy off, memory off, and discovery on. Codex and
-Antigravity CLI also get sandbox `workspace-write`, and Codex and popeye get a 272,000-token context
+Antigravity CLI also get sandbox `workspace-write`, and Codex gets a 272,000-token context
 window. In a project config, `tools` also caps what `--tools` can grant, and a request for more
 exits 2. An unknown key or invalid JSON exits 2 with the problem in the message.
 
@@ -374,7 +372,7 @@ hcn is pre-1.0. It is not a harness and does not run a model itself. It adds a l
 program and the harness, so if you use only one CLI, you may prefer to call that CLI directly.
 [ROADMAP.md](ROADMAP.md) lists planned work, including new harnesses. Support differs by harness:
 
-- Sessions work with Claude Code, Codex, pi, Cursor, Antigravity CLI, and popeye. Muse and
+- Sessions work with Claude Code, Codex, pi, Cursor, and Antigravity CLI. Muse and
   OpenCode CLI run single turns only. Cursor sessions run at the SDK's native defaults (writable
   tools, no sandbox): the session surface takes no access options,
   and `--resume-last` refuses on Cursor because the SDK has no most-recent-conversation path.
@@ -391,8 +389,7 @@ hcn runs these CLIs: [Claude Code](https://www.npmjs.com/package/@anthropic-ai/c
 [pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent), Muse (installed from source,
 not on a registry), Cursor through the [Cursor TypeScript SDK](https://www.npmjs.com/package/@cursor/sdk)
 (the native CLI, installed via script as binary `agent`, is no longer run headless and is not on
-a registry), [Antigravity CLI](https://antigravity.google/docs/cli/),
-[popeye](https://www.npmjs.com/package/@dungle-scrubs/popeye), and
+a registry), [Antigravity CLI](https://antigravity.google/docs/cli/), and
 [OpenCode CLI](https://www.npmjs.com/package/opencode-ai).
 
 ## License

@@ -297,7 +297,7 @@ export const piCli: HarnessDescriptor = deepFreeze({
     // the CLI gate runs `pi --help` under the caller's env and refuses
     // pre-spawn where the extension is absent. pi is lenient on unknown
     // agent NAMES (stderr warning listing the roster, run continues) - the
-    // name stays the harness's business, like claude/antigravity/popeye.
+    // name stays the harness's business, like claude/antigravity.
     agent: {
       kind: "selector",
       render: { kind: "flag-value", flag: "--agent" },

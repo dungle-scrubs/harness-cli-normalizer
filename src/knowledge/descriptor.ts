@@ -17,7 +17,6 @@ export const HARNESS_NAMES = [
   "muse",
   "cursor",
   "antigravity",
-  "popeye",
   "opencode",
 ] as const;
 export type HarnessName = (typeof HARNESS_NAMES)[number];
@@ -118,7 +117,6 @@ export const SESSION_INPUT_KINDS = [
   "claude-sdk-user-message",
   "pi-rpc-prompt",
   "antigravity-stream-user",
-  "popeye-rpc-prompt",
   "codex-jsonrpc",
   "cursor-sdk",
 ] as const;
@@ -769,8 +767,8 @@ export interface HarnessDescriptor {
      * but not under another (pi). Absent on harnesses whose root is a
      * fixed home path. */
     readonly rootEnv?: ReadonlyArray<{ readonly name: string; readonly suffix: string }>;
-    /** Fallback root when no `rootEnv` entry is set, with `{home}`,
-     * `{cwd}` and `{cwdSlug}` expanded. */
+    /** Fallback root when no `rootEnv` entry is set, with `{home}` and
+     * `{cwdSlug}` expanded. */
     readonly defaultRoot?: string;
   };
   /** Disposable native context accounting; the exchange validates support.

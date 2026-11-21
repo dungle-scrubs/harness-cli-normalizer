@@ -25,14 +25,12 @@ import { cursorCli } from "../../src/knowledge/cursor.js";
 import { type HarnessDescriptor, SESSION_DELIVERIES } from "../../src/knowledge/descriptor.js";
 import { museCode } from "../../src/knowledge/muse.js";
 import { piCli } from "../../src/knowledge/pi.js";
-import { popeyeCli } from "../../src/knowledge/popeye.js";
 
 const SESSION_HARNESSES: readonly HarnessDescriptor[] = [
   claudeCode,
   piCli,
   codexCli,
   antigravityCli,
-  popeyeCli,
   cursorCli,
 ];
 
@@ -61,12 +59,6 @@ describe("session controls are descriptor facts", () => {
         stopBackground: { supported: false },
       },
       [antigravityCli.name]: {
-        deliveryModes: [],
-        interrupt: { supported: false },
-        approvals: { supported: false },
-        stopBackground: { supported: false },
-      },
-      [popeyeCli.name]: {
         deliveryModes: [],
         interrupt: { supported: false },
         approvals: { supported: false },

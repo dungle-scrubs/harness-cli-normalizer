@@ -24,7 +24,6 @@ export const NATIVE_APPROVAL_PROTOCOLS = deepFreeze({
   // RFC-05 v1 has no approval channel (no ACP client); null like the rest.
   cursor: null,
   antigravity: null,
-  popeye: null,
   // `opencode run` auto-rejects permission requests; there is no approval
   // channel to forward.
   opencode: null,

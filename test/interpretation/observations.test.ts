@@ -636,15 +636,7 @@ describe("native token usage observations", () => {
         inputIncludesCache: false,
       },
     ]);
-    for (const harness of [
-      "pi",
-      "claude",
-      "codex",
-      "cursor",
-      "antigravity",
-      "muse",
-      "popeye",
-    ] as const)
+    for (const harness of ["pi", "claude", "codex", "cursor", "antigravity", "muse"] as const)
       expect(usageEventsOf(harness, { type: "unknown", usage: { input: 1 } })).toEqual([]);
   });
 });

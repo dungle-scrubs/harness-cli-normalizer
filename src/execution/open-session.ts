@@ -293,14 +293,13 @@ export class SessionSpawnError extends Error {
   }
 }
 
-/** True for harnesses whose session input waits for the spawn-probe
- * identity before any send can be written (popeye mint the session via
- * the create probe; codex needs the thread id on every request). pi's
- * prompt-wire is identity-silent and writes at send time. The single
- * predicate `send` uses to buffer before identity and the #345 arm uses
- * to settle buffered sends when the probe fails. */
+/** True for the session input that waits for the spawn-probe identity
+ * before any send can be written (codex needs the thread id on every
+ * request). pi's prompt-wire is identity-silent and writes at send time.
+ * The single predicate `send` uses to buffer before identity and the
+ * #345 arm uses to settle buffered sends when the probe fails. */
 const buffersSendsBeforeIdentity = (input: SessionInputContract): boolean =>
-  input.kind === "popeye-rpc-prompt" || input.kind === "codex-jsonrpc";
+  input.kind === "codex-jsonrpc";
 
 /** True for harnesses whose sends are written one at a time, each only
  * after the previous send's native receipt. pi answers rpc commands
@@ -612,9 +611,10 @@ export const openSession = (
   const preTurnEvents: HarnessEvent[] = [];
   let dead = false;
   let closing = false;
-  // Popeye mints the session via the create probe: sends before the
-  // response carry no session id and refuse. Buffer them; identity flushes.
-  const popeyePending: SentCommand[] = [];
+  // Codex mints the thread via the spawn probe: sends before the
+  // thread-open response carry no thread id and would refuse. Buffer them;
+  // identity flushes.
+  const preIdentityPending: SentCommand[] = [];
   let finalized = false;
   let exitCode: number | null = null;
   let resultError = false;
@@ -693,8 +693,7 @@ export const openSession = (
     awaitingReceipt.delete(command.token);
   };
   /** A written send named by its token: awaiting a receipt, opening the
-   * active turn, or waiting for its turn (popeye answers refusals by id
-   * with no receipt protocol). */
+   * active turn, or waiting for its turn. */
   const sentByToken = (token: string): SentCommand | undefined =>
     takeReceipt(token) ??
     (activeTurnOpener?.token === token
@@ -826,11 +825,9 @@ export const openSession = (
       id: command.token,
       ...(input.delivery === undefined ? {} : { delivery: input.delivery }),
       ...(command.uuid === undefined ? {} : { uuid: command.uuid }),
-      // Popeye prompt frames and codex requests carry the minted
-      // session/thread id; the create/thread-open response binds it
-      // before any send is written.
-      ...((sessionInput.kind === "popeye-rpc-prompt" || sessionInput.kind === "codex-jsonrpc") &&
-      state.lastSeenId !== null
+      // Codex requests carry the minted thread id; the thread-open
+      // response binds it before any send is written.
+      ...(sessionInput.kind === "codex-jsonrpc" && state.lastSeenId !== null
         ? { sessionId: state.lastSeenId }
         : {}),
       // Codex steer precondition: the tracked id of the running
@@ -1273,38 +1270,27 @@ export const openSession = (
   };
   const announceIdentity = async (announced: string): Promise<void> => {
     if (identityAnnounced) return;
-    // Kinds that mint identity via the spawn probe (popeye create, codex
-    // thread open) buffer sends that arrived before the response; the
-    // flush replays them with the minted id bound.
+    // Codex mints identity via the spawn probe (the thread open) and
+    // buffers sends that arrived before the response; the flush replays
+    // them with the minted id bound.
     const flushPreIdentity = (): void => {
-      for (const pending of popeyePending.splice(0)) {
-        // Re-check busyness at flush time: every pre-identity send
-        // recorded idle, but an earlier flush entry may own the turn.
-        const busy = activeTurn !== null;
-        let written: ReturnType<typeof writeUser>;
+      for (const pending of preIdentityPending.splice(0)) {
+        // Codex opens its turn on the native receipt, not at write time,
+        // so the flush only writes; the receipt drives the turn.
         try {
-          written = writeUser(pending, busy);
+          writeUser(pending, activeTurn !== null);
         } catch (cause) {
           if (!(cause instanceof SessionInputRefusalError)) throw cause;
           // send() checked the delivery mode against the descriptor; an
           // encoder refusal here still settles the send, never drops it.
           dropReceipt(pending);
           pending.settle?.({ disposition: "rejected", reason: "unsupported-delivery" });
-          continue;
-        }
-        if (!written.written) continue;
-        if (busy && sessionInput.kind !== "codex-jsonrpc") {
-          pendingTurns.push(pending);
-        } else if (!busy) {
-          // Codex defers its turn open to the native receipt; pi/popeye
-          // open at write time. Either way the id is now in flight.
-          if (sessionInput.kind !== "codex-jsonrpc") startTurn(pending);
         }
       }
     };
     if (sessionInputMode?.idFlag === null) {
       // Harness-MINTED identity (pi rpc: `--session` refuses unknown ids,
-      // so fresh sessions omit the flag; popeye and codex mint through the
+      // so fresh sessions omit the flag; codex mints through the
       // spawn probe). The minted id IS the identity;
       // opts.sessionId stays the caller-side handle.
       identityAnnounced = true;
@@ -1474,8 +1460,8 @@ export const openSession = (
           // no receipt will ever answer a written send - settle the
           // receipt-awaiting ones now and close, never hang. Pi's dead
           // probe keeps its documented behavior (the error surfaces and
-          // the session lives on); the buffered kinds (codex, popeye)
-          // keep their own sweep below.
+          // the session lives on); the buffered kind (codex) keeps its
+          // own sweep below.
           if (sessionInput.kind === "cursor-sdk") {
             const failure =
               structuredFailure ?? failureFromNativeRejection(h, record.message, deps.clock);
@@ -1500,13 +1486,10 @@ export const openSession = (
             const failure = failureFromNativeRejection(h, record.message, deps.clock);
             if (sessionFailure === undefined) sessionFailure = failure;
             await pushFailure(failure);
-            // Codex rejects stranded sends without opening a phantom turn;
-            // popeye keeps them so the first turn carries the refusal.
-            if (sessionInput.kind === "codex-jsonrpc") {
-              for (const pending of popeyePending.splice(0)) {
-                dropReceipt(pending);
-                pending.settle?.({ disposition: "rejected", reason: "native-rejected" });
-              }
+            // Codex rejects stranded sends without opening a phantom turn.
+            for (const pending of preIdentityPending.splice(0)) {
+              dropReceipt(pending);
+              pending.settle?.({ disposition: "rejected", reason: "native-rejected" });
             }
             void close(false);
           }
@@ -1772,8 +1755,9 @@ export const openSession = (
     // they are bare lines on the turns iterable (issue #469), never
     // parked for a turn that may never come.
     approvals.clearAll();
-    // Issue #345: a refused identity probe lands here with popeyePending
-    // already drained by the probe-failed arm and sessionFailure set.
+    // Issue #345: a refused identity probe lands here with the buffered
+    // sends already drained by the probe-failed arm (their receipts
+    // settled) and sessionFailure set.
     // For a clean exit, that becomes "failed" - the harness did not crash,
     // it refused to open, and the cause must say so. Crash, killed, stall
     // and limit are stronger signals and stay.
@@ -1796,6 +1780,9 @@ export const openSession = (
     // pre-registered, so the sweep above already settled each rejected
     // (closed); nothing may be written now.
     heldSends.length = 0;
+    // Codex sends buffered before identity were pre-registered the same
+    // way; release the buffer so the closed handle keeps no prompt text.
+    preIdentityPending.length = 0;
     gatedInFlight = undefined;
     // A refusal or death resolves every outstanding interrupt explicitly.
     for (const token of [...pendingInterrupts.keys()]) {
@@ -1804,22 +1791,6 @@ export const openSession = (
     // Every stop-background request still awaiting its answer too.
     for (const token of [...pendingStopBackgrounds.keys()]) {
       settleStopBackground(token, { state: "rejected", reason: "closed" });
-    }
-    if (popeyePending.length > 0) {
-      const dropped = popeyePending.splice(0);
-      // Popeye already reported started, so its buffered send needs a turn
-      // to carry the failure. Codex receipts were rejected by the sweep above.
-      if (sessionInput.kind === "popeye-rpc-prompt") {
-        if (activeTurn === null) {
-          const first = dropped[0];
-          if (first !== undefined) startTurn(first);
-        }
-        const ids = dropped.map((pending) => pending.input.id);
-        void routeEvent({
-          kind: "error",
-          message: `${ids.length} buffered send(s) died before session identity: ${ids.join(", ")}`,
-        });
-      }
     }
     if (pendingTurns.length > 0) {
       const dropped = pendingTurns.splice(0);
@@ -2045,17 +2016,13 @@ export const openSession = (
         // still sets no priority, so native behavior is unchanged.
         ...(uuidCorrelated ? { uuid: randomUUID() } : {}),
       };
-      // Popeye sends before the create response - and codex sends before
-      // the thread-open response - wait for identity; the flush replays
-      // them with the minted session/thread id bound.
+      // Codex sends before the thread-open response wait for identity;
+      // the flush replays them with the minted thread id bound.
       if (buffersSendsBeforeIdentity(sessionInput) && state.lastSeenId === null) {
-        popeyePending.push(command);
-        if (sessionInput.kind === "codex-jsonrpc") {
-          // The receipt registration exists from now, so the flushed
-          // write settles THIS promise.
-          return { disposition: "started", settled: awaitReceipt(command) };
-        }
-        return { disposition: "started" };
+        preIdentityPending.push(command);
+        // The receipt registration exists from now, so the flushed
+        // write settles THIS promise.
+        return { disposition: "started", settled: awaitReceipt(command) };
       }
       // A gated kind holds the send while an earlier send's receipt is
       // still outstanding (or earlier holds wait): pi would otherwise

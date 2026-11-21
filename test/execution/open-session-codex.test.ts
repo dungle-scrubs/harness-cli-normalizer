@@ -448,57 +448,6 @@ describe("issue #345: a refused identity probe on codex settles sends and closes
   });
 });
 
-describe("issue #345 popeye variant: a refused create leaves the buffered send's turn ending in done with that failure", () => {
-  test("popeye create answers error: buffered send's turn ends done with the failure", async () => {
-    const proc = new FakeProcess();
-    const { popeyeCli } = await import("../../src/knowledge/popeye.js");
-    const d = makeDeps(proc);
-    const logged: Record<string, unknown>[] = [];
-    const session = openSession(
-      popeyeCli,
-      { sessionId: "session-1" },
-      { ...d, log: (e) => logged.push(e) },
-    );
-    // Buffered send arrives before the create response.
-    const send = session.send({ id: "a", text: "say hi" });
-    expect(send.disposition).toBe("started");
-    // popeye has no native receipt; only the probe is on the wire.
-    expect(proc.stdinLines).toHaveLength(1);
-
-    // Create answers with an error: probe-failed. popeyePending stays,
-    // and the runner ends stdin so finalize can settle.
-    proc.emitLine(
-      JSON.stringify({
-        id: IDENTITY_PROBE_ID,
-        error: { code: "invalid_config", message: "config.toml parse error" },
-      }),
-    );
-    await new Promise((r) => setTimeout(r, 10));
-    expect(proc.stdinEnded).toBe(true);
-    proc.exit(0);
-    await proc.exited;
-    await new Promise((r) => setTimeout(r, 10));
-
-    const turns = session.turns[Symbol.asyncIterator]();
-    const turn = (await turns.next()).value as SessionTurn;
-    expect(turn.inputId).toBe("a");
-    const events: HarnessEvent[] = [];
-    for await (const event of turn) events.push(event);
-    expect(events.find((event) => event.kind === "error")).toMatchObject({
-      message: expect.stringContaining("config.toml parse error"),
-    });
-    expect(events.find((event) => event.kind === "failure")).toMatchObject({ class: "native" });
-    expect(events.at(-1)).toMatchObject({
-      kind: "done",
-      failure: expect.objectContaining({ class: "native" }),
-    });
-    const close = logged.find((e) => e.event === "session_close");
-    expect(close).toMatchObject({ cause: "failed", exitCode: 0 });
-    const failure = (close as { failure?: { class: string } })?.failure;
-    expect(failure?.class).toBe("native");
-  });
-});
-
 // Issue #347: codex crashes after a send but before the turn/start
 // receipt. No hcn turn is open (codex opens its turn on the receipt).
 // session_close used to report cause "crash" with no failure; the fix
@@ -569,38 +518,6 @@ describe("issue #347: codex crash with no open turn classifies the exit", () => 
     expect(close?.cause).toBe("clean");
     expect((close as { failure?: unknown })?.failure).toBeUndefined();
   });
-});
-
-test("an identified popeye session ends a refused prompt with native failure and closes", async () => {
-  const proc = new FakeProcess();
-  const { popeyeCli } = await import("../../src/knowledge/popeye.js");
-  const session = openSession(popeyeCli, { sessionId: sid }, makeDeps(proc));
-  proc.emitLine(
-    JSON.stringify({
-      id: IDENTITY_PROBE_ID,
-      result: { _tag: "snapshot", sessionId: "popeye-session" },
-    }),
-  );
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  session.send({ id: "a", text: "say hi" });
-  expect(JSON.parse(proc.stdinLines.at(-1) ?? "null")).toMatchObject({
-    id: expect.stringMatching(new RegExp(`^${SEND_ID}:`)),
-    sessionId: "popeye-session",
-  });
-  const turns = session.turns[Symbol.asyncIterator]();
-  const turn = (await turns.next()).value as SessionTurn;
-  expect(turn.inputId).toBe("a");
-  proc.emitLine(jsonrpcError(proc.lastSendRequestId(), -32000, "prompt refused"));
-  const events = await drainTurn(turn);
-  expect(events.find((event) => event.kind === "failure")).toMatchObject({ class: "native" });
-  expect(events.at(-1)).toMatchObject({
-    kind: "done",
-    cause: "failed",
-    failure: { class: "native" },
-  });
-  await session.close();
-  expect(proc.stdinEnded).toBe(true);
-  expect((await turns.next()).done).toBe(true);
 });
 
 test("a codex stderr auth wall before turn acceptance closes crash with auth failure", async () => {

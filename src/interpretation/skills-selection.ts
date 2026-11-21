@@ -94,8 +94,7 @@ export const renderSkillsSelection = (h: HarnessDescriptor, skills: SkillsSelect
       option: "skills",
       supported: ["caller-directed skill sets"],
       supportedBy: supportedBy(defaultDescriptors(), "skills"),
-      // Popeye's --skills takes plugin names, not registry paths; other
-      // null-skills harnesses (muse) name their stay-on-harness surface.
+      // Null-skills harnesses (muse) name their stay-on-harness surface.
       hint:
         hintFor(h.name, "skills") ??
         "muse scopes skills by workspace trust with no per-skill surface - include the skill content in the prompt or use --trust-workspace for the whole registry",

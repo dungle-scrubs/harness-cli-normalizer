@@ -1,6 +1,6 @@
 # harness-cli-normalizer
 
-`hcn` is a CLI that drives eight coding-agent harnesses through one surface. It
+`hcn` is a CLI that drives seven coding-agent harnesses through one surface. It
 does two different jobs, and the difference matters enough to name: it
 **normalizes** the harnesses' interfaces, and it **supervises** the runs it
 starts. This file says which parts are which.
@@ -15,7 +15,7 @@ import the layers themselves.
 
 ### The two jobs
 
-**Normalize**: express what eight harnesses each do in one vocabulary, deciding
+**Normalize**: express what seven harnesses each do in one vocabulary, deciding
 nothing. A normalizing part translates. Remove it and you write the translation
 yourself, but the same runs succeed and fail at the same moments. _Avoid_:
 "abstract", "wrap".
@@ -33,7 +33,7 @@ says "this is not available here" instead of pretending parity. _Avoid_:
 ### The domain
 
 **Harness**: one coding-agent CLI that hcn drives - claude, codex, pi, muse, cursor,
-antigravity, popeye, or opencode.
+antigravity, or opencode.
 _Avoid_: "provider" (that is the model vendor), "agent" (that is the model; a
 harness's selectable persona is a **named agent**, never a bare "agent").
 
@@ -49,7 +49,7 @@ native operation's result determine whether work can run.
 **Turn**: one prompt in, one result out. The unit hcn spawns and reports on.
 
 **Session**: one harness process held open across several turns. Claude, codex, pi,
-Antigravity, popeye, and cursor have one. Cursor's is hcn's own Node worker running the
+Antigravity, and cursor have one. Cursor's is hcn's own Node worker running the
 Cursor SDK, not a native CLI process.
 
 **Turn option**: a per-call dimension hcn can express, keyed by a closed
@@ -167,7 +167,7 @@ These own state, a clock, or a policy that no harness has. Each is deliberate.
 - **`retryable`.** No harness says whether a caller should try again. hcn
   decides, and the whole fallback walk runs on that decision.
 - **The defaults profile.** effort medium, autonomy off, discovery on, sandbox
-  workspace-write, and a 272,000-token context window on Codex and Popeye.
+  workspace-write, and a 272,000-token context window on Codex.
   Claude keeps its native auto-compaction default unless a flag or run config
   sets the window. These are hcn's opinions about how a bare run should behave.
 - **Send correlation.** In a session, hcn associates each send with the turn it

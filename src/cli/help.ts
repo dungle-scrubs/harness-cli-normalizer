@@ -1,10 +1,10 @@
-export const TOP_LEVEL_HELP = `hcn - One stable interface to eight coding-agent CLIs
+export const TOP_LEVEL_HELP = `hcn - One stable interface to seven coding-agent CLIs
 
 Usage: hcn <command> [options] [prompt]
 
 Commands:
   run <harness> [prompt]    One-shot headless turn (streamTurn)
-  session <harness>         Live session (claude, codex, pi, cursor, antigravity, popeye)
+  session <harness>         Live session (claude, codex, pi, cursor, antigravity)
   interactive <harness>     Strict native terminal resume with a separate control pipe
   inspect <harness>         Descriptor / argv / capability inspection (no spawn)
   transcript read <harness> Passive native transcript export (JSONL)
@@ -61,8 +61,7 @@ export const RUN_HELP = `hcn run - One-shot headless turn
 Usage: hcn run <harness> [prompt] [options]
 
 Arguments:
-  <harness>                 claude | codex | pi | muse | cursor | antigravity | popeye |
-                            opencode
+  <harness>                 claude | codex | pi | muse | cursor | antigravity | opencode
   [prompt]                  Prompt text (positional). Must not start with '-'.
                             Use --prompt or --prompt-file for leading '-' or multi-line.
 
@@ -73,7 +72,7 @@ Options:
   --effort <value>          Effort level (validated per harness/model)
   --sandbox <value>         Sandbox mode (codex; antigravity workspace-write)
   --context-window <tokens> Context window. codex 1-272000
-                            (launch default 272000); popeye 1-10000000;
+                            (launch default 272000);
                             claude 100000-1000000 rendered as native
                             --autocompact, an auto-compact window.
                             hcn adds no request-token or cost enforcement.
@@ -85,8 +84,8 @@ Options:
                             their interaction here is untested. config: contextWindow
   --provider <value>        Provider (pi only)
   --agent <name>            Named agent the harness defines natively - hcn
-                            selects among them, never defines. claude,
-                            antigravity, and popeye; pi when its subagent
+                            selects among them, never defines. claude and
+                            antigravity; pi when its subagent
                             extension is installed (verified at run, see
                             ADR 0010); others refuse. An unknown name is
                             the harness's own error (native)
@@ -94,12 +93,12 @@ Options:
                             edit, shell, grep, glob, list, web-fetch,
                             web-search, subagent, skill);
                             'native:<name>' passes a harness-native or
-                            extension tool through (claude, pi, popeye; a bare
+                            extension tool through (claude, pi; a bare
                             name matching a configured toolset expands
                             to it)
   --exclude-tools <a,b>     Complement over known tools - canonical names
                             (same vocabulary, native:<name> passthrough);
-                            mutually exclusive with --tools (claude, pi, popeye)
+                            mutually exclusive with --tools (claude, pi)
   --autonomy                Enable autonomy flag (claude/codex/muse/cursor/antigravity/
                             opencode)
   --no-autonomy             Disable autonomy
@@ -112,7 +111,7 @@ Options:
                             on when native settings disable it
   --no-memory               Disable persistent memory (claude: env var;
                             codex: --disable memories; pi: no-op, no built-in
-                            memory; popeye: no-op (declared divergence);
+                            memory;
                             muse/cursor/antigravity/opencode: refuse - no off switch,
                             reported as divergence by the default profile)
   --questions <ask|assume|none>
@@ -121,13 +120,13 @@ Options:
                             done cause "awaiting-input", exit 0), assume =
                             never ask, state assumption, none = inject
                             nothing
-  --system-prompt <text>    Replace the built-in system prompt (claude, pi,
-                            popeye: flag; codex: -c instructions=<text-or-path>;
+  --system-prompt <text>    Replace the built-in system prompt (claude, pi:
+                            flag; codex: -c instructions=<text-or-path>;
                             muse/cursor/antigravity/opencode refuse. claude pairs the
                             dynamic-section
                             exclusion automatically. Opt-in; no default)
   --append-system-prompt <text>
-                            Append to the built-in prompt (claude, pi, popeye only)
+                            Append to the built-in prompt (claude, pi only)
   --extension <path>        Load this extension file for the turn (pi only;
                             absolute path to a regular file; repeatable;
                             loads even with --no-extensions)
@@ -136,7 +135,7 @@ Options:
                             web-search; claude via a closed --tools set
                             (Read, Grep, Glob, WebFetch, WebSearch) plus
                             --permission-mode dontAsk and an explicit
-                            --disallowedTools mcp__* deny, pi/popeye via
+                            --disallowedTools mcp__* deny, pi via
                             --tools, codex via --sandbox read-only, muse via
                             --disable-write --disable-shell, cursor via its
                             SDK read toolset; antigravity refuses);
@@ -146,7 +145,7 @@ Options:
                             requests fail-closed startup). codex uses
                             --sandbox workspace-write; cursor runs the SDK
                             toolset unconfined (sandbox off - commands,
-                            not confinement); pi, muse, and popeye add no
+                            not confinement); pi and muse add no
                             restrictions. opencode refuses --access.
                             The sandbox covers Bash, not file or web tools.
                             Native tool denials, Bash checks and network
@@ -196,7 +195,7 @@ Options:
                             and may announce a fresh conversation.
   --session-id <id>         Alias for --resume (mutually exclusive with --resume)
   --resume-last             Resume the most recent session in the spawn cwd
-                            (claude, codex, pi, antigravity; muse, popeye,
+                            (claude, codex, pi, antigravity; muse,
                             opencode, and cursor's SDK backend refuse).
                             Mutually exclusive with --resume/--session-id.
   --native-settings-fingerprint <hash>
@@ -224,7 +223,7 @@ Defaults with no flags:
   git root) > user config (~/.config/hcn/config.json) > built-in profile
   > harness default. The profile pins: effort medium, sandbox
   workspace-write (codex and antigravity; other harnesses report divergence),
-  context window 272000 (codex and popeye; claude keeps its native
+  context window 272000 (codex; claude keeps its native
   auto-compaction default - the profile window does not transfer there;
   other harnesses report divergence), discovery on,
   autonomy off, write/shell on. timeout, max-steps and
@@ -236,7 +235,7 @@ Defaults with no flags:
   SDK toolset unconfined
   (sandbox off), --sandbox workspace-write on codex, and --permission-mode
   acceptEdits plus strict sandbox settings on claude; no extra flags on
-  pi, muse, or popeye; antigravity refuses --access. The profile's sandbox
+  pi or muse; antigravity refuses --access. The profile's sandbox
   setting is separate from access. toolMap is config-only (no flag) - canonical -> native
   mapping per harness. A bare pi run renders no --tools list. A list
   replaces built-in and extension declarations; registered MCP tools can
@@ -247,12 +246,12 @@ Defaults with no flags:
   'hcn inspect <harness>' for the resolved argv of a bare run.
 `;
 
-export const SESSION_HELP = `hcn session - Interactive session (claude, pi, antigravity, popeye, codex, cursor)
+export const SESSION_HELP = `hcn session - Interactive session (claude, pi, antigravity, codex, cursor)
 
 Usage: hcn session <harness> [options]
 
 Arguments:
-  <harness>               claude | codex | pi | cursor | antigravity | popeye
+  <harness>               claude | codex | pi | cursor | antigravity
 
 Options:
   --json                    Machine surface: NDJSON events on stdout, NDJSON
@@ -343,7 +342,7 @@ ${DENIAL_COUNT_HELP}
                             refuses (exit 2)
   --provider <value>        Provider (pi only)
   --agent <name>            Named agent for the session spawn (claude,
-                            antigravity, popeye; pi with its subagent
+                            antigravity; pi with its subagent
                             extension verified at open; others refuse)
   --model <id>              Model for the session
   --tools <a,b>             Canonical tool allowlist at session spawn (claude,
@@ -365,8 +364,8 @@ ${DENIAL_COUNT_HELP}
                             --settings skillOverrides; codex via -c
                             skills.config. The allowlist is a spawn property:
                             it holds for the whole session, every turn, resume
-                            included. antigravity and popeye cannot enforce it
-                            and refuse with exit 2 rather than open with the
+                            included. antigravity cannot enforce it
+                            and refuses with exit 2 rather than open with the
                             full set. Unknown names refuse with exit 2.
   --effort <value>          Effort level for the session spawn (validated
                             per harness/model; no default - the harness's
@@ -374,7 +373,7 @@ ${DENIAL_COUNT_HELP}
   --context-window <tokens> Context window for the session spawn (claude
                             100000-1000000 as native --autocompact, an
                             auto-compact window; codex 1-272000;
-                            popeye 1-10000000; no default - the harness's
+                            no default - the harness's
                             own setting applies without the flag)
   --resume <id>             Resume session id. Continues the
                             conversation where it left off. --session-id
@@ -410,8 +409,7 @@ export const INSPECT_HELP = `hcn inspect - Descriptor / argv inspection
 Usage: hcn inspect <harness> [options]
 
 Arguments:
-  <harness>                 claude | codex | pi | muse | cursor | antigravity | popeye |
-                            opencode
+  <harness>                 claude | codex | pi | muse | cursor | antigravity | opencode
 
 Options:
   --transcript              Report passive transcript methods and evidence;
@@ -472,8 +470,8 @@ Options:
   --model <id>              Model
   --effort <value>          Effort
   --sandbox <value>         Sandbox
-  --context-window <tokens> Context window (codex 1-272000; popeye
-                            1-10000000; claude 100000-1000000 as native
+  --context-window <tokens> Context window (codex 1-272000;
+                            claude 100000-1000000 as native
                             --autocompact, an auto-compact window
                             with no launch default)
   --provider <value>        Provider
@@ -530,7 +528,7 @@ Usage: hcn transcript read <harness> (--id <native-id> | --file <path>) [options
                          [--harness <names>] [--limit <rows>]
                          [--since-time <utc-instant>]
 
-Harnesses: claude | codex | pi | muse | cursor | antigravity | popeye
+Harnesses: claude | codex | pi | muse | cursor | antigravity
 (opencode has no transcript surface; a read reports divergence)
 Inspect support first: hcn inspect <harness> --transcript
 

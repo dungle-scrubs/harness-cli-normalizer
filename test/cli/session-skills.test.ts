@@ -2,7 +2,7 @@
  * hcn session --skills (issue #332): the CLI surface. Names resolve
  * against $HCN_SKILLS_ROOT through the same code path hcn run uses, so
  * unknown names refuse with exit 2 before spawn; a session harness that
- * cannot enforce an allowlist (antigravity, popeye - descriptor skills
+ * cannot enforce an allowlist (antigravity - descriptor skills
  * null) refuses at the render, also exit 2, rather than opening with the
  * full set. The positive spawn path is pinned by the interpretation and
  * execution suites (buildSessionArgv / openSession); live evidence lives
@@ -102,20 +102,6 @@ describe("hcn session --skills (#332)", () => {
     expect(events.at(-1)).toMatchObject({ kind: "closed", cause: "failed" });
     expect(err.join("")).toMatch(/caller-directed skill sets/);
     expect(err.join("")).toMatch(/supported on: .*pi/);
-  });
-
-  test("popeye refuses with its plugin-name hint", async () => {
-    withRegistry();
-    const { err } = collect();
-    const before = process.exitCode ?? 0;
-    process.exitCode = 0;
-    try {
-      await session("popeye", ["--json", "--skills", "wayfinder"]);
-    } finally {
-      expect(process.exitCode).toBe(2);
-      process.exitCode = before;
-    }
-    expect(err.join("")).toMatch(/plugin names/);
   });
 
   test("no-session-mode harnesses refuse before skills are even resolved", async () => {

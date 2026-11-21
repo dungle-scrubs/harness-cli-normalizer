@@ -14,7 +14,6 @@ import { cursorCli } from "../../src/knowledge/cursor.js";
 import type { HarnessDescriptor } from "../../src/knowledge/descriptor.js";
 import { museCode } from "../../src/knowledge/muse.js";
 import { piCli } from "../../src/knowledge/pi.js";
-import { popeyeCli } from "../../src/knowledge/popeye.js";
 
 /**
  * Map #288: named-agent selection. The caller picks among agents the
@@ -25,7 +24,7 @@ import { popeyeCli } from "../../src/knowledge/popeye.js";
  * captures under .scratch/wayfinder-agent-flag/).
  */
 
-const NATIVE: readonly HarnessDescriptor[] = [claudeCode, antigravityCli, popeyeCli, piCli];
+const NATIVE: readonly HarnessDescriptor[] = [claudeCode, antigravityCli, piCli];
 // pi's agent spec is extension-registered (map #300): the pure render
 // tests below treat it like any spec - the CLI's pre-spawn gate owns the
 // machine check (test/cli/extension-gate.test.ts).
@@ -86,7 +85,6 @@ describe("named-agent refusal (no spec)", () => {
           { harness: "claude", spelling: "--agent" },
           { harness: "pi", spelling: "--agent" },
           { harness: "antigravity", spelling: "--agent" },
-          { harness: "popeye", spelling: "--agent" },
         ]);
       }
     }
@@ -96,15 +94,13 @@ describe("named-agent refusal (no spec)", () => {
 describe("namedAgents capability fact", () => {
   test("true exactly on the harnesses with an agent spec, on every model outcome", () => {
     for (const h of [...NATIVE, ...REFUSING]) {
-      const expected =
-        h.name === "claude" || h.name === "antigravity" || h.name === "popeye" || h.name === "pi";
+      const expected = h.name === "claude" || h.name === "antigravity" || h.name === "pi";
       expect(capabilitiesOf(h, "", "headless-turn").namedAgents).toBe(expected);
     }
     // An uncurated model degrades the model-scoped claims but not this one:
     // the spec table is a harness fact (same rule as compactionReporting).
     expect(capabilitiesOf(claudeCode, "no-such-model", "headless-turn").namedAgents).toBe(true);
     expect(capabilitiesOf(codexCli, "no-such-model", "headless-turn").namedAgents).toBe(false);
-    expect(capabilitiesOf(popeyeCli, "no-such-model", "headless-turn").namedAgents).toBe(true);
   });
 
   test("inspect prints the fact for planning, both surfaces", async () => {

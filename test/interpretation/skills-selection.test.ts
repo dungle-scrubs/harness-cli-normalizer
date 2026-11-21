@@ -155,20 +155,6 @@ describe("through the full builder", () => {
   });
 });
 
-describe("popeye refusal", () => {
-  it("names the plugin-name spelling on the descriptor when skills is null", async () => {
-    const { popeyeCli } = await import("../../src/knowledge/popeye.js");
-    try {
-      buildLaunchArgv(popeyeCli, { prompt: "hi", skills: { picks: ["/root/a"], known: ["a"] } });
-      expect.unreachable("popeye should refuse");
-    } catch (e) {
-      const err = e as { issue: string; hint?: string };
-      expect(err.issue).toBe("unsupported-option");
-      expect(err.hint).toMatch(/plugin names/);
-    }
-  });
-});
-
 describe("session rendering (#332)", () => {
   const sid = "eb04301d-8756-4a8b-ae3e-aac0e71f7265";
 
@@ -227,20 +213,5 @@ describe("session rendering (#332)", () => {
         skills: { picks: ["/root/a"], known: ["a"] },
       }),
     ).toThrow(/caller-directed skill sets/);
-  });
-
-  it("popeye refuses with its plugin-name hint", async () => {
-    const { popeyeCli } = await import("../../src/knowledge/popeye.js");
-    try {
-      buildSessionArgv(popeyeCli, {
-        sessionId: sid,
-        skills: { picks: ["/root/a"], known: ["a"] },
-      });
-      expect.unreachable("popeye should refuse");
-    } catch (e) {
-      const err = e as { issue: string; hint?: string };
-      expect(err.issue).toBe("unsupported-option");
-      expect(err.hint).toMatch(/plugin names/);
-    }
   });
 });
