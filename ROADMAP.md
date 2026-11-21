@@ -334,8 +334,8 @@ The candidate: after a Muse turn ends, read the MSP view once more and report
 the turn's compaction from it. Muse 1.4.24 fails every live `view/page` read
 on a held session (#494), so the live fold sees nothing, but a `muse serve`
 started after the session ends can page the view. The view fold is a
-supervising part, and a read after the process ends would widen it, so this
-needed the maintainer's ask.
+supervising part. Whether a read after the process ends would fix that part or
+widen it was left open, and the maintainer declined the candidate either way.
 
 The reason it was declined: the post-session view rebuild keeps only the last
 terminal item, so a re-read could report at most one outcome per turn, not
