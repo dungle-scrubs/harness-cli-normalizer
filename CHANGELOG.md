@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.1](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.10.0...v0.10.1) (2026-11-21)
+
+
+### Fixed
+
+* **muse:** re-verify against 1.4.24 and report no live compaction signal ([#497](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/497)) ([3ee9e2c](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/3ee9e2c67e41c277febe4adccaf7a34ce6a6dffb))
+* re-verify claude against 2.1.330 ([#493](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/493)) ([b7c4633](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/b7c4633a45c9e8fab6d93ce0f0b5d5411fd0abc2))
+
 ## [0.10.0](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.20...v0.10.0) (2026-11-21)
 
 
