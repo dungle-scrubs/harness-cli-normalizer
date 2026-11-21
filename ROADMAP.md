@@ -325,3 +325,23 @@ trap. A refused `thread/start` ends the session with `closed.cause
 "failed"` and `closed.failure` carrying the codex config error. A
 codex process that never replies at all is a separate case the caller
 must end.
+
+### Re-read the Muse view after the turn to report compaction
+
+Declined 2026-11-21, by the maintainer (#495).
+
+The candidate: after a Muse turn ends, read the MSP view once more and report
+the turn's compaction from it. Muse 1.4.24 fails every live `view/page` read
+on a held session (#494), so the live fold sees nothing, but a `muse serve`
+started after the session ends can page the view. The view fold is a
+supervising part. Whether a read after the process ends would fix that part or
+widen it was left open, and the maintainer declined the candidate either way.
+
+The reason it was declined: the post-session view rebuild keeps only the last
+terminal item, so a re-read could report at most one outcome per turn, not
+each install, and only by reading after the process hcn supervised has ended.
+The defect is Muse's, and the fix belongs there.
+
+What was done instead: Muse's `compactionReporting` is `null` (#497), so a
+caller reads silence as "no live signal", not as "no compaction". #494 tracks
+the Muse fix that would restore the live signal.
