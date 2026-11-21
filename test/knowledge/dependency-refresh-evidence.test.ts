@@ -132,6 +132,13 @@ const freshQuestionCaptures: {
     directory: "claude-2.1.329",
     version: "2.1.329",
     date: "2026-11-20",
+    current: false,
+  },
+  {
+    harness: claudeCode,
+    directory: "claude-2.1.330",
+    version: "2.1.330",
+    date: "2026-11-21",
     current: true,
   },
 ];
@@ -199,6 +206,12 @@ test.each([
     harness: claudeCode,
     directory: "claude-2.1.329",
     version: "2.1.329",
+    marker: "HERON-CLAUDE-442",
+  },
+  {
+    harness: claudeCode,
+    directory: "claude-2.1.330",
+    version: "2.1.330",
     marker: "HERON-CLAUDE-442",
   },
 ])(
@@ -276,8 +289,8 @@ test.each([
 // Claude native accounting, every generation; the 2.1.304 and later rows
 // also pin the source-unchanged hash snapshot. The window and input limit
 // follow the machine's environment and the setting scope, not the version:
-// the 2.1.329 probes observed the machine's env-sourced window where the
-// earlier generations observed the 1M model default.
+// the 2.1.329 and 2.1.330 probes observed the machine's env-sourced window
+// where the earlier generations observed the 1M model default.
 test.each([
   { directory: "claude-2.1.296", totalTokens: 2778, hashes: false },
   { directory: "claude-2.1.304", totalTokens: 2565, hashes: true },
@@ -289,6 +302,14 @@ test.each([
     window: 500000,
     limit: 467000,
     resumedTotalTokens: 20801,
+  },
+  {
+    directory: "claude-2.1.330",
+    totalTokens: 3164,
+    hashes: true,
+    window: 500000,
+    limit: 467000,
+    resumedTotalTokens: 20855,
   },
 ])(
   "$directory native accounting preserves the used count and input limit",
@@ -475,8 +496,8 @@ test.each([
   },
 );
 
-// The 2.1.312 and 2.1.329 probes staged the same synthetic prompt shape
-// with each generation's own sentinel, and appended the tool isolation
+// The 2.1.312 and later probes staged the same synthetic prompt shape
+// with each refresh's own sentinel, and appended the tool isolation
 // once.
 const stagedAccountingPrompt420 =
   "Do not execute this staged synthetic task. PENDING-ONLY-420." +
@@ -488,6 +509,7 @@ const stagedAccountingPrompt442 =
 test.each([
   ["claude-2.1.312", stagedAccountingPrompt420],
   ["claude-2.1.329", stagedAccountingPrompt442],
+  ["claude-2.1.330", stagedAccountingPrompt442],
 ])(
   "%s accounting proofs stage the exact prompt without assistant execution",
   (directory, stagedPrompt) => {

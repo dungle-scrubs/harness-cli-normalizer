@@ -1,0 +1,10 @@
+{
+  "version": "2.1.330",
+  "latest": "2.1.330",
+  "versionSource": {
+    "kind": "npm",
+    "package": "@anthropic-ai/claude-code"
+  },
+  "install": "~/.local/bin/claude -> ~/.local/share/claude/versions/2.1.330 (machine install; selected by hcn inspect claude --runtime)",
+  "checkedAt": "2026-11-21"
+}
