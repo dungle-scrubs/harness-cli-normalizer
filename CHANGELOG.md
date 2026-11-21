@@ -5,6 +5,37 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.20...v0.10.0) (2026-11-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove the popeye harness ([#488](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/488))
+* a bare Cursor run or session uses the SDK's native defaults, which are writable and unconfined; pass --access read on hcn run to restrict it. hcn session cursor refuses --access, --tools, --no-tools, --native-approvals and --setting-sources with exit 2. Session ids minted by the agent CLI no longer resume.
+
+### Added
+
+* export the NDJSON protocol types at ./protocol ([#482](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/482)) ([252a74b](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/252a74b416d155797e22cb9c3f56e169258c1217)), closes [#441](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/441)
+* remove the popeye harness ([#488](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/488)) ([1add459](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/1add459db565f81e1caf2d2baadd9a5a58384a7d))
+* run Cursor through the native SDK ([#481](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/481)) ([285471b](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/285471b1182d7073e6a15936d40df1bd95989c59)), closes [#440](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/440)
+
+
+### Fixed
+
+* hold the crash done to both protocol unions ([#483](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/483)) ([ac443ad](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/ac443ad3b494e6d3bb6f1ee463db0662d9d300f8))
+* re-verify the harness descriptors against their latest versions ([#489](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/489)) ([aef5926](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/aef5926821eb31cabe0b0235cd5d9b8f806dba9a))
+* relay Pi extension select and input dialogs to session callers ([#471](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/471)) ([f868ac4](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/f868ac4572dd836854746813f48530b3b4932e4c))
+* settle pending stdout overflows at every turn ending ([#476](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/476)) ([30b45d9](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/30b45d903d2b88e881ecf96fb4e630b662a89b59))
+
+
+### Changed
+
+* **deps-dev:** bump @biomejs/biome from 2.6.4 to 2.6.6 ([#478](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/478)) ([b5d35ca](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/b5d35ca358cdbdf97df3f87265a6907642d709b4))
+* **deps-dev:** bump vitest from 5.0.5 to 5.1.0 ([#480](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/480)) ([836de48](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/836de482822cf7bef69762ac60911d0e7910f4f5))
+* **deps:** bump biome, koffi and vitest ([#487](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/487)) ([a1e04bc](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/a1e04bca0810b7aeaf41f1bbbee3ef3912a92fdc))
+* **deps:** bump koffi from 3.3.6 to 3.3.7 ([#479](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/479)) ([0c358fc](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/0c358fce790c9b8fc2d6dbbea301283bd37f76c5))
+* retry a fixture placement scan whose compiler stalls ([#477](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/477)) ([685984b](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/685984b4d118cb3137d5705c1ac9d97de6eb92d9))
+
 ## [0.9.20](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.9.19...v0.9.20) (2026-11-10)
 
 
