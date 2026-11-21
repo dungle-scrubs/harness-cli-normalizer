@@ -435,9 +435,15 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
       { name: "TaskOutput", defaultEnabled: false, canonical: null },
       { name: "TaskStop", defaultEnabled: true, canonical: null },
       { name: "ToolSearch", defaultEnabled: true, canonical: null },
-      // Listed by every init capture through 2.1.312; the 2.1.329 capture
-      // omits it (the mechanism was not probed). Naming it in --tools or
-      // --allowedTools still restores it, and the read access preset does.
+      // Absent from the init tool list on 2.1.329 and 2.1.330 even with
+      // --setting-sources "" (so operator settings are not the cause), and
+      // CLAUDE_CODE_DISABLE_WEB_FETCH is not set on the capture machine.
+      // Naming it in --tools or --allowedTools restores a working fetch
+      // (observed 2026-11-21 on 2.1.330), and the read access preset does.
+      // Claude's changelog from 2.1.312 to 2.1.330 records no default
+      // removal, and 2.1.323 notes organization policy can disable WebFetch,
+      // so the absence is most likely account or organization policy, not a
+      // harness default. defaultEnabled false matches the captured init list.
       { name: "WebFetch", defaultEnabled: false, canonical: "web-fetch" },
       { name: "WebSearch", defaultEnabled: true, canonical: "web-search" },
       { name: "Workflow", defaultEnabled: true, canonical: null },
