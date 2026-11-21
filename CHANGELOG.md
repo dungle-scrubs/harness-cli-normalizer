@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.2](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.10.1...v0.10.2) (2026-11-21)
+
+
+### Changed
+
+* record the declined post-turn Muse view re-read ([#498](https://github.com/dungle-scrubs/harness-cli-normalizer/issues/498)) ([0aefcd4](https://github.com/dungle-scrubs/harness-cli-normalizer/commit/0aefcd418044714fbdd679a4a97425f38d589fa9))
+
 ## [0.10.1](https://github.com/dungle-scrubs/harness-cli-normalizer/compare/v0.10.0...v0.10.1) (2026-11-21)
 
 
