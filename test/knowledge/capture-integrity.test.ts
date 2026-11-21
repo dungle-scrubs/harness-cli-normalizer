@@ -186,10 +186,11 @@ describe("only operator configuration is redacted", () => {
             `${file}: native builtin plugin ${plugin.name} was redacted`,
           ).toEqual([]);
         // Each covered generation must keep every bundled skill its own
-        // CLI version lists: 2.1.329 adds four to the 2.1.312 set.
-        const nativeSkills = file.startsWith("claude-2.1.329/")
-          ? NATIVE_CLAUDE_SKILLS_2_1_325
-          : NATIVE_CLAUDE_SKILLS;
+        // CLI version lists: 2.1.329 and 2.1.330 add four to the 2.1.312 set.
+        const nativeSkills =
+          file.startsWith("claude-2.1.329/") || file.startsWith("claude-2.1.330/")
+            ? NATIVE_CLAUDE_SKILLS_2_1_325
+            : NATIVE_CLAUDE_SKILLS;
         for (const skill of nativeSkills) {
           expect(init.skills, `${file}: native bundled skill ${skill} was redacted`).toContain(
             skill,

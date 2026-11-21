@@ -30,6 +30,7 @@ export const coveredDirectories = [
   "antigravity-1.5.13",
   "pi-1.6.0",
   "claude-2.1.329",
+  "claude-2.1.330",
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -1104,79 +1105,155 @@ export const CAPTURE_MAP: readonly MapEntry[] = [
     transform: snapshot,
   },
   { file: "pi-1.6.0/version.txt", scenario: "anchor", transform: { kind: "version-anchor" } },
+  // The 2.1.329 sources live under the harness-330 evidence root's
+  // claude-329 symlink, which points at the earlier evidence/harness/claude
+  // tree; the claude/ prefix beside it is the 2.1.330 capture.
   {
     file: "claude-2.1.329/fresh.ndjson",
     scenario: "seven/01",
-    source: "claude/seven-captures/01.ndjson",
+    source: "claude-329/seven-captures/01.ndjson",
     transform: excerpt("claude"),
   },
   {
     file: "claude-2.1.329/question.ndjson",
     scenario: "questions/01",
-    source: "claude/questions-captures/01.ndjson",
+    source: "claude-329/questions-captures/01.ndjson",
     transform: excerpt("claude"),
   },
   {
     file: "claude-2.1.329/compaction.ndjson",
     scenario: "compaction/turn-05",
-    source: "claude/compaction/turn-05.ndjson",
+    source: "claude-329/compaction/turn-05.ndjson",
     transform: excerpt("claude-compaction"),
   },
   {
     file: "claude-2.1.329/later-recall.ndjson",
     scenario: "compaction/later-recall",
-    source: "claude/compaction/later-recall.ndjson",
+    source: "claude-329/compaction/later-recall.ndjson",
     transform: excerpt("claude"),
   },
   {
     file: "claude-2.1.329/accounting-fresh.native.ndjson",
     scenario: "context/accounting-fresh",
-    source: "claude/context/accounting-fresh.native.ndjson",
+    source: "claude-329/context/accounting-fresh.native.ndjson",
     transform: { kind: "native-line" },
   },
   {
     file: "claude-2.1.329/accounting-resume.native.ndjson",
     scenario: "context/accounting-resume",
-    source: "claude/context/accounting-resume.native.ndjson",
+    source: "claude-329/context/accounting-resume.native.ndjson",
     transform: { kind: "native-line" },
   },
   {
     file: "claude-2.1.329/accounting-fresh.proof.snapshot.json",
     scenario: "context/accounting-fresh",
-    source: "claude/context/accounting-fresh.proof.snapshot.json",
+    source: "claude-329/context/accounting-fresh.proof.snapshot.json",
     transform: snapshot,
   },
   {
     file: "claude-2.1.329/accounting-resume.proof.snapshot.json",
     scenario: "context/accounting-resume",
-    source: "claude/context/accounting-resume.proof.snapshot.json",
+    source: "claude-329/context/accounting-resume.proof.snapshot.json",
     transform: snapshot,
   },
   {
     file: "claude-2.1.329/accounting-source-hashes.snapshot.json",
     scenario: "context/source-hashes",
-    source: "claude/context/accounting-source-hashes.snapshot.json",
+    source: "claude-329/context/accounting-source-hashes.snapshot.json",
     transform: snapshot,
   },
   {
     file: "claude-2.1.329/seven.snapshot.json",
     scenario: "seven",
-    source: "claude/seven.snapshot.json",
+    source: "claude-329/seven.snapshot.json",
     transform: snapshot,
   },
   {
     file: "claude-2.1.329/questions.snapshot.json",
     scenario: "questions",
-    source: "claude/questions.snapshot.json",
+    source: "claude-329/questions.snapshot.json",
     transform: snapshot,
   },
   {
     file: "claude-2.1.329/version-source.snapshot.json",
     scenario: "version-source",
-    source: "claude/version-source.snapshot.json",
+    source: "claude-329/version-source.snapshot.json",
     transform: snapshot,
   },
   { file: "claude-2.1.329/version.txt", scenario: "anchor", transform: { kind: "version-anchor" } },
+  {
+    file: "claude-2.1.330/fresh.ndjson",
+    scenario: "seven/01",
+    source: "claude/seven-captures/01.ndjson",
+    transform: excerpt("claude"),
+  },
+  {
+    file: "claude-2.1.330/question.ndjson",
+    scenario: "questions/01",
+    source: "claude/questions-captures/01.ndjson",
+    transform: excerpt("claude"),
+  },
+  {
+    file: "claude-2.1.330/compaction.ndjson",
+    scenario: "compaction/turn-05",
+    source: "claude/compaction/turn-05.ndjson",
+    transform: excerpt("claude-compaction"),
+  },
+  {
+    file: "claude-2.1.330/later-recall.ndjson",
+    scenario: "compaction/later-recall",
+    source: "claude/compaction/later-recall.ndjson",
+    transform: excerpt("claude"),
+  },
+  {
+    file: "claude-2.1.330/accounting-fresh.native.ndjson",
+    scenario: "context/accounting-fresh",
+    source: "claude/context/accounting-fresh.native.ndjson",
+    transform: { kind: "native-line" },
+  },
+  {
+    file: "claude-2.1.330/accounting-resume.native.ndjson",
+    scenario: "context/accounting-resume",
+    source: "claude/context/accounting-resume.native.ndjson",
+    transform: { kind: "native-line" },
+  },
+  {
+    file: "claude-2.1.330/accounting-fresh.proof.snapshot.json",
+    scenario: "context/accounting-fresh",
+    source: "claude/context/accounting-fresh.proof.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "claude-2.1.330/accounting-resume.proof.snapshot.json",
+    scenario: "context/accounting-resume",
+    source: "claude/context/accounting-resume.proof.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "claude-2.1.330/accounting-source-hashes.snapshot.json",
+    scenario: "context/source-hashes",
+    source: "claude/context/accounting-source-hashes.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "claude-2.1.330/seven.snapshot.json",
+    scenario: "seven",
+    source: "claude/seven.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "claude-2.1.330/questions.snapshot.json",
+    scenario: "questions",
+    source: "claude/questions.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "claude-2.1.330/version-source.snapshot.json",
+    scenario: "version-source",
+    source: "claude/version-source.snapshot.json",
+    transform: snapshot,
+  },
+  { file: "claude-2.1.330/version.txt", scenario: "anchor", transform: { kind: "version-anchor" } },
 ];
 
 // ---------------------------------------------------------------------------
