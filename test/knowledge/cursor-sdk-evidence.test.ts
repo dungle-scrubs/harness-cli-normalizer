@@ -59,7 +59,7 @@ test("the SDK compaction ladder drops input tokens back after each peak and fini
   const inputs = ladder.flatMap((record) => inputTokensOf(record) ?? []);
   expect(inputs).toEqual(json("compaction.provenance.json").facts.inputTokenSawtooth);
   expect(inputs).toHaveLength(15);
-  // A replacement shows as a fall from a peak to a context a third its size or less;
+  // A replacement shows as a fall from a peak to under half its size;
   // without one, each file read only grows the input.
   const drops = inputs.flatMap((value, i) => {
     const previous = inputs[i - 1];
