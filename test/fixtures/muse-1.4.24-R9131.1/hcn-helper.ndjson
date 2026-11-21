@@ -1,0 +1,100 @@
+{"jsonrpc":"2.0","id":1,"result":{"serverInfo":{"name":"muse","version":"1.4.24"},"userAgent":"muse-build/1.4.24 (serve; macos-aarch64; build fbce3ce5091ab25c742c42b7f946aade0a0d8583)","museHome":"/Users/kevin/.local/share/muse","platformFamily":"unix","platformOs":"macos","schema":{"version":1,"fingerprint":"sha256:b7fb9137267aa35c92424df37a5ac56287006a0e546b197bf0930d593fecbdb1","experimentalFingerprint":"sha256:a9f08f8960b531bf661b54c4a48f8fc3968f7af508a70e16c821ee553e06a8ed","compatibilityEpoch":0},"grantedCapabilities":[],"experimentalApi":false,"sessionDurability":"durable","sandboxAvailability":"available"}}
+{"jsonrpc":"2.0","id":2,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v1","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":"v2","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":3,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v3","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":4,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v4","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":5,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v5","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":6,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v6","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":7,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v7","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":8,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":1,"result":{"serverInfo":{"name":"muse","version":"1.4.24"},"userAgent":"muse-build/1.4.24 (serve; macos-aarch64; build fbce3ce5091ab25c742c42b7f946aade0a0d8583)","museHome":"/Users/kevin/.local/share/muse","platformFamily":"unix","platformOs":"macos","schema":{"version":1,"fingerprint":"sha256:b7fb9137267aa35c92424df37a5ac56287006a0e546b197bf0930d593fecbdb1","experimentalFingerprint":"sha256:a9f08f8960b531bf661b54c4a48f8fc3968f7af508a70e16c821ee553e06a8ed","compatibilityEpoch":0},"grantedCapabilities":[],"experimentalApi":false,"sessionDurability":"durable","sandboxAvailability":"available"}}
+{"jsonrpc":"2.0","id":2,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v8","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":9,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":3,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v9","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":10,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":4,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v10","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":11,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":5,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v11","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":12,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":6,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v12","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":13,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":7,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v13","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":14,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":8,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v14","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":15,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":9,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v15","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":16,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v16","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":17,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v17","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":18,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v18","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":19,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v19","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":20,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v20","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":21,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v21","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":22,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v22","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":23,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v23","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":24,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v24","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":25,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v25","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":26,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v26","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":27,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v27","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":28,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v28","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":29,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v29","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":30,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v30","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":31,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v31","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":32,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v32","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":33,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v33","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":34,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v34","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":35,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v35","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":36,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v36","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":37,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v37","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":38,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v38","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":39,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v39","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":40,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v40","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":41,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v41","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":42,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v42","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":43,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v43","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":44,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v44","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":45,"result":{"approvals":[],"userInputs":[]}}
+{"jsonrpc":"2.0","id":"v45","error":{"code":-32603,"message":"view range read failed","data":{"kind":"internal","sessionId":"01a1fc18-9e26-7083-a3bd-6d2897d2f90f"}}}
+{"jsonrpc":"2.0","id":46,"result":{"approvals":[],"userInputs":[]}}

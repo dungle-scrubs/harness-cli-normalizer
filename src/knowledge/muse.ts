@@ -1,7 +1,7 @@
 /**
  * The muse descriptor: facts about the `muse` CLI as data, verified against
- * Muse Code 1.4.2 (test/fixtures/muse-1.4.2-R4684.1; prior anchors 1.4.1, 1.3.0 and 1.1.1
- * stay beside it). The v1 scars this encodes:
+ * Muse Code 1.4.24 (test/fixtures/muse-1.4.24-R9131.1; prior anchors 1.4.2,
+ * 1.4.1, 1.3.0 and 1.1.1 stay beside it). The v1 scars this encodes:
  * headless re-entry is `muse exec
  * --session-id <id>` (the positional `muse resume <id>` is the INTERACTIVE
  * picker - recognized when pasted, never built), and `muse exec` exits 0
@@ -16,17 +16,18 @@ export const museCode: HarnessDescriptor = deepFreeze({
   name: "muse",
   transcript: MUSE_TRANSCRIPT,
   bin: "muse",
-  verifiedAgainst: "1.4.2",
+  verifiedAgainst: "1.4.24",
   // No npm package - `hcn check` falls back to `muse --version` locally and
   // is skipped in CI where the binary is absent, so this harness is exempt
   // from automated drift detection (see README Version-pinning and drift).
-  // `versionSource: installed` pins only the 1.4.2 triple, and the build
-  // behind it moves. The fixtures in test/fixtures/muse-1.4.2-R4684.1 were captured on
-  // build 1.4.2-R4684.1. Earlier anchors recorded the same drift hazard:
-  // the 1.3.0 fixtures were captured on build 1.3.0-R3233.1, and the binary
-  // probed on 2026-09-22 reported 1.3.0-R3401.1
+  // `versionSource: installed` pins only the 1.4.24 triple, and the build
+  // behind it moves. The fixtures in test/fixtures/muse-1.4.24-R9131.1 were
+  // captured on build 1.4.24-R9131.1. Earlier anchors recorded the same
+  // drift hazard: the 1.4.2 fixtures were captured on build 1.4.2-R4684.1,
+  // the 1.3.0 fixtures on build 1.3.0-R3233.1, and the binary probed on
+  // 2026-09-22 reported 1.3.0-R3401.1
   // (docs/research/2026-09-22-compaction-signals/muse).
-  versionSource: { kind: "installed" }, // Re-checked by native suite captures, 2026-10-03.
+  versionSource: { kind: "installed" }, // Re-checked by native suite captures, 2026-11-20 (issue #491 compaction evidence 2026-11-21).
   launch: {
     // exec --json emits the payload_type/stream records the runner decodes
     // (verified 0.1.0); bare exec streams human text.
@@ -129,24 +130,31 @@ export const museCode: HarnessDescriptor = deepFreeze({
   },
   contextInspection: null,
   // Automatic replacement installation and later process recall captured on
-  // 1.1.1, again on 1.3.0, and again on 1.4.1 - where the summary floor also
-  // grew past the 1.3.0 probe thresholds, so 0.02/0.04 now produces the
-  // rejected-replacement failure the 1.1.1 records hold (muse-1.4.1
-  // re-observes it live). Native growth handling is not a pending-prompt count or a guarantee
-  // that arbitrary incoming content fits; native compaction can fail.
+  // 1.1.1, again on 1.3.0, again on 1.4.2 (soft mid-turn and hard pre-turn
+  // installs), and again on 1.4.24 (issue #491, 2026-11-21: session
+  // 01a1fc18-9e26 holds hard mid-turn installs plus a later-process
+  // MARIGOLD-491G recall; thresholds 0.02/0.04). Native growth handling is
+  // not a pending-prompt count or a guarantee that arbitrary incoming
+  // content fits; native compaction can fail.
   //
-  // NOT reproduced on 1.4.20 (2026-11-15) or on 1.4.24 (2026-11-20): a
-  // five-step soft/hard threshold ladder at the 1.4.2 probe shape never
-  // produced a successful replacement (no candidate at 0.08 and above;
-  // no_progress_exhausted at 0.02/0.04 on 1.4.20; a turn deadline at
-  // 0.06/0.08), and on 1.4.24 the bounded re-run at the ladder's best setting
-  // (0.02/0.04) fired no candidate at all across eight read turns while
-  // later recall stayed intact - the trigger accounting has moved past the
-  // probe shape. The failed attempts' raw captures are retained in the
-  // capture machine's refresh task evidence trees (the issue-442 reverify
-  // of 2026-11-15 and the 2026-11-21 refresh). The anchor stays 1.4.2
-  // until a later refresh reproduces the contract; seven and questions pass
-  // on 1.4.24 (2026-11-20).
+  // The 2026-11-15 (1.4.20) and 2026-11-20 (1.4.24) "no compaction"
+  // records in issues #442/#491 were observation failures, not mus
+  // behavior: muse exec stdout never carries the signal (ADR 0009), and
+  // the sessions' own durable logs hold dozens of candidates and installs
+  // (the 1.4.20 ladder sessions: 48/50/16/10/8 installs; the 1.4.24
+  // re-run session: 24). What DID change since 1.4.2:
+  // - Threshold fractions multiply an "effective context limit" - the
+  //   provider_context_limit_tokens setting or the model catalog's
+  //   context_limit (1,007,997 for muse-spark-1.3-contributor) - where
+  //   1.4.2 multiplied a fixed 512,000. The same 0.16/0.22 anchor setting
+  //   that fired at ~82K pending tokens on 1.4.2 now needs ~161K, and
+  //   0.02/0.04 means 20,159/40,319 tokens, not 10,240/20,480.
+  // - A rejected replacement is a warning-severity fallback the run
+  //   survives (can_continue) on 1.4.24, where 1.4.2 terminally failed
+  //   the run (the muse-1.1.1 and 1.4.2 fallback records keep that
+  //   behavior as prior-anchor evidence).
+  // Lowered thresholds prove the mechanism; they do not prove
+  // full-capacity behavior or lossless recall.
   nativeContextManagement: { kind: "auto-compaction", modes: ["headless-turn"] },
   // `muse resume --last` exists (muse resume --help) but needs a
   // terminal: parse data for `parse-resume.ts` only, never a render
@@ -158,6 +166,19 @@ export const museCode: HarnessDescriptor = deepFreeze({
   // signal comes off the MSP view of the approval helper. Only that
   // view's terminal item carries an outcome, so muse announces no
   // `started`. Its own `cancelled` is reported as `aborted`.
+  //
+  // #491 (1.4.24, 2026-11-21): the view source still exists and still
+  // carries terminal items with tokens - but ONLY for a `muse serve`
+  // started after the session ends. While the session is held by a live
+  // run, every `view/page` reply is a -32603 "view range read failed"
+  // internal error, so the live fold observes nothing (fixture
+  // hcn-helper.ndjson); and a post-compaction view rebuild collapses
+  // successful installs out of the projection, leaving only the last
+  // terminal item (fixture msp-view-posthoc.ndjson). hcn's live
+  // "compacted" observation is therefore unavailable on 1.4.24 until
+  // muse fixes the held-session page read or hcn re-reads after the
+  // turn; the capability itself is proven by the durable-log records
+  // the fixtures also pin.
   compactionReporting: {
     source: "view",
     states: ["compacted", "noop", "failed", "aborted"],
@@ -185,14 +206,14 @@ export const museCode: HarnessDescriptor = deepFreeze({
     },
     session: false,
   },
-  // Provenance from test/fixtures/muse-1.4.2-R4684.1/questions.snapshot.json.
+  // Provenance from test/fixtures/muse-1.4.24-R9131.1/questions.snapshot.json.
   escalation: {
     supported: true,
     observedOn: {
       harness: "muse",
       model: "muse-spark-1.3-contributor",
-      version: "1.4.2",
-      date: "2026-10-03",
+      version: "1.4.24",
+      date: "2026-11-20",
     },
   },
   turnOptions: {
