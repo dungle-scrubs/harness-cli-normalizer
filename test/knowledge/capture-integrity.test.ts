@@ -10,6 +10,7 @@ import {
   marker,
   markersIn,
   NATIVE_CLAUDE_SKILLS,
+  NATIVE_CLAUDE_SKILLS_2_1_325,
   type OwnerLookup,
   PI_NATIVE_TOOL_DESCRIPTIONS,
   PI_QUOTE_LABEL,
@@ -161,7 +162,7 @@ describe("only operator configuration is redacted", () => {
       );
       if (found.length === 0) return;
 
-      if (file.startsWith("claude-2.1.312/") && file.endsWith(".ndjson")) {
+      if (/^claude-\d+\.\d+\.\d+\//.test(file) && file.endsWith(".ndjson")) {
         const [initLine = "", ...rest] = text.split("\n");
         expect(
           markersIn(rest.join("\n")),
@@ -184,7 +185,12 @@ describe("only operator configuration is redacted", () => {
             markersIn(JSON.stringify(plugin)),
             `${file}: native builtin plugin ${plugin.name} was redacted`,
           ).toEqual([]);
-        for (const skill of NATIVE_CLAUDE_SKILLS) {
+        // Each covered generation must keep every bundled skill its own
+        // CLI version lists: 2.1.329 adds four to the 2.1.312 set.
+        const nativeSkills = file.startsWith("claude-2.1.329/")
+          ? NATIVE_CLAUDE_SKILLS_2_1_325
+          : NATIVE_CLAUDE_SKILLS;
+        for (const skill of nativeSkills) {
           expect(init.skills, `${file}: native bundled skill ${skill} was redacted`).toContain(
             skill,
           );

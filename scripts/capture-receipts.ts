@@ -29,6 +29,7 @@ export const coveredDirectories = [
   "codex-0.171.0",
   "antigravity-1.5.13",
   "pi-1.6.0",
+  "claude-2.1.329",
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -106,6 +107,20 @@ export const NATIVE_CLAUDE_SKILLS: readonly string[] = [
   "run-skill-generator",
   "plugin-authoring",
 ];
+
+/** The 2.1.325 generation adds these bundled skills to the 2.1.312 set; the
+ * 2.1.329 generation lists them too. */
+export const NATIVE_CLAUDE_SKILLS_2_1_325: readonly string[] = [
+  ...NATIVE_CLAUDE_SKILLS,
+  "slides",
+  "artifact-diagramming",
+  "whiteboard",
+  "artifact-capabilities",
+];
+
+/** Every bundled skill any covered Claude generation lists; masking one is
+ * never approved on any capture, whichever generation lists it. */
+const NATIVE_CLAUDE_SKILLS_ANY: readonly string[] = [...new Set(NATIVE_CLAUDE_SKILLS_2_1_325)];
 
 /** Claude init arrays whose contiguous operator entries collapse to one marker. */
 const CLAUDE_RUN_FIELDS = ["tools", "slash_commands", "agents", "skills"] as const;
@@ -277,9 +292,13 @@ const claudeEntryOwned = (
 ): string | null => {
   if (field === "tools")
     return name.startsWith("mcp__") ? null : "only mcp__ tools are configuration";
-  if (field === "skills" && NATIVE_CLAUDE_SKILLS.includes(name)) return "a native bundled skill";
-  if (field === "slash_commands" && NATIVE_CLAUDE_SKILLS.includes(name))
-    return "the command of a native bundled skill";
+  // An mcp__-prefixed slash command is a configured MCP server's contributed
+  // command, so it is operator configuration the same way an mcp__ tool is.
+  if (field === "slash_commands" && name.startsWith("mcp__")) return null;
+  if (NATIVE_CLAUDE_SKILLS_ANY.includes(name)) {
+    if (field === "skills") return "a native bundled skill";
+    if (field === "slash_commands") return "the command of a native bundled skill";
+  }
   const separator = name.indexOf(":");
   if (separator > 0) {
     const namespace = name.slice(0, separator);
@@ -1085,6 +1104,79 @@ export const CAPTURE_MAP: readonly MapEntry[] = [
     transform: snapshot,
   },
   { file: "pi-1.6.0/version.txt", scenario: "anchor", transform: { kind: "version-anchor" } },
+  {
+    file: "claude-2.1.329/fresh.ndjson",
+    scenario: "seven/01",
+    source: "claude/seven-captures/01.ndjson",
+    transform: excerpt("claude"),
+  },
+  {
+    file: "claude-2.1.329/question.ndjson",
+    scenario: "questions/01",
+    source: "claude/questions-captures/01.ndjson",
+    transform: excerpt("claude"),
+  },
+  {
+    file: "claude-2.1.329/compaction.ndjson",
+    scenario: "compaction/turn-05",
+    source: "claude/compaction/turn-05.ndjson",
+    transform: excerpt("claude-compaction"),
+  },
+  {
+    file: "claude-2.1.329/later-recall.ndjson",
+    scenario: "compaction/later-recall",
+    source: "claude/compaction/later-recall.ndjson",
+    transform: excerpt("claude"),
+  },
+  {
+    file: "claude-2.1.329/accounting-fresh.native.ndjson",
+    scenario: "context/accounting-fresh",
+    source: "claude/context/accounting-fresh.native.ndjson",
+    transform: { kind: "native-line" },
+  },
+  {
+    file: "claude-2.1.329/accounting-resume.native.ndjson",
+    scenario: "context/accounting-resume",
+    source: "claude/context/accounting-resume.native.ndjson",
+    transform: { kind: "native-line" },
+  },
+  {
+    file: "claude-2.1.329/accounting-fresh.proof.snapshot.json",
+    scenario: "context/accounting-fresh",
+    source: "claude/context/accounting-fresh.proof.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "claude-2.1.329/accounting-resume.proof.snapshot.json",
+    scenario: "context/accounting-resume",
+    source: "claude/context/accounting-resume.proof.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "claude-2.1.329/accounting-source-hashes.snapshot.json",
+    scenario: "context/source-hashes",
+    source: "claude/context/accounting-source-hashes.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "claude-2.1.329/seven.snapshot.json",
+    scenario: "seven",
+    source: "claude/seven.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "claude-2.1.329/questions.snapshot.json",
+    scenario: "questions",
+    source: "claude/questions.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "claude-2.1.329/version-source.snapshot.json",
+    scenario: "version-source",
+    source: "claude/version-source.snapshot.json",
+    transform: snapshot,
+  },
+  { file: "claude-2.1.329/version.txt", scenario: "anchor", transform: { kind: "version-anchor" } },
 ];
 
 // ---------------------------------------------------------------------------
