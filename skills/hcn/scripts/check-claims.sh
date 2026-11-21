@@ -466,8 +466,7 @@ if probe=$("$bin" inspect claude --json 2>/dev/null) && \
     printf 'MISS: Claude alias targets are absent from the listed vocabulary\n'
     misses=$((misses + 1))
   fi
-  for pair in \
-    "claude:stream" "pi:stream" "antigravity:stream" "muse:view"; do
+  for pair in "claude:stream" "pi:stream" "antigravity:stream"; do
     harness=${pair%%:*}
     want=${pair##*:}
     got=$("$bin" inspect "$harness" --json 2>/dev/null |
@@ -479,7 +478,7 @@ if probe=$("$bin" inspect claude --json 2>/dev/null) && \
       misses=$((misses + 1))
     fi
   done
-  for harness in codex cursor; do
+  for harness in codex cursor muse; do
     if ! "$bin" inspect "$harness" --json 2>/dev/null |
          grep -q '"compactionReporting": *null'; then
       printf 'MISS: %s compactionReporting is not null; skill says it reports nothing\n' \

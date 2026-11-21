@@ -417,7 +417,7 @@ wrote their own `done`.
 - For named resumes on create-on-missing harnesses, a checkable missing id is refused before spawn. A confirmed existing id produces no unknown-id diagnostic. When existence cannot be checked, an early `{kind: "warning", message: string}` advisory asks the caller to verify the id; it establishes no failure and does not change the turn verdict.
 - After a nonzero one-shot process exit, optional `done.completion` preserves turn evidence separately from process failure: `native-terminal` records a successful native delimiter; `message-delivered` records assistant text without confirming turn completion. Neither judges work correctness. Keep delivered output even when `cause`/`failure` reports a process crash. Conflicting turn-failure evidence leaves `message-delivered` when assistant text was observed. `done.exitCode` remains the actual native status, matching `failure.nativeExitCode` for a native failure, while hcn's CLI failure status remains 1. Native diagnostics prefer the first bounded, redacted stderr Error headline over trailing stack frames. Persistent sessions retain their separate completed-turn and later `closed` events.
 - `DROPPABLE_KINDS` (`token`, `progress`) marks events safe to drop when you only need the full messages. `failure` is never droppable, and neither is `compaction` nor `background`.
-- `compaction` reports that the harness compacted its own context (ADR 0009). It carries `state`, a closed union of `started`, `compacted`, `noop`, `failed` and `aborted`, so a consumer branches with no default arm. `trigger` (`auto`, `manual`, `overflow`), `tokensBefore`, `tokensAfter` and `durationMs` are present only where the harness itself reported them; hcn derives none of them, and no harness pushes a context-occupancy percentage on a live signal. `detail` carries the harness's own reason or error text, so branch on `state` and never on it. Which harnesses report is `capabilities.compactionReporting` on the `identity` event; the roster is below. **Count `compacted`, not `started`:** hcn reports each record the harness sends, and claude has been observed sending two `compacting` status records for one compaction, so a start can repeat. A compaction can also arrive **between** turns - pi checks its threshold before a new prompt, so the event may reach a session caller on the next turn rather than the one that triggered it. Muse compacts **before** the turn and blocking, so its event arrives once the observer's first view page is read, after the turn has already started.
+- `compaction` reports that the harness compacted its own context (ADR 0009). It carries `state`, a closed union of `started`, `compacted`, `noop`, `failed` and `aborted`, so a consumer branches with no default arm. `trigger` (`auto`, `manual`, `overflow`), `tokensBefore`, `tokensAfter` and `durationMs` are present only where the harness itself reported them; hcn derives none of them, and no harness pushes a context-occupancy percentage on a live signal. `detail` carries the harness's own reason or error text, so branch on `state` and never on it. Which harnesses report is `capabilities.compactionReporting` on the `identity` event; the roster is below. **Count `compacted`, not `started`:** hcn reports each record the harness sends, and claude has been observed sending two `compacting` status records for one compaction, so a start can repeat. A compaction can also arrive **between** turns - pi checks its threshold before a new prompt, so the event may reach a session caller on the next turn rather than the one that triggered it. Muse compacts **before** the turn and blocking, but hcn receives no live compaction events from Muse 1.4.24 at all, because muse's view read fails while the session is held; Muse is in the null roster below.
 
 ### Tool results and usage
 
@@ -496,13 +496,15 @@ planning.
 | Claude | stream | `started`, `compacted`, `failed` | yes |
 | Pi | stream | `started`, `compacted`, `failed`, `aborted` | yes |
 | Antigravity | stream | `compacted` | no (duration only) |
-| Muse | MSP view | `compacted`, `noop`, `failed`, `aborted` | yes |
+| Muse | - | none | - |
 | Codex | - | none | - |
 | Cursor | - | none | - |
 | OpenCode | - | none | - |
 
-**`null` means the harness reports nothing, not that it never compacts.** Codex and
-cursor both compact natively, and neither says so on any channel hcn reads. Silence
+**`null` means the harness reports nothing, not that it never compacts.** Codex,
+cursor and Muse all compact natively, and none of them says so on any channel
+hcn reads - for Muse, compaction is proven by its durable session log, but on
+1.4.24 every live `view/page` read fails while the session is held. Silence
 from them is absence of reporting, not absence of compaction.
 
 No per-run `divergence:` line is written for this. That line names a key the caller

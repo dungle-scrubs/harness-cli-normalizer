@@ -359,9 +359,10 @@ by presence, never by guessing from content.
 **Count `compacted`, not `started`.** hcn reports each record the harness
 sends, and claude has been observed sending two `compacting` records for one
 compaction. A compaction can also arrive BETWEEN turns: pi checks its
-threshold before a new prompt, and muse compacts before the turn and blocking,
-so in a session the event can reach the caller on a later turn than the one
-that triggered it.
+threshold before a new prompt, so in a session the event can reach the
+caller on a later turn than the one that triggered it. Muse compacts before
+the turn and blocking too, but on Muse 1.4.24 hcn receives no live
+compaction events at all: muse's view read fails while the session is held.
 
 Which harnesses report is `capabilities.compactionReporting` on the `identity`
 event, and `hcn inspect <harness> --json` prints the same field:
@@ -371,15 +372,17 @@ event, and `hcn inspect <harness> --json` prints the same field:
 | claude | stream | `started`, `compacted`, `failed` | yes |
 | pi | stream | `started`, `compacted`, `failed`, `aborted` | yes |
 | antigravity | stream | `compacted` | no (duration only) |
-| muse | MSP view | `compacted`, `noop`, `failed`, `aborted` | yes |
+| muse | - | none | - |
 | codex | - | none | - |
 | cursor | - | none | - |
 | opencode | - | none | - |
 
-**Null means the harness reports nothing, not that it never compacts.** Codex
-and cursor both compact natively and neither says so on any channel hcn reads,
-so silence from them is absence of reporting. No per-run `divergence:` line is
-written for this.
+**Null means the harness reports nothing, not that it never compacts.** Codex,
+cursor and muse all compact natively and none says so on any channel hcn
+reads; for muse the compaction itself is proven by its durable session log,
+but on 1.4.24 every live `view/page` read fails while the session is held,
+so silence from them is absence of reporting, not absence of compaction. No
+per-run `divergence:` line is written for this.
 
 **Compaction pauses the stream, so set `--stall` above these bands.** Measured:
 25-47 s claude, 24-33 s codex, 25-39 s cursor, 4.5-18 s antigravity, 7-10 s pi,

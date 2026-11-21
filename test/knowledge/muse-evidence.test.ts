@@ -62,8 +62,11 @@ test("current Muse native compaction installs replacements and preserves later r
   );
   // Thresholds resolve against the effective context limit: 0.02 / 0.04
   // of the model catalog's 1,007,997-token window for
-  // muse-spark-1.3-contributor (issue #491; 1.4.2 multiplied a fixed
-  // 512,000-token base, so the same fractions meant half the tokens).
+  // muse-spark-1.3-contributor. The same resolution rule already appears
+  // in the 1.4.2 threshold-failure fixture against the same 1,007,997
+  // limit; the 1.4.2 tool-history captures resolved these fractions to
+  // 10,240/20,480 instead, and no capture shows what produced that
+  // 512,000 base (see the descriptor comment).
   const blocking = records.find(
     (record: { kind?: string; trigger?: string }) =>
       record.kind === "context_compaction_candidate" &&
@@ -90,6 +93,62 @@ test("current Muse native compaction installs replacements and preserves later r
     cause: "clean",
   });
   expect(read("build.txt", current).trim()).toBe("1.4.24-R9131.1");
+});
+
+test("the 1.4.2 prior anchor: soft install, later recall, non-convergence and native threshold failure", () => {
+  // Prior-anchor evidence (1.4.2, 2026-10-03): both trigger paths
+  // installed replacements, a later process recalled the marker, a soft
+  // non-convergence stayed a task failure, and a startup prompt past the
+  // hard threshold stayed a native crash - the pre-1.4.24 behavior the
+  // current anchor above moved off.
+  const prior = "muse-1.4.2-R4684.1";
+  const records = JSON.parse(read("tool-history-compaction-records.snapshot.json", prior));
+  for (const trigger of ["hard_threshold_blocking", "soft_threshold_async"]) {
+    expect(records).toContainEqual(
+      expect.objectContaining({
+        kind: "context_compaction_candidate",
+        trigger,
+        status: "succeeded",
+      }),
+    );
+    expect(records).toContainEqual(
+      expect.objectContaining({ kind: "context_compaction_installed", trigger }),
+    );
+  }
+  expect(records).toContainEqual(
+    expect.objectContaining({
+      kind: "context_compaction_candidate",
+      trigger: "soft_threshold_async",
+      timing: "mid_turn",
+      status: "succeeded",
+    }),
+  );
+  const events = (file: string) =>
+    read(file, prior)
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+  expect(events("tool-history-recall.ndjson")).toContainEqual({
+    kind: "message",
+    role: "assistant",
+    text: "MARIGOLD-903",
+  });
+  expect(events("tool-history-recall.ndjson").at(-1)).toMatchObject({
+    kind: "done",
+    cause: "clean",
+  });
+  expect(events("tool-history-soft.ndjson").at(-1)).toMatchObject({
+    kind: "done",
+    cause: "failed",
+    failure: { class: "task", retryable: false },
+  });
+  expect(events("tool-history-soft.ndjson").at(-1).failure.message).toContain("not converging");
+  expect(events("tool-history-threshold.ndjson").at(-1)).toMatchObject({
+    kind: "done",
+    cause: "crash",
+    failure: { class: "native", nativeExitCode: 1 },
+  });
+  expect(read("build.txt", prior).trim()).toBe("1.4.2-R4684.1");
 });
 
 test("current MSP attachment initializes and preserves the original missing-limit refusal", () => {

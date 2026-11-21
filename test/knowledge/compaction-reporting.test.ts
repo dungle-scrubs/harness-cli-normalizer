@@ -13,8 +13,9 @@ import { piCli } from "../../src/knowledge/pi.js";
 
 /**
  * ADR 0009 / #243. `compactionReporting` exists so silence is never read
- * as "no compaction happened". Codex and cursor both compact and both say
- * nothing hcn can read; a caller has to be able to tell that apart from a
+ * as "no compaction happened". Codex, cursor and muse all compact natively
+ * and all three say nothing hcn can read (muse's live view read fails on a
+ * held session, 1.4.24); a caller has to be able to tell that apart from a
  * quiet run on a harness that does report.
  */
 
@@ -38,26 +39,30 @@ describe("compactionReporting", () => {
         tokens: true,
       },
       antigravity: { source: "stream", states: ["compacted"], tokens: false },
-      muse: {
-        source: "view",
-        states: ["compacted", "noop", "failed", "aborted"],
-        tokens: true,
-      },
-      // Both compact natively. Neither reports it on a channel hcn reads.
+      // Muse 1.4.24 compacts natively, but no channel hcn reads carries a
+      // live signal: muse stdout says nothing (ADR 0009) and every live
+      // view/page reply on a held session is a -32603 "view range read
+      // failed" error (muse-1.4.24-R9131.1/hcn-helper.ndjson), while a
+      // post-session view rebuild keeps only the last terminal item
+      // (msp-view-posthoc.ndjson). Not a claim that muse never compacts.
+      muse: null,
+      // All three compact natively. None reports it on a channel hcn
+      // reads.
       codex: null,
       cursor: null,
     });
   });
 
   test("a harness that declares reporting also declares that it compacts", () => {
-    // The reverse does not hold: codex and cursor compact and report
-    // nothing, which is the whole reason this field is separate from
-    // nativeContextManagement.
+    // The reverse does not hold: codex, cursor and muse compact natively
+    // and report nothing, which is the whole reason this field is separate
+    // from nativeContextManagement.
     for (const h of ALL) {
       if (h.compactionReporting !== null) expect(h.nativeContextManagement).not.toBeNull();
     }
     expect(codexCli.nativeContextManagement).not.toBeNull();
     expect(cursorCli.nativeContextManagement).not.toBeNull();
+    expect(museCode.nativeContextManagement).not.toBeNull();
   });
 
   test("the declared states are the states that harness's decoder can actually produce", () => {

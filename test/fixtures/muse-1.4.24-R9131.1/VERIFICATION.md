@@ -24,31 +24,41 @@ observation failures, not muse behavior:
 
 - `muse exec --json` stdout has never carried the compaction signal
   (ADR 0009; docs/research/2026-09-22-compaction-signals/muse). The
-  2026-11-15 ladder sessions' durable logs hold 48/50/16/10/8 installs
-  and the 2026-11-20 re-run session holds 24, in every case at the very
-  thresholds the probes believed had never fired.
+  2026-11-15 ladder sessions' durable logs hold 4/5/24/8/25 installs (in
+  session order 01a1ddb1/b6/bb/c3/c8) and the 2026-11-20 re-run session
+  holds 24, in every case at the very thresholds the probes believed
+  had never fired. These are primary durable-log records, re-derived
+  through the repository's own store-root resolution; the first write-up
+  counted 48/50/16/10/8 because it also counted the `resume_state`
+  replay copies each resume writes, which double-count installs.
 - On 1.4.24 every live `view/page` reply while the session is held is a
   `-32603` `view range read failed` internal error, so the HCN observer
   folded nothing during those runs (`hcn-helper.ndjson`). A `muse serve`
   started after the session ends pages the view successfully; the
   rebuilt projection carries only the last terminal item
   (`msp-view-posthoc.ndjson`: the failed item, 86,317 tokens before).
-  Successful installs collapse out of the rebuilt view.
+  Successful installs collapse out of the rebuilt view. hcn therefore
+  reports no live compaction signal for Muse on 1.4.24.
 
-Two real behavior changes since 1.4.2 are encoded here:
+What the captures establish about thresholds and failures:
 
 - Threshold fractions multiply an "effective context limit" - the
   `context_compaction.provider_context_limit_tokens` setting or the
   model catalog's `context_limit` (1,007,997 for
-  muse-spark-1.3-contributor at capture time) - where 1.4.2 multiplied a
-  fixed 512,000. `0.02/0.04` now means 20,159/40,319 tokens
-  (`compaction-records.snapshot.json`), and the 1.4.2 anchor setting
-  `0.16/0.22` needs roughly 161K pending tokens to fire instead of ~82K.
-  Pinning the limit to 512,000 makes a startup prompt that crosses the
-  hard threshold a native startup failure, exit 1, whose prose names the
-  resolution rule verbatim (`threshold-failure.ndjson`).
-- A rejected replacement is now a warning-severity fallback the run
-  survives (`can_continue: true`), where 1.4.2 terminally failed the run.
+  muse-spark-1.3-contributor at capture time). On 1.4.24, `0.02/0.04`
+  resolved to 20,159/40,319 tokens (`compaction-records.snapshot.json`).
+  This rule is not new since 1.4.2: the 1.4.2 threshold-failure capture
+  already names the same rule verbatim against the same 1,007,997
+  limit. The 1.4.2 tool-history captures resolved the same `0.02/0.04`
+  fractions to 10,240/20,480 tokens, a 512,000 base in those sessions;
+  no capture shows what produced that base (no provider limit setting is
+  recorded in any capture), so the cause of the difference is not
+  established. Pinning the limit to 512,000 makes a startup prompt that
+  crosses the hard threshold a native startup failure, exit 1, whose
+  prose names the resolution rule verbatim (`threshold-failure.ndjson`).
+- A rejected replacement is a warning-severity fallback the run
+  survives (`can_continue: true`) on 1.4.24, where 1.4.2 terminally
+  failed the run.
 
 Lowered thresholds prove the mechanisms; they do not prove
 full-capacity behavior or lossless recall.

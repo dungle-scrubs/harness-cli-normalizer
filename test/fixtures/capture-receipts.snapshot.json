@@ -3970,6 +3970,860 @@
       "sha256": "e7a830ca579088af1406301f2f99ac99cd624e5a337e3988c7d92e492e8a270b",
       "bytes": 8,
       "source": null
+    },
+    {
+      "file": "muse-1.4.24-R9131.1/seven-01.ndjson",
+      "harness": "muse",
+      "version": "1.4.24-R9131.1",
+      "scenario": "seven/01",
+      "transform": "copied",
+      "sha256": "25b3b524506a7965ada2b0aa76650b7775d368a323cc97b093ad89aef590336c",
+      "bytes": 23695,
+      "source": {
+        "sha256": "25b3b524506a7965ada2b0aa76650b7775d368a323cc97b093ad89aef590336c",
+        "bytes": 23695,
+        "lines": 30
+      }
+    },
+    {
+      "file": "muse-1.4.24-R9131.1/seven-03.ndjson",
+      "harness": "muse",
+      "version": "1.4.24-R9131.1",
+      "scenario": "seven/03",
+      "transform": "copied",
+      "sha256": "6754b66d0b60acda8ef3d288797e050089b8122e8268ca35b1bbfccdc40d915f",
+      "bytes": 23800,
+      "source": {
+        "sha256": "6754b66d0b60acda8ef3d288797e050089b8122e8268ca35b1bbfccdc40d915f",
+        "bytes": 23800,
+        "lines": 30
+      }
+    },
+    {
+      "file": "muse-1.4.24-R9131.1/seven-05.ndjson",
+      "harness": "muse",
+      "version": "1.4.24-R9131.1",
+      "scenario": "seven/05",
+      "transform": "copied",
+      "sha256": "9ae56d139849cab0dbdc478720c9a07e5ae9b55d53030d0c2d6a6ae021b289a5",
+      "bytes": 42899,
+      "source": {
+        "sha256": "9ae56d139849cab0dbdc478720c9a07e5ae9b55d53030d0c2d6a6ae021b289a5",
+        "bytes": 42899,
+        "lines": 54
+      }
+    },
+    {
+      "file": "muse-1.4.24-R9131.1/seven-07.ndjson",
+      "harness": "muse",
+      "version": "1.4.24-R9131.1",
+      "scenario": "seven/07",
+      "transform": "copied",
+      "sha256": "ca9410c8df4edab27a7e2e936987f3beb1f889d1a788735d7b664447d4887596",
+      "bytes": 23775,
+      "source": {
+        "sha256": "ca9410c8df4edab27a7e2e936987f3beb1f889d1a788735d7b664447d4887596",
+        "bytes": 23775,
+        "lines": 30
+      }
+    },
+    {
+      "file": "muse-1.4.24-R9131.1/seven-09.ndjson",
+      "harness": "muse",
+      "version": "1.4.24-R9131.1",
+      "scenario": "seven/09",
+      "transform": "copied",
+      "sha256": "1f68828d55bac018b9d784e16bfef91660de6bc84c31f4075e0fd5f902275e30",
+      "bytes": 23746,
+      "source": {
+        "sha256": "1f68828d55bac018b9d784e16bfef91660de6bc84c31f4075e0fd5f902275e30",
+        "bytes": 23746,
+        "lines": 30
+      }
+    },
+    {
+      "file": "muse-1.4.24-R9131.1/seven-11.ndjson",
+      "harness": "muse",
+      "version": "1.4.24-R9131.1",
+      "scenario": "seven/11",
+      "transform": "copied",
+      "sha256": "f1d7afbae57830ba2cccfdafea082e88dca05390c4317f5c1cde591d60f96335",
+      "bytes": 23746,
+      "source": {
+        "sha256": "f1d7afbae57830ba2cccfdafea082e88dca05390c4317f5c1cde591d60f96335",
+        "bytes": 23746,
+        "lines": 30
+      }
+    },
+    {
+      "file": "muse-1.4.24-R9131.1/seven-13.ndjson",
+      "harness": "muse",
+      "version": "1.4.24-R9131.1",
+      "scenario": "seven/13",
+      "transform": "copied",
+      "sha256": "b1a9e1966829c2036a3c87dbc784361992a938cf33442f21063fe06e5072eff0",
+      "bytes": 1001,
+      "source": {
+        "sha256": "b1a9e1966829c2036a3c87dbc784361992a938cf33442f21063fe06e5072eff0",
+        "bytes": 1001,
+        "lines": 2
+      }
+    },
+    {
+      "file": "muse-1.4.24-R9131.1/seven-15.ndjson",
+      "harness": "muse",
+      "version": "1.4.24-R9131.1",
+      "scenario": "seven/15",
+      "transform": "copied",
+      "sha256": "1c0a30ecf35685e17e20c4814d69a86c20adc50667ec31a408eb9faf26e35ff8",
+      "bytes": 23715,
+      "source": {
+        "sha256": "1c0a30ecf35685e17e20c4814d69a86c20adc50667ec31a408eb9faf26e35ff8",
+        "bytes": 23715,
+        "lines": 30
+      }
+    },
+    {
+      "file": "muse-1.4.24-R9131.1/question.ndjson",
+      "harness": "muse",
+      "version": "1.4.24-R9131.1",
+      "scenario": "questions/01",
+      "transform": "copied",
+      "sha256": "dddc37e2b5ab5e0c77096e91617678dab78861f24020efb0c58632c32d202b2f",
+      "bytes": 68552,
+      "source": {
+        "sha256": "dddc37e2b5ab5e0c77096e91617678dab78861f24020efb0c58632c32d202b2f",
+        "bytes": 68552,
+        "lines": 90
+      }
+    },
+    {
+      "file": "muse-1.4.24-R9131.1/seven.snapshot.json",
+      "harness": "muse",
+      "version": "1.4.24-R9131.1",
+      "scenario": "seven",
+      "transform": "snapshot",
+      "sha256": "e8664e0e4ec69a85bbe0ef6fdef9efdd934fd3fdafa7625a9e00473df0bce008",
+      "bytes": 825,
+      "source": {
+        "sha256": "e8664e0e4ec69a85bbe0ef6fdef9efdd934fd3fdafa7625a9e00473df0bce008",
+        "bytes": 825,
+        "lines": 35
+      }
+    },
+    {
+      "file": "muse-1.4.24-R9131.1/questions.snapshot.json",
+      "harness": "muse",
+      "version": "1.4.24-R9131.1",
+      "scenario": "questions",
+      "transform": "snapshot",
+      "sha256": "24dd5e64237f3deacef3e7ab2605910e6bf08c867ca4fe986c1d4373cebe6f82",
+      "bytes": 499,
+      "source": {
+        "sha256": "24dd5e64237f3deacef3e7ab2605910e6bf08c867ca4fe986c1d4373cebe6f82",
+        "bytes": 499,
+        "lines": 23
+      }
+    },
+    {
+      "file": "muse-1.4.24-R9131.1/msp-missing-limit.ndjson",
+      "harness": "muse",
+      "version": "1.4.24-R9131.1",
+      "scenario": "msp/missing-limit",
+      "transform": "copied",
+      "sha256": "bf709d6c95af7dee792c29bfb282be75e48961b8c306092db24b05ca44492b0c",
+      "bytes": 851,
+      "source": {
+        "sha256": "bf709d6c95af7dee792c29bfb282be75e48961b8c306092db24b05ca44492b0c",
+        "bytes": 851,
+        "lines": 3
+      }
+    },
+    {
+      "file": "muse-1.4.24-R9131.1/tool-history-recall.ndjson",
+      "harness": "muse",
+      "version": "1.4.24-R9131.1",
+      "scenario": "compaction/later-recall",
+      "transform": "copied",
+      "sha256": "2520bbcf3425d7632b5aae30fb586a9336c4ea5373e8a1a069ecf8d461e796c1",
+      "bytes": 885,
+      "source": {
+        "sha256": "2520bbcf3425d7632b5aae30fb586a9336c4ea5373e8a1a069ecf8d461e796c1",
+        "bytes": 885,
+        "lines": 5
+      }
+    },
+    {
+      "file": "muse-1.4.24-R9131.1/threshold-failure.ndjson",
+      "harness": "muse",
+      "version": "1.4.24-R9131.1",
+      "scenario": "compaction/threshold-failure",
+      "transform": "copied",
+      "sha256": "8e9fcfd6a223a697095bcd58689e5d7b2da7a0628f9e2dbfc2887bf087a73e35",
+      "bytes": 1310,
+      "source": {
+        "sha256": "8e9fcfd6a223a697095bcd58689e5d7b2da7a0628f9e2dbfc2887bf087a73e35",
+        "bytes": 1310,
+        "lines": 3
+      }
+    },
+    {
+      "file": "muse-1.4.24-R9131.1/hcn-helper.ndjson",
+      "harness": "muse",
+      "version": "1.4.24-R9131.1",
+      "scenario": "compaction/held-session-helper",
+      "transform": "excerpt:muse-helper",
+      "sha256": "1149cdb3ebc19ddb0a689566f5cb15c020d550c68dcfdb8718182153df66a3b6",
+      "bytes": 12295,
+      "source": {
+        "sha256": "6a455f8d330871f6ecd97f9dd8e5e6c5b3da089a9be5bee55098131012daf158",
+        "bytes": 13615,
+        "lines": 108
+      },
+      "records": [
+        {
+          "sourceLine": 1,
+          "type": "reply/1",
+          "sourceSha256": "b2ea503b52749fa697bc3c3fa0e6558f6d7dfa3a10197a85acc28f2408542172",
+          "sha256": "b2ea503b52749fa697bc3c3fa0e6558f6d7dfa3a10197a85acc28f2408542172"
+        },
+        {
+          "sourceLine": 2,
+          "type": "reply/2",
+          "sourceSha256": "6bf2c59f4b58578484a2a17ad0debcc9636f8fd81da2f429d217408cfac35895",
+          "sha256": "6bf2c59f4b58578484a2a17ad0debcc9636f8fd81da2f429d217408cfac35895"
+        },
+        {
+          "sourceLine": 3,
+          "type": "error/v1",
+          "sourceSha256": "8d720d5eddeea8ef0d94c906ff3d4743ddee6d9f3dfd3fc024dd4ee186ea8b51",
+          "sha256": "8d720d5eddeea8ef0d94c906ff3d4743ddee6d9f3dfd3fc024dd4ee186ea8b51"
+        },
+        {
+          "sourceLine": 4,
+          "type": "error/v2",
+          "sourceSha256": "650eb13a7e5f4e41dd2ee31df604f4a794773f877c779ea85b9d7ad3b97b56ac",
+          "sha256": "650eb13a7e5f4e41dd2ee31df604f4a794773f877c779ea85b9d7ad3b97b56ac"
+        },
+        {
+          "sourceLine": 5,
+          "type": "reply/3",
+          "sourceSha256": "75d2a875e22539ea7a8f1d7d01ea8abe3f80ba74e743f111a4e20abee9d2cbf2",
+          "sha256": "75d2a875e22539ea7a8f1d7d01ea8abe3f80ba74e743f111a4e20abee9d2cbf2"
+        },
+        {
+          "sourceLine": 6,
+          "type": "error/v3",
+          "sourceSha256": "90bc7844ac5ff7a01643f4a68c859ca59376f85a06977a3084e65ef8cbff5d0a",
+          "sha256": "90bc7844ac5ff7a01643f4a68c859ca59376f85a06977a3084e65ef8cbff5d0a"
+        },
+        {
+          "sourceLine": 7,
+          "type": "reply/4",
+          "sourceSha256": "fe3bfdce381a9a77261fc00d0bd9aaccbf0eb8b55ba0810aa1412c3d16f0c9cf",
+          "sha256": "fe3bfdce381a9a77261fc00d0bd9aaccbf0eb8b55ba0810aa1412c3d16f0c9cf"
+        },
+        {
+          "sourceLine": 8,
+          "type": "error/v4",
+          "sourceSha256": "48cb302d43ae2dc7749395b82df92983f22100302d9fd08633f393a77fd632db",
+          "sha256": "48cb302d43ae2dc7749395b82df92983f22100302d9fd08633f393a77fd632db"
+        },
+        {
+          "sourceLine": 9,
+          "type": "reply/5",
+          "sourceSha256": "4e10c8dd90109296b335a07d018e9617a496bf01fd51c7efcf457f4b03620658",
+          "sha256": "4e10c8dd90109296b335a07d018e9617a496bf01fd51c7efcf457f4b03620658"
+        },
+        {
+          "sourceLine": 10,
+          "type": "error/v5",
+          "sourceSha256": "c0035f9575057f6fbb22cadb567785e5f25dbccd287bd48d806131790911d388",
+          "sha256": "c0035f9575057f6fbb22cadb567785e5f25dbccd287bd48d806131790911d388"
+        },
+        {
+          "sourceLine": 11,
+          "type": "reply/6",
+          "sourceSha256": "8f6784a1999ad3e13cfb8f405d5f603763352235b34acf29fe73c4a8ebe96955",
+          "sha256": "8f6784a1999ad3e13cfb8f405d5f603763352235b34acf29fe73c4a8ebe96955"
+        },
+        {
+          "sourceLine": 12,
+          "type": "error/v6",
+          "sourceSha256": "ebbf3e390aab5e38a85a22c940250d755b44731e8e25393c72208036658663d8",
+          "sha256": "ebbf3e390aab5e38a85a22c940250d755b44731e8e25393c72208036658663d8"
+        },
+        {
+          "sourceLine": 13,
+          "type": "reply/7",
+          "sourceSha256": "1b5027771b16286f37d9d2d11dda3c3d67599b275c0ee42ceccc33e27762754e",
+          "sha256": "1b5027771b16286f37d9d2d11dda3c3d67599b275c0ee42ceccc33e27762754e"
+        },
+        {
+          "sourceLine": 14,
+          "type": "error/v7",
+          "sourceSha256": "e3a6648f174fbdf3a44c3f2f32e7dc1e2a2242cd75bf0431a5d95b0bf1b9fe89",
+          "sha256": "e3a6648f174fbdf3a44c3f2f32e7dc1e2a2242cd75bf0431a5d95b0bf1b9fe89"
+        },
+        {
+          "sourceLine": 15,
+          "type": "reply/8",
+          "sourceSha256": "93daa447953cfeb559e75915b28b56a5b3386b3cde7ed9c5ba943338b7b11aa8",
+          "sha256": "93daa447953cfeb559e75915b28b56a5b3386b3cde7ed9c5ba943338b7b11aa8"
+        },
+        {
+          "sourceLine": 16,
+          "type": "reply/1",
+          "sourceSha256": "b2ea503b52749fa697bc3c3fa0e6558f6d7dfa3a10197a85acc28f2408542172",
+          "sha256": "b2ea503b52749fa697bc3c3fa0e6558f6d7dfa3a10197a85acc28f2408542172"
+        },
+        {
+          "sourceLine": 18,
+          "type": "reply/2",
+          "sourceSha256": "6bf2c59f4b58578484a2a17ad0debcc9636f8fd81da2f429d217408cfac35895",
+          "sha256": "6bf2c59f4b58578484a2a17ad0debcc9636f8fd81da2f429d217408cfac35895"
+        },
+        {
+          "sourceLine": 19,
+          "type": "error/v8",
+          "sourceSha256": "506d5fdf101bb64715a14c3fbdf1150f187eaeddacb3f32ca72df10aa511386f",
+          "sha256": "506d5fdf101bb64715a14c3fbdf1150f187eaeddacb3f32ca72df10aa511386f"
+        },
+        {
+          "sourceLine": 20,
+          "type": "reply/9",
+          "sourceSha256": "732298deaa922023ba35b3d58269811a2b737e073dafdd2b25769a0a6d09c599",
+          "sha256": "732298deaa922023ba35b3d58269811a2b737e073dafdd2b25769a0a6d09c599"
+        },
+        {
+          "sourceLine": 22,
+          "type": "reply/3",
+          "sourceSha256": "75d2a875e22539ea7a8f1d7d01ea8abe3f80ba74e743f111a4e20abee9d2cbf2",
+          "sha256": "75d2a875e22539ea7a8f1d7d01ea8abe3f80ba74e743f111a4e20abee9d2cbf2"
+        },
+        {
+          "sourceLine": 23,
+          "type": "error/v9",
+          "sourceSha256": "ce542e7cab8ce9f255084cbd399cd557c6f3406183af23dfd3e4e4c356fbfd96",
+          "sha256": "ce542e7cab8ce9f255084cbd399cd557c6f3406183af23dfd3e4e4c356fbfd96"
+        },
+        {
+          "sourceLine": 24,
+          "type": "reply/10",
+          "sourceSha256": "b0b2d432e872fc417592d719c0202b9bece12ba4336c6879a3840046960da38e",
+          "sha256": "b0b2d432e872fc417592d719c0202b9bece12ba4336c6879a3840046960da38e"
+        },
+        {
+          "sourceLine": 26,
+          "type": "reply/4",
+          "sourceSha256": "fe3bfdce381a9a77261fc00d0bd9aaccbf0eb8b55ba0810aa1412c3d16f0c9cf",
+          "sha256": "fe3bfdce381a9a77261fc00d0bd9aaccbf0eb8b55ba0810aa1412c3d16f0c9cf"
+        },
+        {
+          "sourceLine": 27,
+          "type": "error/v10",
+          "sourceSha256": "6093ccbc437f380bc7bdb597f83d30780bd2043cd093b59760f19e369df373b7",
+          "sha256": "6093ccbc437f380bc7bdb597f83d30780bd2043cd093b59760f19e369df373b7"
+        },
+        {
+          "sourceLine": 28,
+          "type": "reply/11",
+          "sourceSha256": "9bdc5acf0687baed140933692063420eaedfe11442a2003aba2ec5598177c5b2",
+          "sha256": "9bdc5acf0687baed140933692063420eaedfe11442a2003aba2ec5598177c5b2"
+        },
+        {
+          "sourceLine": 30,
+          "type": "reply/5",
+          "sourceSha256": "4e10c8dd90109296b335a07d018e9617a496bf01fd51c7efcf457f4b03620658",
+          "sha256": "4e10c8dd90109296b335a07d018e9617a496bf01fd51c7efcf457f4b03620658"
+        },
+        {
+          "sourceLine": 31,
+          "type": "error/v11",
+          "sourceSha256": "d2c22489486f9096dc9d13edca7b471d5ab9196d8aab9a63f6841c9fff7d8c58",
+          "sha256": "d2c22489486f9096dc9d13edca7b471d5ab9196d8aab9a63f6841c9fff7d8c58"
+        },
+        {
+          "sourceLine": 32,
+          "type": "reply/12",
+          "sourceSha256": "d372b2c6caa3ace53be1af82007c680d73694ffabf35a2b630ba4a677f3b02a4",
+          "sha256": "d372b2c6caa3ace53be1af82007c680d73694ffabf35a2b630ba4a677f3b02a4"
+        },
+        {
+          "sourceLine": 34,
+          "type": "reply/6",
+          "sourceSha256": "8f6784a1999ad3e13cfb8f405d5f603763352235b34acf29fe73c4a8ebe96955",
+          "sha256": "8f6784a1999ad3e13cfb8f405d5f603763352235b34acf29fe73c4a8ebe96955"
+        },
+        {
+          "sourceLine": 35,
+          "type": "error/v12",
+          "sourceSha256": "f585d5fb89b54245984e822742229b335697fa1d932a7d041898f0236391fdb4",
+          "sha256": "f585d5fb89b54245984e822742229b335697fa1d932a7d041898f0236391fdb4"
+        },
+        {
+          "sourceLine": 36,
+          "type": "reply/13",
+          "sourceSha256": "4145af69113ad8bdb2c8b60d9669735abddcdac8e086db755c11cf698ae8c67c",
+          "sha256": "4145af69113ad8bdb2c8b60d9669735abddcdac8e086db755c11cf698ae8c67c"
+        },
+        {
+          "sourceLine": 38,
+          "type": "reply/7",
+          "sourceSha256": "1b5027771b16286f37d9d2d11dda3c3d67599b275c0ee42ceccc33e27762754e",
+          "sha256": "1b5027771b16286f37d9d2d11dda3c3d67599b275c0ee42ceccc33e27762754e"
+        },
+        {
+          "sourceLine": 39,
+          "type": "error/v13",
+          "sourceSha256": "925f2e0531c3b80c1987b76a4cb31cfd10dc295e401612d9c01e859eb1d4196d",
+          "sha256": "925f2e0531c3b80c1987b76a4cb31cfd10dc295e401612d9c01e859eb1d4196d"
+        },
+        {
+          "sourceLine": 40,
+          "type": "reply/14",
+          "sourceSha256": "c16f5988623b664f8046f7587dcaa161466605972437e03008c566c4492754aa",
+          "sha256": "c16f5988623b664f8046f7587dcaa161466605972437e03008c566c4492754aa"
+        },
+        {
+          "sourceLine": 42,
+          "type": "reply/8",
+          "sourceSha256": "93daa447953cfeb559e75915b28b56a5b3386b3cde7ed9c5ba943338b7b11aa8",
+          "sha256": "93daa447953cfeb559e75915b28b56a5b3386b3cde7ed9c5ba943338b7b11aa8"
+        },
+        {
+          "sourceLine": 43,
+          "type": "error/v14",
+          "sourceSha256": "4bb4ef1d3de63671a9a0cc86a5249ce1f020c6835a90aa5df7ec592e6ae76149",
+          "sha256": "4bb4ef1d3de63671a9a0cc86a5249ce1f020c6835a90aa5df7ec592e6ae76149"
+        },
+        {
+          "sourceLine": 44,
+          "type": "reply/15",
+          "sourceSha256": "bba5375b922923dedbe9d49183b2b261eaf3bf41c02c008403d7824b5c3503fb",
+          "sha256": "bba5375b922923dedbe9d49183b2b261eaf3bf41c02c008403d7824b5c3503fb"
+        },
+        {
+          "sourceLine": 46,
+          "type": "reply/9",
+          "sourceSha256": "732298deaa922023ba35b3d58269811a2b737e073dafdd2b25769a0a6d09c599",
+          "sha256": "732298deaa922023ba35b3d58269811a2b737e073dafdd2b25769a0a6d09c599"
+        },
+        {
+          "sourceLine": 47,
+          "type": "error/v15",
+          "sourceSha256": "a18e1df1e205018c4f1e55e5ac6abe79262e2d3b7a40334dc59a2873c9bf2fe8",
+          "sha256": "a18e1df1e205018c4f1e55e5ac6abe79262e2d3b7a40334dc59a2873c9bf2fe8"
+        },
+        {
+          "sourceLine": 48,
+          "type": "reply/16",
+          "sourceSha256": "1387a718aa7bf1b013084b67c59d705c00554cbc1ad920478cdc949922575c09",
+          "sha256": "1387a718aa7bf1b013084b67c59d705c00554cbc1ad920478cdc949922575c09"
+        },
+        {
+          "sourceLine": 49,
+          "type": "error/v16",
+          "sourceSha256": "b5b36c0a21c4ea93a5a78e00a048ecf5af6e6541688df16cb4b8d48b5b954ee1",
+          "sha256": "b5b36c0a21c4ea93a5a78e00a048ecf5af6e6541688df16cb4b8d48b5b954ee1"
+        },
+        {
+          "sourceLine": 50,
+          "type": "reply/17",
+          "sourceSha256": "a58c024250e02c0da13a82707e9ac47400089b67a3e9fa47fc3a90a534f29588",
+          "sha256": "a58c024250e02c0da13a82707e9ac47400089b67a3e9fa47fc3a90a534f29588"
+        },
+        {
+          "sourceLine": 51,
+          "type": "error/v17",
+          "sourceSha256": "3c68d771ea6445aae5c767b8e5407d8fcb3fc8d91fad27ef2accc71c1c81aeab",
+          "sha256": "3c68d771ea6445aae5c767b8e5407d8fcb3fc8d91fad27ef2accc71c1c81aeab"
+        },
+        {
+          "sourceLine": 52,
+          "type": "reply/18",
+          "sourceSha256": "9ad938ffe979a0f454f76c706f0abdb674b0cf66a7e26739ebc4d8dca526cf09",
+          "sha256": "9ad938ffe979a0f454f76c706f0abdb674b0cf66a7e26739ebc4d8dca526cf09"
+        },
+        {
+          "sourceLine": 53,
+          "type": "error/v18",
+          "sourceSha256": "54445c9b5c01351d751ce961fcbbaea74ba58ec42e1b87a4ab1068dc0081657b",
+          "sha256": "54445c9b5c01351d751ce961fcbbaea74ba58ec42e1b87a4ab1068dc0081657b"
+        },
+        {
+          "sourceLine": 54,
+          "type": "reply/19",
+          "sourceSha256": "0a1d5f49fe89a5b380f2e25f8b3fa53a222f0e057422b180a6fdd8c86ffe31f5",
+          "sha256": "0a1d5f49fe89a5b380f2e25f8b3fa53a222f0e057422b180a6fdd8c86ffe31f5"
+        },
+        {
+          "sourceLine": 55,
+          "type": "error/v19",
+          "sourceSha256": "1287d30f8643faaf025bec4205b99c0f1066b625ae4a42ce647bb3df86c504a6",
+          "sha256": "1287d30f8643faaf025bec4205b99c0f1066b625ae4a42ce647bb3df86c504a6"
+        },
+        {
+          "sourceLine": 56,
+          "type": "reply/20",
+          "sourceSha256": "4ce0e264f09eb21d1ae6fcbb157eca36d407a4e8919d3af17d5b6588afc49220",
+          "sha256": "4ce0e264f09eb21d1ae6fcbb157eca36d407a4e8919d3af17d5b6588afc49220"
+        },
+        {
+          "sourceLine": 57,
+          "type": "error/v20",
+          "sourceSha256": "9690d190a8bf13f64c737728d864aa77fd9eeceeeea36a2c75b274d8c2f26347",
+          "sha256": "9690d190a8bf13f64c737728d864aa77fd9eeceeeea36a2c75b274d8c2f26347"
+        },
+        {
+          "sourceLine": 58,
+          "type": "reply/21",
+          "sourceSha256": "417ed786106e25c909690d1d96ca87febba309345473b686a102892fc17418b3",
+          "sha256": "417ed786106e25c909690d1d96ca87febba309345473b686a102892fc17418b3"
+        },
+        {
+          "sourceLine": 59,
+          "type": "error/v21",
+          "sourceSha256": "b162c08cdef4dfb3f5fbc2c0d5e345d81e43054bc2a860c6474bee26e33ee111",
+          "sha256": "b162c08cdef4dfb3f5fbc2c0d5e345d81e43054bc2a860c6474bee26e33ee111"
+        },
+        {
+          "sourceLine": 60,
+          "type": "reply/22",
+          "sourceSha256": "f4f313461402f5026b7d10ff1e04aaa1c0d16e97cdf6715e7f343bc52436107b",
+          "sha256": "f4f313461402f5026b7d10ff1e04aaa1c0d16e97cdf6715e7f343bc52436107b"
+        },
+        {
+          "sourceLine": 61,
+          "type": "error/v22",
+          "sourceSha256": "31ce5be35f6f7125bb7cf405b2d7c0b827ec50dd240602ec0ac2172173405d28",
+          "sha256": "31ce5be35f6f7125bb7cf405b2d7c0b827ec50dd240602ec0ac2172173405d28"
+        },
+        {
+          "sourceLine": 62,
+          "type": "reply/23",
+          "sourceSha256": "c69285fd237845c4194d7b6049793ed29e6ffea3e68bb611c63f694b91ed536d",
+          "sha256": "c69285fd237845c4194d7b6049793ed29e6ffea3e68bb611c63f694b91ed536d"
+        },
+        {
+          "sourceLine": 63,
+          "type": "error/v23",
+          "sourceSha256": "eee34fb69278a3ac00b545dbc96ea094b0123f6deb49f1d9f58036c0f548f4f4",
+          "sha256": "eee34fb69278a3ac00b545dbc96ea094b0123f6deb49f1d9f58036c0f548f4f4"
+        },
+        {
+          "sourceLine": 64,
+          "type": "reply/24",
+          "sourceSha256": "51b15c2a462c81fa38bcc1b10c04fc9baf546e9baf8010a34997b7902333ef84",
+          "sha256": "51b15c2a462c81fa38bcc1b10c04fc9baf546e9baf8010a34997b7902333ef84"
+        },
+        {
+          "sourceLine": 65,
+          "type": "error/v24",
+          "sourceSha256": "7a9d936e718daca19d6fda43d2705b9f78a80f69d818d407f627d31964eccf28",
+          "sha256": "7a9d936e718daca19d6fda43d2705b9f78a80f69d818d407f627d31964eccf28"
+        },
+        {
+          "sourceLine": 66,
+          "type": "reply/25",
+          "sourceSha256": "3c9d6cedad640da3808a601afefd9850a2c95b94c780804d97fe23e65d58f19c",
+          "sha256": "3c9d6cedad640da3808a601afefd9850a2c95b94c780804d97fe23e65d58f19c"
+        },
+        {
+          "sourceLine": 67,
+          "type": "error/v25",
+          "sourceSha256": "220016672121ba0ae2020f79e4e3da631427f4259b458a455ac50e5aef54d698",
+          "sha256": "220016672121ba0ae2020f79e4e3da631427f4259b458a455ac50e5aef54d698"
+        },
+        {
+          "sourceLine": 68,
+          "type": "reply/26",
+          "sourceSha256": "d30b618dbe8bfe1db34a33018a9a89c5a737ab89f53f1470071ec9a08aa605c6",
+          "sha256": "d30b618dbe8bfe1db34a33018a9a89c5a737ab89f53f1470071ec9a08aa605c6"
+        },
+        {
+          "sourceLine": 69,
+          "type": "error/v26",
+          "sourceSha256": "aba3c2348239aae2674f5eced2fb5d45960721531f211481c14195fa1a9db3d0",
+          "sha256": "aba3c2348239aae2674f5eced2fb5d45960721531f211481c14195fa1a9db3d0"
+        },
+        {
+          "sourceLine": 70,
+          "type": "reply/27",
+          "sourceSha256": "d18a7c548dbf0b4025e30cfa6b3c434d412ff4f8ec9bd9ea9b9f228c0445c319",
+          "sha256": "d18a7c548dbf0b4025e30cfa6b3c434d412ff4f8ec9bd9ea9b9f228c0445c319"
+        },
+        {
+          "sourceLine": 71,
+          "type": "error/v27",
+          "sourceSha256": "1dc3b83335604c5c18909540819375f9bf8e1c977778b8a3828f5fa977387729",
+          "sha256": "1dc3b83335604c5c18909540819375f9bf8e1c977778b8a3828f5fa977387729"
+        },
+        {
+          "sourceLine": 72,
+          "type": "reply/28",
+          "sourceSha256": "48a89dc3e6d97aa3fc68205b6510242457ad680b51e2d9414f96bd333b3cec34",
+          "sha256": "48a89dc3e6d97aa3fc68205b6510242457ad680b51e2d9414f96bd333b3cec34"
+        },
+        {
+          "sourceLine": 73,
+          "type": "error/v28",
+          "sourceSha256": "49f2c8755453c086a1210fe21cc9d7c538cf3b45499e35d4b206bb74377da6d1",
+          "sha256": "49f2c8755453c086a1210fe21cc9d7c538cf3b45499e35d4b206bb74377da6d1"
+        },
+        {
+          "sourceLine": 74,
+          "type": "reply/29",
+          "sourceSha256": "a5f7d1a6fd1ceae3d99a8c5df5f497c05103a1538e56f8ad75d079b3a89d49d7",
+          "sha256": "a5f7d1a6fd1ceae3d99a8c5df5f497c05103a1538e56f8ad75d079b3a89d49d7"
+        },
+        {
+          "sourceLine": 75,
+          "type": "error/v29",
+          "sourceSha256": "52ca5b1f1e61fe5b589f56133edfd2f74a6ed153bc03721d82b4658e7a0ca41f",
+          "sha256": "52ca5b1f1e61fe5b589f56133edfd2f74a6ed153bc03721d82b4658e7a0ca41f"
+        },
+        {
+          "sourceLine": 76,
+          "type": "reply/30",
+          "sourceSha256": "b9a357cb9bdf7935d0dcf7600f4863a3bc0773142e397aab5f9881101e95c7a5",
+          "sha256": "b9a357cb9bdf7935d0dcf7600f4863a3bc0773142e397aab5f9881101e95c7a5"
+        },
+        {
+          "sourceLine": 77,
+          "type": "error/v30",
+          "sourceSha256": "2e3489b2fc8038ea88e55a1c6f04a7aedbcfa405fa318ce3aa1e39ef4cd0835f",
+          "sha256": "2e3489b2fc8038ea88e55a1c6f04a7aedbcfa405fa318ce3aa1e39ef4cd0835f"
+        },
+        {
+          "sourceLine": 78,
+          "type": "reply/31",
+          "sourceSha256": "377ff6bedaa359f51cf77f386e2c793ee2e1a8f3a9da2bb223f9210dff1891c5",
+          "sha256": "377ff6bedaa359f51cf77f386e2c793ee2e1a8f3a9da2bb223f9210dff1891c5"
+        },
+        {
+          "sourceLine": 79,
+          "type": "error/v31",
+          "sourceSha256": "d35b1c92c34a6c70d1bc76865f983f9623d696610633fbef72d07046a998d842",
+          "sha256": "d35b1c92c34a6c70d1bc76865f983f9623d696610633fbef72d07046a998d842"
+        },
+        {
+          "sourceLine": 80,
+          "type": "reply/32",
+          "sourceSha256": "63b01fb5965904f91644f5aafd7876c0f561cce855bb6b0064c682e6f24f761c",
+          "sha256": "63b01fb5965904f91644f5aafd7876c0f561cce855bb6b0064c682e6f24f761c"
+        },
+        {
+          "sourceLine": 81,
+          "type": "error/v32",
+          "sourceSha256": "79c4ecc6c5861e114cf438bd6500c497aac1d27a6f9771fa63d4cc3ed3ba7288",
+          "sha256": "79c4ecc6c5861e114cf438bd6500c497aac1d27a6f9771fa63d4cc3ed3ba7288"
+        },
+        {
+          "sourceLine": 82,
+          "type": "reply/33",
+          "sourceSha256": "9cbf29ef337009b1041216e7de106dce6dff78c389af0f813736c1ee60531597",
+          "sha256": "9cbf29ef337009b1041216e7de106dce6dff78c389af0f813736c1ee60531597"
+        },
+        {
+          "sourceLine": 83,
+          "type": "error/v33",
+          "sourceSha256": "0db6576404de3d21446f93c8d50f6ce0a8cf9e8fe44fbcf9f53e5256dc46a5c6",
+          "sha256": "0db6576404de3d21446f93c8d50f6ce0a8cf9e8fe44fbcf9f53e5256dc46a5c6"
+        },
+        {
+          "sourceLine": 84,
+          "type": "reply/34",
+          "sourceSha256": "5f49bb4496746ab562ec4a763624081be9c8963d9deea4a4673f8c8b075a574c",
+          "sha256": "5f49bb4496746ab562ec4a763624081be9c8963d9deea4a4673f8c8b075a574c"
+        },
+        {
+          "sourceLine": 85,
+          "type": "error/v34",
+          "sourceSha256": "f521f364f4058292f663ce904f3699044fda27e1c1433c54238073e923980511",
+          "sha256": "f521f364f4058292f663ce904f3699044fda27e1c1433c54238073e923980511"
+        },
+        {
+          "sourceLine": 86,
+          "type": "reply/35",
+          "sourceSha256": "cc608d76a3cd12d92a975961fdec4d30d8a2ffbb7d3a04473d9f5723b3fd2743",
+          "sha256": "cc608d76a3cd12d92a975961fdec4d30d8a2ffbb7d3a04473d9f5723b3fd2743"
+        },
+        {
+          "sourceLine": 87,
+          "type": "error/v35",
+          "sourceSha256": "bc2d7afbaeec586c4b7d42c3f5df7d599239d345e2e4f951b0397df89744c91f",
+          "sha256": "bc2d7afbaeec586c4b7d42c3f5df7d599239d345e2e4f951b0397df89744c91f"
+        },
+        {
+          "sourceLine": 88,
+          "type": "reply/36",
+          "sourceSha256": "3ea870bfe2394fda362fd4e4e8536b2af0760263422b62788ca51206aef12464",
+          "sha256": "3ea870bfe2394fda362fd4e4e8536b2af0760263422b62788ca51206aef12464"
+        },
+        {
+          "sourceLine": 89,
+          "type": "error/v36",
+          "sourceSha256": "40792239c60d9866af9babfd425c93767730e8417349ec58a7293ba2bc382130",
+          "sha256": "40792239c60d9866af9babfd425c93767730e8417349ec58a7293ba2bc382130"
+        },
+        {
+          "sourceLine": 90,
+          "type": "reply/37",
+          "sourceSha256": "1c61b958d6a6c7b62c46de41a1c7b04f9a52b4521979727593b32fc128812b5e",
+          "sha256": "1c61b958d6a6c7b62c46de41a1c7b04f9a52b4521979727593b32fc128812b5e"
+        },
+        {
+          "sourceLine": 91,
+          "type": "error/v37",
+          "sourceSha256": "be260c47a9c268a08a3061c78272a9c67a43f3de1c10a869502ea08344e34e6a",
+          "sha256": "be260c47a9c268a08a3061c78272a9c67a43f3de1c10a869502ea08344e34e6a"
+        },
+        {
+          "sourceLine": 92,
+          "type": "reply/38",
+          "sourceSha256": "a842e0060ef18c80245c950d31156ac07c7460f316c6bff8a634dfe041b823d9",
+          "sha256": "a842e0060ef18c80245c950d31156ac07c7460f316c6bff8a634dfe041b823d9"
+        },
+        {
+          "sourceLine": 93,
+          "type": "error/v38",
+          "sourceSha256": "ab3bafe7942627b9999276be95a038bf7b2dc4fcaf322ef6f20452a34d5a8626",
+          "sha256": "ab3bafe7942627b9999276be95a038bf7b2dc4fcaf322ef6f20452a34d5a8626"
+        },
+        {
+          "sourceLine": 94,
+          "type": "reply/39",
+          "sourceSha256": "17e8b79aa1b03f3bb1bfe141e3b3d076a3eeb4d566497ab58580ee618c87e065",
+          "sha256": "17e8b79aa1b03f3bb1bfe141e3b3d076a3eeb4d566497ab58580ee618c87e065"
+        },
+        {
+          "sourceLine": 95,
+          "type": "error/v39",
+          "sourceSha256": "b5c8b249efde66e0940b5a3307ef4de3c1e1d74f7025d11d9f6cb67aba51a9f4",
+          "sha256": "b5c8b249efde66e0940b5a3307ef4de3c1e1d74f7025d11d9f6cb67aba51a9f4"
+        },
+        {
+          "sourceLine": 96,
+          "type": "reply/40",
+          "sourceSha256": "960bf785c89201e61f4981e2ad9937700b2db978fd8b9ecd70dfb67fe1f96e84",
+          "sha256": "960bf785c89201e61f4981e2ad9937700b2db978fd8b9ecd70dfb67fe1f96e84"
+        },
+        {
+          "sourceLine": 97,
+          "type": "error/v40",
+          "sourceSha256": "261e67922154249c57708c5b025920f5210be7a61b27b97099bd53c5a9ff96ff",
+          "sha256": "261e67922154249c57708c5b025920f5210be7a61b27b97099bd53c5a9ff96ff"
+        },
+        {
+          "sourceLine": 98,
+          "type": "reply/41",
+          "sourceSha256": "ede6160f2a8bbd91e0b65141d52fb3c95bf0832c67449841931c52c9acb972ba",
+          "sha256": "ede6160f2a8bbd91e0b65141d52fb3c95bf0832c67449841931c52c9acb972ba"
+        },
+        {
+          "sourceLine": 99,
+          "type": "error/v41",
+          "sourceSha256": "3790a94379167e144d9f5f2aa00e13edbb420a6a5b5c191efdfbbe883c63c8fd",
+          "sha256": "3790a94379167e144d9f5f2aa00e13edbb420a6a5b5c191efdfbbe883c63c8fd"
+        },
+        {
+          "sourceLine": 100,
+          "type": "reply/42",
+          "sourceSha256": "0522d2d379ef285ae2fc098ae53ee94ad75be9a0809aadc38f7b666da6769012",
+          "sha256": "0522d2d379ef285ae2fc098ae53ee94ad75be9a0809aadc38f7b666da6769012"
+        },
+        {
+          "sourceLine": 101,
+          "type": "error/v42",
+          "sourceSha256": "09bc202caa2dc26d6259c329ff3b9f6d2df29a1e048ab5e39e4fcceb41ad92b8",
+          "sha256": "09bc202caa2dc26d6259c329ff3b9f6d2df29a1e048ab5e39e4fcceb41ad92b8"
+        },
+        {
+          "sourceLine": 102,
+          "type": "reply/43",
+          "sourceSha256": "95331eacb5aa84021474a25c420ac8031ca7860254fa03717538ae41e9c242ff",
+          "sha256": "95331eacb5aa84021474a25c420ac8031ca7860254fa03717538ae41e9c242ff"
+        },
+        {
+          "sourceLine": 103,
+          "type": "error/v43",
+          "sourceSha256": "f0ccc551b988a11b9b7c6cc19b2ad3b3f0580966429f2d6393a0b6e9f137d610",
+          "sha256": "f0ccc551b988a11b9b7c6cc19b2ad3b3f0580966429f2d6393a0b6e9f137d610"
+        },
+        {
+          "sourceLine": 104,
+          "type": "reply/44",
+          "sourceSha256": "f642e043926377c3ef91130888f2854dd0e57e1c7c4d59430043ad8fb471ad90",
+          "sha256": "f642e043926377c3ef91130888f2854dd0e57e1c7c4d59430043ad8fb471ad90"
+        },
+        {
+          "sourceLine": 105,
+          "type": "error/v44",
+          "sourceSha256": "6ac20091dde8987631556bcfd188ef4715e2b8e3c13392a8bd3c71215ec5f0d7",
+          "sha256": "6ac20091dde8987631556bcfd188ef4715e2b8e3c13392a8bd3c71215ec5f0d7"
+        },
+        {
+          "sourceLine": 106,
+          "type": "reply/45",
+          "sourceSha256": "abcc7d933ced34b018bdd4bc610e2a5cac5daf96e3214db7535efead6076fa74",
+          "sha256": "abcc7d933ced34b018bdd4bc610e2a5cac5daf96e3214db7535efead6076fa74"
+        },
+        {
+          "sourceLine": 107,
+          "type": "error/v45",
+          "sourceSha256": "0d3e99be7794afa808372b725f182eea6fd8df08fbe5ca6dc356f9ee690b8c4c",
+          "sha256": "0d3e99be7794afa808372b725f182eea6fd8df08fbe5ca6dc356f9ee690b8c4c"
+        },
+        {
+          "sourceLine": 108,
+          "type": "reply/46",
+          "sourceSha256": "8da06108d54f98a37a616e2c015a3d82c92344e197bfbed3eee211ac4b49ad84",
+          "sha256": "8da06108d54f98a37a616e2c015a3d82c92344e197bfbed3eee211ac4b49ad84"
+        }
+      ]
+    },
+    {
+      "file": "muse-1.4.24-R9131.1/compaction-records.snapshot.json",
+      "harness": "muse",
+      "version": "1.4.24-R9131.1",
+      "scenario": "compaction/durable-log",
+      "transform": "muse-durable-compactions",
+      "sha256": "a44c21c2c9ce8ac2de148203bb4a963159fc324c77ffd6341d1ef8d69f4b2cd3",
+      "bytes": 44777,
+      "source": {
+        "sha256": "d52a60dcc3d70fd8314546631b5d0d578757d8c98b6d3816acb4be6abd44f808",
+        "bytes": 3402167,
+        "lines": 362
+      }
+    },
+    {
+      "file": "muse-1.4.24-R9131.1/version.txt",
+      "harness": "muse",
+      "version": "1.4.24-R9131.1",
+      "scenario": "version-print",
+      "transform": "muse-version-line:print",
+      "sha256": "d067e829272f117cab8b870af04bee7efc6876e39062cb3e22047f11d8bcacf0",
+      "bytes": 34,
+      "source": {
+        "sha256": "1dd12299f37c61cbd2e67cb9d7928244f24ee2a7203b9177bb834fe5115933f6",
+        "bytes": 541,
+        "lines": 15
+      }
+    },
+    {
+      "file": "muse-1.4.24-R9131.1/build.txt",
+      "harness": "muse",
+      "version": "1.4.24-R9131.1",
+      "scenario": "version-build",
+      "transform": "muse-version-line:build",
+      "sha256": "5102ee6c6e73230149ca9a2694ed5cce54368f549d13459e6e77de19ff719881",
+      "bytes": 15,
+      "source": {
+        "sha256": "1dd12299f37c61cbd2e67cb9d7928244f24ee2a7203b9177bb834fe5115933f6",
+        "bytes": 541,
+        "lines": 15
+      }
     }
   ]
 }

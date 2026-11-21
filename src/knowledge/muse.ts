@@ -138,17 +138,23 @@ export const museCode: HarnessDescriptor = deepFreeze({
   // content fits; native compaction can fail.
   //
   // The 2026-11-15 (1.4.20) and 2026-11-20 (1.4.24) "no compaction"
-  // records in issues #442/#491 were observation failures, not mus
+  // records in issues #442/#491 were observation failures, not muse
   // behavior: muse exec stdout never carries the signal (ADR 0009), and
-  // the sessions' own durable logs hold dozens of candidates and installs
-  // (the 1.4.20 ladder sessions: 48/50/16/10/8 installs; the 1.4.24
-  // re-run session: 24). What DID change since 1.4.2:
-  // - Threshold fractions multiply an "effective context limit" - the
-  //   provider_context_limit_tokens setting or the model catalog's
-  //   context_limit (1,007,997 for muse-spark-1.3-contributor) - where
-  //   1.4.2 multiplied a fixed 512,000. The same 0.16/0.22 anchor setting
-  //   that fired at ~82K pending tokens on 1.4.2 now needs ~161K, and
-  //   0.02/0.04 means 20,159/40,319 tokens, not 10,240/20,480.
+  // the sessions' own durable logs hold the candidates and installs
+  // (re-derived from those logs through the repository's own store-root
+  // resolution: the 1.4.20 ladder sessions hold 4/5/24/8/25 installs in
+  // session order 01a1ddb1/b6/bb/c3/c8; the 1.4.24 re-run session holds
+  // 24). What the captures establish:
+  // - On 1.4.24, threshold fractions multiply an "effective context
+  //   limit" - the provider_context_limit_tokens setting or the model
+  //   catalog's context_limit (1,007,997 for muse-spark-1.3-contributor
+  //   at capture time): 0.02/0.04 resolved to 20,159/40,319 tokens in
+  //   the re-run session. The rule is not new since 1.4.2: the 1.4.2
+  //   threshold-failure fixture already names it verbatim against the
+  //   same 1,007,997 limit. The 1.4.2 tool-history captures resolved
+  //   the same fractions to 10,240/20,480 (a 512,000 base in those
+  //   sessions); no capture shows what produced that base, so the cause
+  //   of the difference is not established.
   // - A rejected replacement is a warning-severity fallback the run
   //   survives (can_continue) on 1.4.24, where 1.4.2 terminally failed
   //   the run (the muse-1.1.1 and 1.4.2 fallback records keep that
@@ -163,27 +169,18 @@ export const museCode: HarnessDescriptor = deepFreeze({
   // warning would never be emitted, and its no-session claim was never
   // probed).
   // ADR 0009 / #241: muse stdout says NOTHING about compaction, so the
-  // signal comes off the MSP view of the approval helper. Only that
-  // view's terminal item carries an outcome, so muse announces no
-  // `started`. Its own `cancelled` is reported as `aborted`.
-  //
-  // #491 (1.4.24, 2026-11-21): the view source still exists and still
-  // carries terminal items with tokens - but ONLY for a `muse serve`
-  // started after the session ends. While the session is held by a live
-  // run, every `view/page` reply is a -32603 "view range read failed"
-  // internal error, so the live fold observes nothing (fixture
-  // hcn-helper.ndjson); and a post-compaction view rebuild collapses
-  // successful installs out of the projection, leaving only the last
-  // terminal item (fixture msp-view-posthoc.ndjson). hcn's live
-  // "compacted" observation is therefore unavailable on 1.4.24 until
-  // muse fixes the held-session page read or hcn re-reads after the
-  // turn; the capability itself is proven by the durable-log records
-  // the fixtures also pin.
-  compactionReporting: {
-    source: "view",
-    states: ["compacted", "noop", "failed", "aborted"],
-    tokens: true,
-  },
+  // signal was designed to come off the MSP view of the approval helper.
+  // On 1.4.24 that source is not live-readable, so this is null: every
+  // `view/page` reply while the session is held by a live run is a
+  // -32603 "view range read failed" internal error (fixture
+  // hcn-helper.ndjson), and a view rebuilt after the session ends
+  // collapses successful installs out of the projection, leaving only
+  // the last terminal item (fixture msp-view-posthoc.ndjson). Muse
+  // still compacts natively (nativeContextManagement above); the
+  // durable-log records the fixtures pin prove the capability. Null
+  // stands until a muse build serves the held-session view read again
+  // or hcn re-reads after the turn ends.
+  compactionReporting: null,
   resumeLast: {
     flag: "--last",
     headless: false,
