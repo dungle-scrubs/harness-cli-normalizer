@@ -1,7 +1,7 @@
 /**
  * The opencode descriptor: facts about the OpenCode CLI as data,
- * verified against opencode 1.19.5 (captures in
- * test/fixtures/opencode-1.19.5).
+ * verified against opencode 1.19.6 (captures in
+ * test/fixtures/opencode-1.19.6).
  */
 import { describe, expect, test } from "vitest";
 import { failureFromTerminalError } from "../../src/execution/failure.js";

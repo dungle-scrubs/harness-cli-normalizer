@@ -426,7 +426,7 @@
           "--allowedTools",
           "Read,Bash",
           "--disallowedTools",
-          "CronCreate,CronDelete,CronList,DesignSync,Edit,EnterWorktree,ExitWorktree,Glob,Grep,LSP,ListAgents,ListMcpResourcesTool,Monitor,NotebookEdit,PushNotification,ReadMcpResourceDirTool,ReadMcpResourceTool,RemoteTrigger,ReportFindings,ScheduleWakeup,SendMessage,Skill,Task,TaskOutput,TaskStop,ToolSearch,WebFetch,WebSearch,Workflow,Write"
+          "Artifact,ArtifactComments,ArtifactData,CronCreate,CronDelete,CronList,DesignSync,Edit,EnterWorktree,ExitWorktree,Glob,Grep,LSP,ListAgents,ListMcpResourcesTool,Monitor,NotebookEdit,PushNotification,ReadMcpResourceDirTool,ReadMcpResourceTool,RemoteTrigger,ReportFindings,ScheduleWakeup,SendMessage,Skill,Task,TaskOutput,TaskStop,ToolSearch,WebFetch,WebSearch,Workflow,Write"
         ]
       },
       "tools-include-native": {
@@ -441,7 +441,7 @@
           "--allowedTools",
           "Read,web_search",
           "--disallowedTools",
-          "Bash,CronCreate,CronDelete,CronList,DesignSync,Edit,EnterWorktree,ExitWorktree,Glob,Grep,LSP,ListAgents,ListMcpResourcesTool,Monitor,NotebookEdit,PushNotification,ReadMcpResourceDirTool,ReadMcpResourceTool,RemoteTrigger,ReportFindings,ScheduleWakeup,SendMessage,Skill,Task,TaskOutput,TaskStop,ToolSearch,WebFetch,WebSearch,Workflow,Write"
+          "Artifact,ArtifactComments,ArtifactData,Bash,CronCreate,CronDelete,CronList,DesignSync,Edit,EnterWorktree,ExitWorktree,Glob,Grep,LSP,ListAgents,ListMcpResourcesTool,Monitor,NotebookEdit,PushNotification,ReadMcpResourceDirTool,ReadMcpResourceTool,RemoteTrigger,ReportFindings,ScheduleWakeup,SendMessage,Skill,Task,TaskOutput,TaskStop,ToolSearch,WebFetch,WebSearch,Workflow,Write"
         ]
       },
       "tools-include-empty": {
@@ -454,7 +454,7 @@
           "--verbose",
           "--include-partial-messages",
           "--disallowedTools",
-          "Bash,CronCreate,CronDelete,CronList,DesignSync,Edit,EnterWorktree,ExitWorktree,Glob,Grep,LSP,ListAgents,ListMcpResourcesTool,Monitor,NotebookEdit,PushNotification,Read,ReadMcpResourceDirTool,ReadMcpResourceTool,RemoteTrigger,ReportFindings,ScheduleWakeup,SendMessage,Skill,Task,TaskOutput,TaskStop,ToolSearch,WebFetch,WebSearch,Workflow,Write"
+          "Artifact,ArtifactComments,ArtifactData,Bash,CronCreate,CronDelete,CronList,DesignSync,Edit,EnterWorktree,ExitWorktree,Glob,Grep,LSP,ListAgents,ListMcpResourcesTool,Monitor,NotebookEdit,PushNotification,Read,ReadMcpResourceDirTool,ReadMcpResourceTool,RemoteTrigger,ReportFindings,ScheduleWakeup,SendMessage,Skill,Task,TaskOutput,TaskStop,ToolSearch,WebFetch,WebSearch,Workflow,Write"
         ]
       },
       "tools-exclude": {
@@ -506,7 +506,7 @@
           "--allowedTools",
           "WebSearch",
           "--disallowedTools",
-          "Bash,CronCreate,CronDelete,CronList,DesignSync,Edit,EnterWorktree,ExitWorktree,Glob,Grep,LSP,ListAgents,ListMcpResourcesTool,Monitor,NotebookEdit,PushNotification,Read,ReadMcpResourceDirTool,ReadMcpResourceTool,RemoteTrigger,ReportFindings,ScheduleWakeup,SendMessage,Skill,Task,TaskOutput,TaskStop,ToolSearch,WebFetch,Workflow,Write"
+          "Artifact,ArtifactComments,ArtifactData,Bash,CronCreate,CronDelete,CronList,DesignSync,Edit,EnterWorktree,ExitWorktree,Glob,Grep,LSP,ListAgents,ListMcpResourcesTool,Monitor,NotebookEdit,PushNotification,Read,ReadMcpResourceDirTool,ReadMcpResourceTool,RemoteTrigger,ReportFindings,ScheduleWakeup,SendMessage,Skill,Task,TaskOutput,TaskStop,ToolSearch,WebFetch,Workflow,Write"
         ]
       },
       "tools-unknown-name": {
@@ -633,7 +633,7 @@
           "workspace-write",
           "hi",
           "--model",
-          "gpt-6.1-sol"
+          "gpt-6.2-sol"
         ]
       },
       "effort-high": {
@@ -661,7 +661,7 @@
           "workspace-write",
           "hi",
           "--model",
-          "gpt-6.1-sol"
+          "gpt-6.2-sol"
         ]
       },
       "effort-unknown": {
@@ -685,6 +685,9 @@
           "issue": "unknown-model",
           "harness": "codex",
           "supported": [
+            "gpt-6.2-sol",
+            "gpt-6.2-astra",
+            "gpt-6.1-terra",
             "gpt-6.1-sol",
             "gpt-6-astra",
             "gpt-6-sol",
@@ -694,7 +697,7 @@
             "gpt-5.6-luna",
             "gpt-5.5"
           ],
-          "message": "unknown codex model \"no-such-model\"; supported: gpt-6.1-sol, gpt-6-astra, gpt-6-sol, gpt-6-luna, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.5 - use one of the supported models"
+          "message": "unknown codex model \"no-such-model\"; supported: gpt-6.2-sol, gpt-6.2-astra, gpt-6.1-terra, gpt-6.1-sol, gpt-6-astra, gpt-6-sol, gpt-6-luna, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.5 - use one of the supported models"
         }
       },
       "sandbox-read-only": {
@@ -4735,7 +4738,7 @@
           "--allowedTools",
           "Read,Bash",
           "--disallowedTools",
-          "CronCreate,CronDelete,CronList,DesignSync,Edit,EnterWorktree,ExitWorktree,Glob,Grep,LSP,ListAgents,ListMcpResourcesTool,Monitor,NotebookEdit,PushNotification,ReadMcpResourceDirTool,ReadMcpResourceTool,RemoteTrigger,ReportFindings,ScheduleWakeup,SendMessage,Skill,Task,TaskOutput,TaskStop,ToolSearch,WebFetch,WebSearch,Workflow,Write"
+          "Artifact,ArtifactComments,ArtifactData,CronCreate,CronDelete,CronList,DesignSync,Edit,EnterWorktree,ExitWorktree,Glob,Grep,LSP,ListAgents,ListMcpResourcesTool,Monitor,NotebookEdit,PushNotification,ReadMcpResourceDirTool,ReadMcpResourceTool,RemoteTrigger,ReportFindings,ScheduleWakeup,SendMessage,Skill,Task,TaskOutput,TaskStop,ToolSearch,WebFetch,WebSearch,Workflow,Write"
         ]
       },
       "tools-include-native": {
@@ -4752,7 +4755,7 @@
           "--allowedTools",
           "Read,web_search",
           "--disallowedTools",
-          "Bash,CronCreate,CronDelete,CronList,DesignSync,Edit,EnterWorktree,ExitWorktree,Glob,Grep,LSP,ListAgents,ListMcpResourcesTool,Monitor,NotebookEdit,PushNotification,ReadMcpResourceDirTool,ReadMcpResourceTool,RemoteTrigger,ReportFindings,ScheduleWakeup,SendMessage,Skill,Task,TaskOutput,TaskStop,ToolSearch,WebFetch,WebSearch,Workflow,Write"
+          "Artifact,ArtifactComments,ArtifactData,Bash,CronCreate,CronDelete,CronList,DesignSync,Edit,EnterWorktree,ExitWorktree,Glob,Grep,LSP,ListAgents,ListMcpResourcesTool,Monitor,NotebookEdit,PushNotification,ReadMcpResourceDirTool,ReadMcpResourceTool,RemoteTrigger,ReportFindings,ScheduleWakeup,SendMessage,Skill,Task,TaskOutput,TaskStop,ToolSearch,WebFetch,WebSearch,Workflow,Write"
         ]
       },
       "tools-include-empty": {
@@ -4767,7 +4770,7 @@
           "--verbose",
           "--include-partial-messages",
           "--disallowedTools",
-          "Bash,CronCreate,CronDelete,CronList,DesignSync,Edit,EnterWorktree,ExitWorktree,Glob,Grep,LSP,ListAgents,ListMcpResourcesTool,Monitor,NotebookEdit,PushNotification,Read,ReadMcpResourceDirTool,ReadMcpResourceTool,RemoteTrigger,ReportFindings,ScheduleWakeup,SendMessage,Skill,Task,TaskOutput,TaskStop,ToolSearch,WebFetch,WebSearch,Workflow,Write"
+          "Artifact,ArtifactComments,ArtifactData,Bash,CronCreate,CronDelete,CronList,DesignSync,Edit,EnterWorktree,ExitWorktree,Glob,Grep,LSP,ListAgents,ListMcpResourcesTool,Monitor,NotebookEdit,PushNotification,Read,ReadMcpResourceDirTool,ReadMcpResourceTool,RemoteTrigger,ReportFindings,ScheduleWakeup,SendMessage,Skill,Task,TaskOutput,TaskStop,ToolSearch,WebFetch,WebSearch,Workflow,Write"
         ]
       },
       "tools-exclude": {
@@ -4825,7 +4828,7 @@
           "--allowedTools",
           "WebSearch",
           "--disallowedTools",
-          "Bash,CronCreate,CronDelete,CronList,DesignSync,Edit,EnterWorktree,ExitWorktree,Glob,Grep,LSP,ListAgents,ListMcpResourcesTool,Monitor,NotebookEdit,PushNotification,Read,ReadMcpResourceDirTool,ReadMcpResourceTool,RemoteTrigger,ReportFindings,ScheduleWakeup,SendMessage,Skill,Task,TaskOutput,TaskStop,ToolSearch,WebFetch,Workflow,Write"
+          "Artifact,ArtifactComments,ArtifactData,Bash,CronCreate,CronDelete,CronList,DesignSync,Edit,EnterWorktree,ExitWorktree,Glob,Grep,LSP,ListAgents,ListMcpResourcesTool,Monitor,NotebookEdit,PushNotification,Read,ReadMcpResourceDirTool,ReadMcpResourceTool,RemoteTrigger,ReportFindings,ScheduleWakeup,SendMessage,Skill,Task,TaskOutput,TaskStop,ToolSearch,WebFetch,Workflow,Write"
         ]
       },
       "tools-unknown-name": {
@@ -4958,7 +4961,7 @@
           "--skip-git-repo-check",
           "hi",
           "--model",
-          "gpt-6.1-sol"
+          "gpt-6.2-sol"
         ]
       },
       "effort-high": {
@@ -4986,7 +4989,7 @@
           "model_reasoning_effort=\"high\"",
           "hi",
           "--model",
-          "gpt-6.1-sol"
+          "gpt-6.2-sol"
         ]
       },
       "effort-unknown": {
@@ -5010,6 +5013,9 @@
           "issue": "unknown-model",
           "harness": "codex",
           "supported": [
+            "gpt-6.2-sol",
+            "gpt-6.2-astra",
+            "gpt-6.1-terra",
             "gpt-6.1-sol",
             "gpt-6-astra",
             "gpt-6-sol",
@@ -5019,7 +5025,7 @@
             "gpt-5.6-luna",
             "gpt-5.5"
           ],
-          "message": "unknown codex model \"no-such-model\"; supported: gpt-6.1-sol, gpt-6-astra, gpt-6-sol, gpt-6-luna, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.5 - use one of the supported models"
+          "message": "unknown codex model \"no-such-model\"; supported: gpt-6.2-sol, gpt-6.2-astra, gpt-6.1-terra, gpt-6.1-sol, gpt-6-astra, gpt-6-sol, gpt-6-luna, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, gpt-5.5 - use one of the supported models"
         }
       },
       "sandbox-read-only": {
@@ -8327,7 +8333,7 @@
           "--allowedTools",
           "Read,Bash",
           "--disallowedTools",
-          "CronCreate,CronDelete,CronList,DesignSync,Edit,EnterWorktree,ExitWorktree,Glob,Grep,LSP,ListAgents,ListMcpResourcesTool,Monitor,NotebookEdit,PushNotification,ReadMcpResourceDirTool,ReadMcpResourceTool,RemoteTrigger,ReportFindings,ScheduleWakeup,SendMessage,Skill,Task,TaskOutput,TaskStop,ToolSearch,WebFetch,WebSearch,Workflow,Write"
+          "Artifact,ArtifactComments,ArtifactData,CronCreate,CronDelete,CronList,DesignSync,Edit,EnterWorktree,ExitWorktree,Glob,Grep,LSP,ListAgents,ListMcpResourcesTool,Monitor,NotebookEdit,PushNotification,ReadMcpResourceDirTool,ReadMcpResourceTool,RemoteTrigger,ReportFindings,ScheduleWakeup,SendMessage,Skill,Task,TaskOutput,TaskStop,ToolSearch,WebFetch,WebSearch,Workflow,Write"
         ]
       },
       "autonomy": {
@@ -8412,7 +8418,7 @@
           "--skip-git-repo-check",
           "hi",
           "--model",
-          "gpt-6.1-sol"
+          "gpt-6.2-sol"
         ]
       },
       "sandbox-read-only": {
@@ -9173,7 +9179,7 @@
           "codex",
           "app-server",
           "-c",
-          "model=\"gpt-6.1-sol\""
+          "model=\"gpt-6.2-sol\""
         ]
       },
       "effort": {
@@ -9189,7 +9195,7 @@
           "codex",
           "app-server",
           "-c",
-          "model=\"gpt-6.1-sol\"",
+          "model=\"gpt-6.2-sol\"",
           "-c",
           "model_reasoning_effort=\"high\""
         ]

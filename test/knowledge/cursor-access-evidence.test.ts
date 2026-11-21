@@ -93,7 +93,7 @@ test("the Cursor SDK roadmap records the native access default", () => {
 });
 
 test("historical CLI access evidence remains separate from the SDK anchor", () => {
-  expect(cursorCli.verifiedAgainst).toBe("1.0.38");
+  expect(cursorCli.verifiedAgainst).toBe("1.4.2");
   expect(evidence.find((row: { name: string }) => row.name === "read").version).toBe(
     "2026.10.01-e373342",
   );

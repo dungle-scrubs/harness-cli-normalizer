@@ -1,0 +1,6 @@
+{"hcn":"opened","id":"hcn-identity","agentId":"agent-8ddcb7b6-8ea3-4dfb-ad5a-52434816486b","type":"system","subtype":"init","session_id":"agent-8ddcb7b6-8ea3-4dfb-ad5a-52434816486b"}
+{"hcn":"receipt","id":"hcn-send:1","disposition":"started"}
+{"hcn":"event","delta":{"type":"text-delta","text":"OK"}}
+{"hcn":"event","event":{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"OK"}]}}}
+{"hcn":"event","event":{"type":"usage","agent_id":"agent-8ddcb7b6-8ea3-4dfb-ad5a-52434816486b","run_id":"run-d2f61198-d2cc-4683-84b2-682b78fceec8","usage":{"inputTokens":14401,"outputTokens":70,"cacheReadTokens":13824,"cacheWriteTokens":0,"totalTokens":14471,"reasoningTokens":69}}}
+{"hcn":"turn-end","status":"finished"}

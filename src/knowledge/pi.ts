@@ -1,7 +1,7 @@
 /**
  * The pi descriptor: facts about the `pi` CLI as data, verified against
- * pi 1.4.0 (test/fixtures/pi-1.4.0; pi-1.3.0 and pi-1.1.0 kept as the prior
- * anchors).
+ * pi 1.6.0 (test/fixtures/pi-1.6.0; pi-1.4.0, pi-1.3.0 and pi-1.1.0 kept as
+ * the prior anchors).
  * Descriptor groundwork only (D-003). The load-bearing scars:
  * pi reads stdin even in -p mode (a backgrounded call without `< /dev/null`
  * hangs forever), it auto-discovers instruction files/skills/extensions
@@ -16,7 +16,7 @@ export const piCli: HarnessDescriptor = deepFreeze({
   name: "pi",
   transcript: PI_TRANSCRIPT,
   bin: "pi",
-  verifiedAgainst: "1.4.0",
+  verifiedAgainst: "1.6.0",
   versionSource: { kind: "npm", package: "@earendil-works/pi-coding-agent" },
   launch: {
     // -p --mode json: bare -p prints plain text; --mode json emits the
@@ -221,6 +221,17 @@ export const piCli: HarnessDescriptor = deepFreeze({
   // added --approve. That nested shape is probe configuration observed on
   // 1.4.0, not a proven behaviour change in 1.4.0; the top-level
   // reserveTokens key did not fire on this machine.
+  // 1.6.0 re-probe: reproduced in both modes at moved thresholds
+  // (test/fixtures/pi-1.6.0/VERIFICATION.md). JSON mode qualified at
+  // compaction.reserveTokens 985000 (970000 no longer crosses on the first
+  // recall turn); RPC mode qualified at 1000000. The 1.5.2-era lesson held:
+  // near the threshold pi appends a compaction-warning custom message
+  // quoting the operator's global instructions verbatim, and models obey
+  // that text instead of answering until the prompt names it boilerplate
+  // (one JSON attempt and one RPC attempt were lost to it; both retained in
+  // the task evidence). The RPC workspace also had to sit outside the
+  // machine's .scratch/<task>/ pattern or the quoted "update the task's
+  // checkpoint" line points the model at a real task folder.
   // Three forcing configurations: project .pi/settings.json with
   // reserveTokens 950k and 5M (plus keepRecentTokens 500 and --approve)
   // both fired threshold compaction inside one hcn-shaped resume turn
@@ -282,8 +293,8 @@ export const piCli: HarnessDescriptor = deepFreeze({
     observedOn: {
       harness: "pi",
       model: "zai/glm-5.3",
-      version: "1.4.0",
-      date: "2026-10-29",
+      version: "1.6.0",
+      date: "2026-11-20",
     },
   },
   turnOptions: {

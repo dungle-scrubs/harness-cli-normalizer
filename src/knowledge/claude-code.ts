@@ -1,7 +1,8 @@
 /**
  * The claude-code descriptor: facts about the `claude` CLI as data, verified
- * against claude 2.1.312 (test/fixtures/claude-2.1.312), with historical
- * context/decode evidence in test/fixtures/claude-2.1.288, claude-2.1.296 and
+ * against claude 2.1.329 (test/fixtures/claude-2.1.329), with prior-anchor
+ * evidence in test/fixtures/claude-2.1.312 and historical context/decode
+ * evidence in test/fixtures/claude-2.1.288, claude-2.1.296 and
  * claude-2.1.304, and the 00-chat-substrate spike evidence (A-001,
  * A-002, A-005). No process logic lives here.
  *
@@ -29,7 +30,7 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
   name: "claude",
   transcript: CLAUDE_TRANSCRIPT,
   bin: "claude",
-  verifiedAgainst: "2.1.312",
+  verifiedAgainst: "2.1.329",
   versionSource: { kind: "npm", package: "@anthropic-ai/claude-code" },
   launch: {
     baseFlags: ["-p"],
@@ -223,9 +224,9 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
   // A failed compaction reports through the status record's
   // `compact_result`. Claude has been observed sending two `compacting`
   // records for one compaction, so a counting consumer counts ends.
-  // Re-probed on 2.1.312 (test/fixtures/claude-2.1.312): the same sequence,
-  // status=compacting, compact_result=success, compact_boundary, then the
-  // summary and the answer.
+  // Re-probed on 2.1.312 and again on 2.1.329 (test/fixtures/claude-2.1.329):
+  // the same sequence, status=compacting, compact_result=success,
+  // compact_boundary, then the summary and the answer.
   compactionReporting: {
     source: "stream",
     states: ["started", "compacted", "failed"],
@@ -268,7 +269,7 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
   // re-emitted identity's observedOn from it.
   escalation: {
     supported: true,
-    observedOn: { harness: "claude", model: "sonnet", version: "2.1.312", date: "2026-10-29" },
+    observedOn: { harness: "claude", model: "sonnet", version: "2.1.329", date: "2026-11-20" },
   },
   turnOptions: {
     // CLAUDE_CODE_AUTO_COMPACT_WINDOW takes precedence over this flag.
@@ -399,6 +400,10 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
     excludeFlag: "--disallowedTools",
     includeIsStrictAllowlist: false,
     builtins: [
+      // New in the 2.1.329 init capture; artifacts surface alongside Task.
+      { name: "Artifact", defaultEnabled: true, canonical: null },
+      { name: "ArtifactComments", defaultEnabled: true, canonical: null },
+      { name: "ArtifactData", defaultEnabled: true, canonical: null },
       { name: "Bash", defaultEnabled: true, canonical: "shell" },
       { name: "CronCreate", defaultEnabled: true, canonical: null },
       { name: "CronDelete", defaultEnabled: true, canonical: null },
@@ -430,7 +435,10 @@ export const claudeCode: HarnessDescriptor = deepFreeze({
       { name: "TaskOutput", defaultEnabled: false, canonical: null },
       { name: "TaskStop", defaultEnabled: true, canonical: null },
       { name: "ToolSearch", defaultEnabled: true, canonical: null },
-      { name: "WebFetch", defaultEnabled: true, canonical: "web-fetch" },
+      // Listed by every init capture through 2.1.312; the 2.1.329 capture
+      // omits it (the mechanism was not probed). Naming it in --tools or
+      // --allowedTools still restores it, and the read access preset does.
+      { name: "WebFetch", defaultEnabled: false, canonical: "web-fetch" },
       { name: "WebSearch", defaultEnabled: true, canonical: "web-search" },
       { name: "Workflow", defaultEnabled: true, canonical: null },
       { name: "Write", defaultEnabled: true, canonical: "write" },

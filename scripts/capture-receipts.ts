@@ -22,7 +22,15 @@ import { fileURLToPath } from "node:url";
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const fixtureRoot = join(repositoryRoot, "test/fixtures");
 export const receiptsPath = join(fixtureRoot, "capture-receipts.snapshot.json");
-export const coveredDirectories = ["claude-2.1.312", "codex-0.165.0", "pi-1.4.0"] as const;
+export const coveredDirectories = [
+  "claude-2.1.312",
+  "codex-0.165.0",
+  "pi-1.4.0",
+  "codex-0.171.0",
+  "antigravity-1.5.13",
+  "pi-1.6.0",
+  "claude-2.1.329",
+] as const;
 
 // ---------------------------------------------------------------------------
 // Approved redactions
@@ -99,6 +107,20 @@ export const NATIVE_CLAUDE_SKILLS: readonly string[] = [
   "run-skill-generator",
   "plugin-authoring",
 ];
+
+/** The 2.1.325 generation adds these bundled skills to the 2.1.312 set; the
+ * 2.1.329 generation lists them too. */
+export const NATIVE_CLAUDE_SKILLS_2_1_325: readonly string[] = [
+  ...NATIVE_CLAUDE_SKILLS,
+  "slides",
+  "artifact-diagramming",
+  "whiteboard",
+  "artifact-capabilities",
+];
+
+/** Every bundled skill any covered Claude generation lists; masking one is
+ * never approved on any capture, whichever generation lists it. */
+const NATIVE_CLAUDE_SKILLS_ANY: readonly string[] = [...new Set(NATIVE_CLAUDE_SKILLS_2_1_325)];
 
 /** Claude init arrays whose contiguous operator entries collapse to one marker. */
 const CLAUDE_RUN_FIELDS = ["tools", "slash_commands", "agents", "skills"] as const;
@@ -253,6 +275,14 @@ const PI_INSTALLED_FIELDS: Record<string, string> = {
   "[].systemMessage.toolsAdded[].description": "toolsAdded.description",
 };
 
+/** Operator entries the 2026-10-29 Claude capture redacted that the live
+ * operator configuration no longer confirms (the command was deleted after
+ * the capture). Ownership is pinned from the capture-time machine state so
+ * regeneration does not reclassify a captured operator entry as native.
+ * Extensible only with a name that the original capture redacted and whose
+ * marker length already proves it existed. */
+const PINNED_OPERATOR_ENTRIES: ReadonlySet<string> = new Set(["bff-fix", "bff-pr"]);
+
 /** Whether a Claude init entry may be masked, and why not when it may not. */
 const claudeEntryOwned = (
   field: ClaudeRunField,
@@ -262,9 +292,13 @@ const claudeEntryOwned = (
 ): string | null => {
   if (field === "tools")
     return name.startsWith("mcp__") ? null : "only mcp__ tools are configuration";
-  if (field === "skills" && NATIVE_CLAUDE_SKILLS.includes(name)) return "a native bundled skill";
-  if (field === "slash_commands" && NATIVE_CLAUDE_SKILLS.includes(name))
-    return "the command of a native bundled skill";
+  // An mcp__-prefixed slash command is a configured MCP server's contributed
+  // command, so it is operator configuration the same way an mcp__ tool is.
+  if (field === "slash_commands" && name.startsWith("mcp__")) return null;
+  if (NATIVE_CLAUDE_SKILLS_ANY.includes(name)) {
+    if (field === "skills") return "a native bundled skill";
+    if (field === "slash_commands") return "the command of a native bundled skill";
+  }
   const separator = name.indexOf(":");
   if (separator > 0) {
     const namespace = name.slice(0, separator);
@@ -275,6 +309,7 @@ const claudeEntryOwned = (
   }
   if (field === "skills") return owners("skill", name) ? null : "no operator skill of that name";
   if (field === "agents") return owners("agent", name) ? null : "no operator agent of that name";
+  if (PINNED_OPERATOR_ENTRIES.has(name)) return null;
   return owners("command", name) || owners("skill", name)
     ? null
     : "no operator command or skill of that name";
@@ -710,194 +745,438 @@ export const CAPTURE_MAP: readonly MapEntry[] = [
   {
     file: "claude-2.1.312/fresh.ndjson",
     scenario: "seven/01",
-    source: "claude/seven-captures/01.ndjson",
+    source: "legacy-420/claude/seven-captures/01.ndjson",
     transform: excerpt("claude"),
   },
   {
     file: "claude-2.1.312/question.ndjson",
     scenario: "questions/01",
-    source: "claude/questions-captures/01.ndjson",
+    source: "legacy-420/claude/questions-captures/01.ndjson",
     transform: excerpt("claude"),
   },
   {
     file: "claude-2.1.312/compaction.ndjson",
     scenario: "compaction/turn-05",
-    source: "claude/compaction/turn-05.ndjson",
+    source: "legacy-420/claude/compaction/turn-05.ndjson",
     transform: excerpt("claude-compaction"),
   },
   {
     file: "claude-2.1.312/later-recall.ndjson",
     scenario: "compaction/later-recall",
-    source: "claude/compaction/later-recall.ndjson",
+    source: "legacy-420/claude/compaction/later-recall.ndjson",
     transform: excerpt("claude"),
   },
   {
     file: "claude-2.1.312/accounting-fresh.native.ndjson",
     scenario: "context/accounting-fresh",
-    source: "claude/context/accounting-fresh.native.ndjson",
+    source: "legacy-420/claude/context/accounting-fresh.native.ndjson",
     transform: { kind: "native-line" },
   },
   {
     file: "claude-2.1.312/accounting-resume.native.ndjson",
     scenario: "context/accounting-resume",
-    source: "claude/context/accounting-resume.native.ndjson",
+    source: "legacy-420/claude/context/accounting-resume.native.ndjson",
     transform: { kind: "native-line" },
   },
   {
     file: "claude-2.1.312/accounting-fresh.proof.snapshot.json",
     scenario: "context/accounting-fresh",
-    source: "claude/context/accounting-fresh.proof.snapshot.json",
+    source: "legacy-420/claude/context/accounting-fresh.proof.snapshot.json",
     transform: snapshot,
   },
   {
     file: "claude-2.1.312/accounting-resume.proof.snapshot.json",
     scenario: "context/accounting-resume",
-    source: "claude/context/accounting-resume.proof.snapshot.json",
+    source: "legacy-420/claude/context/accounting-resume.proof.snapshot.json",
     transform: snapshot,
   },
   {
     file: "claude-2.1.312/accounting-source-hashes.snapshot.json",
     scenario: "context/source-hashes",
-    source: "claude/context/accounting-source-hashes.snapshot.json",
+    source: "legacy-420/claude/context/accounting-source-hashes.snapshot.json",
     transform: snapshot,
   },
   {
     file: "claude-2.1.312/seven.snapshot.json",
     scenario: "seven",
-    source: "claude/seven.snapshot.json",
+    source: "legacy-420/claude/seven.snapshot.json",
     transform: snapshot,
   },
   {
     file: "claude-2.1.312/questions.snapshot.json",
     scenario: "questions",
-    source: "claude/questions.snapshot.json",
+    source: "legacy-420/claude/questions.snapshot.json",
     transform: snapshot,
   },
   {
     file: "claude-2.1.312/version-source.snapshot.json",
     scenario: "version-source",
-    source: "claude/version-source.snapshot.json",
+    source: "legacy-420/claude/version-source.snapshot.json",
     transform: snapshot,
   },
   { file: "claude-2.1.312/version.txt", scenario: "anchor", transform: { kind: "version-anchor" } },
   {
     file: "codex-0.165.0/fresh.ndjson",
     scenario: "seven/01",
-    source: "codex/seven-captures/01.ndjson",
+    source: "legacy-420/codex/seven-captures/01.ndjson",
     transform: excerpt("codex"),
   },
   {
     file: "codex-0.165.0/question.ndjson",
     scenario: "questions/01",
-    source: "codex/questions-captures/01.ndjson",
+    source: "legacy-420/codex/questions-captures/01.ndjson",
     transform: excerpt("codex"),
   },
   {
     file: "codex-0.165.0/later-recall.ndjson",
     scenario: "compaction/turn-03",
-    source: "codex/compaction/turn-03.ndjson",
+    source: "legacy-420/codex/compaction/turn-03.ndjson",
     transform: excerpt("codex"),
   },
   {
     file: "codex-0.165.0/native-store-metadata.snapshot.json",
     scenario: "compaction/native-store-metadata",
-    source: "codex/compaction/native-store-metadata.snapshot.json",
+    source: "legacy-420/codex/compaction/native-store-metadata.snapshot.json",
     transform: snapshot,
   },
   {
     file: "codex-0.165.0/models.rpc.ndjson",
     scenario: "app-server/model-list",
-    source: "codex/app-server/models.rpc.ndjson",
+    source: "legacy-420/codex/app-server/models.rpc.ndjson",
     transform: { kind: "copied" },
   },
   {
     file: "codex-0.165.0/models-all.rpc.ndjson",
     scenario: "app-server/model-list-include-hidden",
-    source: "codex/app-server/models-all.rpc.ndjson",
+    source: "legacy-420/codex/app-server/models-all.rpc.ndjson",
     transform: { kind: "copied" },
   },
   ...["ThreadStartParams", "ThreadResumeParams", "TurnStartParams", "TurnSteerParams"].map(
     (type): MapEntry => ({
       file: `codex-0.165.0/${type}.schema.snapshot.json`,
       scenario: `app-server/schema/${type}`,
-      source: `codex/schemas/${type}.schema.snapshot.json`,
+      source: `legacy-420/codex/schemas/${type}.schema.snapshot.json`,
       transform: { kind: "copied" },
     }),
   ),
   {
     file: "codex-0.165.0/seven.snapshot.json",
     scenario: "seven",
-    source: "codex/seven.snapshot.json",
+    source: "legacy-420/codex/seven.snapshot.json",
     transform: snapshot,
   },
   {
     file: "codex-0.165.0/questions.snapshot.json",
     scenario: "questions",
-    source: "codex/questions.snapshot.json",
+    source: "legacy-420/codex/questions.snapshot.json",
     transform: snapshot,
   },
   {
     file: "codex-0.165.0/version-source.snapshot.json",
     scenario: "version-source",
-    source: "codex/version-source.snapshot.json",
+    source: "legacy-420/codex/version-source.snapshot.json",
     transform: snapshot,
   },
   { file: "codex-0.165.0/version.txt", scenario: "anchor", transform: { kind: "version-anchor" } },
   {
+    file: "codex-0.171.0/fresh.ndjson",
+    scenario: "seven/01",
+    source: "codex/seven-captures/01.ndjson",
+    transform: excerpt("codex"),
+  },
+  {
+    file: "codex-0.171.0/question.ndjson",
+    scenario: "questions/01",
+    source: "codex/questions-captures/01.ndjson",
+    transform: excerpt("codex"),
+  },
+  {
+    file: "codex-0.171.0/later-recall.ndjson",
+    scenario: "compaction/turn-03",
+    source: "codex/compaction/turn-03.ndjson",
+    transform: excerpt("codex"),
+  },
+  {
+    file: "codex-0.171.0/native-store-metadata.snapshot.json",
+    scenario: "compaction/native-store-metadata",
+    source: "codex/compaction/native-store-metadata.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "codex-0.171.0/models.rpc.ndjson",
+    scenario: "app-server/model-list",
+    source: "codex/app-server/models.rpc.ndjson",
+    transform: { kind: "copied" },
+  },
+  {
+    file: "codex-0.171.0/models-all.rpc.ndjson",
+    scenario: "app-server/model-list-include-hidden",
+    source: "codex/app-server/models-all.rpc.ndjson",
+    transform: { kind: "copied" },
+  },
+  ...["ThreadStartParams", "ThreadResumeParams", "TurnStartParams", "TurnSteerParams"].map(
+    (type): MapEntry => ({
+      file: `codex-0.171.0/${type}.schema.snapshot.json`,
+      scenario: `app-server/schema/${type}`,
+      source: `codex/schemas/${type}.schema.snapshot.json`,
+      transform: { kind: "copied" },
+    }),
+  ),
+  {
+    file: "codex-0.171.0/seven.snapshot.json",
+    scenario: "seven",
+    source: "codex/seven.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "codex-0.171.0/questions.snapshot.json",
+    scenario: "questions",
+    source: "codex/questions.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "codex-0.171.0/version-source.snapshot.json",
+    scenario: "version-source",
+    source: "codex/version-source.snapshot.json",
+    transform: snapshot,
+  },
+  { file: "codex-0.171.0/version.txt", scenario: "anchor", transform: { kind: "version-anchor" } },
+  {
     file: "pi-1.4.0/fresh.ndjson",
     scenario: "seven/01",
-    source: "pi/seven-captures/01.ndjson",
+    source: "legacy-420/pi/seven-captures/01.ndjson",
     transform: excerpt("pi"),
   },
   {
     file: "pi-1.4.0/question.ndjson",
     scenario: "questions/01",
-    source: "pi/questions-captures/01.ndjson",
+    source: "legacy-420/pi/questions-captures/01.ndjson",
     transform: excerpt("pi-last-assistant"),
   },
   {
     file: "pi-1.4.0/compaction.ndjson",
     scenario: "json/r950000/turn-01",
-    source: "pi/json/r950000/turn-01.ndjson",
+    source: "legacy-420/pi/json/r950000/turn-01.ndjson",
     transform: excerpt("pi-compaction"),
   },
   {
     file: "pi-1.4.0/later-recall.ndjson",
     scenario: "json/r950000/later-recall",
-    source: "pi/json/r950000/later-recall.ndjson",
+    source: "legacy-420/pi/json/r950000/later-recall.ndjson",
     transform: excerpt("pi"),
   },
   {
     file: "pi-1.4.0/compaction-rpc.ndjson",
     scenario: "rpc/rpc-stream",
-    source: "pi/rpc/rpc-stream.ndjson",
+    source: "legacy-420/pi/rpc/rpc-stream.ndjson",
     transform: excerpt("pi-compaction-rpc"),
   },
   {
     file: "pi-1.4.0/installed-compactions.snapshot.json",
     scenario: "json/installed-compactions",
-    source: "pi/json/installed-compactions.snapshot.json",
+    source: "legacy-420/pi/json/installed-compactions.snapshot.json",
     transform: { kind: "snapshot", policy: "pi-installed-compactions" },
   },
   {
     file: "pi-1.4.0/seven.snapshot.json",
     scenario: "seven",
-    source: "pi/seven.snapshot.json",
+    source: "legacy-420/pi/seven.snapshot.json",
     transform: snapshot,
   },
   {
     file: "pi-1.4.0/questions.snapshot.json",
     scenario: "questions",
-    source: "pi/questions.snapshot.json",
+    source: "legacy-420/pi/questions.snapshot.json",
     transform: snapshot,
   },
   {
     file: "pi-1.4.0/version-source.snapshot.json",
     scenario: "version-source",
-    source: "pi/version-source.snapshot.json",
+    source: "legacy-420/pi/version-source.snapshot.json",
     transform: snapshot,
   },
   { file: "pi-1.4.0/version.txt", scenario: "anchor", transform: { kind: "version-anchor" } },
+  {
+    file: "antigravity-1.5.13/fresh.ndjson",
+    scenario: "seven/01",
+    source: "antigravity/seven-captures/01.ndjson",
+    transform: { kind: "copied" },
+  },
+  {
+    file: "antigravity-1.5.13/question.ndjson",
+    scenario: "questions/01",
+    source: "antigravity/questions-captures/01.ndjson",
+    transform: { kind: "copied" },
+  },
+  {
+    file: "antigravity-1.5.13/compaction.ndjson",
+    scenario: "compaction/session-capture",
+    source: "antigravity/compaction/captures/01.ndjson",
+    transform: { kind: "copied" },
+  },
+  {
+    file: "antigravity-1.5.13/later-recall.ndjson",
+    scenario: "compaction/later-recall",
+    source: "antigravity/compaction/captures/02.ndjson",
+    transform: { kind: "copied" },
+  },
+  {
+    file: "antigravity-1.5.13/models.txt",
+    scenario: "models",
+    source: "antigravity/models.txt",
+    transform: { kind: "copied" },
+  },
+  {
+    file: "antigravity-1.5.13/seven.snapshot.json",
+    scenario: "seven",
+    source: "antigravity/seven.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "antigravity-1.5.13/questions.snapshot.json",
+    scenario: "questions",
+    source: "antigravity/questions.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "antigravity-1.5.13/version-source.snapshot.json",
+    scenario: "version-source",
+    source: "antigravity/version-source.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "antigravity-1.5.13/version.txt",
+    scenario: "anchor",
+    transform: { kind: "version-anchor" },
+  },
+  {
+    file: "pi-1.6.0/fresh.ndjson",
+    scenario: "seven/01",
+    source: "pi/seven-captures/01.ndjson",
+    transform: excerpt("pi"),
+  },
+  {
+    file: "pi-1.6.0/question.ndjson",
+    scenario: "questions/01",
+    source: "pi/questions-captures/01.ndjson",
+    transform: excerpt("pi-last-assistant"),
+  },
+  {
+    file: "pi-1.6.0/compaction.ndjson",
+    scenario: "json/r985000/turn-01",
+    source: "pi/json/r985000/turn-01.ndjson",
+    transform: excerpt("pi-compaction"),
+  },
+  {
+    file: "pi-1.6.0/later-recall.ndjson",
+    scenario: "json/r985000/later-recall-2",
+    source: "pi/json/r985000/later-recall-2.ndjson",
+    transform: excerpt("pi"),
+  },
+  {
+    file: "pi-1.6.0/compaction-rpc.ndjson",
+    scenario: "rpc/rpc-stream",
+    source: "pi/rpc-final/rpc-stream.ndjson",
+    transform: excerpt("pi-compaction-rpc"),
+  },
+  {
+    file: "pi-1.6.0/installed-compactions.snapshot.json",
+    scenario: "json/installed-compactions",
+    source: "pi/json/installed-compactions.snapshot.json",
+    transform: { kind: "snapshot", policy: "pi-installed-compactions" },
+  },
+  {
+    file: "pi-1.6.0/seven.snapshot.json",
+    scenario: "seven",
+    source: "pi/seven.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "pi-1.6.0/questions.snapshot.json",
+    scenario: "questions",
+    source: "pi/questions.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "pi-1.6.0/version-source.snapshot.json",
+    scenario: "version-source",
+    source: "pi/version-source.snapshot.json",
+    transform: snapshot,
+  },
+  { file: "pi-1.6.0/version.txt", scenario: "anchor", transform: { kind: "version-anchor" } },
+  {
+    file: "claude-2.1.329/fresh.ndjson",
+    scenario: "seven/01",
+    source: "claude/seven-captures/01.ndjson",
+    transform: excerpt("claude"),
+  },
+  {
+    file: "claude-2.1.329/question.ndjson",
+    scenario: "questions/01",
+    source: "claude/questions-captures/01.ndjson",
+    transform: excerpt("claude"),
+  },
+  {
+    file: "claude-2.1.329/compaction.ndjson",
+    scenario: "compaction/turn-05",
+    source: "claude/compaction/turn-05.ndjson",
+    transform: excerpt("claude-compaction"),
+  },
+  {
+    file: "claude-2.1.329/later-recall.ndjson",
+    scenario: "compaction/later-recall",
+    source: "claude/compaction/later-recall.ndjson",
+    transform: excerpt("claude"),
+  },
+  {
+    file: "claude-2.1.329/accounting-fresh.native.ndjson",
+    scenario: "context/accounting-fresh",
+    source: "claude/context/accounting-fresh.native.ndjson",
+    transform: { kind: "native-line" },
+  },
+  {
+    file: "claude-2.1.329/accounting-resume.native.ndjson",
+    scenario: "context/accounting-resume",
+    source: "claude/context/accounting-resume.native.ndjson",
+    transform: { kind: "native-line" },
+  },
+  {
+    file: "claude-2.1.329/accounting-fresh.proof.snapshot.json",
+    scenario: "context/accounting-fresh",
+    source: "claude/context/accounting-fresh.proof.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "claude-2.1.329/accounting-resume.proof.snapshot.json",
+    scenario: "context/accounting-resume",
+    source: "claude/context/accounting-resume.proof.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "claude-2.1.329/accounting-source-hashes.snapshot.json",
+    scenario: "context/source-hashes",
+    source: "claude/context/accounting-source-hashes.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "claude-2.1.329/seven.snapshot.json",
+    scenario: "seven",
+    source: "claude/seven.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "claude-2.1.329/questions.snapshot.json",
+    scenario: "questions",
+    source: "claude/questions.snapshot.json",
+    transform: snapshot,
+  },
+  {
+    file: "claude-2.1.329/version-source.snapshot.json",
+    scenario: "version-source",
+    source: "claude/version-source.snapshot.json",
+    transform: snapshot,
+  },
+  { file: "claude-2.1.329/version.txt", scenario: "anchor", transform: { kind: "version-anchor" } },
 ];
 
 // ---------------------------------------------------------------------------

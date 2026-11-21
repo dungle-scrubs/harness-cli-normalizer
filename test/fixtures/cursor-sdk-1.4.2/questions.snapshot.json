@@ -1,0 +1,23 @@
+{
+  "ranAt": "2026-11-20T18:15:56.194Z",
+  "results": {
+    "cursor": {
+      "status": "pass",
+      "observedOn": {
+        "harness": "cursor",
+        "model": "grok-4.7-high",
+        "version": "1.4.2",
+        "date": "2026-11-20"
+      },
+      "detail": "question \"Which environment name should \""
+    }
+  },
+  "observations": {
+    "cursor": {
+      "harness": "cursor",
+      "model": "grok-4.7-high",
+      "version": "1.4.2",
+      "date": "2026-11-20"
+    }
+  }
+}

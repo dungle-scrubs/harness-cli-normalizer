@@ -701,8 +701,8 @@ const muse = (r: Record<string, unknown>): ContentEvent[] => {
   return [];
 };
 
-/** OpenCode CLI `--format json` contract (verified 1.19.5; captures in
- * test/fixtures/opencode-1.19.5). One JSON object per line:
+/** OpenCode CLI `--format json` contract (verified 1.19.6; captures in
+ * test/fixtures/opencode-1.19.6, 1.19.5 kept beside it). One JSON object per line:
  * `{type, timestamp, sessionID, part|error}`.
  * - `tool_use` carries the tool AND its settled state (input, output or
  *   error) on ONE line, so the line yields a tool event and its result.

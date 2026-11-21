@@ -9,6 +9,9 @@ const read = (file: string): string =>
   readFileSync(new URL(`../fixtures/antigravity-1.2.16/${file}`, import.meta.url), "utf8");
 
 const readCurrent = (file: string): string =>
+  readFileSync(new URL(`../fixtures/antigravity-1.5.13/${file}`, import.meta.url), "utf8");
+
+const read133 = (file: string): string =>
   readFileSync(new URL(`../fixtures/antigravity-1.3.3/${file}`, import.meta.url), "utf8");
 
 const decoded = (file: string): HarnessEvent[] => {
@@ -177,12 +180,26 @@ test("the verified antigravity public model roster matches the descriptor vocabu
   const labels = Object.fromEntries(
     lines.filter((cells) => cells.length === 2).map((cells) => [cells[0], cells[1]]),
   );
-  expect(nativeSlugs).toHaveLength(14);
+  // 1.5.9 shrank the free-plan roster to six slugs and 1.5.13 keeps it;
+  // the descriptor follows the current native capture and the historical
+  // 14-slug roster stays in the 1.3.3 fixture below.
+  expect(nativeSlugs).toHaveLength(6);
   for (const slug of nativeSlugs) {
     expect(labels[slug]).toBeTruthy();
   }
   expect(new Set(nativeSlugs)).toEqual(new Set(antigravityCli.vocabulary.models));
   expect(antigravityCli.vocabulary.extensible).toBe(true);
+});
+
+test("the historical 1.3.3 model roster retains its fourteen slugs", () => {
+  const slugs = read133("models.txt")
+    .split("\n")
+    .map((line) => line.split("\t"))
+    .filter((cells) => cells.length === 2)
+    .map((cells) => cells[0]);
+  expect(slugs).toHaveLength(14);
+  expect(slugs).toContain("gemini-3.7-flash-medium");
+  expect(slugs).toContain("gemini-3.1-pro-low");
 });
 
 test("the historical antigravity version file retains its original anchor", () => {

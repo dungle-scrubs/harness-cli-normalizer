@@ -1,0 +1,23 @@
+{
+  "harness": "cursor",
+  "backend": "cursor-sdk-worker (dist/execution/cursor-sdk-worker.js, @cursor/sdk 1.4.2)",
+  "driver": "owned Node SDK worker, one marker-plus-file-read ladder; the worker wire is captured raw",
+  "prompt": "plant LANTERN-1121, then read data-0..13.txt fully (1500 lines each), then recall the marker",
+  "model": "grok-4.7-high",
+  "compaction-ladder.ndjson": "excerpt of the 3584540-byte raw ladder capture: every opened/receipt/turn-end record, all 15 usage records, and the ladder's final assistant message, all byte-identical and in source order; the bulk text-delta, tool_call and earlier SAVED assistant records are omitted as bulk. The raw capture stays in the evidence tree.",
+  "compaction-ladder.stderr.txt": "configured values redacted with original-length markers (registered hook event names, ruleCount, skillCount) per the AGENTS.md fixture convention; every other line byte-identical",
+  "compaction-later-recall.ndjson": "promoted byte-identically from the separate resumed worker process; hand-scanned for operator agent configuration - none present",
+  "compaction-later-recall.stderr.txt": "configured values redacted, same convention",
+  "facts": {
+    "turns": 15,
+    "inputTokenSawtooth": [
+      164831, 321654, 512344, 1007948, 325045, 515796, 1013013, 325808, 516718, 728825, 327069,
+      518058, 731172, 328777, 212155
+    ],
+    "trigger": "input tokens peak at ~1.01M (turns 4 and 7) and ~730k (turns 10 and 13), dropping back to ~325k after each peak: the native agent replaced older history automatically",
+    "laterProcess": "a separate worker process resumed the agent and answered exactly LANTERN-1121",
+    "streamSilence": "the SDK run stream carries no compaction or summary record; the evidence is the usage shape plus cross-process marker recall, matching the CLI-era method"
+  },
+  "limitations": "Synthetic file reads at native defaults; the SDK surface exposes no threshold override; no full-capacity or lossless-recall claim. Replacement contents were not inspected.",
+  "noMoreLiveProbes": true
+}

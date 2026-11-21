@@ -234,7 +234,7 @@ export function usageEventsOf(
       // produced: each step reports its own model call, input excluding
       // cache. Consecutive steps overlap by the prior context whenever the
       // provider cache misses (big-pickle re-billed ~16k input on step 2
-      // in test/fixtures/opencode-1.19.5/tool-use.jsonl), so summing
+      // in test/fixtures/opencode-1.19.6/tool-use.jsonl), so summing
       // input or total across a turn's steps overcounts; only cost sums.
       return r.type === "step_finish"
         ? usageEvent(r, OPENCODE_FIELDS, "message", { inputIncludesCache: false })

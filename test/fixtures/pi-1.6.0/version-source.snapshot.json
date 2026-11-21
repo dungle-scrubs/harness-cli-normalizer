@@ -1,0 +1,10 @@
+{
+  "version": "1.6.0",
+  "latest": "1.6.0",
+  "versionSource": {
+    "kind": "npm",
+    "package": "@earendil-works/pi-coding-agent"
+  },
+  "install": "~/.local/share/pi-managed/bin/pi (pi self-update; npm latest 1.6.0 at capture)",
+  "checkedAt": "2026-11-20"
+}

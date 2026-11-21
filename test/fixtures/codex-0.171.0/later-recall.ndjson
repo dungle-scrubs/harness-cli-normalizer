@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"01a1fa1e-5456-7813-817a-0e3cfed7a5bc"}
+{"type":"item.completed","item":{"id":"item_0","type":"error","message":"Combined user instructions use 37686 bytes, above the 32768-byte `project_doc_max_bytes` setting. The total includes global and thread instructions. The limit applies only to project files."}}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"HERON-CODEX-1121"}}
+{"type":"turn.completed","usage":{"input_tokens":101604,"cached_input_tokens":50560,"cache_write_input_tokens":0,"output_tokens":36,"reasoning_output_tokens":0}}

@@ -1,0 +1,10 @@
+{
+  "version": "0.171.0",
+  "latest": "0.171.0",
+  "versionSource": {
+    "kind": "npm",
+    "package": "@openai/codex"
+  },
+  "install": "homebrew cask /opt/homebrew/Caskroom/codex/0.171.0/bin/codex (machine install, already upgraded)",
+  "checkedAt": "2026-11-20"
+}

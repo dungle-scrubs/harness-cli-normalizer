@@ -10,6 +10,7 @@ import {
   marker,
   markersIn,
   NATIVE_CLAUDE_SKILLS,
+  NATIVE_CLAUDE_SKILLS_2_1_325,
   type OwnerLookup,
   PI_NATIVE_TOOL_DESCRIPTIONS,
   PI_QUOTE_LABEL,
@@ -161,7 +162,7 @@ describe("only operator configuration is redacted", () => {
       );
       if (found.length === 0) return;
 
-      if (file.startsWith("claude-2.1.312/") && file.endsWith(".ndjson")) {
+      if (/^claude-\d+\.\d+\.\d+\//.test(file) && file.endsWith(".ndjson")) {
         const [initLine = "", ...rest] = text.split("\n");
         expect(
           markersIn(rest.join("\n")),
@@ -184,7 +185,12 @@ describe("only operator configuration is redacted", () => {
             markersIn(JSON.stringify(plugin)),
             `${file}: native builtin plugin ${plugin.name} was redacted`,
           ).toEqual([]);
-        for (const skill of NATIVE_CLAUDE_SKILLS) {
+        // Each covered generation must keep every bundled skill its own
+        // CLI version lists: 2.1.329 adds four to the 2.1.312 set.
+        const nativeSkills = file.startsWith("claude-2.1.329/")
+          ? NATIVE_CLAUDE_SKILLS_2_1_325
+          : NATIVE_CLAUDE_SKILLS;
+        for (const skill of nativeSkills) {
           expect(init.skills, `${file}: native bundled skill ${skill} was redacted`).toContain(
             skill,
           );
@@ -196,30 +202,34 @@ describe("only operator configuration is redacted", () => {
         return;
       }
 
-      if (file === "pi-1.4.0/installed-compactions.snapshot.json") {
+      if (file.endsWith("/installed-compactions.snapshot.json") && file.startsWith("pi-")) {
         for (const entry of found)
           expect(
             PI_INSTALLED_LABELS.has(entry.label),
             `${file}: ${entry.label} is not operator configuration`,
           ).toBe(true);
-        const [installed] = JSON.parse(text) as {
+        const installed = JSON.parse(text) as {
           systemMessage: { toolsAdded: { name: string; description: string }[] };
         }[];
-        const core = (installed?.systemMessage.toolsAdded ?? []).filter((tool) =>
-          Object.hasOwn(PI_NATIVE_TOOL_DESCRIPTIONS, tool.name),
-        );
-        expect(core.map((tool) => tool.name).sort()).toEqual(
-          Object.keys(PI_NATIVE_TOOL_DESCRIPTIONS).sort(),
-        );
-        for (const tool of core)
-          expect(
-            sha256(tool.description),
-            `${file}: the native Pi 1.4.0 SDK description of ${tool.name} was redacted or changed`,
-          ).toBe(PI_NATIVE_TOOL_DESCRIPTIONS[tool.name]);
+        // The 1.6.0 qualifying session holds three installed entries; every
+        // entry carries the same core-tool set.
+        for (const entry of installed) {
+          const core = (entry.systemMessage?.toolsAdded ?? []).filter((tool) =>
+            Object.hasOwn(PI_NATIVE_TOOL_DESCRIPTIONS, tool.name),
+          );
+          expect(core.map((tool) => tool.name).sort()).toEqual(
+            Object.keys(PI_NATIVE_TOOL_DESCRIPTIONS).sort(),
+          );
+          for (const tool of core)
+            expect(
+              sha256(tool.description),
+              `${file}: the native Pi 1.4.0 SDK description of ${tool.name} was redacted or changed`,
+            ).toBe(PI_NATIVE_TOOL_DESCRIPTIONS[tool.name]);
+        }
         return;
       }
 
-      expect(file, `${file} may not carry redactions`).toMatch(/^pi-1\.4\.0\/.*\.ndjson$/);
+      expect(file, `${file} may not carry redactions`).toMatch(/^pi-1\.(4\.0|6\.0)\/.*\.ndjson$/);
       for (const line of text.trimEnd().split("\n")) {
         const record = JSON.parse(line) as {
           message?: { content?: { type: string; thinking?: string }[] };
